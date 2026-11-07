@@ -2,15 +2,15 @@
 
 Version: 0.1.0
 Status: proposal / review draft
-Supersedes: nothing. Amends `docs/Redox.md` (the base specification) by addition and by
+Supersedes: nothing. Amends `docs/01 - Redox.md` (the base specification) by addition and by
 named correction.
-Basis: a direct source audit of `/data/Code/emerald` (2026-11-08) against `docs/Redox.md`.
+Basis: a direct source audit of `/data/Code/emerald` (2026-11-08) against `docs/01 - Redox.md`.
 
 ---
 
 ## 0. How to read this document
 
-`docs/Redox.md` is the language specification. This document does not replace it. It does
+`docs/01 - Redox.md` is the language specification. This document does not replace it. It does
 three separate things, kept separate on purpose:
 
 1. **§§1–3 — What Emerald actually is, and what transfers.** Emerald is a 107k-line,
@@ -20,7 +20,7 @@ three separate things, kept separate on purpose:
 2. **§§4–9 — How to build the Redox compiler.** Crate split, toolchain decisions, the
    lowering discipline, source maps, diagnostics, incrementality, testing ladder, and the
    editor/tooling surface. This is the constructive part.
-3. **§§10–13 — Specific defects and gaps in `docs/Redox.md`,** each with a proposed
+3. **§§10–13 — Specific defects and gaps in `docs/01 - Redox.md`,** each with a proposed
    resolution, plus the revised roadmap and the decisions that need a human answer.
 
 Everything cited from Emerald carries a real path. Where a claim is Emerald's own
@@ -62,13 +62,13 @@ archive (`crates/emerald-rt`, and see §3.4 on what that archive cost operationa
 **Redox gets all of that for free, permanently, by construction.** Every crate on
 crates.io is a Redox library the moment the transpiler emits valid Rust. This is not a
 minor convenience — it is the structural reason Redox can be a small project where Emerald
-could not be. `docs/Redox.md` §1.2 already states "No Redox standard library" and §26 "Max
+could not be. `docs/01 - Redox.md` §1.2 already states "No Redox standard library" and §26 "Max
 Rust ecosystem interoperability"; what Emerald's history supplies is the *evidence of the
 stakes*. Those two lines are worth more than every other line in the spec combined.
 
 **Rule to adopt verbatim:** no Redox plan ever implements a library function. Not one. If
 a feature's implementation would add a runtime symbol, a prelude item, or a bundled crate,
-it is misdesigned. The `print` → `println!` mapping in `docs/Redox.md` §3.3 is the only
+it is misdesigned. The `print` → `println!` mapping in `docs/01 - Redox.md` §3.3 is the only
 sanctioned exception, and §10.9 below argues even that one should be narrowed.
 
 ---
@@ -162,7 +162,7 @@ Only `##` doc-comments attached to one of six declaration kinds survive, as a
 `doc: Option<String>` AST field.
 
 For Emerald this is a formatter annoyance. **For Redox it would be a fatal product
-defect**, and `docs/Redox.md` currently specifies the defect directly:
+defect**, and `docs/01 - Redox.md` currently specifies the defect directly:
 
 > §4.1: "Comments are removed during compilation."
 
@@ -192,7 +192,7 @@ And `spec/GRAMMAR.md` grades each Ruby production `KEEP` / `MODIFY` / `REMOVE` /
 `UNDECIDED`, where every `UNDECIDED` **links to the named place it gets resolved** —
 "nothing is left open without a named place it gets resolved."
 
-`docs/Redox.md` already leans this way (§13's "Standalone existential checks such as
+`docs/01 - Redox.md` already leans this way (§13's "Standalone existential checks such as
 `value?` are excluded", §17.7's "`extends` is excluded"). Make it systematic: a
 `docs/DECLINED.md` with a reason per entry, and `UNDECIDED` entries that name their
 resolution venue. §12.4 proposes the initial decline list.
@@ -276,9 +276,9 @@ grading:
   write**, which directly violates §26's interoperability charter.
 
 Run that second inventory now, before more syntax is designed. Candidates that an audit of
-`docs/Redox.md` suggests are currently `UNREACHABLE` — i.e. real gaps:
+`docs/01 - Redox.md` suggests are currently `UNREACHABLE` — i.e. real gaps:
 
-| Rust construct | Status in `docs/Redox.md` | Severity |
+| Rust construct | Status in `docs/01 - Redox.md` | Severity |
 |---|---|---|
 | Attributes (`#[derive]`, `#[cfg]`, `#[tokio::main]`, `#[serde(...)]`) | **absent entirely** | critical — see §10.2 |
 | Field/item visibility beyond `export` (`pub(crate)`, `pub(super)`) | absent | high |
@@ -300,7 +300,7 @@ high-frequency items to first-class syntax.
 ### 4.2 Immutable by default — already right, and independently confirmed
 
 Emerald's plan 72 (`immutable-by-default-bindings`) made bindings immutable unless declared
-`var`, as part of its "Sable alignment" re-inception. `docs/Redox.md` §4.3 already does
+`var`, as part of its "Sable alignment" re-inception. `docs/01 - Redox.md` §4.3 already does
 this (`name = "Alice"` vs `mut counter = 0`), with the advantage of mapping 1:1 onto
 `let` / `let mut`. Nothing to change; worth noting that Emerald arrived at the same answer
 from a dynamic-language starting point, which is mild evidence it's the right default.
@@ -322,7 +322,7 @@ a silent edit.
 Redox starts from Rust's `Option`, so the destination is already correct (§13). Two
 transferable specifics:
 
-1. **"Do not silently flatten nested options"** (`docs/Redox.md` §13.1) matches Emerald's
+1. **"Do not silently flatten nested options"** (`docs/01 - Redox.md` §13.1) matches Emerald's
    rule that `?.` wraps the result back into `Option[U]` rather than collapsing. Keep it,
    and see §6.3 for a lowering that gets it right *without* a type checker.
 2. **Respell consistently or not at all.** Emerald paid for having `&.` in the spec, then
@@ -339,7 +339,7 @@ Emerald **removed** `@@` deliberately (`spec/GRAMMAR.md` §2):
 > Class variable identifiers (`@@foo`) | **REMOVE** | Ruby's `@@` semantics (shared,
 > inheritance-crossing, easy to misuse) add complexity inception §22 rule 9 warns against
 
-`docs/Redox.md` §16.2 reuses that exact sigil for an unrelated meaning: `@@create!` →
+`docs/01 - Redox.md` §16.2 reuses that exact sigil for an unrelated meaning: `@@create!` →
 `Self::create()`. MoonScript's own `@@x` means `self.__class.x` — i.e. the class-variable
 reading Emerald threw out. So Redox's `@@` is a familiar sigil carrying a *different*
 meaning to exactly the audience most likely to recognise it.
@@ -371,7 +371,7 @@ test modules instead of files. Two lessons:
 ### 4.6 The parenless-call ambiguity — Emerald already did Redox's homework
 
 This is the single most directly applicable piece of Emerald's record, because
-`docs/Redox.md` §6.1 specifies exactly the feature Emerald found hardest to parse.
+`docs/01 - Redox.md` §6.1 specifies exactly the feature Emerald found hardest to parse.
 
 Emerald's plan 07 deferred general parenless calls with a precise diagnosis:
 
@@ -400,7 +400,7 @@ real options:
 apply here — Redox's lexer is **already** hand-written and already column-aware, because
 indentation is significant (§5.1). Adjacency information is free in a lexer that is already
 tracking whitespace to emit INDENT/DEDENT. Option (A) would also break
-`docs/Redox.md` §6.4's own worked example, `result = add (multiply 2, 3), 4`, which is a
+`docs/01 - Redox.md` §6.4's own worked example, `result = add (multiply 2, 3), 4`, which is a
 nested parenless call in argument position.
 
 Take two further specifics from plan 90 directly:
@@ -421,7 +421,7 @@ Emerald's plans 86 and 87 (`block-attached-call-do-end-alternative`, then
 `GRAMMAR.md`'s status header records the brace form `{ |x| ... }` being **removed
 outright** rather than kept as an alternative.
 
-Redox's indentation already gives it one block form, which is better. But `docs/Redox.md`
+Redox's indentation already gives it one block form, which is better. But `docs/01 - Redox.md`
 currently has multiple spellings for the same thing in several places — `(a, b) = …`
 destructuring vs `[first, second] = values`; `->` vs `=>` closures (§5.4, whose "receiver
 context" condition is not defined); implicit vs parenthesized calls (§6.1/§6.2, where §6.2
@@ -431,7 +431,7 @@ accept the others as input only.
 
 ### 4.8 Self-hosting: reframe it
 
-`docs/Redox.md` §34 and Phase 7 make self-hosting a goal. Emerald never self-hosted and
+`docs/01 - Redox.md` §34 and Phase 7 make self-hosting a goal. Emerald never self-hosted and
 shows no sign of trying, at 107k lines and 203 plans. That's weak evidence, but the
 stronger argument is specific to Redox: **a transpiler's self-hosting is nearly free, and
 therefore nearly meaningless as a milestone.** `.xrs` *is* Rust, so "the self-hosted
@@ -454,7 +454,7 @@ escape hatch," which is the property actually worth proving.
 
 Emerald uses `logos` in 116 lines, because Ruby-ish syntax with `end` delimiters needs no
 whitespace sensitivity. **Redox cannot use a plain regex-dispatch lexer**, because
-indentation is syntactically significant (`docs/Redox.md` §3.1) and because of §4.6's
+indentation is syntactically significant (`docs/01 - Redox.md` §3.1) and because of §4.6's
 adjacency requirement.
 
 Build `redox-lexer` by hand. Responsibilities:
@@ -463,7 +463,7 @@ Build `redox-lexer` by hand. Responsibilities:
    tokens. Four spaces per level; reject tabs or normalize by one documented rule (§3.1
    already says this — pick *reject*, it's one line of code and zero ambiguity).
 2. **Continuation suppression.** Inside `(` `[` `{`, and after a trailing binary operator
-   or `,`, newlines and indentation are not significant. This is the rule `docs/Redox.md`
+   or `,`, newlines and indentation are not significant. This is the rule `docs/01 - Redox.md`
    §4.2 gestures at ("Newlines terminate statements unless an expression is continued")
    and must be made precise — it is the single largest source of indentation-lexer bugs.
 3. **Trivia capture.** Comments and blank-line runs become `Trivia` attached to the
@@ -494,7 +494,7 @@ neither**, and the evidence is in Emerald's own record:
    feedback, which is exactly what a generated parser makes awkward.
 3. **Error recovery was retrofitted.** Emerald's plan 26 threads an
    `errors: &mut Vec<...>` parameter through the grammar to get multi-error recovery. A
-   hand-written parser does this natively, and `docs/Redox.md` §29 wants good diagnostics.
+   hand-written parser does this natively, and `docs/01 - Redox.md` §29 wants good diagnostics.
 4. **Trivia preservation is the formatter's whole problem** (§3.2), and generated parsers
    are the reason it's hard.
 5. **Redox's grammar is small.** It parses Redox-specific sugar and otherwise *preserves
@@ -502,7 +502,7 @@ neither**, and the evidence is in Emerald's own record:
    parser with a Pratt expression loop, not a 761-production inventory.
 
 Follow §3.5's methodology anyway: **build the vertical slice twice** — hand-written vs
-LALRPOP — on `docs/Redox.md` §31's Phase 1 acceptance test, publish the comparison table in
+LALRPOP — on `docs/01 - Redox.md` §31's Phase 1 acceptance test, publish the comparison table in
 `docs/COMPILER.md`, and record a revisit trigger. The recommendation above is a hypothesis
 until that's done; Emerald's own history is the argument for not skipping the prototype.
 
@@ -556,8 +556,8 @@ redox/
 ├── tree-sitter-redox/
 ├── editors/
 ├── docs/
-│   ├── Redox.md          # the specification
-│   ├── Redox-update.md   # this document
+│   ├── 01 - Redox.md     # the specification
+│   ├── 02 - Redox Update Blueprint.md   # this document
 │   ├── GRAMMAR.md        # graded inventory, both axes (§4.1)
 │   ├── LOWERING.md       # the construct → Rust table, normative (§6)
 │   ├── COMPILER.md       # toolchain decisions + revisit triggers (§3.5)
@@ -578,7 +578,7 @@ Emerald's choices, and the Redox verdict:
 |---|---|---|
 | Lexing | `logos` | **none** — hand-written (§5.1) |
 | Parsing | `lalrpop` + `lalrpop-util` | **none** — hand-written (§5.2) |
-| Diagnostics | `miette` 7 (`fancy`) + `thiserror` 2 | **adopt both.** `docs/Redox.md` §29's example output *is* miette's format. |
+| Diagnostics | `miette` 7 (`fancy`) + `thiserror` 2 | **adopt both.** `docs/01 - Redox.md` §29's example output *is* miette's format. |
 | Incrementality | hand-rolled `blake3` query cache, explicitly not `salsa` | **adopt** (§7.1) |
 | Parallelism | `std::thread::scope` + `Mutex<VecDeque>`, explicitly not `rayon` | **adopt the reasoning**; Redox may not need it at all (§7.2) |
 | Orchestration | `id_effect` 0.4, adopted "where it clarifies the architecture, not everywhere" | optional; the scoping clause is the useful part |
@@ -602,7 +602,7 @@ It deserves its own normative document (`docs/LOWERING.md`).
 
 ### 6.1 The problem
 
-`docs/Redox.md` §30 forbids a type inference engine, and §33 forbids changing Rust's type
+`docs/01 - Redox.md` §30 forbids a type inference engine, and §33 forbids changing Rust's type
 or ownership semantics. But several specified constructs appear to *need* type knowledge:
 
 - §9.1 lowers `[n * n for n in 1..10]` to `(1..=10).map(…).collect()` — but §9.2 lowers
@@ -630,7 +630,7 @@ Two corollaries:
 > to the `.sdx` line by §6.5. This is why Redox needs no `redox-sema` crate at all, and
 > why it can be 8k lines where Emerald is 107k.
 >
-> **Ownership stays syntactic.** `docs/Redox.md` §9.7 is already the model: the *user*
+> **Ownership stays syntactic.** `docs/01 - Redox.md` §9.7 is already the model: the *user*
 > writes `for x in items` / `&items` / `&mut items`, and the transpiler mechanically emits
 > `into_iter` / `iter` / `iter_mut`. No inference, no silent clone (§25.1), user intent
 > explicit at the site. **Apply that same discipline to every construct**, and treat any
@@ -732,7 +732,7 @@ be challenged in review.
 
 ### 6.5 Source maps — the largest single gap in the current spec
 
-`docs/Redox.md` §29 says: *"Pass Rust errors through wherever possible."* As written, that
+`docs/01 - Redox.md` §29 says: *"Pass Rust errors through wherever possible."* As written, that
 means the user sees:
 
 ```
@@ -847,7 +847,7 @@ Emerald's ladder, adapted. This is the second-highest-value transfer after §1.1
 
 ### 8.1 Golden tests — `.sdx` → expected `.xrs`
 
-`docs/Redox.md` §3.4 already requires deterministic, readable output; that makes exact-text
+`docs/01 - Redox.md` §3.4 already requires deterministic, readable output; that makes exact-text
 golden tests possible, and they are the cheapest regression net a transpiler can have.
 `tests/golden/<name>.sdx` + `<name>.xrs`, with a `--bless` flag to regenerate.
 
@@ -922,7 +922,7 @@ the standard to match. The Redox analogue is **not** language-vs-language; it's:
 Emerald shipped a complete toolchain — `new`, `build`, `run`, `test`, `property`,
 `benchmark`, `doc`, `lint`, `format`, `repl`, `update` (`crates/emerald-cli/src/main.rs`),
 plus LSP, MCP, tree-sitter, and VSCode/Neovim/Helix/Zed configs. **Redox should ship much
-less**, and `docs/Redox.md` §27's "Do not add unnecessary commands" is right: Cargo already
+less**, and `docs/01 - Redox.md` §27's "Do not add unnecessary commands" is right: Cargo already
 owns build, test, doc, dependency management, and publishing. Redox's CLI stays
 `build` / `check` / `fmt` / `watch` / `--version` / `--help`.
 
@@ -942,7 +942,7 @@ parenless calls land.
 
 ### 9.2 Formatter — needed earlier than it looks, and must be trivia-preserving
 
-`docs/Redox.md` doesn't mention a formatter. Three independent reasons it belongs in Phase
+`docs/01 - Redox.md` doesn't mention a formatter. Three independent reasons it belongs in Phase
 2–3, not "later":
 
 1. **It's the migration tool** (§4.5). Emerald's 113-missed-fixture cutover is the
@@ -974,7 +974,7 @@ genuinely fiddly, and it's a second grammar to keep in sync with §4.1's invento
 
 ---
 
-## 10. Specific corrections to `docs/Redox.md`
+## 10. Specific corrections to `docs/01 - Redox.md`
 
 Each item is a proposed, reviewable edit.
 
@@ -1124,7 +1124,7 @@ become the §6.5 remapping design. Also add stable diagnostic codes
 
 ## 11. Revised roadmap
 
-`docs/Redox.md` §31's seven phases are reasonable but omit source maps, Cargo integration,
+`docs/01 - Redox.md` §31's seven phases are reasonable but omit source maps, Cargo integration,
 comments, attributes, the formatter, and the LSP — and defer diagnostics to Phase 6, which
 is too late to be designed well.
 
@@ -1153,7 +1153,7 @@ scoped workaround rather than the full refactor, which was *"judged too large/ri
 
 ## 12. Compatibility rules, extended
 
-`docs/Redox.md` §33's ten mandatory rules are good. Proposed additions, each traceable to
+`docs/01 - Redox.md` §33's ten mandatory rules are good. Proposed additions, each traceable to
 something above:
 
 11. **No lowering may depend on a type Redox cannot see** (§6.2).
@@ -1238,7 +1238,7 @@ The three things Emerald most warns against:
    rather than fixed. Both are retrofits Redox can avoid by building trivia and source maps
    into Phase 1–2 (§§5.1, 6.5).
 
-And the single largest gap in `docs/Redox.md` today: **§29's "pass Rust errors through"
+And the single largest gap in `docs/01 - Redox.md` today: **§29's "pass Rust errors through"
 has no mechanism.** Without source maps (§6.5), a Redox user debugs generated code. Emerald
 solved the analogous problem with DWARF line tables and *proved it with a scripted debugger
 session*. Redox needs the same capability and the same standard of proof, and it needs it
