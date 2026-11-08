@@ -7,3 +7,7 @@
 //! its own module doc discloses; for Redox that would be a product defect,
 //! since comments must reach the generated `.xrs`. The trivia this plan's
 //! lexer already collects is what makes the correct approach available.
+//!
+//! Layout, when this crate gains constructs, follows
+//! `docs/06 - Redox Code Architecture.md`: one construct per file, modules
+//! private, public items re-exported from here.

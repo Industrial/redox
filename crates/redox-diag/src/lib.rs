@@ -5,3 +5,7 @@
 //! (`diagnostics-miette`). Until then, errors are plain one-line messages
 //! carrying a file, line and column; they already carry spans, because the
 //! lexer and AST were built with them from the start.
+//!
+//! Layout, when this crate gains constructs, follows
+//! `docs/06 - Redox Code Architecture.md`: one construct per file, modules
+//! private, public items re-exported from here.

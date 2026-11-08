@@ -570,6 +570,15 @@ redox/
 **Add a CI check capping any single `.rs` file at ~1,500 lines.** It is the cheapest
 possible defence against the one structural problem Emerald demonstrably has.
 
+**Superseded in part, 2026-11-08.** The line cap shipped, but it is now the *backstop*
+rather than the primary rule. `docs/06 - Redox Code Architecture.md` §1 requires **one
+construct per file** — every `struct`, `enum`, `trait`, `type`, `fn`, `const` and `static`
+in its own file named after it — enforced by
+`crates/redox-cli/tests/one_construct_per_file.rs`. Under that rule a file rarely
+approaches 1,500 lines, and when one does it signals that the single construct inside it is
+doing too much. Doc 06 also fixes the module-root, re-export, visibility, error-handling and
+test-placement conventions this section left implicit.
+
 ### 5.5 Dependencies
 
 Emerald's choices, and the Redox verdict:

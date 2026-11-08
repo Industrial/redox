@@ -64,11 +64,24 @@ workspace splits along pipeline stages (`docs/02 - Redox Update Blueprint.md` §
 - `examples/*.sdx` — the CI-checked source of truth for what works today
 - `tests/golden/` — `.sdx` beside its expected `.xrs`, compared as exact text
 - `docs/` — numbered: 01 specification, 02 blueprint, 03 surface design, 04 plan of plans,
-  `05 - NN -` one per plan; plus `COMPILER.md` for toolchain decisions
+  `05 - NN -` one per plan, 06 code architecture; plus `COMPILER.md` for toolchain decisions
 - `.maestro/` — harness state (read `.maestro/AGENTS.md` first)
+
+Within a crate, `src/` is flat and every file is one construct — see the first bullet under
+*Conventions that are load-bearing* and `docs/06 - Redox Code Architecture.md`.
 
 ### Conventions that are load-bearing, not stylistic
 
+- **One construct per file.** Every `struct`, `enum`, `union`, `trait`, `type`, `fn`,
+  `const` and `static` lives in its own file, named after it in `snake_case`. `impl` blocks
+  travel with their type; `lib.rs` and `main.rs` hold only `mod` declarations, `pub use`
+  re-exports and `fn main`. Never create `types.rs`, `helpers.rs`, `utils.rs` or any other
+  bucket. **Machine-checked** by `crates/redox-cli/tests/one_construct_per_file.rs`, which
+  also verifies the file name matches the construct. Full rule and rationale:
+  `docs/06 - Redox Code Architecture.md`.
+- **Public-API tests are integration tests** under `crates/<crate>/tests/`, not
+  `#[cfg(test)]` modules. An inline test can reach private internals and eventually will.
+  Inline tests are for private constructs only.
 - **Every `.sdx` fixture is a file, and tests reference files.** Never embed language source
   as a string literal in a Rust test. Emerald's one syntax cutover missed 113 fixtures that
   lived as string literals inside test modules; that cost is paid once per syntax change,

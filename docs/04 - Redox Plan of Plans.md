@@ -186,6 +186,14 @@ Four constraints on reordering, each with a reason that cost somebody something:
    modules. Redox's corollary is already a convention: **every `.sdx` fixture is a file, and
    tests reference files.**
 
+## Code architecture
+
+Every plan's source obeys `docs/06 - Redox Code Architecture.md`, which is normative and
+machine-checked. Its central rule — **one construct per file**, named after the construct —
+is enforced by `crates/redox-cli/tests/one_construct_per_file.rs` and therefore part of the
+gate below rather than a review convention. A plan that adds a construct also adds a file;
+no plan may introduce a `types.rs`, `helpers.rs` or any other bucket.
+
 ## Gate
 
 Every plan clears, before it is `done`:
