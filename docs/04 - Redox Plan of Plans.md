@@ -5,9 +5,9 @@ Tracks which plans, taken together, implement `docs/01 - Redox.md` as corrected 
 extended by `docs/02 - Redox Update Blueprint.md` and `docs/03 - Redox Surface Design.md`.
 
 **This document is an index only.** It does not author plan content — each row becomes its
-own plan record under `history/`, authored when its turn comes. Update the **Status** column
-here as each plan is authored, executed and shipped; do not let plan detail leak back into
-this file.
+own plan document, `docs/05 - NN - <Name>.md`, authored when its turn comes. Update the
+**Status** column here as each plan is authored, executed and shipped; do not let plan
+detail leak back into this file.
 
 Convention adopted from Emerald's `history/2026-09-08T174011Z-plan-of-plans.md`, including
 the three habits that make it worth keeping (doc 02 §3.1):
@@ -24,19 +24,34 @@ the three habits that make it worth keeping (doc 02 §3.1):
 | Status | Meaning |
 |---|---|
 | `not-started` | Row exists, no plan authored yet |
-| `planned` | Plan record authored under `history/`, not yet executed |
+| `planned` | Plan document authored under `docs/05 - NN - …`, not yet executed |
 | `in-progress` | Executing |
 | `done` | Shipped, gate green, reviewed |
 | `superseded` | Replaced; row kept with a pointer to its successor |
 
 ## Plan records
 
-`history/<ISO8601>-plan-NN-<slug>.md`. Plan 01 is the authored exemplar — every subsequent
-plan follows its shape: front-matter with `name`/`overview`/`todos`, a prose statement of
-what the plan exists to do, a **Concrete proof** section naming the executable acceptance
-test, a **Decision log** recording choices *and the reasons*, an **Out of scope** section
-that names the next plan it discloses, and an **Emerald reuse** section stating what was
-lifted and what was deliberately not.
+`docs/05 - NN - <Name>.md`, one per row. **`docs/05 - 01 - Vertical Slice.md` is the
+authored exemplar** — every subsequent plan follows its shape:
+
+| § | Section | Purpose |
+|---|---|---|
+| 1 | What this plan is | Why this scope, and why not larger or smaller |
+| 2 | Verified preconditions | Anything measured rather than assumed, with the command and its output |
+| 3 | Concrete proof | The executable acceptance test, with the exact expected output |
+| 4 | Leaves | One subsection per unit of work, implementable without further design |
+| 5 | Acceptance criteria | Numbered, each independently checkable |
+| 6 | Out of scope | Every deferred item named, with the successor plan that owns it |
+| 7 | Gate | The commands that must pass |
+| 8 | Emerald reuse | What was lifted, what was consulted, what was deliberately not taken and why |
+| 9 | Decision log | Choices *and their reasons*, including the ones taken against a prior |
+
+Two conventions worth stating because they are what make the format useful rather than
+ceremonial. **§2 exists so that contingencies get removed rather than carried** — plan 01's
+§2 settled doc 01 §1.1's open question about rustc's input-extension handling with a single
+probe. And **§6 may not say "later"**: a deferred item without a named successor plan is a
+gap, not a decision, which is Emerald's "nothing is left open without a named place it gets
+resolved" rule (doc 02 §3.3).
 
 The `From Emerald` column below is load-bearing, not decorative. Doc 02 §2 found that of
 Emerald's ~107k lines the Redox-relevant surface is roughly 6.5k — `emerald-driver`,

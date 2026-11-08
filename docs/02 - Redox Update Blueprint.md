@@ -146,9 +146,9 @@ Rows are **never deleted when superseded** — plan 43 (`nullable-types-and-safe
 is kept with a banner saying plan 73 replaced it outright. The record of what was tried
 and abandoned is treated as more valuable than a tidy list.
 
-**Adopt:** `docs/04 - Redox Plan of Plans.md` as an index-only table; `history/<ISO8601>-plan-NN-<slug>.md`
-per plan; correct stale labels in place with a date and the evidence; never delete a
-superseded row.
+**Adopt:** `docs/04 - Redox Plan of Plans.md` as an index-only table;
+`docs/05 - NN - <Name>.md` per plan; correct stale labels in place with a date and the
+evidence; never delete a superseded row.
 
 ### 3.2 Comment preservation — Emerald's defect, Redox's hard requirement
 
@@ -560,11 +560,11 @@ redox/
 │   ├── 02 - Redox Update Blueprint.md  # this document
 │   ├── 03 - Redox Surface Design.md    # the surface, with a lowering per construct
 │   ├── 04 - Redox Plan of Plans.md     # index-only plan table (§3.1)
+│   ├── 05 - NN - <Name>.md             # one per plan row; 05 - 01 is the exemplar
 │   ├── COMPILER.md                     # proposed: toolchain decisions + revisit triggers (§3.5)
 │   ├── GRAMMAR.md                      # proposed: graded inventory, both axes (§4.1)
 │   ├── DECLINED.md                     # proposed: permanent declines, with reasons (§3.3)
 │   └── STATUS.md                       # proposed: measured claims + gap table (§3.4)
-└── history/                            # <ISO8601>-plan-NN-<slug>.md
 ```
 
 **Add a CI check capping any single `.rs` file at ~1,500 lines.** It is the cheapest
