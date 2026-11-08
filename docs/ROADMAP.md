@@ -1,0 +1,196 @@
+# Redox — Plan of Plans
+
+Status: active index
+Tracks which plans, taken together, implement `docs/01 - Redox.md` as corrected and
+extended by `docs/02 - Redox Update Blueprint.md` and `docs/03 - Redox Surface Design.md`.
+
+**This document is an index only.** It does not author plan content — each row becomes its
+own plan record under `history/`, authored when its turn comes. Update the **Status** column
+here as each plan is authored, executed and shipped; do not let plan detail leak back into
+this file.
+
+Convention adopted from Emerald's `history/2026-09-08T174011Z-plan-of-plans.md`, including
+the three habits that make it worth keeping (doc 02 §3.1):
+
+1. **Index only.** Scope is one cell, not a section.
+2. **Correct stale labels in place**, with a date and the evidence that corrected them.
+3. **Never delete a superseded row.** Mark it `superseded` and name what replaced it. The
+   record of what was tried and abandoned is more valuable than a tidy list.
+
+---
+
+## Status legend
+
+| Status | Meaning |
+|---|---|
+| `not-started` | Row exists, no plan authored yet |
+| `planned` | Plan record authored under `history/`, not yet executed |
+| `in-progress` | Executing |
+| `done` | Shipped, gate green, reviewed |
+| `superseded` | Replaced; row kept with a pointer to its successor |
+
+## Plan records
+
+`history/<ISO8601>-plan-NN-<slug>.md`. Plan 01 is the authored exemplar — every subsequent
+plan follows its shape: front-matter with `name`/`overview`/`todos`, a prose statement of
+what the plan exists to do, a **Concrete proof** section naming the executable acceptance
+test, a **Decision log** recording choices *and the reasons*, an **Out of scope** section
+that names the next plan it discloses, and an **Emerald reuse** section stating what was
+lifted and what was deliberately not.
+
+The `From Emerald` column below is load-bearing, not decorative. Doc 02 §2 found that of
+Emerald's ~107k lines the Redox-relevant surface is roughly 6.5k — `emerald-driver`,
+`emerald-lsp`, `emerald-fmt`'s goal and the fuzz harness — plus process and grammar
+methodology. A row claiming reuse must name the file; a row claiming none says `—`, and
+that is the expected answer for most of the front end, because Redox's lexer is
+indentation-sensitive and its parser is hand-written where Emerald's are neither.
+
+---
+
+## Milestone 1 — Skeleton
+
+A program goes from `.sdx` to a running binary. Nothing about the language is interesting
+yet; everything about the pipeline is in place, including the two things doc 02 identifies
+as expensive to retrofit: spans and trivia.
+
+| # | Plan | Scope | From Emerald | Depends on | Status |
+|---|---|---|---|---|---|
+| 01 | `vertical-slice-hello` | Workspace scaffold; off-side lexer with trivia, spans and adjacency; hand-written parser for one item form; Rust emitter; `redox build`; compile-and-run test. Parser bake-off against LALRPOP as a leaf (doc 02 §3.5, doc 03 §23 item 6) | `crates/emerald-cli/tests/hello_em.rs` (harness shape); workspace `Cargo.toml` `[workspace.package]` inheritance | — | `planned` |
+| 02 | `lexer-complete` | Full off-side rule: continuation suppression inside delimiters and after trailing operators, INDENT/DEDENT, tab rejection, `#` longest-match table (doc 03 §4.1), interpolation lexing, `"""` with line-number preservation | `crates/emerald-parser/src/heredoc.rs` (the splice-back-as-ordinary-literal technique and its line-preservation property) | 01 | `not-started` |
+| 03 | `parser-core` | Items, statements, expression grammar with a Pratt loop on Rust's precedence table, multi-error recovery at item boundaries | `crates/emerald-parser` plan 26's `errors: &mut Vec<_>` threading, as a *contrast* — a hand-written parser recovers natively | 01, 02 | `not-started` |
+| 04 | `emitter-determinism` | Deterministic, readable emission; golden-test harness with `--bless`; no rustfmt in the contract (doc 02 §5.3) | — | 03 | `not-started` |
+
+## Milestone 2 — Diagnostics and source maps
+
+Doc 02 §6.5 calls this the largest single gap in doc 01: "pass Rust errors through" has no
+mechanism, so a user debugs generated `.xrs` they never wrote. Placed before language growth
+deliberately — Emerald's plan 22 found `TypeExpr` carried no span at all, twenty-one plans
+after its diagnostics plan, and settled for a scoped workaround because the full fix was
+judged too large by then.
+
+| # | Plan | Scope | From Emerald | Depends on | Status |
+|---|---|---|---|---|---|
+| 05 | `diagnostics-miette` | `redox-diag`; `miette` graphical rendering; stable `RDX` code catalogue (doc 03 §17); one report per recovered error, single non-zero exit | `crates/emerald-cli/src/main.rs:47-81` (`SemaError`'s `miette::Diagnostic` impl) and `report_driver_error`'s per-error loop | 03 | `not-started` |
+| 06 | `source-map` | Span map emitted beside the `.xrs`; line-preserving emission as the default discipline | — (Emerald's analogue is DWARF via `inkwell`, one layer down) | 04 | `not-started` |
+| 07 | `rustc-remapping` | `cargo check --message-format=json` parsed, spans rewritten through the map, re-rendered against the `.sdx`. Proved by an executed test with a deliberate error on a known line | `crates/emerald-driver/build.rs` (Cargo NDJSON artifact-stream parsing, same technique, different purpose) | 05, 06 | `not-started` |
+| 08 | `ui-test-harness` | `tests/ui/*.sdx` + `*.stderr`, rustc-style. Doc 03 §17's codes become assertable | — | 05 | `not-started` |
+
+## Milestone 3 — Real projects
+
+| # | Plan | Scope | From Emerald | Depends on | Status |
+|---|---|---|---|---|---|
+| 09 | `cargo-integration` | `build.rs` + `OUT_DIR` + `include!` (doc 02 §6.6 option a); `.xrs` as the human-facing artifact; mixed `.sdx`/`.rs` crate builds | — (Emerald links its own binaries; no analogue) | 07 | `not-started` |
+| 10 | `incremental-cache` | `blake3` query cache over `parse` and `emit`; the compiler's own binary hashed into every key; `CacheReporter` with no opinion on stdout | `crates/emerald-driver/src/cache.rs` — the highest-value code reuse in the project (doc 02 §7.1) | 09 | `not-started` |
+| 11 | `cli-surface` | `redox build`/`check`/`fmt`/`watch`/`--version`/`--help` and nothing more — Cargo owns the rest (doc 01 §27) | `crates/emerald-cli/src/main.rs` dispatch shape, minus eleven subcommands Redox declines | 09 | `not-started` |
+| 12 | `watcher` | Recursive `.sdx` watching on `notify`, correct by cache-hit rather than by mtime heuristic; survives errors; not a build system (doc 01 §28) | — | 10, 11 | `not-started` |
+
+## Milestone 4 — Specification-correct (doc 03 Tier A)
+
+Corrections to a published specification, two of which are cases where current Redox source
+would mean something other than the Rust it resembles. These land before any surface growth
+regardless of schedule (doc 03 §20).
+
+| # | Plan | Scope | From Emerald | Depends on | Status |
+|---|---|---|---|---|---|
+| 13 | `ranges-rust-spelling` | `..` exclusive, `..=` inclusive; `...` freed for spread, rest and forwarding. Corrects doc 01 §21 | — | 03 | `not-started` |
+| 14 | `paths-colon-colon` | `::` everywhere including imports; `.` means field or method only. Corrects doc 01 §22 | — | 03 | `not-started` |
+| 15 | `await-postfix` | Postfix `.await`. Corrects doc 01 §24 | — | 03 | `not-started` |
+| 16 | `module-scope-bindings` | Top-level bindings require a type and lower to `const`/`static`; `let` is illegal at Rust module scope. Corrects doc 01 §4.3 | — | 03 | `not-started` |
+| 17 | `comments-as-trivia` | `#`, `###`, `##`, `##!` as trivia attached to AST nodes and re-emitted. Corrects doc 01 §4.1 | `crates/emerald-fmt/src/lib.rs`'s disclosed comment-loss defect, as the anti-pattern to avoid | 02, 04 | `not-started` |
+| 18 | `attributes-passthrough` | `#[...]`/`#![...]` verbatim; `derive` clause. Closes doc 02 §10.2's critical gap | — | 03 | `not-started` |
+
+## Milestone 5 — Core language (doc 03 Tier B)
+
+| # | Plan | Scope | From Emerald | Depends on | Status |
+|---|---|---|---|---|---|
+| 19 | `calls-parenless-canonical` | Doc 03 §5.1's eight rules: adjacency lexing, comma below every operator, terminator set, six required-parens cases, `RDX0055`. The most intricate region of the parser | Emerald plan 90's full analysis of the same problem — the two candidate strategies and why statement-position-only loses | 02, 03 | `not-started` |
+| 20 | `control-flow` | `if`/`unless`/`else`, `while`/`until`, `for`, postfix forms, `cond`, `loop`, `'label` on blocks and loops, `break` with value | — | 03 | `not-started` |
+| 21 | `switch-and-patterns` | `switch` arms and `when` guards; relational, `and`/`or`/`not`; named and anonymous record patterns; slice, as- and range patterns; no synthesized wildcard | — | 20 | `not-started` |
+| 22 | `is-and-guard` | `is` as binding-aware pattern test (`matches!` / `if-let` / let-chain); `guard` onto let-else; derived `while let` | — | 21 | `not-started` |
+| 23 | `strings-and-literals` | Interpolation with inline format specs; raw, char, byte and C-string literals; `"""` dedent; `##`/`##!` doc comments | — | 02, 17 | `not-started` |
+| 24 | `data-declarations` | Structs with block init and trailing spread; field punning; primary constructors; enum struct variants and discriminants; granular visibility; type aliases; unit and tuple structs | — | 18 | `not-started` |
+| 25 | `traits-and-impls` | Default method bodies, associated types and constants, supertraits, generic impls with bounds, `impl Trait` in argument and return position | — | 24 | `not-started` |
+| 26 | `generics-and-where` | Generic parameters and bounds; `where` as a bound clause in signature position, disambiguated from `where` locals by position | — | 25 | `not-started` |
+
+## Milestone 6 — Full surface (doc 03 Tier C) — **v1.0**
+
+Without these Redox is a syntax skin; with them it is the language docs 01–03 describe.
+v1.0 is reached when every row from 01 to 33 is `done`.
+
+| # | Plan | Scope | From Emerald | Depends on | Status |
+|---|---|---|---|---|---|
+| 27 | `pipeline-and-sections` | `\|>` as a receiver pipeline; operator sections with the auto-ref lowering for comparisons; `(-1)` versus `(- 1)` by adjacency | — | 19 | `not-started` |
+| 28 | `option-result-operators` | `??`, `??=`, `catch`, `?.` via `?`-in-a-closure, `try` blocks. No implicit clone | — | 22 | `not-started` |
+| 29 | `comprehensions-and-collections` | Bracket comprehensions and collection-`if`/`for`; literal-shape collect defaults with `into` override; spread; `%w`; set literal; array repeat | — | 19, 21 | `not-started` |
+| 30 | `with-and-use` | `with` dot-shorthand mutation block, subject evaluated once; `use` callback flattening with `RDX0044` on a `return` in the tail | — | 19 | `not-started` |
+| 31 | `functions-advanced` | Multi-clause definitions merged to one `fn` plus `match`; labelled arguments erased in declaration order; `where` locals; `...` forwarding; `&:` method references | — | 26 | `not-started` |
+| 32 | `broadcasting` | `f.(xs)` and `.+`-family elementwise operators, borrow marker mandatory, result is an iterator | — | 29 | `not-started` |
+| 33 | `destructuring-and-splat` | Tuple, slice and struct destructuring; rest patterns; splat in argument position | — | 21, 29 | `not-started` |
+
+## Milestone 7 — Tooling (doc 03 Tier D)
+
+| # | Plan | Scope | From Emerald | Depends on | Status |
+|---|---|---|---|---|---|
+| 34 | `formatter` | `redox-fmt`: trivia-preserving, canonicalizing per doc 03 §16, and therefore the migration tool. Doubles as the answer to Emerald's 113-missed-fixture cutover | `crates/emerald-fmt`'s goal and its approach's disclosed failure — a pure AST pretty-printer loses every comment | 17, 19 | `not-started` |
+| 35 | `test-blocks` | `test "…"` to `#[cfg(test)]` module with `#[test]` fns; deterministic name slugs; `assert` family | `crates/emerald-cli/tests/examples.rs` compile-and-run-and-assert-stdout harness | 23 | `not-started` |
+| 36 | `typed-domain-errors` | `errors` declaration generating the enum plus `Display`, `Error` and `From` impls. `std` only | — | 28 | `not-started` |
+| 37 | `defer` | Scope-exit blocks, LIFO, via a generated `core`-only `Drop` guard. **Blocked on doc 03 §23 item 1** — the one disclosed exception to doc 01 §36 | — | 20 | `not-started` |
+| 38 | `panic-and-lints` | `todo`/`unimplemented`/`unreachable`/`panic`/`assert` spellings; `RDX1001` `unwrap` discouragement | — | 23 | `not-started` |
+| 39 | `async` | `async` functions and blocks, postfix `.await`, no executor | — | 15, 26 | `not-started` |
+| 40 | `lsp` | Diagnostics, semantic tokens, formatter hook. Emerald does this in 545 lines; Redox's is simpler, having no symbol table to build | `crates/emerald-lsp` (545 lines, directly adaptable) and plan 90's warning to purge `(`-assuming heuristics first | 07, 34 | `not-started` |
+| 41 | `tree-sitter-and-editors` | `tree-sitter-redox` grammar with highlight queries and corpus tests; VSCode, Neovim, Helix, Zed configs | Emerald plan 24's `tree-sitter-emerald` layout and corpus-test convention | 19 | `not-started` |
+| 42 | `fuzzing` | `lex_source`, `parse_program`, `emit_program` and a generated-program target whose oracle is *the generated Rust must parse* — a stronger oracle than Emerald had | `crates/emerald-fuzz-smoke` architecture: logic in a stable crate, `fuzz_targets/*.rs` as three-line wrappers, zero dependencies | 04 | `not-started` |
+| 43 | `test-suite-expansion` | Property tests: lexer indentation round-trip, formatter idempotence, transpile stability, `parse(fmt(x)) ≡ parse(x)` modulo trivia | — | 34, 42 | `not-started` |
+| 44 | `zero-cost-benchmarks` | Generated versus hand-written Rust, compiled identically, asserted within noise; transpile throughput and watch latency. Doc 03's zero-cost claim is a claim until measured | `benchmarks/REPORT.md`'s methodology discipline — N programs, N runs, methodology disclosed, losses reported | 09 | `not-started` |
+
+## Milestone 8 — Closing
+
+| # | Plan | Scope | From Emerald | Depends on | Status |
+|---|---|---|---|---|---|
+| 45 | `reachability-residue` | Spell `unsafe`, `extern`/FFI, `union`, raw identifiers, macro definition. Doc 01 §26 names FFI as a requirement, so the escape hatch is not an acceptable resting place (doc 03 §18, §23 items 2–4) | — | 25 | `not-started` |
+| 46 | `grammar-inventories` | The two graded inventories doc 02 §4.1 calls for: MoonScript as `KEEP`/`MODIFY`/`REMOVE`, Rust as `PASSTHROUGH`/`SUGARED`/`UNREACHABLE`. Doc 03 §18 is a summary, not a substitute | `spec/GRAMMAR.md` — the methodology itself, doc 02 §4.1's highest-value design transfer | 45 | `not-started` |
+| 47 | `status-and-declines` | `docs/STATUS.md` with measured, reproducible numbers and a visible gap table; `docs/DECLINED.md` from doc 03 §22 | `README.md`'s "none of this is rounded up" posture and `examples/README.md`'s gap-and-bug tracking | 44 | `not-started` |
+| 48 | `conformance-self-hosting` | The compiler's own source expressed in Redox, **without the inline-Rust escape hatch** — a measurement of expressiveness, not an architecture goal (doc 02 §4.8). Generated `.xrs` committed so the bootstrap never breaks | — (Emerald never self-hosted at 107k lines; weak evidence, but the reframing argument is Redox-specific) | 45, 46 | `not-started` |
+
+---
+
+## Ordering commitments
+
+Four constraints on reordering, each with a reason that cost somebody something:
+
+1. **Spans and trivia land in plan 01, not later.** Emerald's plan 22 found `TypeExpr`
+   carried no span twenty-one plans after the diagnostics plan, and the full fix was by then
+   "judged too large/risky" — so it shipped a scoped workaround and a disclosed residual gap.
+2. **Milestone 2 precedes Milestone 5.** Retrofitting a source map onto an emitter not built
+   for one is the same class of rework, and doc 03's multi-line expansions (`use`, `defer`,
+   `with`, multi-clause merging) widen the source-to-generated gap considerably.
+3. **Milestone 4 can interleave anywhere after plan 03.** Its rows are corrections to a
+   published specification, not features, and two of them change what existing source means.
+4. **Plan 34 should not drift late.** The formatter is the migration tool (doc 02 §4.5), and
+   Emerald's plan 71 cutover missed 113 fixtures embedded as string literals in Rust test
+   modules. Redox's corollary is already a convention: **every `.sdx` fixture is a file, and
+   tests reference files.**
+
+## Gate
+
+Every plan clears, before it is `done`:
+
+```bash
+moon run :check          # blaze check — fast inner-loop verdict
+moon run :lint           # cargo fmt --check && cargo clippy -D warnings
+moon run :test           # unit, integration, doctests
+moon run :cargo-check    # rustc's verdict — AGENTS.md: rustc is the final word
+moon run :cargo-test     # cargo nextest run
+moon run :format         # treefmt
+```
+
+From Milestone 1 onward, additionally: every example `.sdx` transpiles, **its generated Rust
+compiles under real rustc**, runs, and its stdout is asserted. Golden text proves stability;
+compilation proves correctness; neither substitutes for the other (doc 02 §8.1–8.2).
+
+## Completion
+
+- **v1.0** — rows 01–33 `done`.
+- **Feature-complete** — rows 01–44 `done`.
+- **Specification-closed** — rows 01–48 `done`; `docs/03 - Redox Surface Design.md` §23 has
+  no open items, and doc 03 §18's residue list is empty.
