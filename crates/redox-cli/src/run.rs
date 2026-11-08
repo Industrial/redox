@@ -1,6 +1,7 @@
 pub(crate) mod usage;
 
 use crate::build_command::build_command;
+use crate::check_command::check_command;
 use crate::run::usage::USAGE;
 
 /// Dispatch one invocation. Returns the message to print on failure.
@@ -15,6 +16,7 @@ pub(crate) fn run(args: &[String]) -> Result<(), String> {
       Ok(())
     }
     Some("build") => build_command(&args[1..]),
+    Some("check") => check_command(&args[1..]),
     Some(other) => Err(format!("error: unknown command `{other}`\n\n{USAGE}")),
   }
 }

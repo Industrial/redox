@@ -7,6 +7,7 @@
 //! home. Each subcommand heads its own module.
 
 mod build_command;
+mod check_command;
 mod run;
 
 use std::process::ExitCode;

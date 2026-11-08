@@ -1,7 +1,8 @@
 pub(crate) mod code;
+pub(crate) mod diagnostic_code;
 
-use crate::Code;
 use crate::Span;
+use crate::diagnostic::diagnostic_code::DiagnosticCode;
 
 /// One diagnostic, ready to render.
 ///
@@ -15,7 +16,8 @@ use crate::Span;
 /// keeps the renderer swappable.
 #[derive(Debug, Clone)]
 pub struct Diagnostic {
-  pub code: Code,
+  /// Redox's own code, or another compiler's passed through (plan 07).
+  pub code: DiagnosticCode,
   pub message: String,
   pub span: Span,
   /// A one-line suggestion, shown after the snippet.

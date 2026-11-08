@@ -447,6 +447,7 @@ Run by the ordinary gate. None is optional and none may be weakened to make a ch
 | No `.stderr` expectation without its `.sdx` | `ui.rs` |
 | Every diagnostic prints a well-formed `RDX####` code | `ui.rs` |
 | Every generated line resolves through the source map, or is an enumerated synthetic line | `source_map.rs` |
+| rustc's diagnostics land on the `.sdx` line they belong to | `check.rs` |
 
 Hidden directories (`.hermes` and similar tooling artifacts) are skipped, and `tests/`
 directories are exempt per §7.

@@ -17,7 +17,7 @@ pub(crate) fn diagnose(path: &Path, source: &str, failure: &ParseFailure) -> Vec
   let path = path.display().to_string();
   match failure {
     ParseFailure::Lex(e) => vec![Diagnostic {
-      code: e.code,
+      code: e.code.into(),
       message: e.message.clone(),
       span: e.span,
       help: e.help.clone(),
@@ -27,7 +27,7 @@ pub(crate) fn diagnose(path: &Path, source: &str, failure: &ParseFailure) -> Vec
     ParseFailure::Parse(errors) => errors
       .iter()
       .map(|e| Diagnostic {
-        code: e.code,
+        code: e.code.into(),
         message: e.message.clone(),
         span: e.span,
         help: None,

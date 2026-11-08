@@ -21,6 +21,7 @@ mod source;
 
 pub use diagnostic::Diagnostic;
 pub use diagnostic::code::Code;
+pub use diagnostic::diagnostic_code::DiagnosticCode;
 pub use render::render;
 pub use source::map::SourceMap;
 pub use source::map::parse_map::parse_map;

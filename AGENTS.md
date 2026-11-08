@@ -146,6 +146,18 @@ result, which is why they are written down rather than rediscovered.
   Fix: `blaze stop && rm -rf target/blaze`, then re-run. Suspect this before believing a
   link failure that names a crate you did not touch.
 
+- **`SIGKILL` during blaze's *"load workspace"* means the machine ran out of memory, not
+  that anything is wrong with the code.** Seen for real at plan 07: `could not build
+  <every crate in the workspace>: the daemon could not load the workspace (signal: 9
+  (SIGKILL): load workspace: 3.9s)`, while `cargo check`, `cargo test`, `clippy` and
+  `fmt` were all green and `moon run :cargo-check` and `:cargo-test` passed. The box had
+  6 GB available of 61, consumed by a runaway process tree in an unrelated repository.
+  Clearing it made the identical gate pass unchanged.
+
+  So: a blaze failure naming *every* crate, with `SIGKILL` and no diagnostic, is an
+  environment report. **Run `free -h` before reading the diff**, and distinguish it from
+  the stale-state case above, which names one crate and fails at link time.
+
 - **Do not grep compiler output for `^error` — it reads as green when it is not.** `cargo
   clippy` colourises its output, so the line begins with an ANSI escape and the pattern
   never matches. This produced a confident "clippy clean" report while two
