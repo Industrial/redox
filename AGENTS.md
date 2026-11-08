@@ -128,12 +128,17 @@ reviewed rather than absorbed into a green build.
 Environment traps found by hitting them. Each one cost real time or produced a false
 result, which is why they are written down rather than rediscovered.
 
-- **`rustc` on `PATH` is not the toolchain's rustc inside `blaze test`.** A test that spawns
-  `rustc` gets NixOS's `stub-ld` shim and fails with *"Could not start dynamically linked
-  executable: rustc"*, while the same test passes under `cargo test`. Fixed properly rather
-  than skipped: `crates/redox-cli/build.rs` resolves rustc at build time — where the
-  environment is intact — and bakes the absolute path in as `REDOX_RUSTC`, which the test
-  reads via `env!`. Any future test that invokes a toolchain binary should do the same.
+- **Neither obvious source of a `rustc` path is trustworthy here, so verify instead.**
+  Two separate shims bite, and each one looks like the other's fix:
+  - resolving `rustc` from `PATH` **at test time** finds NixOS's `stub-ld` shim under
+    `blaze test` (*"Could not start dynamically linked executable: rustc"*);
+  - trusting `RUSTC` **at build time** finds blaze's own shim under `blaze build`, which
+    refuses general work with *"`BLAZE_SCRIPT_RUSTC` does not name blaze's rustc"*.
+
+  `crates/redox-cli/build.rs` therefore does not trust a candidate, it **runs
+  `--version` and checks the banner**, taking the first that answers like real rustc, and
+  bakes that path in as `REDOX_RUSTC`. Any future test invoking a toolchain binary should
+  verify rather than assume — a path that exists is not a path that works.
 
 - **A stale blaze daemon or cache produces link errors that look like code defects.** Seen
   for real: `rust-lld: error: undefined symbol: __rust_alloc_zeroed` while linking the test

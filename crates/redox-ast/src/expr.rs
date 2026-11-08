@@ -1,23 +1,96 @@
+pub(crate) mod binary_op;
 pub(crate) mod ident;
+pub(crate) mod type_expr;
+pub(crate) mod unary_op;
 
-use crate::Ident;
+use crate::{BinaryOp, Ident, UnaryOp};
 use redox_lexer::Span;
 
 /// An expression.
+///
+/// Plan 03 (`docs/08 - 03 - Parser Core.md`) grew this from plan 01's three
+/// forms to the full expression surface, parsed by a Pratt loop over Rust's
+/// precedence table — doc 02 §5.2 fixes the table as Rust's unchanged, because
+/// an expression that reads like Rust and binds differently is the worst
+/// available failure mode.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expr {
-  /// A call. Plan 01's slice produces only the parenless, single-argument,
-  /// statement-initial form; plan 19 generalises it to doc 03 §5.1's full call
-  /// grammar.
+  /// A call. Plan 19 generalises the parenless form to doc 03 §5.1's full
+  /// grammar; until then only the parenthesized form and plan 01's
+  /// single-argument statement-initial form are produced.
   Call {
     callee: Box<Expr>,
     args: Vec<Expr>,
     span: Span,
   },
-  /// A string literal, stored **raw, including its delimiters** — see
-  /// `redox_lexer::TokenKind::StrLit`. Escape decoding is plan 23.
+  /// `recv.name(args)`
+  MethodCall {
+    recv: Box<Expr>,
+    name: Ident,
+    args: Vec<Expr>,
+    span: Span,
+  },
+  /// `recv.name`
+  Field {
+    recv: Box<Expr>,
+    name: Ident,
+    span: Span,
+  },
+  /// `recv[index]`
+  Index {
+    recv: Box<Expr>,
+    index: Box<Expr>,
+    span: Span,
+  },
+  Binary {
+    op: BinaryOp,
+    lhs: Box<Expr>,
+    rhs: Box<Expr>,
+    span: Span,
+  },
+  Unary {
+    op: UnaryOp,
+    operand: Box<Expr>,
+    span: Span,
+  },
+  /// `(inner)` — kept in the tree so the emitter reproduces the grouping the
+  /// author wrote rather than re-deriving it from precedence.
+  Paren {
+    inner: Box<Expr>,
+    span: Span,
+  },
+  /// `a::b::c` — a path, carried verbatim (doc 03 §13.1).
+  Path {
+    text: String,
+    span: Span,
+  },
+  /// A string literal, stored **raw, including its delimiters**. Interpolation
+  /// is plan 23; the lexer already produces the parts.
   StrLit {
     value: String,
+    span: Span,
+  },
+  /// An integer or float literal, carried verbatim with any suffix.
+  Num {
+    text: String,
+    span: Span,
+  },
+  Bool {
+    value: bool,
+    span: Span,
+  },
+  Char {
+    value: char,
+    span: Span,
+  },
+  /// `@field` → `self.field` (doc 01 §16.1).
+  SelfField {
+    name: Ident,
+    span: Span,
+  },
+  /// `@@name` → `Self::name` (doc 01 §16.2).
+  SelfType {
+    name: Ident,
     span: Span,
   },
   Ident(Ident),
@@ -26,7 +99,20 @@ pub enum Expr {
 impl Expr {
   pub fn span(&self) -> Span {
     match self {
-      Expr::Call { span, .. } | Expr::StrLit { span, .. } => *span,
+      Expr::Call { span, .. }
+      | Expr::MethodCall { span, .. }
+      | Expr::Field { span, .. }
+      | Expr::Index { span, .. }
+      | Expr::Binary { span, .. }
+      | Expr::Unary { span, .. }
+      | Expr::Paren { span, .. }
+      | Expr::Path { span, .. }
+      | Expr::StrLit { span, .. }
+      | Expr::Num { span, .. }
+      | Expr::Bool { span, .. }
+      | Expr::Char { span, .. }
+      | Expr::SelfField { span, .. }
+      | Expr::SelfType { span, .. } => *span,
       Expr::Ident(i) => i.span,
     }
   }

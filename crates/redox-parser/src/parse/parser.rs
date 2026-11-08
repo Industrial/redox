@@ -1,10 +1,36 @@
+pub(crate) mod arguments;
+pub(crate) mod capture_type;
+pub(crate) mod parameter;
+pub(crate) mod parse_expr;
+pub(crate) mod parse_signature;
+pub(crate) mod path_or_ident;
+pub(crate) mod postfix;
+pub(crate) mod prefix;
+pub(crate) mod starts_argument;
+pub(crate) mod stmt_call;
+pub(crate) mod token_text;
+pub(crate) mod unary_op;
+
 use crate::ParseError;
-use redox_ast::{Block, Expr, FnDecl, Ident, Item, Program, Stmt, StmtKind};
-use redox_lexer::{Span, Token, TokenKind, Trivia};
+use crate::parse::parser::capture_type::capture_type;
+use crate::parse::parser::parse_expr::parse_expr;
+use crate::parse::parser::parse_signature::parse_signature;
+use crate::parse::parser::stmt_call::stmt_call;
+use redox_ast::{Binding, Block, FnDecl, Ident, Item, Program, Stmt, StmtKind, TypeExpr};
+use redox_lexer::{Keyword, Span, Token, TokenKind, Trivia};
 
 /// The recursive-descent parser.
 ///
 /// Private: [`crate::parse`] and [`crate::parse_source`] are the only ways in.
+/// Plan 03 (`docs/08 - 03 - Parser Core.md`) grew it from plan 01's three
+/// productions to the expression, signature and binding surface, with the
+/// expression grammar a Pratt loop over `crate::parse::precedence`.
+///
+/// Errors recover at **two** levels: an item boundary, and a statement
+/// boundary within a block. The second is what stops one bad statement from
+/// discarding its siblings — which matters for a language whose bodies are
+/// indented blocks, and which `docs/COMPILER.md` §1 records LALRPOP never
+/// offering at all.
 pub(crate) struct Parser<'a> {
   toks: &'a [Token],
   pos: usize,
@@ -37,15 +63,13 @@ impl<'a> Parser<'a> {
 
   fn program(&mut self) -> Vec<Item> {
     let mut items = Vec::new();
-    // Leading `Newline`s before the first item are separators with nothing to
-    // separate; skip them so a file starting with a blank line still parses.
     self.skip_separators();
     while !self.at_eof() {
       match self.item() {
         Ok(item) => items.push(item),
         Err(e) => {
           self.errors.push(e);
-          self.recover();
+          self.recover_to_item();
         }
       }
       self.skip_separators();
@@ -53,14 +77,15 @@ impl<'a> Parser<'a> {
     items
   }
 
-  /// `Item := Ident "=" "->" Newline Indent Stmt+ Dedent`
+  /// `Item := Ident "=" Signature? "->" Newline Indent Stmt+ Dedent`
   fn item(&mut self) -> Result<Item, ParseError> {
     let leading = self.peek_leading();
     let start = self.peek_span().0;
 
     let name = self.ident("a declaration must start with a name")?;
     self.expect(&TokenKind::Eq, "expected `=` after the declaration name")?;
-    self.expect(&TokenKind::Arrow, "expected `->` after `=`")?;
+    let sig = parse_signature(self)?;
+    self.expect(&TokenKind::Arrow, "expected `->` after the signature")?;
     let trailing = self.newline_with_trailing("expected a line break after `->`")?;
     self.expect(&TokenKind::Indent, "expected an indented body")?;
 
@@ -71,12 +96,20 @@ impl<'a> Parser<'a> {
       if self.check(&TokenKind::Dedent) || self.at_eof() {
         break;
       }
-      stmts.push(self.stmt()?);
+      // Statement-level recovery: a bad statement is reported and skipped,
+      // and its siblings are still parsed.
+      match self.stmt() {
+        Ok(stmt) => stmts.push(stmt),
+        Err(e) => {
+          self.errors.push(e);
+          self.recover_to_stmt();
+        }
+      }
     }
     let body_end = self.prev_span().1;
     self.expect(&TokenKind::Dedent, "expected the body to end")?;
 
-    if stmts.is_empty() {
+    if stmts.is_empty() && self.errors.is_empty() {
       return Err(ParseError {
         message: "a declaration body must contain at least one statement".to_string(),
         span: (body_start, body_start),
@@ -86,6 +119,7 @@ impl<'a> Parser<'a> {
     let end = self.prev_span().1;
     Ok(Item::Fn(FnDecl {
       name,
+      sig,
       body: Block {
         stmts,
         span: (body_start, body_end),
@@ -96,65 +130,86 @@ impl<'a> Parser<'a> {
     }))
   }
 
-  /// `Stmt := Expr Newline`
+  /// `Stmt := Binding | "return" Expr? | Expr`, each closed by a `Newline`.
   fn stmt(&mut self) -> Result<Stmt, ParseError> {
     let leading = self.peek_leading();
     let start = self.peek_span().0;
-    let expr = self.expr()?;
+
+    let kind = if self.check(&TokenKind::Kw(Keyword::Return)) {
+      self.advance();
+      if self.check(&TokenKind::Newline) || self.check(&TokenKind::Dedent) || self.at_eof() {
+        StmtKind::Return(None)
+      } else {
+        StmtKind::Return(Some(parse_expr(self, 0)?))
+      }
+    } else if let Some(binding) = self.try_binding()? {
+      StmtKind::Binding(binding)
+    } else if let Some(call) = stmt_call(self)? {
+      StmtKind::Expr(call)
+    } else {
+      StmtKind::Expr(parse_expr(self, 0)?)
+    };
+
     let end = self.prev_span().1;
     let trailing = self.newline_with_trailing("expected a line break after the statement")?;
     Ok(Stmt {
-      kind: StmtKind::Expr(expr),
+      kind,
       span: (start, end),
       leading,
       trailing,
     })
   }
 
-  /// `Expr := Ident Str | Str | Ident`
+  /// A binding, if the cursor is on one.
   ///
-  /// Only a string whose `raw` text is usable verbatim is accepted; an
-  /// interpolated string is plan 23, and until then its `parts` are ignored
-  /// rather than silently flattened.
-  fn expr(&mut self) -> Result<Expr, ParseError> {
-    match &self.peek().kind {
-      TokenKind::Str { raw, .. } => {
-        let value = raw.clone();
-        let span = self.peek_span();
-        self.advance();
-        Ok(Expr::StrLit { value, span })
+  /// Recognised by lookahead rather than by backtracking: `mut` opens one
+  /// outright, and otherwise an `Ident` followed by `=` or `:` is a binding
+  /// while anything else is an expression statement.
+  fn try_binding(&mut self) -> Result<Option<Binding>, ParseError> {
+    let is_mut = self.check(&TokenKind::Kw(Keyword::Mut));
+    if !is_mut {
+      let looks_like = matches!(self.peek().kind, TokenKind::Ident(_))
+        && matches!(
+          self.peek_at(1).map(|t| &t.kind),
+          Some(TokenKind::Eq) | Some(TokenKind::Colon)
+        );
+      if !looks_like {
+        return Ok(None);
       }
-      TokenKind::Ident(_) => {
-        let callee = self.ident("expected a name")?;
-        // A string literal immediately after a name is a parenless call with
-        // one argument. Nothing else can follow a name in this slice.
-        if let TokenKind::Str { raw, .. } = &self.peek().kind {
-          let value = raw.clone();
-          let arg_span = self.peek_span();
-          self.advance();
-          let span = (callee.span.0, arg_span.1);
-          Ok(Expr::Call {
-            callee: Box::new(Expr::Ident(callee)),
-            args: vec![Expr::StrLit {
-              value,
-              span: arg_span,
-            }],
-            span,
-          })
-        } else {
-          Ok(Expr::Ident(callee))
-        }
-      }
-      _ => Err(ParseError {
-        message: "expected an expression".to_string(),
-        span: self.peek_span(),
-      }),
     }
+
+    let start = self.peek_span().0;
+    if is_mut {
+      self.advance();
+    }
+    let name = self.ident("expected a name in a binding")?;
+
+    let ty = if self.check(&TokenKind::Colon) {
+      self.advance();
+      Some(self.type_expr("expected a type after `:`")?)
+    } else {
+      None
+    };
+
+    self.expect(&TokenKind::Eq, "expected `=` in a binding")?;
+    let value = parse_expr(self, 0)?;
+    Ok(Some(Binding {
+      name,
+      ty,
+      value,
+      is_mut,
+      span: (start, self.prev_span().1),
+    }))
   }
 
-  // ---- token helpers ----
+  /// Capture a type as verbatim source text (plan 03 §1.1).
+  pub(crate) fn type_expr(&mut self, message: &str) -> Result<TypeExpr, ParseError> {
+    capture_type(self, message)
+  }
 
-  fn peek(&self) -> &'a Token {
+  // ---- token helpers, shared with the grammar functions ----
+
+  pub(crate) fn peek(&self) -> &'a Token {
     // `lex` always terminates the stream with `Eof`, so the last token is a
     // safe clamp rather than an out-of-bounds risk.
     self.toks.get(self.pos).unwrap_or_else(|| {
@@ -165,7 +220,13 @@ impl<'a> Parser<'a> {
     })
   }
 
-  fn peek_span(&self) -> Span {
+  /// The token `n` positions ahead — the bounded lookahead `try_binding`
+  /// needs, and which plan 19's call grammar will need too.
+  pub(crate) fn peek_at(&self, n: usize) -> Option<&'a Token> {
+    self.toks.get(self.pos + n)
+  }
+
+  pub(crate) fn peek_span(&self) -> Span {
     self.peek().span
   }
 
@@ -173,28 +234,28 @@ impl<'a> Parser<'a> {
     self.peek().leading.clone()
   }
 
-  fn prev_span(&self) -> Span {
+  pub(crate) fn prev_span(&self) -> Span {
     if self.pos == 0 {
       return (0, 0);
     }
     self.toks[self.pos - 1].span
   }
 
-  fn at_eof(&self) -> bool {
+  pub(crate) fn at_eof(&self) -> bool {
     matches!(self.peek().kind, TokenKind::Eof)
   }
 
-  fn check(&self, kind: &TokenKind) -> bool {
+  pub(crate) fn check(&self, kind: &TokenKind) -> bool {
     &self.peek().kind == kind
   }
 
-  fn advance(&mut self) {
+  pub(crate) fn advance(&mut self) {
     if !self.at_eof() {
       self.pos += 1;
     }
   }
 
-  fn expect(&mut self, kind: &TokenKind, message: &str) -> Result<(), ParseError> {
+  pub(crate) fn expect(&mut self, kind: &TokenKind, message: &str) -> Result<(), ParseError> {
     if self.check(kind) {
       self.advance();
       Ok(())
@@ -206,7 +267,16 @@ impl<'a> Parser<'a> {
     }
   }
 
-  fn ident(&mut self, message: &str) -> Result<Ident, ParseError> {
+  /// Consume `kw` if it is there, reporting whether it was.
+  pub(crate) fn eat_keyword(&mut self, kw: Keyword) -> bool {
+    if self.check(&TokenKind::Kw(kw)) {
+      self.advance();
+      return true;
+    }
+    false
+  }
+
+  pub(crate) fn ident(&mut self, message: &str) -> Result<Ident, ParseError> {
     if let TokenKind::Ident(text) = &self.peek().kind {
       let ident = Ident {
         text: text.clone(),
@@ -229,7 +299,7 @@ impl<'a> Parser<'a> {
       self.advance();
       Ok(trailing)
     } else if self.at_eof() || self.check(&TokenKind::Dedent) {
-      // A file that ends without a trailing newline, or a block whose last
+      // A file ending without a trailing newline, or a block whose last
       // statement is immediately followed by a dedent, is well-formed.
       Ok(None)
     } else {
@@ -256,10 +326,9 @@ impl<'a> Parser<'a> {
       .unwrap_or_default()
   }
 
-  /// Skip to the next plausible item boundary: a top-level `Ident` with the
-  /// indent stack unwound. This is what lets one pass report several bad
-  /// items — bake-off axis 3 in `docs/COMPILER.md` §1.
-  fn recover(&mut self) {
+  /// Skip to the next item boundary: a top-level name with the indent stack
+  /// unwound.
+  fn recover_to_item(&mut self) {
     let mut depth = 0usize;
     loop {
       match &self.peek().kind {
@@ -273,6 +342,30 @@ impl<'a> Parser<'a> {
           self.advance();
         }
         TokenKind::Ident(_) if depth == 0 => return,
+        _ => self.advance(),
+      }
+    }
+  }
+
+  /// Skip to the end of the current statement, so its siblings still parse.
+  fn recover_to_stmt(&mut self) {
+    let mut depth = 0usize;
+    loop {
+      match &self.peek().kind {
+        TokenKind::Eof => return,
+        TokenKind::Newline if depth == 0 => {
+          self.advance();
+          return;
+        }
+        TokenKind::Dedent if depth == 0 => return,
+        TokenKind::Indent => {
+          depth += 1;
+          self.advance();
+        }
+        TokenKind::Dedent => {
+          depth = depth.saturating_sub(1);
+          self.advance();
+        }
         _ => self.advance(),
       }
     }

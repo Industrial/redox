@@ -1,24 +1,45 @@
+use crate::emit::expr_list::expr_list;
+use crate::emit::print_call::print_call;
 use redox_ast::Expr;
 
 /// Render an expression as Rust.
+///
+/// Plan 03 (`docs/08 - 03 - Parser Core.md`) leaf 6 grew this to every node
+/// the new grammar produces. The match is deliberately **exhaustive with no
+/// wildcard**: an AST node with no lowering is a `todo!()` with a delay fuse,
+/// so a new node must fail to compile here rather than fail at runtime.
 pub(crate) fn emit_expr(e: &Expr) -> String {
   match e {
     Expr::StrLit { value, .. } => value.clone(),
+    Expr::Num { text, .. } => text.clone(),
+    Expr::Bool { value, .. } => value.to_string(),
+    Expr::Char { value, .. } => format!("{value:?}"),
     Expr::Ident(i) => i.text.clone(),
+    Expr::Path { text, .. } => text.clone(),
+    // Doc 01 §16: `@field` is `self.field` and `@@name` is `Self::name`.
+    Expr::SelfField { name, .. } => format!("self.{}", name.text),
+    Expr::SelfType { name, .. } => format!("Self::{}", name.text),
+    Expr::Paren { inner, .. } => format!("({})", emit_expr(inner)),
+    Expr::Unary { op, operand, .. } => format!("{}{}", op.rust_text(), emit_expr(operand)),
+    Expr::Binary { op, lhs, rhs, .. } => match op.rust_text() {
+      Some(text) => format!("{} {text} {}", emit_expr(lhs), emit_expr(rhs)),
+      // `??` and `|>` need a lowering rather than a spelling — plans 28 and
+      // 27. Until then the parser accepts them and this emits a hard error
+      // rather than something that merely looks plausible.
+      None => format!("compile_error!(\"`{op:?}` is parsed but not yet lowered\")"),
+    },
+    Expr::Field { recv, name, .. } => format!("{}.{}", emit_expr(recv), name.text),
+    Expr::Index { recv, index, .. } => format!("{}[{}]", emit_expr(recv), emit_expr(index)),
+    Expr::MethodCall {
+      recv, name, args, ..
+    } => format!("{}.{}({})", emit_expr(recv), name.text, expr_list(args)),
     Expr::Call { callee, args, .. } => {
-      let rendered: Vec<String> = args.iter().map(emit_expr).collect();
-      let joined = rendered.join(", ");
-      // `print` is the one sanctioned sugar of its kind (doc 01 §3.3,
-      // doc 03 §10.9) and it is a **dated loan**: it is exactly Emerald's
-      // hardcoded `puts` keyword, which papered over a general parenless-call
-      // ambiguity for 89 plans. Plan 19 resolves the general case and this
-      // special case then dissolves.
       if let Expr::Ident(name) = callee.as_ref()
         && name.text == "print"
       {
-        return format!("println!({joined})");
+        return print_call(args);
       }
-      format!("{}({joined})", emit_expr(callee))
+      format!("{}({})", emit_expr(callee), expr_list(args))
     }
   }
 }

@@ -1,6 +1,7 @@
 pub(crate) mod error;
 pub(crate) mod failure;
 pub(crate) mod parser;
+pub(crate) mod precedence;
 pub(crate) mod source;
 
 use crate::ParseError;

@@ -2,7 +2,7 @@
 
 Plan: 03 of 48 (`docs/04 - Redox Plan of Plans.md`, Milestone 1)
 Slug: `parser-core`
-Status: `planned`
+Status: **`done`** — shipped 2026-11-08; see §10 for evidence per criterion
 Depends on: plans 01, 02
 Discloses: plans 05, 19, 20, 21, 23, 24, 26
 
@@ -237,3 +237,69 @@ indentation-sensitive grammar whose precedence table is Rust's.
   which doc 03 §5.1.2 case 1 rejects as ambiguous until plan 19. Writing the parens now and
   removing them in plan 19 is honest; silently adopting the greedy reading Redox declined
   would not be.
+
+---
+
+## 10. Shipped — evidence per criterion
+
+Executed 2026-11-08. Full gate green: all six moon tasks exit 0. **132 tests pass**, up
+from 117.
+
+| # | Criterion | Evidence |
+|---|---|---|
+| 1 | Phase 1 prints `30` through real rustc | `phase1.rs::phase1_transpiles_compiles_and_prints_30` |
+| 2 | Hand-computed precedence values | `expressions_print_their_hand_computed_values` — ten asserted values |
+| 3 | Rust precedence and associativity | the ten values above, plus `binary_power`'s own 6 unit tests |
+| 4 | A type round-trips verbatim | `a_nested_generic_type_round_trips` — `Vec<HashMap<String, u8>>` |
+| 5 | `&dyn Fn(i32) -> i32` is one parameter type | `a_function_type_parameter_parses_as_one_type` |
+| 6 | Three errors produce three diagnostics | `recovery.rs::three_errors_in_one_file_produce_three_diagnostics` |
+| 7 | A bad statement keeps its siblings | `a_bad_statement_does_not_discard_its_siblings`, `two_bad_statements_in_one_body_are_both_reported` |
+| 8 | Plans 01 and 02's tests still pass | whole suite green |
+| 9 | Doc 06 §§1–2 obeyed | `one_construct_per_file.rs`, `directory_structure.rs` |
+| 10 | Full gate green | six moon tasks, exit 0 |
+
+### Three defects found by running it, not by inspection
+
+1. **A declared return type needs a tail expression, not a statement.** `add` emitted
+   `a + b;`, so rustc reported *"expected `i32`, found `()`"* with its own "remove this
+   semicolon" hint. Doc 01 §5.2's example requires `{ a + b }`. The fix is scoped: a
+   function that *declares* a return type ends in a tail expression, one that does not
+   returns `()` and ends in a statement — which is why plan 01's `println!("hello");`
+   golden is unchanged.
+2. **Plan 01's parenless call was too narrow for its own successor.** It accepted only
+   `name "string"`, so `print 2 + 3 * 4` and `print add(10, 20)` both failed. Added
+   `stmt_call`, a statement-position parenless call taking full expressions — Emerald's
+   plan-90 option (A), restricted to the position its own grammar already restricted
+   leading unary operators to.
+3. **A third blaze shim.** Plan 02 fixed test-time `PATH` resolution by baking `RUSTC` at
+   build time; under `blaze build` that *is* blaze's own shim, which refuses general work.
+   `build.rs` now **verifies** a candidate by running `--version` and checking the banner,
+   rather than trusting either source. `AGENTS.md` records both halves, because each looks
+   like the other's fix.
+
+### Deviations from the plan as written
+
+- **§3's proof program changed from `print (add 10, 20)` to `print add(10, 20)`.** The
+  parenthesized form is a parenless call *inside parentheses*, which still needs argument-
+  position parenless calls — plan 19. The parenthesized-callee form is the shape plan 03
+  can actually prove, and it is closer to doc 01 §31's intent than a form that does not
+  parse.
+- **`examples/expressions.sdx` avoids a statement-initial unary argument.** `print -3 + 10`
+  would require the adjacency rule that distinguishes it from `a - b`, which is plan 19's;
+  the fixture writes `print (-3) + 10` and says why in a comment.
+- **Reassignment is not a statement form.** `total = total + 7` parses as a *new binding*
+  and emits `let total = …`, because distinguishing declaration from reassignment needs the
+  scope resolver doc 02 §6.4 budgets but plan 03 does not build. Compound assignment
+  (`total += 7`) is doc 01 §4.3's own spelling for mutation and belongs to **plan 20** with
+  the rest of the statement surface; the fixture uses neither. Recorded here rather than
+  left as a surprise.
+- **Two helpers became siblings rather than children** — `token_text`, `parameter`,
+  `starts_argument` — because doc 06 §2.4 caps depth at three levels below `src/`, which
+  the depth check caught for `stmt_call/starts_argument.rs` at level four.
+
+### What plan 04 inherits
+
+The emitter now renders every AST node with **no wildcard arm**, so plan 04's
+determinism work starts from a complete lowering rather than a partial one. Two operators —
+`??` and `|>` — parse and carry precedence but emit a `compile_error!`, which is deliberate:
+they are named to plans 28 and 27 and will fail loudly rather than plausibly until then.

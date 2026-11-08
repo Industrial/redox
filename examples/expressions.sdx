@@ -1,0 +1,23 @@
+# Precedence is checked by arithmetic: a wrong tree is a wrong number.
+main = ->
+  # 2 + (3 * 4) = 14, not (2 + 3) * 4 = 20
+  print 2 + 3 * 4
+  # Left-associative: (10 - 3) - 2 = 5, not 10 - (3 - 2) = 9
+  print 10 - 3 - 2
+  # Parentheses override: (2 + 3) * 4 = 20
+  print (2 + 3) * 4
+  # Comparison is looser than arithmetic: (1 + 1) == 2
+  print 1 + 1 == 2
+  # `&&` is looser than `==`: (1 == 1) && (2 == 2)
+  print 1 == 1 && 2 == 2
+  # Shifts bind looser than arithmetic: 1 << (1 + 1) = 4
+  print 1 << 1 + 1
+  # Unary binds tighter than binary: (-3) + 10 = 7. Written with parentheses
+  # because a statement-initial argument may not begin with `-` until plan 19
+  # settles the adjacency rule that tells `print -3` from `a - b`.
+  print (-3) + 10
+  # A typed binding, a method call, and a path
+  total: i32 = 40 + 2
+  print total
+  print "done".len()
+  print i32::max(1, 9)

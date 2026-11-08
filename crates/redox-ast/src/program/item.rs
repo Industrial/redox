@@ -1,4 +1,6 @@
 pub(crate) mod fn_decl;
+pub(crate) mod param;
+pub(crate) mod signature;
 
 use crate::FnDecl;
 use redox_lexer::Span;

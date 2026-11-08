@@ -5,12 +5,51 @@ use crate::emit::trivia::emit_trivia;
 use redox_ast::{Stmt, StmtKind};
 
 /// Emit one statement at `indent`.
-pub(crate) fn emit_stmt(out: &mut String, stmt: &Stmt, indent: usize) {
+///
+/// `tail` marks the block's final expression, which is emitted **without a
+/// semicolon** so it becomes the block's value. Doc 01 §5.2's own example
+/// requires it: `add = (a, b): i32 -> a + b` must produce `{ a + b }`, and a
+/// trailing semicolon makes the function return `()` instead.
+///
+/// Only a function that *declares* a return type gets a tail expression. One
+/// that does not returns `()`, and its last line is an ordinary statement —
+/// which is why `main = -> print "x"` still emits `println!("x");`.
+///
+/// The match is exhaustive with no wildcard, for the reason given in
+/// `emit_expr`: a new `StmtKind` must fail to compile here.
+pub(crate) fn emit_stmt(out: &mut String, stmt: &Stmt, indent: usize, tail: bool) {
   emit_trivia(out, &stmt.leading, indent);
   pad(out, indent);
   match &stmt.kind {
     StmtKind::Expr(e) => {
       out.push_str(&emit_expr(e));
+      if !tail {
+        out.push(';');
+      }
+    }
+    // Immutable by default (doc 01 §4.3): `mut` is the opt-in, and the type
+    // is emitted only when the author wrote one — rustc infers the rest
+    // (doc 02 §6.2).
+    StmtKind::Binding(b) => {
+      out.push_str("let ");
+      if b.is_mut {
+        out.push_str("mut ");
+      }
+      out.push_str(&b.name.text);
+      if let Some(ty) = &b.ty {
+        out.push_str(": ");
+        out.push_str(&ty.text);
+      }
+      out.push_str(" = ");
+      out.push_str(&emit_expr(&b.value));
+      out.push(';');
+    }
+    StmtKind::Return(value) => {
+      out.push_str("return");
+      if let Some(e) = value {
+        out.push(' ');
+        out.push_str(&emit_expr(e));
+      }
       out.push(';');
     }
   }

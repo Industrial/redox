@@ -1,3 +1,4 @@
+pub(crate) mod binding;
 pub(crate) mod kind;
 
 use crate::StmtKind;

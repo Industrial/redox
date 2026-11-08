@@ -1,13 +1,14 @@
-use crate::{Block, Ident};
+use crate::{Block, Ident, Signature};
 use redox_lexer::{Span, Trivia};
 
-/// `name = ->` followed by an indented block.
+/// `name = (params): Ret ->` followed by an indented block.
 ///
-/// Parameters, type annotations and return types are plan 03; plan 01's
-/// grammar has a bare name and a body.
+/// Plan 03 (`docs/08 - 03 - Parser Core.md`) added the signature; plan 01
+/// shipped the zero-parameter, no-return-type form.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FnDecl {
   pub name: Ident,
+  pub sig: Signature,
   pub body: Block,
   pub span: Span,
   pub leading: Vec<Trivia>,

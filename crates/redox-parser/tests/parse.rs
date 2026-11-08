@@ -44,7 +44,9 @@ fn nodes_carry_spans_that_index_the_source() {
   let p = prog(src);
   let Item::Fn(f) = &p.items[0];
   assert_eq!(&src[f.name.span.0..f.name.span.1], "main");
-  let StmtKind::Expr(e) = &f.body.stmts[0].kind;
+  let StmtKind::Expr(e) = &f.body.stmts[0].kind else {
+    panic!("expected an expression statement");
+  };
   assert_eq!(&src[e.span().0..e.span().1], "print \"hello\"");
 }
 

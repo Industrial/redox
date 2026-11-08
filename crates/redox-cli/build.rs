@@ -1,42 +1,60 @@
-//! Bake the toolchain's `rustc` path into the test binaries.
+//! Bake a **working** `rustc` path into the test binaries.
 //!
-//! Plan 01 (`docs/05 - 01 - Vertical Slice.md`), leaf 7. The end-to-end test
-//! must invoke real rustc on the generated `.xrs`, and resolving `rustc` from
-//! `PATH` at test time is not reliable here: under `blaze test` the test
-//! process sees NixOS's `stub-ld` shim instead of the toolchain's rustc, and
-//! fails with "Could not start dynamically linked executable: rustc".
+//! Plan 01 (`docs/05 - 01 - Vertical Slice.md`) leaf 7. The end-to-end tests
+//! must invoke real rustc on the generated `.xrs`, and neither obvious source
+//! for that path is reliable here:
 //!
-//! A build script runs with the build environment intact, so resolving the
-//! path here and passing it through as a compile-time env var is stable
-//! regardless of what the test process inherits. See `AGENTS.md`'s known
-//! tooling gotchas.
+//! - Resolving `rustc` from `PATH` **at test time** finds NixOS's `stub-ld`
+//!   shim under `blaze test`, which cannot execute at all.
+//! - Trusting `RUSTC` **at build time** finds blaze's own shim under
+//!   `blaze build`, which refuses general rustc work with
+//!   `BLAZE_SCRIPT_RUSTC does not name blaze's rustc`.
+//!
+//! So a candidate is not trusted, it is **verified**: each is run with
+//! `--version` and the first that answers like a real rustc wins. See
+//! `AGENTS.md`'s known tooling gotchas.
 
 use std::path::PathBuf;
+use std::process::Command;
 
 fn main() {
   println!("cargo::rerun-if-env-changed=RUSTC");
   println!("cargo::rustc-env=REDOX_RUSTC={}", resolve_rustc().display());
 }
 
-/// Resolve rustc as absolutely as the build environment allows.
+/// The first candidate that behaves like a real rustc.
 fn resolve_rustc() -> PathBuf {
-  // Cargo sets `RUSTC` for build scripts, and it is already absolute.
-  if let Some(from_env) = std::env::var_os("RUSTC") {
-    let path = PathBuf::from(from_env);
-    if path.is_absolute() {
-      return path;
-    }
-  }
-  // Otherwise walk `PATH`, which a build script sees correctly even when the
-  // eventual test process does not.
-  if let Some(paths) = std::env::var_os("PATH") {
-    for dir in std::env::split_paths(&paths) {
-      let candidate = dir.join("rustc");
-      if candidate.is_file() {
-        return candidate;
-      }
+  // `PATH` first: in a build script it holds the toolchain, whereas `RUSTC`
+  // may be a wrapper that only serves its own build graph.
+  let from_path: Vec<PathBuf> = std::env::var_os("PATH")
+    .map(|paths| {
+      std::env::split_paths(&paths)
+        .map(|d| d.join("rustc"))
+        .collect()
+    })
+    .unwrap_or_default();
+
+  let from_env = std::env::var_os("RUSTC").map(PathBuf::from);
+
+  for candidate in from_path.into_iter().chain(from_env) {
+    if is_real_rustc(&candidate) {
+      return candidate;
     }
   }
   // Last resort: let the test's own executability probe report it.
   PathBuf::from("rustc")
+}
+
+/// Whether `candidate` answers `--version` like rustc itself.
+///
+/// A shim that proxies for a build graph fails here — either by exiting
+/// non-zero or by printing something that is not a rustc version banner.
+fn is_real_rustc(candidate: &PathBuf) -> bool {
+  if !candidate.is_file() {
+    return false;
+  }
+  Command::new(candidate)
+    .arg("--version")
+    .output()
+    .is_ok_and(|o| o.status.success() && String::from_utf8_lossy(&o.stdout).starts_with("rustc "))
 }
