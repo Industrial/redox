@@ -39,6 +39,7 @@ is still identifiable by its row here:
 |---|---|
 | 01 | `docs/05 - 01 - Vertical Slice.md` |
 | 02 | `docs/07 - 02 - Lexical Surface.md` |
+| 03 | `docs/08 - 03 - Parser Core.md` |
 
 **`docs/05 - 01 - Vertical Slice.md` is the authored exemplar** — every subsequent plan
 follows its shape:
@@ -81,7 +82,7 @@ as expensive to retrofit: spans and trivia.
 |---|---|---|---|---|---|
 | 01 | `vertical-slice-hello` | Workspace scaffold; off-side lexer with trivia, spans and adjacency; hand-written parser for one item form; Rust emitter; `redox build`; compile-and-run test. Parser bake-off against LALRPOP as a leaf (doc 02 §3.5, doc 03 §23 item 6) | `crates/emerald-cli/tests/hello_em.rs` (harness shape); workspace `Cargo.toml` `[workspace.package]` inheritance | — | `done` 2026-11-08 — 8 crates, 50 tests, full gate green. Bake-off ran for real and chose hand-written: LALRPOP **cannot** emit `Indent`/`Dedent` at all, so it needs a hand-written pre-lexer anyway, and it reports one error where recursive descent reports every bad item (`docs/COMPILER.md` §1). Also settled doc 01 §1.1 (rustc accepts `.xrs` directly, §3) and recorded doc 01 §3.1's four-vs-two-space discrepancy (§4) |
 | 02 | `lexer-complete` | Full off-side rule: continuation suppression inside delimiters and after trailing operators, INDENT/DEDENT, tab rejection, `#` longest-match table (doc 03 §4.1), interpolation lexing, `"""` with line-number preservation | `crates/emerald-parser/src/heredoc.rs` (consulted for two *requirements* — interpolation inside a multi-line body, and line-number preservation — not for code) | 01 | `done` 2026-11-08 — `docs/07 - 02 - Lexical Surface.md`. Lexer core rewritten from a line loop to a cursor, which both features demanded. 117 tests. Four defects found by running it, incl. that doc 03 §5.3 puts `|>` at the *start* of a continuation line, so continuation needed lookahead as well as trailing detection |
-| 03 | `parser-core` | Items, statements, expression grammar with a Pratt loop on Rust's precedence table, multi-error recovery at item boundaries | `crates/emerald-parser` plan 26's `errors: &mut Vec<_>` threading, as a *contrast* — a hand-written parser recovers natively | 01, 02 | `not-started` |
+| 03 | `parser-core` | Items, statements, expression grammar with a Pratt loop on Rust's precedence table, multi-error recovery at item and statement boundaries | `crates/emerald-parser` plan 26's `errors: &mut Vec<_>` threading, as a *contrast* — a hand-written parser recovers natively | 01, 02 | `planned` — `docs/08 - 03 - Parser Core.md` |
 | 04 | `emitter-determinism` | Deterministic, readable emission; golden-test harness with `--bless`; no rustfmt in the contract (doc 02 §5.3) | — | 03 | `not-started` |
 
 ## Milestone 2 — Diagnostics and source maps
