@@ -138,6 +138,8 @@ named.
 | 46 | One canonical form per construct, formatter-enforced | Emerald plan 90 | 16 |
 | 47 | Array repeat, tuple structs, labelled loops, `move` closures | Rust | 18 |
 | 48 | Document named `03 - Redox Surface Design.md` | — | — |
+| 49 | `f x, y` is canonical in **every** position; parentheses are grouping | MoonScript, Ruby | 5.1 |
+| 50 | `(-1)` versus `(- 1)` resolved by adjacency | — | 5.4 |
 
 ---
 
@@ -237,32 +239,133 @@ New operators and tokens beyond doc 01: `|>`, `??`, `??=`, `?.`, `.+` `.-` `.*` 
 `.%`, `.(`, `...`, `%w[`, `#{`, `#[`, `##`, `##!`, `&:`, `..=`, `'label`.
 
 Operator precedence follows **Rust's table unchanged** (doc 02 §5.2), with the new
-operators placed as follows, loosest to tightest: `??` below `||`; `|>` below `??` and
-above assignment; `catch` at `??`'s level; the broadcast operators at their scalar
-counterparts' levels; `?.` and `.(` at field-access level. `|>` binds looser than every
-arithmetic and comparison operator, so a pipeline stage never needs parenthesising, and
-it is deliberately placed so as not to collide with bitwise `|` (doc 01 §15's
-requirement).
+operators placed as follows, loosest to tightest: the argument-list comma below everything;
+`??` below `||`; `|>` below `??` and above assignment; `catch` at `??`'s level; the
+broadcast operators at their scalar counterparts' levels; `?.` and `.(` at field-access
+level. `|>` binds looser than every arithmetic and comparison operator, so a pipeline stage
+never needs parenthesising, and it is deliberately placed so as not to collide with bitwise
+`|` (doc 01 §15's requirement).
+
+The argument-list comma sitting below every operator is what lets each argument of a
+parenless call be a full expression (§5.1.1). `|>`, `??`, `catch` and the postfix
+conditionals are additionally **terminators**: they end a parenless argument list rather
+than being absorbed into its final argument.
 
 ---
 
 ## 5. Expressions and operators
 
-### 5.1 Calls
+### 5.1 Calls — parenless is canonical everywhere
 
-Doc 01 §6.1's implicit calls are retained, resolved by the **whitespace-adjacency
-lexing** doc 02 §4.6 recommends: an identifier immediately followed by `(` with no
-intervening space is an ordinary call; otherwise a parenless call. Emerald's plan 90
-established that this is the only one of the two candidate strategies that keeps a nested
-parenless call legal in argument position, which doc 01 §6.4's own worked example
-requires. Redox's lexer is hand-written and already column-aware for the off-side rule
-(doc 02 §5.1), so adjacency information is free.
+**Doc 01 §6.1 and §6.2 are strengthened.** Doc 01 offers implicit calls and parenthesized
+calls side by side, and §6.2 advises that parentheses "should be encouraged for ambiguous
+nested expressions" without saying which expressions are ambiguous. That left the canonical
+form undecided, which §16 cannot tolerate.
+
+**`f x, y` is the canonical form of a call in every position** — statement, argument,
+field value, match arm, pipeline stage. Parentheses are **grouping, not call syntax**, and
+appear only where §5.1.2 requires them.
+
+```
+print "hello"
+add 10, 20
+connect host: "localhost", port: 8080
+obj.method x, y
+println! "{}, {}", a, b
+spawn worker_count, () -> run!
+```
+```rust
+println!("hello");
+add(10, 20);
+connect("localhost", 8080);
+obj.method(x, y);
+println!("{}, {}", a, b);
+spawn(worker_count, || run());
+```
+
+Calls are resolved by the **whitespace-adjacency lexing** doc 02 §4.6 recommends: an
+identifier immediately followed by `(` with no intervening space is a parenthesized call;
+with a space, or with no `(` at all, it is a parenless call whose argument list begins
+there. Emerald's plan 90 established that adjacency is the only one of the two candidate
+strategies that keeps a nested parenless call legal in argument position, which doc 01
+§6.4's own worked example requires. Redox's lexer is hand-written and already column-aware
+for the off-side rule (doc 02 §5.1), so adjacency information is free.
+
+#### 5.1.1 Extent of a parenless argument list
+
+A parenless argument list extends rightward, commas separating arguments, until it reaches
+one of:
+
+- the end of the logical line (continuation rules per doc 02 §5.1 item 2);
+- a `)`, `]` or `}` closing an enclosing delimiter;
+- a **terminator operator**: `|>`, `??`, `catch`, or a postfix `if` / `unless` / `while` /
+  `until`.
+
+The comma therefore binds looser than every operator, so each argument may be a full
+expression; and the terminator set is what allows a parenless call to be piped or defaulted
+without parentheses:
+
+```
+send level, format! "{}: {}", code, msg
+total = compute_base x, y |> clamp 0, 100
+name = lookup id ?? "anonymous"
+count = parse_int s catch 0
+log "retrying" if attempts > 1
+```
+```rust
+send(level, format!("{}: {}", code, msg));
+let total = compute_base(x, y).clamp(0, 100);
+let name = match lookup(id) { Some(__rdx_v) => __rdx_v, None => "anonymous" };
+let count = match parse_int(s) { Ok(__rdx_v) => __rdx_v, Err(_) => 0 };
+if attempts > 1 { println!("retrying"); }
+```
+
+#### 5.1.2 Where parentheses are required
+
+Six cases, each because omitting them would change the program or lose a token. The
+formatter inserts them (§16); writing them elsewhere is accepted and normalized away.
+
+| # | Case | Example |
+|---|---|---|
+| 1 | A call nested in another parenless call's argument list | `add (multiply 2, 3), 4` |
+| 2 | A call used as an operand of any operator, including `is` | `fib(n - 1) + fib(n - 2)` |
+| 3 | A call carrying a postfix operator — `?`, `.await`, a field, a method | `parse(x)?`, `get(u).await` |
+| 4 | Enum and tuple-struct **constructors**, always | `Some(x)`, `Ok(v)`, `Meters(3.0)` |
+| 5 | Argument forwarding | `send(...)` |
+| 6 | Where the list would otherwise swallow a following token | `[0u8; square(8)]` |
+
+Case 1 is doc 01 §6.4's own rule, generalized. Without the parentheses,
+`add multiply 2, 3, 4` would mean `add(multiply(2, 3, 4))`, because the inner list would
+consume the remainder — the greedy resolution Ruby and CoffeeScript both adopt and both
+treat as a known hazard. Redox does not adopt it: an unparenthesized nested parenless call
+is **`RDX0055`**, a named diagnostic naming the two possible readings.
+
+Case 4 deserves its reason stated. A constructor is not sugar for a call: it must match the
+pattern that destructures it (§6.3), and a Redox constructor that reads differently from
+the Rust pattern beside it would reintroduce exactly the mismatch doc 02 §5.2 identifies as
+the worst available failure mode.
 
 ### 5.2 Zero-argument calls
 
-Doc 01 §6.3's `!` suffix is retained with doc 02 §10.3's disambiguation rule: `ident!`
+Doc 01 §6.3's `!` suffix is canonical, with doc 02 §10.3's disambiguation rule: `ident!`
 followed by `(`, `[`, `{`, a string literal, or an expression on the same line is a macro
 invocation; `ident!` at the end of an expression is a zero-argument call.
+
+```
+user.save!
+config.load!
+Vec::new!
+```
+```rust
+user.save();
+config.load();
+Vec::new();
+```
+
+`f()` is accepted and normalized to `f!`, except under §5.1.2 case 3, where a postfix
+operator requires the parenthesized form — `next()?`, not `next!?`. Chains of two or more
+zero-argument calls are canonically written with the pipeline operator (§16), so
+`xs.iter!.max!.unwrap!` is normalized to `xs |> iter |> max |> unwrap`.
 
 ### 5.3 The pipeline operator — receiver semantics
 
@@ -323,10 +426,33 @@ type-check in only one position:
 | `(> e)` `(>= e)` `(< e)` `(<= e)` | `\|__rdx_1\| __rdx_1.gt(&e)` / `.ge` / `.lt` / `.le` |
 | `(== e)` `(!= e)` | `\|__rdx_1\| __rdx_1.eq(&e)` / `.ne(&e)` |
 
-Disclosed limitation, stated rather than discovered later: the arithmetic forms rely on
-`std`'s reference implementations, which exist for primitives but not for arbitrary user
-types. A section over a user type whose `Add` is implemented only for the owned form will
-be reported by rustc, through the source map, at the section's own location.
+#### Subtraction sections and negative literals
+
+`-` is the one operator whose prefix and infix forms collide, so `(-1)` and `(- 1)` would
+otherwise be the same text. **Adjacency decides**, reusing §5.1's existing mechanism rather
+than adding one:
+
+| Written | Meaning |
+|---|---|
+| `(-1)` — no space | a negative literal |
+| `(- 1)` — space | a subtraction section |
+
+This matters more under §5.1 than it would otherwise, because sections are now routinely
+passed as bare arguments, so `map (-1)` and `map (- 1)` are both ordinary code. The
+formatter normalizes spacing to match the parsed meaning (§16), which makes the distinction
+visible rather than merely legal.
+
+Two disclosed limitations, stated rather than discovered later:
+
+- The arithmetic forms rely on `std`'s reference implementations, which exist for primitives
+  but not for arbitrary user types. A section over a user type whose `Add` is implemented
+  only for the owned form is reported by rustc, through the source map, at the section's own
+  location.
+- **Reversed sections are not expressible.** `(1 - _)`-style sections, where the hole is the
+  left operand, have no spelling: the section grammar places the hole implicitly on the left.
+  Write the closure out. Adopting Scala's explicit placeholder would make both directions
+  expressible and remove the adjacency rule above, at two characters per section; it is
+  recorded in §23 as the venue if the adjacency rule proves troublesome in practice.
 
 ### 5.5 The pattern-test operator `is`
 
@@ -471,7 +597,7 @@ Doc 01 §11's forms are retained and lower to ordinary Rust patterns. With §4.2
 correction, rest patterns use `...`:
 
 ```
-(a, b) = get_coordinates()      →  let (a, b) = get_coordinates();
+(a, b) = get_coordinates!       →  let (a, b) = get_coordinates();
 [first, ...rest] = values       →  let [first, rest @ ..] = values;
 Point{x, y} = p                 →  let Point { x, y } = p;
 Point{x: px, y: py} = p         →  let Point { x: px, y: py } = p;
@@ -522,7 +648,7 @@ value. Both forms are native Rust: block expressions, and labelled block express
 ```
 found = do 'search
   for c in candidates
-    if c.matches(q)
+    if c.matches q
       break 'search Some(c)
   None
 ```
@@ -549,7 +675,7 @@ unwinding.
 open = (path: &str): Result<(), Error> ->
   handle = acquire(path)?
   defer
-    release(handle)
+    release handle
   process(handle)?
   Ok(())
 ```
@@ -600,8 +726,8 @@ needs no type information at all.
 
 ```
 with response.headers
-  .insert("content-type", "application/json")
-  .insert("x-request-id", id)
+  .insert "content-type", "application/json"
+  .insert "x-request-id", id
 ```
 ```rust
 let __rdx_w0 = &mut response.headers;
@@ -710,7 +836,7 @@ arguments passed positionally. Labels must therefore appear in the parameter's d
 order.
 
 ```
-connect(host: "localhost", port: 8080)  →  connect("localhost", 8080)
+connect host: "localhost", port: 8080  →  connect("localhost", 8080)
 ```
 
 **Honest scope limit.** Detecting out-of-order labels requires the callee's signature.
@@ -731,7 +857,7 @@ largest = <T>(xs: &[T]): &T
   where T: Ord ->
     best
   where
-    best = xs.iter().max().unwrap()
+    best = xs |> iter |> max |> unwrap
 ```
 ```rust
 fn largest<T>(xs: &[T]) -> &T
@@ -760,7 +886,7 @@ delegation.
 
 ```
 log_and_send = (level: Level, msg: &str) ->
-  record(level, msg)
+  record level, msg
   send(...)
 ```
 ```rust
@@ -780,7 +906,7 @@ argument. Methods only — a field has no call form, and distinguishing them wou
 information.
 
 ```
-(&users) |> map(&:name)  →  users.iter().map(|__rdx_1| __rdx_1.name())
+(&users) |> map &:name  →  users.iter().map(|__rdx_1| __rdx_1.name())
 ```
 
 The receiver is passed as written, so auto-ref applies (§1.1) and one spelling works in
@@ -1128,7 +1254,7 @@ let name = match opt {
 
 ```
 mut cached = None
-cached ??= compute()
+cached ??= compute!
 ```
 ```rust
 if cached.is_none() { cached = Some(compute()); }
@@ -1145,7 +1271,7 @@ explicit in the generated code.
 `Result`-only, from Zig, mirroring `??`.
 
 ```
-n = parse(s) catch 0
+n = parse s catch 0
 ```
 ```rust
 let n = match parse(s) {
@@ -1154,9 +1280,12 @@ let n = match parse(s) {
 };
 ```
 
+`catch` is a terminator operator (§5.1.1), so the parenless argument list ends at it and
+no parentheses are needed around `parse s`.
+
 ```
-n = parse(s) catch (e) ->
-  log(e)
+n = parse s catch (e) ->
+  log e
   0
 ```
 ```rust
@@ -1186,7 +1315,7 @@ let n = (|| Some(user.as_ref()?.profile.as_ref()?.name.as_ref()))();
 Owning the result is written explicitly:
 
 ```
-n = user?.profile?.name.clone()
+n = user?.profile?.name.clone!
 ```
 
 This keeps doc 01 §25.1's no-silent-clone rule absolute. It is more verbose in the common
@@ -1369,7 +1498,7 @@ mod parser
   mod tests
     use super::*
     test "parses an empty input"
-      assert parse("").is_empty()
+      assert parse("").is_empty!
 ```
 
 ---
@@ -1469,7 +1598,7 @@ test "adds two numbers"
   assert add(1, 2) == 3
 
 test "rejects a negative input"
-  assert add(-1, 2).is_err()
+  assert add(-1, 2).is_err!
 ```
 ```rust
 #[cfg(test)]
@@ -1507,14 +1636,18 @@ for.
 
 | Accepted | Canonical | Why |
 |---|---|---|
-| `f(x)` in statement position | `f x` | doc 01 §6.1's implicit call is the house style |
-| `f x` in argument position | `f(x)` | nested parenless calls are legal but parenthesised when nested |
+| `f(x, y)` in any position | `f x, y` | §5.1 — parenless is the house style everywhere, not only in statement position |
+| `f()` | `f!` | §5.2 — except under §5.1.2 case 3, where a postfix operator requires `f()` |
+| `x.a!.b!.c!` | `x \|> a \|> b \|> c` | §5.2 — chains of two or more stages use the pipeline |
+| parentheses on a call not covered by §5.1.2 | removed | parentheses are grouping, not call syntax |
+| a nested parenless call | `RDX0055`, not reparsed | §5.1.2 case 1 — the two readings are not interchangeable |
+| `(- 1)` / `(-1)` spacing | normalized to the parsed meaning | §5.4 — makes the section-versus-literal distinction visible |
 | `Point{x: 1}` bound to a name | block form | doc 01 §17.2 |
 | block form inside an expression | `Point{x: 1}` | a block cannot nest in an argument list |
 | `1...10` | `1..=10` | §4.2 |
 | `await f()` | `f().await` | §14.3 |
 | `Vec[T]` | `Vec<T>` | §14.1 |
-| `x.map(f)` where `x` is a chain head | `x \|> map(f)` | §5.3, chains of two or more stages |
+| `x.map(f)` where `x` is a chain head | `x \|> map f` | §5.3, chains of two or more stages |
 | repeated receiver, three or more times | `with` block | §7.5 |
 | `== true` / `== false` | field or its negation | §6.3 |
 
@@ -1542,6 +1675,7 @@ Stable codes, per doc 02 §10.13. Those introduced by this surface:
 | `RDX0052` | spread entry not last in a struct initializer | 9.1 |
 | `RDX0053` | primary constructor combined with an explicit field block | 9.3 |
 | `RDX0054` | broadcast receiver without a borrow marker | 10.2 |
+| `RDX0055` | nested parenless call without disambiguating parentheses | 5.1.2 |
 | `RDX0063` | attribute in a position Rust will reject | 13.2 |
 | `RDX1001` | `unwrap` or `expect` used (warning) | 12.7 |
 
@@ -1621,14 +1755,14 @@ are the two components whose size scales with surface area and nothing else.
 | Crate | Estimate | Note |
 |---|---|---|
 | `redox-lexer` | ~1.2k | off-side rule, trivia, adjacency, §4's sigil table |
-| `redox-parser` | ~3.5k | recursive descent + Pratt, multi-error recovery |
+| `redox-parser` | ~3.8k | recursive descent + Pratt, multi-error recovery, §5.1's call rules |
 | `redox-emit` | ~3.5k | lowerings + source map |
 | `redox-diag` | ~0.8k | miette, §17's catalogue |
 | `redox-driver` | ~1.5k | query cache, remapping (doc 02 §7) |
 | `redox-fmt` | ~2.0k | trivia-preserving, §16's canonicalization |
 | `redox-lsp` | ~0.6k | |
 | `redox-cli` | ~0.5k | |
-| **Total** | **~13.6k** | plus tests and examples |
+| **Total** | **~13.9k** | plus tests and examples |
 
 Call it **14–18k lines** — still an order of magnitude below Emerald's 107k, and for the
 reason doc 02 §1.1 identifies: Emerald spent 112 of 203 plans on a standard library, and
@@ -1638,12 +1772,21 @@ reason doc 02 §1.1 identifies: Emerald spent 112 of 203 plans on a standard lib
 
 1. **The formatter roughly doubles.** §16's one-canonical-form-per-construct policy means
    `redox-fmt` rewrites constructs, not just whitespace, while also preserving trivia.
-2. **Multi-line expansions strain the source map.** `use`, `defer`, `with`, multi-clause
+   §5.1's universal parenless form is the largest single contributor: the formatter must
+   decide, per call site, whether any of §5.1.2's six cases applies.
+2. **The call grammar is the parser's most intricate region.** §5.1 needs eight
+   interacting rules — adjacency lexing, comma below every operator, the terminator set,
+   the six required-parens cases, closure-body extent in argument position, the
+   newline-versus-same-line distinction against §9.1's struct-init block, unary-minus
+   adjacency, and `RDX0055` detection. This is the one place where the surface's
+   expressiveness is bought with parser complexity rather than with a mechanical rewrite,
+   and it is why the estimate above moves the parser rather than the emitter.
+3. **Multi-line expansions strain the source map.** `use`, `defer`, `with`, multi-clause
    merging and collection-`if`/`for` all break line-preserving emission, which is exactly
    where doc 02 §6.5's remapping earns its place.
-3. **`defer` emits a helper item** — the single exception to doc 01 §36's no-scaffolding
+4. **`defer` emits a helper item** — the single exception to doc 01 §36's no-scaffolding
    rule, bounded in §7.3 and flagged in §23.
-4. **The decline list does real work.** Regex literals, property tests, benchmarks,
+5. **The decline list does real work.** Regex literals, property tests, benchmarks,
    concurrent await, custom operators, transpile-time evaluation, cascades, scope
    functions, `RecordWildCards`, symbol arrays, bracket type arguments and default
    arguments are all declined, most of them because admitting them would have meant
@@ -1676,7 +1819,9 @@ mean something different from the Rust it resembles.
 | §4.3 | Module-scope bindings require a type and lower to `const`/`static` | 13.4 |
 | §5.4 | "Receiver context" defined; `move` and explicit return types added | 8.6 |
 | §5.5 | Default arguments declined | 8.7 |
-| §6.3 | `!` disambiguation rule stated | 5.2 |
+| §6.1, §6.2 | Parenless calls are canonical in **every** position; parentheses become grouping, and §6.2's "encouraged for ambiguous nested expressions" is replaced by §5.1.2's six enumerated cases | 5.1 |
+| §6.3 | `!` disambiguation rule stated; `f!` canonical for zero-argument calls | 5.2 |
+| §6.4 | Its nested-call rule generalized; the unparenthesized form is `RDX0055` | 5.1.2 |
 | §9 | Comprehension lowering unified; `into` added | 10.1, 10.3 |
 | §10 | "unless a type context specifies another map" deleted | 10.3 |
 | §13.1 | `?.` borrows; no implicit clone | 12.3 |
@@ -1704,6 +1849,7 @@ mean something different from the Rust it resembles.
 | §11 | Roadmap unchanged in shape; surface staged in tiers A–D | 20 |
 | §12.4 | Decline list extended | 22 |
 | §13 | Questions 1–12 answered; residue in §23 | throughout |
+| §4.6 | Adjacency lexing confirmed, and now load-bearing for three separate decisions — calls, subtraction sections, unary minus | 5.1, 5.4 |
 
 Doc 02 §13's open questions resolve as: (1) adjacency lexing — §5.1; (2) longest-match
 lexing, `#` retained — §4.1; (3) `::` everywhere — §13.1; (4)–(5) unchanged, `build.rs`
@@ -1757,10 +1903,24 @@ a general monadic comprehension (revisit only if a type-free discrimination is f
    escape-hatch-only (§18).
 5. **Re-verify §19's stabilization table** against current Rust before Phase 4.
 6. **Run doc 02 §3.5's parser bake-off.** The hand-written recommendation stands on
-   argument, not on measurement, and this surface — multi-clause merging, adjacency
-   lexing, two `where` roles, trivia preservation — strengthens the argument while raising
-   the cost of being wrong.
-7. **Write the two grammar inventories** (doc 02 §4.1): MoonScript graded
+   argument, not on measurement, and this surface — §5.1's call grammar, multi-clause
+   merging, adjacency lexing, two `where` roles, trivia preservation — strengthens the
+   argument while raising the cost of being wrong. §5.1 in particular is not expressible in
+   an LALR(1) generator at all, which is the point Emerald's plan 90 made for a far smaller
+   version of the same feature.
+7. **Validate §5.1 against real code before Phase 4.** The universal parenless form is
+   the one decision in this surface taken against the weight of comparative precedent:
+   Elixir has the feature and its formatter adds the parentheses back; Gleam declined it;
+   Rubocop's default requires them. The counter-argument is specific and sound — `f x, y`
+   cannot be misread as Rust, so doc 02 §5.2's worst failure mode does not apply — but it
+   is an argument, not evidence. Write a few hundred lines of realistic Redox in the
+   canonical style before the grammar is frozen, and count how often §5.1.2 forces
+   parentheses back in. If the answer is "most nested calls", the statement-position-only
+   policy this document previously carried is the fallback.
+8. **Consider Scala-style placeholder sections.** `(_ - 1)` would remove §5.4's adjacency
+   rule and make reversed sections expressible, at two characters per section. Recorded as
+   the venue if the adjacency rule proves troublesome.
+9. **Write the two grammar inventories** (doc 02 §4.1): MoonScript graded
    `KEEP`/`MODIFY`/`REMOVE`, and Rust graded `PASSTHROUGH`/`SUGARED`/`UNREACHABLE`. §18 is
    a summary of the second, not a substitute for it.
 
@@ -1768,8 +1928,8 @@ a general monadic comprehension (revisit only if a type-free discrimination is f
 
 ## 24. Summary
 
-Forty-eight decisions, from a survey of nineteen languages, admitted against a single test:
-the lowering must be determined by the source text alone.
+Fifty decisions, from a survey of nineteen languages, admitted against a single test: the
+lowering must be determined by the source text alone.
 
 The expansion was possible because doc 02 §6.2 understated what that test permits. rustc
 resolves method calls, so any lowering that emits one is type-free — which is what admits
@@ -1777,7 +1937,7 @@ resolves method calls, so any lowering that emits one is type-free — which is 
 sections whose comparison forms use `.gt(&e)` precisely so that one spelling works whether
 a closure parameter arrives by value or by reference.
 
-Three decisions matter more than the rest:
+Four decisions matter more than the rest:
 
 1. **Ranges adopt Rust's spelling** (§4.2). Doc 01 §21 inverted `..`, which is the single
    place a Redox expression was most likely to read as Rust and mean something else. The
@@ -1789,6 +1949,15 @@ Three decisions matter more than the rest:
    that disagrees with the examples costs: silent reversion by the same gate that checks
    them. Deciding canonical spellings before writing examples is the cheap version of that
    lesson.
+4. **`f x, y` is canonical everywhere** (§5.1). This is the one decision taken against the
+   weight of comparative precedent — Elixir has the feature and formats it away, Gleam
+   declined it, Rubocop's default requires parentheses — on the specific ground that a
+   parenless call cannot be misread as Rust, so the failure mode driving decision 1 does
+   not apply here. Parentheses become grouping, required only in §5.1.2's six enumerated
+   cases, of which the first is doc 01 §6.4's own existing rule. It is also the most
+   expensive decision in the document: eight interacting parser rules, and the reason the
+   parser estimate moved rather than the emitter's. §23 item 7 is the check that would
+   falsify it.
 
 The constraint doc 01 §30 protects — no type inference, no borrow checker, no intermediate
 language — is intact. What grew is the parser and the emitter, from roughly 8–12k projected
