@@ -5,7 +5,7 @@ Tracks which plans, taken together, implement `docs/01 - Redox.md` as corrected 
 extended by `docs/02 - Redox Update Blueprint.md` and `docs/03 - Redox Surface Design.md`.
 
 **This document is an index only.** It does not author plan content — each row becomes its
-own plan document, `docs/05 - NN - <Name>.md`, authored when its turn comes. Update the
+own plan document, `docs/<doc> - <plan> - <Name>.md`, authored when its turn comes. Update the
 **Status** column here as each plan is authored, executed and shipped; do not let plan
 detail leak back into this file.
 
@@ -24,15 +24,24 @@ the three habits that make it worth keeping (doc 02 §3.1):
 | Status | Meaning |
 |---|---|
 | `not-started` | Row exists, no plan authored yet |
-| `planned` | Plan document authored under `docs/05 - NN - …`, not yet executed |
+| `planned` | Plan document authored under `docs/<doc> - <plan> - …`, not yet executed |
 | `in-progress` | Executing |
 | `done` | Shipped, gate green, reviewed |
 | `superseded` | Replaced; row kept with a pointer to its successor |
 
 ## Plan records
 
-`docs/05 - NN - <Name>.md`, one per row. **`docs/05 - 01 - Vertical Slice.md` is the
-authored exemplar** — every subsequent plan follows its shape:
+`docs/<doc> - <plan> - <Name>.md`, one per row. A plan takes the next free document number
+and carries its plan number too, so the docs tree reads in authoring order while each plan
+is still identifiable by its row here:
+
+| Plan | Document |
+|---|---|
+| 01 | `docs/05 - 01 - Vertical Slice.md` |
+| 02 | `docs/07 - 02 - Lexical Surface.md` |
+
+**`docs/05 - 01 - Vertical Slice.md` is the authored exemplar** — every subsequent plan
+follows its shape:
 
 | § | Section | Purpose |
 |---|---|---|
@@ -71,7 +80,7 @@ as expensive to retrofit: spans and trivia.
 | # | Plan | Scope | From Emerald | Depends on | Status |
 |---|---|---|---|---|---|
 | 01 | `vertical-slice-hello` | Workspace scaffold; off-side lexer with trivia, spans and adjacency; hand-written parser for one item form; Rust emitter; `redox build`; compile-and-run test. Parser bake-off against LALRPOP as a leaf (doc 02 §3.5, doc 03 §23 item 6) | `crates/emerald-cli/tests/hello_em.rs` (harness shape); workspace `Cargo.toml` `[workspace.package]` inheritance | — | `done` 2026-11-08 — 8 crates, 50 tests, full gate green. Bake-off ran for real and chose hand-written: LALRPOP **cannot** emit `Indent`/`Dedent` at all, so it needs a hand-written pre-lexer anyway, and it reports one error where recursive descent reports every bad item (`docs/COMPILER.md` §1). Also settled doc 01 §1.1 (rustc accepts `.xrs` directly, §3) and recorded doc 01 §3.1's four-vs-two-space discrepancy (§4) |
-| 02 | `lexer-complete` | Full off-side rule: continuation suppression inside delimiters and after trailing operators, INDENT/DEDENT, tab rejection, `#` longest-match table (doc 03 §4.1), interpolation lexing, `"""` with line-number preservation | `crates/emerald-parser/src/heredoc.rs` (the splice-back-as-ordinary-literal technique and its line-preservation property) | 01 | `not-started` |
+| 02 | `lexer-complete` | Full off-side rule: continuation suppression inside delimiters and after trailing operators, INDENT/DEDENT, tab rejection, `#` longest-match table (doc 03 §4.1), interpolation lexing, `"""` with line-number preservation | `crates/emerald-parser/src/heredoc.rs` (consulted for two *requirements* — interpolation inside a multi-line body, and line-number preservation — not for code) | 01 | `done` 2026-11-08 — `docs/07 - 02 - Lexical Surface.md`. Lexer core rewritten from a line loop to a cursor, which both features demanded. 117 tests. Four defects found by running it, incl. that doc 03 §5.3 puts `|>` at the *start* of a continuation line, so continuation needed lookahead as well as trailing detection |
 | 03 | `parser-core` | Items, statements, expression grammar with a Pratt loop on Rust's precedence table, multi-error recovery at item boundaries | `crates/emerald-parser` plan 26's `errors: &mut Vec<_>` threading, as a *contrast* — a hand-written parser recovers natively | 01, 02 | `not-started` |
 | 04 | `emitter-determinism` | Deterministic, readable emission; golden-test harness with `--bless`; no rustfmt in the contract (doc 02 §5.3) | — | 03 | `not-started` |
 

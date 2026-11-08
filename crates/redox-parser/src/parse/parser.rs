@@ -111,10 +111,14 @@ impl<'a> Parser<'a> {
     })
   }
 
-  /// `Expr := Ident StrLit | StrLit | Ident`
+  /// `Expr := Ident Str | Str | Ident`
+  ///
+  /// Only a string whose `raw` text is usable verbatim is accepted; an
+  /// interpolated string is plan 23, and until then its `parts` are ignored
+  /// rather than silently flattened.
   fn expr(&mut self) -> Result<Expr, ParseError> {
     match &self.peek().kind {
-      TokenKind::StrLit(raw) => {
+      TokenKind::Str { raw, .. } => {
         let value = raw.clone();
         let span = self.peek_span();
         self.advance();
@@ -124,7 +128,7 @@ impl<'a> Parser<'a> {
         let callee = self.ident("expected a name")?;
         // A string literal immediately after a name is a parenless call with
         // one argument. Nothing else can follow a name in this slice.
-        if let TokenKind::StrLit(raw) = &self.peek().kind {
+        if let TokenKind::Str { raw, .. } = &self.peek().kind {
           let value = raw.clone();
           let arg_span = self.peek_span();
           self.advance();

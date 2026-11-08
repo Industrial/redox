@@ -1,4 +1,6 @@
+pub(crate) mod keyword;
 pub(crate) mod kind;
+pub(crate) mod str_part;
 
 use crate::{Span, TokenKind, Trivia};
 

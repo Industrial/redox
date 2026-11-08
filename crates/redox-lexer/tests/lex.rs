@@ -4,7 +4,23 @@
 //! `docs/06 - Redox Code Architecture.md` §7: these exercise the crate's
 //! contract, so they must not be able to reach its internals.
 
-use redox_lexer::{TokenKind, Trivia, TriviaKind, lex};
+use redox_lexer::{StrPart, TokenKind, Trivia, TriviaKind, lex};
+
+/// Plan 02 amended criterion 2: the string token changed from raw text to a
+/// decoded structure, so this helper rebuilds the expected token rather than
+/// every assertion naming `parts` and `raw` separately. The behavioural claims
+/// plan 01 made are unchanged.
+fn str_token(raw: &str) -> TokenKind {
+  let text = raw.trim_matches('"');
+  TokenKind::Str {
+    parts: if text.is_empty() {
+      Vec::new()
+    } else {
+      vec![StrPart::Text(text.to_string())]
+    },
+    raw: raw.to_string(),
+  }
+}
 
 fn kinds(src: &str) -> Vec<TokenKind> {
   lex(src)
@@ -32,7 +48,7 @@ fn lexes_the_hello_slice() {
       TokenKind::Newline,
       TokenKind::Indent,
       TokenKind::Ident("print".into()),
-      TokenKind::StrLit("\"hello\"".into()),
+      str_token("\"hello\""),
       TokenKind::Newline,
       TokenKind::Dedent,
       TokenKind::Eof,
@@ -49,7 +65,7 @@ fn tokens_carry_byte_spans() {
   assert_eq!(&src[toks[0].span.0..toks[0].span.1], "main");
   let lit = toks
     .iter()
-    .find(|t| matches!(t.kind, TokenKind::StrLit(_)))
+    .find(|t| matches!(t.kind, TokenKind::Str { .. }))
     .expect("a literal");
   assert_eq!(&src[lit.span.0..lit.span.1], "\"hello\"");
 }

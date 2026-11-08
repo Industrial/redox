@@ -17,13 +17,8 @@ pub struct Trivia {
 }
 
 impl Trivia {
-  /// A `#` comment. `text` excludes the `#` and one optional following space.
-  pub(crate) fn comment(text: String, span: Span) -> Self {
-    Self {
-      kind: TriviaKind::LineComment,
-      text,
-      span,
-    }
+  pub(crate) fn comment(kind: TriviaKind, text: String, span: Span) -> Self {
+    Self { kind, text, span }
   }
 
   /// A run of blank lines, which carries no text of its own.
