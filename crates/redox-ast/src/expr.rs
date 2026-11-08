@@ -1,3 +1,5 @@
+pub(crate) mod ident;
+
 use crate::Ident;
 use redox_lexer::Span;
 

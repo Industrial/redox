@@ -1,3 +1,5 @@
+pub(crate) mod kind;
+
 use crate::{Span, TriviaKind};
 
 /// Non-semantic source text that must survive to the emitter.

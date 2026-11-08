@@ -14,25 +14,19 @@
 //!    ([`Token::ws_before`]).
 //!
 //! Layout follows `docs/06 - Redox Code Architecture.md`: one construct per
-//! file, modules private, public items re-exported here so callers see a flat
-//! namespace.
+//! file, grouped into a module tree, modules private, public items
+//! re-exported here so callers see a flat namespace.
 
-mod is_ident_continue;
-mod is_ident_start;
 mod lex;
-mod lex_error;
 mod lexer;
-mod span;
+mod source;
 mod token;
-mod token_kind;
-mod trim_comment;
 mod trivia;
-mod trivia_kind;
 
+pub use lex::error::LexError;
 pub use lex::lex;
-pub use lex_error::LexError;
-pub use span::Span;
+pub use source::span::Span;
 pub use token::Token;
-pub use token_kind::TokenKind;
+pub use token::kind::TokenKind;
 pub use trivia::Trivia;
-pub use trivia_kind::TriviaKind;
+pub use trivia::kind::TriviaKind;

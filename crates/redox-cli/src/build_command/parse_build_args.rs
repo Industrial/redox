@@ -1,5 +1,5 @@
-use crate::default_output::default_output;
-use crate::usage::USAGE;
+use crate::build_command::default_output::default_output;
+use crate::run::usage::USAGE;
 use std::path::PathBuf;
 
 /// Resolve `build`'s arguments into an input and an output path.

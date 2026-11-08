@@ -1,4 +1,6 @@
-use crate::line_col::line_col;
+pub(crate) mod line_col;
+
+use crate::build_command::render::line_col::line_col;
 use redox_parser::ParseFailure;
 use std::fmt::Write as _;
 use std::path::Path;

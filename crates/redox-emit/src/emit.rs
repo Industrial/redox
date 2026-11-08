@@ -1,5 +1,13 @@
-use crate::emit_fn::emit_fn;
-use crate::emit_trivia::emit_trivia;
+pub(crate) mod emit_fn;
+pub(crate) mod expr;
+pub(crate) mod inline_comment;
+pub(crate) mod pad;
+pub(crate) mod rust_indent;
+pub(crate) mod stmt;
+pub(crate) mod trivia;
+
+use crate::emit::emit_fn::emit_fn;
+use crate::emit::trivia::emit_trivia;
 use redox_ast::{Item, Program};
 
 /// Emit `program` as Rust source text.

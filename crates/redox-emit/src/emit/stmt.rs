@@ -1,7 +1,7 @@
-use crate::emit_expr::emit_expr;
-use crate::emit_inline_comment::emit_inline_comment;
-use crate::emit_trivia::emit_trivia;
-use crate::pad::pad;
+use crate::emit::expr::emit_expr;
+use crate::emit::inline_comment::emit_inline_comment;
+use crate::emit::pad::pad;
+use crate::emit::trivia::emit_trivia;
 use redox_ast::{Stmt, StmtKind};
 
 /// Emit one statement at `indent`.

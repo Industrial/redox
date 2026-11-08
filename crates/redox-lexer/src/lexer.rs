@@ -1,6 +1,10 @@
-use crate::is_ident_continue::is_ident_continue;
-use crate::is_ident_start::is_ident_start;
-use crate::trim_comment::trim_comment;
+pub(crate) mod is_ident_continue;
+pub(crate) mod is_ident_start;
+pub(crate) mod trim_comment;
+
+use crate::lexer::is_ident_continue::is_ident_continue;
+use crate::lexer::is_ident_start::is_ident_start;
+use crate::lexer::trim_comment::trim_comment;
 use crate::{LexError, Span, Token, TokenKind, Trivia, TriviaKind};
 
 /// The off-side-rule scanner.

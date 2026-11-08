@@ -26,15 +26,12 @@
 //! rather than only the first. That is free in recursive descent and was a
 //! whole plan in Emerald (its plan 26).
 //!
-//! Layout follows `docs/06 - Redox Code Architecture.md`.
+//! Layout follows `docs/06 - Redox Code Architecture.md`: everything parsing
+//! owns sits under `parse/`, headed by the entry point.
 
 mod parse;
-mod parse_error;
-mod parse_failure;
-mod parse_source;
-mod parser;
 
+pub use parse::error::ParseError;
+pub use parse::failure::ParseFailure;
 pub use parse::parse;
-pub use parse_error::ParseError;
-pub use parse_failure::ParseFailure;
-pub use parse_source::parse_source;
+pub use parse::source::parse_source;

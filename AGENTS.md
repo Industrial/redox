@@ -73,11 +73,19 @@ Within a crate, `src/` is flat and every file is one construct — see the first
 ### Conventions that are load-bearing, not stylistic
 
 - **One construct per file.** Every `struct`, `enum`, `union`, `trait`, `type`, `fn`,
-  `const` and `static` lives in its own file, named after it in `snake_case`. `impl` blocks
-  travel with their type; `lib.rs` and `main.rs` hold only `mod` declarations, `pub use`
-  re-exports and `fn main`. Never create `types.rs`, `helpers.rs`, `utils.rs` or any other
-  bucket. **Machine-checked** by `crates/redox-cli/tests/one_construct_per_file.rs`, which
-  also verifies the file name matches the construct. Full rule and rationale:
+  `const` and `static` lives in its own file. `impl` blocks travel with their type; `lib.rs`
+  and `main.rs` hold only `mod` declarations, `pub use` re-exports and `fn main`.
+- **`src/` is a module tree, not a flat directory.** Every file directly under `src/` must
+  be the module root, a **module head** (a construct with a sibling `<name>/` holding its
+  children), or a **grouping module** (child declarations and a doc comment, no construct).
+  Everything else lives at least one level down, at most three. Directories are named for
+  domain concepts — never `types/`, `helpers/`, `utils/`, `enums/`, `traits/` or any other
+  bucket, at either level.
+- **Naming is path-aware.** A construct's `snake_case` name equals the file stem, or the
+  parent directory joined to the stem by `_`. So `token/kind.rs` holds `TokenKind` —
+  `token/token_kind.rs` stutters and is rejected.
+- All three are **machine-checked** by `crates/redox-cli/tests/one_construct_per_file.rs`
+  and `crates/redox-cli/tests/directory_structure.rs`. Full rules and rationale:
   `docs/06 - Redox Code Architecture.md`.
 - **Public-API tests are integration tests** under `crates/<crate>/tests/`, not
   `#[cfg(test)]` modules. An inline test can reach private internals and eventually will.

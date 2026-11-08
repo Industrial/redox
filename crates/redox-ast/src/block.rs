@@ -1,3 +1,5 @@
+pub(crate) mod stmt;
+
 use crate::Stmt;
 use redox_lexer::Span;
 

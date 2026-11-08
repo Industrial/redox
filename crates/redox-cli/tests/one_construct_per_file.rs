@@ -2,7 +2,7 @@
 //!
 //! A rule that is only written down drifts. A rule with a test attached either
 //! holds or the build is red, which is why this exists rather than a review
-//! checklist item (doc 06 §9.1).
+//! checklist item (doc 06 §10.1).
 //!
 //! The failure this prevents is not hypothetical: Emerald has 34,429 lines in
 //! one `lib.rs` and 22,589 in another. Nothing about that was decided — it is
@@ -105,6 +105,20 @@ fn every_file_declares_exactly_one_construct() {
 
     let text = std::fs::read_to_string(path).expect("should read a source file");
     let found = constructs(&text);
+
+    // A grouping module (doc 06 §1.2) declares children and no construct. It
+    // is legal only with a sibling directory; without one it would be dead.
+    let groups_children = text
+      .lines()
+      .any(|l| l.starts_with("mod ") || l.starts_with("pub mod ") || l.contains(") mod "));
+    let has_children = path
+      .parent()
+      .map(|p| p.join(path.file_stem().expect("a file stem")))
+      .is_some_and(|d| d.is_dir());
+    if found.is_empty() && groups_children && has_children {
+      continue;
+    }
+
     if found.len() != 1 {
       offenders.push(format!(
         "{} declares {} constructs ({})",
@@ -126,8 +140,10 @@ fn every_file_declares_exactly_one_construct() {
   );
 }
 
-/// The file name must be the construct's name in `snake_case` (doc 06 §1.4),
-/// so a construct can always be found without searching.
+/// The file's path must name its construct (doc 06 §2.3): the construct's
+/// `snake_case` name equals either the file stem, or the parent directory
+/// joined to the stem by `_`. The second form is what makes a directory pay
+/// for itself — `token/kind.rs` holds `TokenKind` without stuttering.
 #[test]
 fn every_file_is_named_after_its_construct() {
   let mut files = Vec::new();
@@ -151,18 +167,30 @@ fn every_file_is_named_after_its_construct() {
       continue; // reported by the test above
     };
     let stem = name.trim_end_matches(".rs");
-    if to_snake_case(&construct) != stem {
+    let parent = path
+      .parent()
+      .and_then(Path::file_name)
+      .map(|n| n.to_string_lossy().to_string())
+      .unwrap_or_default();
+
+    let want = to_snake_case(&construct);
+    // Either spelling is legal (doc 06 §2.3).
+    let bare_matches = want == stem;
+    let prefixed_matches = want == format!("{parent}_{stem}");
+    if !bare_matches && !prefixed_matches {
       offenders.push(format!(
-        "{} declares `{construct}`, so it should be named `{}.rs`",
+        "{} declares `{construct}`, so its path should end `{want}.rs` or \
+         `{}/{}.rs`",
         path.display(),
-        to_snake_case(&construct)
+        want.strip_suffix(&format!("_{stem}")).unwrap_or(&parent),
+        stem
       ));
     }
   }
 
   assert!(
     offenders.is_empty(),
-    "doc 06 §1.4 requires the file name to be the construct's name:\n  {}",
+    "doc 06 §2.3 requires the file's path to name its construct:\n  {}",
     offenders.join("\n  ")
   );
 }

@@ -12,27 +12,24 @@
 //! Deliberately not generic over a span type and deliberately not
 //! arena-allocated (doc 01 §30's minimality constraint).
 //!
-//! Layout follows `docs/06 - Redox Code Architecture.md`: one construct per
-//! file, and per §2 rule 1 this crate holds no decisions — only types.
+//! Layout follows `docs/06 - Redox Code Architecture.md`. The module tree is
+//! the grammar's containment hierarchy: a `Program` holds `Item`s which hold
+//! a `FnDecl`; a `Block` holds `Stmt`s which hold a `StmtKind`; an `Expr`
+//! holds an `Ident`. Per §3 rule 1 this crate holds no decisions, only types.
 
 mod block;
 mod expr;
-mod fn_decl;
-mod ident;
-mod item;
 mod program;
-mod stmt;
-mod stmt_kind;
 
 pub use block::Block;
+pub use block::stmt::Stmt;
+pub use block::stmt::kind::StmtKind;
 pub use expr::Expr;
-pub use fn_decl::FnDecl;
-pub use ident::Ident;
-pub use item::Item;
+pub use expr::ident::Ident;
 pub use program::Program;
-pub use stmt::Stmt;
-pub use stmt_kind::StmtKind;
+pub use program::item::Item;
+pub use program::item::fn_decl::FnDecl;
 
 // Re-exported so downstream crates naming a span or a trivium need not add a
-// second dependency edge onto `redox-lexer` (doc 06 §4).
+// second dependency edge onto `redox-lexer` (doc 06 §6).
 pub use redox_lexer::{Span, Trivia, TriviaKind};

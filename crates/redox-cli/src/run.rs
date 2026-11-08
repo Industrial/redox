@@ -1,5 +1,7 @@
+pub(crate) mod usage;
+
 use crate::build_command::build_command;
-use crate::usage::USAGE;
+use crate::run::usage::USAGE;
 
 /// Dispatch one invocation. Returns the message to print on failure.
 pub(crate) fn run(args: &[String]) -> Result<(), String> {

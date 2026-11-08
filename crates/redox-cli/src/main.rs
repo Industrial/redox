@@ -4,15 +4,10 @@
 //!
 //! Layout follows `docs/06 - Redox Code Architecture.md`: this module root
 //! holds only module declarations and `fn main`, which has no other legal
-//! home.
+//! home. Each subcommand heads its own module.
 
 mod build_command;
-mod default_output;
-mod line_col;
-mod parse_build_args;
-mod render;
 mod run;
-mod usage;
 
 use std::process::ExitCode;
 

@@ -1,4 +1,4 @@
-use crate::pad::pad;
+use crate::emit::pad::pad;
 use redox_ast::{Trivia, TriviaKind};
 use std::fmt::Write as _;
 

@@ -1,3 +1,5 @@
+pub(crate) mod kind;
+
 use crate::{Span, TokenKind, Trivia};
 
 /// A token, its span, the trivia preceding it, and whether whitespace

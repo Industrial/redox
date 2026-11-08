@@ -1,7 +1,7 @@
 //! Behaviour of [`redox_emit::emit`], through the public API only.
 //!
 //! An integration test rather than a `#[cfg(test)]` module, per
-//! `docs/06 - Redox Code Architecture.md` §6.
+//! `docs/06 - Redox Code Architecture.md` §7.
 
 use redox_emit::emit;
 use redox_parser::parse_source;

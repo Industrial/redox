@@ -17,15 +17,9 @@
 //!   §6.5 item 1's line-preserving discipline, which is what keeps plan 06's
 //!   span map cheap.
 //!
-//! Layout follows `docs/06 - Redox Code Architecture.md`.
+//! Layout follows `docs/06 - Redox Code Architecture.md`: every per-node
+//! emitter sits under `emit/`, headed by the entry point.
 
 mod emit;
-mod emit_expr;
-mod emit_fn;
-mod emit_inline_comment;
-mod emit_stmt;
-mod emit_trivia;
-mod pad;
-mod rust_indent;
 
 pub use emit::emit;

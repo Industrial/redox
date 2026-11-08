@@ -1,5 +1,9 @@
-use crate::parse_build_args::parse_build_args;
-use crate::render::render;
+pub(crate) mod default_output;
+pub(crate) mod parse_build_args;
+pub(crate) mod render;
+
+use crate::build_command::parse_build_args::parse_build_args;
+use crate::build_command::render::render;
 
 /// `redox build <file.sdx> [-o <output.xrs>]`.
 ///

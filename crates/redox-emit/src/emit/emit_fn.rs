@@ -1,7 +1,7 @@
-use crate::emit_inline_comment::emit_inline_comment;
-use crate::emit_stmt::emit_stmt;
-use crate::emit_trivia::emit_trivia;
-use crate::rust_indent::RUST_INDENT;
+use crate::emit::inline_comment::emit_inline_comment;
+use crate::emit::rust_indent::RUST_INDENT;
+use crate::emit::stmt::emit_stmt;
+use crate::emit::trivia::emit_trivia;
 use redox_ast::FnDecl;
 
 /// Emit a function declaration.

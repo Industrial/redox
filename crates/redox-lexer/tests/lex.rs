@@ -1,7 +1,7 @@
 //! Behaviour of [`redox_lexer::lex`], through the public API only.
 //!
 //! An integration test rather than a `#[cfg(test)]` module, per
-//! `docs/06 - Redox Code Architecture.md` §6: these exercise the crate's
+//! `docs/06 - Redox Code Architecture.md` §7: these exercise the crate's
 //! contract, so they must not be able to reach its internals.
 
 use redox_lexer::{TokenKind, Trivia, TriviaKind, lex};
