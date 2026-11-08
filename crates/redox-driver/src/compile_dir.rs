@@ -1,10 +1,11 @@
 pub(crate) mod compile_file;
 pub(crate) mod compiled;
 pub(crate) mod sdx_in;
+pub(crate) mod with;
 
-use crate::compile_dir::compile_file::compile_file;
+use crate::cache::reporter::silent::Silent;
 use crate::compile_dir::compiled::Compiled;
-use crate::compile_dir::sdx_in::sdx_in;
+use crate::compile_dir::with::compile_dir_with;
 use redox_diag::Diagnostic;
 use std::path::Path;
 
@@ -44,23 +45,10 @@ use std::path::Path;
 /// Errors are returned as [`Diagnostic`]s rather than rendered text: the caller
 /// chooses the renderer, and a build script wants the plain one because
 /// Cargo's output is not a terminal.
+///
+/// Plan 10 added the cache **behind this signature**, as plan 09 §1.1 promised
+/// it would: a caller sees no difference except speed. Use
+/// [`compile_dir_with`] to observe the hits and misses.
 pub fn compile_dir(src: &Path, out: &Path) -> Result<Compiled, Vec<Diagnostic>> {
-  let mut compiled = Compiled::default();
-  let mut diagnostics = Vec::new();
-
-  for source in sdx_in(src) {
-    match compile_file(&source, out) {
-      Ok(written) => {
-        compiled.inputs.push(source);
-        compiled.outputs.push(written);
-      }
-      Err(mut errors) => diagnostics.append(&mut errors),
-    }
-  }
-
-  if diagnostics.is_empty() {
-    Ok(compiled)
-  } else {
-    Err(diagnostics)
-  }
+  compile_dir_with(src, out, &Silent)
 }

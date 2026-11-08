@@ -5,6 +5,11 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+# Plan 10 §1.2: a persisted cache key needs a strong, stable hash.
+# `std`'s DefaultHasher is neither collision-resistant nor stable across
+# releases, which for a key written to disk means last week's cache
+# silently mismatches this week's.
+blake3 = "1"
 redox-diag = { path = "../redox-diag" }
 redox-emit = { path = "../redox-emit" }
 redox-parser = { path = "../redox-parser" }

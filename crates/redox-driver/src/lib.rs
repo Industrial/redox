@@ -16,9 +16,14 @@
 //! Layout follows `docs/06 - Redox Code Architecture.md`: one construct per
 //! file, modules private, public items re-exported from here.
 
+mod cache;
 mod compile_dir;
 mod diagnose;
 
+pub use cache::fingerprint::Fingerprint;
+pub use cache::reporter::CacheReporter;
+pub use cache::reporter::silent::Silent;
 pub use compile_dir::compile_dir;
 pub use compile_dir::compiled::Compiled;
+pub use compile_dir::with::compile_dir_with;
 pub use diagnose::diagnose;
