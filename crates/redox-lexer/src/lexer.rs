@@ -28,6 +28,7 @@ use crate::lexer::scan_string::scan_string;
 use crate::lexer::trim_comment::trim_comment;
 use crate::token::keyword::Keyword;
 use crate::{LexError, Span, Token, TokenKind, Trivia, TriviaKind};
+use redox_diag::Code;
 
 /// The off-side-rule scanner.
 ///
@@ -55,7 +56,7 @@ pub(crate) struct Lexer<'a> {
   depth: usize,
   /// Byte offset of each currently-open delimiter, so an unbalanced one can be
   /// reported where it was opened rather than at `Eof`.
-  open_delims: Vec<(usize, usize)>,
+  open_delims: Vec<usize>,
   /// A comment that trailed content on the current line, held until the
   /// closing `Newline` exists to carry it.
   trailing: Option<Trivia>,
@@ -122,16 +123,14 @@ impl<'a> Lexer<'a> {
     }
 
     let start = self.cur.pos();
-    let line = self.cur.line();
-    let col = self.cur.col();
-    let kind = self.scan_token(line, col)?;
+    let kind = self.scan_token()?;
     self.track_delims(&kind, start);
     self.push(kind, (start, self.cur.pos()), ws);
     Ok(())
   }
 
   /// Everything that is not whitespace, a newline or a `#` form.
-  fn scan_token(&mut self, line: usize, col: usize) -> Result<TokenKind, LexError> {
+  fn scan_token(&mut self) -> Result<TokenKind, LexError> {
     let ch = self.cur.peek().expect("step checked for eof");
 
     if ch == '"' {
@@ -178,10 +177,10 @@ impl<'a> Lexer<'a> {
     let start = self.cur.pos();
     self.cur.bump();
     Err(LexError {
+      code: Code::UnexpectedCharacter,
+      help: None,
       message: format!("unexpected character {ch:?}"),
       span: (start, self.cur.pos()),
-      line,
-      col,
     })
   }
 
@@ -194,8 +193,6 @@ impl<'a> Lexer<'a> {
       return Ok(false);
     }
     let start = self.cur.pos();
-    let line = self.cur.line();
-    let col = self.cur.col();
 
     // 1. `###` — a fenced comment, which may span lines.
     if self.cur.starts_with("###") {
@@ -204,10 +201,10 @@ impl<'a> Lexer<'a> {
       while !self.cur.starts_with("###") {
         if self.cur.bump().is_none() {
           return Err(LexError {
+            code: Code::UnterminatedFence,
+            help: None,
             message: "unterminated `###` comment fence".to_string(),
             span: (start, self.cur.pos()),
-            line,
-            col,
           });
         }
       }
@@ -241,10 +238,10 @@ impl<'a> Lexer<'a> {
       while depth > 0 {
         let Some(ch) = self.cur.bump() else {
           return Err(LexError {
+            code: Code::UnterminatedAttribute,
+            help: None,
             message: "unterminated attribute; expected `]`".to_string(),
             span: (start, self.cur.pos()),
-            line,
-            col,
           });
         };
         match ch {
@@ -264,7 +261,7 @@ impl<'a> Lexer<'a> {
       // 5. A set literal's opening delimiter.
       self.cur.eat("#{");
       self.depth += 1;
-      self.open_delims.push((start, line));
+      self.open_delims.push(start);
       self.push(TokenKind::HashBrace, (start, self.cur.pos()), false);
       return Ok(true);
     } else {
@@ -297,7 +294,7 @@ impl<'a> Lexer<'a> {
     match kind {
       TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace | TokenKind::PercentW => {
         self.depth += 1;
-        self.open_delims.push((start, self.cur.line()));
+        self.open_delims.push(start);
       }
       TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
         self.depth = self.depth.saturating_sub(1);
@@ -317,7 +314,7 @@ impl<'a> Lexer<'a> {
     let mark = self.cur.mark();
     self.cur.eat_spaces();
     let continues = self.cur.starts_with("|>");
-    self.cur.reset_to(mark.0, mark.1, mark.2);
+    self.cur.reset_to(mark);
     continues
   }
 
@@ -405,14 +402,12 @@ impl<'a> Lexer<'a> {
         }
         Some('\t') => {
           let start = self.cur.pos();
-          let line = self.cur.line();
-          let col = self.cur.col();
           self.cur.bump();
           return Err(LexError {
+            code: Code::TabIndent,
+            help: Some("indent with spaces".to_string()),
             message: "tab in indentation; Redox indents with spaces".to_string(),
             span: (start, self.cur.pos()),
-            line,
-            col,
           });
         }
         _ => return Ok(width),
@@ -438,12 +433,12 @@ impl<'a> Lexer<'a> {
     }
     if width != *self.indents.last().expect("indent stack is never empty") {
       return Err(LexError {
+        code: Code::InconsistentDedent,
+        help: Some("match an enclosing indentation level".to_string()),
         message: format!(
           "inconsistent dedent: {width} spaces matches no enclosing indentation level"
         ),
         span: at,
-        line: self.cur.line(),
-        col: width + 1,
       });
     }
     Ok(())
@@ -451,12 +446,12 @@ impl<'a> Lexer<'a> {
 
   /// Close every open block and emit `Eof`, which carries trailing trivia.
   fn finish(&mut self) -> Result<(), LexError> {
-    if let Some(&(pos, line)) = self.open_delims.first() {
+    if let Some(&pos) = self.open_delims.first() {
       return Err(LexError {
+        code: Code::UnbalancedDelimiter,
+        help: Some("add the closing delimiter".to_string()),
         message: "unbalanced delimiter: this is never closed".to_string(),
         span: (pos, pos + 1),
-        line,
-        col: 1,
       });
     }
 

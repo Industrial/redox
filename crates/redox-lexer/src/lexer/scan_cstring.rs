@@ -1,6 +1,7 @@
 use crate::lexer::cursor::Cursor;
 use crate::lexer::scan_escape::scan_escape;
 use crate::{LexError, TokenKind};
+use redox_diag::Code;
 
 /// Scan a `c"…"` nul-terminated string literal.
 ///
@@ -9,8 +10,6 @@ use crate::{LexError, TokenKind};
 /// otherwise unreachable.
 pub(crate) fn scan_cstring(cur: &mut Cursor) -> Result<TokenKind, LexError> {
   let start = cur.pos();
-  let line = cur.line();
-  let col = cur.col();
   cur.bump(); // the `c`
   cur.eat("\"");
 
@@ -18,10 +17,10 @@ pub(crate) fn scan_cstring(cur: &mut Cursor) -> Result<TokenKind, LexError> {
   while !cur.starts_with("\"") {
     if cur.is_eof() {
       return Err(LexError {
+        code: Code::UnterminatedByteLiteral,
+        help: None,
         message: "unterminated C string".to_string(),
         span: (start, cur.pos()),
-        line,
-        col,
       });
     }
     if cur.peek() == Some('\\') {

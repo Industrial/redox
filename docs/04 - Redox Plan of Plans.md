@@ -96,10 +96,10 @@ judged too large by then.
 
 | # | Plan | Scope | From Emerald | Depends on | Status |
 |---|---|---|---|---|---|
-| 05 | `diagnostics-miette` | `redox-diag`; `miette` graphical rendering; stable `RDX` code catalogue (doc 03 §17); one report per recovered error, single non-zero exit | `crates/emerald-cli/src/main.rs:47-81` (`SemaError`'s `miette::Diagnostic` impl) and `report_driver_error`'s per-error loop | 03 | `not-started` |
+| 05 | `diagnostics-miette` | `redox-diag`; `miette` graphical rendering; stable `RDX` code catalogue (doc 03 §17); one report per recovered error, single non-zero exit | `crates/emerald-cli/src/main.rs:47-81` (`SemaError`'s `miette::Diagnostic` impl) and `report_driver_error`'s per-error loop | 03 | `done` |
 | 06 | `source-map` | Span map emitted beside the `.xrs`; line-preserving emission as the default discipline | — (Emerald's analogue is DWARF via `inkwell`, one layer down) | 04 | `not-started` |
 | 07 | `rustc-remapping` | `cargo check --message-format=json` parsed, spans rewritten through the map, re-rendered against the `.sdx`. Proved by an executed test with a deliberate error on a known line | `crates/emerald-driver/build.rs` (Cargo NDJSON artifact-stream parsing, same technique, different purpose) | 05, 06 | `not-started` |
-| 08 | `ui-test-harness` | `tests/ui/*.sdx` + `*.stderr`, rustc-style. Doc 03 §17's codes become assertable | — | 05 | `not-started` |
+| 08 | `ui-test-harness` | **Harness delivered early by plan 05** (`crates/redox-cli/tests/ui.rs`, `REDOX_BLESS=1`, 20 cases, and `code_coverage.rs` making an unreached code a test failure). What remains for this plan: multi-file cases, stdout expectations for programs that are expected to *run*, and a `redox test` entry point so the corpus is runnable without cargo | — | 05 | `partly-done` |
 
 ## Milestone 3 — Real projects
 

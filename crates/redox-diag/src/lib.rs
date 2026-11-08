@@ -1,11 +1,25 @@
-//! `redox-diag` — diagnostics: `miette` rendering and the stable `RDX`
-//! code catalogue (doc 03 §17).
+//! `redox-diag` — diagnostics: stable codes and `miette` rendering.
 //!
-//! Declared empty by plan 01 leaf 1. Filled by **plan 05**
-//! (`diagnostics-miette`). Until then, errors are plain one-line messages
-//! carrying a file, line and column; they already carry spans, because the
-//! lexer and AST were built with them from the start.
+//! Plan 05 (`docs/10 - 05 - Diagnostics.md`). Doc 02 §6.5 calls diagnostics
+//! the largest single gap in doc 01, whose §29 says "pass Rust errors through"
+//! without a mechanism. This crate does the first half — Redox's own errors,
+//! rendered with a source snippet and a caret. Remapping *rustc's* errors back
+//! to `.sdx` is plan 07 and needs plan 06's span map.
 //!
-//! Layout, when this crate gains constructs, follows
-//! `docs/06 - Redox Code Architecture.md`: one construct per file, modules
-//! private, public items re-exported from here.
+//! Emerald's inception §14.4 states the principle this crate exists to honour:
+//! *"Diagnostics are a first-class compiler feature, not an afterthought."*
+//!
+//! **`miette` reaches this crate and `redox-cli`, and no further.** An error
+//! carries a span and a message; only the CLI renders (doc 06 §6 rule 2),
+//! which keeps the renderer swappable without the stage crates noticing.
+//!
+//! Layout follows `docs/06 - Redox Code Architecture.md`.
+
+mod diagnostic;
+mod render;
+mod source;
+
+pub use diagnostic::Diagnostic;
+pub use diagnostic::code::Code;
+pub use render::render;
+pub use source::span::Span;

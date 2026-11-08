@@ -1,0 +1,6 @@
+error[RDX0010]: hexadecimal literal has no digits
+  --> radix_without_digits.sdx:2:9
+  |
+2 |   print 0x
+  |         ^^
+

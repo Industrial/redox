@@ -1,0 +1,6 @@
+error[RDX0103]: a declaration must start with a name
+  --> expected_name.sdx:4:1
+  |
+4 | "x" = ->
+  | ^^^
+

@@ -1,5 +1,6 @@
 use crate::LexError;
 use crate::lexer::cursor::Cursor;
+use redox_diag::Code;
 
 /// Decode one escape sequence, the backslash already consumed.
 ///
@@ -8,15 +9,13 @@ use crate::lexer::cursor::Cursor;
 /// `\q` would reach the generated Rust and fail there instead, pointing at a
 /// line the user never wrote.
 pub(crate) fn scan_escape(cur: &mut Cursor) -> Result<char, LexError> {
-  let line = cur.line();
-  let col = cur.col();
   let start = cur.pos().saturating_sub(1);
 
   let err = |message: String, cur: &Cursor| LexError {
+    code: Code::UnknownEscape,
+    help: None,
     message,
     span: (start, cur.pos()),
-    line,
-    col,
   };
 
   let Some(ch) = cur.bump() else {

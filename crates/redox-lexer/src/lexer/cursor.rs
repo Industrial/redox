@@ -1,15 +1,18 @@
 use crate::Span;
 
-/// A character cursor over the source text, tracking its own line number.
+/// A character cursor over the source text.
 ///
 /// Plan 02 (`docs/07 - 02 - Lexical Surface.md`), leaf 1. Replaces plan 01's
 /// line loop, which could not carry bracket depth across a line boundary and
 /// could not let one token span several lines.
 ///
-/// Line numbers advance inside [`Cursor::bump`], so a multi-line token — a
-/// `"""` block — cannot desynchronise them. Emerald needed a 447-line
-/// preprocessing pass to get that property into a lexer whose shape could not
-/// accommodate it.
+/// The cursor tracks a byte offset and nothing else. It tracked a line and
+/// column too until plan 05: those existed only to stamp a position onto a
+/// [`crate::LexError`], and the UI corpus showed that a scanner running over a
+/// *sub-slice* — a string's body — stamped a position relative to that slice
+/// and so named the wrong line. Deriving line and column from the span in one
+/// place (`redox_diag`'s `line_col`) removed both the duplicate computation
+/// and the class of bug.
 ///
 /// Every scanner takes `&mut Cursor` and nothing else, so each is testable
 /// without constructing a whole [`super::Lexer`].
@@ -17,33 +20,15 @@ pub(crate) struct Cursor<'a> {
   src: &'a str,
   /// Byte offset of the next unconsumed character.
   pos: usize,
-  /// 1-based line of `pos`.
-  line: usize,
-  /// Byte offset at which the current line began.
-  line_start: usize,
 }
 
 impl<'a> Cursor<'a> {
   pub(crate) fn new(src: &'a str) -> Self {
-    Self {
-      src,
-      pos: 0,
-      line: 1,
-      line_start: 0,
-    }
+    Self { src, pos: 0 }
   }
 
   pub(crate) fn pos(&self) -> usize {
     self.pos
-  }
-
-  pub(crate) fn line(&self) -> usize {
-    self.line
-  }
-
-  /// 1-based column of `pos` within its line, counted in characters.
-  pub(crate) fn col(&self) -> usize {
-    self.src[self.line_start..self.pos].chars().count() + 1
   }
 
   pub(crate) fn is_eof(&self) -> bool {
@@ -69,10 +54,6 @@ impl<'a> Cursor<'a> {
   pub(crate) fn bump(&mut self) -> Option<char> {
     let ch = self.peek()?;
     self.pos += ch.len_utf8();
-    if ch == '\n' {
-      self.line += 1;
-      self.line_start = self.pos;
-    }
     Some(ch)
   }
 
@@ -115,35 +96,19 @@ impl<'a> Cursor<'a> {
   /// Used only for bounded lookahead — deciding whether `'` opens a character
   /// literal or a label — where scanning forward and backing out is clearer
   /// than a hand-rolled multi-character peek.
-  pub(crate) fn reset_to(&mut self, pos: usize, line: usize, line_start: usize) {
+  pub(crate) fn reset_to(&mut self, pos: usize) {
     self.pos = pos;
-    self.line = line;
-    self.line_start = line_start;
   }
 
-  /// The state `reset_to` consumes.
-  pub(crate) fn mark(&self) -> (usize, usize, usize) {
-    (self.pos, self.line, self.line_start)
+  /// The state [`Cursor::reset_to`] consumes.
+  pub(crate) fn mark(&self) -> usize {
+    self.pos
   }
 }
 
 #[cfg(test)]
 mod tests {
   use super::Cursor;
-
-  #[test]
-  fn tracks_lines_across_bumps() {
-    let mut c = Cursor::new("ab\ncd");
-    assert_eq!(c.line(), 1);
-    c.bump();
-    c.bump();
-    assert_eq!(c.line(), 1);
-    c.bump(); // the newline
-    assert_eq!(c.line(), 2);
-    assert_eq!(c.col(), 1);
-    c.bump();
-    assert_eq!(c.col(), 2);
-  }
 
   #[test]
   fn eat_matches_only_an_exact_prefix() {
@@ -162,21 +127,22 @@ mod tests {
   }
 
   #[test]
-  fn mark_and_reset_restore_line_tracking() {
+  fn mark_and_reset_restore_the_position() {
     let mut c = Cursor::new("a\nb");
     let mark = c.mark();
     c.bump();
     c.bump();
-    assert_eq!(c.line(), 2);
-    c.reset_to(mark.0, mark.1, mark.2);
-    assert_eq!(c.line(), 1);
+    assert_eq!(c.pos(), 2);
+    c.reset_to(mark);
     assert_eq!(c.pos(), 0);
   }
 
+  /// A multi-byte character advances the offset by its encoded width, which is
+  /// what keeps a span a valid slice range.
   #[test]
-  fn counts_columns_in_characters_not_bytes() {
+  fn bump_advances_by_the_encoded_width() {
     let mut c = Cursor::new("é x");
-    c.bump();
-    assert_eq!(c.col(), 2, "a two-byte char advances one column");
+    assert_eq!(c.bump(), Some('é'));
+    assert_eq!(c.pos(), 2);
   }
 }

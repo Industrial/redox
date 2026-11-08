@@ -1,0 +1,6 @@
+error[RDX0104]: expected a type after `:`
+  --> expected_type.sdx:1:11
+  |
+1 | add = (a: ) ->
+  |           ^
+

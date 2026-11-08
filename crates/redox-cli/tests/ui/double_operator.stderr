@@ -1,0 +1,6 @@
+error[RDX0102]: expected an expression
+  --> double_operator.sdx:2:13
+  |
+2 |   print 1 + + 2
+  |             ^
+

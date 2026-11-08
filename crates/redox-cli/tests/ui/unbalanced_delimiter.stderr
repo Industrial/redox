@@ -1,0 +1,7 @@
+error[RDX0012]: unbalanced delimiter: this is never closed
+  --> unbalanced_delimiter.sdx:2:9
+  |
+2 |   print (1 + 2
+  |         ^
+  = help: add the closing delimiter
+

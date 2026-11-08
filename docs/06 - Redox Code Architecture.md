@@ -58,7 +58,7 @@ Nothing else. A constant used by two functions is its own construct in its own f
 
 A **grouping module** is the same thing one level down: a file that declares child modules
 and a doc comment explaining what the group is for, and holds no construct of its own.
-`redox-lexer/src/source.rs` is one — it groups `span.rs` and will group plan 06's span map.
+`redox-diag/src/source.rs` is one — it groups `span.rs` and will group plan 06's span map.
 
 A grouping module is legal **only** with a sibling directory; a file declaring no construct
 and no children is dead. Prefer a module head (§2.1) where the group has a natural
@@ -266,10 +266,13 @@ redox-cli            binary: argument parsing, process exit codes
   ├── redox-driver   orchestration, caching         (plan 10)
   ├── redox-emit     AST → Rust source text
   ├── redox-parser   tokens → AST
-  ├── redox-diag     diagnostic rendering           (plan 05)
+  ├── redox-lexer    source text → tokens
   ├── redox-ast      syntax tree types, no logic
-  └── redox-lexer    source text → tokens
+  └── redox-diag     spans, diagnostic codes, rendering
 ```
+
+`redox-diag` is the **lowest** crate, below the lexer, which is not where plan 05 first put
+it. The order in that listing is load-bearing: a crate may depend only on crates below it.
 
 Rules:
 
@@ -279,7 +282,20 @@ Rules:
 3. **No sibling dependency between stage crates** except through the AST. `redox-emit`
    depends on `redox-ast`, never on `redox-parser`.
 4. **A cycle is a design error**, not a thing to work around with a shared crate.
+   When two crates each want something the other owns, one of the two things is in the
+   wrong crate. Plan 05 hit this exactly: `redox-diag` needed `Span` to describe where a
+   diagnostic points, and `redox-lexer` needed `Code` to label the errors it raises. The
+   fix was not a third crate and not a duplicated `Span` — it was recognising that a span
+   is a *diagnostic* concept the lexer happens to produce, moving it down into
+   `redox-diag`, and re-exporting it (`pub use redox_diag::Span;`) so no caller changed.
+   The re-export matters: it means a layering correction need not be a breaking one.
 5. **Reach for a crate before a fourth directory level** (§2.4).
+6. **One computation, one home.** If two crates compute the same thing, the copies will
+   disagree, and the disagreement will surface as a wrong answer rather than a failed
+   build. `Cursor` tracked a line and column while `redox-diag` derived them from the
+   span; the copy in the lexer was wrong for any scanner running over a sub-slice, and
+   nothing noticed until a UI test printed the wrong line number. Deleting the duplicate
+   removed the class of bug, not just the instance.
 
 ### 3.1 Crates declared before they are needed
 
@@ -427,6 +443,9 @@ Run by the ordinary gate. None is optional and none may be weakened to make a ch
 | No directory without children (§2.5) | `directory_structure.rs` |
 | No `mod.rs` (§1.3) | `directory_structure.rs` |
 | File length under 1,500 lines | `line_cap.rs` |
+| Every declared diagnostic code is reached by a UI case | `code_coverage.rs` |
+| No `.stderr` expectation without its `.sdx` | `ui.rs` |
+| Every diagnostic prints a well-formed `RDX####` code | `ui.rs` |
 
 Hidden directories (`.hermes` and similar tooling artifacts) are skipped, and `tests/`
 directories are exempt per §7.

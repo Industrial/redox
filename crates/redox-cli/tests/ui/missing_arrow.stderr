@@ -1,0 +1,12 @@
+error[RDX0101]: expected a line break after `->`
+  --> missing_arrow.sdx:1:27
+  |
+1 | add = (a: i32, b: i32) -> i32
+  |                           ^^^
+
+error[RDX0101]: expected `=` after the declaration name
+  --> missing_arrow.sdx:2:1
+  |
+2 |   a + b
+  | ^
+

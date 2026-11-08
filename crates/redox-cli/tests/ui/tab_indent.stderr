@@ -1,0 +1,7 @@
+error[RDX0001]: tab in indentation; Redox indents with spaces
+  --> tab_indent.sdx:2:1
+  |
+2 |  print 1
+  | ^
+  = help: indent with spaces
+

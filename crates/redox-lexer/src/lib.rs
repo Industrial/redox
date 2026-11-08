@@ -27,13 +27,13 @@
 
 mod lex;
 mod lexer;
-mod source;
+
 mod token;
 mod trivia;
 
 pub use lex::error::LexError;
 pub use lex::lex;
-pub use source::span::Span;
+pub use redox_diag::Span;
 pub use token::Token;
 pub use token::keyword::Keyword;
 pub use token::kind::TokenKind;

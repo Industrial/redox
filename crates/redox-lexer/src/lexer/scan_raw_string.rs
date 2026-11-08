@@ -1,5 +1,6 @@
 use crate::lexer::cursor::Cursor;
 use crate::{LexError, TokenKind};
+use redox_diag::Code;
 
 /// Scan a raw string `r"…"` or `r#"…"#`, the cursor on the `r`.
 ///
@@ -9,8 +10,6 @@ use crate::{LexError, TokenKind};
 /// needs a form that does not interpret it.
 pub(crate) fn scan_raw_string(cur: &mut Cursor) -> Result<TokenKind, LexError> {
   let start = cur.pos();
-  let line = cur.line();
-  let col = cur.col();
   cur.bump(); // the `r`
 
   let hash_span = cur.eat_while(|c| c == '#');
@@ -18,10 +17,10 @@ pub(crate) fn scan_raw_string(cur: &mut Cursor) -> Result<TokenKind, LexError> {
 
   if !cur.eat("\"") {
     return Err(LexError {
+      code: Code::UnterminatedRawString,
+      help: None,
       message: "a raw string must open with `\"` after `r` and any `#`".to_string(),
       span: (start, cur.pos()),
-      line,
-      col,
     });
   }
 
@@ -30,10 +29,10 @@ pub(crate) fn scan_raw_string(cur: &mut Cursor) -> Result<TokenKind, LexError> {
   while !cur.starts_with(&closing) {
     if cur.bump().is_none() {
       return Err(LexError {
+        code: Code::UnterminatedRawString,
+        help: None,
         message: format!("unterminated raw string; expected closing `{closing}`"),
         span: (start, cur.pos()),
-        line,
-        col,
       });
     }
   }

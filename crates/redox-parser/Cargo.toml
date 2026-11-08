@@ -6,4 +6,5 @@ license.workspace = true
 
 [dependencies]
 redox-ast = { path = "../redox-ast" }
+redox-diag = { path = "../redox-diag" }
 redox-lexer = { path = "../redox-lexer" }

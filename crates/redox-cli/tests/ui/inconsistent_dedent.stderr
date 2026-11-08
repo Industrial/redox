@@ -1,0 +1,7 @@
+error[RDX0002]: inconsistent dedent: 2 spaces matches no enclosing indentation level
+  --> inconsistent_dedent.sdx:3:3
+  |
+3 |   print 2
+  |   ^
+  = help: match an enclosing indentation level
+

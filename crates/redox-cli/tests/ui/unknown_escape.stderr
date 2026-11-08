@@ -1,0 +1,6 @@
+error[RDX0009]: unknown escape sequence `\q`
+  --> unknown_escape.sdx:2:12
+  |
+2 |   print "a \q b"
+  |            ^^
+

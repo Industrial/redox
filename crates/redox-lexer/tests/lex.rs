@@ -107,24 +107,34 @@ fn records_whitespace_adjacency() {
 }
 
 /// Plan 01 acceptance criterion 8.
+///
+/// The position is asserted through the span, not a stored line/col pair:
+/// plan 05 removed those fields because a scanner over a sub-slice stamped
+/// them wrongly, and the span is now the only claim an error makes about
+/// where it is.
 #[test]
 fn rejects_a_tab_in_indentation() {
-  let err = lex("main = ->\n\tprint \"x\"\n").expect_err("a tab is an error");
+  let src = "main = ->\n\tprint \"x\"\n";
+  let err = lex(src).expect_err("a tab is an error");
   assert!(err.message.contains("tab"), "{}", err.message);
-  assert_eq!(err.line, 2);
-  assert_eq!(err.col, 1);
+  assert_eq!(&src[err.span.0..err.span.1], "\t");
 }
 
 /// Plan 01 acceptance criterion 9.
 #[test]
 fn rejects_an_inconsistent_dedent() {
-  let err = lex("main = ->\n    print \"a\"\n  print \"b\"\n").expect_err("should fail");
+  let src = "main = ->\n    print \"a\"\n  print \"b\"\n";
+  let err = lex(src).expect_err("should fail");
   assert!(
     err.message.contains("inconsistent dedent"),
     "{}",
     err.message
   );
-  assert_eq!(err.line, 3);
+  assert_eq!(
+    src[..err.span.0].matches('\n').count() + 1,
+    3,
+    "the span lands on the offending line"
+  );
 }
 
 #[test]

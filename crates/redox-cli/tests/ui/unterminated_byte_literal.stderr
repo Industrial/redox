@@ -1,0 +1,6 @@
+error[RDX0008]: unterminated byte literal
+  --> unterminated_byte_literal.sdx:2:9
+  |
+2 |   print b'a
+  |         ^^^
+

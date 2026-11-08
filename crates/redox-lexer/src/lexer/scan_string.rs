@@ -4,6 +4,7 @@ use crate::lexer::cursor::Cursor;
 use crate::lexer::dedent_block::dedent_block;
 use crate::lexer::scan_string::split_parts::split_parts;
 use crate::{LexError, TokenKind};
+use redox_diag::Code;
 
 /// Scan a `"…"` or `"""…"""` literal, the cursor on the opening quote.
 ///
@@ -15,13 +16,11 @@ use crate::{LexError, TokenKind};
 /// obtain, and which a hand-written cursor gives without effort.
 pub(crate) fn scan_string(cur: &mut Cursor) -> Result<TokenKind, LexError> {
   let start = cur.pos();
-  let line = cur.line();
-  let col = cur.col();
   let err = |message: String, cur: &Cursor| LexError {
+    code: Code::UnterminatedString,
+    help: None,
     message,
     span: (start, cur.pos()),
-    line,
-    col,
   };
 
   let triple = cur.starts_with("\"\"\"");
@@ -77,7 +76,7 @@ pub(crate) fn scan_string(cur: &mut Cursor) -> Result<TokenKind, LexError> {
   };
 
   Ok(TokenKind::Str {
-    parts: split_parts(&owned, body_start, line, col)?,
+    parts: split_parts(&owned, body_start)?,
     raw,
   })
 }

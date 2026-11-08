@@ -1,5 +1,6 @@
 use crate::lexer::cursor::Cursor;
 use crate::{LexError, TokenKind};
+use redox_diag::Code;
 
 /// Scan a numeric literal, the cursor on its first digit.
 ///
@@ -9,13 +10,11 @@ use crate::{LexError, TokenKind};
 /// about numeric limits.
 pub(crate) fn scan_number(cur: &mut Cursor) -> Result<TokenKind, LexError> {
   let start = cur.pos();
-  let line = cur.line();
-  let col = cur.col();
   let err = |message: String, cur: &Cursor| LexError {
+    code: Code::MalformedNumber,
+    help: None,
     message,
     span: (start, cur.pos()),
-    line,
-    col,
   };
 
   // A radix prefix forbids a fractional part, so handle it first and return.

@@ -5,6 +5,7 @@ use crate::parse::parser::path_or_ident::path_or_ident;
 use crate::parse::parser::unary_op::unary_op;
 use crate::parse::precedence::prefix_power::PREFIX_POWER;
 use redox_ast::Expr;
+use redox_diag::Code;
 use redox_lexer::{Keyword, TokenKind};
 
 /// A prefix position: a literal, a name, a grouping, a receiver sigil, or a
@@ -72,9 +73,10 @@ pub(crate) fn prefix(p: &mut Parser) -> Result<Expr, ParseError> {
       })
     }
     TokenKind::Ident(_) => path_or_ident(p),
-    _ => Err(ParseError {
-      message: "expected an expression".to_string(),
-      span: p.peek_span(),
-    }),
+    _ => Err(ParseError::with(
+      Code::ExpectedExpression,
+      "expected an expression",
+      p.peek_span(),
+    )),
   }
 }

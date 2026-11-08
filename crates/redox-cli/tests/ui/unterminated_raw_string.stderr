@@ -1,0 +1,6 @@
+error[RDX0004]: unterminated raw string; expected closing `"`
+  --> unterminated_raw_string.sdx:2:9
+  |
+2 |   print r"hello
+  |         ^^^^^^^^
+

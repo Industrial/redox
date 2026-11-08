@@ -1,6 +1,7 @@
 use crate::lexer::cursor::Cursor;
 use crate::lexer::scan_escape::scan_escape;
 use crate::{LexError, TokenKind};
+use redox_diag::Code;
 
 /// Scan a `b`-prefixed literal: `b'x'` or `b"…"`.
 ///
@@ -9,13 +10,11 @@ use crate::{LexError, TokenKind};
 /// emitter.
 pub(crate) fn scan_byte(cur: &mut Cursor) -> Result<TokenKind, LexError> {
   let start = cur.pos();
-  let line = cur.line();
-  let col = cur.col();
   let err = |message: String, cur: &Cursor| LexError {
+    code: Code::UnterminatedByteLiteral,
+    help: None,
     message,
     span: (start, cur.pos()),
-    line,
-    col,
   };
 
   cur.bump(); // the `b`

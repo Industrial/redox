@@ -1,0 +1,2 @@
+main = ->
+  print "a \q b"

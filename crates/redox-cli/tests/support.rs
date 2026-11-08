@@ -143,9 +143,9 @@ pub fn transpile_source(tag: &str, src: &str) -> String {
   let dir = scratch(tag);
   let sdx = dir.join(format!("{tag}.sdx"));
   std::fs::write(&sdx, src).expect("should write the source");
-  let case = build(&sdx, tag);
-  let rust = case.rust.clone();
-  rust
+  // Cloned rather than moved: `Case::drop` deletes the scratch directory, so
+  // the field cannot be moved out of it.
+  build(&sdx, tag).rust.clone()
 }
 
 fn build(source: &Path, tag: &str) -> Case {

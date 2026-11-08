@@ -2,6 +2,7 @@ use crate::ParseError;
 use crate::parse::parser::Parser;
 use crate::parse::parser::token_text::token_text;
 use redox_ast::TypeExpr;
+use redox_diag::Code;
 use redox_lexer::TokenKind;
 
 /// Capture a type as its **verbatim source text**.
@@ -55,10 +56,7 @@ pub(crate) fn capture_type(p: &mut Parser, message: &str) -> Result<TypeExpr, Pa
   }
 
   if text.is_empty() {
-    return Err(ParseError {
-      message: message.to_string(),
-      span: p.peek_span(),
-    });
+    return Err(ParseError::with(Code::ExpectedType, message, p.peek_span()));
   }
   Ok(TypeExpr {
     text,

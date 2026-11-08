@@ -1,0 +1,6 @@
+error[RDX0013]: a `'` must open a character literal or name a lifetime or label
+  --> bad_quote.sdx:2:12
+  |
+2 |   print 'ab'
+  |            ^
+

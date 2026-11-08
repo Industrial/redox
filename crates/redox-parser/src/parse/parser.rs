@@ -17,6 +17,7 @@ use crate::parse::parser::parse_expr::parse_expr;
 use crate::parse::parser::parse_signature::parse_signature;
 use crate::parse::parser::stmt_call::stmt_call;
 use redox_ast::{Binding, Block, FnDecl, Ident, Item, Program, Stmt, StmtKind, TypeExpr};
+use redox_diag::Code;
 use redox_lexer::{Keyword, Span, Token, TokenKind, Trivia};
 
 /// The recursive-descent parser.
@@ -87,7 +88,11 @@ impl<'a> Parser<'a> {
     let sig = parse_signature(self)?;
     self.expect(&TokenKind::Arrow, "expected `->` after the signature")?;
     let trailing = self.newline_with_trailing("expected a line break after `->`")?;
-    self.expect(&TokenKind::Indent, "expected an indented body")?;
+    self.expect_with(
+      Code::EmptyBody,
+      &TokenKind::Indent,
+      "expected an indented body",
+    )?;
 
     let body_start = self.peek_span().0;
     let mut stmts = Vec::new();
@@ -110,10 +115,11 @@ impl<'a> Parser<'a> {
     self.expect(&TokenKind::Dedent, "expected the body to end")?;
 
     if stmts.is_empty() && self.errors.is_empty() {
-      return Err(ParseError {
-        message: "a declaration body must contain at least one statement".to_string(),
-        span: (body_start, body_start),
-      });
+      return Err(ParseError::with(
+        Code::EmptyBody,
+        "a declaration body must contain at least one statement",
+        (body_start, body_start),
+      ));
     }
 
     let end = self.prev_span().1;
@@ -256,14 +262,26 @@ impl<'a> Parser<'a> {
   }
 
   pub(crate) fn expect(&mut self, kind: &TokenKind, message: &str) -> Result<(), ParseError> {
+    self.expect_with(Code::ExpectedToken, kind, message)
+  }
+
+  /// [`Parser::expect`] with a code other than [`Code::ExpectedToken`].
+  ///
+  /// A missing token is usually nothing more specific than "the grammar
+  /// wanted something else here", but a few are worth their own code because
+  /// a reader recognises them: a declaration with no body is `RDX0105`, not a
+  /// generic missing `Indent`.
+  pub(crate) fn expect_with(
+    &mut self,
+    code: Code,
+    kind: &TokenKind,
+    message: &str,
+  ) -> Result<(), ParseError> {
     if self.check(kind) {
       self.advance();
       Ok(())
     } else {
-      Err(ParseError {
-        message: message.to_string(),
-        span: self.peek_span(),
-      })
+      Err(ParseError::with(code, message, self.peek_span()))
     }
   }
 
@@ -285,10 +303,11 @@ impl<'a> Parser<'a> {
       self.advance();
       Ok(ident)
     } else {
-      Err(ParseError {
-        message: message.to_string(),
-        span: self.peek_span(),
-      })
+      Err(ParseError::with(
+        Code::ExpectedName,
+        message,
+        self.peek_span(),
+      ))
     }
   }
 
@@ -303,10 +322,7 @@ impl<'a> Parser<'a> {
       // statement is immediately followed by a dedent, is well-formed.
       Ok(None)
     } else {
-      Err(ParseError {
-        message: message.to_string(),
-        span: self.peek_span(),
-      })
+      Err(ParseError::expected(message, self.peek_span()))
     }
   }
 

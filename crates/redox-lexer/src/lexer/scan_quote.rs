@@ -1,6 +1,7 @@
 use crate::lexer::cursor::Cursor;
 use crate::lexer::scan_escape::scan_escape;
 use crate::{LexError, TokenKind};
+use redox_diag::Code;
 
 /// Scan a `'`: a char literal, or a lifetime/label.
 ///
@@ -14,8 +15,6 @@ use crate::{LexError, TokenKind};
 /// mode.
 pub(crate) fn scan_quote(cur: &mut Cursor) -> Result<TokenKind, LexError> {
   let start = cur.pos();
-  let line = cur.line();
-  let col = cur.col();
   let mark = cur.mark();
 
   cur.bump(); // the `'`
@@ -36,16 +35,16 @@ pub(crate) fn scan_quote(cur: &mut Cursor) -> Result<TokenKind, LexError> {
   }
 
   // Not a char literal: rewind and read a lifetime or label name.
-  cur.reset_to(mark.0, mark.1, mark.2);
+  cur.reset_to(mark);
   cur.bump(); // the `'`
   let name_span = cur.eat_while(|c| c.is_ascii_alphanumeric() || c == '_');
   let name = cur.slice(name_span).to_string();
   if name.is_empty() {
     return Err(LexError {
+      code: Code::BadQuote,
+      help: None,
       message: "a `'` must open a character literal or name a lifetime or label".to_string(),
       span: (start, cur.pos()),
-      line,
-      col,
     });
   }
   Ok(TokenKind::Label(name))

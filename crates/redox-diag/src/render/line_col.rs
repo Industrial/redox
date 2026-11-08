@@ -1,4 +1,7 @@
 /// Resolve a byte offset to a 1-based line and column.
+///
+/// Columns are counted in characters, not bytes, so a diagnostic under a
+/// multi-byte character points at the right place.
 pub(crate) fn line_col(source: &str, offset: usize) -> (usize, usize) {
   let clamped = offset.min(source.len());
   let before = &source[..clamped];
@@ -15,14 +18,20 @@ mod tests {
   use super::line_col;
 
   #[test]
-  fn resolves_a_byte_offset_to_a_line_and_column() {
-    let src = "main = ->\n  print \"x\"\n";
+  fn resolves_a_byte_offset() {
+    let src = "main = ->\n  print 1\n";
     assert_eq!(line_col(src, 0), (1, 1));
     assert_eq!(line_col(src, 12), (2, 3));
   }
 
   #[test]
-  fn clamps_an_offset_past_the_end() {
+  fn counts_columns_in_characters_not_bytes() {
+    // `é` is two bytes, so a byte-based column would report 3.
+    assert_eq!(line_col("é x", 3), (1, 3));
+  }
+
+  #[test]
+  fn clamps_past_the_end() {
     assert_eq!(line_col("ab", 99), (1, 3));
   }
 }
