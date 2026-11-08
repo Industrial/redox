@@ -448,6 +448,8 @@ Run by the ordinary gate. None is optional and none may be weakened to make a ch
 | Every diagnostic prints a well-formed `RDX####` code | `ui.rs` |
 | Every generated line resolves through the source map, or is an enumerated synthetic line | `source_map.rs` |
 | rustc's diagnostics land on the `.sdx` line they belong to | `check.rs` |
+| Every runnable program prints exactly its recorded `.stdout` | `run.rs` |
+| No test embeds generated Rust or program output as a string literal | `no_literal_expectations.rs` |
 
 Hidden directories (`.hermes` and similar tooling artifacts) are skipped, and `tests/`
 directories are exempt per §7.

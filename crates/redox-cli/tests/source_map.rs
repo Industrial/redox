@@ -109,23 +109,30 @@ fn a_resolved_position_agrees_with_the_source_text() {
 /// against `examples/phase1.sdx` without running anything.
 ///
 /// ```text
-/// phase1.sdx            phase1.xrs
-/// 1  add = (a, b): i32 ->   1  fn add(a: i32, b: i32) -> i32 {
-/// 2    a + b                2      a + b
-///                           3  }
+/// phase1.sdx                     phase1.xrs
+/// 1  # Doc 01 §31 …          1  // Doc 01 §31 …
+/// 2  # print. Prints 30 …    2  // print. Prints 30 …
+/// 3  add = (a, b): i32 ->    3  fn add(a: i32, b: i32) -> i32 {
+/// 4    a + b                 4      a + b
+///                           5  }
 /// ```
 ///
-/// Generated line 2 is `    a + b` at column 5; source line 2 is `  a + b` at
+/// Generated line 4 is `    a + b` at column 5; source line 4 is `  a + b` at
 /// column 3.
+///
+/// The literal numbers are the point. Plan 08 added two comment lines to
+/// `phase1.sdx` and this test failed, which is exactly what a map test should
+/// do when the thing it maps moves — a test that computed the line from the
+/// file would have passed while proving nothing.
 #[test]
-fn phase1_line_two_maps_to_source_line_two() {
+fn phase1_tail_expression_maps_to_its_source_line() {
   let (_, rust, map) = emit("phase1");
   assert_eq!(
-    rust.lines().nth(1).map(str::trim),
+    rust.lines().nth(3).map(str::trim),
     Some("a + b"),
-    "the premise of this test is that generated line 2 is the tail expression"
+    "the premise of this test is that generated line 4 is the tail expression"
   );
-  assert_eq!(map.resolve(2, 5), Some((2, 3)));
+  assert_eq!(map.resolve(4, 5), Some((4, 3)));
 }
 
 /// Criterion 4: the sidecar round-trips.

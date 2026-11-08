@@ -1,0 +1,12 @@
+# Numeric literals are carried verbatim, separators and suffixes included, so
+# Redox never has to agree with rustc about numeric limits (plan 02).
+main = ->
+  print 1_000_000      # separators survive
+  print 0xDEAD_beefu32 # hexadecimal, mixed case. The `u32` is rustc's
+                       # requirement, not Redox's: this value overflows the
+                       # `i32` an unsuffixed literal defaults to, and Redox
+                       # deliberately knows nothing about numeric limits.
+  print 0o755          # octal
+  print 0b1010         # binary
+  print 2.5e-3         # a float with an exponent
+  print 42u8           # a type suffix, passed straight through

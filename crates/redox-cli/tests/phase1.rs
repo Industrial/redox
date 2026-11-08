@@ -2,45 +2,25 @@
 //! plan 01 deliberately deferred.
 //!
 //! `docs/08 - 03 - Parser Core.md` §3. Text, compilation and execution are all
-//! asserted, per doc 02 §8.1-8.2 — text can be stable and wrong, and generated
+//! asserted, per doc 02 §8.1–8.2 — text can be stable and wrong, and generated
 //! Rust can compile and still do the wrong thing.
+//!
+//! **Where those assertions now live.** Plan 08 moved two of the three out of
+//! this file and into corpora, because they were string literals here and a
+//! literal expectation can only be updated by a human editing Rust:
+//!
+//! | Assertion | Now in |
+//! |---|---|
+//! | the generated text | `tests/golden/phase1.xrs` |
+//! | what it prints | `examples/phase1.stdout` |
+//! | the shapes below | here |
+//!
+//! What remains is what a corpus cannot express: claims about the *shape* of
+//! generated Rust, where the point is that one substring appears and no output
+//! is being compared. Those are not expectations-as-data, they are assertions
+//! about a grammar rule, and they belong in code.
 
 mod support;
-
-/// Criterion 1.
-#[test]
-fn phase1_transpiles_compiles_and_prints_30() {
-  let case = support::transpile("phase1.sdx");
-  assert_eq!(
-    case.rust,
-    "fn add(a: i32, b: i32) -> i32 {\n    a + b\n}\n\n\
-     fn main() {\n    println!(\"{}\", add(10, 20));\n}\n",
-    "generated Rust should match plan 03 §3"
-  );
-  assert_eq!(case.run(), "30\n");
-}
-
-/// Criteria 2 and 3: precedence is checked by arithmetic, so a wrong tree is a
-/// wrong number rather than a wrong-looking tree.
-#[test]
-fn expressions_print_their_hand_computed_values() {
-  let case = support::transpile("expressions.sdx");
-  assert_eq!(
-    case.run(),
-    concat!(
-      "14\n",   // 2 + 3 * 4, not (2 + 3) * 4 = 20
-      "5\n",    // (10 - 3) - 2, left-associative
-      "20\n",   // (2 + 3) * 4, parentheses override
-      "true\n", // (1 + 1) == 2
-      "true\n", // (1 == 1) && (2 == 2)
-      "4\n",    // 1 << (1 + 1)
-      "7\n",    // (-3) + 10, unary binds tighter
-      "42\n",   // a typed binding
-      "4\n",    // a method call
-      "9\n",    // a path call
-    )
-  );
-}
 
 /// Criterion 4: a type round-trips verbatim, however nested.
 #[test]

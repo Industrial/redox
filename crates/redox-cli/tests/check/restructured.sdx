@@ -1,0 +1,9 @@
+# A type error on a line the emitter *restructures*: `print add("x", 2)`
+# becomes `println!("{}", add("x", 2));`, so rustc's column has no counterpart
+# here and `redox check` underlines the whole statement rather than guessing
+# (plan 07 §2.1). The statement is at line 9, column 3; `check.rs` asserts it.
+add = (a: i32, b: i32): i32 ->
+  a + b
+
+main = ->
+  print add("x", 2)

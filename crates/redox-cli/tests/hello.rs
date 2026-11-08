@@ -123,9 +123,13 @@ fn hello_sdx_transpiles_compiles_and_prints_hello() {
   let dir = scratch("hello");
   let (rust, xrs) = transpile("hello.sdx", &dir);
 
-  assert_eq!(
-    rust, "// The smallest Redox program.\nfn main() {\n    println!(\"hello\");\n}\n",
-    "generated Rust should match plan 01 §3 exactly"
+  // The generated text is asserted by `tests/golden/hello.xrs` and the output
+  // by `examples/hello.stdout`, both blessable. Plan 08 §2.1: this file held
+  // the whole `.xrs` as an escaped literal, duplicating the golden in a form
+  // only a human editing Rust could update.
+  assert!(
+    rust.contains("println!"),
+    "the program should print:\n{rust}"
   );
 
   assert_eq!(compile_and_run(&xrs, &dir), "hello\n");

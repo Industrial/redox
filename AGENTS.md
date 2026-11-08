@@ -111,11 +111,26 @@ Within a crate, `src/` is flat and every file is one construct — see the first
 
 ```bash
 cargo run -p redox-cli -- build examples/hello.sdx   # transpile to examples/hello.xrs
-REDOX_BLESS=1 cargo test -p redox-cli --test golden  # regenerate golden expectations
+cargo run -p redox-cli -- check examples/hello.sdx   # run rustc, report against the .sdx
+```
+
+**Three blessable corpora**, each asserting a different thing about a program. There is no
+`--test golden` target — the goldens are checked by `examples.rs`, which is where plan 08
+found this command had been wrong since it was written:
+
+```bash
+REDOX_BLESS=1 cargo test -p redox-cli --test examples  # tests/golden/*.xrs — the text
+REDOX_BLESS=1 cargo test -p redox-cli --test ui        # tests/ui/*.stderr — the diagnostic
+REDOX_BLESS=1 cargo test -p redox-cli --test run       # *.stdout — what it prints
 ```
 
 Blessing rewrites the expectations and then fails the run, so a blessed diff is always
 reviewed rather than absorbed into a green build.
+
+A run expectation lives **beside its program**: `examples/phase1.sdx` has
+`examples/phase1.stdout`, and `tests/run/` holds cases too narrow to be an example. Never
+write an expectation as a string literal in a Rust test — `no_literal_expectations.rs`
+fails if you do, and plan 08 §10.2 records the two places it had already happened.
 
 ## Conventions
 

@@ -1,5 +1,6 @@
 use crate::emit::expr_list::expr_list;
 use crate::emit::print_call::print_call;
+use crate::emit::rust_escapes::rust_escapes;
 use redox_ast::Expr;
 
 /// Render an expression as Rust.
@@ -10,7 +11,7 @@ use redox_ast::Expr;
 /// so a new node must fail to compile here rather than fail at runtime.
 pub(crate) fn emit_expr(e: &Expr) -> String {
   match e {
-    Expr::StrLit { value, .. } => value.clone(),
+    Expr::StrLit { value, .. } => rust_escapes(value),
     Expr::Num { text, .. } => text.clone(),
     Expr::Bool { value, .. } => value.to_string(),
     Expr::Char { value, .. } => format!("{value:?}"),

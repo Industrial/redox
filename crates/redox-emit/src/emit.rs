@@ -1,9 +1,11 @@
+pub(crate) mod double_braces;
 pub(crate) mod emit_fn;
 pub(crate) mod expr;
 pub(crate) mod expr_list;
 pub(crate) mod inline_comment;
 pub(crate) mod pad;
 pub(crate) mod print_call;
+pub(crate) mod rust_escapes;
 pub(crate) mod rust_indent;
 pub(crate) mod signature;
 pub(crate) mod sink;

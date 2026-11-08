@@ -1,0 +1,8 @@
+# A type error on a line the emitter copies verbatim, so rustc's column shifts
+# cleanly and `redox check` points at the exact character: the `+` at line 5,
+# column 5 below. Keep this header three lines long — `check.rs` asserts 5:5.
+add = (a: i32, b: i32): i32 ->
+  a + "x"
+
+main = ->
+  print add(1, 2)

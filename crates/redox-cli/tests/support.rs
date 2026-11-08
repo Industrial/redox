@@ -132,15 +132,44 @@ fn scratch(tag: &str) -> PathBuf {
 
 /// Transpile an `examples/` fixture.
 pub fn transpile(example: &str) -> Case {
-  let source = workspace_root().join("examples").join(example);
-  build(
-    &source,
-    Path::new(example)
-      .file_stem()
-      .expect("a stem")
-      .to_str()
-      .unwrap(),
-  )
+  transpile_path(&workspace_root().join("examples").join(example))
+}
+
+/// Transpile the `.sdx` at `source`, wherever it lives.
+///
+/// Plan 08 (`docs/13 - 08 - Run Expectations.md`) leaf 1: the run corpus is
+/// under `tests/run/`, not `examples/`, so it needs a path rather than a name.
+pub fn transpile_path(source: &Path) -> Case {
+  let tag = source
+    .file_stem()
+    .expect("a stem")
+    .to_str()
+    .expect("a UTF-8 stem");
+  build(source, tag)
+}
+
+/// Whether a rustc that actually runs is available.
+///
+/// Verified by execution, not by the path existing — plan 01 found NixOS's
+/// `stub-ld` shim answering to `rustc` under `blaze test`, which fails only
+/// when invoked.
+pub fn rustc_runs() -> bool {
+  Command::new(RUSTC)
+    .arg("--version")
+    .output()
+    .is_ok_and(|o| o.status.success())
+}
+
+/// Skip `test` — reporting that it was skipped — when no rustc will run.
+///
+/// Returns `true` if the caller should return early. A silent skip is worse
+/// than no test, so the reason is printed.
+pub fn skip_without_rustc(test: &str) -> bool {
+  if rustc_runs() {
+    return false;
+  }
+  eprintln!("skipping {test}: no working rustc at {RUSTC}");
+  true
 }
 
 /// Transpile inline source. Used only where a fixture would exist solely to

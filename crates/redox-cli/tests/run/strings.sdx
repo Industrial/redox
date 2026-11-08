@@ -1,0 +1,16 @@
+# A string literal must survive into the generated Rust meaning what it meant
+# here. Two cases the run corpus caught the emitter getting wrong:
+#
+#   - `\#` is Redox's one escape that Rust does not have (it escapes the `#`
+#     that would open an interpolation). The raw text was reaching rustc,
+#     which rejects `\#`.
+#   - a literal passed to `print` becomes a `println!` *format string*, so a
+#     brace in it was being read as a placeholder naming a variable.
+#
+# Interpolation itself is plan 23; until then `#{...}` is literal text, and
+# this case pins that it is literal text that *compiles*.
+main = ->
+  print "a\tb"            # a real tab, decoded by Redox and re-encoded
+  print "brace: \#{"      # prints `brace: #{`
+  print "see {this}"       # prints `see {this}`, not a format placeholder
+  print "100% of {n} done" # both hazards at once
