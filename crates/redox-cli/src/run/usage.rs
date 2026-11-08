@@ -1,14 +1,93 @@
-/// The one-screen usage message.
-///
-/// Doc 01 §27: `build`, `check`, `fmt`, `watch`, `--version`, `--help` and
-/// nothing more. Cargo owns build, test, docs and dependencies. Plan 01
-/// shipped `build`; plan 07 added `check`. `fmt` is plan 34 and `watch`
-/// plan 12.
-pub(crate) const USAGE: &str = "\
-redox — a MoonScript-inspired surface for Rust
+use crate::run::command::state::State;
+use crate::run::commands::COMMANDS;
+use std::fmt::Write as _;
 
-usage:
-  redox build <file.sdx> [-o <output.xrs>]
-  redox --version
-  redox --help
-";
+/// The one-screen usage message, **generated from the command table**.
+///
+/// Plan 11 (`docs/16 - 11 - CLI Surface.md`) leaf 2. This was a hand-written
+/// `const` until plan 11, which made it a second independent list of the same
+/// six commands the dispatch `match` listed. Plan 07 had to edit both and
+/// nothing would have objected if it had edited only one — leaving either a
+/// subcommand that works and is undocumented, or one that is documented and
+/// does not work. No test covered either case (plan 11 §2.1).
+///
+/// Generating it removes the possibility rather than that instance.
+///
+/// A planned command appears with its plan, so `--help` tells the truth about
+/// what works rather than advertising six commands when four run.
+pub(crate) fn usage() -> String {
+  let mut out = String::from(
+    "redox — a MoonScript-inspired surface for Rust\n\
+     \n\
+     usage:\n",
+  );
+
+  let width = COMMANDS.iter().map(|c| c.name.len()).max().unwrap_or(0);
+  for command in COMMANDS {
+    let name = command.name;
+    let _ = write!(out, "  redox {name:<width$}  {}", command.summary);
+    if let State::Planned { plan, id } = command.state {
+      let _ = write!(out, " (plan {plan:02}, `{id}`)");
+    }
+    out.push('\n');
+  }
+
+  out.push_str(
+    "\n\
+     Cargo owns build, test, docs and dependencies (doc 01 §27).\n",
+  );
+  out
+}
+
+#[cfg(test)]
+mod tests {
+  use super::usage;
+  use crate::run::commands::COMMANDS;
+
+  /// Criterion 2: a declared command cannot be hidden from `--help`.
+  #[test]
+  fn every_command_appears() {
+    let text = usage();
+    for command in COMMANDS {
+      assert!(
+        text.contains(command.name),
+        "{} is missing from the usage text:\n{text}",
+        command.name
+      );
+      assert!(
+        text.contains(command.summary),
+        "{} summary missing",
+        command.name
+      );
+    }
+  }
+
+  #[test]
+  fn a_planned_command_is_marked_as_such() {
+    let text = usage();
+    assert!(
+      text.contains("plan 34"),
+      "fmt should say it is plan 34:\n{text}"
+    );
+    assert!(
+      text.contains("plan 12"),
+      "watch should say it is plan 12:\n{text}"
+    );
+  }
+
+  /// The usage text is one screen. A tool whose help needs scrolling has a
+  /// surface problem, so the length is an assertion rather than a hope.
+  #[test]
+  fn fits_on_one_screen() {
+    let lines = usage().lines().count();
+    assert!(
+      lines <= 24,
+      "usage is {lines} lines, which no longer fits a terminal"
+    );
+  }
+
+  #[test]
+  fn names_cargo_as_the_owner_of_everything_else() {
+    assert!(usage().contains("Cargo owns"));
+  }
+}

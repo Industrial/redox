@@ -1,6 +1,6 @@
 use crate::build_command::build_args::BuildArgs;
 use crate::build_command::default_output::default_output;
-use crate::run::usage::USAGE;
+use crate::run::usage::usage;
 use std::path::PathBuf;
 
 /// Resolve `build`'s arguments into a [`BuildArgs`].
@@ -23,7 +23,7 @@ pub(crate) fn parse_build_args(args: &[String]) -> Result<BuildArgs, String> {
         i += 1;
       }
       flag if flag.starts_with('-') => {
-        return Err(format!("error: unknown flag `{flag}`\n\n{USAGE}"));
+        return Err(format!("error: unknown flag `{flag}`\n\n{}", usage()));
       }
       path => {
         if input.is_some() {
@@ -34,7 +34,7 @@ pub(crate) fn parse_build_args(args: &[String]) -> Result<BuildArgs, String> {
       }
     }
   }
-  let input = input.ok_or_else(|| format!("error: no input file\n\n{USAGE}"))?;
+  let input = input.ok_or_else(|| format!("error: no input file\n\n{}", usage()))?;
   let output = output.unwrap_or_else(|| default_output(&input));
   Ok(BuildArgs {
     input,
