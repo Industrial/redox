@@ -21,6 +21,13 @@ pub struct Case {
 }
 
 impl Case {
+  /// The source map `redox build` wrote beside the `.xrs` (plan 06).
+  pub fn map_path(&self) -> PathBuf {
+    let mut name = self.xrs.file_name().expect("a name").to_os_string();
+    name.push(".map");
+    self.xrs.with_file_name(name)
+  }
+
   /// Compile the generated Rust with real rustc and run it, returning stdout.
   ///
   /// Asserts **zero stderr**, not merely a zero exit code: a warning is a

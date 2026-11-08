@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 redox-ast = { path = "../redox-ast" }
+redox-diag = { path = "../redox-diag" }
 
 [dev-dependencies]
 redox-parser = { path = "../redox-parser" }

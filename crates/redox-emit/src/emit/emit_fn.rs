@@ -1,6 +1,7 @@
 use crate::emit::inline_comment::emit_inline_comment;
 use crate::emit::rust_indent::RUST_INDENT;
 use crate::emit::signature::signature;
+use crate::emit::sink::Sink;
 use crate::emit::stmt::emit_stmt;
 use crate::emit::trivia::emit_trivia;
 use redox_ast::FnDecl;
@@ -9,8 +10,13 @@ use redox_ast::FnDecl;
 ///
 /// Plan 03 (`docs/08 - 03 - Parser Core.md`) added the signature; plan 01
 /// emitted a bare `fn name()`.
-pub(crate) fn emit_fn(out: &mut String, f: &FnDecl) {
+pub(crate) fn emit_fn(out: &mut Sink<'_>, f: &FnDecl) {
+  // Leading trivia is the author's comment lines, which belong to no
+  // construct's span; attributing them to the declaration would report a
+  // comment's line for an error in the code below it.
+  out.unmark();
   emit_trivia(out, &f.leading, 0);
+  out.mark(f.span);
   out.push_str("fn ");
   out.push_str(&f.name.text);
   out.push_str(&signature(&f.sig));
@@ -24,5 +30,9 @@ pub(crate) fn emit_fn(out: &mut String, f: &FnDecl) {
     let tail = f.sig.ret.is_some() && i == last;
     emit_stmt(out, stmt, RUST_INDENT, tail);
   }
+  // The closing brace has no source line — the off-side rule means the author
+  // never wrote one. Recording it as synthetic rather than attributing it to
+  // the last statement keeps the map from making a claim it cannot support.
+  out.unmark();
   out.push_str("}\n");
 }

@@ -23,3 +23,4 @@
 mod emit;
 
 pub use emit::emit;
+pub use emit::with_map::emit_with_map;

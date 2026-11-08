@@ -446,6 +446,7 @@ Run by the ordinary gate. None is optional and none may be weakened to make a ch
 | Every declared diagnostic code is reached by a UI case | `code_coverage.rs` |
 | No `.stderr` expectation without its `.sdx` | `ui.rs` |
 | Every diagnostic prints a well-formed `RDX####` code | `ui.rs` |
+| Every generated line resolves through the source map, or is an enumerated synthetic line | `source_map.rs` |
 
 Hidden directories (`.hermes` and similar tooling artifacts) are skipped, and `tests/`
 directories are exempt per §7.

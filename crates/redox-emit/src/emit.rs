@@ -6,38 +6,20 @@ pub(crate) mod pad;
 pub(crate) mod print_call;
 pub(crate) mod rust_indent;
 pub(crate) mod signature;
+pub(crate) mod sink;
 pub(crate) mod stmt;
 pub(crate) mod trivia;
+pub(crate) mod with_map;
 
-use crate::emit::emit_fn::emit_fn;
-use crate::emit::trivia::emit_trivia;
-use redox_ast::{Item, Program};
+use crate::emit::with_map::emit_with_map;
+use redox_ast::Program;
 
 /// Emit `program` as Rust source text.
+///
+/// Kept at its plan 01 signature. Plan 04 made this function's output a
+/// *measured* property — `rustfmt` leaves it unchanged, and the goldens
+/// compare exact bytes — so plan 06 added [`emit_with_map`] beside it rather
+/// than threading a map through it and putting that property at risk.
 pub fn emit(program: &Program) -> String {
-  let mut out = String::new();
-  for (i, item) in program.items.iter().enumerate() {
-    // One blank line between items. Driven by position in the tree, not by
-    // how many blank lines the source happened to have, so output is a
-    // function of structure and therefore stable.
-    if i > 0 {
-      out.push('\n');
-    }
-    match item {
-      Item::Fn(f) => emit_fn(&mut out, f),
-    }
-  }
-  emit_trivia(&mut out, &program.trailing, 0);
-  // A source file's final newline arrives here as a trailing `BlankLines`
-  // trivium, which would otherwise append a stray blank line to every
-  // generated file. Normalising to exactly one terminating newline is a
-  // deterministic rule that also guards against other trailing-whitespace
-  // drift, which matters because golden tests compare exact bytes.
-  while out.ends_with("\n\n") {
-    out.pop();
-  }
-  if !out.is_empty() && !out.ends_with('\n') {
-    out.push('\n');
-  }
-  out
+  emit_with_map(program, "", "").0
 }

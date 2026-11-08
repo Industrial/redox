@@ -1,6 +1,7 @@
 pub(crate) mod line;
 
 use crate::emit::pad::pad;
+use crate::emit::sink::Sink;
 use crate::emit::trivia::line::line;
 use redox_ast::{Trivia, TriviaKind};
 use std::fmt::Write as _;
@@ -16,8 +17,17 @@ use std::fmt::Write as _;
 /// made this match non-exhaustive; handling them here rather than adding a
 /// `_ => {}` arm is deliberate — a wildcard would silently drop a doc comment,
 /// which is the exact defect doc 02 §10.1 exists to prevent.
-pub(crate) fn emit_trivia(out: &mut String, trivia: &[Trivia], indent: usize) {
+pub(crate) fn emit_trivia(out: &mut Sink<'_>, trivia: &[Trivia], indent: usize) {
   for t in trivia {
+    // A comment the author wrote has a source position of its own, so the
+    // generated comment line maps to it. Plan 06's totality test found this:
+    // leaving trivia unmarked made every comment line in the output
+    // "synthetic", which is false — the author wrote it, and rustc can
+    // complain about a doc comment.
+    match t.kind {
+      TriviaKind::BlankLines => out.unmark(),
+      _ => out.mark(t.span),
+    }
     match t.kind {
       TriviaKind::LineComment => line(out, indent, "//", &t.text),
       TriviaKind::DocComment => line(out, indent, "///", &t.text),

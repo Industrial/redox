@@ -1,6 +1,7 @@
 use crate::emit::expr::emit_expr;
 use crate::emit::inline_comment::emit_inline_comment;
 use crate::emit::pad::pad;
+use crate::emit::sink::Sink;
 use crate::emit::trivia::emit_trivia;
 use redox_ast::{Stmt, StmtKind};
 
@@ -17,7 +18,8 @@ use redox_ast::{Stmt, StmtKind};
 ///
 /// The match is exhaustive with no wildcard, for the reason given in
 /// `emit_expr`: a new `StmtKind` must fail to compile here.
-pub(crate) fn emit_stmt(out: &mut String, stmt: &Stmt, indent: usize, tail: bool) {
+pub(crate) fn emit_stmt(out: &mut Sink<'_>, stmt: &Stmt, indent: usize, tail: bool) {
+  out.mark(stmt.span);
   emit_trivia(out, &stmt.leading, indent);
   pad(out, indent);
   match &stmt.kind {

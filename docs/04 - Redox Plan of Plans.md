@@ -66,9 +66,10 @@ resolved" rule (doc 02 §3.3).
 
 The `From Emerald` column below is load-bearing, not decorative. Doc 02 §2 found that of
 Emerald's ~107k lines the Redox-relevant surface is roughly 6.5k — `emerald-driver`,
-`emerald-lsp`, `emerald-fmt`'s goal and the fuzz harness — plus process and grammar
-methodology. A row claiming reuse must name the file; a row claiming none says `—`, and
-that is the expected answer for most of the front end, because Redox's lexer is
+`emerald-lsp`, `emerald-fmt`'s goal and the fuzz harness — plus `emerald-mcp`'s 392 lines,
+which doc 02 §9.3 held outside that figure as optional and plan 50 now takes, plus process
+and grammar methodology. A row claiming reuse must name the file; a row claiming none says
+`—`, and that is the expected answer for most of the front end, because Redox's lexer is
 indentation-sensitive and its parser is hand-written where Emerald's are neither.
 
 ---
@@ -97,7 +98,7 @@ judged too large by then.
 | # | Plan | Scope | From Emerald | Depends on | Status |
 |---|---|---|---|---|---|
 | 05 | `diagnostics-miette` | `redox-diag`; `miette` graphical rendering; stable `RDX` code catalogue (doc 03 §17); one report per recovered error, single non-zero exit | `crates/emerald-cli/src/main.rs:47-81` (`SemaError`'s `miette::Diagnostic` impl) and `report_driver_error`'s per-error loop | 03 | `done` |
-| 06 | `source-map` | Span map emitted beside the `.xrs`; line-preserving emission as the default discipline | — (Emerald's analogue is DWARF via `inkwell`, one layer down) | 04 | `not-started` |
+| 06 | `source-map` | `SourceMap` beside the `.xrs` as a `.xrs.map` sidecar, one record per generated line. **Line-preserving emission was attempted and rejected** — braces need their own lines and plan 04's rustfmt guarantee outweighs the simplification (plan 06 §2.1 corrects doc 02 §6.5 item 1) | — (Emerald's analogue is DWARF via `inkwell`, one layer down) | 04, 05 | `done` |
 | 07 | `rustc-remapping` | `cargo check --message-format=json` parsed, spans rewritten through the map, re-rendered against the `.sdx`. Proved by an executed test with a deliberate error on a known line | `crates/emerald-driver/build.rs` (Cargo NDJSON artifact-stream parsing, same technique, different purpose) | 05, 06 | `not-started` |
 | 08 | `ui-test-harness` | **Harness delivered early by plan 05** (`crates/redox-cli/tests/ui.rs`, `REDOX_BLESS=1`, 20 cases, and `code_coverage.rs` making an unreached code a test failure). What remains for this plan: multi-file cases, stdout expectations for programs that are expected to *run*, and a `redox test` entry point so the corpus is runnable without cargo | — | 05 | `partly-done` |
 
@@ -155,6 +156,26 @@ v1.0 is reached when every row from 01 to 33 is `done`.
 
 ## Milestone 7 — Tooling (doc 03 Tier D)
 
+Doc 02 §9 fixes this milestone's shape. Redox's *CLI* ships far less than Emerald's — plan
+11 keeps six commands and Cargo owns the rest — but four pieces of Emerald's tooling surface
+are worth more to Redox than doc 01 credits, and all four are **committed rows here, not
+optional extras**:
+
+| Thing | Plan | Source |
+|---|---|---|
+| Language server (LSP) | 40 `lsp` | doc 02 §9.1 |
+| tree-sitter grammar | 41 `tree-sitter-grammar` | doc 02 §9.4 |
+| Editor syntax and clients — Vim, Neovim, VSCode, Cursor, Helix, Zed | 49 `editor-integrations` | doc 02 §9, and §5.4's `editors/` |
+| MCP server | 50 `mcp-server` | doc 02 §9.3 |
+
+**Doc 02 §9.3's "optional" label is corrected here, 2026-11-08.** MCP is a committed row: an
+agent-facing `redox check` returning plan 05's diagnostics as structured JSON is how this
+repo's own harness should read them, and `.mcp.json` already exists for the server to
+register in. The same reasoning promotes editors — for an indentation-sensitive language
+with brand-new syntax, live diagnostics and highlighting are close to a precondition for
+anyone trying it (doc 02 §9.1) — so plan 49 names its clients rather than leaving "editors"
+as a gesture.
+
 | # | Plan | Scope | From Emerald | Depends on | Status |
 |---|---|---|---|---|---|
 | 34 | `formatter` | `redox-fmt`: trivia-preserving, canonicalizing per doc 03 §16, and therefore the migration tool. Doubles as the answer to Emerald's 113-missed-fixture cutover | `crates/emerald-fmt`'s goal and its approach's disclosed failure — a pure AST pretty-printer loses every comment | 17, 19 | `not-started` |
@@ -163,11 +184,13 @@ v1.0 is reached when every row from 01 to 33 is `done`.
 | 37 | `defer` | Scope-exit blocks, LIFO, via a generated `core`-only `Drop` guard. **Blocked on doc 03 §23 item 1** — the one disclosed exception to doc 01 §36 | — | 20 | `not-started` |
 | 38 | `panic-and-lints` | `todo`/`unimplemented`/`unreachable`/`panic`/`assert` spellings; `RDX1001` `unwrap` discouragement | — | 23 | `not-started` |
 | 39 | `async` | `async` functions and blocks, postfix `.await`, no executor | — | 15, 26 | `not-started` |
-| 40 | `lsp` | Diagnostics, semantic tokens, formatter hook. Emerald does this in 545 lines; Redox's is simpler, having no symbol table to build | `crates/emerald-lsp` (545 lines, directly adaptable) and plan 90's warning to purge `(`-assuming heuristics first | 07, 34 | `not-started` |
-| 41 | `tree-sitter-and-editors` | `tree-sitter-redox` grammar with highlight queries and corpus tests; VSCode, Neovim, Helix, Zed configs | Emerald plan 24's `tree-sitter-emerald` layout and corpus-test convention | 19 | `not-started` |
+| 40 | `lsp` | `redox-lsp` on `lsp-server` + `lsp-types` (doc 02 §5.5): diagnostics on change, semantic tokens, document symbols, and a formatter hook onto plan 34. Rustc errors arrive already remapped to the `.sdx` through plan 07, so the server reports them against the file the user wrote. Editor-agnostic by construction — plan 49 ships the clients. Emerald does this in 545 lines; Redox's is simpler, having no symbol table to build | `crates/emerald-lsp` (545 lines, directly adaptable) and plan 90's warning to purge `(`-assuming heuristics first | 07, 34 | `not-started` |
+| 41 | `tree-sitter-grammar` | `tree-sitter-redox/` per doc 02 §5.4: `grammar.js` plus an external scanner for INDENT/DEDENT, the generated parser, `highlights`/`injections`/`locals` queries, and a corpus suite — which doubles as an independent check on the grammar's shape (doc 02 §9.4). The cost is disclosed, not hidden: an indentation-sensitive tree-sitter grammar is genuinely fiddly, and it is a second grammar to keep in sync with plan 46's inventory | Emerald plan 24's `tree-sitter-emerald` layout and corpus-test convention | 19 | `not-started` — **scope narrowed 2026-11-08**: the editor configs this row carried moved to plan 49, which names Vim, Neovim, VSCode and Cursor explicitly and is too large to ride along with a grammar |
 | 42 | `fuzzing` | `lex_source`, `parse_program`, `emit_program` and a generated-program target whose oracle is *the generated Rust must parse* — a stronger oracle than Emerald had | `crates/emerald-fuzz-smoke` architecture: logic in a stable crate, `fuzz_targets/*.rs` as three-line wrappers, zero dependencies | 04 | `not-started` |
 | 43 | `test-suite-expansion` | Property tests: lexer indentation round-trip, formatter idempotence, transpile stability, `parse(fmt(x)) ≡ parse(x)` modulo trivia | — | 34, 42 | `not-started` |
 | 44 | `zero-cost-benchmarks` | Generated versus hand-written Rust, compiled identically, asserted within noise; transpile throughput and watch latency. Doc 03's zero-cost claim is a claim until measured | `benchmarks/REPORT.md`'s methodology discipline — N programs, N runs, methodology disclosed, losses reported | 09 | `not-started` |
+| 49 | `editor-integrations` | `editors/` per doc 02 §5.4 — one directory per client, each independently installable, each CI-checked. **Neovim**: `.sdx`/`.xrs` filetype detection, plan 41's grammar registered with `nvim-treesitter`, plan 40's server wired through `vim.lsp`. **Vim**: `syntax/sdx.vim` and `ftplugin/sdx.vim`, regex highlighting only — the fallback where neither tree-sitter nor a built-in LSP client exists. **VSCode and Cursor**: one extension, shared contribution points — a TextMate grammar so a cold open is coloured, an LSP client over `vscode-languageclient`, and `redox fmt` as the document formatter; Cursor consumes the VSCode extension unchanged, and that is **verified by installing it, not assumed**. **Helix** and **Zed**: `languages.toml` and an extension manifest, both tree-sitter-native. Install steps live beside each client, not buried in a README | Emerald's VSCode/Neovim/Helix/Zed configs (doc 02 §9) — layout reused; Vim and Cursor are Redox additions | 40, 41 | `not-started` |
+| 50 | `mcp-server` | `redox-mcp`: the driver exposed over the Model Context Protocol on `rmcp` + `schemars` + `tokio` (doc 02 §5.5, §9.3). Tools: `redox_check`, `redox_build`, `redox_fmt`, and a source-map lookup answering "which `.sdx` line is this `.xrs` line" from plan 06's map. Each returns plan 05's diagnostics as **structured JSON, never scraped stderr**. Stdio transport only; no network listener. A `.mcp.json` entry is committed so this repo's own agents get it | `crates/emerald-mcp` (392 lines — the driver-over-MCP shape) | 05, 06, 11 | `not-started` |
 
 ## Milestone 8 — Closing
 
@@ -225,6 +248,9 @@ compilation proves correctness; neither substitutes for the other (doc 02 §8.1�
 ## Completion
 
 - **v1.0** — rows 01–33 `done`.
-- **Feature-complete** — rows 01–44 `done`.
-- **Specification-closed** — rows 01–48 `done`; `docs/03 - Redox Surface Design.md` §23 has
+- **Feature-complete** — rows 01–44 plus 49 and 50 `done`. Those two are Milestone 7 rows
+  added after the first numbering pass (2026-11-08), and they carry the next free plan
+  numbers, so they sit at the end of their milestone's table rather than beside plan 41.
+  They are not optional.
+- **Specification-closed** — rows 01–50 `done`; `docs/03 - Redox Surface Design.md` §23 has
   no open items, and doc 03 §18's residue list is empty.
