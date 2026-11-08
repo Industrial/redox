@@ -106,7 +106,7 @@ judged too large by then.
 
 | # | Plan | Scope | From Emerald | Depends on | Status |
 |---|---|---|---|---|---|
-| 09 | `cargo-integration` | `build.rs` + `OUT_DIR` + `include!` (doc 02 §6.6 option a); `.xrs` as the human-facing artifact; mixed `.sdx`/`.rs` crate builds | — (Emerald links its own binaries; no analogue) | 07 | `not-started` |
+| 09 | `cargo-integration` | Doc 02 §6.6 option (a): `build.rs` + `OUT_DIR` + `include!`, with `redox_driver::compile_dir` as the library a build script calls. Proved by `examples/cargo-project/`, a real crate that `cargo run` builds. **Doc 02's span claim corrected** — `cargo build` reports against `OUT_DIR` because nothing reads the map; `redox check` is the remapping workflow (plan 09 §2.2). Found that Redox cannot yet fill a `mod`, which needs plan 24's `export` | — (Emerald has no generated intermediate source) | 06, 07 | `done` |
 | 10 | `incremental-cache` | `blake3` query cache over `parse` and `emit`; the compiler's own binary hashed into every key; `CacheReporter` with no opinion on stdout | `crates/emerald-driver/src/cache.rs` — the highest-value code reuse in the project (doc 02 §7.1) | 09 | `not-started` |
 | 11 | `cli-surface` | `redox build`/`check`/`fmt`/`watch`/`--version`/`--help` and nothing more — Cargo owns the rest (doc 01 §27) | `crates/emerald-cli/src/main.rs` dispatch shape, minus eleven subcommands Redox declines | 09 | `not-started` |
 | 12 | `watcher` | Recursive `.sdx` watching on `notify`, correct by cache-hit rather than by mtime heuristic; survives errors; not a build system (doc 01 §28) | — | 10, 11 | `not-started` |

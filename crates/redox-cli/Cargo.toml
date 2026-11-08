@@ -13,5 +13,6 @@ path = "src/main.rs"
 
 [dependencies]
 redox-diag = { path = "../redox-diag" }
+redox-driver = { path = "../redox-driver" }
 redox-emit = { path = "../redox-emit" }
 redox-parser = { path = "../redox-parser" }

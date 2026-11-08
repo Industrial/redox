@@ -1,12 +1,11 @@
 pub(crate) mod build_args;
 pub(crate) mod default_output;
-pub(crate) mod diagnose;
 pub(crate) mod map_path;
 pub(crate) mod parse_build_args;
 
-use crate::build_command::diagnose::diagnose;
 use crate::build_command::map_path::map_path;
 use crate::build_command::parse_build_args::parse_build_args;
+use redox_driver::diagnose;
 
 /// `redox build <file.sdx> [-o <output.xrs>] [--plain]`.
 ///

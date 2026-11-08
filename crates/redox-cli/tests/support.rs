@@ -148,6 +148,11 @@ pub fn transpile_path(source: &Path) -> Case {
   build(source, tag)
 }
 
+/// The verified rustc path, for handing to a child process.
+pub fn rustc() -> &'static str {
+  RUSTC
+}
+
 /// Whether a rustc that actually runs is available.
 ///
 /// Verified by execution, not by the path existing — plan 01 found NixOS's
@@ -169,6 +174,49 @@ pub fn skip_without_rustc(test: &str) -> bool {
     return false;
   }
   eprintln!("skipping {test}: no working rustc at {RUSTC}");
+  true
+}
+
+/// A cargo that actually runs, for the tests that build a nested project.
+///
+/// **Not** `env!("CARGO")` alone. Under `blaze test` that is
+/// `~/.blaze/toolchains/…/bin/cargo`, a generic-linux binary NixOS refuses to
+/// execute:
+///
+/// ```text
+/// Could not start dynamically linked executable: …/bin/cargo
+/// ```
+///
+/// which is the fourth time a toolchain binary has answered to the right name
+/// and not worked (plan 01's `stub-ld` rustc, plan 03's two blaze shims, now
+/// this). So the rule AGENTS.md records is applied again: try the candidates
+/// in order and **check the banner**, never trust the name.
+pub fn cargo_path() -> Option<PathBuf> {
+  let from_env = std::env::var_os("CARGO").map(PathBuf::from);
+  let baked = PathBuf::from(env!("CARGO"));
+  let from_path = std::env::var_os("PATH").into_iter().flat_map(|paths| {
+    std::env::split_paths(&paths)
+      .map(|d| d.join("cargo"))
+      .collect::<Vec<_>>()
+  });
+
+  from_env
+    .into_iter()
+    .chain(std::iter::once(baked))
+    .chain(from_path)
+    .find(|c| {
+      Command::new(c).arg("--version").output().is_ok_and(|o| {
+        o.status.success() && String::from_utf8_lossy(&o.stdout).starts_with("cargo ")
+      })
+    })
+}
+
+/// Skip `test` when no cargo will run.
+pub fn skip_without_cargo(test: &str) -> bool {
+  if cargo_path().is_some() {
+    return false;
+  }
+  eprintln!("skipping {test}: no working cargo (blaze's is not executable on NixOS)");
   true
 }
 
