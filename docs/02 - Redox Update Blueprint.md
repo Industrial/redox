@@ -146,7 +146,7 @@ Rows are **never deleted when superseded** — plan 43 (`nullable-types-and-safe
 is kept with a banner saying plan 73 replaced it outright. The record of what was tried
 and abandoned is treated as more valuable than a tidy list.
 
-**Adopt:** `docs/ROADMAP.md` as an index-only table; `history/<ISO8601>-plan-NN-<slug>.md`
+**Adopt:** `docs/04 - Redox Plan of Plans.md` as an index-only table; `history/<ISO8601>-plan-NN-<slug>.md`
 per plan; correct stale labels in place with a date and the evidence; never delete a
 superseded row.
 
@@ -556,15 +556,15 @@ redox/
 ├── tree-sitter-redox/
 ├── editors/
 ├── docs/
-│   ├── 01 - Redox.md     # the specification
-│   ├── 02 - Redox Update Blueprint.md   # this document
-│   ├── GRAMMAR.md        # graded inventory, both axes (§4.1)
-│   ├── LOWERING.md       # the construct → Rust table, normative (§6)
-│   ├── COMPILER.md       # toolchain decisions + revisit triggers (§3.5)
-│   ├── DECLINED.md       # permanent declines, with reasons (§3.3)
-│   ├── ROADMAP.md        # index-only plan table (§3.1)
-│   └── STATUS.md         # measured claims + gap table (§3.4)
-└── history/              # <ISO8601>-plan-NN-<slug>.md
+│   ├── 01 - Redox.md                   # the specification
+│   ├── 02 - Redox Update Blueprint.md  # this document
+│   ├── 03 - Redox Surface Design.md    # the surface, with a lowering per construct
+│   ├── 04 - Redox Plan of Plans.md     # index-only plan table (§3.1)
+│   ├── COMPILER.md                     # proposed: toolchain decisions + revisit triggers (§3.5)
+│   ├── GRAMMAR.md                      # proposed: graded inventory, both axes (§4.1)
+│   ├── DECLINED.md                     # proposed: permanent declines, with reasons (§3.3)
+│   └── STATUS.md                       # proposed: measured claims + gap table (§3.4)
+└── history/                            # <ISO8601>-plan-NN-<slug>.md
 ```
 
 **Add a CI check capping any single `.rs` file at ~1,500 lines.** It is the cheapest
@@ -598,7 +598,9 @@ surface. Good instinct to copy where it's cheap.
 ## 6. The lowering discipline — Redox's central design problem
 
 This section has no Emerald analogue, and it is where Redox will actually succeed or fail.
-It deserves its own normative document (`docs/LOWERING.md`).
+It deserves its own normative document. **Delivered as `docs/03 - Redox Surface Design.md`**,
+whose §§5–15 give a lowering per construct; the separate `docs/LOWERING.md` proposed here is
+superseded rather than still owed.
 
 ### 6.1 The problem
 
@@ -1130,7 +1132,7 @@ is too late to be designed well.
 
 | Phase | Deliverable | Acceptance |
 |---|---|---|
-| **0 — Decide** | `docs/GRAMMAR.md` graded inventory, both axes (§4.1). `docs/LOWERING.md` with §6.3's rules. `docs/COMPILER.md` with the parser bake-off (§5.2) and revisit triggers. `docs/DECLINED.md`. Answer §13's open questions. | Every §10 correction resolved in the spec. No `UNDECIDED` without a named venue. |
+| **0 — Decide** | `docs/GRAMMAR.md` graded inventory, both axes (§4.1). The lowering rules of §6.3 — **done, as `docs/03 - Redox Surface Design.md`**. `docs/COMPILER.md` with the parser bake-off (§5.2) and revisit triggers. `docs/DECLINED.md`. Answer §13's open questions — **done, doc 03 §§1–22**. | Every §10 correction resolved in the spec. No `UNDECIDED` without a named venue. |
 | **1 — Vertical slice** | `redox-lexer` (off-side, trivia, adjacency), `redox-ast`, `redox-parser`, `redox-emit`, `redox-cli build`. Golden + compile + run tests from day one. | §31 Phase 1's `add`/`main` program transpiles, **compiles under rustc, runs, prints 30**. Comments survive into `.xrs`. |
 | **2 — Diagnostics and maps** | `redox-diag` (miette, `RDX` codes), source map, `cargo check --message-format=json` remapping, `redox check`. UI tests. | A deliberate type error in `.sdx` reports **the correct `.sdx` line and column** via real rustc (§6.5's executed test). |
 | **3 — Cargo integration** | §6.6's decision, implemented. `build.rs` integration crate or equivalent. | A `cargo build` on a mixed `.sdx` + `.rs` project works, incrementally, with correct diagnostics. |
