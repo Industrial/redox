@@ -1,0 +1,11 @@
+[package]
+name = "redox-emit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+redox-ast = { path = "../redox-ast" }
+
+[dev-dependencies]
+redox-parser = { path = "../redox-parser" }

@@ -1,0 +1,9 @@
+[package]
+name = "redox-parser"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+redox-ast = { path = "../redox-ast" }
+redox-lexer = { path = "../redox-lexer" }

@@ -1,0 +1,16 @@
+[package]
+name = "redox-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# The shipped binary is `redox`; the crate stays `redox-cli` so
+# `cargo build -p redox-cli` keeps working. Emerald's own convention, adopted
+# for the same reason.
+[[bin]]
+name = "redox"
+path = "src/main.rs"
+
+[dependencies]
+redox-emit = { path = "../redox-emit" }
+redox-parser = { path = "../redox-parser" }

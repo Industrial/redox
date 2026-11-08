@@ -2,7 +2,7 @@
 
 Plan: 01 of 48 (`docs/04 - Redox Plan of Plans.md`, Milestone 1)
 Slug: `vertical-slice-hello`
-Status: `planned`
+Status: **`done`** — shipped 2026-11-08; see §10 for the evidence per criterion
 Depends on: nothing
 Discloses: plans 02, 03, 05, 06, 07, 09, 19
 
@@ -458,3 +458,66 @@ leaf 4, and its tune-the-incumbent-first safeguard.
 - **`main` is not yet special.** The emitter maps any `name = ->` item to `fn name() { … }`;
   `main` is simply the one this fixture uses. No entry-point handling, no `#[no_main]`
   concerns — plan 09's business.
+
+---
+
+## 10. Shipped — evidence per criterion
+
+Executed 2026-11-08. Full gate green: `moon run :check :lint :test :cargo-check :cargo-test
+:ci-format` all exit 0. **50 tests pass**, zero clippy warnings, treefmt reports zero files
+changed.
+
+| # | Criterion | Evidence |
+|---|---|---|
+| 1 | `redox build` exits zero and writes the `.xrs` | `writes_a_sibling_xrs_when_no_output_is_given`; also hand-verified |
+| 2 | Matches the golden file byte for byte | `golden.rs::golden_output_matches` over `tests/golden/` |
+| 3 | rustc compiles it with **zero stderr** | `hello.rs::compile_and_run` asserts `stderr.is_empty()` |
+| 4 | Binary exits zero, prints `hello\n` | `hello_sdx_transpiles_compiles_and_prints_hello` |
+| 5 | Comments reach the generated Rust | `comments_survive_into_the_generated_rust` — leading, inline and end-of-file |
+| 6 | Every node carries a byte span | `tokens_carry_byte_spans`, `nodes_carry_spans_that_index_the_source` |
+| 7 | Two runs byte-identical | `transpiling_twice_produces_identical_bytes`, `emission_is_deterministic` |
+| 8 | A tab is rejected, naming the line | `rejects_a_tab_in_indentation_with_a_located_diagnostic` → `tab.sdx:2:1` |
+| 9 | An inconsistent dedent is rejected | `rejects_an_inconsistent_dedent_with_a_located_diagnostic` |
+| 10 | `docs/COMPILER.md` records the bake-off | §1 — six axes measured, two-condition revisit trigger |
+| 11 | No `.rs` over the line cap | `line_cap.rs`; largest is `redox-lexer/src/lib.rs` at 575 |
+| 12 | Full gate green | all six moon tasks exit 0 |
+
+### What the bake-off actually found
+
+Doc 02 §5.2's prior was that LALR(1) "fits indentation-sensitive grammars badly". The
+measurement is stronger: **LALRPOP cannot produce `Indent`/`Dedent` at all**, so that arm
+needs a hand-written pre-lexer regardless, and the generated parser replaces only the
+smaller half of the front end — 26 grammar lines plus a 64-line pre-lexer, against a
+1,002-line generated module and 46 compiled dependency crates, where the hand-written path
+has **zero** third-party dependencies. It also reports **one** error where recursive descent
+reports every bad item, measured directly. Full table in `docs/COMPILER.md` §1.
+
+### Three defects found by running it, not by inspection
+
+1. **Structural tokens absorbed trivia.** `Indent`/`Dedent`/`Newline` claimed pending
+   comments, so a comment between two top-level items, or at end of file, attached to a
+   token the parser never reads — and vanished. Found because `comments.sdx` came out
+   missing its last line. Fixed in `redox-lexer`, with two regression tests.
+2. **A stray trailing blank line.** A source file's own final newline arrives as a
+   `BlankLines` trivium, which appended a blank line to every generated file. Found by the
+   end-to-end test comparing against §3's stated output. The emitter now normalises to
+   exactly one terminating newline.
+3. **`rustc` is not on `PATH` inside `blaze test`** — the test got NixOS's `stub-ld` shim.
+   Fixed properly rather than skipped: `build.rs` bakes the absolute path in at build time,
+   and both rustc-invoking tests now pass under blaze as well as cargo. Recorded in
+   `AGENTS.md` with two further traps: stale blaze state producing bogus link errors in a
+   crate that was never touched, and the ANSI-escape issue that made a grep-based clippy
+   check report a **false green** while two real errors were live.
+
+### Deviations from the plan as written, and why
+
+- **Indentation width is not fixed by the lexer.** §4 leaf 2 says four spaces, but every
+  example in docs 01–05 uses two. The lexer accepts any consistent width and rejects only
+  inconsistency, which makes the discrepancy moot for the compiler; `docs/COMPILER.md` §4
+  records it and assigns the canonical-width decision to plan 34, the formatter.
+- **`Stmt` carries trivia too.** §4 leaf 3's sketch put trivia only on `FnDecl`, but inline
+  comments attach to statements, so leaf 2's "never discarded" property would have held only
+  partly. `Stmt` gained `leading`/`trailing` to make it true end to end.
+- **A second fixture was added.** `examples/comments.sdx` proves the trivia property in all
+  three positions; §3's `hello.sdx` alone cannot.
+- **`crates/redox-cli/build.rs` was added**, which the plan did not anticipate — see defect 3.

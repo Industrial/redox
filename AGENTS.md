@@ -51,15 +51,80 @@ release itself and run it instead of the Nix-pinned one.
 
 ## Layout
 
-- `src/` — application source
-- `tests/` — automated tests
+Redox is a source-to-source compiler: `.sdx` in, `.xrs` containing ordinary Rust out. The
+workspace splits along pipeline stages (`docs/02 - Redox Update Blueprint.md` §5.4).
+
+- `crates/redox-lexer/` — off-side-rule lexer; emits spans, trivia and whitespace adjacency
+- `crates/redox-ast/` — syntax tree types, no logic
+- `crates/redox-parser/` — hand-written recursive descent (see `docs/COMPILER.md` §1)
+- `crates/redox-emit/` — Rust source emitter
+- `crates/redox-cli/` — the `redox` binary, plus the end-to-end and golden test harnesses
+- `crates/redox-diag/`, `redox-driver/`, `redox-fmt/` — declared empty; each crate's module
+  doc names the plan that fills it (plans 05, 10, 34)
+- `examples/*.sdx` — the CI-checked source of truth for what works today
+- `tests/golden/` — `.sdx` beside its expected `.xrs`, compared as exact text
+- `docs/` — numbered: 01 specification, 02 blueprint, 03 surface design, 04 plan of plans,
+  `05 - NN -` one per plan; plus `COMPILER.md` for toolchain decisions
 - `.maestro/` — harness state (read `.maestro/AGENTS.md` first)
+
+### Conventions that are load-bearing, not stylistic
+
+- **Every `.sdx` fixture is a file, and tests reference files.** Never embed language source
+  as a string literal in a Rust test. Emerald's one syntax cutover missed 113 fixtures that
+  lived as string literals inside test modules; that cost is paid once per syntax change,
+  forever.
+- **Comments are trivia, never discarded.** They must reach the generated `.xrs` — the
+  `.xrs` is a human-facing artifact. Doc 02 §10.1 corrects doc 01 §4.1 on this.
+- **Every AST node carries a byte span.** Emerald found a whole node type with no span at
+  all twenty-one plans after its diagnostics plan shipped, by which point the fix was judged
+  too large and it settled for a workaround.
+- **Generated identifiers use the `__rdx_` prefix**, and user identifiers may not.
+- **Every check rustc can make, rustc makes.** Redox has no type checker, no borrow checker
+  and no exhaustiveness checker, and must never grow one.
+- **No plan implements a library function.** Redox has crates.io. Emerald spent 112 of its
+  203 plans building a standard library; that is the cost this rule avoids.
+- **No single `.rs` file over 1,500 lines**, enforced by
+  `crates/redox-cli/tests/line_cap.rs`.
+
+### Working on the compiler
+
+```bash
+cargo run -p redox-cli -- build examples/hello.sdx   # transpile to examples/hello.xrs
+REDOX_BLESS=1 cargo test -p redox-cli --test golden  # regenerate golden expectations
+```
+
+Blessing rewrites the expectations and then fails the run, so a blessed diff is always
+reviewed rather than absorbed into a green build.
 
 ## Conventions
 
 - Match existing code style; use established libraries before adding new ones.
 - Surgical edits only — touch what the task requires.
 - Bump the relevant version when behavior changes.
+
+## Known tooling gotchas
+
+Environment traps found by hitting them. Each one cost real time or produced a false
+result, which is why they are written down rather than rediscovered.
+
+- **`rustc` on `PATH` is not the toolchain's rustc inside `blaze test`.** A test that spawns
+  `rustc` gets NixOS's `stub-ld` shim and fails with *"Could not start dynamically linked
+  executable: rustc"*, while the same test passes under `cargo test`. Fixed properly rather
+  than skipped: `crates/redox-cli/build.rs` resolves rustc at build time — where the
+  environment is intact — and bakes the absolute path in as `REDOX_RUSTC`, which the test
+  reads via `env!`. Any future test that invokes a toolchain binary should do the same.
+
+- **A stale blaze daemon or cache produces link errors that look like code defects.** Seen
+  for real: `rust-lld: error: undefined symbol: __rust_alloc_zeroed` while linking the test
+  binary of a crate that has no tests and no build script. Nothing was wrong with the code.
+  Fix: `blaze stop && rm -rf target/blaze`, then re-run. Suspect this before believing a
+  link failure that names a crate you did not touch.
+
+- **Do not grep compiler output for `^error` — it reads as green when it is not.** `cargo
+  clippy` colourises its output, so the line begins with an ANSI escape and the pattern
+  never matches. This produced a confident "clippy clean" report while two
+  `collapsible_if` errors were live, caught only when the moon gate ran. **Check exit
+  codes, not output text**, when deciding whether a gate passed.
 
 ## See also
 

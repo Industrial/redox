@@ -1,0 +1,8 @@
+# Trivia must survive into the generated Rust: doc 02 §10.1 corrects
+# doc 01 §4.1, which said comments are removed during compilation.
+
+main = ->
+  print "one" # an inline comment
+  print "two"
+
+# A comment at end of file.

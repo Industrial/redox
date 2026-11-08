@@ -1,9 +1,29 @@
 [workspace]
-resolver = "2"
-members = ["crates/app"]
+resolver = "3"
+members = [
+  # Plan 01 (`docs/05 - 01 - Vertical Slice.md`) — the five crates carrying
+  # code for the vertical slice.
+  "crates/redox-lexer",
+  "crates/redox-ast",
+  "crates/redox-parser",
+  "crates/redox-emit",
+  "crates/redox-cli",
+  # Declared empty by plan 01's leaf 1; each carries a module doc naming the
+  # plan that fills it. Crate boundaries are the one thing genuinely painful
+  # to introduce late (doc 02 §5.4).
+  "crates/redox-diag",
+  "crates/redox-driver",
+  "crates/redox-fmt",
+]
+# `.tmp/` is the gitignored scratch area. Excluded so a throwaway crate there
+# — plan 01 leaf 4's LALRPOP bake-off arm, for instance — cannot be picked up
+# as a workspace member by `cargo init`.
+exclude = [".tmp"]
 
-# Single version and shared metadata for all workspace crates (inherit with version.workspace = true).
+# Single version and shared metadata for all workspace crates (inherit with
+# version.workspace = true). Adopted from Emerald's own `Cargo.toml`, so each
+# per-crate manifest stays three lines.
 [workspace.package]
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 license = "CC-BY-SA-4.0"

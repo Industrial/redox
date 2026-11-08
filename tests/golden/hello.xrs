@@ -1,0 +1,4 @@
+// The smallest Redox program.
+fn main() {
+    println!("hello");
+}

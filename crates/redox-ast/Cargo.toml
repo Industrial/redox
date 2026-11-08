@@ -1,0 +1,8 @@
+[package]
+name = "redox-ast"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+redox-lexer = { path = "../redox-lexer" }
