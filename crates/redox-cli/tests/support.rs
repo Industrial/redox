@@ -60,8 +60,65 @@ fn workspace_root() -> PathBuf {
   PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
+/// A rustfmt that behaves like rustfmt.
+///
+/// Verified rather than trusted, the same rule `build.rs` applies to rustc —
+/// plan 03's third blaze shim is why that rule exists.
+fn rustfmt_path() -> Option<PathBuf> {
+  let dir = Path::new(RUSTC).parent()?;
+  let candidate = dir.join("rustfmt");
+  let works = Command::new(&candidate)
+    .arg("--version")
+    .output()
+    .is_ok_and(|o| o.status.success() && String::from_utf8_lossy(&o.stdout).contains("rustfmt"));
+  works.then_some(candidate)
+}
+
+pub fn rustfmt_available() -> bool {
+  rustfmt_path().is_some()
+}
+
+/// Format `rust` with rustfmt's **defaults**, outside the repository.
+///
+/// This repo's own `rustfmt.toml` sets two-space indentation, which governs
+/// Redox's *source*. Redox's *output* uses rustfmt's default four, so running
+/// rustfmt inside the repo would grade the output against the wrong config —
+/// a real finding from plan 04's probe, where every example "failed" purely on
+/// indentation until the check moved out of the tree.
+pub fn rustfmt(rust: &str) -> String {
+  let fmt = rustfmt_path().expect("caller should check rustfmt_available");
+  // `std::env::temp_dir()` is outside the repository, so no `rustfmt.toml`
+  // applies and rustfmt uses its defaults.
+  let dir = scratch("rustfmt");
+  let file = dir.join("generated.rs");
+  std::fs::write(&file, rust).expect("should write the generated Rust");
+
+  let out = Command::new(&fmt)
+    .args(["--edition", "2024"])
+    .arg(&file)
+    .output()
+    .expect("should run rustfmt");
+  assert!(
+    out.status.success(),
+    "rustfmt failed on generated code:\n{}",
+    String::from_utf8_lossy(&out.stderr)
+  );
+  let formatted = std::fs::read_to_string(&file).expect("should read the formatted file");
+  std::fs::remove_dir_all(&dir).ok();
+  formatted
+}
+
+/// A scratch directory unique to this call.
+///
+/// Keyed by a counter as well as the pid: keying on the tag alone let two
+/// concurrent tests share a directory, so one test's `Case::drop` deleted the
+/// `.xrs` another was still compiling. Found by running the suite, not by
+/// reading it.
 fn scratch(tag: &str) -> PathBuf {
-  let dir = std::env::temp_dir().join(format!("redox-{tag}-{}", std::process::id()));
+  use std::sync::atomic::{AtomicUsize, Ordering};
+  static NEXT: AtomicUsize = AtomicUsize::new(0);
+  let n = NEXT.fetch_add(1, Ordering::Relaxed);
+  let dir = std::env::temp_dir().join(format!("redox-{tag}-{}-{n}", std::process::id()));
   std::fs::create_dir_all(&dir).expect("should create a scratch directory");
   dir
 }

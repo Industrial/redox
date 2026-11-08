@@ -1,3 +1,0 @@
-# The smallest Redox program.
-main = ->
-  print "hello"
