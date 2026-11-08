@@ -33,8 +33,16 @@
 .env
 .env.*.local
 .env.local
+.hermes/
 .idea
 .idea/
+!.maestro/missions/*.md
+!.maestro/missions/.gitkeep
+.maestro/evidence/
+.maestro/missions/*
+.maestro/runs/
+.maestro/sessions/
+.maestro/tasks/local-history/
 .pre-commit-config.yaml
 .pre-commit-config.yaml
 .vscode
