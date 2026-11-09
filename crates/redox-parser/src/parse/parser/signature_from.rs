@@ -1,5 +1,5 @@
 use crate::ParseError;
-use redox_ast::{Ident, Param, Signature, TypeExpr};
+use redox_ast::{Param, Pattern, Signature, TypeExpr};
 use redox_diag::{Code, Span};
 
 /// Build a [`Signature`] from a signature line's spine and an equation's
@@ -21,7 +21,7 @@ use redox_diag::{Code, Span};
 /// "the clauses disagree" to exactly this.
 pub(crate) fn signature_from(
   spine: &[TypeExpr],
-  bound: &[Ident],
+  bound: &[Pattern],
   span: Span,
 ) -> Result<Signature, ParseError> {
   let (ret, params) = spine
@@ -47,11 +47,23 @@ pub(crate) fn signature_from(
     params: bound
       .iter()
       .zip(params)
-      .map(|(name, ty)| Param {
-        name: name.clone(),
+      .enumerate()
+      .map(|(i, (pattern, ty))| Param {
+        // A pattern that binds lends its name to the parameter; one that
+        // *tests* cannot, so the parameter gets a generated name and the
+        // pattern moves into the `match` the emitter builds. That is doc 18
+        // §2.3's `__rdx_a0`, and the reason the generated-identifier prefix
+        // exists.
+        name: match pattern {
+          Pattern::Binding(ident) => ident.clone(),
+          _ => redox_ast::Ident {
+            text: format!("__rdx_a{i}"),
+            span: pattern.span(),
+          },
+        },
         ty: Some(ty.clone()),
         is_mut: false,
-        span: name.span,
+        span: pattern.span(),
       })
       .collect(),
     ret: (ret.text != "()").then(|| ret.clone()),
@@ -62,7 +74,7 @@ pub(crate) fn signature_from(
 #[cfg(test)]
 mod tests {
   use super::signature_from;
-  use redox_ast::{Ident, TypeExpr};
+  use redox_ast::{Ident, Pattern, TypeExpr};
 
   fn ty(text: &str) -> TypeExpr {
     TypeExpr {
@@ -71,11 +83,12 @@ mod tests {
     }
   }
 
-  fn id(text: &str) -> Ident {
-    Ident {
+  /// A binding pattern, which is what an ordinary parameter name is.
+  fn id(text: &str) -> Pattern {
+    Pattern::Binding(Ident {
       text: text.to_string(),
       span: (0, 0),
-    }
+    })
   }
 
   #[test]

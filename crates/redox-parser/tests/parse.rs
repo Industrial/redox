@@ -23,8 +23,8 @@ fn parses_the_hello_slice() {
   assert_eq!(p.items.len(), 1);
   let Item::Fn(f) = &p.items[0];
   assert_eq!(f.name.text, "main");
-  assert_eq!(f.body.stmts.len(), 1);
-  let StmtKind::Expr(Expr::Call { callee, args, .. }) = &f.body.stmts[0].kind else {
+  assert_eq!(f.clauses[0].body.stmts.len(), 1);
+  let StmtKind::Expr(Expr::Call { callee, args, .. }) = &f.clauses[0].body.stmts[0].kind else {
     panic!("expected a call");
   };
   assert_eq!(
@@ -44,7 +44,7 @@ fn nodes_carry_spans_that_index_the_source() {
   let p = prog(src);
   let Item::Fn(f) = &p.items[0];
   assert_eq!(&src[f.name.span.0..f.name.span.1], "main");
-  let StmtKind::Expr(e) = &f.body.stmts[0].kind else {
+  let StmtKind::Expr(e) = &f.clauses[0].body.stmts[0].kind else {
     panic!("expected an expression statement");
   };
   assert_eq!(&src[e.span().0..e.span().1], "print \"hello\"");
@@ -63,7 +63,10 @@ fn carries_a_trailing_comment_onto_the_statement() {
   let p = prog("main :: ()\nmain =\n  print \"x\" -- why\n");
   let Item::Fn(f) = &p.items[0];
   assert_eq!(
-    f.body.stmts[0].trailing.as_ref().map(|t| t.text.as_str()),
+    f.clauses[0].body.stmts[0]
+      .trailing
+      .as_ref()
+      .map(|t| t.text.as_str()),
     Some("why")
   );
 }

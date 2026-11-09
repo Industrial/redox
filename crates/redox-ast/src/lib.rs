@@ -36,8 +36,10 @@ pub use expr::type_expr::TypeExpr;
 pub use expr::unary_op::UnaryOp;
 pub use program::Program;
 pub use program::item::Item;
+pub use program::item::clause::Clause;
 pub use program::item::fn_decl::FnDecl;
 pub use program::item::param::Param;
+pub use program::item::pattern::Pattern;
 pub use program::item::signature::Signature;
 
 // Re-exported so downstream crates naming a span or a trivium need not add a

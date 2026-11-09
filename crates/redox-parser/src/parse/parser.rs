@@ -1,12 +1,13 @@
 pub(crate) mod application;
 pub(crate) mod arguments;
 pub(crate) mod atom;
-pub(crate) mod binders;
 pub(crate) mod capture_type;
 pub(crate) mod lambda;
 pub(crate) mod parse_expr;
 pub(crate) mod parse_spine;
 pub(crate) mod path_or_ident;
+pub(crate) mod pattern;
+pub(crate) mod patterns;
 pub(crate) mod postfix;
 pub(crate) mod prefix;
 pub(crate) mod signature_from;
@@ -17,10 +18,10 @@ pub(crate) mod token_text;
 pub(crate) mod unary_op;
 
 use crate::ParseError;
-use crate::parse::parser::binders::binders;
 use crate::parse::parser::capture_type::capture_type;
 use crate::parse::parser::parse_expr::parse_expr;
 use crate::parse::parser::parse_spine::parse_spine;
+use crate::parse::parser::patterns::patterns;
 use crate::parse::parser::signature_from::signature_from;
 use redox_ast::{Binding, Block, FnDecl, Ident, Item, Program, Stmt, StmtKind, TypeExpr};
 use redox_diag::Code;
@@ -113,20 +114,62 @@ impl<'a> Parser<'a> {
     self.newline_with_trailing("expected a line break after the signature")?;
     self.skip_separators();
 
-    // The equation.
-    let again = self.ident("expected the equation to repeat the name")?;
-    if again.text != name.text {
-      return Err(ParseError::with(
-        Code::ExpectedName,
-        format!(
-          "this equation defines `{}`, but the signature above it is for `{}`",
-          again.text, name.text
-        ),
-        again.span,
-      ));
+    // The equations. One or more, each repeating the name — doc 18 §2.3.
+    let mut clauses = Vec::new();
+    let mut sig = None;
+    loop {
+      let again = self.ident("expected the equation to repeat the name")?;
+      if again.text != name.text {
+        return Err(ParseError::with(
+          Code::ExpectedName,
+          format!(
+            "this equation defines `{}`, but the signature above it is for `{}`",
+            again.text, name.text
+          ),
+          again.span,
+        ));
+      }
+
+      let row = patterns(self)?;
+      // Every clause is checked against the same spine, so a row of the wrong
+      // length is reported per clause rather than once for the function.
+      let built = signature_from(&spine, &row, (name.span.0, self.prev_span().1))?;
+      if sig.is_none() {
+        sig = Some(built);
+      }
+
+      let clause = self.clause(row)?;
+      clauses.push(clause);
+
+      // Another clause follows only if the next item is this same name. A
+      // different name starts a new declaration, and anything else ends the
+      // run — which is how the parser knows where a multi-clause function
+      // stops without a terminator.
+      self.skip_separators();
+      let continues = matches!(&self.peek().kind, TokenKind::Ident(text) if *text == name.text)
+        && !self
+          .peek_at(1)
+          .is_some_and(|t| t.kind == TokenKind::ColonColon);
+      if !continues {
+        break;
+      }
     }
-    let bound = binders(self)?;
-    let sig = signature_from(&spine, &bound, (name.span.0, self.prev_span().1))?;
+
+    let end = self.prev_span().1;
+    let trailing = clauses.last().and_then(|c| c.trailing.clone());
+    Ok(Item::Fn(FnDecl {
+      name,
+      sig: sig.expect("the loop runs at least once"),
+      clauses,
+      span: (start, end),
+      leading,
+      trailing,
+    }))
+  }
+
+  /// One clause's `= body`, after its pattern row.
+  fn clause(&mut self, patterns: Vec<redox_ast::Pattern>) -> Result<redox_ast::Clause, ParseError> {
+    let start = patterns.first().map_or(self.peek_span().0, |p| p.span().0);
     self.expect(
       &TokenKind::Eq,
       "expected `=` after the equation's parameters",
@@ -166,18 +209,15 @@ impl<'a> Parser<'a> {
       ));
     }
 
-    let end = self.prev_span().1;
-    Ok(Item::Fn(FnDecl {
-      name,
-      sig,
+    Ok(redox_ast::Clause {
+      patterns,
       body: Block {
         stmts,
         span: (body_start, body_end),
       },
-      span: (start, end),
-      leading,
+      span: (start, self.prev_span().1),
       trailing,
-    }))
+    })
   }
 
   /// `Stmt := Binding | "return" Expr? | Expr`, each closed by a `Newline`.
