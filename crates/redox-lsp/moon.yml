@@ -1,0 +1,33 @@
+# GENERATED from this crate's Cargo.toml — see .tmp/gen_moon.py in the
+# commit that introduced it, and crates/redox-cli/tests/moon_project_graph.rs
+# which fails if it drifts. Tasks are inherited from
+# .moon/tasks/tag-crate.yml via the `crate` tag.
+#
+# No `dependsOn`: moon's rust toolchain reads the dependency edges out of
+# Cargo.toml itself, so repeating them here would be a second copy of the
+# graph free to drift from the first.
+id: 'redox-lsp'
+language: 'rust'
+layer: 'application'
+tags:
+  - 'crate'
+fileGroups:
+  # This crate's TRANSITIVE intra-workspace dependencies. These are inputs
+  # rather than just `deps` because moon caches on inputs alone — without
+  # them, a change in one of these would leave this crate's verdict
+  # cached green.
+  dependency_sources:
+    - '/crates/redox-ast/src/**/*'
+    - '/crates/redox-ast/Cargo.toml'
+    - '/crates/redox-diag/src/**/*'
+    - '/crates/redox-diag/Cargo.toml'
+    - '/crates/redox-driver/src/**/*'
+    - '/crates/redox-driver/Cargo.toml'
+    - '/crates/redox-emit/src/**/*'
+    - '/crates/redox-emit/Cargo.toml'
+    - '/crates/redox-fmt/src/**/*'
+    - '/crates/redox-fmt/Cargo.toml'
+    - '/crates/redox-lexer/src/**/*'
+    - '/crates/redox-lexer/Cargo.toml'
+    - '/crates/redox-parser/src/**/*'
+    - '/crates/redox-parser/Cargo.toml'

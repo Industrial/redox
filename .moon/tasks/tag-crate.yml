@@ -1,0 +1,146 @@
+# Per-crate tasks, inherited by every project tagged `crate`.
+# https://moonrepo.dev/docs/config/tasks
+#
+# Why these are per-crate and not `--workspace`
+# ---------------------------------------------
+# Every Rust task here used to live on the root project and carry
+# `--workspace`, with `cache: false` on the blaze ones. That combination meant
+# a one-line edit in redox-lexer re-checked, re-built and re-tested all eleven
+# crates, every commit, with nothing ever skipped. blaze needs 12-16 GB to hold
+# the whole workspace at `--all-features --cfg-test --dev-deps`, and as crates
+# were added it outgrew what the box had: the journal records 35 OOM kills of
+# blaze-engine in one day.
+#
+# Scoping each task to one crate with `-p $project` and letting moon cache the
+# verdict means an untouched crate is skipped outright — blaze is not invoked
+# for it at all. Measured on this workspace: a first `moon run :check` takes
+# 60s and peaks at 7.1 GB; the immediate re-run is 11/11 cached in 93ms and
+# starts no toolchain process whatsoever.
+#
+# What makes the caching safe
+# ---------------------------
+# `deps: ['^:<task>']` is NOT what makes it safe, and it is worth being precise
+# about that because it looks like it should be. In moon 2.5.0 a task's `deps`
+# decide the ORDER tasks run in, not the hash they are cached under. Measured:
+# appending a line to crates/redox-diag/src/lib.rs — the crate every other
+# crate depends on — and running `moon run :check` re-ran redox-diag alone and
+# reported the other ten cached. A breaking change there would have been
+# reported green.
+#
+# The `dependency_sources` file group is what closes that hole: each crate
+# overrides it in its own moon.yml with the sources of its transitive
+# dependencies, so those files are real inputs to its hash. `deps` is still
+# declared, because the ordering it gives is worth having.
+#
+# Everything here is cached
+# -------------------------
+# Every task here is a verdict: its value is a pass/fail that re-derives
+# identically from identical inputs.
+#
+# That includes the build tasks, which were briefly left uncached on the
+# grounds that their value is an artifact rather than an answer. Measured, that
+# exemption cost more than it was worth: eleven `blaze build` runs fired on
+# every gate even when nothing had changed, and a no-op push gate still took
+# 45s and peaked at 17.6 GB with 56 of 68 tasks cached — the twelve that ran
+# being these eleven builds and `format`.
+#
+# The cost of caching them is one narrow surprise: delete `target/` by hand and
+# `moon run :build` reports cached without putting a binary back, because moon
+# is not tracking blaze's output layout as `outputs` and cannot —
+# `.moon/workspace.yml` deliberately keeps `**/target/**` out of the hasher.
+# `moon run :build --force` rebuilds. In the gate, where `:build` is asked
+# whether the crate builds rather than for the artifact, the answer is what
+# matters.
+fileGroups:
+  # The crate's own sources, and the two workspace manifests that change what
+  # any crate compiles to.
+  sources:
+    - 'src/**/*'
+    - 'build.rs'
+    - 'Cargo.toml'
+    - '/Cargo.toml'
+    - '/Cargo.lock'
+  tests:
+    - 'tests/**/*'
+    - 'benches/**/*'
+  # The sources of every crate this one depends on, transitively. Overridden
+  # per crate in its own moon.yml, and generated there from Cargo.toml. Empty
+  # here so a crate with no intra-workspace dependencies still resolves it.
+  dependency_sources: []
+tasks:
+  # ---- blaze: the fast inner loop ------------------------------------------
+  check:
+    description: 'Check this crate compiles (blaze)'
+    command: 'blaze'
+    args: ['check', '-p', '$project', '--all-features']
+    deps: ['^:check']
+    inputs: ['@group(sources)', '@group(dependency_sources)']
+    options:
+      cache: true
+      outputStyle: buffer-only-failure
+  build:
+    description: 'Build this crate (blaze)'
+    command: 'blaze'
+    args: ['build', '-p', '$project']
+    deps: ['^:build']
+    inputs: ['@group(sources)', '@group(dependency_sources)']
+    options:
+      cache: true
+      outputStyle: buffer-only-failure
+  test:
+    description: 'Test this crate (blaze — unit, integration and doctests)'
+    command: 'blaze'
+    args: ['test', '-p', '$project']
+    deps: ['^:test']
+    inputs: ['@group(sources)', '@group(tests)', '@group(dependency_sources)']
+    options:
+      cache: true
+      outputStyle: buffer-only-failure
+  # ---- cargo: rustc is still the final word -------------------------------
+  # blaze's verdict is its own front end's and not yet all of rustc's, so the
+  # push gate runs these as well. See AGENTS.md.
+  cargo-check:
+    description: "Check this crate with cargo — rustc's verdict"
+    command: 'cargo'
+    args: ['check', '-p', '$project', '--all-features']
+    deps: ['^:cargo-check']
+    inputs: ['@group(sources)', '@group(dependency_sources)']
+    options:
+      cache: true
+      outputStyle: buffer-only-failure
+  cargo-test:
+    description: 'Test this crate with nextest under rustc'
+    command: 'cargo'
+    args: ['nextest', 'run', '-p', '$project']
+    deps: ['^:cargo-test']
+    inputs: ['@group(sources)', '@group(tests)', '@group(dependency_sources)']
+    options:
+      cache: true
+      outputStyle: buffer-only-failure
+  cargo-build:
+    description: 'Build this crate with cargo'
+    command: 'cargo'
+    args: ['build', '-p', '$project']
+    deps: ['^:cargo-build']
+    inputs: ['@group(sources)', '@group(dependency_sources)']
+    options:
+      cache: true
+      outputStyle: buffer-only-failure
+  # ---- lint ----------------------------------------------------------------
+  # blaze ships no clippy and no rustfmt, so this stays cargo's.
+  #
+  # `dependency_sources` belongs here too: clippy compiles the crate before it
+  # lints it, so a dependency changing a type or a signature can turn a clean
+  # clippy run into a failing one. Only `fmt` is genuinely local, and it is not
+  # worth a second task to say so.
+  lint:
+    description: 'fmt --check and clippy for this crate'
+    command: 'bash'
+    args:
+      - '-c'
+      - 'cargo fmt -p $project -- --check && cargo clippy -p $project --all-features -- -D warnings'
+    deps: ['^:lint']
+    inputs: ['@group(sources)', '@group(tests)', '@group(dependency_sources)']
+    options:
+      cache: true
+      outputStyle: buffer-only-failure

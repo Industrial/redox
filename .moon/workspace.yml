@@ -7,10 +7,17 @@ $schema: './cache/schemas/workspace.json'
 hasher:
   ignorePatterns:
     - '**/target/**'
-# Rust workspace crates
+# Rust workspace crates, plus the root for the workspace-wide tasks.
+#
+# Spelled out rather than globbed: the bare `crates/*` + `.` glob list also
+# produced a thirteenth project for `crates/` itself — toolchain `system`,
+# layer `unknown`, no manifest — which then inherited the per-crate tasks and
+# would have run `blaze check -p crates` against a package that does not exist.
 projects:
-  - 'crates/*'
-  - '.'
+  globs:
+    - 'crates/*'
+  sources:
+    project-template: '.'
 vcs:
   client: 'git'
   defaultBranch: 'main'

@@ -19,6 +19,57 @@ moon run :cargo-test     # cargo nextest run — likewise
 moon run :audit :coverage :docs :check-docs
 ```
 
+### The Rust targets are per-crate, and cached
+
+`:check`, `:build`, `:test`, `:cargo-check`, `:cargo-test`, `:cargo-build` and `:lint` are
+defined **once** in `.moon/tasks/tag-crate.yml` and inherited by each crate through its
+`tags: ['crate']`. So `moon run :check` is eleven `blaze check -p <crate>` runs, not one
+`--workspace` run, and moon skips the crates whose inputs have not changed. Only
+workspace-wide work — `:format`, `:ci-format`, `:audit`, `:coverage`, `:docs`,
+`:check-docs`, `:fix`, `:bench` — still lives on the root project in `moon.yml`.
+
+They all used to be `--workspace` with `cache: false`, which meant a one-line edit
+re-checked, re-built and re-tested all eleven crates on every commit with nothing ever
+skipped. blaze needs 12–16 GB to hold the whole workspace at
+`--all-features --cfg-test --dev-deps`, and the journal records 35 OOM kills of
+blaze-engine in one day. Measured after the change:
+
+| | before | after |
+|---|---|---|
+| no-op push gate | full workspace build, uncached | **67/68 cached, 1.3s, no toolchain process at all** |
+| one leaf crate edited | the whole workspace | that crate alone, 68ms for `:check` |
+| a universal dependency edited | the whole workspace | all 11, correctly |
+| cold full push gate | 12–16 GB, OOM-prone | 22.6 GB peak, completes |
+
+The cold case is the one that got *worse*, and the reason is in the gotchas below: blaze
+spawns a worker per (crate, flag-set), so eleven crates cost more resident memory than one
+`--workspace` call. The caching is what pays for that, and it only pays when the gate is
+mostly cached — which is the normal case and not the first run after a config change.
+
+**Two things keep this safe, and both are easy to break.**
+
+`deps: ['^:check']` is **not** what makes the caching correct. In moon 2.5.0 a task's `deps`
+set the order tasks run in, not the hash they are cached under: editing
+`crates/redox-diag/src/lib.rs` — which every other crate depends on — re-ran redox-diag
+alone and reported the other ten cached. What closes that hole is the `dependency_sources`
+file group, which each crate's `moon.yml` overrides with its **transitive** dependencies so
+those files are real inputs to its hash. `crates/redox-cli/tests/moon_project_graph.rs`
+fails if that list drifts from `Cargo.toml`.
+
+`dependsOn` is deliberately absent from every crate's `moon.yml`: moon's rust toolchain reads
+the edges out of `Cargo.toml` itself (`moon query projects` reports them with
+`source: "implicit"`), so declaring them would be a second copy of the graph free to drift.
+
+Two smaller traps, both already paid for:
+
+- **`.moon/tasks/tag-crate.yml` is applied to every project, not only the tagged ones**, in
+  moon 2.5.0 — `moon task project-template:check` resolved and reported the per-crate
+  description. The root therefore opts out by name under `workspace.inheritedTasks.exclude`,
+  or `moon run :check` would also try `blaze check -p project-template`.
+- **`crates/.gitkeep` made moon treat `crates/` itself as a twelfth project** (toolchain
+  `system`, no manifest), which then inherited the per-crate tasks. It is gone, and
+  `.moon/workspace.yml` now spells the project sources out instead of globbing.
+
 ### Rust goes through blaze
 
 [blaze](https://ix.dev/blaze) is the default Rust build command here, pinned by
@@ -201,6 +252,48 @@ result, which is why they are written down rather than rediscovered.
   then re-run. And read blaze's **last** line rather than grepping it: the diagnosis was in
   the output the whole time, and three plans filtered it out while writing down that there was
   no diagnosis.
+
+  **Correction, 2026-11-09: `/run/user/1000` was only half of it, and the smaller half.**
+  `TMPDIR` arrived **unset** in this shell, so blaze, cargo and rustc wrote their scratch
+  objects to **`/tmp`, a 2.0 GB tmpfs** — found 90% full with 216 MB free, 1.25 GB of it
+  Claude Code session scratchpads under `/tmp/claude-1000`. That is the same `os error 28`,
+  on a tmpfs a third the size, and because tmpfs is RAM every object written there also
+  counted against the memory that was OOM-killing blaze-engine.
+
+  `devenv.nix` now exports `TMPDIR="$HOME/.cache/redox/tmp"`, on the 630 GB `/home`. Two
+  things about that line are load-bearing:
+
+  - it is in `enterShell`, **not** in `env`, because devenv clears `TMPDIR` after applying
+    `env` and setting it there leaves it empty;
+  - it must stay **outside the repository**. Pointing it at `$DEVENV_STATE/tmp` put it back
+    inside the tree, `crates/redox-cli/tests/support.rs` then formatted its generated Rust
+    somewhere that inherits this repo's `rustfmt.toml` (`tab_spaces = 2`) rather than
+    rustfmt's default four, and `generated_rust_is_rustfmt_clean` failed on every example —
+    the same false finding plan 04's probe recorded.
+
+- **blaze's workers accumulate during a session, and `blaze stop` is what reclaims them.**
+  Measured 2026-11-09: **15 orphaned `blaze-engine` processes holding 23.3 GB**, one per
+  (crate, flag-set) pair the daemon had been asked for. `blaze stop` took all 15 to zero.
+
+  This is the cost of the per-crate build: a cold `moon run :check` across eleven crates
+  leaves **6 workers / 7.4 GB** where `blaze check --workspace` leaves **3 / 3.3 GB**. The
+  caching is what pays for it — an untouched crate spawns no worker at all, and a fully
+  cached push gate runs in 1.3s and starts no toolchain process whatsoever.
+
+  The daemon self-reaps after 30 minutes idle, so this only bites inside an active session.
+  When `free -h` looks wrong mid-session, count the workers before believing anything else:
+
+  ```bash
+  pgrep -x blaze-engine | wc -l
+  ps -o rss= -C blaze-engine | awk '{s+=$1} END {printf "%.1f GB\n", s/1048576}'
+  ```
+
+- **`cargo::rustc-env` from a build script is a *compile-time* value — `env!`, not
+  `std::env::var`.** `redox-bench`'s `rustc_path()` read its baked `REDOX_RUSTC` with
+  `std::env::var`, which always missed, leaving `PATH`'s `stub-ld` as the only candidate. All
+  four of its tests failed under `blaze test -p redox-bench` with *"no rustc answered
+  `--version` like rustc"* while passing under `cargo nextest`, where `PATH` happens to hold
+  a real rustc and hid the mistake for as long as nobody ran the blaze path.
 
 - **Do not grep compiler output for `^error` — it reads as green when it is not.** `cargo
   clippy` colourises its output, so the line begins with an ANSI escape and the pattern

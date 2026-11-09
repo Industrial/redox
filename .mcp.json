@@ -35,13 +35,6 @@
 			"disabled": false,
 			"description": "lean-ctx MCP (context compression; https://github.com/yvgude/lean-ctx)"
 		},
-		"serena": {
-			"type": "stdio",
-			"command": "./scripts/serena-mcp-wrapper.sh",
-			"args": [],
-			"disabled": false,
-			"description": "Serena MCP semantic editing/navigation. Prefer replace_regex, replace_symbol_body, insert_before_symbol, insert_after_symbol, and create_text_file for writes before native edit tools; do not use execute_shell_command as a write substitute."
-		},
 		"roam-code": {
 			"type": "stdio",
 			"command": "./scripts/roam-mcp-wrapper.sh",

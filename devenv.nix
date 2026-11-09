@@ -37,17 +37,6 @@
     channel = "stable";
   };
 
-  # uv venv at `.devenv/state/venv` — Serena MCP (`scripts/serena-mcp-wrapper.sh`);
-  # see pyproject.toml [dependency-groups].
-  cursor.features.languages-python-uv = {
-    enable = true;
-    syncArguments = [
-      "--no-install-project"
-      "--group"
-      "serena"
-    ];
-  };
-
   cursor.features.git-hooks-moon = {
     enable = true;
     # Preserve this repo's Moon gate composition (not the shared ci-* defaults).
@@ -79,6 +68,35 @@
 
   # Project-only shell wiring (shared features handle moon-sync, prek install).
   enterShell = ''
+    # Keep build temporaries off tmpfs, which is RAM.
+    #
+    # TMPDIR arrives unset in this shell, so blaze, cargo and rustc wrote
+    # their scratch objects to /tmp — a 2.0 GB tmpfs found 90% full with
+    # 216 MB free, 1.25 GB of it Claude Code session scratchpads under
+    # /tmp/claude-1000. blaze then failed mid-build with
+    #
+    #   the daemon's worker ended (exit status: 1: Error: backend: writing
+    #   the object: No space left on device (os error 28))
+    #
+    # which reads like a code defect and is not one. Worse, because tmpfs is
+    # RAM, every object written there also counted against the memory that was
+    # OOM-killing blaze-engine.
+    #
+    # This is exported here rather than set in `env` above because devenv
+    # clears TMPDIR after applying `env` — setting it there leaves it empty,
+    # and the mkdir below then fails on an empty directory name.
+    #
+    # It must stay OUTSIDE the repository. `crates/redox-cli/tests/support.rs`
+    # formats generated Rust in `std::env::temp_dir()` precisely because
+    # nothing there inherits this repo's `rustfmt.toml` (tab_spaces = 2) —
+    # Redox's output uses rustfmt's default four. Pointing TMPDIR at
+    # `$DEVENV_STATE/tmp` put it back inside the tree and
+    # `generated_rust_is_rustfmt_clean` failed on every example, which is the
+    # same false finding plan 04's probe recorded. ~/.cache is on /home, which
+    # has 630 GB free, and is nobody's Cargo workspace.
+    export TMPDIR="$HOME/.cache/redox/tmp"
+    mkdir -p "$TMPDIR"
+
     # Hermes: project-local home + seed templates (never overwrite secrets).
     export HERMES_HOME="$PWD/.hermes"
     mkdir -p "$HERMES_HOME"

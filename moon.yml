@@ -1,13 +1,33 @@
 # Root-level workspace tasks
 # https://moonrepo.dev/docs/config/project
+#
+# Only genuinely workspace-wide tasks live here. Everything Rust and per-crate
+# — check, build, test, their cargo twins, and lint — is defined once in
+# .moon/tasks/tag-crate.yml and inherited by each crate through the `crate`
+# tag, so `moon run :check` fans out across the eleven crates and skips the
+# ones whose inputs have not changed.
+#
+# This project is deliberately NOT tagged `crate`: it is the workspace root
+# rather than a package, so `blaze check -p project-template` would not
+# resolve.
 id: 'project-template'
 language: 'rust'
 layer: 'application'
 workspace:
   inheritedTasks:
+    # moon 2.5.0 applies .moon/tasks/tag-crate.yml to every project, not only
+    # the ones tagged `crate` — verified with `moon task project-template:check`,
+    # which resolved and reported the per-crate description. Until that scopes
+    # the way its documentation says, the root has to opt out by name, or
+    # `moon run :check` would also try `blaze check -p project-template`.
     exclude:
-      - check
-      - test
+      - 'build'
+      - 'cargo-build'
+      - 'cargo-check'
+      - 'cargo-test'
+      - 'check'
+      - 'lint'
+      - 'test'
 tasks:
   format:
     description: 'Format the workspace with treefmt (Rust, Nix, shell, JS/TS, YAML, TOML)'
@@ -62,88 +82,6 @@ tasks:
       - '**/*.rs'
     options:
       cache: false
-  # blaze is the default Rust build command: it keeps the workspace compiled in
-  # a daemon and rebuilds only what changed. Moon caching stays off for the
-  # blaze targets — blaze has its own content-addressed store and is already
-  # faster than a moon cache lookup, and double-caching only hides staleness.
-  build:
-    description: 'Build the workspace with blaze'
-    command: 'blaze'
-    args: ['build', '--workspace']
-    inputs:
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'crates/**/*.rs'
-    options:
-      cache: false
-      outputStyle: buffer-only-failure
-  check:
-    description: 'Check the workspace compiles (blaze)'
-    command: 'blaze'
-    args: ['check', '--workspace', '--all-features']
-    inputs:
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'crates/**/*.rs'
-    options:
-      cache: false
-      outputStyle: buffer-only-failure
-  cargo-build:
-    description: 'Build the workspace with cargo (rustc verification path)'
-    command: 'cargo'
-    args: ['build']
-    inputs:
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'crates/**/*.rs'
-    options:
-      cache: true
-      outputStyle: buffer-only-failure
-  cargo-check:
-    description: 'Check the workspace with cargo — rustc is the final word on the verdict'
-    command: 'cargo'
-    args: ['check', '--workspace', '--all-features']
-    inputs:
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'crates/**/*.rs'
-    options:
-      cache: true
-      outputStyle: buffer-only-failure
-  lint:
-    description: 'Run fmt --check and clippy'
-    command: 'bash'
-    args: ['-c', 'cargo fmt --all -- --check && cargo clippy --workspace -- -D warnings']
-    inputs:
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - '**/*.rs'
-    options:
-      outputStyle: buffer-only-failure
-  test:
-    description: 'Run tests with blaze (unit, integration and doctests)'
-    command: 'blaze'
-    args: ['test', '--workspace']
-    inputs:
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - '**/*.rs'
-      - 'tests/**/*'
-    options:
-      cache: false
-      outputStyle: buffer-only-failure
-  cargo-test:
-    description: 'Run tests with nextest under rustc — the verification path'
-    command: 'cargo'
-    args: ['nextest', 'run']
-    inputs:
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - '**/*.rs'
-      - 'tests/**/*'
-    options:
-      cache: false
-      outputStyle: buffer-only-failure
   # Stays cargo: `blaze doc` panics in blaze_doc::places::place as of
   # 0.20261030.1. blaze has no clippy, fmt, audit or llvm-cov subcommand at
   # all, so :lint, :audit, :coverage, :fix and :bench are cargo's too.
