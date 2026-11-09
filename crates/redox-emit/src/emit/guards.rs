@@ -33,11 +33,11 @@ pub(crate) fn emit_guards(out: &mut Sink<'_>, guards: &[Guard], indent: usize, t
     match (&guard.condition, i) {
       (Some(cond), 0) => {
         pad(out, indent);
-        out.push_str(&format!("if {} {{\n", emit_expr(cond)));
+        out.push_str(&format!("if {} {{\n", emit_expr(cond, indent)));
       }
       (Some(cond), _) => {
         pad(out, indent);
-        out.push_str(&format!("}} else if {} {{\n", emit_expr(cond)));
+        out.push_str(&format!("}} else if {} {{\n", emit_expr(cond, indent)));
       }
       // `otherwise` in first position is a ladder of one arm, which is not a
       // conditional at all — emit the body with no wrapper.

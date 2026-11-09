@@ -125,3 +125,30 @@ fn a_balanced_delimiter_is_accepted() {
     assert!(lex(src).is_ok(), "{src:?} should lex");
   }
 }
+
+/// `>` does not continue a line, and that is a deliberate reversal.
+///
+/// It was in the continuation set because it is a binary operator, which made
+/// `x = Some 1 :: Option<u8>` swallow the whole next line: `capture_type`
+/// ends a type at a newline, and the newline had been suppressed. A `>` at
+/// the end of a line closes a generic argument list far more often than it
+/// dangles off a comparison, and a comparison split there is still writable
+/// with parentheses — a type ending in `>` is not avoidable at all.
+#[test]
+fn a_trailing_angle_bracket_does_not_continue_the_line() {
+  let toks = kinds("a = x :: Vec<u8>\nb = 1\n");
+  assert!(
+    toks.contains(&TokenKind::Newline),
+    "the line must end: {toks:?}"
+  );
+}
+
+/// `>>` likewise, for `Vec<Vec<u8>>`.
+#[test]
+fn a_trailing_double_angle_bracket_does_not_continue_the_line() {
+  let toks = kinds("a = x :: Vec<Vec<u8>>\nb = 1\n");
+  assert!(
+    toks.contains(&TokenKind::Newline),
+    "the line must end: {toks:?}"
+  );
+}

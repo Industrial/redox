@@ -1,8 +1,20 @@
 //! Doc 18 §6's ascription, and §5.2's spaced-versus-tight `::` rule.
 //!
-//! `e :: T` lowers to `{ let __rdx_t: T = e; __rdx_t }` — a block, because
-//! Rust has no expression-level ascription and a `let` is the only way to
-//! state a type without naming a path.
+//! `e :: T` lowers to a block, because Rust has no expression-level
+//! ascription and a `let` is the only way to state a type without naming a
+//! path:
+//!
+//! ```text
+//! n = 1 :: u64        let n = {
+//!                         let __rdx_t: u64 = 1;
+//!                 →       __rdx_t
+//!                     };
+//! ```
+//!
+//! Three lines rather than one. The one-line form was what the lowering
+//! emitted until the indent threading landed, and rustfmt rewrites it — so
+//! the lowering had been breaking plan 04's guarantee from the day it shipped,
+//! unnoticed because no example used ascription.
 //!
 //! The rule that tells it from a path is the **only** place in Redox where a
 //! stray space changes meaning, which doc 18 §10.1 item 3 names as the thing
@@ -21,10 +33,10 @@ fn body(src: &str) -> String {
 
 #[test]
 fn a_spaced_colon_colon_ascribes() {
+  let out = body("n = 1 :: u64");
   assert!(
-    body("n = 1 :: u64").contains("let n = { let __rdx_t: u64 = 1; __rdx_t };"),
-    "{}",
-    body("n = 1 :: u64")
+    out.contains("let n = {\n        let __rdx_t: u64 = 1;\n        __rdx_t\n    };"),
+    "{out}"
   );
 }
 
@@ -46,7 +58,7 @@ fn a_tight_colon_colon_is_still_a_path() {
 fn ascription_binds_looser_than_every_operator() {
   let out = body("total = 1 + 2 :: u64");
   assert!(
-    out.contains("{ let __rdx_t: u64 = 1 + 2; __rdx_t }"),
+    out.contains("let __rdx_t: u64 = 1 + 2;"),
     "the sum is ascribed, not the `2`:\n{out}"
   );
 }

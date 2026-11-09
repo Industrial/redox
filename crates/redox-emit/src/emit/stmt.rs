@@ -25,7 +25,7 @@ pub(crate) fn emit_stmt(out: &mut Sink<'_>, stmt: &Stmt, indent: usize, tail: bo
   pad(out, indent);
   match &stmt.kind {
     StmtKind::Expr(e) => {
-      out.push_str(&emit_expr(unparen(e)));
+      out.push_str(&emit_expr(unparen(e), indent));
       if !tail {
         out.push(';');
       }
@@ -44,7 +44,7 @@ pub(crate) fn emit_stmt(out: &mut Sink<'_>, stmt: &Stmt, indent: usize, tail: bo
         out.push_str(&ty.text);
       }
       out.push_str(" = ");
-      out.push_str(&emit_expr(&b.value));
+      out.push_str(&emit_expr(&b.value, indent));
       out.push(';');
     }
     // A draw arrow is flattened by `emit_stmts`, which owns the run of
@@ -59,7 +59,7 @@ pub(crate) fn emit_stmt(out: &mut Sink<'_>, stmt: &Stmt, indent: usize, tail: bo
       out.push_str("return");
       if let Some(e) = value {
         out.push(' ');
-        out.push_str(&emit_expr(e));
+        out.push_str(&emit_expr(e, indent));
       }
       out.push(';');
     }

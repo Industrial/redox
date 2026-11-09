@@ -44,7 +44,7 @@ pub(crate) fn emit_stmts(out: &mut Sink<'_>, stmts: &[Stmt], indent: usize, tail
   out.mark(first.span);
   emit_trivia(out, &first.leading, indent);
   pad(out, indent);
-  out.push_str(&emit_expr(value));
+  out.push_str(&emit_expr(value, indent));
   out.push_str("(|");
   out.push_str(&name.text);
   out.push_str("| {\n");

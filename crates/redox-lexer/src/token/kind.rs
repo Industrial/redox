@@ -175,6 +175,15 @@ impl TokenKind {
   /// oversight: each of them ends a header whose body follows on an *indented*
   /// line, so suppressing the newline would swallow the `Indent` the parser
   /// needs. `main :: ()` / `main =` is the case that proved it.
+  ///
+  /// `>` and `>>` are not here either, for a different reason: they close a
+  /// generic argument list far more often than they dangle off a comparison.
+  /// `wide = Some 1 :: Option<u8>` swallowed the whole next line into the
+  /// type's verbatim text, because `capture_type` ends a type at a newline and
+  /// there was no newline to find. A comparison genuinely split after `>` is
+  /// writable with parentheses; a type ending in `>` is not avoidable at all,
+  /// and doc 18 §5.6 deleted the chained comparison that made the dangling
+  /// form attractive in the first place.
   pub(crate) fn continues_line(&self) -> bool {
     matches!(
       self,
@@ -188,7 +197,6 @@ impl TokenKind {
         | Self::EqEq
         | Self::Ne
         | Self::Lt
-        | Self::Gt
         | Self::Le
         | Self::Ge
         | Self::AndAnd
@@ -197,7 +205,6 @@ impl TokenKind {
         | Self::Or
         | Self::Caret
         | Self::Shl
-        | Self::Shr
         | Self::Coalesce
         | Self::DotDot
         | Self::DotDotEq

@@ -31,7 +31,7 @@ pub(crate) fn emit_arm(out: &mut Sink<'_>, clause: &Clause, arm: &str, indent: u
     let StmtKind::Expr(e) = &stmt.kind else {
       unreachable!("`one_tail_expression` returns only an expression statement")
     };
-    out.push_str(&emit_expr(unparen(e)));
+    out.push_str(&emit_expr(unparen(e), indent));
     out.push(',');
     emit_inline_comment(out, stmt.trailing.as_ref());
     out.push('\n');

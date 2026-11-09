@@ -22,20 +22,20 @@ use redox_ast::Expr;
 ///
 /// Nesting falls out of recursion, because the left operand of a `|>` is
 /// itself whatever the previous `|>` produced.
-pub(crate) fn pipeline(lhs: &Expr, rhs: &Expr) -> String {
-  let receiver = emit_expr(lhs);
+pub(crate) fn pipeline(lhs: &Expr, rhs: &Expr, indent: usize) -> String {
+  let receiver = emit_expr(lhs, indent);
 
   match unparen(rhs) {
     // `a |> f x y` — the head names the method, the arguments come after.
     Expr::Call { callee, args, .. } => {
       format!(
         "{receiver}.{}({})",
-        emit_expr(unparen(callee)),
-        expr_list(args)
+        emit_expr(unparen(callee), indent),
+        expr_list(args, indent)
       )
     }
     // `a |> f` — a bare name is a no-argument method call. This is the case
     // that makes a pipeline read like a chain: `xs |> iter |> sum`.
-    other => format!("{receiver}.{}()", emit_expr(other)),
+    other => format!("{receiver}.{}()", emit_expr(other, indent)),
   }
 }

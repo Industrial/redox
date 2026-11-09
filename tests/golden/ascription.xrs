@@ -1,0 +1,37 @@
+// Doc 18 §6's ascription, and §5.2's spaced-versus-tight `::` rule, in the
+// example corpus — which is where plan 04's "the output is already
+// rustfmt-clean" guarantee is actually measured. The lowering spans three
+// lines, and until this file existed nothing checked that it spanned them at
+// the right column.
+
+fn main() {
+    // `e :: T` states a type without naming a path.
+    let n = {
+        let __rdx_t: u64 = 1;
+        __rdx_t
+    };
+    println!("{}", n);
+    // Ascription is the loosest thing in an expression: the sum is ascribed,
+    // not the `2`.
+    let total = {
+        let __rdx_t: u64 = 1 + 2;
+        __rdx_t
+    };
+    println!("{}", total);
+    // A tight `::` is still a path, which is the half that would break every
+    // existing program if it went wrong.
+    println!("{}", i32::max(1, 9));
+    // A generic type survives verbatim — doc 03 §14.1 — and the value is an
+    // application, because `Some 1` is juxtaposition like everything else.
+    let wide = {
+        let __rdx_t: Option<u8> = Some(1);
+        __rdx_t
+    };
+    println!("{}", wide.unwrap());
+    // A multi-line lowering as a macro argument: `println!` keeps the call on
+    // one line and lets the block hang, which is the form rustfmt writes.
+    println!("{}", {
+        let __rdx_t: u64 = 1 + 1;
+        __rdx_t
+    });
+}

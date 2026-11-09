@@ -21,7 +21,7 @@ use redox_ast::Expr;
 /// naming a variable. Plan 08's corpus found this path emitting neither —
 /// `print_call` reads `StrLit`'s value directly rather than going through
 /// `emit_expr`, so it had quietly missed both.
-pub(crate) fn print_call(args: &[Expr]) -> String {
+pub(crate) fn print_call(args: &[Expr], indent: usize) -> String {
   // Doc 18 §2.1: a grouping paren around the argument carries no meaning, so
   // `print ("x")` must take the same arm as `print "x"`.
   let unwrapped: Vec<Expr> = args.iter().map(|a| unparen(a).clone()).collect();
@@ -32,7 +32,15 @@ pub(crate) fn print_call(args: &[Expr]) -> String {
     [] => "println!()".to_string(),
     _ => {
       let holes = vec!["{}"; args.len()].join(" ");
-      format!("println!(\"{holes}\", {})", expr_list(args))
+      // The arguments are emitted at `indent`, the column the `println!`
+      // itself starts at, which is what makes a multi-line argument come out
+      // the way rustfmt writes it: `println!("{}", {` with the block's body
+      // one level in and its closing brace back at `indent`. Spreading the
+      // arguments one per line instead was tried first and is *wrong* —
+      // rustfmt reformats that back to the hanging form, so the emitter would
+      // have been producing output rustfmt rewrites, which is exactly what
+      // plan 04's guarantee forbids.
+      format!("println!(\"{holes}\", {})", expr_list(args, indent))
     }
   }
 }
