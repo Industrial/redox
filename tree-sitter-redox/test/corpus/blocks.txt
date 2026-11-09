@@ -1,0 +1,135 @@
+================================================================
+a nested block
+================================================================
+
+main :: ()
+main =
+  if c
+    print 1
+  print 2
+
+----------------------------------------------------------------
+
+(source_file
+  (signature
+    name: (identifier)
+    type: (signature_type))
+  (equation
+    name: (identifier)
+    body: (if_statement
+      condition: (condition
+        (identifier))
+      consequence: (statement_block
+        (expression_statement
+          (identifier)
+          (number))))
+    body: (expression_statement
+      (identifier)
+      (number))))
+
+================================================================
+a dedent of two levels at once
+================================================================
+
+main :: ()
+main =
+  if c
+    if d
+      print 1
+  print 2
+
+----------------------------------------------------------------
+
+(source_file
+  (signature
+    name: (identifier)
+    type: (signature_type))
+  (equation
+    name: (identifier)
+    body: (if_statement
+      condition: (condition
+        (identifier))
+      consequence: (statement_block
+        (if_statement
+          condition: (condition
+            (identifier))
+          consequence: (statement_block
+            (expression_statement
+              (identifier)
+              (number))))))
+    body: (expression_statement
+      (identifier)
+      (number))))
+
+================================================================
+a blank line and a comment carry no depth
+================================================================
+
+main :: ()
+main =
+  print 1
+
+  -- still inside the block
+  print 2
+
+----------------------------------------------------------------
+
+(source_file
+  (signature
+    name: (identifier)
+    type: (signature_type))
+  (equation
+    name: (identifier)
+    body: (expression_statement
+      (identifier)
+      (number))
+    body: (expression_statement
+      (identifier)
+      (number))))
+
+================================================================
+a nesting fenced comment
+================================================================
+
+main :: ()
+main =
+  {- outer {- inner -} still outer -}
+  print 1
+
+----------------------------------------------------------------
+
+(source_file
+  (signature
+    name: (identifier)
+    type: (signature_type))
+  (equation
+    name: (identifier)
+    body: (expression_statement
+      (identifier)
+      (number))))
+
+================================================================
+an inconsistent dedent is an error
+:error
+================================================================
+
+main :: ()
+main =
+    print 1
+  print 2
+
+----------------------------------------------------------------
+
+(source_file
+  (signature
+    name: (identifier)
+    type: (signature_type))
+  (equation
+    name: (identifier)
+    body: (expression_statement
+      (identifier)
+      (number))
+    (ERROR)
+    body: (expression_statement
+      (identifier)
+      (number))))

@@ -3,7 +3,7 @@
 Plan ID: `tree-sitter-grammar`
 Depends on: 19 (`parenless-calls`)
 Milestone: 7 — *tooling*
-Status: `planned`
+Status: `done` — all four leaves shipped 2026-11-09
 
 ---
 
@@ -231,4 +231,165 @@ declines.
 
 ## 10. Result
 
-*Filled in when the plan ships, including anything above that turned out wrong.*
+Shipped 2026-11-09. `tree-sitter-redox/` — `grammar.js`, a nesting-aware external scanner,
+the generated ABI 15 parser, three query files, five corpus cases, and a Rust sweep in the
+workspace gate.
+
+**All four criteria that can be checked are met**: the corpus parses with no `ERROR` node —
+twenty-eight examples and two lint cases, `lexical.sdx` included — an inconsistent dedent
+*does* error, the parser is ABI 15 from the pinned CLI, and the highlight query loads and
+matches.
+
+§1.2's decision held up and §1.3's prediction came true in the most direct way available.
+Everything else below is about the scanner, which is where the row's whole difficulty was.
+
+### 10.1 The scanner took three designs, and only the third can work
+
+A scanner cannot emit NEWLINE and then INDENT at the same place. `advance(lexer, true)` marks a
+character as skipped **and consumes it**, so whitespace measured for one token is gone before
+the next call, and `mark_end` does not hold it back. Both of the first two designs tried to do
+it anyway:
+
+| Attempt | Symptom |
+|---|---|
+| Consume the indentation while emitting NEWLINE | A zero-width ERROR at the head of **every** indented block — twenty-eight files, one cause |
+| Mark the end at column zero, then measure | The same, because marking does not rewind |
+
+The third is tree-sitter-python's: **INDENT absorbs the newline**. One measurement per call,
+whichever of the three the width implies, and the grammar has no `_newline` before an
+`_indent` — a block's opening *is* the indent.
+
+That is a design the row should have started from. The lesson is narrower than "read the prior
+art": it is that **`advance(…, true)` consumes**, and a scanner that needs to look at the same
+bytes twice has to remember them instead.
+
+### 10.2 Which is what the two `pending` fields are
+
+Remembering is the other half. A statement ending at a dedent needs its NEWLINE *before* the
+DEDENT, and a statement ending at an indent needs its NEWLINE before the INDENT — and in each
+case the width has already been consumed, so the token the grammar is not ready for cannot
+wait in the input. It waits in the scanner: `pending_dedents` and `pending_indent`.
+
+Getting that wrong produced a zero-width ERROR at the first item after every indented block —
+the same symptom as §10.1 and a different cause, which is what made it slow to find. A dedent
+of several levels at once needs the count computed once, too, which is where the
+inconsistent-dedent check belongs: it is a question about the whole run.
+
+### 10.3 `prec` is static and `conflicts` is dynamic, and the difference cost four rounds
+
+`section` at `prec(2)` broke `((b).c ())`. The parser committed to reading `( (b) . )` as a
+left section and had **no alternative left** when `c` arrived, so most of the corpus failed on
+a nested parenthesis followed by a postfix.
+
+`prec` tells the generator which reading to keep and **discards the other**. A genuine
+ambiguity — one whose resolution depends on what comes next — needs a declared `conflicts`
+entry, which tree-sitter's GLR explores at parse time. `pattern_test` had the same bug for the
+same reason.
+
+The grammar's `conflicts` list is eighteen entries and every one of them is honest: the
+language has real ambiguities, and `f (x) = y` against `f (x)` is the one `redox-parser`
+resolves by scanning forward to an `=` at depth zero. A conflict here is the same decision made
+by a different mechanism.
+
+### 10.4 The flat expression rule was right, and its edges were not free
+
+§1.2's flat rule cost nothing in the places it was defended — no precedence cascade, no second
+copy of `BinaryOp::power`. It cost something at the boundary between an expression and the
+construct around it, and three times:
+
+- **`=`, `->`, `=>`, `,`, `;` and `:` are separators, not operators.** Accepting them in the
+  flat run ate the construct: a guard's `| n % 2 == 0 = Some (n / 2)` had its `=` taken by the
+  condition, leaving the guard no body. Each belongs to a rule that names it.
+- **A comma had been riding in the `operator` token.** Removing the separators took two more
+  files down until `parenthesized` grew a comma list of its own — which it should have had
+  anyway, since `(a, b)` and `x.m (a, b)` are both it.
+- **An ascription is a rule, not a `::` followed by whatever.** `:: Result<i32,
+  core::num::ParseIntError>` has commas inside angle brackets, and a type is a type.
+
+The generalisation: a flat rule is cheap in the middle and needs care at both ends.
+
+### 10.5 Five surface facts the grammar got wrong by assuming
+
+Each found by running the corpus, each a one-line fix, and all five are the same mistake —
+writing the rule from what the construct looked like rather than from what the corpus says:
+
+| Assumed | Actually |
+|---|---|
+| A `const`'s name is lowercase | SCREAMING_CASE, so it lexes as a `type_identifier` |
+| A `class` member's `const` has a value | It does not; the `instance` supplies it |
+| An import's alias is lowercase | Usually a type — `… as Sorted` |
+| A record literal's head is a type | May be a variable: `r = p { x = 99 }` is functional update |
+| `deriving` follows the constructors | Sits on its own indented line, ended by the **dedent** |
+
+And one that is the same shape as plan 34 §10.25: **`visibility` had to become a token**,
+because as a rule its optional `(crate)` competed with an equation's parenthesised parameter,
+and `export(crate) type Depth = f64` came out as an ERROR on `export` plus a pattern `(crate)`.
+
+### 10.6 A pattern is a *run*, in four places
+
+`Some v`, `Poll::Ready v`, `rest @ ..` and `guard Some v = o else` are all **two or more**
+patterns juxtaposed, and four rules wanted one. The fix is a `pattern_run` rule used by the
+constructor argument list, the `case` arm head, the slice elements, the binding, the guard and
+the pattern test.
+
+This is plan 34 §10.19's finding arriving from the other side: there, *parenthesise unless
+atomic* turned out to be three rules because what follows differs by position. Here, *a
+pattern* turned out to be a run because juxtaposition is the application form for patterns as
+much as for calls. Both are the same underlying fact about the language, met twice.
+
+### 10.7 A fenced comment nests, which no regex can express
+
+`{- a {- b -} c -}` is one comment, and `examples/lexical.sdx` has one. So the fence is an
+**external token** — the one thing in the scanner that is not about indentation, there for the
+same reason the others are: a regex cannot count.
+
+Two things about it are worth keeping. It must run **after** the deferred tokens, because
+before them it fired on the call that owed an INDENT and a block whose first line was a fence
+never opened. And the fence skipper has to be **one function**: there were two, and the copy
+inside `skip_to_content` did not nest — so a nested fence at top level parsed and the same
+fence inside a block did not, because the indentation path stopped at the inner `-}` and
+measured a width from the middle of a comment. A duplicated algorithm with one copy fixed is
+worse than either, which is §1.2's argument turning up inside the row's own scanner.
+
+### 10.8 §1.3 was right about hand-written expectations, immediately
+
+The five corpus cases were written by hand. **Four of them were wrong about the tree** — not
+about the block structure, which was the point of writing them, but about the surrounding
+nodes. They were regenerated with `tree-sitter test --update` and then read.
+
+That is exactly §1.3's argument for making the sweep the real assertion, and it arrived within
+minutes of the file being written. The corpus cases keep their value — they are the only way to
+state *this nesting, this dedent, this error* — but as a record of agreed structure rather than
+as an independent check.
+
+The sweep found its own working-directory trap on the way: `tree-sitter parse` locates a grammar
+by where it was **invoked**, so running it from the repository root gives *"No language
+found"* for every file, which reads as a broken grammar and is a broken invocation.
+
+### 10.9 A query naming a node that does not exist is an error
+
+`highlights.scm` listed `"self"` and `"Self"` as keywords. The grammar spells them as one
+`self_expression` token, so the query failed to load — and failing to load is the **useful**
+behaviour, because a query that silently matched nothing would have left `self` uncoloured with
+nothing to find.
+
+Criterion 5 is therefore only half-checked here: `the_highlight_query_loads_and_matches`
+asserts the query loads and captures something, which is a real check on the pair, but nothing
+asserts that the query's coverage *equals* plan 40's semantic-token table. Naming that rather
+than claiming the criterion: the two tables agree by construction today, and the assertion that
+keeps them agreeing would need a shared list neither tool can currently read.
+
+### 10.10 The gate's blaze targets SIGKILLed, and AGENTS.md was right about it
+
+`:test` died with `could not build <every crate>: the daemon's worker ended (signal: 9
+(SIGKILL): edit-to-binary: 7.4s)` while all five rustc-side targets — `:cargo-check`,
+`:cargo-test`, `:lint`, `:ci-format`, `:audit` — passed, and `:check` passed too.
+
+AGENTS.md's gotcha covers this exactly: a blaze failure naming *every* crate with SIGKILL and
+no diagnostic is an environment report. `free -h` showed 14 GiB available of 61, with 47 used
+from outside this repository, and the workspace had just grown by a crate. `blaze stop` and a
+re-run made `:test` and then the whole gate pass unchanged.
+
+Worth recording because it is the first sighting since the entry was written, and the entry
+worked: the question *is this memory or is this the tmpfs* was answerable in two commands
+because both numbers were already named as the things to check.

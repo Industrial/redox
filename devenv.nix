@@ -68,6 +68,13 @@
   # Project-only packages (beads removed upstream in favor of Maestro).
   packages = [
     inputs.definitively.packages.${pkgs.stdenv.hostPlatform.system}.definitively
+    # Plan 41 (`docs/36 - 41 - Tree-sitter Grammar.md`) leaf 1. A generated
+    # parser is an artefact of its generator, so an unpinned `tree-sitter`
+    # means the committed parser cannot be regenerated identically on another
+    # machine. The system PATH happened to carry the same 0.26.11 when the
+    # plan was written, which is exactly the kind of coincidence a pin exists
+    # to stop relying on.
+    pkgs.tree-sitter
   ];
 
   # Project-only shell wiring (shared features handle moon-sync, prek install).

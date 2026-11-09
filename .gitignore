@@ -81,3 +81,10 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Plan 41: tree-sitter compiles the grammar into a machine-local shared
+# object on demand. The generated C **is** committed, because editors consume
+# it; the compiled artefact is not.
+tree-sitter-redox/*.so
+tree-sitter-redox/*.dylib
+tree-sitter-redox/*.wasm
