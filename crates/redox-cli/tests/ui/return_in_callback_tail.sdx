@@ -11,6 +11,6 @@
 -- is what the construct exists for.
 run :: Result<(), Error>
 run =
-  conn <- pool.with_connection
+  with conn = pool.with_connection
   return Err Error::Bad
   Ok ()

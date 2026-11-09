@@ -44,6 +44,12 @@ pub enum Keyword {
   Until,
   For,
   In,
+  /// Doc 30 §3.3's callback bind — `with conn = pool.with_connection`.
+  ///
+  /// Doc 03 §7.6 names *"Koka's `with` statement as a second witness"* for
+  /// the construct, and doc 18 §7 deleted doc 03 §7.5's unrelated `with`
+  /// *blocks* — leaving the keyword unused for exactly this.
+  With,
   Loop,
   // Doc 18 §2.3. `case … of` with `->` arms, which is what frees `=>` to take
   // up its Haskell job in constraints.
@@ -117,6 +123,7 @@ impl Keyword {
       "until" => Self::Until,
       "for" => Self::For,
       "in" => Self::In,
+      "with" => Self::With,
       "loop" => Self::Loop,
       "case" => Self::Case,
       "of" => Self::Of,
@@ -177,6 +184,7 @@ impl Keyword {
       Self::Until => "until",
       Self::For => "for",
       Self::In => "in",
+      Self::With => "with",
       Self::Loop => "loop",
       Self::Case => "case",
       Self::Of => "of",
@@ -254,7 +262,7 @@ mod tests {
   fn leaves_ordinary_identifiers_alone() {
     for text in [
       "main", "print", "iff", "switched", "island", "notable", "Selfish", "is", "and", "use",
-      "with", "defer", "cond", "into", "derive", "mod", "unless", "switch",
+      "defer", "cond", "into", "derive", "mod", "unless", "switch", "withhold",
     ] {
       assert!(
         Keyword::from_text(text).is_none(),

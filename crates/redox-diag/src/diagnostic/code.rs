@@ -84,7 +84,11 @@ pub enum Code {
   EllipsisRestPattern,
 
   // ---- doc 03 §17's published surface codes: RDX0040-RDX0099 ----
-  /// `return` inside a draw arrow's tail — doc 03 §7.6, plan 30.
+  /// `return` inside a `with` callback's tail — doc 03 §7.6, plan 30.
+  ///
+  /// Spelled `x <- f` when this was written and `with x = f` since doc 30
+  /// §3.3; the diagnostic is about the **lowering** — a callback whose body is
+  /// the rest of the block — so only the word in its message moved.
   ///
   /// §7.6 calls this a *"disclosed trap, rejected rather than documented
   /// away"*: the tail becomes a **closure**, so a `return` there leaves the

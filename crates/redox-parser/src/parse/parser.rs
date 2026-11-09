@@ -808,24 +808,28 @@ impl<'a> Parser<'a> {
     })
   }
 
-  /// A draw arrow, if the cursor is on one.
+  /// Doc 30 §3.3's callback bind — `with conn = pool.with_connection`.
   ///
-  /// Doc 18 §3.1. Recognised by one token of lookahead — `Ident` then `<-` —
-  /// which is unambiguous because `<-` is a single token. It was not, until
-  /// this plan: `x <- f` lexed as `<` then `-`, parsed as `x < -f`, and
-  /// emitted valid Rust that compared `x` against negated `f`. No diagnostic,
-  /// wrong program.
+  /// Doc 03 §7.6's lowering, unchanged: *"rewrites the remainder of the
+  /// enclosing block into a closure passed as the final argument"*. Only the
+  /// spelling has moved, from §7.6's `use x <- f` via doc 18 §3.1's `x <- f`
+  /// to this — because `<-` now means `await` and nothing else.
+  ///
+  /// Recognised by the keyword, so no lookahead at all. Doc 18 §3.1's version
+  /// needed one token of it and a hard-won lexer fix: `x <- f` once lexed as
+  /// `<` then `-`, parsed as `x < -f`, and emitted valid Rust comparing `x`
+  /// against negated `f` with no diagnostic. A keyword cannot do that.
   fn try_draw(&mut self) -> Result<Option<StmtKind>, ParseError> {
-    let looks_like = matches!(self.peek().kind, TokenKind::Ident(_))
-      && self
-        .peek_at(1)
-        .is_some_and(|t| t.kind == TokenKind::DrawArrow);
-    if !looks_like {
+    if !self.check(&TokenKind::Kw(Keyword::With)) {
       return Ok(None);
     }
+    self.advance();
 
-    let name = self.ident("expected a name before `<-`")?;
-    self.expect(&TokenKind::DrawArrow, "expected `<-`")?;
+    let name = self.ident("expected a name after `with`")?;
+    self.expect(
+      &TokenKind::Eq,
+      "expected `=` after a `with` binder — doc 30 §3.3",
+    )?;
     let value = parse_expr(self, 0)?;
     Ok(Some(StmtKind::Draw { name, value }))
   }

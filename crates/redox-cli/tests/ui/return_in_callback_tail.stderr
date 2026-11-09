@@ -1,4 +1,4 @@
-error[RDX0044]: `return` here returns from the closure the draw arrow generates, not from the enclosing function — doc 03 §7.6. Use `?` to propagate, or restructure so the value is the callback's
+error[RDX0044]: `return` here returns from the closure `with` generates, not from the enclosing function — doc 03 §7.6. Use `?` to propagate, or restructure so the value is the callback's
   --> return_in_callback_tail.sdx:15:3
    |
 15 |   return Err Error::Bad

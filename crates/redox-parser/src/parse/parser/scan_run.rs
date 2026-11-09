@@ -8,7 +8,7 @@ use redox_diag::Code;
 pub(crate) fn scan_run(stmts: &[Stmt], in_tail: bool, errors: &mut Vec<ParseError>) {
   for (i, stmt) in stmts.iter().enumerate() {
     if let StmtKind::Draw { .. } = &stmt.kind {
-      // Everything after a draw arrow is its closure's body, and the arrow
+      // Everything after a `with` is its closure's body, and the `with`
       // itself ends this run — so the rest is scanned as a tail and nothing
       // here follows it.
       scan_run(&stmts[i + 1..], true, errors);
@@ -18,7 +18,7 @@ pub(crate) fn scan_run(stmts: &[Stmt], in_tail: bool, errors: &mut Vec<ParseErro
     if in_tail && let StmtKind::Return(_) = &stmt.kind {
       errors.push(ParseError::with(
         Code::ReturnInCallbackTail,
-        "`return` here returns from the closure the draw arrow generates, not from the \
+        "`return` here returns from the closure `with` generates, not from the \
          enclosing function — doc 03 §7.6. Use `?` to propagate, or restructure so the \
          value is the callback's",
         stmt.span,

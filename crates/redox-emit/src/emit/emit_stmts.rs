@@ -5,10 +5,10 @@ use crate::emit::stmt::emit_stmt;
 use crate::emit::trivia::emit_trivia;
 use redox_ast::{Stmt, StmtKind};
 
-/// Emit a run of statements, flattening doc 18 §3.1's draw arrows.
+/// Emit a run of statements, flattening doc 30 §3.3's `with` callbacks.
 ///
 /// Every other statement lowers on its own, which is why `emit_stmt` takes one
-/// at a time. A draw arrow cannot: its lowering is a **callback whose body is
+/// at a time. A `with` cannot: its lowering is a **callback whose body is
 /// every statement after it**, so the unit of translation is the run rather
 /// than the statement.
 ///
@@ -20,7 +20,7 @@ use redox_ast::{Stmt, StmtKind};
 ///                                   })
 /// ```
 ///
-/// Nesting falls out of the recursion: the second draw arrow is simply the
+/// Nesting falls out of the recursion: the second `with` is simply the
 /// first statement of the first one's body. That is doc 03 §7.6's lowering
 /// character for character, and the reason doc 18 §3.1 could delete `use`,
 /// `is`, `defer` and the comprehension's `for` in favour of one token — the
