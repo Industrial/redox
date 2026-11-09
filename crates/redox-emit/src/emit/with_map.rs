@@ -1,5 +1,7 @@
+use crate::emit::class::emit_class;
 use crate::emit::data::emit_data;
 use crate::emit::emit_fn::emit_fn;
+use crate::emit::instance::emit_instance;
 use crate::emit::sink::Sink;
 use crate::emit::trivia::emit_trivia;
 use crate::emit::type_alias::emit_type_alias;
@@ -34,6 +36,8 @@ pub fn emit_with_map(program: &Program, source: &str, source_path: &str) -> (Str
       Item::Fn(f) => emit_fn(&mut out, f),
       Item::Data(d) => emit_data(&mut out, d),
       Item::Type(a) => emit_type_alias(&mut out, a),
+      Item::Class(c) => emit_class(&mut out, c),
+      Item::Instance(i) => emit_instance(&mut out, i),
     }
   }
   out.unmark();

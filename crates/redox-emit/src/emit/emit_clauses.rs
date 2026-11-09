@@ -35,7 +35,10 @@ use redox_ast::FnDecl;
 /// With more than one parameter the scrutinee is a tuple, `match (a, b)`,
 /// which is Rust's own way of matching several values at once and needs no
 /// temporary.
-pub(crate) fn emit_clauses(out: &mut Sink<'_>, f: &FnDecl) {
+/// `base` is the column the enclosing `fn` starts at — zero for a top-level
+/// function, one level in for a `trait` or `impl` member. The body goes one
+/// level inside that.
+pub(crate) fn emit_clauses(out: &mut Sink<'_>, f: &FnDecl, base: usize) {
   let tail = f.sig.ret.is_some();
 
   let simple = f.clauses.len() == 1
@@ -44,7 +47,7 @@ pub(crate) fn emit_clauses(out: &mut Sink<'_>, f: &FnDecl) {
       .iter()
       .all(redox_ast::Pattern::is_irrefutable);
   if simple {
-    emit_body(out, &f.clauses[0].body, RUST_INDENT, tail);
+    emit_body(out, &f.clauses[0].body, base + RUST_INDENT, tail);
     return;
   }
 
@@ -54,7 +57,7 @@ pub(crate) fn emit_clauses(out: &mut Sink<'_>, f: &FnDecl) {
     many => format!("({})", many.join(", ")),
   };
 
-  pad(out, RUST_INDENT);
+  pad(out, base + RUST_INDENT);
   out.push_str(&format!("match {scrutinee} {{\n"));
 
   for clause in &f.clauses {
@@ -68,9 +71,9 @@ pub(crate) fn emit_clauses(out: &mut Sink<'_>, f: &FnDecl) {
       many => format!("({})", many.join(", ")),
     };
 
-    emit_arm(out, clause, &arm, RUST_INDENT * 2, tail);
+    emit_arm(out, clause, &arm, base + RUST_INDENT * 2, tail);
   }
 
-  pad(out, RUST_INDENT);
+  pad(out, base + RUST_INDENT);
   out.push_str("}\n");
 }

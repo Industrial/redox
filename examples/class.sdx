@@ -1,0 +1,56 @@
+-- Doc 18 §2.5's `class` and `instance`, checked by compiling and running the
+-- generated Rust: a receiver derived wrongly does not compile, and a default
+-- method that did not reach the trait would make the output print the wrong
+-- word.
+--
+-- An instance method **restates its signature**, which doc 18 §2.5's own
+-- example does not. Rust's `impl` restates it too, and Redox has no name
+-- resolution to copy one from the class — AGENTS.md forbids growing any.
+-- Doc 18 §11.5 records the deviation.
+
+data Square = Square { side :: f64 }
+
+data Circle = Circle { radius :: f64 }
+
+-- `class` is Rust's `trait`. The superclass becomes a supertrait bound, and
+-- the first parameter typed by the class variable becomes the receiver.
+class Shape t
+  const SIDES :: u32
+  area :: &t -> f64
+  -- A default method, which is an ordinary equation: anything a function's
+  -- body can be, this can be.
+  describe :: &t -> &'static str
+  describe self = "a shape"
+
+instance Shape Square
+  const SIDES :: u32 = 4
+  area :: &Square -> f64
+  area self = self.side * self.side
+  describe :: &Square -> &'static str
+  describe self = "a square"
+
+-- No `describe`, so the class's default is used.
+instance Shape Circle
+  const SIDES :: u32 = 0
+  area :: &Circle -> f64
+  area self = 3.0 * self.radius * self.radius
+
+-- An inherent `instance`: no class name, so no `for`. Its method names
+-- `Self`, which doc 18 §2.5's own `instance Counter` example does too.
+instance Square
+  perimeter :: &Self -> f64
+  perimeter self = 4.0 * self.side
+
+main :: ()
+main =
+  s = Square { side = 2.0 }
+  c = Circle { radius = 1.0 }
+  print (s.area ())
+  print (s.describe ())
+  print (s.perimeter ())
+  print (c.area ())
+  print (c.describe ())
+  -- An associated constant, reached through the type. A tight `::` is a path
+  -- (doc 18 §5.2), so this needs nothing new.
+  print Square::SIDES
+  print Circle::SIDES

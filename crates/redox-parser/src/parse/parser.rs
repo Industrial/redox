@@ -4,13 +4,19 @@ pub(crate) mod atom;
 pub(crate) mod capture_type;
 pub(crate) mod case_arm;
 pub(crate) mod case_of;
+pub(crate) mod class_body;
+pub(crate) mod class_decl;
+pub(crate) mod class_member;
+pub(crate) mod constraints;
 pub(crate) mod constructor;
 pub(crate) mod constructor_fields;
 pub(crate) mod data_decl;
 pub(crate) mod deriving;
 pub(crate) mod field_decl;
 pub(crate) mod field_init;
+pub(crate) mod instance_decl;
 pub(crate) mod lambda;
+pub(crate) mod method_context;
 pub(crate) mod parse_expr;
 pub(crate) mod parse_spine;
 pub(crate) mod path_or_ident;
@@ -20,23 +26,32 @@ pub(crate) mod patterns;
 pub(crate) mod postfix;
 pub(crate) mod prefix;
 pub(crate) mod range_or_literal;
+pub(crate) mod receiver;
+pub(crate) mod receiver_text;
 pub(crate) mod record_literal;
+pub(crate) mod rewritten;
 pub(crate) mod signature_from;
+pub(crate) mod signature_only;
 pub(crate) mod spaced_colon_colon;
 pub(crate) mod starts_a_field_type;
 pub(crate) mod starts_argument;
+pub(crate) mod substitute_var;
 pub(crate) mod tight_colon_colon;
 pub(crate) mod token_text;
 pub(crate) mod type_alias;
+pub(crate) mod type_app;
 pub(crate) mod unary_op;
 
 use crate::ParseError;
 use crate::parse::parser::capture_type::capture_type;
+use crate::parse::parser::class_decl::class_decl;
 use crate::parse::parser::data_decl::data_decl;
+use crate::parse::parser::instance_decl::instance_decl;
 use crate::parse::parser::parse_expr::parse_expr;
 use crate::parse::parser::parse_spine::parse_spine;
 use crate::parse::parser::patterns::patterns;
 use crate::parse::parser::signature_from::signature_from;
+use crate::parse::parser::signature_only::signature_only;
 use crate::parse::parser::type_alias::type_alias;
 use redox_ast::{Binding, Block, FnDecl, Ident, Item, Program, Stmt, StmtKind, TypeExpr};
 use redox_diag::Code;
@@ -133,8 +148,41 @@ impl<'a> Parser<'a> {
       self.newline_with_trailing("expected a line break after the alias")?;
       return Ok(Item::Type(alias));
     }
+    if self.check(&TokenKind::Kw(Keyword::Class)) {
+      let decl = class_decl(self, leading, start)?;
+      self.newline_with_trailing("expected a line break after the class")?;
+      return Ok(Item::Class(decl));
+    }
+    if self.check(&TokenKind::Kw(Keyword::Instance)) {
+      let decl = instance_decl(self, leading, start)?;
+      self.newline_with_trailing("expected a line break after the instance")?;
+      return Ok(Item::Instance(decl));
+    }
 
-    // The signature line.
+    let decl = self.function()?;
+    Ok(Item::Fn(FnDecl {
+      leading,
+      span: (start, decl.span.1),
+      ..decl
+    }))
+  }
+
+  /// A signature line and its equations — doc 18 §§2.2–2.3.
+  ///
+  /// Lifted out of [`Parser::item`] when doc 18 §2.5's class and instance
+  /// bodies arrived, because a method **is** a function: the same signature
+  /// line, the same equations, the same guard ladders. Sharing the code is
+  /// what gives a default method several clauses and a guard ladder without
+  /// anything new being written for it.
+  ///
+  /// **Zero equations is legal here**, and that is the one difference from a
+  /// top-level function. `area :: &t -> f64` with no body is a *required*
+  /// method, which Rust writes `fn area(&self) -> f64;` — so the caller, not
+  /// this, decides whether a bodiless signature is an error.
+  pub(crate) fn function(&mut self) -> Result<FnDecl, ParseError> {
+    let leading = self.peek_leading();
+    let start = self.peek_span().0;
+
     let name = self.ident("expected a name to begin a declaration")?;
     self.expect(
       &TokenKind::ColonColon,
@@ -142,13 +190,31 @@ impl<'a> Parser<'a> {
     )?;
     let spine = parse_spine(self)?;
     self.newline_with_trailing("expected a line break after the signature")?;
-    self.skip_separators();
 
-    // The equations. One or more, each repeating the name — doc 18 §2.3.
+    // The equations. Each repeats the name — doc 18 §2.3.
     let mut clauses = Vec::new();
     let mut sig = None;
     loop {
+      // An equation begins with a name that is *not* followed by `::` — a
+      // name that is starts the next declaration's signature line. That one
+      // test tells three things apart: another clause of this function, a
+      // new declaration, and (doc 18 §2.5) a required method with no
+      // equation at all.
+      let is_equation = matches!(&self.peek().kind, TokenKind::Ident(_))
+        && !self
+          .peek_at(1)
+          .is_some_and(|t| t.kind == TokenKind::ColonColon);
+      if !is_equation {
+        break;
+      }
+
       let again = self.ident("expected the equation to repeat the name")?;
+      // The two names must match, and catching it here is what makes a
+      // mistyped equation a diagnostic *about the equation* rather than an
+      // undefined-function error from rustc about a line the user did not
+      // write. An equation whose name differs is reported rather than left
+      // to be misread as a new declaration, which is what it looks like to
+      // one token of lookahead.
       if again.text != name.text {
         return Err(ParseError::with(
           Code::ExpectedName,
@@ -163,38 +229,32 @@ impl<'a> Parser<'a> {
       let row = patterns(self)?;
       // Every clause is checked against the same spine, so a row of the wrong
       // length is reported per clause rather than once for the function.
-      let built = signature_from(&spine, &row, (name.span.0, self.prev_span().1))?;
+      let built = signature_from(&spine, &row, (again.span.0, self.prev_span().1))?;
       if sig.is_none() {
         sig = Some(built);
       }
 
-      let clause = self.clause(row)?;
-      clauses.push(clause);
-
-      // Another clause follows only if the next item is this same name. A
-      // different name starts a new declaration, and anything else ends the
-      // run — which is how the parser knows where a multi-clause function
-      // stops without a terminator.
+      clauses.push(self.clause(row)?);
       self.skip_separators();
-      let continues = matches!(&self.peek().kind, TokenKind::Ident(text) if *text == name.text)
-        && !self
-          .peek_at(1)
-          .is_some_and(|t| t.kind == TokenKind::ColonColon);
-      if !continues {
-        break;
-      }
     }
+
+    // With no equation there is no pattern row, so the signature comes from
+    // the spine alone and the parameters take generated names. Not
+    // `signature_from` with an empty row: that reports an arity error, which
+    // is the right answer for `area = …` under `area :: &t -> f64` and the
+    // wrong one for a required method with no equation at all.
+    let sig = sig.unwrap_or_else(|| signature_only(&spine, (name.span.0, self.prev_span().1)));
 
     let end = self.prev_span().1;
     let trailing = clauses.last().and_then(|c| c.trailing.clone());
-    Ok(Item::Fn(FnDecl {
+    Ok(FnDecl {
       name,
-      sig: sig.expect("the loop runs at least once"),
+      sig,
       clauses,
       span: (start, end),
       leading,
       trailing,
-    }))
+    })
   }
 
   /// One clause's right-hand side, after its pattern row.
@@ -543,6 +603,34 @@ impl<'a> Parser<'a> {
       return true;
     }
     false
+  }
+
+  /// The current position, for a speculative read that may have to rewind.
+  ///
+  /// Doc 18 §2.5's constraint clause needs it: `class Shape t` and
+  /// `class Debug t => Shape t` begin identically, so the constraints are
+  /// read and then abandoned if no `=>` arrives. Exposed as an opaque mark
+  /// rather than as the index it is, so a caller cannot do arithmetic on it.
+  pub(crate) fn position(&self) -> usize {
+    self.pos
+  }
+
+  /// Return to a position taken by [`Parser::position`].
+  pub(crate) fn rewind(&mut self, mark: usize) {
+    self.pos = mark;
+  }
+
+  /// The identifier here, if there is one, without erroring if there is not.
+  pub(crate) fn try_ident(&mut self) -> Option<Ident> {
+    if let TokenKind::Ident(text) = &self.peek().kind {
+      let ident = Ident {
+        text: text.clone(),
+        span: self.peek_span(),
+      };
+      self.advance();
+      return Some(ident);
+    }
+    None
   }
 
   pub(crate) fn ident(&mut self, message: &str) -> Result<Ident, ParseError> {

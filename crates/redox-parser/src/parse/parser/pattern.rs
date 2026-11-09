@@ -17,6 +17,18 @@ pub(crate) fn pattern(p: &mut Parser) -> Result<Pattern, ParseError> {
       Ok(Pattern::Wildcard(span))
     }
     TokenKind::Ident(_) => Ok(Pattern::Binding(p.ident("expected a pattern")?)),
+    // `self` is a reserved word, not an identifier, so an equation's binder
+    // row needs it named here. Doc 18 §2.5's methods are written
+    // `describe self = …`, and the binder is dropped by `receiver` — it is
+    // the *type* that decides the receiver, and the name is what the body
+    // refers to.
+    TokenKind::Kw(Keyword::SelfValue) => {
+      p.advance();
+      Ok(Pattern::Binding(redox_ast::Ident {
+        text: "self".to_string(),
+        span,
+      }))
+    }
     // A literal **tests**, and is carried as verbatim source text — the same
     // discipline doc 03 §14.1 applies to types, so Redox never has to agree
     // with rustc about what a literal means.

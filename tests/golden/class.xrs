@@ -1,0 +1,69 @@
+// Doc 18 §2.5's `class` and `instance`, checked by compiling and running the
+// generated Rust: a receiver derived wrongly does not compile, and a default
+// method that did not reach the trait would make the output print the wrong
+// word.
+//
+// An instance method **restates its signature**, which doc 18 §2.5's own
+// example does not. Rust's `impl` restates it too, and Redox has no name
+// resolution to copy one from the class — AGENTS.md forbids growing any.
+// Doc 18 §11.5 records the deviation.
+
+struct Square {
+    side: f64,
+}
+
+struct Circle {
+    radius: f64,
+}
+
+// `class` is Rust's `trait`. The superclass becomes a supertrait bound, and
+// the first parameter typed by the class variable becomes the receiver.
+trait Shape {
+    const SIDES: u32;
+    fn area(&self) -> f64;
+    // A default method, which is an ordinary equation: anything a function's
+    // body can be, this can be.
+    fn describe(&self) -> &'static str {
+        "a shape"
+    }
+}
+
+impl Shape for Square {
+    const SIDES: u32 = 4;
+    fn area(&self) -> f64 {
+        self.side * self.side
+    }
+    fn describe(&self) -> &'static str {
+        "a square"
+    }
+}
+
+// No `describe`, so the class's default is used.
+impl Shape for Circle {
+    const SIDES: u32 = 0;
+    fn area(&self) -> f64 {
+        3.0 * self.radius * self.radius
+    }
+}
+
+// An inherent `instance`: no class name, so no `for`. Its method names
+// `Self`, which doc 18 §2.5's own `instance Counter` example does too.
+impl Square {
+    fn perimeter(&self) -> f64 {
+        4.0 * self.side
+    }
+}
+
+fn main() {
+    let s = Square { side: 2.0 };
+    let c = Circle { radius: 1.0 };
+    println!("{}", s.area());
+    println!("{}", s.describe());
+    println!("{}", s.perimeter());
+    println!("{}", c.area());
+    println!("{}", c.describe());
+    // An associated constant, reached through the type. A tight `::` is a path
+    // (doc 18 §5.2), so this needs nothing new.
+    println!("{}", Square::SIDES);
+    println!("{}", Circle::SIDES);
+}

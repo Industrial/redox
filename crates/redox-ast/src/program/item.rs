@@ -1,32 +1,41 @@
+pub(crate) mod class_decl;
+pub(crate) mod class_member;
 pub(crate) mod clause;
 pub(crate) mod clause_body;
+pub(crate) mod constraint;
 pub(crate) mod constructor;
 pub(crate) mod constructor_fields;
 pub(crate) mod data_decl;
 pub(crate) mod field_decl;
 pub(crate) mod fn_decl;
 pub(crate) mod guard;
+pub(crate) mod instance_decl;
 pub(crate) mod param;
 pub(crate) mod pattern;
 pub(crate) mod signature;
 pub(crate) mod type_alias;
+pub(crate) mod type_app;
 
 use crate::FnDecl;
+use crate::program::item::class_decl::ClassDecl;
 use crate::program::item::data_decl::DataDecl;
+use crate::program::item::instance_decl::InstanceDecl;
 use crate::program::item::type_alias::TypeAlias;
 use redox_lexer::Span;
 
 /// A top-level declaration.
 ///
-/// Doc 18 §2.4 collapsed four of doc 03's declaration keywords into `data`
-/// and `type`, which is why there are three variants here rather than six:
-/// `struct`, `enum`, `union` and the tuple-struct spelling are all `data`.
-/// `class` and `instance` (§2.5) are still to come.
+/// Doc 18 §§2.4–2.5 collapsed six of doc 03's declaration keywords into four.
+/// `struct`, `enum`, `union` and the tuple-struct spelling are all `data`;
+/// `class` means `trait` rather than doc 01 §17.7's "struct plus impl"; and
+/// `instance` means `impl`, trait or inherent.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Item {
   Fn(FnDecl),
   Data(DataDecl),
   Type(TypeAlias),
+  Class(ClassDecl),
+  Instance(InstanceDecl),
 }
 
 impl Item {
@@ -35,6 +44,8 @@ impl Item {
       Item::Fn(f) => f.span,
       Item::Data(d) => d.span,
       Item::Type(a) => a.span,
+      Item::Class(c) => c.span,
+      Item::Instance(i) => i.span,
     }
   }
 }

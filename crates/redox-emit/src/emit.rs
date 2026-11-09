@@ -1,5 +1,6 @@
 pub(crate) mod arm;
 pub(crate) mod case;
+pub(crate) mod class;
 pub(crate) mod data;
 pub(crate) mod double_braces;
 pub(crate) mod emit_body;
@@ -10,8 +11,11 @@ pub(crate) mod expr;
 pub(crate) mod expr_list;
 pub(crate) mod field_value;
 pub(crate) mod fields;
+pub(crate) mod generics;
 pub(crate) mod guards;
 pub(crate) mod inline_comment;
+pub(crate) mod instance;
+pub(crate) mod member;
 pub(crate) mod names_a_constructor;
 pub(crate) mod one_field;
 pub(crate) mod one_tail_expression;

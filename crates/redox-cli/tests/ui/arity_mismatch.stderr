@@ -1,6 +1,6 @@
 error[RDX0103]: the signature and the equation disagree about arity: the signature takes 2, but this equation binds 1
-  --> arity_mismatch.sdx:1:1
+  --> arity_mismatch.sdx:2:1
   |
-1 | add :: i32 -> i32 -> i32
-  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2 | add a =
+  | ^^^^^
 

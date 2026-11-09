@@ -82,6 +82,26 @@ pub(crate) fn prefix(p: &mut Parser) -> Result<Expr, ParseError> {
     // the matching arm's, which is what lets it be a clause body, an argument
     // or the right-hand side of a binding with no extra form.
     TokenKind::Kw(Keyword::Case) => case_of(p),
+    // `self` and `Self` are expressions, because doc 18 §2.5 drops `@name`
+    // and `@@name` in favour of `self.name` and `Self::name`. They lex as
+    // reserved words, so they need naming here — an `Ident` arm would never
+    // see them.
+    TokenKind::Kw(Keyword::SelfValue) => {
+      let span = p.peek_span();
+      p.advance();
+      Ok(Expr::Ident(redox_ast::Ident {
+        text: "self".to_string(),
+        span,
+      }))
+    }
+    TokenKind::Kw(Keyword::SelfType) => {
+      let span = p.peek_span();
+      p.advance();
+      Ok(Expr::Ident(redox_ast::Ident {
+        text: "Self".to_string(),
+        span,
+      }))
+    }
     TokenKind::Ident(_) => path_or_ident(p),
     _ => Err(ParseError::with(
       Code::ExpectedExpression,

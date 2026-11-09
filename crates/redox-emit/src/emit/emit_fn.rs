@@ -28,7 +28,7 @@ pub(crate) fn emit_fn(out: &mut Sink<'_>, f: &FnDecl) {
   // `emit_clauses` rather than the body directly, because doc 18 §2.3 makes a
   // function one *or more* equations: several clauses, or one refutable
   // pattern, lower to a `match` over the parameters.
-  emit_clauses(out, f);
+  emit_clauses(out, f, 0);
   // The closing brace has no source line — the off-side rule means the author
   // never wrote one. Recording it as synthetic rather than attributing it to
   // the last statement keeps the map from making a claim it cannot support.
