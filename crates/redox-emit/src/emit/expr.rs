@@ -1,7 +1,8 @@
 use crate::emit::expr_list::expr_list;
+use crate::emit::pipeline::pipeline;
 use crate::emit::print_call::print_call;
 use crate::emit::rust_escapes::rust_escapes;
-use redox_ast::Expr;
+use redox_ast::{BinaryOp, Expr};
 
 /// Render an expression as Rust.
 ///
@@ -52,11 +53,19 @@ pub(crate) fn emit_expr(e: &Expr) -> String {
     Expr::SelfType { name, .. } => format!("Self::{}", name.text),
     Expr::Paren { inner, .. } => format!("({})", emit_expr(inner)),
     Expr::Unary { op, operand, .. } => format!("{}{}", op.rust_text(), emit_expr(operand)),
+    // Doc 18 §4's pipeline is a *lowering*, not a spelling: `a |> f` becomes
+    // `a.f()`, which needs the right operand taken apart.
+    Expr::Binary {
+      op: BinaryOp::Pipeline,
+      lhs,
+      rhs,
+      ..
+    } => pipeline(lhs, rhs),
     Expr::Binary { op, lhs, rhs, .. } => match op.rust_text() {
       Some(text) => format!("{} {text} {}", emit_expr(lhs), emit_expr(rhs)),
-      // `??` and `|>` need a lowering rather than a spelling — plans 28 and
-      // 27. Until then the parser accepts them and this emits a hard error
-      // rather than something that merely looks plausible.
+      // `??` still needs a lowering rather than a spelling — a later plan.
+      // Until then the parser accepts it and this emits a hard error rather
+      // than something that merely looks plausible.
       None => format!("compile_error!(\"`{op:?}` is parsed but not yet lowered\")"),
     },
     Expr::Field { recv, name, .. } => format!("{}.{}", emit_expr(recv), name.text),
