@@ -19,7 +19,7 @@ use redox_ast::StmtKind;
 /// else            } else {        until c         while !(c) {
 ///   …                 …             …                 …
 ///                 }
-/// for x <- xs     for x in xs {   loop            loop {
+/// for x in xs     for x in xs {   loop            loop {
 ///   …                 …             …                 …
 /// ```
 ///

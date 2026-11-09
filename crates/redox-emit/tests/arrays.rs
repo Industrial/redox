@@ -87,7 +87,7 @@ fn the_two_forms_nest_either_way() {
 #[test]
 fn the_neighbouring_bracket_forms_still_work() {
   assert_eq!(body("  e = []\n"), "let e = [];");
-  let out = body("  c = [ x | x <- xs ]\n");
+  let out = body("  c = [ x | x in xs ]\n");
   assert!(out.contains("xs.into_iter()"), "{out}");
 }
 

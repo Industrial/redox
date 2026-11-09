@@ -9,7 +9,7 @@ use redox_ast::Block;
 ///
 /// ```text
 /// found = do 'search          let found = 'search: {
-///   for c <- candidates           for c in candidates {
+///   for c in candidates           for c in candidates {
 ///     …                   →           …
 ///   None                          }
 ///                                 None

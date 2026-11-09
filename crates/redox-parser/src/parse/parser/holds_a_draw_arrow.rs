@@ -9,7 +9,7 @@ use redox_lexer::{Keyword, TokenKind};
 /// for an arm guard, or a closing delimiter never opened here.
 ///
 /// **Depth matters.** A `<-` inside `[ … ]` is doc 18 §3's *fourth* position,
-/// a comprehension generator: `if [ x | x <- xs ].len () > 0` is an ordinary
+/// a comprehension generator: `if [ x | x in xs ].len () > 0` is an ordinary
 /// expression condition and must stay one. Counting brackets is the whole
 /// reason this is a function and not a `peek_at(1)` check.
 pub(crate) fn holds_a_draw_arrow(p: &Parser, one_operand: bool) -> bool {

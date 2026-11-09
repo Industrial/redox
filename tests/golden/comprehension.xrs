@@ -1,4 +1,9 @@
-// Doc 18 §3.2's comprehension and the list literal it shares its brackets
+// Doc 18 §3.2's comprehension, with doc 30 §3.2's generator word: `in`, not
+// `<-`. Doc 30 §4.2 records this as the conversion's real aesthetic loss —
+// `[ x | x <- xs ]` was the one position where doc 18's borrowing of `<-` was
+// faithful to Haskell, and it is given up to free the token for `await`.
+//
+// The comprehension and the list literal it shares its brackets
 // with, checked by running the generated Rust: a guard applied to the wrong
 // binder, or a generator nested the wrong way round, prints the wrong count.
 

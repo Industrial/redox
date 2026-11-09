@@ -8,7 +8,7 @@ use redox_lexer::{Keyword, TokenKind};
 ///
 /// ```text
 /// found = do 'search
-///   for c <- candidates
+///   for c in candidates
 ///     if c.matches q
 ///       break 'search Some c
 ///   None

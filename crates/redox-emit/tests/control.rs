@@ -95,7 +95,7 @@ fn until_parenthesises_a_single_term_as_well() {
 #[test]
 fn for_draws_from_its_source_with_in() {
   assert_eq!(
-    body("  for x <- xs\n    print x\n"),
+    body("  for x in xs\n    print x\n"),
     "for x in xs {\n    println!(\"{}\", x);\n}"
   );
 }
@@ -105,7 +105,7 @@ fn for_draws_from_its_source_with_in() {
 #[test]
 fn for_over_a_range_needs_no_special_case() {
   assert_eq!(
-    body("  for c <- 1 .. 4\n    print c\n"),
+    body("  for c in 1 .. 4\n    print c\n"),
     "for c in 1..4 {\n    println!(\"{}\", c);\n}"
   );
 }
@@ -165,7 +165,7 @@ fn a_label_prefixes_any_loop() {
   for (sdx, want) in [
     ("'a while c", "'a: while c {"),
     ("'a until c", "'a: while !(c) {"),
-    ("'a for x <- xs", "'a: for x in xs {"),
+    ("'a for x in xs", "'a: for x in xs {"),
     ("'a loop", "'a: loop {"),
   ] {
     let out = body(&format!("  {sdx}\n    break 'a\n"));
@@ -188,7 +188,7 @@ fn a_label_with_no_loop_is_an_error() {
 #[test]
 fn return_works_inside_a_loop() {
   assert_eq!(
-    body("  for d <- 2 .. 20\n    if n % d == 0\n      return d\n"),
+    body("  for d in 2 .. 20\n    if n % d == 0\n      return d\n"),
     "for d in 2..20 {\n    if n % d == 0 {\n        return d;\n    }\n}"
   );
 }

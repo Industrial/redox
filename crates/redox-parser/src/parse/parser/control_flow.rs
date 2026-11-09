@@ -11,7 +11,7 @@ use redox_lexer::{Keyword, TokenKind};
 /// §7.7, plan 20.
 ///
 /// ```text
-/// if c            while c         for x <- xs      loop
+/// if c            while c         for x in xs      loop
 ///   …               …               …               …
 /// else            until c         break 'l v      continue 'l
 ///   …               …
@@ -71,11 +71,12 @@ pub(crate) fn control_flow(p: &mut Parser) -> Result<Option<StmtKind>, ParseErro
   if p.check(&TokenKind::Kw(Keyword::For)) {
     p.advance();
     let binder = p.ident("expected a name after `for`")?;
-    // Doc 18 §3's fourth position for `<-`. A `for` can hold nothing else, so
-    // this is the simplest of the four to recognise.
+    // Doc 30 §3.2: Rust's own `in`, which doc 18 §3's table had deleted in
+    // favour of `<-` and which costs nothing to restore. `<-` now means
+    // `await` and nothing else.
     p.expect(
-      &TokenKind::DrawArrow,
-      "expected `<-` after the binder — doc 18 §3 writes a generator with the draw arrow",
+      &TokenKind::Kw(Keyword::In),
+      "expected `in` after the binder — doc 30 §3.2 writes a `for` with Rust's own word",
     )?;
     let source = parse_expr(p, 0)?;
     let body = p.statement_block("expected an indented loop body")?;

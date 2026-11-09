@@ -39,12 +39,14 @@ settle =
     n += 1
   n
 
--- `for x <- xs` is `for x in xs`. A range needs no special case: `1 .. 4` is
+-- `for x in xs` is Rust's own, restored by doc 30 §3.2 — doc 18 §3 had taken
+-- `in` away in favour of `<-`, and `<-` now means `await` and nothing else.
+-- A range needs no special case: `1 .. 4` is
 -- an ordinary expression, and the receiver rule parenthesises it where `.`
 -- would otherwise bind tighter.
 count_up :: ()
 count_up =
-  for c <- 1 .. 4
+  for c in 1 .. 4
     print c
 
 -- A label goes before the keyword and reaches a `break` in a nested loop —
@@ -54,7 +56,7 @@ nested :: i32
 nested =
   mut seen = 0
   'outer loop
-    for d <- 1 .. 9
+    for d in 1 .. 9
       seen += 1
       if d > 2
         break 'outer
@@ -64,7 +66,7 @@ nested =
 -- how a value leaves a loop that is not the last expression of a function.
 first_square_over :: i32 -> i32
 first_square_over limit = do 'search
-  for c <- 1 .. 20
+  for c in 1 .. 20
     if c * c > limit
       break 'search c
   0
@@ -74,7 +76,7 @@ first_square_over limit = do 'search
 -- other. Asserted rather than assumed.
 first_divisor :: i32 -> i32
 first_divisor n =
-  for d <- 2 .. 20
+  for d in 2 .. 20
     if n % d == 0
       return d
   n
@@ -84,7 +86,7 @@ first_divisor n =
 odd_sum :: i32
 odd_sum =
   mut total = 0
-  for c <- 1 .. 10
+  for c in 1 .. 10
     if c % 2 == 0
       continue
     total += c

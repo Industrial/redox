@@ -42,7 +42,9 @@ fn settle() -> i32 {
     n
 }
 
-// `for x <- xs` is `for x in xs`. A range needs no special case: `1 .. 4` is
+// `for x in xs` is Rust's own, restored by doc 30 §3.2 — doc 18 §3 had taken
+// `in` away in favour of `<-`, and `<-` now means `await` and nothing else.
+// A range needs no special case: `1 .. 4` is
 // an ordinary expression, and the receiver rule parenthesises it where `.`
 // would otherwise bind tighter.
 fn count_up() {

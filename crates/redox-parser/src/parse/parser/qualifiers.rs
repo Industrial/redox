@@ -2,13 +2,13 @@ use crate::ParseError;
 use crate::parse::parser::Parser;
 use crate::parse::parser::parse_expr::parse_expr;
 use redox_ast::Qualifier;
-use redox_lexer::TokenKind;
+use redox_lexer::{Keyword, TokenKind};
 
 /// The comma-separated qualifiers right of a comprehension's bar — doc 18
 /// §3.2.
 ///
 /// ```text
-/// [ x * y | x <- 1..3, y <- 1..3, x != y ]
+/// [ x * y | x in 1..3, y in 1..3, x != y ]
 /// ```
 ///
 /// A generator is `name <- source`, recognised by two tokens of lookahead —
@@ -20,11 +20,17 @@ use redox_lexer::TokenKind;
 pub(crate) fn qualifiers(p: &mut Parser) -> Result<Vec<Qualifier>, ParseError> {
   let mut found = Vec::new();
   loop {
+    // Doc 30 §3.2: the generator takes `in`, not `<-`. `<-` means `await` and
+    // nothing else, so the token doc 18 §3.2 borrowed from Haskell's
+    // comprehension is given up — §4.2 records that as the real loss, taken to
+    // free the token for the position where it is more faithful.
     let is_draw = matches!(p.peek().kind, TokenKind::Ident(_))
-      && p.peek_at(1).is_some_and(|t| t.kind == TokenKind::DrawArrow);
+      && p
+        .peek_at(1)
+        .is_some_and(|t| t.kind == TokenKind::Kw(Keyword::In));
 
     if is_draw {
-      let name = p.ident("expected a name before `<-`")?;
+      let name = p.ident("expected a name before `in`")?;
       p.advance();
       let source = parse_expr(p, 0)?;
       found.push(Qualifier::Draw { name, source });

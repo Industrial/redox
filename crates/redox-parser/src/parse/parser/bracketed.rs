@@ -10,7 +10,7 @@ use redox_lexer::TokenKind;
 ///
 /// ```text
 /// [1, 2, 3]                    a list literal — Rust's array literal
-/// [ x * y | x <- 1..3, y <- ys, x != y ]   a comprehension
+/// [ x * y | x in 1..3, y in ys, x != y ]   a comprehension
 /// []                           the empty list
 /// ```
 ///

@@ -7,7 +7,7 @@ use redox_ast::{Expr, Qualifier};
 /// Lower doc 18 §3.2's comprehension to an iterator chain.
 ///
 /// ```text
-/// [ x * y | x <- 1..4, y <- 1..4, x != y ]
+/// [ x * y | x in 1..4, y in 1..4, x != y ]
 /// ```
 /// ```text
 /// (1..4)
@@ -41,7 +41,7 @@ use redox_ast::{Expr, Qualifier};
 /// question, not a meaning one.
 ///
 /// **`collect()` carries no turbofish**, so the element type comes from the
-/// ascription — `[ c | c <- cs ] :: HashSet<char>`, which is §3.2's own
+/// ascription — `[ c | c in cs ] :: HashSet<char>`, which is §3.2's own
 /// spelling — or from the use site. Without either, rustc asks for a type
 /// annotation, which is the correct error and points at the comprehension.
 pub(crate) fn emit_comprehension(
