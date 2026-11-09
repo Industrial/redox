@@ -8,5 +8,4 @@
 //! mode, worse than an unfamiliar operator.
 
 pub(crate) mod binary_power;
-pub(crate) mod postfix_power;
 pub(crate) mod prefix_power;

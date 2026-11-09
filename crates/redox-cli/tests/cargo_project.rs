@@ -169,7 +169,7 @@ fn redox_check_reports_a_project_error_against_the_sdx() {
   let sdx = dir.join("greeting.sdx");
   std::fs::write(
     &sdx,
-    "# A deliberate type error.\ntwice = (n: i32): i32 ->\n  n * \"two\"\n",
+    "-- A deliberate type error.\ntwice :: i32 -> i32\ntwice n =\n  n * \"two\"\n",
   )
   .expect("should write");
 
@@ -183,7 +183,9 @@ fn redox_check_reports_a_project_error_against_the_sdx() {
 
   assert!(!out.status.success(), "a type error should fail the check");
   assert!(
-    stderr.contains("greeting.sdx:3:"),
+    // Line 4: the comment, the signature line, the equation head, the body.
+    // Doc 18 §2.2's two-line form moved this down by one from doc 03's.
+    stderr.contains("greeting.sdx:4:"),
     "should point into the .sdx, not OUT_DIR:\n{stderr}"
   );
   assert!(
@@ -199,7 +201,7 @@ fn redox_check_reports_a_project_error_against_the_sdx() {
 fn a_broken_source_returns_renderable_diagnostics() {
   let dir = std::env::temp_dir().join(format!("redox-proj-bad-{}", std::process::id()));
   std::fs::create_dir_all(&dir).expect("should create");
-  std::fs::write(dir.join("bad.sdx"), "main = ->\n  print 1 +\n").expect("should write");
+  std::fs::write(dir.join("bad.sdx"), "main :: ()\nmain =\n  print (1 +)\n").expect("should write");
 
   let errors = redox_driver::compile_dir(&dir, &dir.join("out"))
     .expect_err("a parse error should be reported");

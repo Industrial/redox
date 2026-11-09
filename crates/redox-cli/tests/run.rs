@@ -174,7 +174,9 @@ fn every_case_documents_itself_and_keeps_its_comments() {
     let name = label(&source);
     let text = std::fs::read_to_string(&source).expect("should read the case");
     assert!(
-      text.lines().any(|l| l.trim_start().starts_with('#')),
+      // `--`, not `#`: doc 18 §5.1 took Haskell's comment syntax, which is
+      // what retired four of doc 03 §4.1's six meanings of `#`.
+      text.lines().any(|l| l.trim_start().starts_with("--")),
       "{name} should explain in a comment what it is demonstrating"
     );
     assert!(

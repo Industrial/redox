@@ -1,9 +1,11 @@
-# A Redox source file in an ordinary Cargo crate.
-#
-# `build.rs` turns this into `$OUT_DIR/greeting.rs`, and `src/main.rs` brings
-# it in with `include!`. Nothing here knows it is being transpiled.
-greet = (name: &str): String ->
-  "hello, " .to_string() + name
+-- A Redox source file in an ordinary Cargo crate.
+--
+-- `build.rs` turns this into `$OUT_DIR/greeting.rs`, and `src/main.rs` brings
+-- it in with `include!`. Nothing here knows it is being transpiled.
+greet :: &str -> String
+greet name =
+  "hello, ".to_string () + name
 
-twice = (n: i32): i32 ->
+twice :: i32 -> i32
+twice n =
   n * 2

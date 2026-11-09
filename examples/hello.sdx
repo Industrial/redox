@@ -1,3 +1,4 @@
-# The smallest Redox program.
-main = ->
+-- The smallest Redox program.
+main :: ()
+main =
   print "hello"

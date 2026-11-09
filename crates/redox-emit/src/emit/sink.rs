@@ -151,11 +151,15 @@ mod tests {
 
   #[test]
   fn attributes_a_line_to_the_current_mark() {
-    let source = "main = ->\n  print 1\n";
+    // Doc 18 §2.2's two-line form: the signature occupies bytes 0..17 and the
+    // body's `print 1` starts at 20 on line 3.
+    let source = "main :: ()\nmain =\n  print 1\n";
+    assert_eq!(&source[20..27], "print 1", "the premise of this test");
+
     let mut sink = Sink::new(source);
-    sink.mark((0, 9)); // `main = ->`
+    sink.mark((0, 17)); // the signature line and the equation head
     sink.push_str("fn main() {\n");
-    sink.mark((12, 19)); // `print 1`
+    sink.mark((20, 27)); // `print 1`
     sink.push_str("    println!();\n");
     sink.unmark();
     sink.push_str("}\n");
@@ -164,7 +168,10 @@ mod tests {
     assert_eq!(text, "fn main() {\n    println!();\n}\n");
     assert_eq!(map.len(), 3);
     assert_eq!(map.resolve(1, 1), Some((1, 1)));
-    assert_eq!(map.resolve(2, 5), Some((2, 3)), "content column aligns");
+    // Generated line 2 column 5 is the body's content; source line 3 column 3
+    // is where the author wrote it. Two source lines collapse into the `fn`
+    // header above it, which is the shift the map exists to carry.
+    assert_eq!(map.resolve(2, 5), Some((3, 3)), "content column aligns");
     assert_eq!(map.resolve(3, 1), None, "the closing brace is synthetic");
   }
 

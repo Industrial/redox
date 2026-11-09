@@ -28,7 +28,7 @@ fn three_errors_in_one_file_produce_three_diagnostics() {
 #[test]
 fn a_bad_statement_does_not_discard_its_siblings() {
   // The middle statement is malformed; the two around it are fine.
-  let src = "main = ->\n  print 1\n  = = =\n  print 3\n";
+  let src = "main :: ()\nmain =\n  print 1\n  = = =\n  print 3\n";
   let errs = errors(src);
   assert!(!errs.is_empty(), "the bad statement should be reported");
   assert_eq!(
@@ -42,12 +42,13 @@ fn a_bad_statement_does_not_discard_its_siblings() {
 /// level recovery buys over item-level alone.
 #[test]
 fn two_bad_statements_in_one_body_are_both_reported() {
-  let src = "main = ->\n  = =\n  print 2\n  = =\n";
+  let src = "main :: ()\nmain =\n  = =\n  print 2\n  = =\n";
   assert_eq!(errors(src).len(), 2);
 }
 
 #[test]
 fn a_well_formed_file_reports_nothing() {
-  let src = "add = (a: i32, b: i32): i32 ->\n  a + b\n\nmain = ->\n  print add(1, 2)\n";
+  let src =
+    "add :: i32 -> i32 -> i32\nadd a b =\n  a + b\n\nmain :: ()\nmain =\n  print (add 1 2)\n";
   assert!(parse_source(src).is_ok(), "should parse cleanly");
 }

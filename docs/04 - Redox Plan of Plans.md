@@ -119,7 +119,7 @@ regardless of schedule (doc 03 §20).
 
 | # | Plan | Scope | From Emerald | Depends on | Status |
 |---|---|---|---|---|---|
-| 13 | `ranges-rust-spelling` | `..` exclusive, `..=` inclusive; `...` freed for spread, rest and forwarding. Corrects doc 01 §21 | — | 03 | `not-started` |
+| 13 | `haskell-surface` | **The surface is doc 18's.** Comments become `--`/`{- -}`/`-- |`/`-- !`; a declaration becomes a `::` signature line plus an equation; application becomes juxtaposition. The generated Rust is **byte-identical** — the only golden diff is a comment — which is doc 18 §1's rule measured rather than asserted. Deleted `stmt_call`, `parse_signature`, `parameter` and `POSTFIX_POWER`; `ranges-rust-spelling` is subsumed, since doc 18 §8 keeps Rust's `..`/`..=` for the same reason doc 03 decision 34 did | — | 12 | `done` |
 | 14 | `paths-colon-colon` | `::` everywhere including imports; `.` means field or method only. Corrects doc 01 §22 | — | 03 | `not-started` |
 | 15 | `await-postfix` | Postfix `.await`. Corrects doc 01 §24 | — | 03 | `not-started` |
 | 16 | `module-scope-bindings` | Top-level bindings require a type and lower to `const`/`static`; `let` is illegal at Rust module scope. Corrects doc 01 §4.3 | — | 03 | `not-started` |

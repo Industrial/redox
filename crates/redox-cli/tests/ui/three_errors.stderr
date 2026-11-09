@@ -1,18 +1,18 @@
-error[RDX0101]: expected a line break after the statement
-  --> three_errors.sdx:4:3
+error[RDX0102]: expected an expression
+  --> three_errors.sdx:3:13
   |
-4 | b = ->
-  |   ^
+3 |   print (1 +)
+  |             ^
 
 error[RDX0102]: expected an expression
-  --> three_errors.sdx:5:7
+  --> three_errors.sdx:7:14
   |
-5 |   2 + +
-  |       ^
+7 |   print (2 + +)
+  |              ^
 
 error[RDX0102]: expected an expression
-  --> three_errors.sdx:9:1
-  |
-8 |   3 *
-  |      ^
+  --> three_errors.sdx:11:13
+   |
+11 |   print (3 *)
+   |             ^
 

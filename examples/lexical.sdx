@@ -1,9 +1,11 @@
-### A fenced comment,
-    spanning lines. ###
+{- A fenced comment,
+   spanning lines, and nesting: {- like this -} -}
 
-## Outer doc comment.
-main = ->
-  # A line comment, then every literal kind.
+-- | Outer doc comment.
+-- ! Inner doc comment.
+main :: ()
+main =
+  -- A line comment, then every literal kind.
   count = 1_000_000
   hexed = 0xDEAD_beef
   ratio = 2.5e-3
@@ -25,6 +27,10 @@ main = ->
   range = 1..10
   closed = 1..=10
   label = 'outer
-  field = @name
-  static_call = @@create
-  method_ref = &:name
+  ascribed = total :: u64
+  -- `\` lambdas and `$` are doc 18 §11.2's work, not §11.1's: they are
+  -- specified and not yet lexed, so they are absent here rather than
+  -- commented-out code pretending otherwise.
+  field = self.name
+  static_call = Self::create
+  method_ref = (|> name)

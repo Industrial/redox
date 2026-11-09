@@ -1,0 +1,12 @@
+error[RDX0103]: this equation defines `subtract`, but the signature above it is for `add`
+  --> signature_name_mismatch.sdx:2:1
+  |
+2 | subtract a =
+  | ^^^^^^^^
+
+error[RDX0101]: expected `::` after the name, to begin the signature
+  --> signature_name_mismatch.sdx:2:12
+  |
+2 | subtract a =
+  |            ^
+

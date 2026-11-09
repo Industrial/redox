@@ -1,6 +1,18 @@
-error[RDX0104]: expected a type after `:`
-  --> expected_type.sdx:1:11
+error[RDX0104]: expected a type after `::`
+  --> expected_type.sdx:2:1
   |
-1 | add = (a: ) ->
-  |           ^
+2 | add a =
+  | ^
+
+error[RDX0101]: expected `::` after the name, to begin the signature
+  --> expected_type.sdx:2:5
+  |
+2 | add a =
+  |     ^
+
+error[RDX0101]: expected `::` after the name, to begin the signature
+  --> expected_type.sdx:2:7
+  |
+2 | add a =
+  |       ^
 

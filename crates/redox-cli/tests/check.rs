@@ -68,7 +68,7 @@ fn check(name: &str) -> Checked {
 /// Criteria 1 and 2: rustc's message and code, against the `.sdx`, on the
 /// right line.
 ///
-/// `tests/check/verbatim.sdx` has the mistake on **line 5**, at the `+` in
+/// `tests/check/verbatim.sdx` has the mistake on **line 6**, at the `+` in
 /// column 5 of `  a + "x"`.
 #[test]
 fn a_type_error_is_reported_against_the_sdx() {
@@ -91,8 +91,8 @@ fn a_type_error_is_reported_against_the_sdx() {
   );
 
   assert!(
-    checked.stderr.contains("verbatim.sdx:5:5"),
-    "should point at verbatim.sdx line 5 column 5:\n{}",
+    checked.stderr.contains("verbatim.sdx:6:5"),
+    "should point at verbatim.sdx line 6 column 5:\n{}",
     checked.stderr
   );
   assert!(
@@ -104,7 +104,7 @@ fn a_type_error_is_reported_against_the_sdx() {
 
 /// Criterion 3: on a verbatim line the column is exact.
 ///
-/// Source line 5 is `  a + "x"`; its `+` is at column 5. rustc reported column
+/// Source line 6 is `  a + "x"`; its `+` is at column 5. rustc reported column
 /// 7 of `    a + "x"`, which is the same `+`. The shift is the difference in
 /// indentation and nothing more.
 #[test]
@@ -114,7 +114,7 @@ fn the_column_is_exact_on_a_verbatim_line() {
   }
   let checked = check("verbatim");
   assert!(
-    checked.stderr.contains("verbatim.sdx:5:5"),
+    checked.stderr.contains("verbatim.sdx:6:5"),
     "{}",
     checked.stderr
   );
@@ -129,7 +129,7 @@ fn the_column_is_exact_on_a_verbatim_line() {
 /// Criterion 4: on a restructured line the statement is underlined, not a
 /// clamped column.
 ///
-/// `tests/check/restructured.sdx` line 9 is `  print add("x", 2)` — 19
+/// `tests/check/restructured.sdx` line 11 is `  print add("x", 2)` — 19
 /// characters, 17 of them the statement. It becomes
 /// `    println!("{}", add("x", 2));`, and rustc reports column 24. Shifting
 /// that gives column 22, past the end of the source line, so the whole
@@ -148,8 +148,8 @@ fn a_restructured_line_underlines_the_statement() {
     checked.stderr
   );
   assert!(
-    checked.stderr.contains("restructured.sdx:9:3"),
-    "should point at the start of the statement on line 9:\n{}",
+    checked.stderr.contains("restructured.sdx:11:3"),
+    "should point at the start of the statement on line 11:\n{}",
     checked.stderr
   );
   assert!(

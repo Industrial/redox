@@ -1,6 +1,7 @@
-error[RDX0006]: unterminated `###` comment fence
-  --> unterminated_fence.sdx:4:1
+error[RDX0006]: unterminated `{- -}` comment
+  --> unterminated_fence.sdx:5:1
   |
-4 | ###
-  | ^^^^^^^^^^^^^^^^^
+5 | {- never closed
+  | ^^^^^^^^^^^^^^^^
+  = help: close it with `-}`
 

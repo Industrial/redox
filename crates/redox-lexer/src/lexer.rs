@@ -5,6 +5,7 @@ pub(crate) mod is_ident_start;
 pub(crate) mod lex_fragment;
 pub(crate) mod operator_table;
 pub(crate) mod scan_byte;
+pub(crate) mod scan_comment;
 pub(crate) mod scan_cstring;
 pub(crate) mod scan_escape;
 pub(crate) mod scan_number;
@@ -19,6 +20,7 @@ use crate::lexer::cursor::Cursor;
 use crate::lexer::is_ident_continue::is_ident_continue;
 use crate::lexer::is_ident_start::is_ident_start;
 use crate::lexer::scan_byte::scan_byte;
+use crate::lexer::scan_comment::scan_comment;
 use crate::lexer::scan_cstring::scan_cstring;
 use crate::lexer::scan_number::scan_number;
 use crate::lexer::scan_operator::scan_operator;
@@ -118,7 +120,7 @@ impl<'a> Lexer<'a> {
       return Ok(());
     }
 
-    if self.scan_hash()? {
+    if self.scan_dashes()? || self.scan_hash()? {
       return Ok(());
     }
 
@@ -184,53 +186,23 @@ impl<'a> Lexer<'a> {
     })
   }
 
-  /// Doc 03 §4.1's six `#` forms, by longest match in the documented order.
+  /// The `#` forms doc 18 §5.1 keeps: `#[attr]`, `#![attr]` and `#{`.
   ///
-  /// Returns whether a `#` form was consumed. Comments become trivia; `#[`
-  /// and `#{` are tokens.
+  /// Doc 03 §4.1 gave `#` six meanings and ordered six rules longest-first to
+  /// tell them apart. Doc 18 moves comments to `--`, which retires four of
+  /// them and leaves this function with the two that carry no comment
+  /// meaning. A bare `#` is now an unexpected character rather than a line
+  /// comment.
+  ///
+  /// Returns whether a `#` form was consumed.
   fn scan_hash(&mut self) -> Result<bool, LexError> {
     if self.cur.peek() != Some('#') {
       return Ok(false);
     }
     let start = self.cur.pos();
 
-    // 1. `###` — a fenced comment, which may span lines.
-    if self.cur.starts_with("###") {
-      self.cur.eat("###");
-      let body_start = self.cur.pos();
-      while !self.cur.starts_with("###") {
-        if self.cur.bump().is_none() {
-          return Err(LexError {
-            code: Code::UnterminatedFence,
-            help: None,
-            message: "unterminated `###` comment fence".to_string(),
-            span: (start, self.cur.pos()),
-          });
-        }
-      }
-      let text = self
-        .cur
-        .slice((body_start, self.cur.pos()))
-        .trim()
-        .to_string();
-      self.cur.eat("###");
-      self.pending.push(Trivia::comment(
-        TriviaKind::FencedComment,
-        text,
-        (start, self.cur.pos()),
-      ));
-      return Ok(true);
-    }
-
-    // 2-3. `##!` inner and `##` outer doc comments.
-    let kind = if self.cur.starts_with("##!") {
-      self.cur.eat("##!");
-      TriviaKind::InnerDocComment
-    } else if self.cur.starts_with("##") {
-      self.cur.eat("##");
-      TriviaKind::DocComment
-    } else if self.cur.starts_with("#[") || self.cur.starts_with("#![") {
-      // 4. An attribute, carried verbatim for passthrough (doc 03 §13.2).
+    if self.cur.starts_with("#[") || self.cur.starts_with("#![") {
+      // An attribute, carried verbatim for passthrough (doc 03 §13.2).
       let inner = self.cur.starts_with("#![");
       self.cur.eat(if inner { "#![" } else { "#[" });
       let body_start = self.cur.pos();
@@ -257,18 +229,71 @@ impl<'a> Lexer<'a> {
         false,
       );
       return Ok(true);
-    } else if self.cur.starts_with("#{") {
-      // 5. A set literal's opening delimiter.
+    }
+
+    if self.cur.starts_with("#{") {
+      // A set literal's opening delimiter. Doc 18 §7 deletes set literals in
+      // favour of `[…] :: HashSet<_>`, but the token costs nothing to keep
+      // lexing and removing it is not part of doc 18 §11.1's conversion.
       self.cur.eat("#{");
       self.depth += 1;
       self.open_delims.push(start);
       self.push(TokenKind::HashBrace, (start, self.cur.pos()), false);
       return Ok(true);
-    } else {
-      // 6. An ordinary line comment.
-      self.cur.bump();
-      TriviaKind::LineComment
+    }
+
+    Ok(false)
+  }
+
+  /// Doc 18 §5.1's comment forms: `--`, `-- |`, `-- !` and `{- … -}`.
+  ///
+  /// Returns whether a comment was consumed.
+  fn scan_dashes(&mut self) -> Result<bool, LexError> {
+    let start = self.cur.pos();
+
+    // `{- … -}` is the fenced form, replacing doc 03's `### … ###`. It may
+    // span lines and it nests, as Haskell's does — nesting is free here and a
+    // non-nesting fence cannot comment out code that already has one.
+    if self.cur.starts_with("{-") {
+      self.cur.eat("{-");
+      let body_start = self.cur.pos();
+      let mut depth = 1i32;
+      while depth > 0 {
+        if self.cur.starts_with("{-") {
+          self.cur.eat("{-");
+          depth += 1;
+          continue;
+        }
+        if self.cur.starts_with("-}") {
+          self.cur.eat("-}");
+          depth -= 1;
+          continue;
+        }
+        if self.cur.bump().is_none() {
+          return Err(LexError {
+            code: Code::UnterminatedFence,
+            help: Some("close it with `-}`".to_string()),
+            message: "unterminated `{- -}` comment".to_string(),
+            span: (start, self.cur.pos()),
+          });
+        }
+      }
+      let end = self.cur.pos() - 2;
+      let text = self.cur.slice((body_start, end)).trim().to_string();
+      self.pending.push(Trivia::comment(
+        TriviaKind::FencedComment,
+        text,
+        (start, self.cur.pos()),
+      ));
+      return Ok(true);
+    }
+
+    let Some((kind, marker)) = scan_comment(self.cur.rest()) else {
+      return Ok(false);
     };
+    for _ in 0..marker {
+      self.cur.bump();
+    }
 
     let body = self.cur.eat_while(|c| c != '\n');
     let text = trim_comment(self.cur.slice(body));
@@ -276,7 +301,7 @@ impl<'a> Lexer<'a> {
 
     // A comment following content on the same line *trails* it and belongs to
     // the `Newline` that closes the line — the distinction plan 01 made, which
-    // this rewrite had to restore. "The last token is non-structural" is
+    // plan 02's rewrite had to restore. "The last token is non-structural" is
     // exactly the test for "this line already has content": at a line start
     // the last token is a `Newline`, `Indent` or `Dedent`, and at file start
     // there is none.
@@ -365,9 +390,12 @@ impl<'a> Lexer<'a> {
           continue;
         }
         // A comment-only line: consume it as trivia and look at the next.
-        Some('#') => {
+        // `#` still reaches here for an attribute, which is content.
+        Some('#' | '-' | '{') => {
           let before = self.cur.pos();
-          self.scan_hash()?;
+          if !self.scan_dashes()? && !self.scan_hash()? {
+            return self.sync_indent(width, line_start);
+          }
           // An attribute or set literal is content, not trivia, so the
           // indentation we just measured does apply to it.
           if self.toks.last().is_some_and(|t| t.span.0 >= before) {

@@ -12,9 +12,7 @@ fn main() {
     println!("{}", 1 == 1 && 2 == 2);
     // Shifts bind looser than arithmetic: 1 << (1 + 1) = 4
     println!("{}", 1 << 1 + 1);
-    // Unary binds tighter than binary: (-3) + 10 = 7. Written with parentheses
-    // because a statement-initial argument may not begin with `-` until plan 19
-    // settles the adjacency rule that tells `print -3` from `a - b`.
+    // Unary binds tighter than binary: (-3) + 10 = 7
     println!("{}", (-3) + 10);
     // A typed binding, a method call, and a path
     let total: i32 = 40 + 2;

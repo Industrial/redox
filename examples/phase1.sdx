@@ -1,7 +1,9 @@
-# Doc 01 §31 Phase 1's own acceptance test: a typed function, a call, and a
-# print. Prints 30, computed by rustc rather than asserted by hand.
-add = (a: i32, b: i32): i32 ->
+-- Doc 01 §31 Phase 1's own acceptance test: a typed function, a call, and a
+-- print. Prints 30, computed by rustc rather than asserted by hand.
+add :: i32 -> i32 -> i32
+add a b =
   a + b
 
-main = ->
-  print add(10, 20)
+main :: ()
+main =
+  print (add 10 20)

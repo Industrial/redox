@@ -14,7 +14,7 @@ fn xrs(src: &str) -> String {
 #[test]
 fn emits_the_hello_slice() {
   assert_eq!(
-    xrs("# The smallest Redox program.\nmain = ->\n  print \"hello\"\n"),
+    xrs("-- The smallest Redox program.\nmain :: ()\nmain =\n  print \"hello\"\n"),
     "// The smallest Redox program.\nfn main() {\n    println!(\"hello\");\n}\n"
   );
 }
@@ -22,46 +22,46 @@ fn emits_the_hello_slice() {
 /// Plan 01 acceptance criterion 5.
 #[test]
 fn a_comment_survives_into_the_generated_rust() {
-  let out = xrs("# kept\nmain = ->\n  print \"x\"\n");
+  let out = xrs("-- kept\nmain :: ()\nmain =\n  print \"x\"\n");
   assert!(out.starts_with("// kept\n"), "{out}");
 }
 
 #[test]
 fn an_inline_comment_survives_into_the_generated_rust() {
-  let out = xrs("main = ->\n  print \"x\" # why\n");
+  let out = xrs("main :: ()\nmain =\n  print \"x\" -- why\n");
   assert!(out.contains("println!(\"x\"); // why\n"), "{out}");
 }
 
 #[test]
 fn a_comment_at_end_of_file_survives() {
-  let out = xrs("main = ->\n  print \"x\"\n# the end\n");
+  let out = xrs("main :: ()\nmain =\n  print \"x\"\n-- the end\n");
   assert!(out.ends_with("// the end\n"), "{out}");
 }
 
 /// Plan 01 acceptance criterion 7: emission is a pure function of the tree.
 #[test]
 fn emission_is_deterministic() {
-  let src = "# a\nmain = ->\n  print \"x\"\n\nother = ->\n  print \"y\"\n";
+  let src = "-- a\nmain :: ()\nmain =\n  print \"x\"\n\nother :: ()\nother =\n  print \"y\"\n";
   assert_eq!(xrs(src), xrs(src));
 }
 
 #[test]
 fn separates_items_with_one_blank_line() {
   assert_eq!(
-    xrs("a = ->\n  print \"1\"\nb = ->\n  print \"2\"\n"),
+    xrs("a :: ()\na =\n  print \"1\"\nb :: ()\nb =\n  print \"2\"\n"),
     "fn a() {\n    println!(\"1\");\n}\n\nfn b() {\n    println!(\"2\");\n}\n"
   );
 }
 
 #[test]
 fn emits_four_space_indentation() {
-  let out = xrs("main = ->\n  print \"x\"\n");
+  let out = xrs("main :: ()\nmain =\n  print \"x\"\n");
   assert!(out.contains("\n    println!"), "{out}");
 }
 
 #[test]
 fn a_non_print_call_keeps_its_name() {
-  assert!(xrs("main = ->\n  log \"x\"\n").contains("log(\"x\");"));
+  assert!(xrs("main :: ()\nmain =\n  log \"x\"\n").contains("log(\"x\");"));
 }
 
 /// Regression: the fixture's own final newline used to append a stray blank
@@ -70,10 +70,10 @@ fn a_non_print_call_keeps_its_name() {
 #[test]
 fn ends_with_exactly_one_newline() {
   for src in [
-    "main = ->\n  print \"x\"\n",
-    "main = ->\n  print \"x\"",
-    "main = ->\n  print \"x\"\n\n\n",
-    "main = ->\n  print \"x\"\n# tail\n",
+    "main :: ()\nmain =\n  print \"x\"\n",
+    "main :: ()\nmain =\n  print \"x\"",
+    "main :: ()\nmain =\n  print \"x\"\n\n\n",
+    "main :: ()\nmain =\n  print \"x\"\n-- tail\n",
   ] {
     let out = xrs(src);
     assert!(out.ends_with('\n'), "{out:?}");
@@ -84,7 +84,7 @@ fn ends_with_exactly_one_newline() {
 /// Line-preserving discipline: source lines 1-3 map to output lines 1-3.
 #[test]
 fn preserves_line_positions_for_the_slice() {
-  let out = xrs("# one\nmain = ->\n  print \"three\"\n");
+  let out = xrs("-- one\nmain :: ()\nmain =\n  print \"three\"\n");
   let lines: Vec<&str> = out.lines().collect();
   assert_eq!(lines[0], "// one");
   assert_eq!(lines[1], "fn main() {");

@@ -109,21 +109,24 @@ fn a_resolved_position_agrees_with_the_source_text() {
 /// against `examples/phase1.sdx` without running anything.
 ///
 /// ```text
-/// phase1.sdx                     phase1.xrs
-/// 1  # Doc 01 §31 …          1  // Doc 01 §31 …
-/// 2  # print. Prints 30 …    2  // print. Prints 30 …
-/// 3  add = (a, b): i32 ->    3  fn add(a: i32, b: i32) -> i32 {
-/// 4    a + b                 4      a + b
-///                           5  }
+/// phase1.sdx                      phase1.xrs
+/// 1  -- Doc 01 §31 …          1  // Doc 01 §31 …
+/// 2  -- print. Prints 30 …    2  // print. Prints 30 …
+/// 3  add :: i32 -> i32 -> i32 3  fn add(a: i32, b: i32) -> i32 {
+/// 4  add a b =                4      a + b
+/// 5    a + b                  5  }
 /// ```
 ///
-/// Generated line 4 is `    a + b` at column 5; source line 4 is `  a + b` at
-/// column 3.
+/// Generated line 4 is `    a + b` at column 5; source line **5** is `  a + b`
+/// at column 3. The signature line and the equation head both occupy source
+/// lines that the generated `fn` header collapses into one, which is why the
+/// two numbers differ at all — and why the map exists.
 ///
 /// The literal numbers are the point. Plan 08 added two comment lines to
-/// `phase1.sdx` and this test failed, which is exactly what a map test should
-/// do when the thing it maps moves — a test that computed the line from the
-/// file would have passed while proving nothing.
+/// `phase1.sdx` and this test failed; doc 18's two-line declaration form moved
+/// it again. Both times the failure was the map test doing its job — a test
+/// that computed the line from the file would have passed while proving
+/// nothing.
 #[test]
 fn phase1_tail_expression_maps_to_its_source_line() {
   let (_, rust, map) = emit("phase1");
@@ -132,7 +135,7 @@ fn phase1_tail_expression_maps_to_its_source_line() {
     Some("a + b"),
     "the premise of this test is that generated line 4 is the tail expression"
   );
-  assert_eq!(map.resolve(4, 5), Some((4, 3)));
+  assert_eq!(map.resolve(4, 5), Some((5, 3)));
 }
 
 /// Criterion 4: the sidecar round-trips.

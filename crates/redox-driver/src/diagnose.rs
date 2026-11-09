@@ -52,7 +52,7 @@ mod tests {
 
   #[test]
   fn carries_a_lex_errors_code_and_help_across() {
-    let source = "main = ->\n\tprint 1\n";
+    let source = "main :: ()\nmain =\n\tprint 1\n";
     let failure = redox_parser::parse_source(source).expect_err("a tab is an error");
     let diagnostics = diagnose(Path::new("a.sdx"), source, &failure);
     assert_eq!(diagnostics.len(), 1);
@@ -66,7 +66,7 @@ mod tests {
   /// to end.
   #[test]
   fn reports_every_recovered_parse_error() {
-    let source = "a = ->\n  1 +\n\nb = ->\n  2 + +\n";
+    let source = "a :: ()\na =\n  1 +\n\nb :: ()\nb =\n  2 + +\n";
     let failure = redox_parser::parse_source(source).expect_err("should fail");
     let diagnostics = diagnose(Path::new("a.sdx"), source, &failure);
     assert!(

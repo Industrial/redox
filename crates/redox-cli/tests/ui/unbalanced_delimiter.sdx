@@ -1,2 +1,3 @@
-main = ->
+main :: ()
+main =
   print (1 + 2

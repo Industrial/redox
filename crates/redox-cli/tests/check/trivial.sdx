@@ -1,4 +1,5 @@
-# The smallest program that exercises `redox check`'s happy path, for the
-# assertions about rustc resolution and artefact cleanup.
-main = ->
+-- The smallest program that exercises `redox check`'s happy path, for the
+-- assertions about rustc resolution and artefact cleanup.
+main :: ()
+main =
   print 1

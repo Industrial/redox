@@ -1,4 +1,5 @@
-# A syntax error never reaches rustc, so it keeps its own `RDX` code rather
-# than acquiring one of rustc's.
-main = ->
-  print 1 +
+-- A syntax error never reaches rustc, so it keeps its own `RDX` code rather
+-- than acquiring one of rustc's.
+main :: ()
+main =
+  print (1 +)

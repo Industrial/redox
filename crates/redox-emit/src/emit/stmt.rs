@@ -14,7 +14,7 @@ use redox_ast::{Stmt, StmtKind};
 ///
 /// Only a function that *declares* a return type gets a tail expression. One
 /// that does not returns `()`, and its last line is an ordinary statement —
-/// which is why `main = -> print "x"` still emits `println!("x");`.
+/// which is why a one-statement body still emits `println!("x");`.
 ///
 /// The match is exhaustive with no wildcard, for the reason given in
 /// `emit_expr`: a new `StmtKind` must fail to compile here.

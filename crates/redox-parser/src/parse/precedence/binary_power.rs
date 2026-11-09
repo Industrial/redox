@@ -43,7 +43,6 @@ pub(crate) fn binary_power(kind: &TokenKind) -> Option<(BinaryOp, u8, u8)> {
 #[cfg(test)]
 mod tests {
   use super::binary_power;
-  use crate::parse::precedence::postfix_power::POSTFIX_POWER;
   use crate::parse::precedence::prefix_power::PREFIX_POWER;
   use redox_ast::BinaryOp;
   use redox_lexer::TokenKind;
@@ -77,9 +76,10 @@ mod tests {
     assert!(PREFIX_POWER > power(TokenKind::Star));
   }
 
-  // Both are constants, so asserting their relation at runtime would be
-  // vacuous. A const assertion fails the build instead.
-  const _: () = assert!(POSTFIX_POWER > PREFIX_POWER);
+  // `POSTFIX_POWER` was asserted here against `PREFIX_POWER` until doc 18 §2.1
+  // made application the primary: postfix is now consumed inside
+  // `application::atom` rather than ranked on the precedence ladder, so the
+  // constant has no value to compare and was deleted with the ladder rung.
 
   #[test]
   fn binary_operators_are_left_associative() {

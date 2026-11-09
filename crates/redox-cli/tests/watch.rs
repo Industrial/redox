@@ -110,13 +110,13 @@ fn it_builds_at_start_and_on_change() {
   if support::skip_without_rustc("it_builds_at_start_and_on_change") {
     return;
   }
-  let watching = Watching::start("change", "main = ->\n  print 1\n");
+  let watching = Watching::start("change", "main :: ()\nmain =\n  print 1\n");
 
   watching
     .wait_for_output("println!(\"{}\", 1)")
     .expect("the initial build should happen before any change");
 
-  watching.write("main = ->\n  print 2\n");
+  watching.write("main :: ()\nmain =\n  print 2\n");
   let after = watching
     .wait_for_output("println!(\"{}\", 2)")
     .expect("a change should trigger a rebuild");
@@ -136,15 +136,15 @@ fn a_compile_error_does_not_end_the_loop() {
   if support::skip_without_rustc("a_compile_error_does_not_end_the_loop") {
     return;
   }
-  let mut watching = Watching::start("survive", "main = ->\n  print 1\n");
+  let mut watching = Watching::start("survive", "main :: ()\nmain =\n  print 1\n");
   watching
     .wait_for_output("println!(\"{}\", 1)")
     .expect("the initial build should happen");
 
   // Break it. The watcher must report and continue.
-  watching.write("main = ->\n  print 1 +\n");
+  watching.write("main :: ()\nmain =\n  print (1 +)\n");
   // Then fix it, with different content so the output is distinguishable.
-  watching.write("main = ->\n  print 3\n");
+  watching.write("main :: ()\nmain =\n  print 3\n");
 
   watching
     .wait_for_output("println!(\"{}\", 3)")
@@ -171,19 +171,19 @@ fn it_survives_the_file_being_replaced() {
   if support::skip_without_rustc("it_survives_the_file_being_replaced") {
     return;
   }
-  let watching = Watching::start("replaced", "main = ->\n  print 1\n");
+  let watching = Watching::start("replaced", "main :: ()\nmain =\n  print 1\n");
   watching
     .wait_for_output("println!(\"{}\", 1)")
     .expect("the initial build should happen");
 
   // Twice, because the failure mode is losing the watch on the *first*
   // replacement: one rename could succeed by luck of event ordering.
-  watching.replace("main = ->\n  print 4\n");
+  watching.replace("main :: ()\nmain =\n  print 4\n");
   watching
     .wait_for_output("println!(\"{}\", 4)")
     .expect("a renamed-over file should still trigger a rebuild");
 
-  watching.replace("main = ->\n  print 5\n");
+  watching.replace("main :: ()\nmain =\n  print 5\n");
   watching
     .wait_for_output("println!(\"{}\", 5)")
     .expect("and so should the next one");

@@ -186,7 +186,9 @@ fn dedents_a_multiline_block_and_keeps_line_numbers() {
   );
 
   // The binding after the block must still report its true line. `chain` is
-  // on line 21 of the fixture.
+  // on line 23 of the fixture — doc 18's surface added two header lines, and
+  // this number is written out so that moving the fixture is a visible
+  // decision rather than a silent one.
   let toks = lex(&src).expect("should lex");
   let chain = toks
     .iter()
@@ -195,7 +197,7 @@ fn dedents_a_multiline_block_and_keeps_line_numbers() {
   let before = &src[..toks[chain].span.0];
   assert_eq!(
     before.matches('\n').count() + 1,
-    21,
+    23,
     "the line after a \"\"\" block must be numbered correctly"
   );
 }
@@ -227,17 +229,23 @@ fn lexes_the_operator_surface() {
     line_of(&src, "closed").contains(&TokenKind::DotDotEq),
     "`..=` is inclusive"
   );
+  // Doc 18 §2.5 retires `@name` and `@@name` for `self.name` and
+  // `Self::name`, which leaves `@` with exactly one meaning — the as-pattern.
   assert!(
-    line_of(&src, "field").contains(&TokenKind::At),
-    "`@` is self-access"
+    line_of(&src, "field").contains(&TokenKind::Dot),
+    "self-access is a field access now, not a sigil"
   );
   assert!(
-    line_of(&src, "static_call").contains(&TokenKind::AtAt),
-    "`@@` is Self::"
+    line_of(&src, "static_call").contains(&TokenKind::ColonColon),
+    "an associated item is a path now, not a sigil"
   );
+  // Doc 18 §4 retires `&:name` for `(|> name)`, a *section* of the pipeline
+  // rather than a sigil of its own — derived from the section rule instead of
+  // added to it, and unlike `&:` it can tell a field from a method, since
+  // `(.name)` selects and `(|> name)` calls.
   assert!(
-    line_of(&src, "method_ref").contains(&TokenKind::AmpColon),
-    "`&:` is a method reference"
+    line_of(&src, "method_ref").contains(&TokenKind::Pipe),
+    "a method reference is a section of `|>` now, not a sigil"
   );
 }
 
@@ -275,7 +283,7 @@ fn every_comment_form_survives_as_trivia() {
   );
   assert!(
     kinds.contains(&TriviaKind::LineComment),
-    "# line comment: {kinds:?}"
+    "-- line comment: {kinds:?}"
   );
 }
 

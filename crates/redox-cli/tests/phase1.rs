@@ -27,7 +27,7 @@ mod support;
 fn a_nested_generic_type_round_trips() {
   let rust = support::transpile_source(
     "nested_generic",
-    "f = (m: Vec<HashMap<String, u8>>): usize ->\n  m.len()\n",
+    "f :: Vec<HashMap<String, u8>> -> usize\nf m =\n  m.len ()\n",
   );
   assert!(
     rust.contains("m: Vec<HashMap<String, u8>>"),
@@ -43,7 +43,7 @@ fn a_nested_generic_type_round_trips() {
 fn a_function_type_parameter_parses_as_one_type() {
   let rust = support::transpile_source(
     "fn_type",
-    "apply = (f: &dyn Fn(i32) -> i32, x: i32): i32 ->\n  f(x)\n",
+    "apply :: &dyn Fn(i32) -> i32 -> i32 -> i32\napply f x =\n  f x\n",
   );
   assert!(
     rust.contains("f: &dyn Fn(i32) -> i32"),

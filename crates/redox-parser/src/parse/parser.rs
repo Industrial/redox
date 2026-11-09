@@ -1,21 +1,24 @@
+pub(crate) mod application;
 pub(crate) mod arguments;
+pub(crate) mod atom;
+pub(crate) mod binders;
 pub(crate) mod capture_type;
-pub(crate) mod parameter;
 pub(crate) mod parse_expr;
-pub(crate) mod parse_signature;
+pub(crate) mod parse_spine;
 pub(crate) mod path_or_ident;
 pub(crate) mod postfix;
 pub(crate) mod prefix;
+pub(crate) mod signature_from;
 pub(crate) mod starts_argument;
-pub(crate) mod stmt_call;
 pub(crate) mod token_text;
 pub(crate) mod unary_op;
 
 use crate::ParseError;
+use crate::parse::parser::binders::binders;
 use crate::parse::parser::capture_type::capture_type;
 use crate::parse::parser::parse_expr::parse_expr;
-use crate::parse::parser::parse_signature::parse_signature;
-use crate::parse::parser::stmt_call::stmt_call;
+use crate::parse::parser::parse_spine::parse_spine;
+use crate::parse::parser::signature_from::signature_from;
 use redox_ast::{Binding, Block, FnDecl, Ident, Item, Program, Stmt, StmtKind, TypeExpr};
 use redox_diag::Code;
 use redox_lexer::{Keyword, Span, Token, TokenKind, Trivia};
@@ -78,16 +81,54 @@ impl<'a> Parser<'a> {
     items
   }
 
-  /// `Item := Ident "=" Signature? "->" Newline Indent Stmt+ Dedent`
+  /// ```text
+  /// Item := Ident "::" Spine Newline
+  ///         Ident Binder* "=" Newline Indent Stmt+ Dedent
+  /// ```
+  ///
+  /// Doc 18 §§2.2–2.3 — the signature line and the equation. Two lines where
+  /// doc 03 had one, and the trade doc 18 §10.1 item 2 flags as the thing to
+  /// watch: a one-line private helper now costs two lines. What it buys is
+  /// that the types are written once, in Haskell's order, and the equation is
+  /// a row of binders rather than a repeated annotation.
+  ///
+  /// The two names must match. Catching that here rather than at the emitter
+  /// is what makes a mistyped equation a diagnostic about the equation
+  /// instead of an undefined-function error from rustc about a line the user
+  /// did not write.
   fn item(&mut self) -> Result<Item, ParseError> {
     let leading = self.peek_leading();
     let start = self.peek_span().0;
 
-    let name = self.ident("a declaration must start with a name")?;
-    self.expect(&TokenKind::Eq, "expected `=` after the declaration name")?;
-    let sig = parse_signature(self)?;
-    self.expect(&TokenKind::Arrow, "expected `->` after the signature")?;
-    let trailing = self.newline_with_trailing("expected a line break after `->`")?;
+    // The signature line.
+    let name = self.ident("expected a name to begin a declaration")?;
+    self.expect(
+      &TokenKind::ColonColon,
+      "expected `::` after the name, to begin the signature",
+    )?;
+    let spine = parse_spine(self)?;
+    self.newline_with_trailing("expected a line break after the signature")?;
+    self.skip_separators();
+
+    // The equation.
+    let again = self.ident("expected the equation to repeat the name")?;
+    if again.text != name.text {
+      return Err(ParseError::with(
+        Code::ExpectedName,
+        format!(
+          "this equation defines `{}`, but the signature above it is for `{}`",
+          again.text, name.text
+        ),
+        again.span,
+      ));
+    }
+    let bound = binders(self)?;
+    let sig = signature_from(&spine, &bound, (name.span.0, self.prev_span().1))?;
+    self.expect(
+      &TokenKind::Eq,
+      "expected `=` after the equation's parameters",
+    )?;
+    let trailing = self.newline_with_trailing("expected a line break after `=`")?;
     self.expect_with(
       Code::EmptyBody,
       &TokenKind::Indent,
@@ -150,8 +191,6 @@ impl<'a> Parser<'a> {
       }
     } else if let Some(binding) = self.try_binding()? {
       StmtKind::Binding(binding)
-    } else if let Some(call) = stmt_call(self)? {
-      StmtKind::Expr(call)
     } else {
       StmtKind::Expr(parse_expr(self, 0)?)
     };

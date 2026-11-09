@@ -50,6 +50,16 @@ impl<'a> Cursor<'a> {
     self.src[self.pos..].starts_with(s)
   }
 
+  /// The unconsumed text, for a scanner that matches on more than one
+  /// character at a time.
+  ///
+  /// Doc 18 §5.1's comment rule needs it: whether `--` opens a comment
+  /// depends on the character *after* the dashes, so the decision cannot be
+  /// made with `starts_with` alone without enumerating every terminator.
+  pub(crate) fn rest(&self) -> &'a str {
+    &self.src[self.pos..]
+  }
+
   /// Consume and return the next character.
   pub(crate) fn bump(&mut self) -> Option<char> {
     let ch = self.peek()?;

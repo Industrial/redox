@@ -94,7 +94,7 @@ fn a_leading_dot_does_not_continue_a_with_block() {
 /// newline. This is the case that proved the first version of the rule wrong.
 #[test]
 fn a_trailing_arrow_does_not_suppress_the_newline() {
-  let toks = kinds("main = ->\n  print \"x\"\n");
+  let toks = kinds("main :: ()\nmain =\n  print \"x\"\n");
   assert!(
     toks.contains(&TokenKind::Newline),
     "the header's newline must survive: {toks:?}"

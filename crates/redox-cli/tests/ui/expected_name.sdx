@@ -1,5 +1,7 @@
-main = ->
+main :: ()
+main =
   print 1
 
-"x" = ->
+"x" :: ()
+"x" =
   print 2

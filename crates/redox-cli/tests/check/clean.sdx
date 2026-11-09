@@ -1,6 +1,8 @@
-# A program rustc accepts. `redox check` must print nothing and exit zero.
-add = (a: i32, b: i32): i32 ->
+-- A program rustc accepts. `redox check` must print nothing and exit zero.
+add :: i32 -> i32 -> i32
+add a b =
   a + b
 
-main = ->
-  print add(1, 2)
+main :: ()
+main =
+  print (add 1 2)

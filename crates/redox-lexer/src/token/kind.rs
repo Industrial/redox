@@ -158,7 +158,7 @@ impl TokenKind {
   /// `=`, `->`, `=>` and `:` are deliberately **not** here, and that is not an
   /// oversight: each of them ends a header whose body follows on an *indented*
   /// line, so suppressing the newline would swallow the `Indent` the parser
-  /// needs. `main = ->` is the case that proved it.
+  /// needs. `main :: ()` / `main =` is the case that proved it.
   pub(crate) fn continues_line(&self) -> bool {
     matches!(
       self,
