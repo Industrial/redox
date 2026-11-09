@@ -2,12 +2,14 @@ pub(crate) mod binary_op;
 pub(crate) mod case_arm;
 pub(crate) mod field_init;
 pub(crate) mod ident;
+pub(crate) mod qualifier;
 pub(crate) mod section;
 pub(crate) mod type_expr;
 pub(crate) mod unary_op;
 
 use crate::expr::case_arm::CaseArm;
 use crate::expr::field_init::FieldInit;
+use crate::expr::qualifier::Qualifier;
 use crate::expr::section::Section;
 use crate::{BinaryOp, Ident, TypeExpr, UnaryOp};
 use redox_lexer::Span;
@@ -118,6 +120,23 @@ pub enum Expr {
     fields: Vec<FieldInit>,
     span: Span,
   },
+  /// `[a, b, c]` — a list literal, which is Rust's array literal unchanged.
+  ///
+  /// A spelling rather than a lowering. It is here because doc 18 §3.2's
+  /// comprehension shares its brackets, so the two are told apart by what
+  /// follows the first expression — a `|` opens a comprehension, a `,` or a
+  /// `]` closes a literal — and reading one without the other would have
+  /// left `[` ambiguous.
+  List {
+    items: Vec<Expr>,
+    span: Span,
+  },
+  /// `[ e | x <- xs, cond ]` — doc 18 §3.2's comprehension.
+  Comprehension {
+    element: Box<Expr>,
+    qualifiers: Vec<Qualifier>,
+    span: Span,
+  },
   /// `()` — the unit value.
   ///
   /// Doc 18 §7 retires doc 03 §5.2's `!` zero-argument suffix in favour of
@@ -189,6 +208,8 @@ impl Expr {
       | Expr::Record { span, .. }
       | Expr::Section { span, .. }
       | Expr::Unit { span }
+      | Expr::List { span, .. }
+      | Expr::Comprehension { span, .. }
       | Expr::Num { span, .. }
       | Expr::Bool { span, .. }
       | Expr::Char { span, .. }

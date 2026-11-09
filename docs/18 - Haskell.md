@@ -387,6 +387,15 @@ comprehension level — Dart's element-wise `if`/`for` inside a literal, with it
 lowering — is deleted; Haskell has one comprehension and so does this. The `into` clause is
 deleted too, because `::` already says the type and reads better doing it.
 
+**Two corrections to the Rust above, made when this was implemented.** The guard is lowered
+with `filter_map` rather than `filter`, and every guard lands at the innermost level: `filter`
+hands its closure a *reference*, which is why the block above has to write `x != *y` — and
+Redox cannot know when to insert that `*`, having no types. `filter_map` hands over the value,
+so the guard reads as written. Every binder is in scope at the innermost level, so the two
+placements differ in *when* a guard runs and never in what the comprehension produces. And the
+generator's source is parenthesised when it is an operator expression, because `.` binds
+tighter: `1..3.into_iter()` is `1..(3.into_iter())`.
+
 ---
 
 ## 4. Sections, pipelines, lambdas
@@ -530,8 +539,13 @@ here rather than discovered later.
 |---|---|---|
 | `e :: T` ascription | `{ let __rdx_t: T = e; __rdx_t }` | The type is written, not inferred. Replaces the `into` clause and most turbofish needs. |
 | `p { x = 1 }` record update | `{ let mut __rdx_r = p; __rdx_r.x = 1; __rdx_r }` | Needs no type path, which `Point { x: 1, ..p }` would. Moves `p`, as `..p` does. |
-| `[a, b] :: C<_>` ascribed literal | `C::from([a, b])` | The container is named in the ascription. Covers the deleted set and map literals. |
+| `[a, b] :: C<_>` ascribed literal | `{ let __rdx_t: C<T> = C::from([a, b]); __rdx_t }` | The container is named in the ascription. Covers the deleted set and map literals. |
 | `data T = A \| B` | the `enum`, plus `use T::*;` | Syntactic: the declaration names the type and the constructors, and nothing else is consulted. |
+
+The third row is written here as the ascription block *containing* `C::from`, which is a
+correction: `C::from([a, b])` alone drops the type's generic arguments, so `[] :: Vec<i32>` has
+nothing to infer its element from and `[1, 2] :: Vec<i64>` becomes a `Vec<i32>` because an
+unsuffixed integer literal defaults. The two lowerings compose; neither replaces the other.
 
 The fourth was **not in this document's first draft**, and it is not optional sugar. In Haskell
 a constructor is in scope under its own name; in Rust it is not. Without the `use`, `Close` is
@@ -838,7 +852,8 @@ Since then, one construct per commit:
 | `accbd58` | `class` and `instance` | §2.5, §5.3 |
 | `c50dbb6` | sections, all six forms | §4 |
 | `2e36106` | `??`, and the unit expression `()` | doc 03 §12.1, §7 |
-| *this* | synthesised generics, `=>` bounds and `where` locals | §2.2, §5.3 |
+| `a20f038` | synthesised generics, `=>` bounds and `where` locals | §2.2, §5.3 |
+| *this* | comprehensions, list literals, and §6's ascribed-literal lowering | §3.2, §6 |
 
 The guard commit closed a hole the clause commit had left: doc 18 §2.3's own example
 `fib 0 = 0` did not parse, because the clause body required a line break and an indent. It
@@ -848,8 +863,7 @@ prose.
 
 ### 11.2 Specification for later plans
 
-Comprehensions, `errors` and `test` blocks, and `export` → `pub`, are specified here and **not
-implemented**. The full pattern
+`errors` and `test` blocks and `export` → `pub` are specified here and **not implemented**. The full pattern
 grammar — a constructor pattern with fields included — is doc 04's plan 33. Doc 04's plan rows for those constructs are re-pointed at this document
 rather than doc 03; the lowerings they must produce are doc 03's, unchanged, as §1 requires.
 

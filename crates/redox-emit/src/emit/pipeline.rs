@@ -1,5 +1,6 @@
 use crate::emit::expr::emit_expr;
 use crate::emit::expr_list::expr_list;
+use crate::emit::receiver::receiver;
 use crate::emit::unparen::unparen;
 use redox_ast::Expr;
 
@@ -23,19 +24,23 @@ use redox_ast::Expr;
 /// Nesting falls out of recursion, because the left operand of a `|>` is
 /// itself whatever the previous `|>` produced.
 pub(crate) fn pipeline(lhs: &Expr, rhs: &Expr, indent: usize) -> String {
-  let receiver = emit_expr(lhs, indent);
+  // Parenthesised when `.` would bind tighter than the left operand does:
+  // `1 .. 3 |> count` is `(1..3).count()`, not `1..3.count()`. The defect
+  // was here from the day the pipeline landed and went unexercised because
+  // no example piped from an operator expression.
+  let left = receiver(lhs, indent);
 
   match unparen(rhs) {
     // `a |> f x y` — the head names the method, the arguments come after.
     Expr::Call { callee, args, .. } => {
       format!(
-        "{receiver}.{}({})",
+        "{left}.{}({})",
         emit_expr(unparen(callee), indent),
         expr_list(args, indent)
       )
     }
     // `a |> f` — a bare name is a no-argument method call. This is the case
     // that makes a pipeline read like a chain: `xs |> iter |> sum`.
-    other => format!("{receiver}.{}()", emit_expr(other, indent)),
+    other => format!("{left}.{}()", emit_expr(other, indent)),
   }
 }

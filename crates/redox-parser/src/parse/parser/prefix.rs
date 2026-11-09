@@ -1,5 +1,6 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
+use crate::parse::parser::bracketed::bracketed;
 use crate::parse::parser::case_of::case_of;
 use crate::parse::parser::lambda::lambda;
 use crate::parse::parser::parse_expr::parse_expr;
@@ -66,6 +67,9 @@ pub(crate) fn prefix(p: &mut Parser) -> Result<Expr, ParseError> {
       let span = (start, name.span.1);
       Ok(Expr::SelfType { name, span })
     }
+    // `[` opens a list literal or doc 18 §3.2's comprehension; `bracketed`
+    // tells them apart by what follows the first expression.
+    TokenKind::LBracket => bracketed(p),
     TokenKind::LParen => {
       p.advance();
       // `()` — the unit value. Doc 18 §7 replaces the `!` zero-argument

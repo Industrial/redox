@@ -7,5 +7,6 @@
 //! that reads like Rust and binds differently is the worst available failure
 //! mode, worse than an unfamiliar operator.
 
+pub(crate) mod above_bitor;
 pub(crate) mod binary_power;
 pub(crate) mod prefix_power;

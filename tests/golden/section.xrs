@@ -43,7 +43,7 @@ fn main() {
     // A field selector, as in GHC's record dot.
     let u = User { name: "a", age: 30 };
     println!("{}", {
-        let __rdx_t: u32 = (Some(u)).into_iter().map(|__rdx_1| __rdx_1.age).sum();
+        let __rdx_t: u32 = Some(u).into_iter().map(|__rdx_1| __rdx_1.age).sum();
         __rdx_t
     });
 
@@ -51,7 +51,7 @@ fn main() {
     // doc 03 §8.5's `&:name` sigil. Unlike `&:` it tells a field from a
     // method: `(.name)` selects and `(|> name)` calls.
     let v = User { name: "bb", age: 2 };
-    let names = (Some(v)).into_iter().map(|__rdx_1| __rdx_1.name);
+    let names = Some(v).into_iter().map(|__rdx_1| __rdx_1.name);
     println!("{}", {
         let __rdx_t: usize = names.map(|__rdx_1| __rdx_1.len()).sum();
         __rdx_t

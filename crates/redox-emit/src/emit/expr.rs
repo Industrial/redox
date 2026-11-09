@@ -1,5 +1,7 @@
+use crate::emit::ascribed_list::ascribed_list;
 use crate::emit::case::emit_case;
 use crate::emit::coalesce::coalesce;
+use crate::emit::comprehension::emit_comprehension;
 use crate::emit::expr_list::expr_list;
 use crate::emit::pipeline::pipeline;
 use crate::emit::print_call::print_call;
@@ -57,10 +59,14 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
     Expr::Ascribe { inner, ty, .. } => {
       let inner_pad = " ".repeat(indent + RUST_INDENT);
       let close_pad = " ".repeat(indent);
+      // Doc 18 §6's third lowering: an ascribed list literal names its
+      // container, so its value is `C::from([…])`. Inside the block, not
+      // instead of it — see `ascribed_list`.
+      let value = ascribed_list(inner, ty, indent + RUST_INDENT)
+        .unwrap_or_else(|| emit_expr(inner, indent + RUST_INDENT));
       format!(
-        "{{\n{inner_pad}let __rdx_t: {} = {};\n{inner_pad}__rdx_t\n{close_pad}}}",
-        ty.text,
-        emit_expr(inner, indent + RUST_INDENT)
+        "{{\n{inner_pad}let __rdx_t: {} = {value};\n{inner_pad}__rdx_t\n{close_pad}}}",
+        ty.text
       )
     }
     // Doc 18 §4. An operator with one side supplied, as a closure.
@@ -73,6 +79,14 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
       scrutinee, arms, ..
     } => emit_case(scrutinee, arms, indent),
     Expr::Unit { .. } => "()".to_string(),
+    // Rust's array literal, unchanged — a spelling, not a lowering.
+    Expr::List { items, .. } => format!("[{}]", expr_list(items, indent)),
+    // Doc 18 §3.2. An iterator chain, built inside out.
+    Expr::Comprehension {
+      element,
+      qualifiers,
+      ..
+    } => emit_comprehension(element, qualifiers, indent),
     Expr::StrLit { value, .. } => rust_escapes(value),
     Expr::Num { text, .. } => text.clone(),
     Expr::Bool { value, .. } => value.to_string(),
