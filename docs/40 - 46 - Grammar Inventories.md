@@ -255,18 +255,29 @@ Two deliberate departures:
 
 ## 10. Result
 
-Shipped 2026-11-10. `docs/GRAMMAR.md` with **88 graded rows** — 34 `PASSTHROUGH`, 48
-`SUGARED`, 6 `UNREACHABLE` — across Rust's lexical, item, type, expression, pattern and
+Shipped 2026-11-10. `docs/GRAMMAR.md` with **89 graded rows** — 34 `PASSTHROUGH`, 48
+`SUGARED`, 7 `UNREACHABLE` — across Rust's lexical, item, type, expression, pattern and
 control-flow areas, six fixtures under `tests/unreachable/`, and
 `crates/redox-cli/tests/grammar_inventory.rs` holding the citations honest.
 
-(That count was first written here as 77, from memory, and corrected after counting the rows
-the way the test counts them. A row whose whole subject is unchecked claims should not open
-with one.)
-
 Doc 02 §4.1's artifact exists, forty-five rows after it was asked for, and it says something
-the blueprint could not have: **six constructs are unreachable, and five of them were not on
-any list.**
+the blueprint could not have: **seven constructs are unreachable, and five of them were not
+on any list.**
+
+> **Both numbers above were wrong when this section was first written, twice, and the second
+> time it mattered.**
+>
+> The row count was typed as 77 from memory and corrected to 88 by counting. Then plan 47
+> §10.1 found the real count is **89, with 7 `UNREACHABLE` rather than 6** — because the
+> or-patterns row's *area* cell is `` `|` ``, an unescaped pipe, so every parser split it into
+> the wrong cells and skipped the row entirely. It was graded in the document and **invisible
+> to its own test**: `tests/unreachable/or_pattern.sdx` existed and was never checked.
+>
+> Which is this plan's own thesis landing on it. §1.3 argued that an inventory is only worth
+> its page if a machine resolves every claim, and the machine could not see one row in seven.
+> The fix is `split_cells`, which honours `\|`, and the escape in the document; the lesson is
+> that *"a machine checks it"* is itself a claim worth checking — which is what plan 47's
+> generator did by counting the same thing a second way and getting a different answer.
 
 ### 10.1 The test was verified to fail, both ways
 

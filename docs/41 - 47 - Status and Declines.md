@@ -3,7 +3,7 @@
 Plan ID: `status-and-declines`
 Depends on: 44 (`zero-cost-benchmarks`)
 Milestone: 7 — *tooling*
-Status: `planned`
+Status: `done` 2026-11-10
 
 ---
 
@@ -231,4 +231,98 @@ Two postures, both named in row 47's cell and neither an artifact to port:
 
 ## 10. Result
 
-*Filled in when the plan ships, including anything above that turned out wrong.*
+Shipped 2026-11-10. `docs/STATUS.md`, generated and gate-compared by
+`crates/redox-cli/tests/status.rs`; `docs/DECLINED.md`, with
+`crates/redox-cli/tests/declined.rs` asserting doc 03 §22 ⊆ the document.
+
+§1.2's argument — that a status document must be generated because its numbers go stale on
+every commit — was right for a reason better than the one given. It did not just keep the
+numbers current. **It found that the previous row's numbers were wrong.**
+
+### 10.1 Counting the same thing twice found a row the inventory could not see
+
+The generator reads its gap table out of `docs/GRAMMAR.md` (§1.3), and its first run produced
+**six** gaps where the document visibly grades **seven**. The missing one was `|`
+or-patterns.
+
+The cause is one character. That row's *area* cell is `` `|` `` — a literal, unescaped pipe in
+a markdown table — so every parser split the row into the wrong cells, found something other
+than a grade in the second one, and skipped it. It was graded `UNREACHABLE` in the document,
+and it was **invisible to plan 46's own test**: `tests/unreachable/or_pattern.sdx` existed, was
+cited, and was never checked. A reader saw seven gaps; the machine enforced six.
+
+So plan 46 §10 is amended — 89 rows and 7 gaps, not 88 and 6 — and both parsers now share a
+`split_cells` that honours `\|`.
+
+**The lesson is sharper than plan 46 §1.3's.** That section argued an inventory is only worth
+its page if a machine resolves every claim. True, and insufficient: *"a machine checks it"* is
+itself a claim, and the only thing that caught this one was **counting the same quantity a
+second way, from a different direction, and comparing**. §3 criterion 2 was written to make the
+two documents check each other; it found a defect in the first one on its first run.
+
+### 10.2 Two more parser mistakes, both in this row's own generator
+
+Recorded because they are the same class and would each have produced a confidently wrong
+document:
+
+- **The plan table said 40 done, 4 superseded, 6 outstanding** — the truth is 42, 4, 4. Rows 2
+  and 46 have pipes inside code spans in their *status* text, so the last-cell split landed on
+  the wrong cell. Fixed by finding the **last status marker on the line** instead, which no
+  number of pipes can disturb.
+- **Then the total came out as 54 for a 50-row register.** Doc 04 has a second table — the
+  `Plan | Document` index — whose rows open identically with `| NN | `slug` |` and carry no
+  status. Fixed by requiring a status, which is what makes a register row a register row.
+
+Three parsing errors in one row, all from the same cause: markdown tables are not a data
+format, and this repository stores structured facts in them. Named here rather than hidden
+because the next row to read one of these documents will hit it again.
+
+### 10.3 A generator trips the no-literal-expectations check, and should
+
+`no_literal_expectations.rs` failed on `status.rs`: *"embeds program output as a string
+literal; put the program beside a .stdout file instead"*. Plan 08 §2.1's rule is that an
+expectation must be a **file**, because Emerald's one syntax cutover orphaned 113 fixtures that
+lived as string literals in test modules.
+
+The flag is a false positive on the letter and a near miss on the spirit, which is worth being
+precise about rather than exempting quietly. This test's **expectation is a file** —
+`docs/STATUS.md`, compared byte for byte and blessable, which is exactly the shape the rule
+asks for. What the literals hold is the *template*: prose that the generator interpolates
+numbers into. The heuristic sees long text inside a string and cannot distinguish a generator
+from a captured stdout, and no heuristic reading Rust source could.
+
+So `status.rs` joins `ALLOWED` with that reason, which is the mechanism the list exists for and
+the discipline it states — *"an allow with no reason is how a check stops meaning anything"*.
+It is the second entry in a list that had one.
+
+The alternative considered and declined: move the prose to `docs/STATUS.template.md` with
+placeholders. It would satisfy the heuristic, and it would add a second file that has to stay
+in sync with the placeholder names — trading a checked exemption for an unchecked coupling.
+
+### 10.4 The posture, tested once
+
+§1.1 predicted the 29-examples-28-goldens difference would be the first test of whether *"none
+of this is rounded up"* means anything. The generator states both numbers and the reason in
+the same sentence, so there is no version of the document that reports 29 green examples.
+
+Two of this row's own preconditions were also wrong on the first measurement — 24 diagnostic
+codes read as 2, and the gap count as 7 before it was 6 and then 7 again — which is §1.1's
+argument for generating rather than typing, made by the row that argued it.
+
+### 10.5 What `DECLINED.md` turned out to be for
+
+The decline/gap distinction (§6, doc 03 §22 versus `docs/GRAMMAR.md`) read as pedantry when
+this plan was written. Writing both documents made it load-bearing: **macro definition is in
+both**, and it is the only construct in that position — declined by doc 03 §23 item 3 *and*
+unreachable. Four other constructs are gaps nobody decided on, and would have read as refusals
+if the two lists had been merged.
+
+`DECLINED.md` therefore ends with a *"not declined — merely absent"* section, which is the part
+a reader needs and neither source document had.
+
+### 10.6 §22's stale reason, corrected
+
+Criterion 6 landed as written: cascades and scope functions gave their reason as *"duplicates
+`with` (§7.5)"*, and doc 18 §7 deleted §7.5's `with` blocks. A reader following the citation
+found a deleted section. Both reasons are restated in doc 03 §22 and in `DECLINED.md`; the
+verdict is unchanged, because it was never about the keyword.

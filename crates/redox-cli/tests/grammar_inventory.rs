@@ -54,7 +54,7 @@ fn rows(text: &str) -> Vec<Row> {
     if !line.starts_with('|') {
       continue;
     }
-    let cells: Vec<&str> = line.trim().trim_matches('|').split('|').collect();
+    let cells: Vec<String> = split_cells(line);
     if cells.len() < 3 {
       continue;
     }
@@ -66,6 +66,7 @@ fn rows(text: &str) -> Vec<Row> {
     let citations = cells[2..]
       .join("|")
       .split('`')
+      .map(str::trim)
       .filter(|s| s.contains('/') && (s.ends_with(".sdx") || s.ends_with(".rs")))
       .map(str::to_owned)
       .collect();
@@ -157,4 +158,27 @@ fn compiles(path: &Path) -> bool {
     .arg(path)
     .output()
     .is_ok_and(|out| out.status.success())
+}
+
+/// A markdown table row's cells, respecting `\|`.
+///
+/// Splitting on a bare `|` is wrong here and was wrong three times before this
+/// function existed. The inventory's rows quote Redox and Rust source, and some
+/// of those quotes contain a pipe — `\|` for or-patterns, `|>` for the pipeline
+/// operator. An escaped one still splits a naive parser, and the row it belongs
+/// to then has its grade in the wrong cell and is silently skipped.
+///
+/// That is exactly what happened to the or-patterns row: it was graded
+/// `UNREACHABLE` in the document and **invisible to this test**, so its fixture
+/// went unchecked until plan 47's generator counted the gaps and came up one
+/// short.
+fn split_cells(line: &str) -> Vec<String> {
+  const SENTINEL: char = '\u{0}';
+  line
+    .trim()
+    .trim_matches('|')
+    .replace("\\|", &SENTINEL.to_string())
+    .split('|')
+    .map(|cell| cell.replace(SENTINEL, "|"))
+    .collect()
 }

@@ -128,7 +128,7 @@ checked against the host language instead of against this project's history.
 | Slice patterns, with `..` | `PASSTHROUGH` | `examples/destructuring.sdx` |
 | Range patterns | `PASSTHROUGH` | `examples/case.sdx` |
 | `ref` and `ref mut` | `PASSTHROUGH` | `examples/destructuring.sdx` — match ergonomics make these rare, and the spelling is Rust's |
-| `|` or-patterns | `UNREACHABLE` | `tests/unreachable/or_pattern.sdx` — doc 18 made `|` a **guard**, so `1 \| 2 ->` parses and means `1` guarded by `2`. Nearest: **separate arms**, which match the same values; what is lost is one arm body shared across patterns |
+| `\|` or-patterns | `UNREACHABLE` | `tests/unreachable/or_pattern.sdx` — doc 18 made `\|` a **guard**, so `1 \| 2 ->` parses and means `1` guarded by `2`. Nearest: **separate arms**, which match the same values; what is lost is one arm body shared across patterns |
 
 ### 1.6 Statements and control flow
 

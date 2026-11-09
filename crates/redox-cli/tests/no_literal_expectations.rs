@@ -29,10 +29,21 @@ use std::path::{Path, PathBuf};
 ///
 /// Deliberately short and deliberately annotated: an allow with no reason is
 /// how a check stops meaning anything.
-const ALLOWED: &[(&str, &str)] = &[(
-  "no_literal_expectations.rs",
-  "this file quotes the patterns it forbids, in its own documentation",
-)];
+const ALLOWED: &[(&str, &str)] = &[
+  (
+    "no_literal_expectations.rs",
+    "this file quotes the patterns it forbids, in its own documentation",
+  ),
+  (
+    "status.rs",
+    "its literals are the TEMPLATE for a generated document, not an \
+     expectation of program output. Plan 08 §2.1's rule is that an \
+     expectation must be a file, and this test's expectation is \
+     docs/STATUS.md — a file, compared byte for byte and blessable. The \
+     heuristic sees long prose in a string and cannot tell a generator from \
+     a captured stdout (plan 47 §10.2)",
+  ),
+];
 
 fn tests_dir() -> PathBuf {
   Path::new(env!("CARGO_MANIFEST_DIR")).join("tests")

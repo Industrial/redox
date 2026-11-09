@@ -1947,8 +1947,8 @@ Extends doc 02 §12.4. Each entry is permanent unless a named venue reopens it.
 | Concurrent-await construct | — | every joining form is runtime-crate-provided (§14.3) |
 | Transpile-time evaluation (`comptime`) | Zig, Emerald | requires an interpreter in the compiler (§13.3) |
 | Custom operator declaration | Haskell, Scala | no Rust lowering target exists (§14.4) |
-| Cascades | Dart, Smalltalk | duplicates `with` (§7.5) |
-| Scope functions (`apply`, `tap`, `doto`) | Kotlin, Ruby, Clojure | duplicates `with` (§7.5) |
+| Cascades | Dart, Smalltalk | method-chaining sugar with no Rust lowering of its own — **reason restated by plan 47 §1.4**, see below |
+| Scope functions (`apply`, `tap`, `doto`) | Kotlin, Ruby, Clojure | the same |
 | `RecordWildCards` | Haskell | introduces names absent from the source (§9.2) |
 | Symbol literals and `%i[...]` | Ruby | Rust has no symbol type (§10.4) |
 | Bracket type arguments | Emerald | requires translating every type expression (§14.1) |
@@ -1962,6 +1962,20 @@ Extends doc 02 §12.4. Each entry is permanent unless a named venue reopens it.
 Two entries carry a named venue rather than a permanent decline: `with` as a functional-update
 *expression* (§9.1's spread entry covers the ground; revisit if it proves insufficient), and
 a general monadic comprehension (revisit only if a type-free discrimination is found).
+
+> **Correction, plan 47 §1.4.** Cascades and scope functions gave their reason as *"duplicates
+> `with` (§7.5)"*. Doc 18 §7 **deleted** §7.5's `with` blocks — *"an ordinary binding, no
+> construct needed"* — and reused the keyword for doc 30 §3.3's callback bind. So both
+> declines cited a construct that no longer existed, and a reader checking §7.5 would have
+> found a deleted section.
+>
+> The **verdict is unchanged**: it was never about the keyword. Both forms are method-chaining
+> sugar, and neither has a Rust lowering of its own, which is the same ground §14.4 declines a
+> custom operator on.
+>
+> `docs/DECLINED.md` restates all of these for a reader who has not read this document, and
+> `crates/redox-cli/tests/declined.rs` asserts every construct in the table above appears
+> there — so a decline added here cannot go unrecorded.
 
 ---
 
