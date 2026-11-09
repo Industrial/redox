@@ -1,4 +1,5 @@
 use crate::emit::emit_body::emit_body;
+use crate::emit::emit_stmts::emit_stmts;
 use crate::emit::expr::emit_expr;
 use crate::emit::inline_comment::emit_inline_comment;
 use crate::emit::one_tail_expression::one_tail_expression;
@@ -23,7 +24,9 @@ use redox_ast::{Clause, StmtKind};
 /// Found by adding an example, not by a unit test: the clause tests asserted
 /// `0 => {` and passed, because nothing in them ran rustfmt over the result.
 pub(crate) fn emit_arm(out: &mut Sink<'_>, clause: &Clause, arm: &str, indent: usize, tail: bool) {
-  if let Some(stmt) = one_tail_expression(clause, tail) {
+  // A clause with `where` locals is never collapsed to `pat => expr,`: the
+  // locals need statements, and an arm with statements needs its braces.
+  if let Some(stmt) = one_tail_expression(clause, tail).filter(|_| clause.wheres.is_empty()) {
     out.mark(stmt.span);
     pad(out, indent);
     out.push_str(arm);
@@ -41,6 +44,7 @@ pub(crate) fn emit_arm(out: &mut Sink<'_>, clause: &Clause, arm: &str, indent: u
   pad(out, indent);
   out.push_str(arm);
   out.push_str(" => {\n");
+  emit_stmts(out, &clause.wheres, indent + RUST_INDENT, false);
   // Every arm is a tail position: a `match` arm's value is the arm's value,
   // whether or not the function returns anything.
   emit_body(out, &clause.body, indent + RUST_INDENT, tail);

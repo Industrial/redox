@@ -1,5 +1,6 @@
 use crate::emit::arm::emit_arm;
 use crate::emit::emit_body::emit_body;
+use crate::emit::emit_stmts::emit_stmts;
 use crate::emit::pad::pad;
 use crate::emit::rust_indent::RUST_INDENT;
 use crate::emit::sink::Sink;
@@ -47,6 +48,11 @@ pub(crate) fn emit_clauses(out: &mut Sink<'_>, f: &FnDecl, base: usize) {
       .iter()
       .all(redox_ast::Pattern::is_irrefutable);
   if simple {
+    // `where` locals come **first**, which is the only order Rust allows: a
+    // `let` has to precede its use. Haskell writes them after the expression
+    // that uses them, and that reordering is the whole of doc 18 §2.2's
+    // lowering.
+    emit_stmts(out, &f.clauses[0].wheres, base + RUST_INDENT, false);
     emit_body(out, &f.clauses[0].body, base + RUST_INDENT, tail);
     return;
   }

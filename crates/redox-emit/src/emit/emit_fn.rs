@@ -18,8 +18,11 @@ pub(crate) fn emit_fn(out: &mut Sink<'_>, f: &FnDecl) {
   out.mark(f.span);
   out.push_str("fn ");
   out.push_str(&f.name.text);
-  out.push_str(&signature(&f.sig));
-  out.push_str(" {");
+  let sig = signature(&f.sig, 0);
+  out.push_str(&sig);
+  // A `where` clause ends a line, so the body's brace goes on the next one —
+  // which is what rustfmt does and the only form it leaves alone.
+  out.push_str(if sig.contains('\n') { "\n{" } else { " {" });
   emit_inline_comment(out, f.trailing.as_ref());
   out.push('\n');
   // A function that declares a return type ends in a tail expression; one

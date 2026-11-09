@@ -36,6 +36,8 @@ pub(crate) fn signature_only(spine: &[TypeExpr], span: Span) -> Signature {
     // A unit return type is omitted, not written `-> ()`, for the reason
     // `signature_from` gives.
     ret: (ret.text != "()").then(|| ret.clone()),
+    generics: Vec::new(),
+    bounds: Vec::new(),
     span,
   }
 }

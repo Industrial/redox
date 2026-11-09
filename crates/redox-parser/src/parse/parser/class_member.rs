@@ -53,7 +53,10 @@ pub(crate) fn class_member(p: &mut Parser, ctx: &MethodContext) -> Result<ClassM
     return Ok(ClassMember::AssocConst { name, ty, value });
   }
 
-  let mut decl = p.function()?;
+  // The class variable belongs to the enclosing declaration, not to this
+  // method, so it is kept out of the method's generic list.
+  let reserved: Vec<String> = ctx.var.clone().into_iter().collect();
+  let mut decl = p.function(&reserved)?;
   receiver(&mut decl.sig, &ctx.receiver_names);
   if let Some(var) = &ctx.var {
     substitute_var(&mut decl.sig, var, &ctx.subject);

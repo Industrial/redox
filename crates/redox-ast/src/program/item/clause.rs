@@ -23,6 +23,23 @@ pub struct Clause {
   pub patterns: Vec<Pattern>,
   /// The clause's body: one block, or a guard ladder.
   pub body: ClauseBody,
+  /// `where` locals — doc 18 §2.2.
+  ///
+  /// ```text
+  /// largest xs = best        let best = xs.iter().max().unwrap();
+  ///   where               →  best
+  ///     best = …
+  /// ```
+  ///
+  /// Emitted **before** the body, which is the only order Rust allows: a
+  /// `let` has to precede its use. Haskell's `where` reads the other way
+  /// round — the definition follows the expression that uses it — and that
+  /// reordering is the whole of the lowering.
+  ///
+  /// Doc 18 §2.2 retires doc 03 §14.2's two roles for `where`: the bound
+  /// clause moved to `=>`, so `where` keeps one meaning and the
+  /// position-sensitivity goes.
+  pub wheres: Vec<crate::Stmt>,
   pub span: Span,
   pub trailing: Option<Trivia>,
 }

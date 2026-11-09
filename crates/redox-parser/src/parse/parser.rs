@@ -15,7 +15,10 @@ pub(crate) mod data_decl;
 pub(crate) mod deriving;
 pub(crate) mod field_decl;
 pub(crate) mod field_init;
+pub(crate) mod flush_word;
+pub(crate) mod generalise;
 pub(crate) mod instance_decl;
+pub(crate) mod is_word;
 pub(crate) mod lambda;
 pub(crate) mod method_context;
 pub(crate) mod parse_expr;
@@ -26,11 +29,13 @@ pub(crate) mod pattern_alt;
 pub(crate) mod patterns;
 pub(crate) mod postfix;
 pub(crate) mod prefix;
+pub(crate) mod primitive_type;
 pub(crate) mod range_or_literal;
 pub(crate) mod receiver;
 pub(crate) mod receiver_text;
 pub(crate) mod record_literal;
 pub(crate) mod rewritten;
+pub(crate) mod rust_generic;
 pub(crate) mod section;
 pub(crate) mod signature_from;
 pub(crate) mod signature_only;
@@ -42,12 +47,15 @@ pub(crate) mod tight_colon_colon;
 pub(crate) mod token_text;
 pub(crate) mod type_alias;
 pub(crate) mod type_app;
+pub(crate) mod type_vars;
 pub(crate) mod unary_op;
 
 use crate::ParseError;
 use crate::parse::parser::capture_type::capture_type;
 use crate::parse::parser::class_decl::class_decl;
+use crate::parse::parser::constraints::constraints;
 use crate::parse::parser::data_decl::data_decl;
+use crate::parse::parser::generalise::generalise;
 use crate::parse::parser::instance_decl::instance_decl;
 use crate::parse::parser::parse_expr::parse_expr;
 use crate::parse::parser::parse_spine::parse_spine;
@@ -161,7 +169,7 @@ impl<'a> Parser<'a> {
       return Ok(Item::Instance(decl));
     }
 
-    let decl = self.function()?;
+    let decl = self.function(&[])?;
     Ok(Item::Fn(FnDecl {
       leading,
       span: (start, decl.span.1),
@@ -177,11 +185,16 @@ impl<'a> Parser<'a> {
   /// what gives a default method several clauses and a guard ladder without
   /// anything new being written for it.
   ///
+  /// `reserved` names type variables belonging to the *enclosing*
+  /// declaration rather than to this function — a class's variable, which
+  /// must not become a generic parameter of each of its methods. A top-level
+  /// function passes nothing.
+  ///
   /// **Zero equations is legal here**, and that is the one difference from a
   /// top-level function. `area :: &t -> f64` with no body is a *required*
   /// method, which Rust writes `fn area(&self) -> f64;` — so the caller, not
   /// this, decides whether a bodiless signature is an error.
-  pub(crate) fn function(&mut self) -> Result<FnDecl, ParseError> {
+  pub(crate) fn function(&mut self, reserved: &[String]) -> Result<FnDecl, ParseError> {
     let leading = self.peek_leading();
     let start = self.peek_span().0;
 
@@ -190,6 +203,10 @@ impl<'a> Parser<'a> {
       &TokenKind::ColonColon,
       "expected `::` after the name, to begin the signature",
     )?;
+    // Doc 18 §2.2's `=>` clause. Read speculatively, because
+    // `f :: Ord t => &[t] -> &t` and `f :: &[t] -> &t` begin with the same
+    // token — see `constraints`.
+    let bounds = constraints(self)?;
     let spine = parse_spine(self)?;
     self.newline_with_trailing("expected a line break after the signature")?;
 
@@ -245,7 +262,11 @@ impl<'a> Parser<'a> {
     // `signature_from` with an empty row: that reports an arity error, which
     // is the right answer for `area = …` under `area :: &t -> f64` and the
     // wrong one for a required method with no equation at all.
-    let sig = sig.unwrap_or_else(|| signature_only(&spine, (name.span.0, self.prev_span().1)));
+    let mut sig = sig.unwrap_or_else(|| signature_only(&spine, (name.span.0, self.prev_span().1)));
+    // The generic list is synthesised from the types, not written — doc 18
+    // §5.3. Done here rather than in the two signature builders because it
+    // needs the constraint clause, which only this knows about.
+    generalise(&mut sig, &bounds, reserved);
 
     let end = self.prev_span().1;
     let trailing = clauses.last().and_then(|c| c.trailing.clone());
@@ -273,9 +294,11 @@ impl<'a> Parser<'a> {
       self.advance();
       let guards = self.guards()?;
       self.expect(&TokenKind::Dedent, "expected the guard list to end")?;
+      let wheres = self.where_locals()?;
       return Ok(redox_ast::Clause {
         patterns,
         body: redox_ast::ClauseBody::Guarded(guards),
+        wheres,
         span: (start, self.prev_span().1),
         trailing: None,
       });
@@ -293,9 +316,11 @@ impl<'a> Parser<'a> {
     if !self.check(&TokenKind::Newline) {
       let body = self.inline_body()?;
       let trailing = self.newline_with_trailing("expected a line break after the body")?;
+      let wheres = self.where_locals()?;
       return Ok(redox_ast::Clause {
         patterns,
         body: redox_ast::ClauseBody::Plain(body),
+        wheres,
         span: (start, self.prev_span().1),
         trailing,
       });
@@ -336,15 +361,63 @@ impl<'a> Parser<'a> {
       ));
     }
 
+    let wheres = self.where_locals()?;
     Ok(redox_ast::Clause {
       patterns,
       body: redox_ast::ClauseBody::Plain(Block {
         stmts,
         span: (body_start, body_end),
       }),
+      wheres,
       span: (start, self.prev_span().1),
       trailing,
     })
+  }
+
+  /// Doc 18 §2.2's `where` locals, if the clause has any.
+  ///
+  /// ```text
+  /// largest xs = best
+  ///   where
+  ///     best = xs |> iter |> max |> unwrap
+  /// ```
+  ///
+  /// An indented `where`, then its own indented block of bindings. Two levels
+  /// because that is how Haskell writes it and how the doc's example is
+  /// written; the inner block is an ordinary statement block, so a local may
+  /// be anything a statement may be.
+  ///
+  /// Returns an empty vector when there is no clause, so a caller can ask
+  /// unconditionally — there are three clause shapes and each has to.
+  fn where_locals(&mut self) -> Result<Vec<Stmt>, ParseError> {
+    let opens = self.check(&TokenKind::Indent)
+      && self
+        .peek_at(1)
+        .is_some_and(|t| t.kind == TokenKind::Kw(Keyword::Where));
+    if !opens {
+      return Ok(Vec::new());
+    }
+    self.advance();
+    self.advance();
+    self.newline_with_trailing("expected a line break after `where`")?;
+    self.expect_with(
+      Code::EmptyBody,
+      &TokenKind::Indent,
+      "expected indented `where` bindings",
+    )?;
+
+    let mut locals = Vec::new();
+    loop {
+      self.skip_separators();
+      if self.check(&TokenKind::Dedent) || self.at_eof() {
+        break;
+      }
+      locals.push(self.stmt()?);
+    }
+    self.expect(&TokenKind::Dedent, "expected the `where` bindings to end")?;
+    self.skip_separators();
+    self.expect(&TokenKind::Dedent, "expected the `where` clause to end")?;
+    Ok(locals)
   }
 
   /// One expression as a body, for a clause or guard written on one line.

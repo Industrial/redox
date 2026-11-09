@@ -1,0 +1,58 @@
+// Doc 18 §2.2's signature line doing the two things it carries that Rust
+// makes you repeat: the **generic list**, synthesised from the types, and the
+// **bound clause**, read off `=>`. Plus `where` locals, which are §2.2's
+// other half.
+//
+// Checked by compiling and running: a generic list in the wrong order is a
+// rustc error, and a `where` local emitted after its use is too.
+
+// `t` is a type variable because it is lowercase (§5.3), and it is declared
+// nowhere. `i32` is lowercase too and is *not* a variable — doc 18 §5.3 taken
+// literally would make it one, and a closed list of Rust's primitives is the
+// correction.
+// Written over an `Option` rather than a slice because an array literal is
+// not parsed yet, and this corpus requires the program to *run*.
+fn largest<T>(xs: Option<T>) -> T
+where
+    T: Ord,
+{
+    let best = xs.into_iter().max().unwrap();
+    best
+}
+
+// Two variables, in order of first appearance. The second argument is
+// discarded with `_`, whose generated parameter name begins with an
+// underscore — so rustc's unused-variable lint is silent without the emitter
+// knowing the lint exists.
+fn pick<T, U>(a: T, __rdx_a1: U) -> T {
+    a
+}
+
+// A lifetime is a generic parameter too, and comes first in the list —
+// rustc's requirement, not a style.
+fn first<'a>(s: &'a str) -> &'a str {
+    s
+}
+
+// No variables at all, so no generic list: this is the Rust it emitted before
+// any of §2.2 existed.
+fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+
+// Several `where` locals, in order. Haskell writes them after the expression
+// that uses them; Rust needs them before it, and that reordering is the whole
+// of the lowering.
+fn area(w: f64, h: f64) -> f64 {
+    let base = w * h;
+    let scaled = base * 2.0;
+    scaled
+}
+
+fn main() {
+    println!("{}", add(1, 2));
+    println!("{}", pick(7, "ignored"));
+    println!("{}", first("borrowed"));
+    println!("{}", area(3.0, 4.0));
+    println!("{}", largest(Some(3)));
+}

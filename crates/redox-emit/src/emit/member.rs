@@ -41,14 +41,21 @@ pub(crate) fn emit_member(out: &mut Sink<'_>, m: &ClassMember, indent: usize) {
       emit_trivia(out, &f.leading, indent);
       out.mark(f.span);
       pad(out, indent);
-      out.push_str(&format!("fn {}{}", f.name.text, signature(&f.sig)));
+      let sig = signature(&f.sig, indent);
+      out.push_str(&format!("fn {}{sig}", f.name.text));
 
       if f.clauses.is_empty() {
         out.push_str(";\n");
         return;
       }
 
-      out.push_str(" {\n");
+      if sig.contains('\n') {
+        out.push('\n');
+        pad(out, indent);
+      } else {
+        out.push(' ');
+      }
+      out.push_str("{\n");
       emit_clauses(out, f, indent);
       out.unmark();
       pad(out, indent);

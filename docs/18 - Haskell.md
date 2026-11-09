@@ -503,6 +503,14 @@ other mechanism here can do.
 - **Type variables need no declaration.** `t` in a signature is a generic parameter, emitted as
   `T`; the generic list is synthesised from first appearance, lifetimes included.
 
+**One correction, made when this was implemented.** "Lowercase type names are type variables"
+cannot be read literally: `i32`, `usize`, `f64`, `bool`, `char` and `str` are lowercase and
+concrete, and taking the rule at its word makes `add :: i32 -> i32 -> i32` a generic function
+of one parameter. A lowercase name is a type variable **unless it is one of Rust's primitive
+type names** — a closed, lexical list, which keeps the rule decidable from the source text
+alone (doc 03 §2's admission test 1). The cost is that a user cannot name a type in lowercase,
+which §5.3 was already spending to make type variables undeclared.
+
 ### 5.4 The guard bar against bitwise or
 
 One rule: **the first `|` following an equation head or a `case` pattern opens the guard list**;
@@ -829,7 +837,8 @@ Since then, one construct per commit:
 | `9c5c48d` | record literals: construction, punning and update | §2.4, §6 |
 | `accbd58` | `class` and `instance` | §2.5, §5.3 |
 | `c50dbb6` | sections, all six forms | §4 |
-| *this* | `??`, and the unit expression `()` | doc 03 §12.1, §7 |
+| `2e36106` | `??`, and the unit expression `()` | doc 03 §12.1, §7 |
+| *this* | synthesised generics, `=>` bounds and `where` locals | §2.2, §5.3 |
 
 The guard commit closed a hole the clause commit had left: doc 18 §2.3's own example
 `fib 0 = 0` did not parse, because the clause body required a line break and an indent. It
@@ -839,8 +848,8 @@ prose.
 
 ### 11.2 Specification for later plans
 
-Comprehensions, `where` locals, `errors` and `test` blocks, and `export` → `pub`, are
-specified here and **not implemented**. The full pattern
+Comprehensions, `errors` and `test` blocks, and `export` → `pub`, are specified here and **not
+implemented**. The full pattern
 grammar — a constructor pattern with fields included — is doc 04's plan 33. Doc 04's plan rows for those constructs are re-pointed at this document
 rather than doc 03; the lowerings they must produce are doc 03's, unchanged, as §1 requires.
 
