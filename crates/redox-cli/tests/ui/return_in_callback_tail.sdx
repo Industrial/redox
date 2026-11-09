@@ -1,0 +1,16 @@
+-- Doc 03 §7.6's disclosed trap, rejected rather than documented away.
+--
+-- The tail of a draw arrow becomes a **closure**, so this `return` leaves the
+-- closure and not `run` — and the result is valid Rust in which
+-- `with_connection` receives the `Err` the author meant the function to
+-- return. Nothing in the source hints that the block became a closure, and
+-- the author's model (`return` returns from the function) is correct
+-- everywhere else in the language.
+--
+-- `?` is unaffected and must stay so: it propagates out of the closure, which
+-- is what the construct exists for.
+run :: Result<(), Error>
+run =
+  conn <- pool.with_connection
+  return Err Error::Bad
+  Ok ()

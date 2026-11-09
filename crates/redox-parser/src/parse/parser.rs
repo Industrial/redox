@@ -3,12 +3,14 @@ pub(crate) mod application;
 pub(crate) mod arguments;
 pub(crate) mod atom;
 pub(crate) mod binary_op;
+pub(crate) mod blocks_in_the_same_closure;
 pub(crate) mod bracketed;
 pub(crate) mod byte_literal;
 pub(crate) mod can_end_a_type;
 pub(crate) mod capture_type;
 pub(crate) mod case_arm;
 pub(crate) mod case_of;
+pub(crate) mod check_callback_tails;
 pub(crate) mod class_body;
 pub(crate) mod class_decl;
 pub(crate) mod class_member;
@@ -58,9 +60,11 @@ pub(crate) mod range_or_literal;
 pub(crate) mod receiver;
 pub(crate) mod receiver_text;
 pub(crate) mod record_literal;
+pub(crate) mod return_in_tail;
 pub(crate) mod rewritten;
 pub(crate) mod rust_generic;
 pub(crate) mod rust_string_body;
+pub(crate) mod scan_run;
 pub(crate) mod section;
 pub(crate) mod signature_from;
 pub(crate) mod signature_only;
@@ -78,9 +82,12 @@ pub(crate) mod type_stop;
 pub(crate) mod type_vars;
 pub(crate) mod unary_op;
 pub(crate) mod visibility;
+pub(crate) mod walk_item_for_tails;
+pub(crate) mod walk_member_for_tails;
 
 use crate::ParseError;
 use crate::parse::parser::capture_type::capture_type;
+use crate::parse::parser::check_callback_tails::check_callback_tails;
 use crate::parse::parser::class_decl::class_decl;
 use crate::parse::parser::compound_assign::compound_assign;
 use crate::parse::parser::condition::condition;
@@ -137,6 +144,25 @@ impl<'a> Parser<'a> {
   /// Parse the whole token stream, consuming the parser.
   pub(crate) fn run(mut self, src_len: usize) -> Result<Program, Vec<ParseError>> {
     let items = self.program();
+
+    // Doc 03 §7.6's `RDX0044` — plan 30. A whole-program pass rather than a
+    // check inside the block parser: `return_in_tail` recurses into the blocks
+    // a statement owns, so running it per block would report a nested tail's
+    // `return` twice. One entry point per body is the shape that cannot
+    // double-report.
+    //
+    // Run only when parsing otherwise succeeded, so a file with a syntax error
+    // reports the syntax error rather than a second diagnostic about a tail the
+    // parser may have recovered into.
+    if self.errors.is_empty() {
+      let probe = Program {
+        items: items.clone(),
+        span: (0, src_len),
+        trailing: Vec::new(),
+      };
+      self.errors.extend(check_callback_tails(&probe));
+    }
+
     if self.errors.is_empty() {
       let trailing = self.eof_trivia();
       Ok(Program {

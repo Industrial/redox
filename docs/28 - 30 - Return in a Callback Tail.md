@@ -72,16 +72,20 @@ else — because all of those become statements inside the same closure.
 
 It must **not** descend into:
 
-- **a lambda** (doc 18 §4), because a `return` there returns from *that* closure, which is
-  what the author wrote and expects;
-- **a `try` block** (plan 28), for the same reason — it is a closure too, and a `return`
-  inside one returning from it is the construct working;
+- **a `try` block** (plan 28), because that is a closure too, and a `return` inside one
+  returning from it is the construct working;
 - **a nested draw arrow's tail**, because that is a new closure with its own guard: the
   recursion reports it against the inner `<-`, which is the one whose closure the `return`
   would leave.
 
-So the rule is *"a `return` in this closure's own statements"*, and the three exclusions are
-all the same exclusion: another closure began.
+So the rule is *"a `return` in this closure's own statements"*, and both exclusions are the
+same exclusion: another closure began.
+
+**A lambda was the third item on this list and is not reachable** — §10.2 records it. Doc 18
+§4's lambda body is an *expression* and `return` is a *statement*, so `\x -> return x` is
+`expected an expression` and no lambda can contain a `return` to descend past. The exclusion
+is therefore structural rather than written: the statement kinds that own blocks are exactly
+the ones that do not open a closure, so the walk needs no deny-list at all.
 
 ### 1.5 A test currently forbids the code this plan needs
 
@@ -125,12 +129,15 @@ A **UI case**, `tests/ui/return_in_callback_tail.sdx`, whose `.stderr` shows the
 pointing at the `return` — because this plan's whole deliverable is a message, and the UI
 corpus is the only one that asserts rendered text.
 
-Plus emit tests for the four shapes the walk must get right:
+Plus emit tests for the shapes the walk must get right:
 
 - a `return` directly in a tail — rejected;
-- a `return` nested in an `if` in a tail — rejected, because it is still in the closure;
-- a `return` inside a **lambda** in a tail — accepted, per §1.4;
-- a `?` in a tail — accepted, per §1.3, and asserted as the thing that must keep working.
+- a `return` nested in each block a statement can own — rejected, because it is still in the
+  same closure;
+- a `return` inside a `try` block in a tail — accepted, per §1.4;
+- a `?` in a tail — accepted, per §1.3, and asserted as the thing that must keep working;
+- a `return` **before** the arrow, and in a function with no arrow at all — accepted, which
+  is every function written before this plan.
 
 The example corpus cannot carry this: a corpus that demands zero rustc output and a
 successful run cannot hold a program that fails to compile. Plan 16 §10.2 hit the same wall
@@ -147,8 +154,9 @@ with a lint and recorded it; the UI corpus is the answer both times.
 ### Leaf 2 — `leaf-tail-walk`
 
 The walk: after a `Draw` statement, scan the remaining statements of that block for a
-`return`, descending into nested blocks and stopping at lambdas, `try` blocks and nested
-draw arrows.
+`return`, descending into the blocks a statement owns and stopping where another closure
+begins. Run once per function body as a whole-program pass, because the walk recurses and a
+per-block check would report a nested tail's `return` twice.
 
 ### Leaf 3 — `leaf-proof-and-gate`
 
@@ -161,7 +169,9 @@ The UI case, emit tests for the four shapes, and the gate.
 1. A `return` directly in a draw arrow's tail is `RDX0044`, reported against the `return`.
 2. A `return` nested in an `if`, `while`, `for`, `loop` or `do` inside the tail is also
    `RDX0044` — the closure is the same one.
-3. A `return` inside a **lambda** in the tail is **accepted**.
+3. A `return` cannot appear inside a lambda at all — asserted as
+   `expected an expression`, because a test for an unreachable exclusion would pass
+   whatever the code did. *Corrected from "is accepted" — §10.2.*
 4. A `return` inside a `try` block in the tail is **accepted**.
 5. A `?` in a tail is accepted and still propagates — asserted, because §7.6's own example
    depends on it and a check that rejected both would break the idiom `use` exists for.
@@ -212,7 +222,7 @@ moon run :check :lint :test :cargo-check :cargo-test :ci-format :audit
 | # | Decision | Alternative rejected | Why |
 |---|---|---|---|
 | 1 | Reject `return`, accept `?` | Reject both, or accept both | §7.6 and §1.3. `?` propagating out of the closure is the whole point of the construct; `return` stopping at it is the trap |
-| 2 | The walk stops at any new closure | Reject every `return` anywhere in the tail | A `return` in a lambda returns from the lambda, which is what the author wrote. Rejecting it would make lambdas unusable inside a `use` body |
+| 2 | The walk stops at any new closure | Reject every `return` anywhere in the tail | A `return` in a `try` block returns from that block, which is what the author wrote. The lambda case turned out unreachable (§10.2), so the rule is carried by *which statement kinds own blocks* rather than by a deny-list |
 | 3 | `RDX0044`, the published number | The next free code in the syntactic range | Doc 03 §17 assigned 44 to this exact diagnostic. The reserved band exists so a published number stays published — and §1.5's test had to be corrected to allow it |
 | 4 | Proved by the UI corpus, not the examples | An example | A corpus requiring zero rustc output and a successful run cannot hold a program that must fail. Plan 16 §10.2 recorded the same wall |
 | 5 | No suggested fix | A `did you mean` | The rewrite depends on the callback's contract, which Redox cannot see. A wrong suggestion is worse than none |
@@ -221,4 +231,77 @@ moon run :check :lint :test :cargo-check :cargo-test :ci-format :audit
 
 ## 10. Result
 
-*Filled in when the plan ships, including anything above that turned out wrong.*
+Shipped. 636 tests pass; `fmt`, `clippy -D warnings` and
+`moon run :check :lint :test :cargo-check :cargo-test :ci-format :audit` are green. Every
+criterion is met, one of them after being corrected. **Row 30 is closed.**
+
+### 10.1 A test enforced a reservation by forbidding its use
+
+`code.rs` held `no_code_collides_with_the_published_reservation`, asserting that no `Code`
+has a number in `40..=99`. Its own doc comment states the intent correctly — doc 03 §17
+published that band for plans 19–28, and a code there *"would ship two meanings for one
+number"* — and the assertion says the opposite: not *"must be the published one"* but
+*"must not exist"*.
+
+As written it would have failed on **every** plan 19–28 surface code. Plan 30 is the first
+plan to need one, twenty-nine plans after the band was reserved, which is why it went
+unnoticed for so long: a reservation nothing draws on is indistinguishable from a
+prohibition.
+
+It now asserts what its comment says, against a transcribed list of §17's assignments: a
+code in the band must be the diagnostic §17 gave that number to. `RDX0044` is the first
+entry, and the list is the place the next one goes.
+
+The range check needed widening too — it allowed `1..=39` and `100..=199` and nothing
+between, so the published band was unreachable twice over.
+
+### 10.2 One of the three exclusions is unreachable, and the test says so
+
+§1.4 listed three places the walk must not descend: a lambda, a `try` block, and a nested
+arrow's tail. **A lambda cannot contain a `return` at all.** Doc 18 §4's lambda body is an
+*expression* and `return` is a *statement*, so `\x -> return x` is
+`RDX0102: expected an expression` and there is nothing to descend past.
+
+So the exclusion is structural rather than written, and the shape of the code says why: the
+statement kinds that own blocks — `if`, `while`, `for`, `loop`, `guard` — are exactly the
+ones that do not open a closure. `blocks_in_the_same_closure` therefore needs no deny-list,
+which is a stronger property than a correct deny-list because it cannot fall out of date
+when a construct is added.
+
+Criterion 3 was corrected from *"a `return` inside a lambda is accepted"* to the fact: it
+does not parse. A test for an unreachable branch passes whatever the branch does, and would
+have been worse than no test — it would have read as coverage.
+
+### 10.3 Why the check is a whole-program pass
+
+`return_in_tail` recurses into the blocks a statement owns, and every block also gets its
+own `statements()` call during parsing. Running the check there would report a nested tail's
+`return` twice — once from the inner block's own call, once from the outer walk descending
+into it. `a_nested_return_is_reported_once` asserts it is reported once.
+
+The pass also runs **only when parsing otherwise succeeded**, so a file with a syntax error
+reports the syntax error rather than a second diagnostic about a tail the parser recovered
+into. That is a judgement about message quality, not correctness, and it is written down
+here because the alternative is defensible and someone will wonder.
+
+### 10.4 The asymmetry held, and the test for it is the important one
+
+`?` in a tail is accepted and still propagates. §7.6's own example depends on it, and a
+check that rejected both `return` and `?` would have broken the single idiom the construct
+exists for while passing a test suite that only checked `return`.
+
+That is why `a_question_mark_in_a_tail_is_accepted` sits next to the rejection tests rather
+than in a corner: the two assertions are one assertion about where the closure boundary
+matters.
+
+### 10.5 The architecture tests, a ninth time
+
+`check_callback_tails.rs` declared three constructs and `return_in_tail.rs` three. Split
+into six files, all siblings under `parse/parser/` because doc 06 §2.4 caps depth at three
+levels below `src/` — the same resolution plans 22 and 23 reached, and by now the expected
+one rather than a surprise.
+
+Clippy then caught a `collapsible_if` in the extracted `scan_run`, which the let-chain form
+fixes. Worth noting only because AGENTS.md records a false "clippy clean" report from
+grepping output for `^error`: the exit code was 101 and the grep for the message found
+nothing, exactly as that note predicts.

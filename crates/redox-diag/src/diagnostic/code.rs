@@ -74,6 +74,24 @@ pub enum Code {
   /// a binding construct meant, and lowering to it would be doc 02 §5.2's
   /// failure mode. Plan 22 §1.3 reports instead.
   PatternUntil,
+
+  // ---- doc 03 §17's published surface codes: RDX0040-RDX0099 ----
+  /// `return` inside a draw arrow's tail — doc 03 §7.6, plan 30.
+  ///
+  /// §7.6 calls this a *"disclosed trap, rejected rather than documented
+  /// away"*: the tail becomes a **closure**, so a `return` there leaves the
+  /// closure and not the enclosing function. The result is valid Rust meaning
+  /// something else — doc 02 §5.2's failure mode — and nothing in the source
+  /// hints that the block became a closure.
+  ///
+  /// `?` is deliberately **not** this diagnostic. It propagates out of the
+  /// closure, which is the construct's purpose and why §7.6's own example
+  /// type-checks.
+  ///
+  /// **44 is doc 03 §17's own number for this**, which is what the reserved
+  /// band is for. The first code to use it, twenty-nine plans after the band
+  /// was reserved.
+  ReturnInCallbackTail,
 }
 
 impl Code {
@@ -102,6 +120,8 @@ impl Code {
       Self::EmptyBody => 105,
       Self::ModuleScopeBinding => 106,
       Self::PatternUntil => 107,
+      // Doc 03 §17's published assignment, not the next free number.
+      Self::ReturnInCallbackTail => 44,
     }
   }
 
@@ -133,6 +153,7 @@ impl Code {
       Self::EmptyBody,
       Self::ModuleScopeBinding,
       Self::PatternUntil,
+      Self::ReturnInCallbackTail,
     ]
   }
 
@@ -171,8 +192,8 @@ mod tests {
         );
       } else {
         assert!(
-          (100..=199).contains(&n),
-          "{code:?} is {n}, outside RDX0100-0199"
+          (40..=99).contains(&n) || (100..=199).contains(&n),
+          "{code:?} is {n}, outside RDX0040-0099 and RDX0100-0199"
         );
       }
     }
@@ -181,16 +202,30 @@ mod tests {
   /// Criterion 3: nothing collides with doc 03 §17's published assignments.
   ///
   /// Doc 03 published `RDX0042`-`RDX0063` for surface features belonging to
-  /// plans 19-28. A code in that band here would ship two meanings for one
-  /// number, so the reservation is checked rather than remembered.
+  /// plans 19-28. A code in that band must be **one §17 published, at the
+  /// number §17 gave it** — otherwise one number ships two meanings.
+  ///
+  /// This test used to assert that *no* code was in the band at all, which is
+  /// the opposite of what its own comment said and would have blocked every
+  /// plan 19-28 surface code. Plan 30 §1.5 found it by being the first plan to
+  /// need one: `RDX0044` is §17's assignment for `return` in a `use` tail, and
+  /// using it is the reservation working rather than a collision.
   #[test]
-  fn no_code_collides_with_the_published_reservation() {
-    const RESERVED: std::ops::RangeInclusive<u16> = 40..=99;
+  fn every_reserved_code_is_one_doc_03_published() {
+    // Doc 03 §17's table, transcribed. A code in the band and absent here is
+    // a number taken from a plan that has not claimed it yet.
+    const PUBLISHED: &[(u16, &str)] = &[(44, "ReturnInCallbackTail")];
+
     for code in Code::all() {
+      let n = code.number();
+      if !(40..=99).contains(&n) {
+        continue;
+      }
+      let name = format!("{code:?}");
       assert!(
-        !RESERVED.contains(&code.number()),
-        "{code:?} is {}, inside RDX0040-0099 which doc 03 §17 reserved",
-        code.number()
+        PUBLISHED.iter().any(|(num, who)| *num == n && *who == name),
+        "{code:?} is {n}, inside the band doc 03 §17 reserved, and is not \
+         the diagnostic §17 assigned that number to"
       );
     }
   }
