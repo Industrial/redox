@@ -1,0 +1,77 @@
+use crate::serve::positions::range_of::range_of as to_range;
+use lsp_types::{DocumentSymbol, SymbolKind};
+use redox_ast::Item;
+
+/// One item as a document symbol.
+///
+/// The kind is the protocol's nearest equivalent, and two of them are
+/// judgements worth recording rather than leaving to look obvious:
+///
+/// - **`errors` is a `SymbolKind::ENUM`**, because that is what it lowers to —
+///   doc 03 §14's declaration becomes an enum with a `Display` and an `Error`
+///   impl. Calling it a `STRUCT` would read better in an outline and would
+///   disagree with the generated Rust.
+/// - **`test` is a `SymbolKind::FUNCTION`**, because it is one in the output,
+///   and its *name* is its description string. An outline of a file full of
+///   tests is then a readable list of what the file asserts, which is the one
+///   place a symbol name is more useful than an identifier.
+///
+/// A `module`'s items nest. Everything else is a leaf.
+pub(crate) fn symbol_of(item: &Item, source: &str) -> DocumentSymbol {
+  let range = to_range(source, item.span());
+  let (name, kind, children) = match item {
+    Item::Fn(decl) => (decl.name.text.clone(), SymbolKind::FUNCTION, None),
+    Item::Data(decl) => (
+      decl.name.text.clone(),
+      // A `newtype` is one constructor over one field, which is a struct; a
+      // `data` with alternatives is an enum. Taken from the declaration's own
+      // shape rather than from the keyword, because a single-constructor
+      // `data` lowers to a struct too.
+      if decl.constructors.len() > 1 {
+        SymbolKind::ENUM
+      } else {
+        SymbolKind::STRUCT
+      },
+      None,
+    ),
+    Item::Type(decl) => (decl.name.text.clone(), SymbolKind::TYPE_PARAMETER, None),
+    Item::Class(decl) => (decl.name.text.clone(), SymbolKind::INTERFACE, None),
+    Item::Instance(decl) => (
+      match &decl.class {
+        Some(class) => format!("{} {}", class.text, decl.target.head.text),
+        None => decl.target.head.text.clone(),
+      },
+      SymbolKind::OBJECT,
+      None,
+    ),
+    Item::Errors(decl) => (decl.name.text.clone(), SymbolKind::ENUM, None),
+    Item::Test(decl) => (decl.description.clone(), SymbolKind::FUNCTION, None),
+    Item::Import(decl) => (decl.path.clone(), SymbolKind::NAMESPACE, None),
+    Item::Module(decl) => (
+      decl.name.text.clone(),
+      SymbolKind::MODULE,
+      decl.items.as_ref().map(|items| {
+        items
+          .iter()
+          .map(|inner| symbol_of(inner, source))
+          .collect::<Vec<_>>()
+      }),
+    ),
+    Item::Const(decl) => (decl.name.text.clone(), SymbolKind::CONSTANT, None),
+  };
+  DocumentSymbol {
+    name,
+    detail: None,
+    kind,
+    tags: None,
+    // `range` is the whole item and `selection_range` is what the editor
+    // highlights when you pick the symbol. Both are the item here: a
+    // narrower selection would need the name's own span, and only some item
+    // kinds carry one.
+    #[allow(deprecated, reason = "the field is required by the struct literal")]
+    deprecated: None,
+    range,
+    selection_range: range,
+    children,
+  }
+}

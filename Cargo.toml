@@ -14,6 +14,9 @@ members = [
   "crates/redox-diag",
   "crates/redox-driver",
   "crates/redox-fmt",
+  # Plan 40 (`docs/35 - 40 - LSP.md`) — the language server, editor-agnostic
+  # by construction; plan 49 ships the clients.
+  "crates/redox-lsp",
 ]
 # `.tmp/` is the gitignored scratch area. Excluded so a throwaway crate there
 # — plan 01 leaf 4's LALRPOP bake-off arm, for instance — cannot be picked up
