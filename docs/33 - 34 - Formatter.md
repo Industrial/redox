@@ -147,20 +147,36 @@ The `Printer`: an indent-aware sink, the trivia traversal lifted from the emitte
 and the top-level `format(program, source) -> String`. Plus `redox fmt` and
 `redox fmt --check` in the CLI, so the thing is reachable the moment it prints anything.
 
+> **The order of leaves 2 to 4 is wrong, and §10 records it.** Items were listed first and
+> most of them *delegate* to the expression printer: a `const`'s value is an `Expr`, a
+> function's equations are expressions, and a `data` declaration's only non-type content is
+> too. The dependency runs **expressions → statements → items**, so the numbering below is
+> kept for reference and the work should be taken in reverse.
+
 ### Leaf 2 — `leaf-items`
 
 The fifteen item kinds: `data`, `newtype`, `type`, `class`, `instance`, `errors`, `test`,
 `import`, `module`, `const`, `static`, and a function's signature line and equations.
 
+Only `import` and `type` are printable without leaf 3, because only those two contain no
+expression. Doing them alone buys very little — the corpus is already canonical at that
+level — which is the other half of why the order is wrong.
+
 ### Leaf 3 — `leaf-expressions`
 
 The expression printers, and §3's parenthesis and pipeline normalisations — the only leaf
 with real decisions left in it, because dropping a parenthesis is the one place the formatter
-can change meaning.
+can change meaning. **This is where the row's value is**, and where its remaining risk is.
 
 ### Leaf 4 — `leaf-statements-and-patterns`
 
-Statement kinds and pattern forms. Mostly mechanical once leaf 3's precedence logic exists.
+Statement kinds and pattern forms, including the two-space re-indentation §3 asks for.
+
+Re-indenting is the one normalisation that rewrites **leading** whitespace, which the
+off-side rule reads — so it is the one that can change meaning by getting a continuation
+line's depth wrong. The lexer's `Indent`/`Dedent` tokens give the statement depths; a
+multi-line expression's continuation lines sit at no statement depth at all, and that is the
+case to get right.
 
 ### Leaf 5 — `leaf-properties`
 
@@ -373,3 +389,20 @@ test of §1.5 comes with leaves 2 to 4, when the formatter starts having opinion
 inside of a construct.
 
 Stated so the green tick is not mistaken for the claim §1.5 actually makes.
+
+### 10.9 §4's leaf order is backwards, and the plan now says so
+
+Leaf 2 is items, leaf 3 expressions. But a `const`'s value is an `Expr`, a function's
+equations are expressions, and `data`'s only non-type content is too — so **items delegate
+to expressions**, and only `import` and `type` can be printed without leaf 3 at all.
+
+Doing those two alone buys almost nothing, because the corpus is already canonical at the
+item level, which §10.8 just established. So the dependency is
+**expressions → statements → items**, the numbering is left as published with a note above
+it, and the work should be taken in reverse.
+
+Worth recording rather than silently reordering: the plan was written with the item kinds
+first because that is how `redox-emit` is organised, and the emitter can do that because it
+emits *Rust*, where an item's shape and its expressions are independent problems. Printing
+Redox back is not the same problem, and assuming the emitter's structure transferred was the
+mistake.
