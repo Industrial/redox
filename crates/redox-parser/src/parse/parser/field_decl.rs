@@ -2,6 +2,7 @@ use crate::ParseError;
 use crate::parse::parser::Parser;
 use crate::parse::parser::capture_type::capture_type;
 use crate::parse::parser::type_stop::TypeStop;
+use crate::parse::parser::visibility::visibility;
 use redox_ast::FieldDecl;
 use redox_lexer::TokenKind;
 
@@ -14,12 +15,16 @@ use redox_lexer::TokenKind;
 /// declaration and a literal alike.
 pub(crate) fn field_decl(p: &mut Parser) -> Result<FieldDecl, ParseError> {
   let start = p.peek_span().0;
+  // §9.6: "Per-field and per-variant visibility use the same markers inside
+  // a declaration body."
+  let visibility = visibility(p)?;
   let name = p.ident("expected a field name")?;
   p.expect(&TokenKind::ColonColon, "expected `::` after the field name")?;
   let ty = capture_type(p, "expected a field type", TypeStop::Greedy)?;
   Ok(FieldDecl {
     name,
     ty,
+    visibility,
     span: (start, p.prev_span().1),
   })
 }

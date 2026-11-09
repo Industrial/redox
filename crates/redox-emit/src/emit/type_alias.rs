@@ -10,5 +10,10 @@ use redox_ast::TypeAlias;
 pub(crate) fn emit_type_alias(out: &mut Sink<'_>, a: &TypeAlias) {
   out.mark(a.span);
   emit_trivia(out, &a.leading, 0);
-  out.push_str(&format!("type {} = {};\n", a.name.text, a.ty.text));
+  out.push_str(&format!(
+    "{}type {} = {};\n",
+    a.visibility.rust_text(),
+    a.name.text,
+    a.ty.text
+  ));
 }

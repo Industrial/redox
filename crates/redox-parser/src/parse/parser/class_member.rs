@@ -6,6 +6,7 @@ use crate::parse::parser::parse_expr::parse_expr;
 use crate::parse::parser::receiver::receiver;
 use crate::parse::parser::substitute_var::substitute_var;
 use crate::parse::parser::type_stop::TypeStop;
+use crate::parse::parser::visibility::visibility;
 use redox_ast::ClassMember;
 use redox_lexer::{Keyword, TokenKind};
 
@@ -27,6 +28,12 @@ use redox_lexer::{Keyword, TokenKind};
 /// `ctx` carries what the enclosing declaration knows about its own subject
 /// — see [`MethodContext`].
 pub(crate) fn class_member(p: &mut Parser, ctx: &MethodContext) -> Result<ClassMember, ParseError> {
+  // A trait's members take their visibility from the trait, and an inherent
+  // `impl`'s may each have their own — so the marker is read here and rustc
+  // rejects it where it is meaningless, which is the division of labour
+  // AGENTS.md states.
+  let member_visibility = visibility(p)?;
+
   if p.check(&TokenKind::Kw(Keyword::Type)) {
     p.advance();
     let name = p.ident("expected a name after `type`")?;
@@ -58,6 +65,7 @@ pub(crate) fn class_member(p: &mut Parser, ctx: &MethodContext) -> Result<ClassM
   // method, so it is kept out of the method's generic list.
   let reserved: Vec<String> = ctx.var.clone().into_iter().collect();
   let mut decl = p.function(&reserved)?;
+  decl.visibility = member_visibility;
   receiver(&mut decl.sig, &ctx.receiver_names);
   if let Some(var) = &ctx.var {
     substitute_var(&mut decl.sig, var, &ctx.subject);

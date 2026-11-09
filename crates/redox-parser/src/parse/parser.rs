@@ -57,6 +57,7 @@ pub(crate) mod type_app;
 pub(crate) mod type_stop;
 pub(crate) mod type_vars;
 pub(crate) mod unary_op;
+pub(crate) mod visibility;
 
 use crate::ParseError;
 use crate::parse::parser::capture_type::capture_type;
@@ -74,6 +75,8 @@ use crate::parse::parser::signature_only::signature_only;
 use crate::parse::parser::test_decl::test_decl;
 use crate::parse::parser::type_alias::type_alias;
 use crate::parse::parser::type_stop::TypeStop;
+use crate::parse::parser::visibility::visibility;
+use redox_ast::Visibility;
 use redox_ast::{Binding, Block, FnDecl, Ident, Item, Program, Stmt, StmtKind, TypeExpr};
 use redox_diag::Code;
 use redox_lexer::{Keyword, Span, Token, TokenKind, Trivia};
@@ -154,18 +157,22 @@ impl<'a> Parser<'a> {
   fn item(&mut self) -> Result<Item, ParseError> {
     let leading = self.peek_leading();
     let start = self.peek_span().0;
+    // Doc 03 §9.6's marker comes first, before the keyword that says which
+    // declaration this is — so it is read before the dispatch rather than
+    // once per branch.
+    let visibility = visibility(self)?;
 
     // Doc 18 §2.4's declarations are told apart by their first token, which
     // is a reserved word — so one token of lookahead settles which item this
     // is, with no backtracking and no ambiguity against a function's
     // signature line (a function begins with a *name*).
     if self.check(&TokenKind::Kw(Keyword::Data)) || self.check(&TokenKind::Kw(Keyword::Newtype)) {
-      let decl = data_decl(self, leading, start)?;
+      let decl = data_decl(self, leading, start, visibility)?;
       self.newline_with_trailing("expected a line break after the declaration")?;
       return Ok(Item::Data(decl));
     }
     if self.check(&TokenKind::Kw(Keyword::Type)) {
-      let alias = type_alias(self, leading, start)?;
+      let alias = type_alias(self, leading, start, visibility)?;
       self.newline_with_trailing("expected a line break after the alias")?;
       return Ok(Item::Type(alias));
     }
@@ -175,15 +182,18 @@ impl<'a> Parser<'a> {
       return Ok(Item::Test(decl));
     }
     if self.check(&TokenKind::Kw(Keyword::Errors)) {
-      let decl = errors_decl(self, leading, start)?;
+      let decl = errors_decl(self, leading, start, visibility)?;
       self.newline_with_trailing("expected a line break after the declaration")?;
       return Ok(Item::Errors(decl));
     }
     if self.check(&TokenKind::Kw(Keyword::Class)) {
-      let decl = class_decl(self, leading, start)?;
+      let decl = class_decl(self, leading, start, visibility)?;
       self.newline_with_trailing("expected a line break after the class")?;
       return Ok(Item::Class(decl));
     }
+    // An `impl` has no visibility in Rust and a test is never public, so
+    // neither takes the marker — and a marker before one is rejected by the
+    // `=` that follows, which is the right error for writing it.
     if self.check(&TokenKind::Kw(Keyword::Instance)) {
       let decl = instance_decl(self, leading, start)?;
       self.newline_with_trailing("expected a line break after the instance")?;
@@ -193,6 +203,7 @@ impl<'a> Parser<'a> {
     let decl = self.function(&[])?;
     Ok(Item::Fn(FnDecl {
       leading,
+      visibility,
       span: (start, decl.span.1),
       ..decl
     }))
@@ -295,6 +306,9 @@ impl<'a> Parser<'a> {
       name,
       sig,
       clauses,
+      // A method's marker is read by `class_member`; a top-level function's
+      // by `item`, which replaces this.
+      visibility: Visibility::Private,
       span: (start, end),
       leading,
       trailing,

@@ -22,7 +22,11 @@ pub(crate) fn emit_class(out: &mut Sink<'_>, c: &ClassDecl) {
   emit_trivia(out, &c.leading, 0);
   out.mark(c.span);
 
-  out.push_str(&format!("trait {}", c.name.text));
+  out.push_str(&format!(
+    "{}trait {}",
+    c.visibility.rust_text(),
+    c.name.text
+  ));
   if !c.supers.is_empty() {
     let names: Vec<&str> = c
       .supers

@@ -44,12 +44,20 @@ pub(crate) fn emit_data(out: &mut Sink<'_>, d: &DataDecl) {
       .constructors
       .first()
       .map_or(&ConstructorFields::Unit, |c| &c.fields);
-    out.push_str(&format!("struct {}", d.name.text));
+    out.push_str(&format!(
+      "{}struct {}",
+      d.visibility.rust_text(),
+      d.name.text
+    ));
     emit_fields(out, fields, 0, true);
     return;
   }
 
-  out.push_str(&format!("enum {} {{\n", d.name.text));
+  out.push_str(&format!(
+    "{}enum {} {{\n",
+    d.visibility.rust_text(),
+    d.name.text
+  ));
   for c in &d.constructors {
     out.mark(c.span);
     pad(out, RUST_INDENT);

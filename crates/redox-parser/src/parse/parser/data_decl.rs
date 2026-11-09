@@ -2,7 +2,7 @@ use crate::ParseError;
 use crate::parse::parser::Parser;
 use crate::parse::parser::constructor::constructor;
 use crate::parse::parser::deriving::deriving;
-use redox_ast::DataDecl;
+use redox_ast::{DataDecl, Visibility};
 use redox_lexer::{Keyword, TokenKind, Trivia};
 
 /// Parse doc 18 §2.4's `data` or `newtype` declaration.
@@ -38,6 +38,7 @@ pub(crate) fn data_decl(
   p: &mut Parser,
   leading: Vec<Trivia>,
   start: usize,
+  visibility: Visibility,
 ) -> Result<DataDecl, ParseError> {
   let is_newtype = p.check(&TokenKind::Kw(Keyword::Newtype));
   p.advance();
@@ -91,6 +92,7 @@ pub(crate) fn data_decl(
     constructors,
     derives,
     is_newtype,
+    visibility,
     span: (start, p.prev_span().1),
     leading,
   })

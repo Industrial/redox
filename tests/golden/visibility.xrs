@@ -1,0 +1,43 @@
+// Doc 03 §9.6's visibility markers. §9.6 extends doc 01 §22, which "offers
+// only `export` → `pub`, which cannot express Rust's scoped visibilities or
+// per-field visibility, and so cannot support real library work" — and doc 18
+// §8 declines Haskell's module header for the same reason: `module M (f, g)
+// where` cannot say any of this.
+//
+// Checked by compiling and running: a marker emitted in the wrong place is a
+// rustc error, and `pub` where the author wrote nothing would silently widen
+// a library's surface.
+//
+// `export(in path::to)` is covered by `crates/redox-emit/tests/visibility.rs`
+// and not here: this file has no modules, so the only path it could name is
+// `crate` — and rustfmt rewrites `pub(in crate)` to `pub(crate)`, which would
+// make the example fail the rustfmt-clean assertion for a reason that has
+// nothing to do with visibility.
+
+// Per-field visibility, which is the half doc 01 §22 could not express at
+// all.
+#[derive(Debug)]
+pub struct Point {
+    pub x: f64,
+    y: f64,
+}
+
+pub(crate) type Depth = f64;
+
+// The marker belongs to the **declaration**, so it goes on the signature
+// line and the equations below it carry none.
+pub(crate) fn area(p: &Point) -> Depth {
+    p.x * p.y
+}
+
+// No marker is private, which is Rust's default and has no spelling.
+fn double(d: Depth) -> Depth {
+    d * 2.0
+}
+
+fn main() {
+    let p = Point { x: 3.0, y: 4.0 };
+    println!("{}", p.x);
+    println!("{}", area(&p));
+    println!("{}", double(area(&p)));
+}

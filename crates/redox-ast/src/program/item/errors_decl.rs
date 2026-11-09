@@ -1,5 +1,6 @@
 use crate::Ident;
 use crate::program::item::error_variant::ErrorVariant;
+use crate::program::item::visibility::Visibility;
 use redox_lexer::{Span, Trivia};
 
 /// An `errors` declaration — doc 03 §12.5, kept unchanged by doc 18 §8.
@@ -29,6 +30,9 @@ use redox_lexer::{Span, Trivia};
 pub struct ErrorsDecl {
   pub name: Ident,
   pub variants: Vec<ErrorVariant>,
+  /// Doc 03 §9.6's visibility. Private when the author wrote no marker,
+  /// which is Rust's default and has no spelling.
+  pub visibility: Visibility,
   pub span: Span,
   pub leading: Vec<Trivia>,
 }

@@ -60,6 +60,7 @@ pub use program::item::signature::Signature;
 pub use program::item::test_decl::TestDecl;
 pub use program::item::type_alias::TypeAlias;
 pub use program::item::type_app::TypeApp;
+pub use program::item::visibility::Visibility;
 
 // Re-exported so downstream crates naming a span or a trivium need not add a
 // second dependency edge onto `redox-lexer` (doc 06 §5).

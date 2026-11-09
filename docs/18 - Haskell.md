@@ -855,7 +855,8 @@ Since then, one construct per commit:
 | `a20f038` | synthesised generics, `=>` bounds and `where` locals | §2.2, §5.3 |
 | `b12eed1` | comprehensions, list literals, and §6's ascribed-literal lowering | §3.2, §6 |
 | `31cee34` | `errors`, and `?` | doc 03 §12.5, §8 |
-| *this* | `test` blocks, `assert`, and the panic family | doc 03 §15, §12.6 |
+| `fb80617` | `test` blocks, `assert`, and the panic family | doc 03 §15, §12.6 |
+| *this* | `export` and its three scopes | doc 03 §9.6, §8 |
 
 The guard commit closed a hole the clause commit had left: doc 18 §2.3's own example
 `fib 0 = 0` did not parse, because the clause body required a line break and an indent. It
@@ -863,10 +864,16 @@ was found by writing the doc's example into a *guards* test, not by anything in 
 commit's own tests — which is the argument for §2.3's examples being fixtures rather than
 prose.
 
-### 11.2 Specification for later plans
+### 11.2 What is left to other plans
 
-`export` → `pub` is specified here and **not implemented**. The full pattern
-grammar — a constructor pattern with fields included — is doc 04's plan 33. Doc 04's plan rows for those constructs are re-pointed at this document
+**Nothing in this document is unimplemented.** Every construct §§1–8 specify is parsed,
+lowered, exercised by a test, and — wherever it can be made to run — present in the
+`examples/` corpus, which real rustc compiles and executes and which rustfmt is asked to
+reformat and does not.
+
+What remains is outside this document: the full pattern grammar (a constructor pattern with
+fields, slices, tuples, `@`) is doc 04's plan 33, string interpolation is plan 23, and the
+formatter is plan 34. Doc 04's plan rows for those constructs are re-pointed at this document
 rather than doc 03; the lowerings they must produce are doc 03's, unchanged, as §1 requires.
 
 `<-` is implemented in statement position (§3.1), which is the position the flattening

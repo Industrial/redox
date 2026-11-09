@@ -18,6 +18,7 @@ pub(crate) mod signature;
 pub(crate) mod test_decl;
 pub(crate) mod type_alias;
 pub(crate) mod type_app;
+pub(crate) mod visibility;
 
 use crate::FnDecl;
 use crate::program::item::class_decl::ClassDecl;

@@ -1,6 +1,7 @@
 use crate::Ident;
 use crate::program::item::class_member::ClassMember;
 use crate::program::item::constraint::Constraint;
+use crate::program::item::visibility::Visibility;
 use redox_lexer::{Span, Trivia};
 
 /// A `class` declaration — doc 18 §2.5's `trait`.
@@ -33,6 +34,9 @@ pub struct ClassDecl {
   /// `Debug t =>` — the superclasses, which become Rust's supertrait bounds.
   pub supers: Vec<Constraint>,
   pub members: Vec<ClassMember>,
+  /// Doc 03 §9.6's visibility. Private when the author wrote no marker,
+  /// which is Rust's default and has no spelling.
+  pub visibility: Visibility,
   pub span: Span,
   pub leading: Vec<Trivia>,
 }

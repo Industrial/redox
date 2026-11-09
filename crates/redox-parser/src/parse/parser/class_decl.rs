@@ -3,7 +3,7 @@ use crate::parse::parser::Parser;
 use crate::parse::parser::class_body::class_body;
 use crate::parse::parser::constraints::constraints;
 use crate::parse::parser::method_context::MethodContext;
-use redox_ast::ClassDecl;
+use redox_ast::{ClassDecl, Visibility};
 use redox_lexer::{Keyword, TokenKind, Trivia};
 
 /// Parse doc 18 §2.5's `class` — Rust's `trait`.
@@ -26,6 +26,7 @@ pub(crate) fn class_decl(
   p: &mut Parser,
   leading: Vec<Trivia>,
   start: usize,
+  visibility: Visibility,
 ) -> Result<ClassDecl, ParseError> {
   p.expect(&TokenKind::Kw(Keyword::Class), "expected `class`")?;
   let supers = constraints(p)?;
@@ -39,6 +40,7 @@ pub(crate) fn class_decl(
     var,
     supers,
     members,
+    visibility,
     span: (start, p.prev_span().1),
     leading,
   })

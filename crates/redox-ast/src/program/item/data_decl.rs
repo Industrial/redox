@@ -1,5 +1,6 @@
 use crate::Ident;
 use crate::program::item::constructor::Constructor;
+use crate::program::item::visibility::Visibility;
 use redox_lexer::{Span, Trivia};
 
 /// A `data` or `newtype` declaration — doc 18 §2.4.
@@ -41,6 +42,9 @@ pub struct DataDecl {
   /// would let a later plan reject `newtype` with more than one field — a
   /// check Haskell makes and Rust has no equivalent of.
   pub is_newtype: bool,
+  /// Doc 03 §9.6's visibility. Private when the author wrote no marker,
+  /// which is Rust's default and has no spelling.
+  pub visibility: Visibility,
   pub span: Span,
   pub leading: Vec<Trivia>,
 }

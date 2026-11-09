@@ -35,7 +35,11 @@ pub(crate) fn emit_errors(out: &mut Sink<'_>, d: &ErrorsDecl) {
   let name = &d.name.text;
 
   out.push_str("#[derive(Debug)]\n");
-  out.push_str(&format!("pub enum {name} {{\n"));
+  // Doc 03 §12.5's example shows `pub enum`, which reads as having been
+  // written `export errors ConfigError`: the marker governs this declaration
+  // like any other, and §9.6's rule that absent means private is not
+  // suspended for one construct.
+  out.push_str(&format!("{}enum {name} {{\n", d.visibility.rust_text()));
   for v in &d.variants {
     out.mark(v.span);
     pad(out, RUST_INDENT);

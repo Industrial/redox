@@ -16,6 +16,7 @@ pub(crate) fn emit_fn(out: &mut Sink<'_>, f: &FnDecl) {
   out.unmark();
   emit_trivia(out, &f.leading, 0);
   out.mark(f.span);
+  out.push_str(&f.visibility.rust_text());
   out.push_str("fn ");
   out.push_str(&f.name.text);
   let sig = signature(&f.sig, 0);

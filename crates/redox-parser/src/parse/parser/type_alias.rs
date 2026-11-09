@@ -2,7 +2,7 @@ use crate::ParseError;
 use crate::parse::parser::Parser;
 use crate::parse::parser::capture_type::capture_type;
 use crate::parse::parser::type_stop::TypeStop;
-use redox_ast::TypeAlias;
+use redox_ast::{TypeAlias, Visibility};
 use redox_lexer::{Keyword, TokenKind, Trivia};
 
 /// `type Handler = Box<dyn Fn(Req) -> Res + Send>` — doc 18 §2.4.
@@ -17,6 +17,7 @@ pub(crate) fn type_alias(
   p: &mut Parser,
   leading: Vec<Trivia>,
   start: usize,
+  visibility: Visibility,
 ) -> Result<TypeAlias, ParseError> {
   p.expect(&TokenKind::Kw(Keyword::Type), "expected `type`")?;
   let name = p.ident("expected a name after `type`")?;
@@ -25,6 +26,7 @@ pub(crate) fn type_alias(
   Ok(TypeAlias {
     name,
     ty,
+    visibility,
     span: (start, p.prev_span().1),
     leading,
   })

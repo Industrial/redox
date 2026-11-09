@@ -12,11 +12,23 @@ fn xrs(src: &str) -> String {
   emit(&parse_source(src).expect("should parse"))
 }
 
+/// The visibility is doc 03 §9.6's, which this declaration obeys like any
+/// other — §12.5's example shows `pub enum` because it reads as having been
+/// written `export errors`.
 #[test]
-fn the_enum_derives_debug_and_is_public() {
-  let out = xrs("errors E\n  Missing String \"missing: #{0}\"\n");
-  assert!(out.starts_with("#[derive(Debug)]\npub enum E {\n"), "{out}");
-  assert!(out.contains("    Missing(String),"), "{out}");
+fn the_enum_derives_debug_and_takes_its_marker() {
+  let private = xrs("errors E\n  Missing String \"missing: #{0}\"\n");
+  assert!(
+    private.starts_with("#[derive(Debug)]\nenum E {\n"),
+    "{private}"
+  );
+  assert!(private.contains("    Missing(String),"), "{private}");
+
+  let public = xrs("export errors E\n  Missing String \"missing: #{0}\"\n");
+  assert!(
+    public.starts_with("#[derive(Debug)]\npub enum E {\n"),
+    "{public}"
+  );
 }
 
 /// The payload is **juxtaposed**, doc 18 §2.1 — so `Invalid String u32` is

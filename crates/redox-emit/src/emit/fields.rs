@@ -43,7 +43,7 @@ pub(crate) fn emit_fields(
       // are measured against — see `STRUCT_VARIANT_WIDTH`.
       let joined = decls
         .iter()
-        .map(|f| format!("{}: {}", f.name.text, f.ty.text))
+        .map(|f| format!("{}{}: {}", f.visibility.rust_text(), f.name.text, f.ty.text))
         .collect::<Vec<_>>()
         .join(", ");
       if !top && joined.len() <= STRUCT_VARIANT_WIDTH {
@@ -55,7 +55,12 @@ pub(crate) fn emit_fields(
       for f in decls {
         out.mark(f.span);
         pad(out, indent + RUST_INDENT);
-        out.push_str(&format!("{}: {},\n", f.name.text, f.ty.text));
+        out.push_str(&format!(
+          "{}{}: {},\n",
+          f.visibility.rust_text(),
+          f.name.text,
+          f.ty.text
+        ));
       }
       out.unmark();
       pad(out, indent);

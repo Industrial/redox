@@ -1,3 +1,4 @@
+use crate::program::item::visibility::Visibility;
 use crate::{Clause, Ident, Signature};
 use redox_lexer::{Span, Trivia};
 
@@ -21,6 +22,9 @@ pub struct FnDecl {
   pub name: Ident,
   pub sig: Signature,
   pub clauses: Vec<Clause>,
+  /// Doc 03 §9.6's visibility. Private when the author wrote no marker,
+  /// which is Rust's default and has no spelling.
+  pub visibility: Visibility,
   pub span: Span,
   pub leading: Vec<Trivia>,
   pub trailing: Option<Trivia>,

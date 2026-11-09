@@ -1,7 +1,7 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
 use crate::parse::parser::error_variant::error_variant;
-use redox_ast::ErrorsDecl;
+use redox_ast::{ErrorsDecl, Visibility};
 use redox_diag::Code;
 use redox_lexer::{Keyword, TokenKind, Trivia};
 
@@ -22,6 +22,7 @@ pub(crate) fn errors_decl(
   p: &mut Parser,
   leading: Vec<Trivia>,
   start: usize,
+  visibility: Visibility,
 ) -> Result<ErrorsDecl, ParseError> {
   p.expect(&TokenKind::Kw(Keyword::Errors), "expected `errors`")?;
   let name = p.ident("expected the error type's name")?;
@@ -53,6 +54,7 @@ pub(crate) fn errors_decl(
   Ok(ErrorsDecl {
     name,
     variants,
+    visibility,
     span: (start, p.prev_span().1),
     leading,
   })
