@@ -408,3 +408,12 @@ shell.
 
 Still no identified task, so still not in AGENTS.md's gotcha list. The new fact is that one
 re-run is not always enough.
+
+> **Explained 2026-11-09, during plan 34 leaf 4.** blaze's worker cache lives on a 6.2 GB
+> tmpfs under `/run/user/1000`, and a broad enough build writes past it: the worker dies with
+> `No space left on device` and blaze reports `could not build <every crate>`. Every symptom
+> follows — no named task, a re-run that passes once the cache is reclaimed, and each target
+> passing alone because one target builds less and fits. The observation above, that one
+> re-run is not always enough, is the reclaim not being instant. It is in AGENTS.md's gotcha
+> list now, and the diagnosis was in blaze's output all along: three plans grepped it away
+> while recording that there was none.

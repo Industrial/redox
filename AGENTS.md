@@ -173,6 +173,35 @@ result, which is why they are written down rather than rediscovered.
   environment report. **Run `free -h` before reading the diff**, and distinguish it from
   the stale-state case above, which names one crate and fails at link time.
 
+- **A gate that exits 1 with no task reporting a failure is blaze's worker running out of
+  tmpfs.** This is the mechanism behind the intermittent failure plan 23 §10.8, doc 30 §8.7
+  and plan 43 §10.3 each recorded as *unexplained*. Found 2026-11-09 by not filtering
+  blaze's output:
+
+  ```
+  error: could not build `redox_ast`, `redox`, … `recovery`: the daemon's worker ended
+  (exit status: 1: Error: backend: writing the object: No space left on device (os error 28))
+  ```
+
+  blaze's worker cache lives under **`/run/user/1000/blaze`**, which is a **6.2 GB tmpfs** —
+  RAM, not disk, and far smaller than the 1.9 TB root the 15 GB `target/` sits on. A build
+  broad enough to write past it kills the worker mid-run.
+
+  Everything that made it look inexplicable follows from that:
+
+  - it names *every* crate, like the OOM case above, because the worker died rather than any
+    crate failing;
+  - an immediate re-run often passes, because the cache was reclaimed in between;
+  - **each target passes when run alone**, because one target builds less and fits, which is
+    exactly the observation that made it look like it could not be reproduced;
+  - sometimes one re-run is not enough (doc 30 §8.7), because the reclaim is not instant.
+
+  So: **`df -h /run/user/1000` belongs beside `free -h`** when a gate fails with no named
+  task. Clear it — `blaze stop` releases the worker, and its cache directory can be removed —
+  then re-run. And read blaze's **last** line rather than grepping it: the diagnosis was in
+  the output the whole time, and three plans filtered it out while writing down that there was
+  no diagnosis.
+
 - **Do not grep compiler output for `^error` — it reads as green when it is not.** `cargo
   clippy` colourises its output, so the line begins with an ANSI escape and the pattern
   never matches. This produced a confident "clippy clean" report while two

@@ -230,3 +230,14 @@ first where an individually-run target failed rather than only the combined run.
 unexplained, and still deliberately **not** in AGENTS.md's gotcha list: that list is for traps
 with a known mechanism, and writing "sometimes the gate fails" into it would teach a future
 reader to ignore a red gate. The honest record is here, in the three plans that hit it.
+
+> **Explained 2026-11-09, during plan 34 leaf 4**, and now in AGENTS.md: blaze's worker cache
+> is on a 6.2 GB tmpfs under `/run/user/1000`, and a broad build writes past it — the worker
+> dies with `No space left on device` and blaze reports `could not build <every crate>`.
+>
+> The reasoning above was sound and the method was not. Holding the entry out of the gotcha
+> list until there was a mechanism was right. But the mechanism was in blaze's output on every
+> one of the three sightings, and all three — this one included — filtered it away: the greps
+> here looked for `FAILED` and `panicked`, which are a *test runner's* words, and blaze's
+> worker does not fail a test. **Read the last line of a failing build before deciding it said
+> nothing.**

@@ -359,3 +359,16 @@ nothing — both runs passed and the working tree was byte-identical between the
 So the cause is **not established**, and it is deliberately not written into AGENTS.md's
 gotcha list, which is for traps with a verified cause. The mitigation is to re-run and read
 the second result; if it recurs with a diagnosable failure, that is when it earns an entry.
+
+> **Cause established 2026-11-09, during plan 34 leaf 4**, and it has earned its entry.
+> blaze's worker cache lives on a 6.2 GB tmpfs under `/run/user/1000` — RAM, not the 1.9 TB
+> root that `target/` sits on — and a broad enough build writes past it. The worker dies with
+> `No space left on device` and blaze reports `could not build <every crate>`, which is why no
+> task names a failure, why a re-run passes once the cache is reclaimed, and why every target
+> passes when run alone: one target builds less and fits.
+>
+> The paragraph above held the entry back for the right reason and reached the wrong
+> conclusion, because *"re-running reproduced nothing"* is what this failure looks like when it
+> is working as described. The fact that would have settled it was in blaze's own output on all
+> three sightings. Plan 43 §10.3 records what went wrong with the method: the greps looked for
+> `FAILED` and `panicked`, a test runner's words, and blaze's worker does not fail a test.
