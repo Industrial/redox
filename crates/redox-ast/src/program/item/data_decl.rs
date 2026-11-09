@@ -42,6 +42,18 @@ pub struct DataDecl {
   /// would let a later plan reject `newtype` with more than one field — a
   /// check Haskell makes and Rust has no equivalent of.
   pub is_newtype: bool,
+  /// `union Reg = Reg { a :: u32, b :: f32 }` — plan 45 leaf 4.
+  ///
+  /// Doc 18 §2.4's rule reads a shape off the constructors, and a union is
+  /// not a shape — it is a struct's shape with overlapping storage, which no
+  /// arrangement of constructors could select. So it takes a keyword, as
+  /// `newtype` does for the same kind of reason.
+  ///
+  /// Rust requires named fields in a union and permits exactly one "variant";
+  /// neither is checked here. A `union` with two constructors emits two
+  /// variants and rustc rejects it, which is the every-check-rustc-makes
+  /// corollary rather than an omission.
+  pub is_union: bool,
   /// Doc 03 §9.6's visibility. Private when the author wrote no marker,
   /// which is Rust's default and has no spelling.
   pub visibility: Visibility,

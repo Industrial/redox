@@ -105,6 +105,46 @@ pub fn item_text(item: &Item, indent: usize, source: &str) -> String {
       }
     }
     Item::Const(decl) => const_text(decl, source),
+    // Plan 45 leaf 1. The formatter reproduces the hatch as written: the
+    // body is Rust that Redox never parsed, so there is nothing here that
+    // could be canonicalised without implementing a Rust formatter — and
+    // `rustfmt` is the tool for that, on the `.xrs`.
+    // Plan 45 leaf 1. The body is re-indented one level inside the block,
+    // which is what makes the construct canonical and round-trip: the lexer
+    // *dedents* a `"""` block, so emitting `decl.code` as-is writes it at
+    // column 0 and the file changes every time it is formatted.
+    Item::InlineRust(decl) => {
+      let body: String = decl
+        .code
+        .lines()
+        .map(|line| {
+          if line.trim().is_empty() {
+            "\n".to_string()
+          } else {
+            format!("{}{}\n", indent_text(indent + 1), line)
+          }
+        })
+        .collect();
+      format!("rust \"\"\"\n{}{}\"\"\"", body, indent_text(indent))
+    }
+    // Plan 45 leaf 3. The declarations are reproduced from the source slice
+    // for the reason this module's header gives: a signature's own spacing is
+    // not in the AST, so re-rendering one would change text the formatter has
+    // no mandate to change.
+    Item::Extern(decl) => {
+      let body: String = decl
+        .decls
+        .iter()
+        .map(|d| {
+          format!(
+            "{}{}\n",
+            indent_text(indent + 1),
+            source[d.span.0..d.span.1].trim()
+          )
+        })
+        .collect();
+      format!("extern {}\n{}", decl.abi, body.trim_end())
+    }
   });
   out
 }

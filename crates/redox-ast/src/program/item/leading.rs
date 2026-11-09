@@ -23,5 +23,7 @@ pub fn leading(item: &Item) -> &[Trivia] {
     Item::Import(i) => &i.leading,
     Item::Module(m) => &m.leading,
     Item::Const(c) => &c.leading,
+    Item::InlineRust(r) => &r.leading,
+    Item::Extern(e) => &e.leading,
   }
 }

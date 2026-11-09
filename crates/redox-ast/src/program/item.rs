@@ -9,10 +9,13 @@ pub(crate) mod constructor_fields;
 pub(crate) mod data_decl;
 pub(crate) mod error_variant;
 pub(crate) mod errors_decl;
+pub(crate) mod extern_block;
 pub(crate) mod field_decl;
 pub(crate) mod fn_decl;
+pub(crate) mod foreign_fn;
 pub(crate) mod guard;
 pub(crate) mod import_decl;
+pub(crate) mod inline_rust;
 pub(crate) mod instance_decl;
 pub(crate) mod leading;
 pub(crate) mod module_decl;
@@ -30,7 +33,9 @@ use crate::program::item::class_decl::ClassDecl;
 use crate::program::item::const_decl::ConstDecl;
 use crate::program::item::data_decl::DataDecl;
 use crate::program::item::errors_decl::ErrorsDecl;
+use crate::program::item::extern_block::ExternBlock;
 use crate::program::item::import_decl::ImportDecl;
+use crate::program::item::inline_rust::InlineRust;
 use crate::program::item::instance_decl::InstanceDecl;
 use crate::program::item::module_decl::ModuleDecl;
 use crate::program::item::test_decl::TestDecl;
@@ -64,6 +69,11 @@ pub enum Item {
   Module(ModuleDecl),
   /// Doc 03 §13.4's module-scope `const` or `static` — plan 16.
   Const(ConstDecl),
+  /// Doc 01 §23.1's inline Rust — plan 45. The only item whose contents are
+  /// never parsed.
+  InlineRust(InlineRust),
+  /// An `extern` block — plan 45 leaf 3, and doc 01 §26's FFI requirement.
+  Extern(ExternBlock),
 }
 
 impl Item {
@@ -79,6 +89,8 @@ impl Item {
       Item::Import(i) => i.span,
       Item::Module(m) => m.span,
       Item::Const(c) => c.span,
+      Item::InlineRust(r) => r.span,
+      Item::Extern(e) => e.span,
     }
   }
 }

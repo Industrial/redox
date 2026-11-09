@@ -231,6 +231,9 @@ pub fn expr_text(expr: &Expr, required: u8, indent: usize, source: &str) -> Stri
     Expr::AsyncBlock { body, .. } => {
       format!("async\n{}", block_text(body, indent + 1, source))
     }
+    Expr::UnsafeBlock { body, .. } => {
+      format!("unsafe\n{}", block_text(body, indent + 1, source))
+    }
     Expr::TryBlock { body, .. } => {
       format!("try\n{}", block_text(body, indent + 1, source))
     }

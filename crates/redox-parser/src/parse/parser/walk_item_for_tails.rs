@@ -45,6 +45,14 @@ pub(crate) fn walk_item_for_tails(item: &Item, errors: &mut Vec<ParseError>) {
         walk_item_for_tails(inner, errors);
       }
     }
-    Item::Data(_) | Item::Type(_) | Item::Errors(_) | Item::Import(_) | Item::Const(_) => {}
+    // Inline Rust is never parsed, so it holds no callback tail to check
+    // — plan 45 leaf 1.
+    Item::Data(_)
+    | Item::Type(_)
+    | Item::Errors(_)
+    | Item::Import(_)
+    | Item::Const(_)
+    | Item::InlineRust(_)
+    | Item::Extern(_) => {}
   }
 }

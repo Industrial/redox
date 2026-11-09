@@ -58,6 +58,35 @@ pub(crate) fn symbol_of(item: &Item, source: &str) -> DocumentSymbol {
       }),
     ),
     Item::Const(decl) => (decl.name.text.clone(), SymbolKind::CONSTANT, None),
+    // Plan 45 leaf 1. Inline Rust has no name of its own, so the outline
+    // shows the construct — which is still worth a symbol: a reader scanning
+    // a file wants to know where the un-analysed Rust is, and that is the
+    // one thing this entry can honestly tell them.
+    Item::InlineRust(_) => ("rust".to_string(), SymbolKind::OBJECT, None),
+    // Plan 45 leaf 3. The ABI names the block, and its declarations nest —
+    // the second item kind after `module` whose children are worth showing,
+    // because an FFI block's whole content is the names it imports.
+    Item::Extern(decl) => (
+      format!("extern {}", decl.abi),
+      SymbolKind::NAMESPACE,
+      Some(
+        decl
+          .decls
+          .iter()
+          .map(|d| DocumentSymbol {
+            name: d.name.text.clone(),
+            detail: None,
+            kind: SymbolKind::FUNCTION,
+            tags: None,
+            #[allow(deprecated, reason = "the field is required by the struct literal")]
+            deprecated: None,
+            range: to_range(source, d.span),
+            selection_range: to_range(source, d.span),
+            children: None,
+          })
+          .collect(),
+      ),
+    ),
   };
   DocumentSymbol {
     name,

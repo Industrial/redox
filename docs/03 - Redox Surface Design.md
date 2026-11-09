@@ -1732,14 +1732,39 @@ imports, nested import trees (§13.5), array repeat (§10.4), default trait bodi
 associated types and constants, supertraits, generic impls (§14.4), format specifications
 (§11.1).
 
-**Remaining open**, listed rather than quietly left: `unsafe` blocks and `unsafe fn` have
-no Redox spelling (doc 01 §25.4 gestures at "native Rust syntax or the inline Rust escape
-hatch" without choosing); `extern` blocks and `#[no_mangle]`-style FFI declarations, which
-doc 01 §26 requires but never spells; `union`; raw identifiers (`r#type`); `async` blocks as
-distinct from `async fn`; macro definition (§13.3). Each is reachable today only through
-doc 01 §23.1's escape hatch. Doc 02 §4.1's standard applies: an escape hatch used for a
-common construct is a bug report against the grammar, and FFI in particular is named as a
-requirement, so it should not stay in this list.
+**Closed by plan 45**, 2026-11-09 (`docs/39 - 45 - Reachability Residue.md`): `unsafe`
+blocks and `unsafe fn` — doc 01 §25.4's choice between "native Rust syntax or the inline
+Rust escape hatch" settled on native syntax; `extern` blocks and FFI declarations;
+`union`; raw identifiers (`r#type`). And **inline Rust itself**, which is the finding that
+reshaped the row: see below.
+
+**Closed earlier**: `async` blocks, by plan 39. This paragraph listed them until plan 45
+checked.
+
+**Declined, permanently**: macro **definition**, under §23 item 3's own alternative —
+*"accept permanently that Redox macros require inline Rust"*. Usable as a decline only
+because plan 45 leaf 1 made inline Rust real.
+
+**Still open**: macro **invocation**. Measured by plan 45 §1.5 — `vec![1, 2, 3]`,
+`format! "hi"`, parenthesised, ascribed and as a function body are all rejected, while
+`std::vec::Vec::new ()` is accepted, because doc 18 §7 retired `!` as a suffix and left it
+meaning boolean negation. `assert! true` only appears to work: it reads as the `assert`
+keyword applied to `!true`. Plans 29 §6 and 39 §10.5 each found this and neither assigned
+it to a row; it needs a *spelling* decision here before a row can implement one. Reachable
+meanwhile through inline Rust, which is what makes doc 01 §26's "Rust macros" requirement
+met rather than outstanding.
+
+> **Correction, plan 45 §1.2.** This paragraph used to end *"Each is reachable today only
+> through doc 01 §23.1's escape hatch"*, and §23 items 2 and 3 are both phrased against
+> that resting place. **There was no such resting place.** `rust """…"""` was not a
+> construct: `rust` lexed as an ordinary identifier, `"""…"""` as a multi-line string, and
+> the pair parsed as a **function call** — emitting `rust("let x = 1;")`, which no program
+> defines. The hatch this document named as the fallback for every unreachable construct
+> was a trap that produced uncompilable Rust, caught only by `redox check`'s rustc.
+>
+> So doc 02 §4.1's standard applied even more sharply than this section claimed: the
+> constructs were not escape-hatch-only, they were unreachable. Plan 45 leaf 1 implemented
+> the hatch, which is why every decline above is now a decline rather than a gap.
 
 ---
 

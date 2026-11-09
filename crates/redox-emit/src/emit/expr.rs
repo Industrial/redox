@@ -18,6 +18,7 @@ use crate::emit::rust_indent::RUST_INDENT;
 use crate::emit::section::emit_section;
 use crate::emit::try_block::try_block;
 use crate::emit::unparen::unparen;
+use crate::emit::unsafe_block::emit_unsafe_block;
 use redox_ast::{BinaryOp, Expr};
 
 /// Render an expression as Rust, starting at column `indent`.
@@ -134,6 +135,10 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
     // block expression, so this is that block with one word in front: the
     // third construct to reuse it, after `do` and `try`.
     Expr::AsyncBlock { body, .. } => format!("async {}", emit_do(&None, body, indent)),
+    // Plan 45 leaf 2. Delegated because a one-expression body collapses to a
+    // single line, which is what rustfmt does and what the gate compares
+    // against.
+    Expr::UnsafeBlock { body, .. } => emit_unsafe_block(body, indent),
     // A tuple expression — plan 33. Verbatim, and `expr_list` is what every
     // other comma-separated run uses, so the spacing matches.
     Expr::Tuple { items, .. } => {

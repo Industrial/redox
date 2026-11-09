@@ -60,6 +60,14 @@
 				},
 				{
 					"type": "SYMBOL",
+					"name": "extern_block"
+				},
+				{
+					"type": "SYMBOL",
+					"name": "inline_rust"
+				},
+				{
+					"type": "SYMBOL",
 					"name": "signature"
 				},
 				{
@@ -195,6 +203,72 @@
 				}
 			]
 		},
+		"inline_rust": {
+			"type": "SEQ",
+			"members": [
+				{
+					"type": "STRING",
+					"value": "rust"
+				},
+				{
+					"type": "FIELD",
+					"name": "code",
+					"content": {
+						"type": "SYMBOL",
+						"name": "string"
+					}
+				},
+				{
+					"type": "SYMBOL",
+					"name": "_newline"
+				}
+			]
+		},
+		"extern_block": {
+			"type": "SEQ",
+			"members": [
+				{
+					"type": "STRING",
+					"value": "extern"
+				},
+				{
+					"type": "FIELD",
+					"name": "abi",
+					"content": {
+						"type": "SYMBOL",
+						"name": "string"
+					}
+				},
+				{
+					"type": "SYMBOL",
+					"name": "_newline"
+				},
+				{
+					"type": "SYMBOL",
+					"name": "_indent"
+				},
+				{
+					"type": "REPEAT1",
+					"content": {
+						"type": "CHOICE",
+						"members": [
+							{
+								"type": "SYMBOL",
+								"name": "signature"
+							},
+							{
+								"type": "SYMBOL",
+								"name": "_newline"
+							}
+						]
+					}
+				},
+				{
+					"type": "SYMBOL",
+					"name": "_dedent"
+				}
+			]
+		},
 		"data_declaration": {
 			"type": "SEQ",
 			"members": [
@@ -220,6 +294,10 @@
 						{
 							"type": "STRING",
 							"value": "newtype"
+						},
+						{
+							"type": "STRING",
+							"value": "union"
 						}
 					]
 				},
@@ -1098,6 +1176,10 @@
 					{
 						"type": "STRING",
 						"value": "const"
+					},
+					{
+						"type": "STRING",
+						"value": "unsafe"
 					},
 					{
 						"type": "SYMBOL",
@@ -2589,6 +2671,10 @@
 				},
 				{
 					"type": "SYMBOL",
+					"name": "unsafe_block"
+				},
+				{
+					"type": "SYMBOL",
 					"name": "try_block"
 				}
 			]
@@ -2714,6 +2800,19 @@
 				{
 					"type": "STRING",
 					"value": "async"
+				},
+				{
+					"type": "SYMBOL",
+					"name": "statement_block"
+				}
+			]
+		},
+		"unsafe_block": {
+			"type": "SEQ",
+			"members": [
+				{
+					"type": "STRING",
+					"value": "unsafe"
 				},
 				{
 					"type": "SYMBOL",
@@ -3607,7 +3706,7 @@
 		},
 		"identifier": {
 			"type": "PATTERN",
-			"value": "[a-z_][A-Za-z0-9_]*"
+			"value": "r#[a-z_][A-Za-z0-9_]*|[a-z_][A-Za-z0-9_]*"
 		},
 		"type_identifier": {
 			"type": "PATTERN",

@@ -3,7 +3,9 @@ use crate::emit::data::emit_data;
 use crate::emit::emit_const::emit_const;
 use crate::emit::emit_fn::emit_fn;
 use crate::emit::errors::emit_errors;
+use crate::emit::extern_block::emit_extern_block;
 use crate::emit::import::emit_import;
+use crate::emit::inline_rust::emit_inline_rust;
 use crate::emit::instance::emit_instance;
 use crate::emit::module::emit_module;
 use crate::emit::sink::Sink;
@@ -72,6 +74,8 @@ pub(crate) fn emit_items(out: &mut Sink<'_>, items: &[Item], indent: usize) {
       Item::Import(i) => emit_import(out, i, indent),
       Item::Module(m) => emit_module(out, m, indent),
       Item::Const(c) => emit_const(out, c, indent),
+      Item::InlineRust(r) => emit_inline_rust(out, r, indent),
+      Item::Extern(e) => emit_extern_block(out, e, indent),
       Item::Test(_) => unreachable!("tests are gathered, not emitted in place"),
     }
   }

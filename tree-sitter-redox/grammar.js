@@ -85,6 +85,8 @@ module.exports = grammar({
 				$.errors_declaration,
 				$.test_declaration,
 				$.const_declaration,
+				$.extern_block,
+				$.inline_rust,
 				$.signature,
 				$.equation,
 				$.attribute,
@@ -133,10 +135,29 @@ module.exports = grammar({
 		// `data Name = A | B`, and the indented form. Both shapes are the
 		// author's choice and the grammar keeps both, which is the same
 		// conclusion plan 34 §10.30 reached from the other side.
+		// Plan 45 leaf 1. The body is one string token and stays opaque: Redox
+		// never parses it, so a grammar that looked inside would be claiming to
+		// know Rust. Highlighting it as a string is honest and is what an editor
+		// can act on.
+		inline_rust: ($) => seq("rust", field("code", $.string), $._newline),
+
+		// Plan 45 leaf 3. The declarations are signatures, which the grammar
+		// already has a rule for — doc 01 §26's FFI requirement needs no shape of
+		// its own beyond the block.
+		extern_block: ($) =>
+			seq(
+				"extern",
+				field("abi", $.string),
+				$._newline,
+				$._indent,
+				repeat1(choice($.signature, $._newline)),
+				$._dedent,
+			),
+
 		data_declaration: ($) =>
 			seq(
 				optional($.visibility),
-				choice("data", "newtype"),
+				choice("data", "newtype", "union"),
 				field("name", $.type_identifier),
 				choice(
 					seq(
@@ -281,6 +302,9 @@ module.exports = grammar({
 					"=>",
 					"async",
 					"const",
+					// Plan 45 leaf 2's `unsafe fn` marker, in the signature for
+					// `async`'s reason: it sits inside the `::` run.
+					"unsafe",
 					$._type_punctuation,
 				),
 			),
@@ -608,7 +632,13 @@ module.exports = grammar({
 		// for that reason — a `case` in the middle of an operand run would have
 		// no way to end, and it is not a shape the corpus has.
 		_block_expression: ($) =>
-			choice($.case_expression, $.do_expression, $.async_block, $.try_block),
+			choice(
+				$.case_expression,
+				$.do_expression,
+				$.async_block,
+				$.unsafe_block,
+				$.try_block,
+			),
 
 		// Block-bearing, so they keep real rules: folding wants them, and so does
 		// anyone pressing expand-selection.
@@ -633,6 +663,8 @@ module.exports = grammar({
 
 		do_expression: ($) => seq("do", optional($.label), $.statement_block),
 		async_block: ($) => seq("async", $.statement_block),
+		// Plan 45 leaf 2. The fourth construct of this shape.
+		unsafe_block: ($) => seq("unsafe", $.statement_block),
 		try_block: ($) => seq("try", $.statement_block),
 
 		conditional_expression: ($) =>
@@ -810,7 +842,10 @@ module.exports = grammar({
 				),
 			),
 
-		identifier: (_) => /[a-z_][A-Za-z0-9_]*/,
+		// `r#type` is plan 45 leaf 4's raw identifier: a Rust keyword used as a
+		// name. The `r#` alternative comes first so it is preferred over
+		// reading the `r` as an ordinary identifier's first character.
+		identifier: (_) => /r#[a-z_][A-Za-z0-9_]*|[a-z_][A-Za-z0-9_]*/,
 		type_identifier: (_) => /[A-Z][A-Za-z0-9_]*/,
 		path: (_) => token(/[A-Za-z_][A-Za-z0-9_]*(::[A-Za-z_][A-Za-z0-9_]*)+/),
 		_path_text: (_) =>

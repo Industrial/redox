@@ -46,9 +46,14 @@ pub(crate) fn emit_data(out: &mut Sink<'_>, d: &DataDecl, indent: usize) {
       .first()
       .map_or(&ConstructorFields::Unit, |c| &c.fields);
     pad(out, indent);
+    // Plan 45 leaf 4: `union` takes the `struct` slot. Everything after the
+    // keyword — the fields, the generics, the derives — is a struct's, which
+    // is the whole argument for it riding on `data` rather than being a
+    // declaration of its own.
     out.push_str(&format!(
-      "{}struct {}",
+      "{}{} {}",
       d.visibility.rust_text(),
+      if d.is_union { "union" } else { "struct" },
       d.name.text
     ));
     emit_fields(out, fields, indent, true);

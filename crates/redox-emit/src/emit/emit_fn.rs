@@ -27,6 +27,14 @@ pub(crate) fn emit_fn(out: &mut Sink<'_>, f: &FnDecl, indent: usize) {
   if f.sig.is_async {
     out.push_str("async ");
   }
+  // Plan 45 leaf 2. The Rust reference's `FunctionQualifiers` are
+  // `const? async? ItemSafety? (extern Abi?)?` — so `unsafe` comes after
+  // `async`, which is the order these three pushes are in. Emitting them in
+  // Rust's own order means two markers together produce valid Rust instead of
+  // a permutation rustc would reject for a reason the author did not write.
+  if f.sig.is_unsafe {
+    out.push_str("unsafe ");
+  }
   out.push_str("fn ");
   out.push_str(&f.name.text);
   let sig = signature(&f.sig, indent);

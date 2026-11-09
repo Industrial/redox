@@ -117,6 +117,17 @@ pub(crate) fn prefix(p: &mut Parser) -> Result<Expr, ParseError> {
         span: (start, p.prev_span().1),
       })
     }
+    // Rust's `unsafe { … }` — plan 45 leaf 2. The same shape again, which is
+    // the argument for reaching it from here rather than giving `unsafe` a
+    // statement form of its own.
+    TokenKind::Kw(Keyword::Unsafe) => {
+      p.advance();
+      let body = p.statement_block("expected an indented `unsafe` body")?;
+      Ok(Expr::UnsafeBlock {
+        body,
+        span: (start, p.prev_span().1),
+      })
+    }
     // Doc 03 §12.4's `try` block — plan 28. An expression, so it is reached
     // from here exactly as plan 20's `do` is, and it takes the same statement
     // block. The difference between the two is entirely in the emitter.

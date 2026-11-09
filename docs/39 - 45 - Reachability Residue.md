@@ -3,7 +3,7 @@
 Plan ID: `reachability-residue`
 Depends on: 25 (`traits-and-impls`)
 Milestone: 7 — *tooling*
-Status: `planned`
+Status: `done` 2026-11-10
 
 ---
 
@@ -275,4 +275,90 @@ rule, and it is what makes this row exist.
 
 ## 10. Result
 
-*Filled in when the plan ships, including anything above that turned out wrong.*
+Shipped 2026-11-10. All four leaves, `examples/reachability.sdx` compiled **and run** by the
+corpus, and doc 03 §18's list edited — closed items struck, `async` blocks credited to plan
+39, macro definition moved to a declined list with §23 item 3's citation, and macro
+invocation added as the open item §1.5 found.
+
+§1.2's finding survived contact and was the right shape for the row: implementing inline
+Rust first made every decline in §6 a decline rather than a gap.
+
+### 10.1 The formatter turned a `union` into a `struct`, and a property test caught it
+
+The most valuable thing this row found is not in its own code. `union` rides on `data` —
+§1.3's argument, with `newtype` as the in-surface precedent — so `DataDecl` gained an
+`is_union` flag beside `is_newtype`. The parser set it, the emitter read it, every test
+passed.
+
+Except `redox-fmt`'s `data_text`, which chooses its keyword from `is_newtype` alone and
+therefore wrote `union Word` back out as **`data Word`**. Running the formatter on a union
+turned it into a struct: not a formatting difference, a **semantic** one, silent, and in the
+tool whose whole promise is that it does not change the program.
+
+`formatting_preserves_meaning` caught it on the first gate run. That property is plan 43's
+one delivered leaf, and this is it paying for itself — nothing else in the suite was looking,
+and a reviewer reading the diff would have had no reason to.
+
+**The transferable lesson**: adding a keyword to a *shared* declaration node means four
+places, not three — parser, emitter, formatter, grammar. Three of them fail loudly and the
+formatter fails quietly.
+
+### 10.2 §1.1's `union` probe asked the wrong question
+
+The preconditions table reports `union Pair` → `RDX0101`, which is true and was measured
+with **Rust's** spelling. `redox-ast`'s own doc comment says doc 18 §§2.4–2.5 *"collapsed six
+of doc 03's declaration keywords into four. `struct`, `enum`, `union` and the tuple-struct
+spelling are all `data`"* — which reads as though `union` were already reachable.
+
+It was not. That sentence is about which declaration *keywords* doc 18 deleted, and `data`
+was left with no mechanism for a union at all: doc 18 §2.4's rule reads a **shape** off the
+constructors, and a union is not a shape, it is a struct's shape with different storage. So
+the row's question was never *"does `union` parse"* but *"which spelling"*, and §1.1 would
+have been sharper for saying so.
+
+### 10.3 Four things rustc and its edition had to be asked rather than assumed
+
+- **Edition 2024 requires `unsafe extern`.** A bare `extern "C" { … }` is rejected with
+  *"extern blocks must be unsafe"*. The `unsafe` is emitted and is **not** part of the
+  surface: there is no safe form to choose between, and doc 03 §2's *"the user writes which"*
+  rule is about choices.
+- **rustfmt collapses a one-expression `unsafe` block.** `unsafe {\n    w.halves\n}` becomes
+  `unsafe { w.halves }`, and `generated_rust_is_rustfmt_clean` compares byte for byte — so
+  `emit_unsafe_block` collapses exactly that case and no other. Guessing rustfmt's width rule
+  for anything longer would put a second formatter in the emitter.
+- **Rust's qualifier order is `const? async? unsafe? extern?`**, from the reference's
+  `FunctionQualifiers`. The emitter writes them in that order so two markers together produce
+  valid Rust rather than a permutation rustc rejects for a reason the author did not write.
+- **A union field read is unsafe**, which is why the example's `low_half` needs leaf 2 to
+  demonstrate leaf 4 at all. The two leaves turned out to need each other.
+
+### 10.4 §1.4's collision, and the half of it that would have gone unnoticed
+
+The `r#` lookahead landed where §1.4 predicted — the branch that raises `RDX0004` — and
+criterion 4's *both directions* earned its wording: the example asserts `r#type` is an
+identifier **and** that `r#"back\slash"#` is still a raw string, in the same file, because a
+one-character lookahead invites breaking the second while fixing the first.
+
+The grammar needed the same rule and did not get it from the parser: plan 41's
+`every_example_parses_with_no_error` found an `ERROR` node at every `r#type`. The grammar's
+`identifier` was `/[a-z_][A-Za-z0-9_]*/`, and the `r#` alternative has to come **first** or
+the engine reads the `r` as an ordinary identifier's first character and stops.
+
+That is plan 41 §1.2's constraint working as designed — the grammar is a second reader of the
+same language and the corpus is what keeps them agreeing.
+
+### 10.5 What the architecture tests rejected
+
+`verbatim_triple.rs` was written as a root-level file holding two functions.
+`every_root_level_file_is_a_module_head` rejected it: a file directly under `src/` must be the
+module root, a module head with a sibling directory, or a grouping module. It became a module
+head with `verbatim_triple/dedent_triple_body.rs` under it, which is also the better shape —
+the dedent rule is now one named thing that `scan_string` and the hatch both call, rather than
+a helper sharing a file with its only caller.
+
+### 10.6 Declined, with the specification's words
+
+Macro **definition** is not implemented, under doc 03 §23 item 3's own alternative. Macro
+**invocation** is named in §6 and in doc 03 §18 and left: it needs a spelling decision, not an
+implementation, because doc 18 §7 retired `!`. Writing it into §18 is the part that matters —
+plans 29 and 39 each found it and neither left it anywhere a row could pick it up.

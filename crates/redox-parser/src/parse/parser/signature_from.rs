@@ -70,6 +70,7 @@ pub(crate) fn signature_from(
     generics: Vec::new(),
     is_const: false,
     is_async: false,
+    is_unsafe: false,
     bounds: Vec::new(),
     span,
   })

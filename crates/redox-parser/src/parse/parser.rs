@@ -29,6 +29,7 @@ pub(crate) mod do_block;
 pub(crate) mod error_variant;
 pub(crate) mod errors_decl;
 pub(crate) mod expr_from_tokens;
+pub(crate) mod extern_block;
 pub(crate) mod field_decl;
 pub(crate) mod field_init;
 pub(crate) mod flush_word;
@@ -37,6 +38,7 @@ pub(crate) mod holds_a_pattern_test;
 pub(crate) mod if_expression;
 pub(crate) mod import_decl;
 pub(crate) mod import_path;
+pub(crate) mod inline_rust;
 pub(crate) mod instance_decl;
 pub(crate) mod interpolated_string;
 pub(crate) mod is_word;
@@ -100,8 +102,10 @@ use crate::parse::parser::constraints::constraints;
 use crate::parse::parser::control_flow::control_flow;
 use crate::parse::parser::data_decl::data_decl;
 use crate::parse::parser::errors_decl::errors_decl;
+use crate::parse::parser::extern_block::extern_block;
 use crate::parse::parser::generalise::generalise;
 use crate::parse::parser::import_decl::import_decl;
+use crate::parse::parser::inline_rust::inline_rust;
 use crate::parse::parser::instance_decl::instance_decl;
 use crate::parse::parser::module_decl::module_decl;
 use crate::parse::parser::parse_expr::parse_expr;
@@ -248,7 +252,10 @@ impl<'a> Parser<'a> {
     // is a reserved word — so one token of lookahead settles which item this
     // is, with no backtracking and no ambiguity against a function's
     // signature line (a function begins with a *name*).
-    if self.check(&TokenKind::Kw(Keyword::Data)) || self.check(&TokenKind::Kw(Keyword::Newtype)) {
+    if self.check(&TokenKind::Kw(Keyword::Data))
+      || self.check(&TokenKind::Kw(Keyword::Newtype))
+      || self.check(&TokenKind::Kw(Keyword::Union))
+    {
       let decl = data_decl(self, leading, start, visibility)?;
       self.newline_with_trailing("expected a line break after the declaration")?;
       return Ok(Item::Data(decl));
@@ -277,6 +284,19 @@ impl<'a> Parser<'a> {
       let decl = test_decl(self, leading, start)?;
       self.newline_with_trailing("expected a line break after the test")?;
       return Ok(Item::Test(decl));
+    }
+    // Doc 01 §23.1's escape hatch — plan 45 leaf 1. A reserved word like the
+    // rest of this dispatch, which is what stops `rust """…"""` from parsing
+    // as a call to a function named `rust` and emitting one.
+    if self.check(&TokenKind::Kw(Keyword::Rust)) {
+      let block = inline_rust(self, leading, start)?;
+      self.newline_with_trailing("expected a line break after the inline Rust")?;
+      return Ok(Item::InlineRust(block));
+    }
+    // Doc 01 §26's FFI requirement — plan 45 leaf 3.
+    if self.check(&TokenKind::Kw(Keyword::Extern)) {
+      let block = extern_block(self, leading, start)?;
+      return Ok(Item::Extern(block));
     }
     if self.check(&TokenKind::Kw(Keyword::Errors)) {
       let decl = errors_decl(self, leading, start, visibility)?;
@@ -369,6 +389,10 @@ impl<'a> Parser<'a> {
     // left in a type it would produce `async u64`, and read in either order
     // because Rust accepts neither pairing anyway.
     let is_async = self.eat_keyword(Keyword::Async);
+    // Rust's `unsafe fn` — plan 45 leaf 2. Read beside the other two markers
+    // for their reason: a type is verbatim text, and `unsafe` left in one
+    // would make the first parameter's type `unsafe u32`.
+    let is_unsafe = self.eat_keyword(Keyword::Unsafe);
     let spine = parse_spine(self)?;
     self.newline_with_trailing("expected a line break after the signature")?;
 
@@ -431,6 +455,7 @@ impl<'a> Parser<'a> {
     generalise(&mut sig, &bounds, reserved);
     sig.is_const = is_const;
     sig.is_async = is_async;
+    sig.is_unsafe = is_unsafe;
 
     let end = self.prev_span().1;
     let trailing = clauses.last().and_then(|c| c.trailing.clone());

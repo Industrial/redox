@@ -1,0 +1,78 @@
+// Doc 03 §18's "Remaining open" list, closed. Plan 45.
+//
+// Every construct here was unreachable before this row: doc 02 §4.1's
+// standard makes each one a defect, and doc 01 §26 names Unsafe Rust and FFI
+// among the things that "must remain possible".
+//
+// Checked by compiling and **running**, not by a golden. The row's claim is
+// that the generated Rust is *valid*, and a golden would only assert that the
+// emitter agrees with itself.
+
+// Leaf 3: an `extern` block. The declarations are signatures with no
+// equation, which is doc 18 §2.5's required method exactly.
+//
+// `unsafe extern` is what gets emitted: edition 2024 made the `unsafe`
+// mandatory, so there is no safe form to choose between and the word is the
+// emitter's rather than the surface's.
+unsafe extern "C" {
+    fn abs(__rdx_a0: i32) -> i32;
+}
+
+// Leaf 4: a `union`. Doc 18 §2.4's rule reads a *shape* off the
+// constructors, and a union is not a shape — it is a struct's shape with
+// overlapping storage — so it takes a keyword, as `newtype` does.
+union Word {
+    whole: u32,
+    halves: u16,
+}
+
+// Leaf 2: `unsafe` as a block. Reading a union field is unsafe in Rust
+// because nothing says which field was last written.
+fn low_half(n: u32) -> u16 {
+    let w = Word { whole: n };
+    unsafe { w.halves }
+}
+
+// Leaf 2 again: `unsafe` as a function marker. The marker sits between
+// `async` and `extern` in Rust's `FunctionQualifiers`, and emitting them in
+// that order is what makes two markers together valid.
+unsafe fn unsafe_double(n: u32) -> u32 {
+    n * 2
+}
+
+// Leaf 4: a raw identifier. `type` is a Rust keyword, and `r#type` is how a
+// program uses it as a name. The spelling was already claimed by plan 23's
+// raw strings, which is what made this more than an omission — plan 45 §1.4.
+fn r#type() -> &'static str {
+    "a name that is a Rust keyword"
+}
+
+// And a raw string still lexes as a raw string. Criterion 4 is asserted in
+// both directions, because fixing one by breaking the other is the failure
+// mode a one-character lookahead invites.
+fn raw_pattern() -> &'static str {
+    r#"back\slash"#
+}
+
+// Leaf 1: inline Rust. Doc 01 §23.1's escape hatch, which before this row
+// parsed as a **call** to a function named `rust` and emitted `rust("…")` —
+// uncompilable, and caught only by `redox check`. The body is emitted
+// verbatim, undecoded: the `\n` below stays two characters, where a decoded
+// string would put a real newline inside a Rust literal and fail to compile.
+pub fn escaped() -> String {
+    String::from("two\nlines")
+}
+
+fn main() {
+    println!("{}", low_half(65537));
+    let n = unsafe { unsafe_double(21) };
+    println!("{}", n);
+    println!("{}", r#type());
+    println!("{}", raw_pattern());
+    // `escaped ().len ()` would read as `escaped(().len())`: the argument of a
+    // parenless call extends as far as it can, so the receiver needs its own
+    // parentheses.
+    println!("{}", escaped().len());
+    let d = unsafe { abs(-7) };
+    println!("{}", d);
+}

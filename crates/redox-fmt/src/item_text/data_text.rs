@@ -30,7 +30,17 @@ use redox_ast::DataDecl;
 /// A `newtype` has exactly one alternative by construction, so it never takes
 /// the multi-line shape.
 pub(crate) fn data_text(decl: &DataDecl, indent: usize, source: &str) -> String {
-  let keyword = if decl.is_newtype { "newtype" } else { "data" };
+  // Plan 45 leaf 4 added a third keyword to this family. Getting it wrong
+  // here is not a cosmetic bug: the formatter wrote `union Word` back as
+  // `data Word`, which turns a union into a struct, and
+  // `formatting_preserves_meaning` is the test that caught it.
+  let keyword = if decl.is_union {
+    "union"
+  } else if decl.is_newtype {
+    "newtype"
+  } else {
+    "data"
+  };
   let pad = indent_text(indent + 1);
   let header = format!(
     "{}{keyword} {}",

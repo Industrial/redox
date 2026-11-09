@@ -119,6 +119,19 @@ pub enum Expr {
     body: crate::Block,
     span: Span,
   },
+  /// `unsafe` with an indented block — Rust's `unsafe { … }`, plan 45 leaf 2.
+  ///
+  /// The fourth construct of [`AsyncBlock`](Self::AsyncBlock)'s shape, and
+  /// the one with the least in its lowering: the block is emitted with
+  /// `unsafe` in front and nothing else changes.
+  ///
+  /// Doc 01 §26 names Unsafe Rust as something that must remain possible and
+  /// doc 03 §23 item 2 forbids reaching it through the escape hatch, so this
+  /// is a construct rather than a passage of inline Rust.
+  UnsafeBlock {
+    body: crate::Block,
+    span: Span,
+  },
   /// `try` with an indented block — doc 03 §12.4, plan 28.
   ///
   /// A block in which `?` returns from the **block** rather than the
@@ -353,6 +366,7 @@ impl Expr {
       | Expr::Lambda { span, .. }
       | Expr::OptionalChain { span, .. }
       | Expr::AsyncBlock { span, .. }
+      | Expr::UnsafeBlock { span, .. }
       | Expr::TryBlock { span, .. }
       | Expr::Ascribe { span, .. }
       | Expr::StrLit { span, .. }

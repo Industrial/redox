@@ -70,6 +70,7 @@ pub(crate) fn power_of(expr: &Expr) -> Option<u8> {
     | Expr::Do { .. }
     | Expr::Case { .. }
     | Expr::AsyncBlock { .. }
+    | Expr::UnsafeBlock { .. }
     | Expr::TryBlock { .. } => None,
   }
 }

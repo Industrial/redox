@@ -41,6 +41,9 @@ pub(crate) fn data_decl(
   visibility: Visibility,
 ) -> Result<DataDecl, ParseError> {
   let is_newtype = p.check(&TokenKind::Kw(Keyword::Newtype));
+  // Plan 45 leaf 4. The third keyword this one function serves, and the
+  // reason it reads the keyword rather than being told which it was.
+  let is_union = p.check(&TokenKind::Kw(Keyword::Union));
   p.advance();
   let name = p.ident("expected a type name after `data`")?;
 
@@ -92,6 +95,7 @@ pub(crate) fn data_decl(
     constructors,
     derives,
     is_newtype,
+    is_union,
     visibility,
     span: (start, p.prev_span().1),
     leading,

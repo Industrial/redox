@@ -11,6 +11,7 @@ pub(crate) mod scan_escape;
 pub(crate) mod scan_number;
 pub(crate) mod scan_operator;
 pub(crate) mod scan_quote;
+pub(crate) mod scan_raw_ident;
 pub(crate) mod scan_raw_string;
 pub(crate) mod scan_string;
 pub(crate) mod skip_interpolation;
@@ -26,6 +27,7 @@ use crate::lexer::scan_cstring::scan_cstring;
 use crate::lexer::scan_number::scan_number;
 use crate::lexer::scan_operator::scan_operator;
 use crate::lexer::scan_quote::scan_quote;
+use crate::lexer::scan_raw_ident::scan_raw_ident;
 use crate::lexer::scan_raw_string::scan_raw_string;
 use crate::lexer::scan_string::scan_string;
 use crate::lexer::trim_comment::trim_comment;
@@ -148,7 +150,18 @@ impl<'a> Lexer<'a> {
 
     // Prefixed literals, each only when the prefix is immediately followed by
     // its delimiter — otherwise `r`, `b` and `c` are ordinary identifiers.
-    if ch == 'r' && matches!(self.cur.peek_at(1), Some('"' | '#')) {
+    // A raw identifier `r#type` and a raw string `r#"…"#` share the first two
+    // characters, and plan 23's raw string got the spelling first — so
+    // `r#type` failed with *"a raw string must open with `\"`"* rather than
+    // as an unknown construct (plan 45 §1.4). One more character of lookahead
+    // separates them, which is what Rust's own lexer does.
+    if ch == 'r' && self.cur.peek_at(1) == Some('#') {
+      if self.cur.peek_at(2).is_some_and(|c| is_ident_start(c as u8)) {
+        return scan_raw_ident(&mut self.cur);
+      }
+      return scan_raw_string(&mut self.cur);
+    }
+    if ch == 'r' && self.cur.peek_at(1) == Some('"') {
       return scan_raw_string(&mut self.cur);
     }
     if ch == 'b' && matches!(self.cur.peek_at(1), Some('"' | '\'')) {

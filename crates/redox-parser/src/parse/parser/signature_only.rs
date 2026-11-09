@@ -39,6 +39,7 @@ pub(crate) fn signature_only(spine: &[TypeExpr], span: Span) -> Signature {
     generics: Vec::new(),
     is_const: false,
     is_async: false,
+    is_unsafe: false,
     bounds: Vec::new(),
     span,
   }

@@ -43,5 +43,15 @@ pub struct Signature {
   /// Rust has no `const async fn`, and that is **rustc's** to say: writing
   /// both emits both and rustc objects, which is AGENTS.md's rule.
   pub is_async: bool,
+  /// `name :: unsafe T -> U` — Rust's `unsafe fn`, plan 45 leaf 2.
+  ///
+  /// Read in the same place and for the same reason as
+  /// [`is_async`](Self::is_async): left in a type, `unsafe` would make the
+  /// first parameter's type `unsafe u32`.
+  ///
+  /// Doc 01 §26 names Unsafe Rust as something that *"must remain
+  /// possible"*, and doc 03 §23 item 2 rules out reaching it through the
+  /// escape hatch — so it is spelled rather than deferred.
+  pub is_unsafe: bool,
   pub span: Span,
 }

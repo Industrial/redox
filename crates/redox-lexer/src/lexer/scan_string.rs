@@ -1,7 +1,6 @@
 pub(crate) mod split_parts;
 
 use crate::lexer::cursor::Cursor;
-use crate::lexer::dedent_block::dedent_block;
 use crate::lexer::scan_string::split_parts::split_parts;
 use crate::lexer::skip_interpolation::skip_interpolation;
 use crate::{LexError, TokenKind};
@@ -75,11 +74,12 @@ pub(crate) fn scan_string(cur: &mut Cursor) -> Result<TokenKind, LexError> {
   let body = cur.slice((body_start, body_end));
 
   // A `"""` block drops its delimiter lines and loses its common indentation
-  // (doc 01 §7.2), before any part splitting.
+  // (doc 01 §7.2), before any part splitting. The rule lives in
+  // `verbatim_triple` because plan 45's escape hatch needs the same body
+  // *undecoded*, and two copies of this would be free to disagree about what a
+  // block's body is.
   let owned = if triple {
-    let inner = body.strip_prefix('\n').unwrap_or(body);
-    let inner = inner.trim_end_matches(' ');
-    dedent_block(inner.strip_suffix('\n').unwrap_or(inner))
+    crate::verbatim_triple::dedent_triple_body::dedent_triple_body(body)
   } else {
     body.to_string()
   };

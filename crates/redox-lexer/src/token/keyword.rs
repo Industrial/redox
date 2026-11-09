@@ -95,6 +95,29 @@ pub enum Keyword {
   // Testing
   Test,
   Assert,
+  /// Doc 01 §23.1's inline Rust escape hatch — plan 45 leaf 1.
+  ///
+  /// Reserved rather than contextual. Before this, `rust """…"""` parsed as a
+  /// **call** to a function named `rust` and emitted `rust("…")`, which no
+  /// program defines; reserving the word is what makes the documented syntax
+  /// mean what it says instead of silently meaning something else.
+  Rust,
+  /// `name :: unsafe T -> U` and the `unsafe` block — plan 45 leaf 2.
+  ///
+  /// Doc 01 §25.4 *"gestures at native Rust syntax or the inline Rust escape
+  /// hatch without choosing"*; doc 03 §23 item 2 forbids the hatch for this,
+  /// so the word is native syntax.
+  Unsafe,
+  /// `extern "C"` — plan 45 leaf 3, and doc 01 §26's FFI requirement.
+  Extern,
+  /// `union Reg = Reg { … }` — plan 45 leaf 4.
+  ///
+  /// A keyword of its own beside `data` and `newtype`, for `newtype`'s
+  /// reason: doc 18 §2.4's rule reads a *shape* off the constructors — one
+  /// constructor named for the type is a struct, anything else an enum — and
+  /// a union is not a shape, it is the same shape with different storage.
+  /// Nothing in the source text could select it, so it takes a word.
+  Union,
 }
 
 impl Keyword {
@@ -155,6 +178,10 @@ impl Keyword {
       "false" => Self::False,
       "test" => Self::Test,
       "assert" => Self::Assert,
+      "rust" => Self::Rust,
+      "unsafe" => Self::Unsafe,
+      "extern" => Self::Extern,
+      "union" => Self::Union,
       _ => return None,
     })
   }
@@ -216,6 +243,10 @@ impl Keyword {
       Self::False => "false",
       Self::Test => "test",
       Self::Assert => "assert",
+      Self::Rust => "rust",
+      Self::Unsafe => "unsafe",
+      Self::Extern => "extern",
+      Self::Union => "union",
     }
   }
 }

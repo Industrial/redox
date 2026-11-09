@@ -30,6 +30,7 @@ mod lexer;
 
 mod token;
 mod trivia;
+mod verbatim_triple;
 
 pub use lex::error::LexError;
 pub use lex::lex;
@@ -40,3 +41,4 @@ pub use token::kind::TokenKind;
 pub use token::str_part::StrPart;
 pub use trivia::Trivia;
 pub use trivia::kind::TriviaKind;
+pub use verbatim_triple::verbatim_triple;
