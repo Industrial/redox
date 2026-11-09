@@ -145,8 +145,17 @@ exhaustive match over `TokenKind` loses two arms it was carrying for nothing.
   Only the expression was missing — which is why `zeros :: [u8; 4]` parses today and
   `zeros = [0u8; 4]` does not.
 - **A growable repeat** needs no spelling of its own: `[v; n] :: Vec<T>` reaches it through
-  doc 18 §7's ascribed-literal form, since `Vec::from` takes an array. `vec![0; n]` also
-  stays available as an ordinary macro call.
+  doc 18 §7's ascribed-literal form, since `Vec::from` takes an array.
+
+  > **Corrected 2026-11-09 by plan 39.** This bullet also said *"`vec![0; n]` stays
+  > available as an ordinary macro call"*, which is false: **Redox has no macro-call
+  > syntax**. `vec![1, 2]` does not parse. Macros are *emitted* — `println!`, `assert!`,
+  > `panic!`, `format!` — and never written, because doc 18 §7 retired `!` as a suffix and
+  > left it meaning boolean negation. Plan 39 §1.4 found this by needing `pin!` for an
+  > executor and reaching for `Box::pin` instead.
+  >
+  > The ascribed form is therefore the *only* way to a growable repeat, which makes this
+  > bullet's first sentence load-bearing rather than merely true.
 - **Removing a token is a breaking change to nothing**, since neither construct ever parsed.
   If that is ever untrue for a future retirement, the removal needs a deprecation path and
   this plan is not the precedent for skipping one.
