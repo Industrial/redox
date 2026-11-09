@@ -167,13 +167,48 @@ impl<'a> Parser<'a> {
     }))
   }
 
-  /// One clause's `= body`, after its pattern row.
+  /// One clause's right-hand side, after its pattern row.
+  ///
+  /// Either `= body` or doc 18 §2.3's guard ladder. A guard list arrives on
+  /// the *next* line, indented, so the newline and `Indent` are consumed
+  /// before the `|` can be seen — which is why the two forms are told apart
+  /// after the layout tokens rather than before them.
   fn clause(&mut self, patterns: Vec<redox_ast::Pattern>) -> Result<redox_ast::Clause, ParseError> {
     let start = patterns.first().map_or(self.peek_span().0, |p| p.span().0);
+
+    if self.opens_a_guard_list() {
+      self.advance();
+      self.advance();
+      let guards = self.guards()?;
+      self.expect(&TokenKind::Dedent, "expected the guard list to end")?;
+      return Ok(redox_ast::Clause {
+        patterns,
+        body: redox_ast::ClauseBody::Guarded(guards),
+        span: (start, self.prev_span().1),
+        trailing: None,
+      });
+    }
+
     self.expect(
       &TokenKind::Eq,
-      "expected `=` after the equation's parameters",
+      "expected `=` after the equation's parameters, or an indented `|` guard list",
     )?;
+
+    // Doc 18 §2.3's own examples put short bodies on the `=` line — `fib 0 =
+    // 0` — and reserve the indented block for bodies that need statements.
+    // Both are the same construct, so both are read here rather than in two
+    // places that could drift apart.
+    if !self.check(&TokenKind::Newline) {
+      let body = self.inline_body()?;
+      let trailing = self.newline_with_trailing("expected a line break after the body")?;
+      return Ok(redox_ast::Clause {
+        patterns,
+        body: redox_ast::ClauseBody::Plain(body),
+        span: (start, self.prev_span().1),
+        trailing,
+      });
+    }
+
     let trailing = self.newline_with_trailing("expected a line break after `=`")?;
     self.expect_with(
       Code::EmptyBody,
@@ -211,13 +246,91 @@ impl<'a> Parser<'a> {
 
     Ok(redox_ast::Clause {
       patterns,
-      body: Block {
+      body: redox_ast::ClauseBody::Plain(Block {
         stmts,
         span: (body_start, body_end),
-      },
+      }),
       span: (start, self.prev_span().1),
       trailing,
     })
+  }
+
+  /// One expression as a body, for a clause or guard written on one line.
+  ///
+  /// A block of one tail statement, so the emitter has one body shape to
+  /// handle rather than two — the inline form is a spelling, not a second
+  /// kind of body.
+  fn inline_body(&mut self) -> Result<Block, ParseError> {
+    let start = self.peek_span().0;
+    let value = parse_expr(self, 0)?;
+    let end = self.prev_span().1;
+    Ok(Block {
+      stmts: vec![Stmt {
+        kind: StmtKind::Expr(value),
+        span: (start, end),
+        leading: Vec::new(),
+        trailing: None,
+      }],
+      span: (start, end),
+    })
+  }
+
+  /// Whether a guard list follows: a line break, an indent, then `|`.
+  ///
+  /// Three tokens of lookahead rather than one, because a line break after
+  /// the pattern row is also what a *forgotten* `=` looks like. Deciding on
+  /// the break alone made `add a b` with no `=` report "expected at least one
+  /// `|` guard" and then cascade into two more errors as the body was read as
+  /// fresh items — a worse diagnostic than the one it replaced, for the
+  /// likelier mistake. Doc 05 §4's rule is that the first error names the
+  /// actual defect.
+  fn opens_a_guard_list(&self) -> bool {
+    self.check(&TokenKind::Newline)
+      && self.peek_at(1).is_some_and(|t| t.kind == TokenKind::Indent)
+      && self.peek_at(2).is_some_and(|t| t.kind == TokenKind::Or)
+  }
+
+  /// A guard ladder: `| cond = body` rows, in order.
+  ///
+  /// `otherwise` is Haskell's name for the final catch-all and is recognised
+  /// here as a condition of `None`, so the emitter can write a bare `else`.
+  /// Lowering it to `if true` instead would leave rustc unable to see that the
+  /// ladder is total, and every guarded function would need a return the
+  /// author did not write.
+  fn guards(&mut self) -> Result<Vec<redox_ast::Guard>, ParseError> {
+    let mut rows = Vec::new();
+    loop {
+      self.skip_separators();
+      if !self.check(&TokenKind::Or) {
+        break;
+      }
+      let start = self.peek_span().0;
+      self.advance();
+
+      let condition = if matches!(&self.peek().kind, TokenKind::Ident(text) if text == "otherwise")
+      {
+        self.advance();
+        None
+      } else {
+        Some(parse_expr(self, 0)?)
+      };
+
+      self.expect(&TokenKind::Eq, "expected `=` after a guard's condition")?;
+      let body = self.inline_body()?;
+      self.newline_with_trailing("expected a line break after a guard's body")?;
+
+      rows.push(redox_ast::Guard {
+        condition,
+        body,
+        span: (start, self.prev_span().1),
+      });
+    }
+
+    debug_assert!(
+      !rows.is_empty(),
+      "`opens_a_guard_list` guarantees a first `|`"
+    );
+    Ok(rows)
   }
 
   /// `Stmt := Binding | "return" Expr? | Expr`, each closed by a `Newline`.

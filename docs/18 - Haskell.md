@@ -764,8 +764,8 @@ declared the whole surface "done" would be claiming an implementation that does 
 ### 11.1 Converted — `done`
 
 The constructs the compiler actually implements today are the lexical surface, the function
-signature, and expression application. All three are converted, and **344 tests pass** with
-`fmt`, `clippy -D warnings` and the full gate green:
+signature, and expression application. All three are converted, and the suite is green with
+`fmt` and `clippy -D warnings`:
 
 | From | To | Touches |
 |---|---|---|
@@ -780,13 +780,33 @@ signature, and expression application. All three are converted, and **344 tests 
 The `::` adjacency rule arrives with the signature line, because the signature is the first
 place it is needed.
 
+Since then, one construct per commit:
+
+| Commit | Construct | § |
+|---|---|---|
+| `3944640` | `<-` is a token at all — it was lexing as `<` then unary `-` and silently emitting `x < -f` | §3.1 |
+| `f3069a2` | ascription `e :: T`, and the spaced-vs-tight `::` rule that distinguishes it from a path | §2.2 |
+| `0abcdf0` | lambdas `\x -> …`, `$`, and parentheses that are only grouping | §4, §2.1 |
+| `2ce7485` | the `\|>` receiver pipeline — parsed since plan 03, previously a `compile_error!` | §4 |
+| `3bb6710` | multi-clause equations with pattern binders | §2.3 |
+| *this* | the `\|` guard ladder, and short bodies on the `=` line | §2.3 |
+
+The guard commit closed a hole the clause commit had left: doc 18 §2.3's own example
+`fib 0 = 0` did not parse, because the clause body required a line break and an indent. It
+was found by writing the doc's example into a *guards* test, not by anything in the clause
+commit's own tests — which is the argument for §2.3's examples being fixtures rather than
+prose.
+
 ### 11.2 Specification for later plans
 
-`data`, `newtype`, `class`, `instance`, `deriving`, guards, `case … of`, comprehensions, `<-`
-in all four positions, `$`, sections, `where` locals, `errors` and `test` blocks are specified
-here and **not implemented**. Doc 04's plan rows for those constructs are re-pointed at this
-document rather than doc 03; the lowerings they must produce are doc 03's, unchanged, as §1
-requires.
+`data`, `newtype`, `class`, `instance`, `deriving`, `case … of`, comprehensions, sections,
+`where` locals, `??`, `errors` and `test` blocks, and `export` → `pub`, are specified here and
+**not implemented**. Doc 04's plan rows for those constructs are re-pointed at this document
+rather than doc 03; the lowerings they must produce are doc 03's, unchanged, as §1 requires.
+
+`<-` is implemented in statement position (§3.1), which is the position the flattening
+lowering belongs to; the other three positions in §3 are listed above with the constructs
+that introduce them.
 
 ### 11.3 What does not change
 

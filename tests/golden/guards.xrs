@@ -1,0 +1,48 @@
+// Doc 18 §2.3. Equations, pattern rows and the `|` guard ladder, checked by
+// running the generated Rust: a ladder lowered to the wrong chain prints the
+// wrong word.
+
+// A ladder, including `otherwise` as the final catch-all.
+fn tier(spend: u64) -> &'static str {
+    if spend > 10_000 {
+        "platinum"
+    } else if spend > 1_000 {
+        "gold"
+    } else {
+        "basic"
+    }
+}
+
+// Several equations, each with a short body on the `=` line.
+fn fib(__rdx_a0: u64) -> u64 {
+    match __rdx_a0 {
+        0 => 0,
+        1 => 1,
+        n => fib(n - 1) + fib(n - 2),
+    }
+}
+
+// A pattern row and a ladder on the same function: the ladder lands inside
+// the clause's `match` arm.
+fn step(__rdx_a0: u64) -> u64 {
+    match __rdx_a0 {
+        0 => 0,
+        n => {
+            if n > 100 {
+                100
+            } else {
+                n
+            }
+        }
+    }
+}
+
+fn main() {
+    println!("{}", tier(50_000));
+    println!("{}", tier(5_000));
+    println!("{}", tier(10));
+    println!("{}", fib(10));
+    println!("{}", step(0));
+    println!("{}", step(500));
+    println!("{}", step(7));
+}

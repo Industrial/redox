@@ -1,10 +1,14 @@
+pub(crate) mod arm;
 pub(crate) mod double_braces;
+pub(crate) mod emit_body;
 pub(crate) mod emit_clauses;
 pub(crate) mod emit_fn;
 pub(crate) mod emit_stmts;
 pub(crate) mod expr;
 pub(crate) mod expr_list;
+pub(crate) mod guards;
 pub(crate) mod inline_comment;
+pub(crate) mod one_tail_expression;
 pub(crate) mod pad;
 pub(crate) mod pipeline;
 pub(crate) mod print_call;

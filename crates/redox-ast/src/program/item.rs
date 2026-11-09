@@ -1,5 +1,7 @@
 pub(crate) mod clause;
+pub(crate) mod clause_body;
 pub(crate) mod fn_decl;
+pub(crate) mod guard;
 pub(crate) mod param;
 pub(crate) mod pattern;
 pub(crate) mod signature;

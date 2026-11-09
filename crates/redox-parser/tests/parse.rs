@@ -10,6 +10,19 @@ fn prog(src: &str) -> Program {
   parse_source(src).expect("should parse")
 }
 
+/// A function's first clause's statements.
+///
+/// Doc 18 §2.3 made a clause body either a block or a guard ladder, so the
+/// tests that predate guards go through this rather than repeating the
+/// unwrap.
+fn stmts(f: &redox_ast::FnDecl) -> &[redox_ast::Stmt] {
+  &f.clauses[0]
+    .body
+    .plain()
+    .expect("expected a plain body")
+    .stmts
+}
+
 fn errors(src: &str) -> Vec<redox_parser::ParseError> {
   match parse_source(src).expect_err("should fail") {
     ParseFailure::Parse(errs) => errs,
@@ -23,8 +36,8 @@ fn parses_the_hello_slice() {
   assert_eq!(p.items.len(), 1);
   let Item::Fn(f) = &p.items[0];
   assert_eq!(f.name.text, "main");
-  assert_eq!(f.clauses[0].body.stmts.len(), 1);
-  let StmtKind::Expr(Expr::Call { callee, args, .. }) = &f.clauses[0].body.stmts[0].kind else {
+  assert_eq!(stmts(f).len(), 1);
+  let StmtKind::Expr(Expr::Call { callee, args, .. }) = &stmts(f)[0].kind else {
     panic!("expected a call");
   };
   assert_eq!(
@@ -44,7 +57,7 @@ fn nodes_carry_spans_that_index_the_source() {
   let p = prog(src);
   let Item::Fn(f) = &p.items[0];
   assert_eq!(&src[f.name.span.0..f.name.span.1], "main");
-  let StmtKind::Expr(e) = &f.clauses[0].body.stmts[0].kind else {
+  let StmtKind::Expr(e) = &stmts(f)[0].kind else {
     panic!("expected an expression statement");
   };
   assert_eq!(&src[e.span().0..e.span().1], "print \"hello\"");
@@ -63,10 +76,7 @@ fn carries_a_trailing_comment_onto_the_statement() {
   let p = prog("main :: ()\nmain =\n  print \"x\" -- why\n");
   let Item::Fn(f) = &p.items[0];
   assert_eq!(
-    f.clauses[0].body.stmts[0]
-      .trailing
-      .as_ref()
-      .map(|t| t.text.as_str()),
+    stmts(f)[0].trailing.as_ref().map(|t| t.text.as_str()),
     Some("why")
   );
 }

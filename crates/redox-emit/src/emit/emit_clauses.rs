@@ -1,4 +1,5 @@
-use crate::emit::emit_stmts::emit_stmts;
+use crate::emit::arm::emit_arm;
+use crate::emit::emit_body::emit_body;
 use crate::emit::pad::pad;
 use crate::emit::rust_indent::RUST_INDENT;
 use crate::emit::sink::Sink;
@@ -43,7 +44,7 @@ pub(crate) fn emit_clauses(out: &mut Sink<'_>, f: &FnDecl) {
       .iter()
       .all(redox_ast::Pattern::is_irrefutable);
   if simple {
-    emit_stmts(out, &f.clauses[0].body.stmts, RUST_INDENT, tail);
+    emit_body(out, &f.clauses[0].body, RUST_INDENT, tail);
     return;
   }
 
@@ -67,13 +68,7 @@ pub(crate) fn emit_clauses(out: &mut Sink<'_>, f: &FnDecl) {
       many => format!("({})", many.join(", ")),
     };
 
-    pad(out, RUST_INDENT * 2);
-    out.push_str(&format!("{arm} => {{\n"));
-    // Every arm is a tail position: a `match` arm's value is the arm's value,
-    // whether or not the function returns anything.
-    emit_stmts(out, &clause.body.stmts, RUST_INDENT * 3, tail);
-    pad(out, RUST_INDENT * 2);
-    out.push_str("}\n");
+    emit_arm(out, clause, &arm, RUST_INDENT * 2, tail);
   }
 
   pad(out, RUST_INDENT);

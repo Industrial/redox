@@ -1,4 +1,4 @@
-error[RDX0103]: expected a parameter name, a literal pattern, `_`, or `=`
+error[RDX0101]: expected `=` after the equation's parameters, or an indented `|` guard list
   --> missing_arrow.sdx:3:1
   |
 3 |   a + b

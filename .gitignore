@@ -63,6 +63,9 @@ examples/*/Cargo.lock
 # `.xrs` files under `tests/golden/` are expectations, not artifacts, and are
 # tracked.
 examples/*.xrs
+# Plan 06's source map is the same kind of artifact, and `examples/*.xrs`
+# does not match it — the suffix is `.xrs.map`.
+examples/*.xrs.map
 Cargo.lock
 Thumbs.db
 charts/
