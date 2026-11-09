@@ -85,6 +85,36 @@ pub enum Expr {
     is_move: bool,
     span: Span,
   },
+  /// `user?.profile?.name` — doc 01 §13.1's optional chain, plan 28.
+  ///
+  /// The head and a run of `?.`-joined **field names**. Doc 03 §12.3's
+  /// grammar chains field accesses; a method on the end of a chain is an
+  /// ordinary postfix on the chain's result, so it is not here.
+  ///
+  /// Lowered via doc 02 §6.3's closure — `?` inside a closure returning
+  /// `Option` — which hands the whole `and_then`/`map` unification to rustc.
+  /// Every link takes `as_ref()`, because §12.3 resolves doc 02 §13's
+  /// question 7 outright: **the chain borrows and never clones.**
+  OptionalChain {
+    head: Box<Expr>,
+    segments: Vec<String>,
+    span: Span,
+  },
+  /// `try` with an indented block — doc 03 §12.4, plan 28.
+  ///
+  /// A block in which `?` returns from the **block** rather than the
+  /// enclosing function, lowered to an immediately-invoked closure. Rust has
+  /// wanted this for years and has it only unstably, so this is the one row
+  /// that makes an unavailable Rust construct available rather than an
+  /// available one nicer to spell.
+  ///
+  /// Distinct from plan 20's `Do` by exactly the `(|| … )()` wrapper: a `try`
+  /// lowered to a bare block compiles, and its `?` then returns from the
+  /// function. That is why plan 28 §3 proves it by running.
+  TryBlock {
+    body: crate::Block,
+    span: Span,
+  },
   /// `e :: T`, doc 18 §6's ascription.
   ///
   /// Lowers to `{ let __rdx_t: T = e; __rdx_t }` — a block, because Rust has
@@ -286,6 +316,8 @@ impl Expr {
       | Expr::Paren { span, .. }
       | Expr::Path { span, .. }
       | Expr::Lambda { span, .. }
+      | Expr::OptionalChain { span, .. }
+      | Expr::TryBlock { span, .. }
       | Expr::Ascribe { span, .. }
       | Expr::StrLit { span, .. }
       | Expr::StrInterp { span, .. }

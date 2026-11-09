@@ -1,11 +1,13 @@
 use crate::emit::ascribed_list::ascribed_list;
 use crate::emit::case::emit_case;
+use crate::emit::catch_fallback::catch_fallback;
 use crate::emit::coalesce::coalesce;
 use crate::emit::comprehension::emit_comprehension;
 use crate::emit::emit_condition::emit_condition;
 use crate::emit::emit_do::emit_do;
 use crate::emit::expr_list::expr_list;
 use crate::emit::format_template::format_template;
+use crate::emit::optional_chain::optional_chain;
 use crate::emit::panic_macro::panic_macro;
 use crate::emit::pipeline::pipeline;
 use crate::emit::print_call::print_call;
@@ -14,6 +16,7 @@ use crate::emit::record::emit_record;
 use crate::emit::rust_escapes::rust_escapes;
 use crate::emit::rust_indent::RUST_INDENT;
 use crate::emit::section::emit_section;
+use crate::emit::try_block::try_block;
 use crate::emit::unparen::unparen;
 use redox_ast::{BinaryOp, Expr};
 
@@ -128,6 +131,9 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
         format!("format!(\"{template}\", {})", args.join(", "))
       }
     }
+    // Doc 01 §13.1's optional chain and doc 03 §12.4's `try` block — plan 28.
+    Expr::OptionalChain { head, segments, .. } => optional_chain(head, segments, indent),
+    Expr::TryBlock { body, .. } => try_block(body, indent),
     // Doc 03 §11.2's four literal kinds — verbatim, never a format string.
     Expr::RawLit { text, .. } => text.clone(),
     Expr::Num { text, .. } => text.clone(),
@@ -161,6 +167,14 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
       rhs,
       ..
     } => coalesce(lhs, rhs, indent),
+    // Doc 03 §12.2's `catch` — `??`'s mirror for `Result`, and the same
+    // `match` lowering for §12.1's reasons. Plan 28.
+    Expr::Binary {
+      op: BinaryOp::Catch,
+      lhs,
+      rhs,
+      ..
+    } => catch_fallback(lhs, rhs, indent),
     Expr::Binary { op, lhs, rhs, .. } => match op.rust_text() {
       // A range operator is written **tight**, which is Rust's own style and
       // therefore rustfmt's: it rewrites `1 .. 4` to `1..4`, and plan 04's

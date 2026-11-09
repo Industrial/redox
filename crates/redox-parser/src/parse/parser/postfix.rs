@@ -1,6 +1,7 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
 use crate::parse::parser::arguments::arguments;
+use crate::parse::parser::optional_chain::optional_chain;
 use crate::parse::parser::parse_expr::parse_expr;
 use crate::parse::parser::record_literal::record_literal;
 use redox_ast::{Expr, Ident};
@@ -24,6 +25,16 @@ pub(crate) fn postfix(p: &mut Parser, lhs: Expr) -> Result<Result<Expr, Expr>, P
   //
   // A method call keeps its parentheses, because `.name(args)` is a postfix
   // step on a *receiver* and has no juxtaposition reading to collide with.
+
+  // Doc 01 §13.1's `?.` chain — plan 28. Read **before** `?`, because `?.`
+  // is one token and would never match `Question` anyway; the order is kept
+  // explicit so a future reader does not reorder them into a collision.
+  //
+  // The whole run is consumed here rather than one link per postfix step,
+  // because the lowering is one closure over the run.
+  if p.check(&TokenKind::QuestionDot) {
+    return Ok(Ok(optional_chain(p, lhs)?));
+  }
 
   // `e?` — Rust's try operator. A postfix step like any other, and the
   // reason doc 03 §12.5's generated `From` impl has a caller.

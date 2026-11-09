@@ -42,6 +42,7 @@ pub(crate) mod lambda;
 pub(crate) mod method_context;
 pub(crate) mod module_decl;
 pub(crate) mod opens_a_section;
+pub(crate) mod optional_chain;
 pub(crate) mod parse_expr;
 pub(crate) mod parse_spine;
 pub(crate) mod path_or_ident;

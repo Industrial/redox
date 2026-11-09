@@ -1309,8 +1309,23 @@ options are not flattened, satisfying doc 01 §13.1, because `?` does not flatte
 n = user?.profile?.name
 ```
 ```rust
-let n = (|| Some(user.as_ref()?.profile.as_ref()?.name.as_ref()))();
+let n = (|| Some(&user.as_ref()?.profile.as_ref()?.name))();
 ```
+
+> **Corrected 2026-11-09 by plan 28 (§10.1).** This section published
+> `.as_ref()` on the **final** link as well. That does not compile when the last field is
+> not an `Option` — `.as_ref()` then means `AsRef::as_ref`, which `String` does not
+> implement for `String` — and choosing between the two meanings requires a type, so the
+> published form fails §2's first admission test. The same test §12.1 calls *"decisive
+> rather than merely persuasive"* when rejecting `unwrap_or_else` three sections earlier.
+>
+> The final link therefore takes **no** method and the whole path takes a leading `&`, which
+> borrows whatever is there whatever its type. The claim this section makes is unchanged:
+> the chain borrows and never clones.
+>
+> One consequence worth stating, because the phrasing below suggests otherwise: a final
+> field of type `Option<String>` yields `Option<&Option<String>>` — nested once, borrow
+> outside — and not `Option<Option<&String>>`.
 
 Owning the result is written explicitly:
 

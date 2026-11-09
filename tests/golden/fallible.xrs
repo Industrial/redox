@@ -1,0 +1,158 @@
+// Doc 03 §12's three remaining constructs — `catch`, `?.` and `try` blocks.
+// Plan 28.
+//
+// All three lower by handing the work to rustc, and two by the same
+// mechanism: `?` inside a closure that returns from itself rather than from
+// the enclosing function. Doc 18 §8 keeps all three despite having no Haskell
+// analogue, "because deleting them would cost reachability or ergonomics with
+// nothing to show".
+//
+// Checked by compiling and **running** with zero rustc output. The `try`
+// block is the case only a run can catch: lowered to a bare block it still
+// compiles, and its `?` then returns from `main`.
+
+// A type that is **not** `Clone`, so the `?.` chain below cannot be cloning.
+// Doc 03 §12.3 resolves doc 02 §13's question 7 — "the chain borrows and
+// never clones" — and this is what makes that a tested fact rather than a
+// claim: a lowering that cloned would print exactly the same thing and fail
+// to compile here.
+struct Tag(String);
+
+struct Profile {
+    name: String,
+    tag: Tag,
+    nickname: Option<String>,
+}
+
+struct User {
+    profile: Option<Profile>,
+}
+
+// The fallible operation everything below uses. `::` ascribes the parse's
+// type, because `parse` is generic over its target and nothing else here says
+// which one.
+fn parse_it(s: &str) -> Result<i32, String> {
+    let n = {
+        let __rdx_t: Result<i32, core::num::ParseIntError> = s.parse();
+        __rdx_t
+    };
+    n.map_err(|e| e.to_string())
+}
+
+// `catch` takes the `Ok` value when there is one and the fallback when there
+// is not — doc 03 §12.2. A `match`, not `unwrap_or_else`, for §12.1's
+// decisive reason: that method's closure arity differs between `Option` and
+// `Result`, so a method lowering would be type-dependent and Redox has no
+// types.
+//
+// No parentheses are needed around `parse_it s`: `catch` is a keyword, so the
+// parenless argument list ends there. Doc 03 §12.2 claims this by §5.1.1's
+// terminator set, which dissolved with plan 19 — plan 28 §1.4 verified the
+// property survived rather than assuming it.
+fn fallback(s: &str) -> i32 {
+    match parse_it(s) {
+        Ok(__rdx_v) => __rdx_v,
+        Err(_) => 0,
+    }
+}
+
+// The fallback may **bind** the error. The right-hand side is doc 18 §4's
+// lambda, so its parameter becomes the `Err` arm's pattern — no second syntax
+// for a shape the language already has.
+fn reason(s: &str) -> String {
+    match parse_it(s).map(|n| n.to_string()) {
+        Ok(__rdx_v) => __rdx_v,
+        Err(e) => e,
+    }
+}
+
+// `?.` chains field accesses through `Option`s, lowering to doc 02 §6.3's
+// closure. The whole `and_then`/`map` unification is rustc's: hand-written
+// combinators would need `and_then` for a link that yields an `Option` and
+// `map` for one that does not, which only a type checker can tell apart.
+fn first_name(u: &Option<User>) -> Option<&String> {
+    (|| Some(&u.as_ref()?.profile.as_ref()?.name))()
+}
+
+// The same chain ending on the non-`Clone` field. If this compiles, the chain
+// borrows.
+fn first_tag(u: &Option<User>) -> Option<&Tag> {
+    (|| Some(&u.as_ref()?.profile.as_ref()?.tag))()
+}
+
+// Nested options are **not** flattened — doc 01 §13.1 — and that costs
+// nothing to honour, because `?` does not flatten. A final field of type
+// `Option<String>` yields `Option<&Option<String>>`, nested exactly once.
+fn nickname_of(u: &Option<User>) -> Option<&Option<String>> {
+    (|| Some(&u.as_ref()?.profile.as_ref()?.nickname))()
+}
+
+// `try` is a block in which `?` returns from the **block**. Rust has wanted
+// this for years and has it only unstably; the immediately-invoked closure
+// gives it on stable today, which is doc 03 §2's reachability test answered
+// without qualification.
+fn attempt(x: &str, y: &str) -> Result<i32, String> {
+    (|| {
+        let a = parse_it(x)?;
+        let b = parse_it(y)?;
+        Ok(a + b)
+    })()
+}
+
+// `print_outcome`'s parameter is what pins the `try` block's error type
+// below: the closure's return type is inferred from its tail and its `?`s, so
+// nothing annotates it and a caller's signature is enough.
+fn print_outcome(r: Result<i32, String>) {
+    println!("{}", r.is_ok());
+}
+
+// **The case the whole plan exists for, and it is doubly caught.**
+//
+// This function returns `&'static str`, not a `Result`. So the `?` inside the
+// `try` can only be legal because it is inside a *closure* — lowered to a
+// bare block, it would be `?` in a function that returns `&'static str`, and
+// rustc would reject it outright.
+//
+// And at runtime, the statement after the `try` still runs: a lowering where
+// `?` escaped the block would skip `print_outcome` and never print
+// `"reached"`. One case, caught by compiling *and* by running.
+fn after_a_failed_try() -> &'static str {
+    let r = (|| {
+        let a = parse_it("no")?;
+        Ok(a)
+    })();
+    print_outcome(r);
+    "reached"
+}
+
+fn describe_tag(t: &Tag) -> &String {
+    &t.0
+}
+
+fn main() {
+    println!("{}", fallback("12"));
+    println!("{}", fallback("no"));
+    println!("{}", reason("7"));
+    println!("{}", reason("no"));
+
+    let u = Some(User {
+        profile: Some(Profile {
+            name: "ada".to_string(),
+            tag: Tag("t1".to_string()),
+            nickname: None,
+        }),
+    });
+    let empty = {
+        let __rdx_t: Option<User> = None;
+        __rdx_t
+    };
+
+    println!("{}", first_name(&u).is_some());
+    println!("{}", first_name(&empty).is_some());
+    println!("{}", describe_tag(first_tag(&u).unwrap()));
+    println!("{}", nickname_of(&u).unwrap().is_none());
+
+    println!("{}", attempt("1", "2").unwrap());
+    println!("{}", attempt("1", "no").is_err());
+    println!("{}", after_a_failed_try());
+}

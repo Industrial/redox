@@ -1,5 +1,5 @@
 use redox_ast::BinaryOp;
-use redox_lexer::TokenKind;
+use redox_lexer::{Keyword, TokenKind};
 
 /// Rust's precedence table, **unchanged**: a map from token to operator and
 /// `(left, right)` binding powers.
@@ -12,6 +12,11 @@ pub(crate) fn binary_power(kind: &TokenKind) -> Option<(BinaryOp, u8, u8)> {
   let (op, left) = match kind {
     TokenKind::Pipe => (BinaryOp::Pipeline, 1),
     TokenKind::Coalesce => (BinaryOp::Coalesce, 3),
+    // Doc 03 §4.5 places `catch` *"at `??`'s level"* — plan 28. Being a
+    // keyword and not in `starts_argument`'s allow-list is what makes
+    // `parse s catch 0` need no parentheses, which §12.2 claims and plan 28
+    // §1.4 verified rather than assumed.
+    TokenKind::Kw(Keyword::Catch) => (BinaryOp::Catch, 3),
     TokenKind::DotDot => (BinaryOp::Range, 5),
     TokenKind::DotDotEq => (BinaryOp::RangeInclusive, 5),
     TokenKind::OrOr => (BinaryOp::Or, 7),

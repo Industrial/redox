@@ -29,6 +29,17 @@ pub enum BinaryOp {
   RangeInclusive,
   /// `??` — `Option` coalescing (doc 03 §12.1).
   Coalesce,
+  /// `catch` — doc 03 §12.2's `Result` fallback, plan 28.
+  ///
+  /// At `??`'s precedence level (doc 03 §4.5) and lowered the same way, to a
+  /// `match`, for §12.1's reasons: `unwrap_or_else`'s closure arity differs
+  /// between `Option` and `Result`, so a method lowering would be
+  /// type-dependent and Redox has no types.
+  ///
+  /// `??` serves `Option` and `catch` serves `Result` — doc 03 §12 keeps the
+  /// two *"visually distinct and non-interchangeable"*, which is why this is a
+  /// second operator rather than one that inspects its operand.
+  Catch,
   /// `|>` — the receiver pipeline (doc 03 §5.3).
   Pipeline,
 }
@@ -60,7 +71,7 @@ impl BinaryOp {
       Self::Shr => ">>",
       Self::Range => "..",
       Self::RangeInclusive => "..=",
-      Self::Coalesce | Self::Pipeline => return None,
+      Self::Coalesce | Self::Catch | Self::Pipeline => return None,
     })
   }
 
