@@ -21,6 +21,26 @@ pub enum TriviaKind {
   /// `### … ###` — a fenced multi-line comment, becoming `/* … */`. The stored
   /// text is the body between the fences.
   FencedComment,
+  /// `#[…]` — an outer attribute, copied through verbatim (doc 03 §13.2).
+  ///
+  /// **Trivia and not an item**, which is plan 18 §1.3's whole design. An
+  /// attribute is not a declaration — `#[inline]` does not stand alone — and
+  /// trivia is Redox's mechanism for text that belongs to a construct without
+  /// being one. Joining it keeps source order with comments, reaches every
+  /// item kind and every statement at once, and inherits doc 02 §10.1's rule
+  /// that trivia survives into the `.xrs`.
+  ///
+  /// The stored text excludes `#[` and `]`, as the token's does: an inner
+  /// attribute needs different brackets, so the emitter writes them.
+  Attribute,
+  /// `#![…]` — an inner attribute.
+  ///
+  /// Emitted **in place**. Rust requires inner attributes to precede every
+  /// other item, so one written halfway down a file lands halfway down the
+  /// `.xrs` and rustc objects — which plan 18 §1.4 chooses deliberately over
+  /// gathering them to the top, because gathering is a reordering and plan 14
+  /// decision 3 declined those without cause.
+  InnerAttribute,
   /// A run of one or more blank lines. The run's length is not recorded,
   /// because the emitter collapses any run to a single blank line and nothing
   /// in the language depends on the count.

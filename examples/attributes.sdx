@@ -1,0 +1,45 @@
+-- Doc 03 §13.2's attributes — plan 18. "Any `#[...]` or `#![...]` line is
+-- copied through verbatim, so every present and future Rust attribute is
+-- reachable with no per-attribute work."
+--
+-- Checked by compiling with **zero** rustc output, which is what makes this
+-- example worth more than its golden: an attribute copied through but
+-- attached to the *wrong* item is still valid Rust, so only its effect
+-- distinguishes the two. Every attribute below has an effect that rustc would
+-- complain about the absence of.
+
+#![allow(clippy::needless_return)]
+
+-- `#[derive(…)]` written as an attribute rather than as doc 18 §2.4's
+-- `deriving` clause. §13.2 is careful that the native spelling is "not a
+-- replacement", so both reach the same Rust.
+#[derive(Debug, Clone)]
+data Point = Point { x :: f64, y :: f64 }
+
+-- A doc comment, an attribute and the item in that order — three trivia and
+-- one declaration, emitted in source order, which is the first thing plan 18
+-- §1.3 says trivia buys.
+-- | The squared magnitude of a point.
+#[inline]
+magnitude :: &Point -> f64
+magnitude p = p.x * p.x + p.y * p.y
+
+-- `#[allow(…)]` is only *proven* by a lint that would otherwise fire. A
+-- lowercase `const` is rustc's `non_upper_case_globals`, which doc 03 §13.4
+-- says is a lint and not semantics — so this attribute is the reason the
+-- example compiles silently, and removing it breaks the build.
+#[allow(non_upper_case_globals)]
+const threshold :: f64 = 2.0
+
+-- An attribute with a string and an `=` inside it, which is the form §13.2's
+-- own `#[serde(rename = "id")]` example uses. `must_use` is in `core`, so
+-- this needs no dependency to prove the shape round-trips.
+#[must_use = "a magnitude is worth looking at"]
+scaled :: &Point -> f64
+scaled p = magnitude p * threshold
+
+main :: ()
+main =
+  p = Point { x = 3.0, y = 4.0 }
+  print (magnitude (&p))
+  print (scaled (&p))

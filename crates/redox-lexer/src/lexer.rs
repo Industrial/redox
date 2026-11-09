@@ -223,11 +223,18 @@ impl<'a> Lexer<'a> {
         }
       }
       let text = self.cur.slice((body_start, self.cur.pos() - 1)).to_string();
-      self.push(
-        TokenKind::Attr { text, inner },
+      // **Trivia, not a token** — plan 18 §1.3. An attribute belongs to the
+      // declaration below it, which is what `leading` already means, and
+      // every item kind and every statement carries one.
+      self.pending.push(Trivia::comment(
+        if inner {
+          TriviaKind::InnerAttribute
+        } else {
+          TriviaKind::Attribute
+        },
+        text,
         (start, self.cur.pos()),
-        false,
-      );
+      ));
       return Ok(true);
     }
 

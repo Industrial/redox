@@ -17,6 +17,10 @@ use std::fmt::Write as _;
 /// made this match non-exhaustive; handling them here rather than adding a
 /// `_ => {}` arm is deliberate — a wildcard would silently drop a doc comment,
 /// which is the exact defect doc 02 §10.1 exists to prevent.
+///
+/// Plan 18's attributes are trivia for the same reason, and the exhaustive
+/// match is what made adding them a two-arm change: a wildcard here would
+/// have dropped every `#[…]` in the file and compiled.
 pub(crate) fn emit_trivia(out: &mut Sink<'_>, trivia: &[Trivia], indent: usize) {
   for t in trivia {
     // A comment the author wrote has a source position of its own, so the
@@ -35,6 +39,17 @@ pub(crate) fn emit_trivia(out: &mut Sink<'_>, trivia: &[Trivia], indent: usize) 
       TriviaKind::FencedComment => {
         pad(out, indent);
         let _ = writeln!(out, "/* {} */", t.text);
+      }
+      // Doc 03 §13.2: verbatim. The brackets are written here rather than
+      // stored, because an inner attribute needs different ones and the text
+      // is the same either way.
+      TriviaKind::Attribute => {
+        pad(out, indent);
+        let _ = writeln!(out, "#[{}]", t.text);
+      }
+      TriviaKind::InnerAttribute => {
+        pad(out, indent);
+        let _ = writeln!(out, "#![{}]", t.text);
       }
       TriviaKind::BlankLines => {
         if !out.is_empty() && !out.ends_with("{\n") && !out.ends_with("\n\n") {

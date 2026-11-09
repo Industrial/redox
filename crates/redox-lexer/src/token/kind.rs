@@ -66,12 +66,6 @@ pub enum TokenKind {
   HashBrace,
   /// `%w[` — a word-array literal's opening delimiter. Closed by `RBracket`.
   PercentW,
-  /// `#[…]` — an attribute, carried verbatim for passthrough (doc 03 §13.2).
-  /// The stored text excludes `#[` and `]`; `inner` distinguishes `#![…]`.
-  Attr {
-    text: String,
-    inner: bool,
-  },
 
   // ---- operators ----
   Eq,
@@ -166,6 +160,11 @@ impl TokenKind {
   }
 
   /// Whether a line **ending** in this token continues onto the next.
+  ///
+  /// Plan 18 removed `Attr`. An attribute is **trivia**, not a token: it
+  /// belongs to the declaration below it, which is what `Trivia` already means,
+  /// and a token nothing produced would have been a variant every exhaustive
+  /// match had to carry for nothing.
   ///
   /// Plan 02 leaf 2: doc 01 §4.2 says "newlines terminate statements unless an
   /// expression is continued" without saying when. A line ending in a binary

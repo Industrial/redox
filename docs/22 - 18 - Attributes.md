@@ -3,7 +3,7 @@
 Plan ID: `attributes-passthrough`
 Depends on: 02 (`lexical-surface`), 16 (`module-scope-bindings`)
 Milestone: 4 — *specification-correct*
-Status: `planned`
+Status: `done`
 
 ---
 
@@ -182,4 +182,64 @@ to.
 
 ## 10. Result
 
-*Filled in when the plan ships, including anything above that turned out wrong.*
+Shipped. 545 tests pass; `fmt`, `clippy -D warnings` and the gate are green. Every criterion
+is met as written, which is a first in this run of plans and is entirely because §1.3's
+decision was the right one.
+
+### 10.1 Two arms and a deletion
+
+The whole implementation is: two `TriviaKind` variants, two arms in `emit_trivia`, and the
+lexer pushing trivia where it used to push a token. Nothing else changed — not an item, not
+a parser, not a span map.
+
+§1.3 predicted three things and got all three, plus one it did not claim:
+
+| Claimed | Outcome |
+|---|---|
+| Ordering with comments preserved | Both orders tested, both hold |
+| Nine item kinds at once | No item node gained a field |
+| Statements too | `#[allow(unused)]` on a `let` works, untouched |
+| — | **A class member too**, because `emit_member` already wrote its trivia at the member's indent |
+
+### 10.2 `TokenKind::Attr` is gone
+
+Plan 02 produced a token for the construct; this plan produces trivia instead, which left
+`Attr` unreachable. It is removed rather than kept: a variant nothing produces is one every
+exhaustive match carries for nothing, and `emit_expr`'s and `token_text`'s matches are
+exhaustive by policy precisely so a real new variant fails to compile.
+
+Clippy did not flag it — a `pub` enum variant in a library crate is not dead code to the
+compiler — so this is the kind of thing only noticing finds.
+
+### 10.3 The exhaustive match earned its keep again
+
+`emit_trivia`'s own doc comment says a wildcard arm *"would silently drop a doc comment,
+which is the exact defect doc 02 §10.1 exists to prevent"*. The same wildcard would have
+dropped **every attribute in the file and compiled**. Adding the two kinds broke the build
+until both arms existed, which is the whole argument for writing the match that way, now
+demonstrated twice.
+
+### 10.4 What the example proves that the golden cannot
+
+§3 said an attribute attached to the wrong item is still valid Rust, so only its *effect*
+distinguishes the two. `examples/attributes.sdx` leans on that deliberately:
+`#[allow(non_upper_case_globals)]` sits above a lowercase `const`, and removing the
+attribute makes rustc warn — which fails the example corpus, because it requires rustc to
+emit nothing.
+
+So that one line is load-bearing in both directions: it proves the attribute arrived, and it
+proves it arrived *on the right declaration*. Worth noting after plan 16 §10.2 found the
+corpus unable to demonstrate a lint — the same strictness that blocked that is what makes
+this provable.
+
+### 10.5 Disclosures
+
+- **Nothing is interpreted**, as §6 said. `#[cfg(test)]` skips nothing.
+- **A misplaced `#![…]` is rustc's error**, by §1.4's decision, reported against the `.sdx`
+  through plan 07's map.
+- **A field, a variant and a parameter still cannot carry one.** `FieldDecl` and
+  `Constructor` have no `leading`, so `#[serde(rename = "id")]` on a *field* — which is
+  where serde attributes usually go — is not writable. §6 called this a cheap gap; it is
+  cheaper than it looked, since it needs `leading` on two nodes and two `emit_trivia` calls,
+  and it is the one thing in §13.2's own example list that this plan cannot place where a
+  reader would expect to put it.
