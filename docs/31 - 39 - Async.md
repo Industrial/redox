@@ -3,7 +3,7 @@
 Plan ID: `async`
 Depends on: 26 (`generics-and-where`), doc 30 (`<-` is await)
 Milestone: 7 — *tooling*, but the language half of it belongs here
-Status: `planned`
+Status: `done` — 2026-11-09
 
 ---
 
@@ -240,4 +240,86 @@ to decline providing.
 
 ## 10. Result
 
-*Filled in when the plan ships, including anything above that turned out wrong.*
+Shipped. 665 tests pass; `fmt`, `clippy -D warnings` and the gate are green. Every criterion
+is met, and **doc 30 §8.4's debt is paid**: `<-` is now proved by a program that runs.
+
+This is the first plan in the run where nothing in §1 turned out wrong.
+
+### 10.1 §1.4's executor compiled on the first attempt, and so did the example
+
+`examples/async.sdx` passed `check` with zero rustc output on its first build, and ran
+correctly first time. That has not happened before in this run of plans, and the reason is
+that the hard part was verified *before* the plan was written rather than discovered during
+it — §1.4's nine lines were compiled, with their `.xrs` read, while the document was still
+being drafted.
+
+The practice is worth naming because it is cheap: when a plan's proof depends on something
+nobody has tried, try it first and put the result in the plan. Doc 30 §1.5 did the same for
+`if_let_guard`'s stability, and both plans were smoother for it.
+
+### 10.2 What the executor demonstrates, which is the point of having one
+
+```text
+block_on :: Future f => f -> f::Output
+block_on fut =
+  mut boxed = Box::pin fut
+  waker = Waker::noop ()
+  mut cx = Context::from_waker waker
+  loop
+    if Poll::Ready v = boxed.as_mut ().poll (&mut cx)
+      break v
+```
+
+Nine lines, no macro, no dependency, no `Cargo.toml` entry. Doc 03 §14.3's claim is *"the
+runtime is the user's own dependency"*, and a corpus that writes a runtime in nine lines of
+ordinary Redox demonstrates that rather than asserting it — which is what criterion 8 was
+for.
+
+It is also the broadest single construct in the corpus: a generic with a `=>` bound (row 26),
+an associated type as verbatim text (row 03), `mut` bindings and `loop` with `break v` (row
+20), a path pattern in a condition (row 33 and doc 30), and juxtaposed calls (row 13). Six
+rows in nine lines, and every one of them already worked.
+
+### 10.3 The marker cost four lines because plan 16 had done the thinking
+
+`Signature.is_async` beside `is_const`, one `eat_keyword` beside the other, and one
+`push_str` in each of `emit_fn` and `member`. Plan 16's §1 had already established *why* the
+marker is consumed between `::` and the spine — a type is verbatim text, so a marker left
+inside one makes `async u64`, which is not a Rust type — so this plan inherited the reason
+along with the shape.
+
+`the_marker_does_not_leak_into_the_first_type` asserts plan 16's defect against `async`
+anyway, because the mechanism is shared and a regression would hit both.
+
+### 10.4 The `async` block was three lines, for the same reason
+
+`emit_do` already writes a block expression, so an `async` block is that block with one word
+in front. Third construct to reuse it after plan 20's `do` and plan 28's `try`, and
+`an_async_block_is_not_a_try_block` asserts the pair together so neither drifts into the
+other's shape — `try` wraps in `(|| … )()` and this prefixes `async`.
+
+### 10.5 Two limitations of the language the example ran into
+
+Neither is this row's, and both are recorded because they shaped the example:
+
+- **A `case` arm body is an expression, so it cannot `return`.** The first draft of
+  `block_on` was a `case` on `Poll` with `Ready v -> return v`, which is
+  `RDX0102: expected an expression`. Plan 30 §10.2 recorded the identical limit for lambdas.
+  The fix was better anyway — `if Poll::Ready v = …` then `break v` — but the limitation is
+  real and belongs to whichever row makes a block an expression.
+- **Redox has no macro-call syntax.** `pin!` is unavailable, which sent this plan to
+  `Box::pin`. That turned out fine, and it also showed plan 29 §6's claim that `vec![0; n]`
+  *"stays available as an ordinary macro call"* to be false — `vec![1, 2]` does not parse.
+  Corrected in plan 29 with a dated note.
+
+### 10.6 What this row deliberately left
+
+Doc 03 §14.3 is two sentences long, and §6 holds the line at them: no executor, no
+concurrent-await construct, no `async move`, no async traits, no `async` closures, no
+`impl Future` returns. Each is either declined by §14.3 and §11.3 for the dependency reason,
+or simply absent from the specification — and a form with no specification has no agreed
+meaning.
+
+The temptation here was `async move`, because a future that outlives its scope wants it. The
+answer is an `async fn` taking its captures by value, which costs a signature and invents
+nothing.

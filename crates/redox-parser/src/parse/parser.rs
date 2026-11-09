@@ -365,6 +365,10 @@ impl<'a> Parser<'a> {
     // is verbatim text, so leaving `const` in one would make the first
     // parameter's type `const u32`, which is not a Rust type.
     let is_const = self.eat_keyword(Keyword::Const);
+    // Doc 03 §14.3's `async fn` — plan 39. Read here for `const`'s reason:
+    // left in a type it would produce `async u64`, and read in either order
+    // because Rust accepts neither pairing anyway.
+    let is_async = self.eat_keyword(Keyword::Async);
     let spine = parse_spine(self)?;
     self.newline_with_trailing("expected a line break after the signature")?;
 
@@ -426,6 +430,7 @@ impl<'a> Parser<'a> {
     // needs the constraint clause, which only this knows about.
     generalise(&mut sig, &bounds, reserved);
     sig.is_const = is_const;
+    sig.is_async = is_async;
 
     let end = self.prev_span().1;
     let trailing = clauses.last().and_then(|c| c.trailing.clone());

@@ -69,6 +69,7 @@ pub(crate) fn signature_from(
     ret: (ret.text != "()").then(|| ret.clone()),
     generics: Vec::new(),
     is_const: false,
+    is_async: false,
     bounds: Vec::new(),
     span,
   })

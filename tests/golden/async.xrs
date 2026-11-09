@@ -1,0 +1,106 @@
+// Doc 03 §14.3's async — the `async` marker, the `async` block, and no
+// executor. Plan 39.
+//
+// Await is `x <- f`, doc 30's bind: `<-` means that and nothing else. This
+// file is the running program doc 30 §8.4 recorded as a debt against this
+// row, because every `<-` needs an `async` function around it and the marker
+// did not exist until now.
+//
+// Checked by compiling and **running** with zero rustc output. The case only
+// a run catches is the last: a value computed across two awaits, which a
+// lowering that dropped one or ordered them wrongly would still compile and
+// print differently.
+
+use core::future::Future;
+
+use core::task::Context;
+
+use core::task::Poll;
+
+use core::task::Waker;
+
+// **Redox provides no executor** (doc 03 §14.3, doc 01 §24): `async` passes
+// through and the runtime is the user's own dependency. So a corpus that
+// demands a successful run has to bring one — and the claim is not that async
+// is hard, it is that the runtime is yours. Nine lines of ordinary Redox is
+// the demonstration.
+//
+// No macro and no dependency. `Box::pin` is a function where `pin!` is a
+// macro — Redox has no macro-call syntax at all — and `Waker::noop` has been
+// stable since rustc 1.85.
+//
+// This also exercises six constructs from six rows at once: a generic with a
+// `=>` bound, an associated type as verbatim text, `mut` bindings, `loop`
+// with `break v`, a path pattern in a condition, and juxtaposed calls.
+fn block_on<F>(fut: F) -> F::Output
+where
+    F: Future,
+{
+    let mut boxed = Box::pin(fut);
+    let waker = Waker::noop();
+    let mut cx = Context::from_waker(waker);
+    loop {
+        if let Poll::Ready(v) = boxed.as_mut().poll(&mut cx) {
+            break v;
+        }
+    }
+}
+
+// The marker goes between `::` and the spine, which is plan 16's `const fn`
+// one keyword over — and for the same reason: a type is verbatim text, so a
+// marker left inside one would make the first parameter's type `async u64`.
+async fn double(n: i32) -> i32 {
+    n * 2
+}
+
+// An `async fn` awaiting **another** one. A missing `async` on the inner
+// function is a rustc error against the line that wrote it, which is doc 03
+// §14.3's division of labour.
+async fn quadruple(n: i32) -> i32 {
+    let once = double(n).await;
+    let twice = double(once).await;
+    twice
+}
+
+// The effect-only form — `<- f ()` binds nothing. Doc 30 §7's decision 6
+// keeps it distinct from `_ <- f`, and this is the first time it has been
+// executed rather than asserted.
+async fn noop() {
+    ();
+}
+
+async fn announce() {
+    noop().await;
+    println!("announced");
+}
+
+// **The case the run catches.** Two awaits whose results are combined, so
+// dropping either or reordering them compiles and prints a different number.
+async fn combined() -> i32 {
+    let a = double(3).await;
+    let b = quadruple(5).await;
+    a + b
+}
+
+// `async` with an indented block is an **expression** — the third construct
+// of that shape after plan 20's `do` and plan 28's `try`, and the reason none
+// of them needed a statement form.
+//
+// The block is awaited by the caller, not here, which is what makes it a
+// value rather than a statement.
+async fn deferred() -> i32 {
+    let work = async {
+        let n = double(7).await;
+        n + 1
+    };
+    let n = work.await;
+    n
+}
+
+fn main() {
+    println!("{}", block_on(double(21)));
+    println!("{}", block_on(quadruple(2)));
+    println!("{}", block_on(combined()));
+    println!("{}", block_on(deferred()));
+    block_on(announce());
+}

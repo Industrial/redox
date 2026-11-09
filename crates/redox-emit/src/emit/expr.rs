@@ -130,6 +130,10 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
     // Doc 01 §13.1's optional chain and doc 03 §12.4's `try` block — plan 28.
     Expr::OptionalChain { head, segments, .. } => optional_chain(head, segments, indent),
     Expr::TryBlock { body, .. } => try_block(body, indent),
+    // Doc 03 §14.3's `async` block — plan 39. `emit_do` already writes a
+    // block expression, so this is that block with one word in front: the
+    // third construct to reuse it, after `do` and `try`.
+    Expr::AsyncBlock { body, .. } => format!("async {}", emit_do(&None, body, indent)),
     // A tuple expression — plan 33. Verbatim, and `expr_list` is what every
     // other comma-separated run uses, so the spacing matches.
     Expr::Tuple { items, .. } => {

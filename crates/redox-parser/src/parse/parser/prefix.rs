@@ -107,6 +107,16 @@ pub(crate) fn prefix(p: &mut Parser) -> Result<Expr, ParseError> {
         span,
       })
     }
+    // Doc 03 §14.3's `async` block — plan 39. An expression, reached from
+    // here as `do` and `try` are, and taking the same statement block.
+    TokenKind::Kw(Keyword::Async) => {
+      p.advance();
+      let body = p.statement_block("expected an indented `async` body")?;
+      Ok(Expr::AsyncBlock {
+        body,
+        span: (start, p.prev_span().1),
+      })
+    }
     // Doc 03 §12.4's `try` block — plan 28. An expression, so it is reached
     // from here exactly as plan 20's `do` is, and it takes the same statement
     // block. The difference between the two is entirely in the emitter.

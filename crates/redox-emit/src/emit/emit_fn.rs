@@ -22,6 +22,11 @@ pub(crate) fn emit_fn(out: &mut Sink<'_>, f: &FnDecl, indent: usize) {
   if f.sig.is_const {
     out.push_str("const ");
   }
+  // Doc 03 §14.3's `async fn` — plan 39. Both markers are written if both are
+  // present; Rust has no `const async fn` and rustc is what says so.
+  if f.sig.is_async {
+    out.push_str("async ");
+  }
   out.push_str("fn ");
   out.push_str(&f.name.text);
   let sig = signature(&f.sig, indent);

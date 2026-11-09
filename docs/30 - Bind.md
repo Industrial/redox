@@ -378,6 +378,11 @@ until it exists the await-bind's lowering is asserted and not executed.
 The alternative was to implement row 39's marker inside this conversion, which would have
 made doc 30 a plan for a row it does not own.
 
+> **Paid 2026-11-09 by plan 39** (`docs/31 - 39 - Async.md`). `examples/async.sdx` runs,
+> with its own nine-line executor, and exercises the await-bind in an `async fn`, in an
+> `async` block, across two awaits whose results are combined, and in the binderless form.
+> The await-bind is now proved like every other construct here.
+
 ### 8.5 Two things deleted, and one test moved
 
 `Expr::Await` is gone, with its emitter arm, its postfix parse arm, and

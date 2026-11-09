@@ -100,6 +100,25 @@ pub enum Expr {
     segments: Vec<String>,
     span: Span,
   },
+  /// `async` with an indented block — doc 03 §14.3, plan 39.
+  ///
+  /// ```text
+  /// work = async          let work = async {
+  ///   <- flush ()     →       flush().await;
+  ///                       };
+  /// ```
+  ///
+  /// An expression, so it is reached from `prefix` exactly as plan 20's `do`
+  /// and plan 28's `try` are — the third construct of that shape, and the
+  /// reason none of them needed a statement form.
+  ///
+  /// Distinct from `try` by one word and nothing else in the lowering, which
+  /// is why both are blocks and neither is a closure: `try` wraps its block in
+  /// `(|| … )()` and this prefixes `async`.
+  AsyncBlock {
+    body: crate::Block,
+    span: Span,
+  },
   /// `try` with an indented block — doc 03 §12.4, plan 28.
   ///
   /// A block in which `?` returns from the **block** rather than the
@@ -333,6 +352,7 @@ impl Expr {
       | Expr::Path { span, .. }
       | Expr::Lambda { span, .. }
       | Expr::OptionalChain { span, .. }
+      | Expr::AsyncBlock { span, .. }
       | Expr::TryBlock { span, .. }
       | Expr::Ascribe { span, .. }
       | Expr::StrLit { span, .. }

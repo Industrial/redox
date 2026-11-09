@@ -33,5 +33,15 @@ pub struct Signature {
   /// type `const u32`, which is not a Rust type — which is exactly what
   /// happened before plan 16.
   pub is_const: bool,
+  /// `name :: async T -> U` — doc 03 §14.3's `async fn`, plan 39.
+  ///
+  /// The same shape as [`is_const`](Self::is_const) and for the same reason:
+  /// a type in Redox is verbatim text, so leaving `async` in one would make
+  /// the first parameter's type `async u64`, which is not a Rust type. Plan
+  /// 16 found that with `const` and plan 39 inherits the fix.
+  ///
+  /// Rust has no `const async fn`, and that is **rustc's** to say: writing
+  /// both emits both and rustc objects, which is AGENTS.md's rule.
+  pub is_async: bool,
   pub span: Span,
 }
