@@ -46,6 +46,14 @@ pub(crate) fn emit_stmt(out: &mut Sink<'_>, stmt: &Stmt, indent: usize, tail: bo
       out.push_str(&emit_expr(&b.value));
       out.push(';');
     }
+    // A draw arrow is flattened by `emit_stmts`, which owns the run of
+    // statements its callback body is made of. Reaching it here would mean a
+    // caller emitted statements one at a time, which cannot lower it
+    // correctly — so this is a bug in Redox, not in the program.
+    StmtKind::Draw { .. } => unreachable!(
+      "a draw arrow must be emitted by `emit_stmts`, which has the following \
+       statements its callback body needs"
+    ),
     StmtKind::Return(value) => {
       out.push_str("return");
       if let Some(e) = value {

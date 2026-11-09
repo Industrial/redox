@@ -1,8 +1,8 @@
+use crate::emit::emit_stmts::emit_stmts;
 use crate::emit::inline_comment::emit_inline_comment;
 use crate::emit::rust_indent::RUST_INDENT;
 use crate::emit::signature::signature;
 use crate::emit::sink::Sink;
-use crate::emit::stmt::emit_stmt;
 use crate::emit::trivia::emit_trivia;
 use redox_ast::FnDecl;
 
@@ -25,11 +25,11 @@ pub(crate) fn emit_fn(out: &mut Sink<'_>, f: &FnDecl) {
   out.push('\n');
   // A function that declares a return type ends in a tail expression; one
   // that does not returns `()` and ends in a statement. See `emit_stmt`.
-  let last = f.body.stmts.len().saturating_sub(1);
-  for (i, stmt) in f.body.stmts.iter().enumerate() {
-    let tail = f.sig.ret.is_some() && i == last;
-    emit_stmt(out, stmt, RUST_INDENT, tail);
-  }
+  //
+  // `emit_stmts` rather than a loop over `emit_stmt`, because doc 18 §3.1's
+  // draw arrow lowers to a callback whose body is every statement after it —
+  // so the unit of translation is the run.
+  emit_stmts(out, &f.body.stmts, RUST_INDENT, f.sig.ret.is_some());
   // The closing brace has no source line — the off-side rule means the author
   // never wrote one. Recording it as synthetic rather than attributing it to
   // the last statement keeps the map from making a claim it cannot support.

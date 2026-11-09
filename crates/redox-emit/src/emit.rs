@@ -1,5 +1,6 @@
 pub(crate) mod double_braces;
 pub(crate) mod emit_fn;
+pub(crate) mod emit_stmts;
 pub(crate) mod expr;
 pub(crate) mod expr_list;
 pub(crate) mod inline_comment;

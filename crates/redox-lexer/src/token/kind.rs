@@ -76,6 +76,17 @@ pub enum TokenKind {
   // ---- operators ----
   Eq,
   Arrow,
+  /// `<-`, doc 18 §3.1's draw arrow: *a name drawn out of something*.
+  ///
+  /// Four grammatically disjoint positions — a statement bind, a pattern test
+  /// in a condition, a `for` generator, and a comprehension generator — which
+  /// is what lets one token carry four of doc 03's constructs (`use`, `is`,
+  /// `defer`, the comprehension's `for`) with no lookahead.
+  ///
+  /// **It must be one token.** Lexed as `<` then `-`, `x <- f` parses as
+  /// `x < -f`, which is valid Rust, silently wrong, and emitted without a
+  /// diagnostic until this token existed.
+  DrawArrow,
   FatArrow,
   /// `|>` — the receiver pipeline (doc 03 §5.3).
   Pipe,
@@ -102,6 +113,11 @@ pub enum TokenKind {
   DotPercent,
   /// `&:name` — a method reference (doc 03 §8.5).
   AmpColon,
+  /// `\`, doc 18 §4's lambda binder: `\x -> x + 1`.
+  Backslash,
+  /// `$`, doc 18 §2.1's low-precedence grouping — it lowers to nothing at
+  /// all, and is why a nested application rarely needs brackets.
+  Dollar,
   /// `@field` → `self.field`, `@@name` → `Self::name` (doc 01 §16).
   At,
   AtAt,

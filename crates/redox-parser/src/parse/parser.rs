@@ -189,6 +189,8 @@ impl<'a> Parser<'a> {
       } else {
         StmtKind::Return(Some(parse_expr(self, 0)?))
       }
+    } else if let Some(draw) = self.try_draw()? {
+      draw
     } else if let Some(binding) = self.try_binding()? {
       StmtKind::Binding(binding)
     } else {
@@ -203,6 +205,28 @@ impl<'a> Parser<'a> {
       leading,
       trailing,
     })
+  }
+
+  /// A draw arrow, if the cursor is on one.
+  ///
+  /// Doc 18 §3.1. Recognised by one token of lookahead — `Ident` then `<-` —
+  /// which is unambiguous because `<-` is a single token. It was not, until
+  /// this plan: `x <- f` lexed as `<` then `-`, parsed as `x < -f`, and
+  /// emitted valid Rust that compared `x` against negated `f`. No diagnostic,
+  /// wrong program.
+  fn try_draw(&mut self) -> Result<Option<StmtKind>, ParseError> {
+    let looks_like = matches!(self.peek().kind, TokenKind::Ident(_))
+      && self
+        .peek_at(1)
+        .is_some_and(|t| t.kind == TokenKind::DrawArrow);
+    if !looks_like {
+      return Ok(None);
+    }
+
+    let name = self.ident("expected a name before `<-`")?;
+    self.expect(&TokenKind::DrawArrow, "expected `<-`")?;
+    let value = parse_expr(self, 0)?;
+    Ok(Some(StmtKind::Draw { name, value }))
   }
 
   /// A binding, if the cursor is on one.
