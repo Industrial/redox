@@ -21,6 +21,15 @@
 //! meaning means its two properties (§1.4) hold at every step. Each later leaf
 //! replaces one span-slice with a real printer.
 
+//! **Leaf 3 is in**, as `expr_text`: one expression in canonical Redox, with
+//! §3's expression normalisations and a verbatim slice for the block-bearing
+//! forms, which are statement containers and therefore leaf 4's. It is not yet
+//! wired into `format`, because an expression is only reachable through the
+//! item that holds it and items are leaf 2 — §4's corrected order has
+//! expressions first precisely because everything above them delegates down.
+
+mod expr_text;
 mod format;
 
+pub use expr_text::expr_text;
 pub use format::format;

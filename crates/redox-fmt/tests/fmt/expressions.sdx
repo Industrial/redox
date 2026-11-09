@@ -1,0 +1,65 @@
+-- Plan 34 leaf 3's fixture: one binding per §3 row, written in the *accepted*
+-- spelling. Its canonical counterpart is `expressions.canonical.sdx`, and the
+-- two are compared binding by binding.
+--
+-- The expectation is a file and not a string literal for AGENTS.md's reason:
+-- the one syntax cutover Emerald did missed 113 fixtures that lived inside
+-- test modules, and that cost is paid once per syntax change, forever.
+
+main :: ()
+main =
+  -- §3 row 1: a single parenthesized argument is juxtaposition.
+  a = f (x)
+  b = f(x)
+  -- A parenthesized argument that is itself an application keeps its
+  -- parentheses, because juxtaposition is greedy.
+  c = f (g x)
+  -- §3 row 3: grouping-only parentheses go where precedence allows.
+  d = (x) + 1
+  e = ((x))
+  g1 = (1 * 2) + 3
+  -- ...and stay where it does not.
+  h = (1 + 2) * 3
+  i = 1 - (2 - 3)
+  -- Left-associativity: the same shape on the left is redundant.
+  j = (1 - 2) - 3
+  -- §3 row 6: one space before a method's arguments.
+  k = xs.len()
+  l = xs.len  ()
+  m = xs.fold(0, add)
+  -- §3 row 8: a spaced `::` ascribes, and must never be tightened.
+  n = count :: u64
+  -- §3 row 12: no trailing comma, except the one that makes a tuple.
+  o = [1, 2, 3,]
+  p = (1, 2,)
+  q = (1,)
+  -- Row 13: both ranges are meaningful and neither is normalised.
+  r = 1 .. 4
+  s = 1 ..= 4
+  -- The three operators Rust lacks keep their Redox spellings.
+  t = maybe ?? 0
+  u = risky catch 0
+  v = xs |> len
+  -- Forms printed from the tree rather than respelled.
+  w = Point { x = 3.0, y = 4.0 }
+  y = [ q * 2 | q in xs, q > 0 ]
+  z = \q -> q + 1
+  aa = (> 0)
+  ab = (.name)
+  ac = -count
+  ad = &mut total
+  ae = "hi #{name}, you owe #{amount:.2}"
+  af = xs[0]
+  ag = risky?
+  ah = [0; 4]
+  ai = f ()
+  -- The two defects leaf 3 found, kept as rows so they stay closed. An
+  -- ascription's inner expression is an *operand*: `::` binds looser than
+  -- every binary operator, so this needs no parentheses, and printing it as
+  -- an argument added a pair.
+  aj = 1 + 2 :: u64
+  -- A lambda argument grew one parenthesis per formatting pass, because the
+  -- wrap fired on a `Paren` the printer then kept.
+  ak = f (\q -> q + 1)
+  al = f ((x))
+  print a

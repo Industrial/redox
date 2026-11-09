@@ -1,47 +1,56 @@
 use redox_ast::BinaryOp;
 use redox_lexer::{Keyword, TokenKind};
 
-/// Rust's precedence table, **unchanged**: a map from token to operator and
-/// `(left, right)` binding powers.
+/// Which operator a token spells, and its `(left, right)` binding powers.
 ///
 /// Left-associative operators have `right = left + 1`, so an equal-precedence
-/// operator on the right does not pull. The operators Rust lacks sit where
-/// doc 03 §4.5 places them: `??` below `||`, `|>` below `??`.
+/// operator on the right does not pull.
+///
+/// # The powers are no longer here
+///
+/// They moved to `BinaryOp::power` in `redox-ast` when plan 34 leaf 3 made the
+/// formatter a second reader of them: dropping a redundant parenthesis is a
+/// precedence decision, and a formatter working from a *copy* of this table
+/// would drop a needed parenthesis as soon as the two drifted — silently,
+/// because both spellings still compile.
+///
+/// What stays here is the half that is genuinely the parser's: the mapping
+/// from **token** to operator. The AST does not know about tokens and should
+/// not.
 pub(crate) fn binary_power(kind: &TokenKind) -> Option<(BinaryOp, u8, u8)> {
-  // Loosest first, so the table reads in precedence order.
-  let (op, left) = match kind {
-    TokenKind::Pipe => (BinaryOp::Pipeline, 1),
-    TokenKind::Coalesce => (BinaryOp::Coalesce, 3),
+  // Loosest first, so the table still reads in precedence order even though
+  // the numbers now live on the operator.
+  let op = match kind {
+    TokenKind::Pipe => BinaryOp::Pipeline,
+    TokenKind::Coalesce => BinaryOp::Coalesce,
     // Doc 03 §4.5 places `catch` *"at `??`'s level"* — plan 28. Being a
     // keyword and not in `starts_argument`'s allow-list is what makes
     // `parse s catch 0` need no parentheses, which §12.2 claims and plan 28
     // §1.4 verified rather than assumed.
-    TokenKind::Kw(Keyword::Catch) => (BinaryOp::Catch, 3),
-    TokenKind::DotDot => (BinaryOp::Range, 5),
-    TokenKind::DotDotEq => (BinaryOp::RangeInclusive, 5),
-    TokenKind::OrOr => (BinaryOp::Or, 7),
-    TokenKind::AndAnd => (BinaryOp::And, 9),
-    // Comparison is non-associative in Rust. Modelling it as left-associative
-    // with equal powers lets `a < b < c` parse so that rustc rejects it, which
-    // is the division of labour doc 02 §6.2 prescribes.
-    TokenKind::EqEq => (BinaryOp::Eq, 11),
-    TokenKind::Ne => (BinaryOp::Ne, 11),
-    TokenKind::Lt => (BinaryOp::Lt, 11),
-    TokenKind::Gt => (BinaryOp::Gt, 11),
-    TokenKind::Le => (BinaryOp::Le, 11),
-    TokenKind::Ge => (BinaryOp::Ge, 11),
-    TokenKind::Or => (BinaryOp::BitOr, 13),
-    TokenKind::Caret => (BinaryOp::BitXor, 15),
-    TokenKind::Amp => (BinaryOp::BitAnd, 17),
-    TokenKind::Shl => (BinaryOp::Shl, 19),
-    TokenKind::Shr => (BinaryOp::Shr, 19),
-    TokenKind::Plus => (BinaryOp::Add, 21),
-    TokenKind::Minus => (BinaryOp::Sub, 21),
-    TokenKind::Star => (BinaryOp::Mul, 23),
-    TokenKind::Slash => (BinaryOp::Div, 23),
-    TokenKind::Percent => (BinaryOp::Rem, 23),
+    TokenKind::Kw(Keyword::Catch) => BinaryOp::Catch,
+    TokenKind::DotDot => BinaryOp::Range,
+    TokenKind::DotDotEq => BinaryOp::RangeInclusive,
+    TokenKind::OrOr => BinaryOp::Or,
+    TokenKind::AndAnd => BinaryOp::And,
+    TokenKind::EqEq => BinaryOp::Eq,
+    TokenKind::Ne => BinaryOp::Ne,
+    TokenKind::Lt => BinaryOp::Lt,
+    TokenKind::Gt => BinaryOp::Gt,
+    TokenKind::Le => BinaryOp::Le,
+    TokenKind::Ge => BinaryOp::Ge,
+    TokenKind::Or => BinaryOp::BitOr,
+    TokenKind::Caret => BinaryOp::BitXor,
+    TokenKind::Amp => BinaryOp::BitAnd,
+    TokenKind::Shl => BinaryOp::Shl,
+    TokenKind::Shr => BinaryOp::Shr,
+    TokenKind::Plus => BinaryOp::Add,
+    TokenKind::Minus => BinaryOp::Sub,
+    TokenKind::Star => BinaryOp::Mul,
+    TokenKind::Slash => BinaryOp::Div,
+    TokenKind::Percent => BinaryOp::Rem,
     _ => return None,
   };
+  let left = op.power();
   Some((op, left, left + 1))
 }
 
@@ -98,6 +107,26 @@ mod tests {
   fn a_non_operator_has_no_precedence() {
     assert!(binary_power(&TokenKind::Ident("x".into())).is_none());
     assert!(binary_power(&TokenKind::Newline).is_none());
+  }
+
+  /// The powers this file reports are the operator's own, not a second copy.
+  ///
+  /// This is the assertion that the move was a move. If anyone re-introduces
+  /// a literal here, it fails.
+  #[test]
+  fn the_powers_come_from_the_operator() {
+    for kind in [
+      TokenKind::Pipe,
+      TokenKind::Coalesce,
+      TokenKind::OrOr,
+      TokenKind::EqEq,
+      TokenKind::Plus,
+      TokenKind::Percent,
+    ] {
+      let (op, left, right) = binary_power(&kind).expect("should have a precedence");
+      assert_eq!(left, op.power(), "{kind:?} reports a power of its own");
+      assert_eq!(right, op.power() + 1);
+    }
   }
 
   #[test]

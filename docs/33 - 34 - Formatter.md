@@ -118,10 +118,10 @@ accepted and the right is what `fmt` emits.
 | Accepted | Canonical | Why |
 |---|---|---|
 | `f(x)`, `f (x)` for a single argument | `f x` | Doc 18 §2.1: juxtaposition is the call form. Parentheses are grouping |
-| `f(x, y)` | `f x y` | Likewise — and the comma in §16's `f x, y` predates juxtaposition |
+| ~~`f(x, y)`~~ | ~~`f x y`~~ | **Retired 2026-11-09, leaf 3 §10.10.** It changes the program: `f (x, y)` parses as `f` applied to a **tuple**, which is what juxtaposition being the call form *means*. The row was inherited from doc 03 §16, where `f x, y` was the call form and the rewrite was therefore sound |
 | parentheses that are only grouping | removed where precedence allows | Doc 18 §2.1's own rule; `receiver`'s existing logic already decides this for the emitter |
-| `x.a ().b ().c ()` — three or more stages | `x \|> a \|> b \|> c` | §16's surviving row, now spelled with `()` rather than `!` |
-| `x.map (f)` as a chain head | `x \|> map f` | §16's other survivor |
+| ~~`x.a ().b ().c ()`~~ | ~~`x \|> a \|> b \|> c`~~ | **Retired 2026-11-09, leaf 3 §10.11.** A refactor, not a normalisation — it replaces one construct with another, and §1.4's property cannot guard it |
+| ~~`x.map (f)` as a chain head~~ | ~~`x \|> map f`~~ | Retired with the row above, same reason |
 | two spaces or none before a method's `()` | one space — `x.len ()` | The corpus's own habit, made a rule |
 | `case` arm bodies aligned with padding | one space after `->` | Alignment breaks on the next edit |
 | a binding's `::` type annotation | spaced — `n :: u64 = 0` | Doc 18 §5.2: a spaced `::` ascribes and a tight one is a path. The formatter must never tighten one |
@@ -406,3 +406,133 @@ first because that is how `redox-emit` is organised, and the emitter can do that
 emits *Rust*, where an item's shape and its expressions are independent problems. Printing
 Redox back is not the same problem, and assuming the emitter's structure transferred was the
 mistake.
+
+### 10.10 Two of §3's rows change the program, and one of them is a language fact
+
+Leaf 3 printed expressions and the first thing that fell over was §3's own table.
+
+**Row 2, `f(x, y)` → `f x y`, is wrong.** Not awkward — wrong. Checked against the parser
+rather than reasoned about:
+
+```
+f(a, b)   =>  Call { callee: f, args: [Tuple { items: [a, b] }] }
+f (a, b)  =>  Call { callee: f, args: [Tuple { items: [a, b] }] }
+f a b     =>  Call { callee: f, args: [a, b] }
+```
+
+`f (x, y)` applies `f` to **one** argument, a tuple. Rewriting it to `f x y` applies `f` to
+two. The spacing makes no difference, which is the part worth knowing: whitespace adjacency
+is tracked by the lexer and does not distinguish these.
+
+This is not a defect in the row so much as the row outliving its premise. It came from doc
+03 §16, where the call form was `f x, y` — with the comma — so `f(x, y)` → `f x, y` was a
+pure respelling. Doc 18 §2.1 replaced that with juxtaposition and the row was carried across
+with its *shape* updated and its *soundness* unexamined. §1.1 of this plan already found doc
+03 §16 stale in 11 of 13 rows; this is the twelfth, and it is the one that would have
+silently miscompiled a program.
+
+Row 1 — `f(x)` → `f x` — survives, because a single parenthesized argument is a `Paren` node
+and not a tuple. The two rows look like one rule and are two.
+
+### 10.11 The pipeline rewrite is a refactor, and §1.4's property cannot guard it
+
+Rows 4 and 5 turn a method chain into `|>`. Both are retired, for a reason that is about the
+**property** rather than about the rewrite:
+
+§1.4's meaning-preservation property compares `parse(fmt(x))` with `parse(x)` as trees. A
+method chain is `MethodCall` nodes; a pipeline is `Binary { op: Pipeline }`. The rewrite
+therefore changes the tree by construction, so the property cannot pass unless its normaliser
+**lowers `|>` to method calls** — which is reimplementing part of the emitter inside the
+test, and doing it on exactly the rewrite with the most room to be wrong.
+
+A formatter whose riskiest transformation is the one its safety property cannot see is worse
+than a formatter without that transformation. Emerald's plan 90 is the case: its formatter
+re-added parentheses it could not know were redundant, and doc 02 §3.2 records the result —
+*"example code rewritten in the terser style would be silently reverted by the same CI gate
+that checked it."*
+
+So the pipeline rewrite is not this row's. It is a **refactor**: a suggestion a user accepts,
+not a rewrite a formatter performs on save. Plan 38 built the machinery for exactly that —
+`Severity::Warning`, the `RDX1000+` band, a `tests/lint/` corpus whose cases must still build
+— and `x.a ().b ().c ()` is a reasonable `RDX1002`. Named here rather than dropped, which is
+§6's rule.
+
+### 10.12 `Paren` is a node, so the property had to be told to ignore it
+
+§3 row 3 — drop a parenthesis where precedence allows — cannot pass a tree comparison
+either, for the same structural reason: `Paren` is in the AST, deliberately, so the emitter
+reproduces the grouping the author wrote instead of re-deriving it.
+
+The resolution is different from §10.11's, and the difference is the whole argument. Stripping
+`Paren` from **both** sides is not a weakening of the property, because **precedence is
+recorded in the tree's shape, not in its `Paren` nodes**. Drop a parenthesis that was holding
+`(1 + 2) * 3` together and the re-parse is `1 + (2 * 3)` — a different *shape*, which the
+stripped comparison still rejects. The property keeps exactly the power it was for.
+
+Stripping only the top-level `Paren` was not enough, and the way it failed is instructive: the
+printer **adds** parentheses where a form would otherwise be misread — `-(a + b)`,
+`f (g x)` — and those land at whatever depth the form sits at, so the trees legitimately
+differ by `Paren` nodes anywhere. The strip is therefore a scanner over the debug string
+rather than a rebuild of the tree: thirty-one match arms in a test file would be a second copy
+of the AST, which is a worse liability than a scanner.
+
+### 10.13 The precedence table moved to the operator
+
+Dropping a parenthesis is a precedence decision, and the table lived in
+`redox-parser`'s `binary_power`, keyed by `TokenKind` and `pub(crate)`. Correct while the
+parser was the only reader.
+
+It is now `BinaryOp::power` in `redox-ast`, and `binary_power` keeps only the half that is
+genuinely the parser's — which **token** spells which operator. A formatter working from a
+copy of the table would drop a needed parenthesis the moment the two drifted, and it would do
+it silently, because both spellings still compile and both still pass every existing test.
+`the_powers_come_from_the_operator` asserts the move was a move.
+
+`BinaryOp::redox_text` was added beside it for the inverse reason `rust_text` exists:
+`rust_text` returns `None` for `??`, `catch` and `|>` because those need a lowering rather
+than a spelling, and a formatter printing Redox needs the surface spelling of all three.
+
+### 10.14 Two defects, both found by a property and neither by the fixture
+
+The fixture pair was green while both of these were live, which is the case for having the
+properties as well.
+
+**An ascription's inner expression is an operand, not an argument.** `1 + 2 :: u64` parses as
+`Ascribe { inner: Binary { .. } }` with no parenthesis in the source — `::` binds looser than
+every binary operator. Printing the inner expression as an *argument* parenthesised it, so
+`1 + 2 :: u64` came out as `(1 + 2) :: u64` and the corpus property reported that the program
+had changed. It had: the re-parse carried a `Paren` the original did not.
+
+**A parenthesis the author wrote must never be wrapped in a second one.** `f (\x -> x)` grew
+one parenthesis per pass. The lambda does not stand alone, so `argument` wrapped it; the inner
+`Paren` survived because `can_drop_paren` declines on a lambda; and the next pass wrapped the
+result again. Found by idempotence, in `examples/comprehension.sdx`, on
+`([ n * 2 | n in xs ]) :: Vec<i32>`. Both arms of the fix print the **inner** expression, so a
+layer can be added at most once however many times the formatter runs.
+
+Both are now fixture rows as well, so they stay closed.
+
+### 10.15 §4's leaf boundary is not where §4 draws it
+
+§10.9 already corrected the leaf *order* to expressions → statements → items. Leaf 3 found
+that the **boundary** is also wrong.
+
+`if`, `case`, `do`, `async` and `try` are `Expr` variants, so §4 puts them in leaf 3. Their
+bodies are `Block`s — statement sequences — so printing them is printing statements, which is
+leaf 4. The real division is **single-line expressions / block-bearing constructs / items**,
+and an `Expr` variant can fall on either side of it.
+
+Those five are sliced verbatim from the source, which is criterion 7 used as the starting
+point rather than as a fallback — the same discipline leaf 1 established for items, one level
+down. It is what lets leaf 3 ship before leaf 4 exists.
+
+### 10.16 Leaf 3 is not wired into `format`, deliberately
+
+`expr_text` is exported and tested and `format` does not call it, because an expression is
+only reachable through the item that holds it and items are leaf 2. That is §4's corrected
+order working as intended rather than a gap: everything above expressions delegates down to
+them, so the printer is built first and connected last.
+
+The consequence for the corpus is the useful part. `every_example_is_already_canonical`
+(§1.5) still passes untouched, so leaf 6's reconciliation — where an example changes or §3's
+table does, one row at a time — happens when leaf 2 lands and not in pieces before it.

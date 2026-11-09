@@ -75,6 +75,68 @@ impl BinaryOp {
     })
   }
 
+  /// The Redox spelling — every operator has one, unlike `rust_text`.
+  ///
+  /// `rust_text` returns `None` for `??`, `catch` and `|>` because those need
+  /// a *lowering* rather than a spelling. A formatter printing Redox needs the
+  /// opposite: the surface spelling of all of them, including the three that
+  /// have no Rust equivalent.
+  pub fn redox_text(self) -> &'static str {
+    match self {
+      Self::Coalesce => "??",
+      Self::Catch => "catch",
+      Self::Pipeline => "|>",
+      // The remaining operators are spelled as Rust spells them, which is
+      // doc 02 §5.2's rule restated: an expression that reads like Rust and
+      // binds differently is the worst available failure mode, so neither the
+      // spelling nor the precedence diverges.
+      other => other
+        .rust_text()
+        .expect("every operator but the three above has a Rust spelling"),
+    }
+  }
+
+  /// This operator's left binding power — **the** precedence table.
+  ///
+  /// Doc 02 §5.2 fixes it as Rust's unchanged, and doc 03 §4.5 places the
+  /// three operators Rust lacks: `??` and `catch` below `||`, `|>` below `??`.
+  ///
+  /// # Why this lives on the operator and not in the parser
+  ///
+  /// It was the parser's, keyed by `TokenKind` and `pub(crate)`, which was
+  /// right while the parser was the only consumer. Plan 34 leaf 3 made the
+  /// formatter a second one: dropping a redundant parenthesis is a precedence
+  /// decision, and a formatter working from a *copy* of the table would drop a
+  /// needed parenthesis the moment the two drifted — silently, since both
+  /// would still compile.
+  ///
+  /// So the table is here, on the operator the AST already names, and
+  /// `binary_power` in the parser maps token to operator and then asks. One
+  /// table, two readers.
+  ///
+  /// Only the relative order is meaningful; the numbers are the parser's
+  /// original odd-numbered rungs, kept so left-associativity is `power() + 1`
+  /// with no collisions.
+  pub fn power(self) -> u8 {
+    match self {
+      Self::Pipeline => 1,
+      // Doc 03 §4.5 places `catch` *at `??`'s level*, so they share a rung.
+      Self::Coalesce | Self::Catch => 3,
+      Self::Range | Self::RangeInclusive => 5,
+      Self::Or => 7,
+      Self::And => 9,
+      // Comparison is non-associative in Rust. Equal powers let `a < b < c`
+      // parse so that rustc rejects it — doc 02 §6.2's division of labour.
+      Self::Eq | Self::Ne | Self::Lt | Self::Gt | Self::Le | Self::Ge => 11,
+      Self::BitOr => 13,
+      Self::BitXor => 15,
+      Self::BitAnd => 17,
+      Self::Shl | Self::Shr => 19,
+      Self::Add | Self::Sub => 21,
+      Self::Mul | Self::Div | Self::Rem => 23,
+    }
+  }
+
   /// Whether this is `..` or `..=`.
   ///
   /// Those two are written with no surrounding spaces, which is Rust's style

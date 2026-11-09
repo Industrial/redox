@@ -1,0 +1,36 @@
+f x
+f x
+f (g x)
+x + 1
+x
+1 * 2 + 3
+(1 + 2) * 3
+1 - (2 - 3)
+1 - 2 - 3
+xs.len ()
+xs.len ()
+xs.fold (0, add)
+count :: u64
+[1, 2, 3]
+(1, 2)
+(1,)
+1 .. 4
+1 ..= 4
+maybe ?? 0
+risky catch 0
+xs |> len
+Point { x = 3.0, y = 4.0 }
+[ q * 2 | q in xs, q > 0 ]
+\q -> q + 1
+(> 0)
+(.name)
+-count
+&mut total
+"hi #{name}, you owe #{amount:.2}"
+xs[0]
+risky?
+[0; 4]
+f ()
+1 + 2 :: u64
+f (\q -> q + 1)
+f x

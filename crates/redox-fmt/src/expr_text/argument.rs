@@ -1,0 +1,49 @@
+pub(crate) mod stands_alone;
+
+use crate::expr_text::argument::stands_alone::stands_alone;
+use crate::expr_text::expr_text;
+use redox_ast::Expr;
+
+/// One juxtaposed argument, or a call's callee, parenthesised unless it can
+/// stand alone.
+///
+/// Juxtaposition is greedy: `f g x` is `f` applied to two arguments, not `f`
+/// applied to `g x`. So an argument that is itself an application needs its
+/// parentheses, and §3 row 1's `f (x)` → `f x` holds only for the arguments
+/// that cannot absorb what follows them.
+///
+/// # The set that can stand alone
+///
+/// A name, a literal, a bracketed form, and the postfix forms — `x.a`,
+/// `x.m ()`, `x[i]`, `x?`, `x?.a`. Those all end at a point the next token
+/// cannot extend, because the parser consumes postfix *inside* application
+/// (doc 18 §2.1), so `f x.a` already means `f (x.a)`.
+///
+/// A record literal is **not** in the set: `f P { x = 1 }` would read its
+/// brace as the start of something else, so it keeps its parentheses even
+/// though it is bracketed.
+///
+/// Everything else — an application, a binary expression, a unary one, a
+/// lambda, an ascription, a section, a comprehension, a block-bearing form —
+/// is parenthesised. A unary argument is in that list deliberately: `f -1`
+/// parses as `f - 1`, a subtraction, which is exactly the silent
+/// reinterpretation this leaf must not produce.
+///
+/// # A parenthesis the author wrote is never wrapped in a second one
+///
+/// The two `Paren` arms look redundant beside the two below them and are not:
+/// printing `expr` when `expr` *is* the parenthesis, and then wrapping the
+/// result, adds a layer. `f (\x -> x)` grew one parenthesis per pass — the
+/// lambda does not stand alone, so the wrap fired, and the inner `Paren`
+/// survived because `can_drop_paren` declines on a lambda. Both arms print the
+/// **inner** expression, so a layer can be added at most once no matter how
+/// many times the formatter runs. Leaf 5's idempotence property caught it.
+pub(crate) fn argument(expr: &Expr, source: &str) -> String {
+  match expr {
+    // Recursing rather than printing collapses `((x))` to `x` in one step.
+    Expr::Paren { inner, .. } if stands_alone(inner) => argument(inner, source),
+    Expr::Paren { inner, .. } => format!("({})", expr_text(inner, 0, source)),
+    _ if stands_alone(expr) => expr_text(expr, 0, source),
+    _ => format!("({})", expr_text(expr, 0, source)),
+  }
+}
