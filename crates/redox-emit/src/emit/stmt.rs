@@ -1,3 +1,4 @@
+use crate::emit::assert_call::assert_call;
 use crate::emit::expr::emit_expr;
 use crate::emit::inline_comment::emit_inline_comment;
 use crate::emit::pad::pad;
@@ -55,6 +56,11 @@ pub(crate) fn emit_stmt(out: &mut Sink<'_>, stmt: &Stmt, indent: usize, tail: bo
       "a draw arrow must be emitted by `emit_stmts`, which has the following \
        statements its callback body needs"
     ),
+    // Doc 03 §12.6. A statement, so it always takes its `;`.
+    StmtKind::Assert(e) => {
+      out.push_str(&assert_call(e, indent));
+      out.push(';');
+    }
     StmtKind::Return(value) => {
       out.push_str("return");
       if let Some(e) = value {

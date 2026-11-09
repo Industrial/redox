@@ -854,7 +854,8 @@ Since then, one construct per commit:
 | `2e36106` | `??`, and the unit expression `()` | doc 03 §12.1, §7 |
 | `a20f038` | synthesised generics, `=>` bounds and `where` locals | §2.2, §5.3 |
 | `b12eed1` | comprehensions, list literals, and §6's ascribed-literal lowering | §3.2, §6 |
-| *this* | `errors`, and `?` | doc 03 §12.5, §8 |
+| `31cee34` | `errors`, and `?` | doc 03 §12.5, §8 |
+| *this* | `test` blocks, `assert`, and the panic family | doc 03 §15, §12.6 |
 
 The guard commit closed a hole the clause commit had left: doc 18 §2.3's own example
 `fib 0 = 0` did not parse, because the clause body required a line break and an indent. It
@@ -864,7 +865,7 @@ prose.
 
 ### 11.2 Specification for later plans
 
-`test` blocks and `export` → `pub` are specified here and **not implemented**. The full pattern
+`export` → `pub` is specified here and **not implemented**. The full pattern
 grammar — a constructor pattern with fields included — is doc 04's plan 33. Doc 04's plan rows for those constructs are re-pointed at this document
 rather than doc 03; the lowerings they must produce are doc 03's, unchanged, as §1 requires.
 

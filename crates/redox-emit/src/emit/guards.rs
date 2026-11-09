@@ -3,6 +3,7 @@ use crate::emit::expr::emit_expr;
 use crate::emit::pad::pad;
 use crate::emit::rust_indent::RUST_INDENT;
 use crate::emit::sink::Sink;
+use crate::emit::two_armed::two_armed;
 use redox_ast::Guard;
 
 /// Emit one guard ladder as an `if`/`else if`/`else` chain, at `indent` spaces.
@@ -28,7 +29,29 @@ use redox_ast::Guard;
 /// reports the mismatch against the signature. Same division of labour:
 /// Redox does not decide whether a ladder is total, and AGENTS.md forbids it
 /// growing a checker that could.
-pub(crate) fn emit_guards(out: &mut Sink<'_>, guards: &[Guard], indent: usize, tail: bool) {
+pub(crate) fn emit_guards(
+  out: &mut Sink<'_>,
+  guards: &[Guard],
+  indent: usize,
+  tail: bool,
+  joinable: bool,
+) {
+  // A two-armed ladder narrow enough goes on one line, because that is what
+  // rustfmt does to it — see `SINGLE_LINE_IF_ELSE_MAX_WIDTH`. An `else if`
+  // in the middle disowns the rule, which is why doc 18 §2.3's three-row
+  // `tier` example was unaffected and a two-row ladder found it.
+  //
+  // `joinable` is the second half of the rule, and it was found the same
+  // way: rustfmt joins an `if`/`else` that is a **function body's** tail and
+  // expands the identical expression inside a `match` arm. Only the caller
+  // knows which position this is, so only the caller can say.
+  if joinable && let Some(one_line) = two_armed(guards, indent) {
+    pad(out, indent);
+    out.push_str(&one_line);
+    out.push('\n');
+    return;
+  }
+
   for (i, guard) in guards.iter().enumerate() {
     match (&guard.condition, i) {
       (Some(cond), 0) => {

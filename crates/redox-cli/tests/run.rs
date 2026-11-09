@@ -29,6 +29,12 @@
 //! `REDOX_BLESS=1` re-records every `.stdout` from what the programs actually
 //! printed, so a deliberate change is reviewed as a diff. Without it a
 //! mismatch fails.
+//!
+//! A case whose output declares doc 03 §15's `#[cfg(test)]` module is **also
+//! compiled as a test binary and run**. An ordinary build does not compile
+//! that module at all, so until this was added the corpus checked nothing
+//! about the generated tests: not that they compile, not that they pass, and
+//! not that two descriptions had slugged to the same function name.
 
 mod support;
 
@@ -89,7 +95,12 @@ fn every_run_case_prints_its_expectation() {
 
   for source in &cases {
     let name = label(source);
-    let actual = support::transpile_path(source).run();
+    let case = support::transpile_path(source);
+    // Doc 03 §15's test module is `#[cfg(test)]`, so the binary above never
+    // compiles it. A case that declares tests has them compiled and run
+    // here — without this the corpus checked nothing at all about them.
+    case.run_tests();
+    let actual = case.run();
     let expected_path = source.with_extension("stdout");
 
     if bless {

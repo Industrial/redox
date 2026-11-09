@@ -51,6 +51,6 @@ fn main() {
     );
     println!("{}", describe(&ConfigError::Invalid(String::from("x"), 7)));
     println!("{}", describe(&ConfigError::Closed));
-    println!("{}", (retries("12")).is_ok());
-    println!("{}", (retries("nope")).is_err());
+    println!("{}", retries("12").is_ok());
+    println!("{}", retries("nope").is_err());
 }

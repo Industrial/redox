@@ -45,7 +45,12 @@ fn otherwise_does_not_become_a_condition() {
   );
   assert!(!rust.contains("if true"), "{rust}");
   // The chain closes, so the whole `if` is one expression with a value.
-  assert!(rust.contains("} else {\n        \"low\"\n    }"), "{rust}");
+  // Narrow enough to be the one-line form, which is what rustfmt does to a
+  // two-armed `if`/`else` in a function body.
+  assert!(
+    rust.contains("if spend > 10 { \"high\" } else { \"low\" }"),
+    "{rust}"
+  );
 }
 
 /// A ladder is a tail position exactly as a plain body is: the value of the

@@ -55,6 +55,45 @@ impl Case {
     assert!(run.status.success(), "the compiled binary should exit 0");
     String::from_utf8_lossy(&run.stdout).into_owned()
   }
+
+  /// Compile the generated Rust **as a test binary** and run its tests.
+  ///
+  /// Doc 03 §15's test module is `#[cfg(test)]`, so an ordinary build does
+  /// not compile it at all — which means the corpus checked *nothing* about
+  /// the generated tests until this existed: not that they compile, not that
+  /// they pass, not that two slugs collided into one function name.
+  ///
+  /// A no-op for a file with no test module, so every case can call it.
+  pub fn run_tests(&self) {
+    let rust = std::fs::read_to_string(&self.xrs).expect("should read the .xrs");
+    if !rust.contains("#[cfg(test)]") {
+      return;
+    }
+
+    let bin = self.dir.join("tests");
+    let out = Command::new(RUSTC)
+      .args(["--edition", "2024", "--test", "-o"])
+      .arg(&bin)
+      .arg(&self.xrs)
+      .output()
+      .expect("should run rustc");
+    assert!(
+      out.stderr.is_empty(),
+      "rustc should emit nothing for the generated test module, got:\n{}",
+      String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+      out.status.success(),
+      "rustc should compile the generated test module"
+    );
+
+    let run = Command::new(&bin).output().expect("should run the tests");
+    assert!(
+      run.status.success(),
+      "the generated tests should pass:\n{}",
+      String::from_utf8_lossy(&run.stdout)
+    );
+  }
 }
 
 impl Drop for Case {

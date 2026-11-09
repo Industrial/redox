@@ -28,4 +28,12 @@ pub enum StmtKind {
     /// The callback-taking expression.
     value: Expr,
   },
+  /// `assert e`, doc 03 §12.6's assertion spelling.
+  ///
+  /// A statement rather than a call, because `assert` is a reserved word —
+  /// and because the lowering reads the operator the author wrote: `==`
+  /// becomes `assert_eq!` and `!=` becomes `assert_ne!`, which print both
+  /// values when they differ where `assert!` prints only the expression's
+  /// text.
+  Assert(Expr),
 }

@@ -57,6 +57,7 @@ pub use program::item::instance_decl::InstanceDecl;
 pub use program::item::param::Param;
 pub use program::item::pattern::Pattern;
 pub use program::item::signature::Signature;
+pub use program::item::test_decl::TestDecl;
 pub use program::item::type_alias::TypeAlias;
 pub use program::item::type_app::TypeApp;
 

@@ -53,7 +53,12 @@ pub(crate) fn emit_clauses(out: &mut Sink<'_>, f: &FnDecl, base: usize) {
     // that uses them, and that reordering is the whole of doc 18 §2.2's
     // lowering.
     emit_stmts(out, &f.clauses[0].wheres, base + RUST_INDENT, false);
-    emit_body(out, &f.clauses[0].body, base + RUST_INDENT, tail);
+    // The body is the function's own, so a narrow two-armed guard ladder may
+    // go on one line — unless a `where` local precedes it, which is a
+    // position rustfmt's behaviour has not been measured at and so is not
+    // claimed.
+    let joinable = f.clauses[0].wheres.is_empty();
+    emit_body(out, &f.clauses[0].body, base + RUST_INDENT, tail, joinable);
     return;
   }
 

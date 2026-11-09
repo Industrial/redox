@@ -1,0 +1,36 @@
+-- Doc 03 §15's `test` block and §12.6's assertion and panic spellings, kept
+-- by doc 18 §8.
+--
+-- Checked by compiling *and running the generated tests*: a slug that
+-- collided would not compile, and an assertion lowered to the wrong macro
+-- would pass when it should fail.
+
+add :: i32 -> i32 -> i32
+add a b = a + b
+
+halve :: i32 -> Option<i32>
+halve n
+  | n % 2 == 0 = Some (n / 2)
+  | otherwise = None
+
+main :: ()
+main =
+  print (add 1 2)
+  print (halve 4).is_some ()
+
+-- `==` becomes `assert_eq!`, which prints both values when they differ.
+-- `assert!` prints only the expression's text, which tells the author
+-- nothing they did not type.
+test "adds two numbers"
+  assert add 1 2 == 3
+
+test "rejects an odd input"
+  assert (halve 3).is_none ()
+
+-- Two descriptions that differ only in punctuation slug to the same name, so
+-- the second takes an index — doc 03 §15's collision rule.
+test "halves, evenly"
+  assert halve 4 == Some 2
+
+test "halves evenly"
+  assert halve 8 == Some 4

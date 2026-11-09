@@ -49,6 +49,7 @@ pub(crate) mod spaced_colon_colon;
 pub(crate) mod starts_a_field_type;
 pub(crate) mod starts_argument;
 pub(crate) mod substitute_var;
+pub(crate) mod test_decl;
 pub(crate) mod tight_colon_colon;
 pub(crate) mod token_text;
 pub(crate) mod type_alias;
@@ -70,6 +71,7 @@ use crate::parse::parser::parse_spine::parse_spine;
 use crate::parse::parser::patterns::patterns;
 use crate::parse::parser::signature_from::signature_from;
 use crate::parse::parser::signature_only::signature_only;
+use crate::parse::parser::test_decl::test_decl;
 use crate::parse::parser::type_alias::type_alias;
 use crate::parse::parser::type_stop::TypeStop;
 use redox_ast::{Binding, Block, FnDecl, Ident, Item, Program, Stmt, StmtKind, TypeExpr};
@@ -166,6 +168,11 @@ impl<'a> Parser<'a> {
       let alias = type_alias(self, leading, start)?;
       self.newline_with_trailing("expected a line break after the alias")?;
       return Ok(Item::Type(alias));
+    }
+    if self.check(&TokenKind::Kw(Keyword::Test)) {
+      let decl = test_decl(self, leading, start)?;
+      self.newline_with_trailing("expected a line break after the test")?;
+      return Ok(Item::Test(decl));
     }
     if self.check(&TokenKind::Kw(Keyword::Errors)) {
       let decl = errors_decl(self, leading, start)?;
@@ -347,15 +354,37 @@ impl<'a> Parser<'a> {
       "expected an indented body",
     )?;
 
-    let body_start = self.peek_span().0;
+    let block = self.statements()?;
+
+    let wheres = self.where_locals()?;
+    Ok(redox_ast::Clause {
+      patterns,
+      body: redox_ast::ClauseBody::Plain(block.clone()),
+      wheres,
+      span: (start, self.prev_span().1),
+      trailing,
+    })
+  }
+
+  /// The statements of an indented block, from just inside the `Indent` to
+  /// the matching `Dedent`.
+  ///
+  /// Lifted out of [`Parser::clause`] when doc 03 §15's `test` block arrived,
+  /// because a test's body **is** a clause body: same statements, same
+  /// recovery, same emptiness rule. Sharing it is what gives a test the draw
+  /// arrows and `case` expressions that need layout of their own, with
+  /// nothing written for them.
+  ///
+  /// Statement-level recovery lives here: a bad statement is reported and
+  /// skipped, and its siblings are still parsed.
+  fn statements(&mut self) -> Result<Block, ParseError> {
+    let start = self.peek_span().0;
     let mut stmts = Vec::new();
     loop {
       self.skip_separators();
       if self.check(&TokenKind::Dedent) || self.at_eof() {
         break;
       }
-      // Statement-level recovery: a bad statement is reported and skipped,
-      // and its siblings are still parsed.
       match self.stmt() {
         Ok(stmt) => stmts.push(stmt),
         Err(e) => {
@@ -364,28 +393,29 @@ impl<'a> Parser<'a> {
         }
       }
     }
-    let body_end = self.prev_span().1;
+    let end = self.prev_span().1;
     self.expect(&TokenKind::Dedent, "expected the body to end")?;
 
     if stmts.is_empty() && self.errors.is_empty() {
       return Err(ParseError::with(
         Code::EmptyBody,
         "a declaration body must contain at least one statement",
-        (body_start, body_start),
+        (start, start),
       ));
     }
-
-    let wheres = self.where_locals()?;
-    Ok(redox_ast::Clause {
-      patterns,
-      body: redox_ast::ClauseBody::Plain(Block {
-        stmts,
-        span: (body_start, body_end),
-      }),
-      wheres,
-      span: (start, self.prev_span().1),
-      trailing,
+    Ok(Block {
+      stmts,
+      span: (start, end),
     })
+  }
+
+  /// An `Indent`, its statements, and the matching `Dedent`.
+  ///
+  /// What a caller wants when the block is the whole construct — a `test`
+  /// body — rather than one of several shapes a clause can take.
+  pub(crate) fn indented_block(&mut self, code: Code, message: &str) -> Result<Block, ParseError> {
+    self.expect_with(code, &TokenKind::Indent, message)?;
+    self.statements()
   }
 
   /// Doc 18 §2.2's `where` locals, if the clause has any.
@@ -519,7 +549,10 @@ impl<'a> Parser<'a> {
     let leading = self.peek_leading();
     let start = self.peek_span().0;
 
-    let kind = if self.check(&TokenKind::Kw(Keyword::Return)) {
+    let kind = if self.check(&TokenKind::Kw(Keyword::Assert)) {
+      self.advance();
+      StmtKind::Assert(parse_expr(self, 0)?)
+    } else if self.check(&TokenKind::Kw(Keyword::Return)) {
       self.advance();
       if self.check(&TokenKind::Newline) || self.check(&TokenKind::Dedent) || self.at_eof() {
         StmtKind::Return(None)

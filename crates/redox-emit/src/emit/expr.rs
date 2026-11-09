@@ -3,6 +3,7 @@ use crate::emit::case::emit_case;
 use crate::emit::coalesce::coalesce;
 use crate::emit::comprehension::emit_comprehension;
 use crate::emit::expr_list::expr_list;
+use crate::emit::panic_macro::panic_macro;
 use crate::emit::pipeline::pipeline;
 use crate::emit::print_call::print_call;
 use crate::emit::receiver::receiver;
@@ -95,7 +96,11 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
     Expr::Num { text, .. } => text.clone(),
     Expr::Bool { value, .. } => value.to_string(),
     Expr::Char { value, .. } => format!("{value:?}"),
-    Expr::Ident(i) => i.text.clone(),
+    // Doc 03 §12.6's bare panic-family spellings. A lookup rather than a
+    // keyword, because nothing else distinguishes `todo` from a function the
+    // author wrote and has not defined yet — which is, after all, what
+    // `todo` is for.
+    Expr::Ident(i) => panic_macro(&i.text).map_or_else(|| i.text.clone(), str::to_string),
     Expr::Path { text, .. } => text.clone(),
     // Doc 01 §16: `@field` is `self.field` and `@@name` is `Self::name`.
     Expr::SelfField { name, .. } => format!("self.{}", name.text),
@@ -139,15 +144,18 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
       // produce something that looks plausible.
       None => format!("compile_error!(\"`{op:?}` is parsed but not yet lowered\")"),
     },
-    Expr::Field { recv, name, .. } => format!("{}.{}", emit_expr(recv, indent), name.text),
+    // `receiver` rather than `emit_expr` for all three: it strips a grouping
+    // paren the author wrote and adds one where `.` or `[` would otherwise
+    // bind tighter, which is the same question asked in both directions.
+    Expr::Field { recv, name, .. } => format!("{}.{}", receiver(recv, indent), name.text),
     Expr::Index { recv, index, .. } => {
-      format!("{}[{}]", emit_expr(recv, indent), emit_expr(index, indent))
+      format!("{}[{}]", receiver(recv, indent), emit_expr(index, indent))
     }
     Expr::MethodCall {
       recv, name, args, ..
     } => format!(
       "{}.{}({})",
-      emit_expr(recv, indent),
+      receiver(recv, indent),
       name.text,
       expr_list(args, indent)
     ),
@@ -156,6 +164,14 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
         && name.text == "print"
       {
         return print_call(args, indent);
+      }
+      // `panic "message"` — doc 03 §12.6. A call rather than a bare name,
+      // because it takes an argument, which is why it is lowered here and
+      // the other three are lowered as identifiers.
+      if let Expr::Ident(name) = callee.as_ref()
+        && name.text == "panic"
+      {
+        return format!("panic!({})", expr_list(args, indent));
       }
       format!("{}({})", emit_expr(callee, indent), expr_list(args, indent))
     }

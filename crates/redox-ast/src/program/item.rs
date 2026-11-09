@@ -15,6 +15,7 @@ pub(crate) mod instance_decl;
 pub(crate) mod param;
 pub(crate) mod pattern;
 pub(crate) mod signature;
+pub(crate) mod test_decl;
 pub(crate) mod type_alias;
 pub(crate) mod type_app;
 
@@ -23,6 +24,7 @@ use crate::program::item::class_decl::ClassDecl;
 use crate::program::item::data_decl::DataDecl;
 use crate::program::item::errors_decl::ErrorsDecl;
 use crate::program::item::instance_decl::InstanceDecl;
+use crate::program::item::test_decl::TestDecl;
 use crate::program::item::type_alias::TypeAlias;
 use redox_lexer::Span;
 
@@ -42,6 +44,10 @@ pub enum Item {
   /// Doc 03 §12.5's `errors`, kept by doc 18 §8 — the one declaration that
   /// generates more than one Rust item.
   Errors(ErrorsDecl),
+  /// Doc 03 §15's `test`, kept by doc 18 §8. The only item that is **not**
+  /// emitted where it appears: §15 asks for one module per file, so the
+  /// tests are gathered and written together.
+  Test(TestDecl),
 }
 
 impl Item {
@@ -53,6 +59,7 @@ impl Item {
       Item::Class(c) => c.span,
       Item::Instance(i) => i.span,
       Item::Errors(e) => e.span,
+      Item::Test(t) => t.span,
     }
   }
 }

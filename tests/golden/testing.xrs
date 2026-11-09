@@ -1,0 +1,49 @@
+// Doc 03 §15's `test` block and §12.6's assertion and panic spellings, kept
+// by doc 18 §8.
+//
+// Checked by compiling *and running the generated tests*: a slug that
+// collided would not compile, and an assertion lowered to the wrong macro
+// would pass when it should fail.
+
+fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+
+fn halve(n: i32) -> Option<i32> {
+    if n % 2 == 0 { Some(n / 2) } else { None }
+}
+
+fn main() {
+    println!("{}", add(1, 2));
+    println!("{}", halve(4).is_some());
+}
+
+#[cfg(test)]
+mod __rdx_tests {
+    use super::*;
+
+    // `==` becomes `assert_eq!`, which prints both values when they differ.
+    // `assert!` prints only the expression's text, which tells the author
+    // nothing they did not type.
+    #[test]
+    fn adds_two_numbers() {
+        assert_eq!(add(1, 2), 3);
+    }
+
+    #[test]
+    fn rejects_an_odd_input() {
+        assert!(halve(3).is_none());
+    }
+
+    // Two descriptions that differ only in punctuation slug to the same name, so
+    // the second takes an index — doc 03 §15's collision rule.
+    #[test]
+    fn halves_evenly() {
+        assert_eq!(halve(4), Some(2));
+    }
+
+    #[test]
+    fn halves_evenly_2() {
+        assert_eq!(halve(8), Some(4));
+    }
+}

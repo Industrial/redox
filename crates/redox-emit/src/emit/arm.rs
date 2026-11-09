@@ -47,7 +47,9 @@ pub(crate) fn emit_arm(out: &mut Sink<'_>, clause: &Clause, arm: &str, indent: u
   emit_stmts(out, &clause.wheres, indent + RUST_INDENT, false);
   // Every arm is a tail position: a `match` arm's value is the arm's value,
   // whether or not the function returns anything.
-  emit_body(out, &clause.body, indent + RUST_INDENT, tail);
+  // A `match` arm's body, where rustfmt expands a two-armed `if`/`else` that
+  // it would have joined in a function body.
+  emit_body(out, &clause.body, indent + RUST_INDENT, tail, false);
   pad(out, indent);
   out.push_str("}\n");
 }
