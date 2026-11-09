@@ -1,5 +1,6 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
+use crate::parse::parser::lambda::lambda;
 use crate::parse::parser::parse_expr::parse_expr;
 use crate::parse::parser::path_or_ident::path_or_ident;
 use crate::parse::parser::unary_op::unary_op;
@@ -72,6 +73,10 @@ pub(crate) fn prefix(p: &mut Parser) -> Result<Expr, ParseError> {
         span: (start, p.prev_span().1),
       })
     }
+    // Doc 18 §4's lambda, and `move \x -> …` with it: `move` can only open
+    // a closure here, so one token of lookahead settles it.
+    TokenKind::Backslash => lambda(p),
+    TokenKind::Kw(Keyword::Move) => lambda(p),
     TokenKind::Ident(_) => path_or_ident(p),
     _ => Err(ParseError::with(
       Code::ExpectedExpression,

@@ -3,6 +3,7 @@ pub(crate) mod arguments;
 pub(crate) mod atom;
 pub(crate) mod binders;
 pub(crate) mod capture_type;
+pub(crate) mod lambda;
 pub(crate) mod parse_expr;
 pub(crate) mod parse_spine;
 pub(crate) mod path_or_ident;

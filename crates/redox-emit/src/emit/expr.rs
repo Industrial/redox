@@ -11,6 +11,27 @@ use redox_ast::Expr;
 /// so a new node must fail to compile here rather than fail at runtime.
 pub(crate) fn emit_expr(e: &Expr) -> String {
   match e {
+    // Doc 18 §4. A Rust closure, with `move` and types carried through.
+    Expr::Lambda {
+      params,
+      body,
+      is_move,
+      ..
+    } => {
+      let binders: Vec<String> = params
+        .iter()
+        .map(|param| match &param.ty {
+          Some(ty) => format!("{}: {}", param.name.text, ty.text),
+          None => param.name.text.clone(),
+        })
+        .collect();
+      format!(
+        "{}|{}| {}",
+        if *is_move { "move " } else { "" },
+        binders.join(", "),
+        emit_expr(body)
+      )
+    }
     // Doc 18 §6. A block, because Rust has no expression-level ascription:
     // `{ let __rdx_t: T = e; __rdx_t }` states the type and yields the value.
     // The `__rdx_` prefix is reserved for generated identifiers (doc 02), so

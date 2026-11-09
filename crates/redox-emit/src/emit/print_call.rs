@@ -1,6 +1,7 @@
 use crate::emit::double_braces::double_braces;
 use crate::emit::expr_list::expr_list;
 use crate::emit::rust_escapes::rust_escapes;
+use crate::emit::unparen::unparen;
 use redox_ast::Expr;
 
 /// Lower a `print` call.
@@ -21,7 +22,10 @@ use redox_ast::Expr;
 /// `print_call` reads `StrLit`'s value directly rather than going through
 /// `emit_expr`, so it had quietly missed both.
 pub(crate) fn print_call(args: &[Expr]) -> String {
-  match args {
+  // Doc 18 §2.1: a grouping paren around the argument carries no meaning, so
+  // `print ("x")` must take the same arm as `print "x"`.
+  let unwrapped: Vec<Expr> = args.iter().map(|a| unparen(a).clone()).collect();
+  match unwrapped.as_slice() {
     [Expr::StrLit { value, .. }] => {
       format!("println!({})", double_braces(&rust_escapes(value)))
     }

@@ -14,19 +14,15 @@ use redox_lexer::TokenKind;
 pub(crate) fn postfix(p: &mut Parser, lhs: Expr) -> Result<Result<Expr, Expr>, ParseError> {
   let start = lhs.span().0;
 
-  if p.check(&TokenKind::LParen) {
-    p.advance();
-    let args = arguments(p, &TokenKind::RParen)?;
-    p.expect(
-      &TokenKind::RParen,
-      "expected `)` to close the argument list",
-    )?;
-    return Ok(Ok(Expr::Call {
-      callee: Box::new(lhs),
-      args,
-      span: (start, p.prev_span().1),
-    }));
-  }
+  // **No paren-call step.** Doc 18 §2.1 makes parentheses grouping only:
+  // `f(x)`, `f (x)` and `f x` are one expression, and `application` builds
+  // the call from juxtaposition. A postfix call here would take the
+  // parenthesised group as an argument list and leave any following argument
+  // to form a *second* call — `map (\n -> n * n) xs` emitted
+  // `map(|n| n * n)(xs)` until this was removed.
+  //
+  // A method call keeps its parentheses, because `.name(args)` is a postfix
+  // step on a *receiver* and has no juxtaposition reading to collide with.
 
   if p.check(&TokenKind::LBracket) {
     p.advance();

@@ -12,6 +12,7 @@ pub(crate) mod signature;
 pub(crate) mod sink;
 pub(crate) mod stmt;
 pub(crate) mod trivia;
+pub(crate) mod unparen;
 pub(crate) mod with_map;
 
 use crate::emit::with_map::emit_with_map;

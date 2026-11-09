@@ -5,6 +5,7 @@ use crate::parse::parser::capture_type::capture_type;
 use crate::parse::parser::spaced_colon_colon::spaced_colon_colon;
 use crate::parse::precedence::binary_power::binary_power;
 use redox_ast::Expr;
+use redox_lexer::TokenKind;
 
 /// Parse an expression by Pratt loop, stopping before any operator whose left
 /// binding power is below `min`.
@@ -32,6 +33,25 @@ pub(crate) fn parse_expr(p: &mut Parser, min: u8) -> Result<Expr, ParseError> {
       lhs = Expr::Ascribe {
         inner: Box::new(lhs),
         ty,
+        span,
+      };
+      continue;
+    }
+
+    // Doc 18 §2.1's `$`: grouping that runs to the end of the expression, and
+    // the reason a nested application rarely needs brackets. It **lowers to
+    // nothing at all** — `f $ g x` is the call `f(g(x))` — so it is applied
+    // here rather than carried in the AST.
+    //
+    // Binding power 1: looser than every operator, tighter than ascription,
+    // which matches Haskell's `infixr 0` for `$` against an even looser `::`.
+    if min <= 1 && p.check(&TokenKind::Dollar) {
+      p.advance();
+      let arg = parse_expr(p, 1)?;
+      let span = (lhs.span().0, arg.span().1);
+      lhs = Expr::Call {
+        callee: Box::new(lhs),
+        args: vec![arg],
         span,
       };
       continue;

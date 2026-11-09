@@ -66,6 +66,18 @@ pub enum Expr {
   },
   /// A string literal, stored **raw, including its delimiters**. Interpolation
   /// is plan 23; the lexer already produces the parts.
+  /// `\x -> e`, doc 18 §4's lambda.
+  ///
+  /// Lowers to a Rust closure: `|x| e`, with `move` and per-parameter types
+  /// carried through. Doc 18 §8 declines currying, so the parameters are a
+  /// list rather than nested single-parameter lambdas — `\x y -> e` is one
+  /// closure of two arguments, matching how application works.
+  Lambda {
+    params: Vec<crate::Param>,
+    body: Box<Expr>,
+    is_move: bool,
+    span: Span,
+  },
   /// `e :: T`, doc 18 §6's ascription.
   ///
   /// Lowers to `{ let __rdx_t: T = e; __rdx_t }` — a block, because Rust has
@@ -120,6 +132,7 @@ impl Expr {
       | Expr::Unary { span, .. }
       | Expr::Paren { span, .. }
       | Expr::Path { span, .. }
+      | Expr::Lambda { span, .. }
       | Expr::Ascribe { span, .. }
       | Expr::StrLit { span, .. }
       | Expr::Num { span, .. }

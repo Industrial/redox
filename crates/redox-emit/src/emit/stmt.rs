@@ -3,6 +3,7 @@ use crate::emit::inline_comment::emit_inline_comment;
 use crate::emit::pad::pad;
 use crate::emit::sink::Sink;
 use crate::emit::trivia::emit_trivia;
+use crate::emit::unparen::unparen;
 use redox_ast::{Stmt, StmtKind};
 
 /// Emit one statement at `indent`.
@@ -24,7 +25,7 @@ pub(crate) fn emit_stmt(out: &mut Sink<'_>, stmt: &Stmt, indent: usize, tail: bo
   pad(out, indent);
   match &stmt.kind {
     StmtKind::Expr(e) => {
-      out.push_str(&emit_expr(e));
+      out.push_str(&emit_expr(unparen(e)));
       if !tail {
         out.push(';');
       }
