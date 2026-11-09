@@ -1,0 +1,31 @@
+-- Doc 03 §12.5's `errors` declaration, kept by doc 18 §8 — the one Redox
+-- construct that generates more than one Rust item, and the only one whose
+-- output is "the boilerplate every Rust project either writes by hand or
+-- pulls a derive crate for".
+--
+-- Checked by compiling and running: a `Display` arm bound to the wrong field
+-- prints the wrong value, and a missing `Error` impl does not compile.
+
+errors ConfigError
+  Missing String             "missing key: #{0}"
+  Invalid String u32         "invalid value #{0} at line #{1}"
+  Closed                     "closed"
+  from std::num::ParseIntError as Parse  "not a number: #{0}"
+
+-- The generated `From` is what makes `?` work across the boundary, which is
+-- the whole reason the `from` row exists.
+retries :: &str -> Result<u32, ConfigError>
+retries raw = Ok n
+  where
+    n = raw.parse ()?
+
+describe :: &ConfigError -> String
+describe e = e.to_string ()
+
+main :: ()
+main =
+  print (describe (&ConfigError::Missing (String::from "retries")))
+  print (describe (&ConfigError::Invalid (String::from "x") 7))
+  print (describe (&ConfigError::Closed))
+  print (retries "12").is_ok ()
+  print (retries "nope").is_err ()

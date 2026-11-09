@@ -5,6 +5,7 @@ use crate::emit::comprehension::emit_comprehension;
 use crate::emit::expr_list::expr_list;
 use crate::emit::pipeline::pipeline;
 use crate::emit::print_call::print_call;
+use crate::emit::receiver::receiver;
 use crate::emit::record::emit_record;
 use crate::emit::rust_escapes::rust_escapes;
 use crate::emit::rust_indent::RUST_INDENT;
@@ -79,6 +80,9 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
       scrutinee, arms, ..
     } => emit_case(scrutinee, arms, indent),
     Expr::Unit { .. } => "()".to_string(),
+    // Rust's try operator, unchanged. The receiver needs parentheses for the
+    // same reason a method call's does: `?` binds tighter than any operator.
+    Expr::Try { inner, .. } => format!("{}?", receiver(inner, indent)),
     // Rust's array literal, unchanged — a spelling, not a lowering.
     Expr::List { items, .. } => format!("[{}]", expr_list(items, indent)),
     // Doc 18 §3.2. An iterator chain, built inside out.

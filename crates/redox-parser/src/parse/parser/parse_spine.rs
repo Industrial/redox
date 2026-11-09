@@ -1,6 +1,7 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
 use crate::parse::parser::capture_type::capture_type;
+use crate::parse::parser::type_stop::TypeStop;
 use redox_ast::TypeExpr;
 use redox_lexer::TokenKind;
 
@@ -19,10 +20,18 @@ use redox_lexer::TokenKind;
 /// Only the spine becomes Haskell; doc 18 §8 declines type application by
 /// juxtaposition *in types* precisely so that this stays true.
 pub(crate) fn parse_spine(p: &mut Parser) -> Result<Vec<TypeExpr>, ParseError> {
-  let mut spine = vec![capture_type(p, "expected a type after `::`")?];
+  let mut spine = vec![capture_type(
+    p,
+    "expected a type after `::`",
+    TypeStop::Greedy,
+  )?];
   while p.check(&TokenKind::Arrow) {
     p.advance();
-    spine.push(capture_type(p, "expected a type after `->`")?);
+    spine.push(capture_type(
+      p,
+      "expected a type after `->`",
+      TypeStop::Greedy,
+    )?);
   }
   Ok(spine)
 }

@@ -25,6 +25,16 @@ pub(crate) fn postfix(p: &mut Parser, lhs: Expr) -> Result<Result<Expr, Expr>, P
   // A method call keeps its parentheses, because `.name(args)` is a postfix
   // step on a *receiver* and has no juxtaposition reading to collide with.
 
+  // `e?` — Rust's try operator. A postfix step like any other, and the
+  // reason doc 03 §12.5's generated `From` impl has a caller.
+  if p.check(&TokenKind::Question) {
+    p.advance();
+    return Ok(Ok(Expr::Try {
+      inner: Box::new(lhs),
+      span: (start, p.prev_span().1),
+    }));
+  }
+
   if p.check(&TokenKind::LBracket) {
     p.advance();
     let index = parse_expr(p, 0)?;

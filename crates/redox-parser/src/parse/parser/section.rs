@@ -2,6 +2,7 @@ use crate::ParseError;
 use crate::parse::parser::Parser;
 use crate::parse::parser::atom::atom;
 use crate::parse::parser::binary_op::binary_op;
+use crate::parse::parser::opens_a_section::opens_a_section;
 use crate::parse::parser::parse_expr::parse_expr;
 use redox_ast::{Expr, Section};
 use redox_lexer::TokenKind;
@@ -28,7 +29,9 @@ use redox_lexer::TokenKind;
 ///
 /// `(- 1)` is **never** a section: doc 18 §4 makes it negation always, which
 /// is what retires doc 03 decision 50's `(-1)`-versus-`(- 1)` adjacency rule.
-/// Subtraction has no section; the lambda is `\\x -> x - 1`.
+/// Subtraction has no section; the lambda is `\\x -> x - 1`. The same holds
+/// for `&`, `*` and `!`, which are prefix operators too — see
+/// `opens_a_section`.
 pub(crate) fn section(p: &mut Parser, start: usize) -> Result<Option<Expr>, ParseError> {
   // `(.name)` — GHC's record dot.
   if p.check(&TokenKind::Dot)
@@ -61,10 +64,11 @@ pub(crate) fn section(p: &mut Parser, start: usize) -> Result<Option<Expr>, Pars
     }));
   }
 
-  // A right section: the operator leads. `-` is excluded, so `(- 1)` stays
-  // negation.
+  // A right section: the operator leads. The four operators that are also
+  // *prefix* operators are excluded, so `(- 1)`, `(&x)`, `(*p)` and
+  // `(!flag)` keep their prefix reading — see `opens_a_section`.
   let mark = p.position();
-  if !p.check(&TokenKind::Minus) {
+  if opens_a_section(&p.peek().kind) {
     if let Some(op) = binary_op(p) {
       let operand = parse_expr(p, 0)?;
       p.expect(&TokenKind::RParen, "expected `)` to close the section")?;

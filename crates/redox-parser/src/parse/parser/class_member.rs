@@ -5,6 +5,7 @@ use crate::parse::parser::method_context::MethodContext;
 use crate::parse::parser::parse_expr::parse_expr;
 use crate::parse::parser::receiver::receiver;
 use crate::parse::parser::substitute_var::substitute_var;
+use crate::parse::parser::type_stop::TypeStop;
 use redox_ast::ClassMember;
 use redox_lexer::{Keyword, TokenKind};
 
@@ -40,7 +41,7 @@ pub(crate) fn class_member(p: &mut Parser, ctx: &MethodContext) -> Result<ClassM
       &TokenKind::ColonColon,
       "expected `::` after the constant's name",
     )?;
-    let ty = capture_type(p, "expected the constant's type")?;
+    let ty = capture_type(p, "expected the constant's type", TypeStop::Greedy)?;
     // A `class` declares the constant and an `instance` supplies it, so the
     // value is optional here and rustc decides which was required.
     let value = if p.check(&TokenKind::Eq) {

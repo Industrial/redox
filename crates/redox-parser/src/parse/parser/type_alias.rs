@@ -1,6 +1,7 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
 use crate::parse::parser::capture_type::capture_type;
+use crate::parse::parser::type_stop::TypeStop;
 use redox_ast::TypeAlias;
 use redox_lexer::{Keyword, TokenKind, Trivia};
 
@@ -20,7 +21,7 @@ pub(crate) fn type_alias(
   p.expect(&TokenKind::Kw(Keyword::Type), "expected `type`")?;
   let name = p.ident("expected a name after `type`")?;
   p.expect(&TokenKind::Eq, "expected `=` after the alias's name")?;
-  let ty = capture_type(p, "expected a type")?;
+  let ty = capture_type(p, "expected a type", TypeStop::Greedy)?;
   Ok(TypeAlias {
     name,
     ty,

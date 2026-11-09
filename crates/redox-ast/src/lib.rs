@@ -48,6 +48,8 @@ pub use program::item::constraint::Constraint;
 pub use program::item::constructor::Constructor;
 pub use program::item::constructor_fields::ConstructorFields;
 pub use program::item::data_decl::DataDecl;
+pub use program::item::error_variant::ErrorVariant;
+pub use program::item::errors_decl::ErrorsDecl;
 pub use program::item::field_decl::FieldDecl;
 pub use program::item::fn_decl::FnDecl;
 pub use program::item::guard::Guard;

@@ -3,6 +3,7 @@ use crate::parse::parser::Parser;
 use crate::parse::parser::capture_type::capture_type;
 use crate::parse::parser::parse_expr::parse_expr;
 use crate::parse::parser::spaced_colon_colon::spaced_colon_colon;
+use crate::parse::parser::type_stop::TypeStop;
 use redox_ast::{Expr, Param};
 use redox_lexer::{Keyword, TokenKind};
 
@@ -33,7 +34,11 @@ pub(crate) fn lambda(p: &mut Parser) -> Result<Expr, ParseError> {
     let name = p.ident("expected a lambda parameter name")?;
     let ty = if spaced_colon_colon(p) {
       p.advance();
-      Some(capture_type(p, "expected a type after `::`")?)
+      Some(capture_type(
+        p,
+        "expected a type after `::`",
+        TypeStop::Greedy,
+      )?)
     } else {
       None
     };

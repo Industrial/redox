@@ -1,6 +1,8 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
+use crate::parse::parser::can_end_a_type::can_end_a_type;
 use crate::parse::parser::token_text::token_text;
+use crate::parse::parser::type_stop::TypeStop;
 use redox_ast::TypeExpr;
 use redox_diag::Code;
 use redox_lexer::TokenKind;
@@ -29,9 +31,15 @@ use redox_lexer::TokenKind;
 /// `}` and `|` joined the set with doc 18 §2.4's declarations, which are the
 /// first place a type is followed by either: `{ x :: f64, y :: f64 }` ended
 /// its last field's type with the brace *inside* it, and `Key char | Close`
-/// swallowed the bar. Neither token can occur in a Rust type at depth zero,
-/// so neither costs a type form.
-pub(crate) fn capture_type(p: &mut Parser, message: &str) -> Result<TypeExpr, ParseError> {
+/// swallowed the bar. A string literal joined it with doc 03 §12.5's
+/// `errors` rows, where the `Display` message follows the payload types with
+/// no separator. None of them can occur in a Rust type at depth zero, so
+/// none costs a type form.
+pub(crate) fn capture_type(
+  p: &mut Parser,
+  message: &str,
+  stop: TypeStop,
+) -> Result<TypeExpr, ParseError> {
   let start = p.peek_span().0;
   let mut depth = 0i32;
   let mut text = String::new();
@@ -40,9 +48,23 @@ pub(crate) fn capture_type(p: &mut Parser, message: &str) -> Result<TypeExpr, Pa
   let mut group_followed_a_name = false;
   let mut prev_was_a_name = false;
   let mut closed_a_named_group = false;
+  let mut prev_kind = TokenKind::Eof;
 
   loop {
     let kind = &p.peek().kind;
+
+    // A juxtaposed payload list reads one type per item, so a whitespace
+    // boundary between something that can *end* a type and something that
+    // can *begin* one ends this atom. Without it `Invalid String u32` is a
+    // single field spelled `String u32`.
+    if depth == 0
+      && stop == TypeStop::Atom
+      && !text.is_empty()
+      && p.peek().ws_before
+      && can_end_a_type(&prev_kind)
+    {
+      break;
+    }
 
     if depth == 0 {
       let ends = match kind {
@@ -50,6 +72,14 @@ pub(crate) fn capture_type(p: &mut Parser, message: &str) -> Result<TypeExpr, Pa
         // Doc 18 §2.4: a record's closing brace, and the bar between two
         // constructors.
         TokenKind::RBrace | TokenKind::Or | TokenKind::Pipe => true,
+        // Doc 03 §12.5: an `errors` row's `Display` message follows its
+        // payload types with no separator, which is what lets the rows read
+        // as a table. A string literal cannot occur in a Rust type, so
+        // ending here costs no type form.
+        TokenKind::Str { .. } | TokenKind::RawStr { .. } => true,
+        // `as` never occurs inside a Rust type — it is a cast operator — and
+        // doc 03 §12.5's `from io::Error as Io` needs the type to end there.
+        TokenKind::Kw(redox_lexer::Keyword::As) => true,
         // The refinement: `Fn(i32) -> i32` keeps going; `: i32 ->` stops.
         // The `(` has to have followed a *name* for that to apply — `()` is
         // the unit type, and `() -> Option<T>` is a signature spine whose
@@ -89,6 +119,7 @@ pub(crate) fn capture_type(p: &mut Parser, message: &str) -> Result<TypeExpr, Pa
       text.push(' ');
     }
     text.push_str(&token_text(kind));
+    prev_kind = kind.clone();
     p.advance();
   }
 

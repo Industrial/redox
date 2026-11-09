@@ -3,6 +3,7 @@ pub(crate) mod arguments;
 pub(crate) mod atom;
 pub(crate) mod binary_op;
 pub(crate) mod bracketed;
+pub(crate) mod can_end_a_type;
 pub(crate) mod capture_type;
 pub(crate) mod case_arm;
 pub(crate) mod case_of;
@@ -14,6 +15,8 @@ pub(crate) mod constructor;
 pub(crate) mod constructor_fields;
 pub(crate) mod data_decl;
 pub(crate) mod deriving;
+pub(crate) mod error_variant;
+pub(crate) mod errors_decl;
 pub(crate) mod field_decl;
 pub(crate) mod field_init;
 pub(crate) mod flush_word;
@@ -22,6 +25,7 @@ pub(crate) mod instance_decl;
 pub(crate) mod is_word;
 pub(crate) mod lambda;
 pub(crate) mod method_context;
+pub(crate) mod opens_a_section;
 pub(crate) mod parse_expr;
 pub(crate) mod parse_spine;
 pub(crate) mod path_or_ident;
@@ -49,6 +53,7 @@ pub(crate) mod tight_colon_colon;
 pub(crate) mod token_text;
 pub(crate) mod type_alias;
 pub(crate) mod type_app;
+pub(crate) mod type_stop;
 pub(crate) mod type_vars;
 pub(crate) mod unary_op;
 
@@ -57,6 +62,7 @@ use crate::parse::parser::capture_type::capture_type;
 use crate::parse::parser::class_decl::class_decl;
 use crate::parse::parser::constraints::constraints;
 use crate::parse::parser::data_decl::data_decl;
+use crate::parse::parser::errors_decl::errors_decl;
 use crate::parse::parser::generalise::generalise;
 use crate::parse::parser::instance_decl::instance_decl;
 use crate::parse::parser::parse_expr::parse_expr;
@@ -65,6 +71,7 @@ use crate::parse::parser::patterns::patterns;
 use crate::parse::parser::signature_from::signature_from;
 use crate::parse::parser::signature_only::signature_only;
 use crate::parse::parser::type_alias::type_alias;
+use crate::parse::parser::type_stop::TypeStop;
 use redox_ast::{Binding, Block, FnDecl, Ident, Item, Program, Stmt, StmtKind, TypeExpr};
 use redox_diag::Code;
 use redox_lexer::{Keyword, Span, Token, TokenKind, Trivia};
@@ -159,6 +166,11 @@ impl<'a> Parser<'a> {
       let alias = type_alias(self, leading, start)?;
       self.newline_with_trailing("expected a line break after the alias")?;
       return Ok(Item::Type(alias));
+    }
+    if self.check(&TokenKind::Kw(Keyword::Errors)) {
+      let decl = errors_decl(self, leading, start)?;
+      self.newline_with_trailing("expected a line break after the declaration")?;
+      return Ok(Item::Errors(decl));
     }
     if self.check(&TokenKind::Kw(Keyword::Class)) {
       let decl = class_decl(self, leading, start)?;
@@ -596,9 +608,10 @@ impl<'a> Parser<'a> {
     }))
   }
 
-  /// Capture a type as verbatim source text (plan 03 §1.1).
+  /// Capture a type as verbatim source text (plan 03 §1.1), reading to its
+  /// terminator.
   pub(crate) fn type_expr(&mut self, message: &str) -> Result<TypeExpr, ParseError> {
-    capture_type(self, message)
+    capture_type(self, message, TypeStop::Greedy)
   }
 
   // ---- token helpers, shared with the grammar functions ----

@@ -137,6 +137,15 @@ pub enum Expr {
     qualifiers: Vec<Qualifier>,
     span: Span,
   },
+  /// `e?` — Rust's try operator, unchanged.
+  ///
+  /// A spelling, not a lowering. It is here because doc 03 §12.5's `from`
+  /// row exists to make `?` work across an error boundary, and a generated
+  /// `From` impl with no `?` to use it would be a feature with no caller.
+  Try {
+    inner: Box<Expr>,
+    span: Span,
+  },
   /// `()` — the unit value.
   ///
   /// Doc 18 §7 retires doc 03 §5.2's `!` zero-argument suffix in favour of
@@ -208,6 +217,7 @@ impl Expr {
       | Expr::Record { span, .. }
       | Expr::Section { span, .. }
       | Expr::Unit { span }
+      | Expr::Try { span, .. }
       | Expr::List { span, .. }
       | Expr::Comprehension { span, .. }
       | Expr::Num { span, .. }

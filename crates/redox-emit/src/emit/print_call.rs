@@ -1,6 +1,7 @@
 use crate::emit::double_braces::double_braces;
 use crate::emit::expr::emit_expr;
 use crate::emit::expr_list::expr_list;
+use crate::emit::fn_call_width::FN_CALL_WIDTH;
 use crate::emit::rust_escapes::rust_escapes;
 use crate::emit::rust_indent::RUST_INDENT;
 use crate::emit::unparen::unparen;
@@ -40,16 +41,24 @@ pub(crate) fn print_call(args: &[Expr], indent: usize) -> String {
 
       // **rustfmt overflows a block-like last argument and spreads anything
       // else.** `println!("{}", { … })` keeps the braces hanging off the
-      // call; `println!("{}", match … )` is rewritten one argument per line.
-      // Both were measured against rustfmt's defaults outside the
-      // repository, and the first version of this got it backwards in each
-      // direction before the ascription and `??` examples found it.
+      // call whatever its width; `println!("{}", match … )` is rewritten one
+      // argument per line, and so is any argument list wider than
+      // `fn_call_width`.
       //
-      // So: a multi-line argument that *opens with a brace* is emitted at the
-      // call's own column and left to hang; anything else multi-line is
-      // spread. Neither form is a preference — it is which one rustfmt leaves
-      // alone, which is plan 04's guarantee.
-      if one_line.contains('\n') && !one_line.starts_with('{') {
+      // Every clause of that was measured against rustfmt's defaults outside
+      // the repository, and each arrived from an example that caught the
+      // previous version being wrong: the ascription example found the
+      // overflow, the `??` example found the spread, and the `errors` example
+      // found the width — which is three rounds of getting it wrong in a
+      // different direction each time, and the reason it is spelled out here
+      // rather than left to read off the code.
+      let last = unwrapped
+        .last()
+        .map(|e| emit_expr(e, indent))
+        .unwrap_or_default();
+      let block_like = last.starts_with('{');
+      let arguments = format!("\"{holes}\", {one_line}");
+      if !block_like && (one_line.contains('\n') || arguments.len() > FN_CALL_WIDTH) {
         let inner_pad = " ".repeat(indent + RUST_INDENT);
         let close_pad = " ".repeat(indent);
         let spread = args

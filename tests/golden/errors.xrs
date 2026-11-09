@@ -1,0 +1,56 @@
+// Doc 03 §12.5's `errors` declaration, kept by doc 18 §8 — the one Redox
+// construct that generates more than one Rust item, and the only one whose
+// output is "the boilerplate every Rust project either writes by hand or
+// pulls a derive crate for".
+//
+// Checked by compiling and running: a `Display` arm bound to the wrong field
+// prints the wrong value, and a missing `Error` impl does not compile.
+
+#[derive(Debug)]
+pub enum ConfigError {
+    Missing(String),
+    Invalid(String, u32),
+    Closed,
+    Parse(std::num::ParseIntError),
+}
+
+impl std::fmt::Display for ConfigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConfigError::Missing(_0) => write!(f, "missing key: {}", _0),
+            ConfigError::Invalid(_0, _1) => write!(f, "invalid value {} at line {}", _0, _1),
+            ConfigError::Closed => write!(f, "closed"),
+            ConfigError::Parse(_0) => write!(f, "not a number: {}", _0),
+        }
+    }
+}
+
+impl std::error::Error for ConfigError {}
+
+impl From<std::num::ParseIntError> for ConfigError {
+    fn from(e: std::num::ParseIntError) -> Self {
+        ConfigError::Parse(e)
+    }
+}
+
+// The generated `From` is what makes `?` work across the boundary, which is
+// the whole reason the `from` row exists.
+fn retries(raw: &str) -> Result<u32, ConfigError> {
+    let n = raw.parse()?;
+    Ok(n)
+}
+
+fn describe(e: &ConfigError) -> String {
+    e.to_string()
+}
+
+fn main() {
+    println!(
+        "{}",
+        describe(&ConfigError::Missing(String::from("retries")))
+    );
+    println!("{}", describe(&ConfigError::Invalid(String::from("x"), 7)));
+    println!("{}", describe(&ConfigError::Closed));
+    println!("{}", (retries("12")).is_ok());
+    println!("{}", (retries("nope")).is_err());
+}

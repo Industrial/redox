@@ -3,6 +3,7 @@ use crate::parse::parser::Parser;
 use crate::parse::parser::application::application;
 use crate::parse::parser::capture_type::capture_type;
 use crate::parse::parser::spaced_colon_colon::spaced_colon_colon;
+use crate::parse::parser::type_stop::TypeStop;
 use crate::parse::precedence::binary_power::binary_power;
 use redox_ast::Expr;
 use redox_lexer::TokenKind;
@@ -28,7 +29,7 @@ pub(crate) fn parse_expr(p: &mut Parser, min: u8) -> Result<Expr, ParseError> {
     // `1 + 2 :: u64` therefore ascribes the sum, not the `2`.
     if min == 0 && spaced_colon_colon(p) {
       p.advance();
-      let ty = capture_type(p, "expected a type after `::`")?;
+      let ty = capture_type(p, "expected a type after `::`", TypeStop::Greedy)?;
       let span = (lhs.span().0, ty.span.1);
       lhs = Expr::Ascribe {
         inner: Box::new(lhs),

@@ -6,6 +6,8 @@ pub(crate) mod constraint;
 pub(crate) mod constructor;
 pub(crate) mod constructor_fields;
 pub(crate) mod data_decl;
+pub(crate) mod error_variant;
+pub(crate) mod errors_decl;
 pub(crate) mod field_decl;
 pub(crate) mod fn_decl;
 pub(crate) mod guard;
@@ -19,6 +21,7 @@ pub(crate) mod type_app;
 use crate::FnDecl;
 use crate::program::item::class_decl::ClassDecl;
 use crate::program::item::data_decl::DataDecl;
+use crate::program::item::errors_decl::ErrorsDecl;
 use crate::program::item::instance_decl::InstanceDecl;
 use crate::program::item::type_alias::TypeAlias;
 use redox_lexer::Span;
@@ -36,6 +39,9 @@ pub enum Item {
   Type(TypeAlias),
   Class(ClassDecl),
   Instance(InstanceDecl),
+  /// Doc 03 §12.5's `errors`, kept by doc 18 §8 — the one declaration that
+  /// generates more than one Rust item.
+  Errors(ErrorsDecl),
 }
 
 impl Item {
@@ -46,6 +52,7 @@ impl Item {
       Item::Type(a) => a.span,
       Item::Class(c) => c.span,
       Item::Instance(i) => i.span,
+      Item::Errors(e) => e.span,
     }
   }
 }

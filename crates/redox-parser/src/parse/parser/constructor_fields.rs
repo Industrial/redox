@@ -3,6 +3,7 @@ use crate::parse::parser::Parser;
 use crate::parse::parser::capture_type::capture_type;
 use crate::parse::parser::field_decl::field_decl;
 use crate::parse::parser::starts_a_field_type::starts_a_field_type;
+use crate::parse::parser::type_stop::TypeStop;
 use redox_ast::ConstructorFields;
 use redox_lexer::TokenKind;
 
@@ -38,7 +39,7 @@ pub(crate) fn constructor_fields(p: &mut Parser) -> Result<ConstructorFields, Pa
 
   let mut types = Vec::new();
   while starts_a_field_type(&p.peek().kind) {
-    types.push(capture_type(p, "expected a field type")?);
+    types.push(capture_type(p, "expected a field type", TypeStop::Atom)?);
   }
   if types.is_empty() {
     return Ok(ConstructorFields::Unit);
