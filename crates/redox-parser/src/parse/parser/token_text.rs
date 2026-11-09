@@ -12,6 +12,15 @@ pub(crate) fn token_text(kind: &TokenKind) -> String {
     TokenKind::Ident(t) => t.clone(),
     TokenKind::Kw(kw) => kw.text().to_string(),
     TokenKind::Int(t) | TokenKind::Float(t) => t.clone(),
+    // `char`'s and `u8`'s `Debug` spellings *are* Rust source syntax, escapes
+    // included, which is why re-spelling a literal needs no escape table of
+    // its own. Reached from a literal pattern rather than from a type: doc 18
+    // §2.3's `case 'a' or 'e' -> …` was emitting `Char('a')`, the debug-arm
+    // marker, because the literal arms came through here and only the type
+    // tokens had spellings.
+    TokenKind::Char(c) => format!("{c:?}"),
+    TokenKind::Byte(b) => format!("b{:?}", char::from(*b)),
+    TokenKind::Str { raw, .. } => raw.clone(),
     TokenKind::Label(name) => format!("'{name}"),
     TokenKind::ColonColon => "::".to_string(),
     TokenKind::Lt => "<".to_string(),

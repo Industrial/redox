@@ -28,7 +28,13 @@ use redox_ast::Expr;
 /// ambiguity rather than resolving it.
 pub(crate) fn application(p: &mut Parser) -> Result<Expr, ParseError> {
   let head = atom(p)?;
-  if !starts_argument(&p.peek().kind) {
+  // A head that ended with a `Dedent` closed an indented block, so whatever
+  // follows is on a *later line* and cannot be its argument. Doc 18 §2.3's
+  // `case … of` is the first expression with layout of its own, and without
+  // this `label age = case age of …` swallowed the next item's name as an
+  // argument — the application loop reads tokens, and the token after a
+  // dedent looks like any other.
+  if p.just_dedented() || !starts_argument(&p.peek().kind) {
     return Ok(head);
   }
 

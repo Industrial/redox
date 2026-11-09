@@ -1,4 +1,5 @@
 pub(crate) mod arm;
+pub(crate) mod case;
 pub(crate) mod double_braces;
 pub(crate) mod emit_body;
 pub(crate) mod emit_clauses;

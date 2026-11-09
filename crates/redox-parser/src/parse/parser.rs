@@ -2,14 +2,18 @@ pub(crate) mod application;
 pub(crate) mod arguments;
 pub(crate) mod atom;
 pub(crate) mod capture_type;
+pub(crate) mod case_arm;
+pub(crate) mod case_of;
 pub(crate) mod lambda;
 pub(crate) mod parse_expr;
 pub(crate) mod parse_spine;
 pub(crate) mod path_or_ident;
 pub(crate) mod pattern;
+pub(crate) mod pattern_alt;
 pub(crate) mod patterns;
 pub(crate) mod postfix;
 pub(crate) mod prefix;
+pub(crate) mod range_or_literal;
 pub(crate) mod signature_from;
 pub(crate) mod spaced_colon_colon;
 pub(crate) mod starts_argument;
@@ -538,13 +542,33 @@ impl<'a> Parser<'a> {
       let trailing = self.peek().trailing.clone();
       self.advance();
       Ok(trailing)
-    } else if self.at_eof() || self.check(&TokenKind::Dedent) {
+    } else if self.at_eof() || self.check(&TokenKind::Dedent) || self.just_dedented() {
       // A file ending without a trailing newline, or a block whose last
-      // statement is immediately followed by a dedent, is well-formed.
+      // statement is immediately followed by a dedent, is well-formed — and
+      // so is a statement whose expression *was* a block.
       Ok(None)
     } else {
       Err(ParseError::expected(message, self.peek_span()))
     }
+  }
+
+  /// Whether the token just consumed closed an indented block.
+  ///
+  /// Doc 18 §2.3's `case … of` is the first expression with layout of its
+  /// own: its arms are an indented block, and the `Dedent` that ends them has
+  /// already ended the line. A caller that then demanded a `Newline` would
+  /// reject `label age = case age of …` — which is exactly how this was
+  /// found, by writing §2.3's example into an example file.
+  ///
+  /// Expressed as "the previous token was a `Dedent`" rather than "the body
+  /// was a `case`", because the next construct with its own layout should not
+  /// have to be added here too.
+  pub(crate) fn just_dedented(&self) -> bool {
+    self
+      .pos
+      .checked_sub(1)
+      .and_then(|i| self.toks.get(i))
+      .is_some_and(|t| t.kind == TokenKind::Dedent)
   }
 
   fn skip_separators(&mut self) {

@@ -1,5 +1,6 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
+use crate::parse::parser::range_or_literal::range_or_literal;
 use crate::parse::parser::token_text::token_text;
 use redox_ast::Pattern;
 use redox_lexer::{Keyword, TokenKind};
@@ -27,7 +28,7 @@ pub(crate) fn pattern(p: &mut Parser) -> Result<Pattern, ParseError> {
     | TokenKind::Kw(Keyword::False)) => {
       let text = token_text(kind);
       p.advance();
-      Ok(Pattern::Literal { text, span })
+      Ok(range_or_literal(p, text, span))
     }
     TokenKind::Str { raw, .. } => {
       let text = raw.clone();
@@ -36,7 +37,7 @@ pub(crate) fn pattern(p: &mut Parser) -> Result<Pattern, ParseError> {
     }
     _ => Err(ParseError::with(
       redox_diag::Code::ExpectedName,
-      "expected a parameter name, a literal pattern, `_`, or `=`",
+      "expected a parameter name, a literal pattern, a range, `_`, or `=`",
       span,
     )),
   }

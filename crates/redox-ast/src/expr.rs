@@ -1,8 +1,10 @@
 pub(crate) mod binary_op;
+pub(crate) mod case_arm;
 pub(crate) mod ident;
 pub(crate) mod type_expr;
 pub(crate) mod unary_op;
 
+use crate::expr::case_arm::CaseArm;
 use crate::{BinaryOp, Ident, TypeExpr, UnaryOp};
 use redox_lexer::Span;
 
@@ -64,8 +66,6 @@ pub enum Expr {
     text: String,
     span: Span,
   },
-  /// A string literal, stored **raw, including its delimiters**. Interpolation
-  /// is plan 23; the lexer already produces the parts.
   /// `\x -> e`, doc 18 §4's lambda.
   ///
   /// Lowers to a Rust closure: `|x| e`, with `move` and per-parameter types
@@ -91,8 +91,20 @@ pub enum Expr {
     ty: TypeExpr,
     span: Span,
   },
+  /// A string literal, stored **raw, including its delimiters**. Interpolation
+  /// is plan 23; the lexer already produces the parts.
   StrLit {
     value: String,
+    span: Span,
+  },
+  /// `case e of` with `->` arms, doc 18 §2.3.
+  ///
+  /// Lowers to Rust's `match`, which it already was in all but spelling: the
+  /// arms, the guards and the alternation are Rust's, and what changes is the
+  /// arrow. `switch` leaves the language with this.
+  Case {
+    scrutinee: Box<Expr>,
+    arms: Vec<CaseArm>,
     span: Span,
   },
   /// An integer or float literal, carried verbatim with any suffix.
@@ -135,6 +147,7 @@ impl Expr {
       | Expr::Lambda { span, .. }
       | Expr::Ascribe { span, .. }
       | Expr::StrLit { span, .. }
+      | Expr::Case { span, .. }
       | Expr::Num { span, .. }
       | Expr::Bool { span, .. }
       | Expr::Char { span, .. }

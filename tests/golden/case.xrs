@@ -1,0 +1,35 @@
+// Doc 18 §2.3's `case … of`, checked by running the generated Rust: an arm
+// lowered to the wrong pattern prints the wrong word.
+//
+// Constructor alternation — `Teen or PreTeen` in §2.3's own example — needs
+// §2.4's `data` to have constructors to alternate, so the alternation here is
+// over literals. The lowering is the same `|`.
+
+fn label(age: u32) -> &'static str {
+    match age {
+        n if n > 65 => "senior",
+        18..=64 => "adult",
+        13 | 14 | 15 => "young",
+        0..13 => "child",
+        _ => "teen",
+    }
+}
+
+// A `case` is an expression, so it is a binding's value with no second form.
+fn describe(c: char) -> &'static str {
+    let kind = match c {
+        'a' | 'e' | 'i' | 'o' | 'u' => "vowel",
+        _ => "consonant",
+    };
+    kind
+}
+
+fn main() {
+    println!("{}", label(80));
+    println!("{}", label(30));
+    println!("{}", label(14));
+    println!("{}", label(5));
+    println!("{}", label(17));
+    println!("{}", describe('e'));
+    println!("{}", describe('z'));
+}

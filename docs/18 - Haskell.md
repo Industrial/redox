@@ -793,7 +793,9 @@ Since then, one construct per commit:
 | `2ce7485` | the `\|>` receiver pipeline — parsed since plan 03, previously a `compile_error!` | §4 |
 | `3bb6710` | multi-clause equations with pattern binders | §2.3 |
 | `aafdb08` | the `\|` guard ladder, and short bodies on the `=` line | §2.3 |
-| *this* | the keyword table: eleven words leave, nine arrive | §7 |
+| `a0114c8` | the keyword table: eleven words leave, nine arrive | §7 |
+| `643b9b2` | expressions carry their column, so a multi-line lowering is rustfmt-clean | §6 |
+| *this* | `case … of`, with guards, alternation and ranges | §2.3, §5.4 |
 
 The guard commit closed a hole the clause commit had left: doc 18 §2.3's own example
 `fib 0 = 0` did not parse, because the clause body required a line break and an indent. It
@@ -803,9 +805,9 @@ prose.
 
 ### 11.2 Specification for later plans
 
-`data`, `newtype`, `class`, `instance`, `deriving`, `case … of`, comprehensions, sections,
-`where` locals, `??`, `errors` and `test` blocks, and `export` → `pub`, are specified here and
-**not implemented**. Doc 04's plan rows for those constructs are re-pointed at this document
+`data`, `newtype`, `class`, `instance`, `deriving`, comprehensions, sections, `where` locals,
+`??`, `errors` and `test` blocks, the unit expression `()`, and `export` → `pub`, are specified
+here and **not implemented**. Doc 04's plan rows for those constructs are re-pointed at this document
 rather than doc 03; the lowerings they must produce are doc 03's, unchanged, as §1 requires.
 
 `<-` is implemented in statement position (§3.1), which is the position the flattening

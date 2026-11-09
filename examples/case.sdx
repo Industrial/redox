@@ -1,0 +1,32 @@
+-- Doc 18 §2.3's `case … of`, checked by running the generated Rust: an arm
+-- lowered to the wrong pattern prints the wrong word.
+--
+-- Constructor alternation — `Teen or PreTeen` in §2.3's own example — needs
+-- §2.4's `data` to have constructors to alternate, so the alternation here is
+-- over literals. The lowering is the same `|`.
+
+label :: u32 -> &'static str
+label age = case age of
+  n | n > 65 -> "senior"
+  18..=64 -> "adult"
+  13 or 14 or 15 -> "young"
+  0..13 -> "child"
+  _ -> "teen"
+
+-- A `case` is an expression, so it is a binding's value with no second form.
+describe :: char -> &'static str
+describe c =
+  kind = case c of
+    'a' or 'e' or 'i' or 'o' or 'u' -> "vowel"
+    _ -> "consonant"
+  kind
+
+main :: ()
+main =
+  print (label 80)
+  print (label 30)
+  print (label 14)
+  print (label 5)
+  print (label 17)
+  print (describe 'e')
+  print (describe 'z')

@@ -31,6 +31,7 @@ pub use block::stmt::binding::Binding;
 pub use block::stmt::kind::StmtKind;
 pub use expr::Expr;
 pub use expr::binary_op::BinaryOp;
+pub use expr::case_arm::CaseArm;
 pub use expr::ident::Ident;
 pub use expr::type_expr::TypeExpr;
 pub use expr::unary_op::UnaryOp;

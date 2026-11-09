@@ -1,5 +1,6 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
+use crate::parse::parser::case_of::case_of;
 use crate::parse::parser::lambda::lambda;
 use crate::parse::parser::parse_expr::parse_expr;
 use crate::parse::parser::path_or_ident::path_or_ident;
@@ -77,6 +78,10 @@ pub(crate) fn prefix(p: &mut Parser) -> Result<Expr, ParseError> {
     // a closure here, so one token of lookahead settles it.
     TokenKind::Backslash => lambda(p),
     TokenKind::Kw(Keyword::Move) => lambda(p),
+    // Doc 18 §2.3's `case e of`. An expression, not a statement: its value is
+    // the matching arm's, which is what lets it be a clause body, an argument
+    // or the right-hand side of a binding with no extra form.
+    TokenKind::Kw(Keyword::Case) => case_of(p),
     TokenKind::Ident(_) => path_or_ident(p),
     _ => Err(ParseError::with(
       Code::ExpectedExpression,
