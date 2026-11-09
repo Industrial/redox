@@ -49,6 +49,23 @@ pub(crate) fn bracketed(p: &mut Parser) -> Result<Expr, ParseError> {
     });
   }
 
+  // Doc 03 §10.4's array repeat — plan 29. A `;` after the first element
+  // means repeat; a `,` means list. One token of lookahead, no backtracking,
+  // and the comprehension's `|` was already ruled out above.
+  if p.check(&TokenKind::Semi) {
+    p.advance();
+    let count = parse_expr(p, 0)?;
+    p.expect(
+      &TokenKind::RBracket,
+      "expected `]` to close the array repeat",
+    )?;
+    return Ok(Expr::ArrayRepeat {
+      value: Box::new(first),
+      count: Box::new(count),
+      span: (start, p.prev_span().1),
+    });
+  }
+
   let mut items = vec![first];
   while p.check(&TokenKind::Comma) {
     p.advance();

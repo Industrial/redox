@@ -158,12 +158,6 @@ impl<'a> Lexer<'a> {
       return scan_cstring(&mut self.cur);
     }
 
-    // `%w[` — a word-array literal (doc 03 §10.4).
-    if ch == '%' && self.cur.peek_at(1) == Some('w') && self.cur.peek_at(2) == Some('[') {
-      self.cur.eat("%w[");
-      return Ok(TokenKind::PercentW);
-    }
-
     if is_ident_start(ch as u8) {
       let span = self.cur.eat_while(|c| is_ident_continue(c as u8));
       let text = self.cur.slice(span);
@@ -236,17 +230,6 @@ impl<'a> Lexer<'a> {
         text,
         (start, self.cur.pos()),
       ));
-      return Ok(true);
-    }
-
-    if self.cur.starts_with("#{") {
-      // A set literal's opening delimiter. Doc 18 §7 deletes set literals in
-      // favour of `[…] :: HashSet<_>`, but the token costs nothing to keep
-      // lexing and removing it is not part of doc 18 §11.1's conversion.
-      self.cur.eat("#{");
-      self.depth += 1;
-      self.open_delims.push(start);
-      self.push(TokenKind::HashBrace, (start, self.cur.pos()), false);
       return Ok(true);
     }
 
@@ -325,7 +308,7 @@ impl<'a> Lexer<'a> {
   /// newline is insignificant.
   fn track_delims(&mut self, kind: &TokenKind, start: usize) {
     match kind {
-      TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace | TokenKind::PercentW => {
+      TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => {
         self.depth += 1;
         self.open_delims.push(start);
       }

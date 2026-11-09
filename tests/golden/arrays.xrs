@@ -1,0 +1,67 @@
+// Doc 03 §10.4's array repeat — the one entry in that table doc 18 did not
+// delete. Plan 29.
+//
+// A bracketed literal is an **array**, and `:: Vec<T>` is how it becomes a
+// `Vec` — doc 18 §7 replaced doc 03 §10.4's `vec![…]` lowering with the
+// ascribed-literal form, and §10.4's own first table row still said otherwise
+// until plan 29 §10 found it.
+//
+// So the two bracket forms are a list and a repeat, both arrays, told apart by
+// the `;`. The repeat must still emit verbatim and never `vec![0u8; 4]`,
+// which would compile, run, and silently allocate on the heap where the
+// author asked for a stack array.
+
+// The signature is what makes the distinction load-bearing rather than
+// stylistic: `[u8; 4]` is a type `vec![…]` does not inhabit, so a wrong
+// lowering fails to compile here and not merely to match a golden.
+fn zeros() -> [u8; 4] {
+    [0u8; 4]
+}
+
+// A `const` count, which Rust allows and a lowering that only handled a
+// literal would have passed a narrower test for.
+const WIDTH: usize = 3;
+
+fn row() -> [i32; 3] {
+    [7; WIDTH]
+}
+
+// A list literal beside them, so both bracket forms are exercised in one
+// file and the `;` is shown to be what separates them. `:: Vec<i32>` is what
+// makes it growable; the bare literal is an array.
+fn growable() -> Vec<i32> {
+    {
+        let __rdx_t: Vec<i32> = Vec::from([1, 2, 3]);
+        __rdx_t
+    }
+}
+
+// Neither nesting needs a special case, and asserting it is how plan 22 found
+// its three-operand chain bug.
+fn grid() -> [[u8; 2]; 2] {
+    [[1u8; 2]; 2]
+}
+
+fn lists() -> Vec<[u8; 2]> {
+    {
+        let __rdx_t: Vec<[u8; 2]> = Vec::from([[0u8; 2], [1u8; 2]]);
+        __rdx_t
+    }
+}
+
+// `vec![0; n]` stays available as an ordinary macro call for a growable
+// repeat. This plan gives that no spelling of its own: `[v; n] :: Vec<T>`
+// already reaches it through the ascribed-literal form, since `Vec::from`
+// takes an array.
+fn total() -> usize {
+    zeros().len() + row().len() + growable().len()
+}
+
+fn main() {
+    println!("{}", zeros().len());
+    println!("{}", row()[0]);
+    println!("{}", growable().len());
+    println!("{}", grid()[1][0]);
+    println!("{}", lists().len());
+    println!("{}", total());
+}

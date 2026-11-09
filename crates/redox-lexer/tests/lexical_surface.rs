@@ -114,16 +114,39 @@ fn lexes_every_quoted_literal_kind() {
   );
 }
 
+/// Doc 03 §10.4's one surviving collection literal — plan 29. `%w[` and `#{`
+/// are **deleted** by doc 18 §7, and their tokens went with them: a variant
+/// nothing produces weakens every exhaustive match that carries it, which is
+/// plan 18 §10.2's rule.
 #[test]
-fn lexes_the_collection_literal_delimiters() {
+fn lexes_the_array_repeat_delimiters() {
   let src = fixture();
-  let words = line_of(&src, "words");
-  assert_eq!(words[2], TokenKind::PercentW, "%w[ opens a word array");
-  assert_eq!(words.last(), Some(&TokenKind::RBracket));
+  let repeated = line_of(&src, "repeated");
+  assert_eq!(repeated[2], TokenKind::LBracket, "[ opens an array repeat");
+  assert!(
+    repeated.contains(&TokenKind::Semi),
+    "the `;` is what tells a repeat from a list"
+  );
+  assert_eq!(repeated.last(), Some(&TokenKind::RBracket));
+}
 
-  let set = line_of(&src, "set");
-  assert_eq!(set[2], TokenKind::HashBrace, "#{{ opens a set literal");
-  assert_eq!(set.last(), Some(&TokenKind::RBrace));
+/// The retired spellings no longer lex. Asserted because *nothing else would
+/// notice*: `%w[` now scans as `%`, `w`, `[` and fails in the parser, and `#{`
+/// as `#` and `{` — both reaching an error, but by a different route than
+/// before, and neither producing a token.
+#[test]
+fn the_retired_collection_delimiters_no_longer_lex() {
+  for src in ["x = %w[a b]\n", "x = #{1, 2}\n"] {
+    let kinds: Vec<TokenKind> = redox_lexer::lex(src)
+      .map(|toks| toks.into_iter().map(|t| t.kind).collect())
+      .unwrap_or_default();
+    assert!(
+      !kinds
+        .iter()
+        .any(|k| format!("{k:?}").contains("PercentW") || format!("{k:?}").contains("HashBrace")),
+      "{src} should not produce a retired token: {kinds:?}"
+    );
+  }
 }
 
 /// Criterion 5's first two clauses, on the fixture's own interpolations.
@@ -186,9 +209,12 @@ fn dedents_a_multiline_block_and_keeps_line_numbers() {
   );
 
   // The binding after the block must still report its true line. `chain` is
-  // on line 23 of the fixture — doc 18's surface added two header lines, and
-  // this number is written out so that moving the fixture is a visible
-  // decision rather than a silent one.
+  // on line 22 of the fixture, and this number is written out so that moving
+  // the fixture is a visible decision rather than a silent one.
+  //
+  // It has moved twice and the mechanism worked both times: doc 18's surface
+  // added two header lines, and plan 29 replaced the `%w` and `#{` fixture
+  // lines — two deleted spellings — with one array repeat, netting minus one.
   let toks = lex(&src).expect("should lex");
   let chain = toks
     .iter()
@@ -197,7 +223,7 @@ fn dedents_a_multiline_block_and_keeps_line_numbers() {
   let before = &src[..toks[chain].span.0];
   assert_eq!(
     before.matches('\n').count() + 1,
-    23,
+    22,
     "the line after a \"\"\" block must be numbered correctly"
   );
 }

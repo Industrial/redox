@@ -109,7 +109,7 @@ fn a_trailing_arrow_does_not_suppress_the_newline() {
 /// dedents at `Eof`.
 #[test]
 fn an_unbalanced_delimiter_is_a_named_error() {
-  for src in ["xs = [1, 2\n", "xs = f(1\n", "xs = #{1\n"] {
+  for src in ["xs = [1, 2\n", "xs = f(1\n", "xs = {1\n"] {
     let err = lex(src).expect_err("should fail");
     assert!(
       err.message.contains("unbalanced delimiter"),
@@ -121,7 +121,7 @@ fn an_unbalanced_delimiter_is_a_named_error() {
 
 #[test]
 fn a_balanced_delimiter_is_accepted() {
-  for src in ["xs = [1, 2]\n", "xs = f(1)\n", "xs = #{1}\n"] {
+  for src in ["xs = [1, 2]\n", "xs = f(1)\n", "xs = {1}\n"] {
     assert!(lex(src).is_ok(), "{src:?} should lex");
   }
 }

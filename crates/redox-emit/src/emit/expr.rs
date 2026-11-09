@@ -134,6 +134,14 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
     // Doc 01 §13.1's optional chain and doc 03 §12.4's `try` block — plan 28.
     Expr::OptionalChain { head, segments, .. } => optional_chain(head, segments, indent),
     Expr::TryBlock { body, .. } => try_block(body, indent),
+    // Doc 03 §10.4's array repeat — plan 29. **Verbatim, never `vec!`**: a
+    // repeat expression is a fixed-size array and `vec!` is a heap
+    // allocation. Both compile, so only this line tells them apart.
+    Expr::ArrayRepeat { value, count, .. } => format!(
+      "[{}; {}]",
+      emit_expr(unparen(value), indent),
+      emit_expr(unparen(count), indent)
+    ),
     // Doc 03 §11.2's four literal kinds — verbatim, never a format string.
     Expr::RawLit { text, .. } => text.clone(),
     Expr::Num { text, .. } => text.clone(),

@@ -154,6 +154,22 @@ pub enum Expr {
     parts: Vec<crate::StrInterpPart>,
     span: Span,
   },
+  /// `[0u8; 1024]` — Rust's array-repeat expression, doc 03 §10.4 and §18,
+  /// plan 29.
+  ///
+  /// **Pure passthrough**, and a node of its own rather than a flag on
+  /// [`List`](Self::List) for a reason plan 29 §1.3 states: a list literal
+  /// lowers to `vec![…]`, so a list is growable by default, and a repeat
+  /// expression is a **fixed-size array** — which is the only reason to write
+  /// one. Emitting `vec![0u8; 1024]` would compile, run, and silently
+  /// allocate on the heap where the author asked for a stack array.
+  ///
+  /// The two share a bracket and nothing else; the `;` tells them apart.
+  ArrayRepeat {
+    value: Box<Expr>,
+    count: Box<Expr>,
+    span: Span,
+  },
   /// A literal passed through **verbatim and never used as a format string** —
   /// `r"…"`, `r#"…"#`, `b'x'`, `b"…"`, `c"…"`. Doc 03 §11.2, plan 23.
   ///
@@ -321,6 +337,7 @@ impl Expr {
       | Expr::Ascribe { span, .. }
       | Expr::StrLit { span, .. }
       | Expr::StrInterp { span, .. }
+      | Expr::ArrayRepeat { span, .. }
       | Expr::RawLit { span, .. }
       | Expr::Case { span, .. }
       | Expr::Record { span, .. }

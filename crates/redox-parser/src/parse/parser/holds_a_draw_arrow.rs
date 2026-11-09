@@ -19,11 +19,7 @@ pub(crate) fn holds_a_draw_arrow(p: &Parser, one_operand: bool) -> bool {
   while let Some(tok) = p.peek_at(i) {
     match &tok.kind {
       TokenKind::DrawArrow if depth == 0 => return true,
-      TokenKind::LParen
-      | TokenKind::LBracket
-      | TokenKind::LBrace
-      | TokenKind::HashBrace
-      | TokenKind::PercentW => depth += 1,
+      TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => depth += 1,
       TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
         depth -= 1;
         // A closing delimiter never opened here ends the condition: it

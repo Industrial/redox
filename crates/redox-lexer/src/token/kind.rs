@@ -61,12 +61,6 @@ pub enum TokenKind {
   RBracket,
   LBrace,
   RBrace,
-  /// `#{` — a set literal's opening delimiter (doc 03 §10.4). Closed by
-  /// `RBrace`.
-  HashBrace,
-  /// `%w[` — a word-array literal's opening delimiter. Closed by `RBracket`.
-  PercentW,
-
   // ---- operators ----
   Eq,
   Arrow,

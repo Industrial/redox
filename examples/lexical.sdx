@@ -13,8 +13,7 @@ main =
   byte = b'\n'
   raw = r#"no \escapes here"#
   cstr = c"nul terminated"
-  words = %w[get post put]
-  set = #{1, 2, 3}
+  repeated = [0u8; 4]
   greeting = "hi #{name}, you owe #{amount:.2}"
   block = """
     indented
