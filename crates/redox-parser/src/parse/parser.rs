@@ -33,7 +33,7 @@ pub(crate) mod field_decl;
 pub(crate) mod field_init;
 pub(crate) mod flush_word;
 pub(crate) mod generalise;
-pub(crate) mod holds_a_draw_arrow;
+pub(crate) mod holds_a_pattern_test;
 pub(crate) mod if_expression;
 pub(crate) mod import_decl;
 pub(crate) mod import_path;

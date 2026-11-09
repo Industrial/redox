@@ -51,18 +51,18 @@ pub enum StmtKind {
     op: crate::BinaryOp,
     value: Expr,
   },
-  /// `guard P <- e else <diverging>` — doc 03 §7.1's early-exit binding,
+  /// `guard P = e else <diverging>` — doc 03 §7.1's early-exit binding,
   /// plan 22.
   ///
   /// ```text
-  /// guard Ok raw <- read p else        let Ok(raw) = read(p) else {
-  ///   return Err Error::Unreadable         return Err(Error::Unreadable)
-  ///                                    };
+  /// guard Ok raw = read p else        let Ok(raw) = read(p) else {
+  ///   return Err Error::Unreadable        return Err(Error::Unreadable)
+  ///                                   };
   /// ```
   ///
-  /// Doc 18 §3.1 keeps the keyword — *"`let`-`else` has no Haskell analogue
-  /// and no other spelling"* — and gives it `<-` for consistency with the
-  /// other three positions.
+  /// Doc 18 §3.1 kept the keyword — *"`let`-`else` has no Haskell analogue and
+  /// no other spelling"* — and gave it `<-`. Doc 30 §3.1 gives it `=`, which
+  /// is what the lowering reads anyway: Rust's let-else without the `let`.
   ///
   /// The else branch must **diverge**, and Redox does not check that: it is a
   /// check rustc can make, so rustc makes it, and plan 07's remapping reports

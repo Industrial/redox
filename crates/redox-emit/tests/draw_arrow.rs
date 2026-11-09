@@ -25,7 +25,7 @@ fn a_draw_arrow_is_not_a_comparison_against_a_negation() {
   let out = xrs("main :: ()\nmain =\n  with x = f\n  print x\n");
   assert!(
     !out.contains("x < -f"),
-    "`x <- f` must not lower to a comparison:\n{out}"
+    "`x = f` must not lower to a comparison:\n{out}"
   );
   assert!(out.contains("f(|x| {"), "it is a callback bind:\n{out}");
 }

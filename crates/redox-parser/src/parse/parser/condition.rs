@@ -1,7 +1,7 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
 use crate::parse::parser::condition_operand::condition_operand;
-use crate::parse::parser::holds_a_draw_arrow::holds_a_draw_arrow;
+use crate::parse::parser::holds_a_pattern_test::holds_a_pattern_test;
 use crate::parse::parser::parse_expr::parse_expr;
 use redox_ast::Condition;
 use redox_diag::Code;
@@ -31,7 +31,7 @@ pub(crate) fn condition(p: &mut Parser) -> Result<Condition, ParseError> {
   // Does the **whole** condition hold a pattern test? This scan runs past
   // `&&`, unlike the per-operand one below: a chain's pattern test may be any
   // operand, and `if n > 0 && Some v <- x` is as legal as `if Some v <- x`.
-  if !holds_a_draw_arrow(p, false) {
+  if !holds_a_pattern_test(p, false) {
     return Ok(Condition::plain(parse_expr(p, 0)?));
   }
 

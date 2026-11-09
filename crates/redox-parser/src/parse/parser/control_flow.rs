@@ -148,9 +148,12 @@ pub(crate) fn control_flow(p: &mut Parser) -> Result<Option<StmtKind>, ParseErro
   if p.check(&TokenKind::Kw(Keyword::Guard)) {
     p.advance();
     let pattern = pattern_alt(p)?;
+    // Doc 30 §3.1: Rust's let-else with `let` dropped, which is what §7.1's
+    // lowering already was.
     p.expect(
-      &TokenKind::DrawArrow,
-      "expected `<-` after a `guard` pattern — doc 18 §3.1 gives `guard` the draw arrow",
+      &TokenKind::Eq,
+      "expected `=` after a `guard` pattern — doc 30 §3.1 writes it as Rust's let-else \
+       without the `let`",
     )?;
     let source = parse_expr(p, 0)?;
     p.expect(

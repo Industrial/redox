@@ -15,7 +15,7 @@
 -- plan's §10.
 first_or :: Option<i32> -> i32 -> i32
 first_or o fallback =
-  if Some v <- o
+  if Some v = o
     return v
   fallback
 
@@ -30,9 +30,9 @@ first_or o fallback =
 -- §10 as a gap belonging to plan 20, not worked around silently.
 describe :: Option<i32> -> &'static str
 describe o =
-  if Some v <- o && v > 2
+  if Some v = o && v > 2
     return "big"
-  else if Some _ <- o
+  else if Some _ = o
     return "small"
   else
     return "nothing"
@@ -44,7 +44,7 @@ total :: Vec<i32> -> i32
 total xs =
   mut stack = xs
   mut sum = 0
-  while Some v <- stack.pop ()
+  while Some v = stack.pop ()
     sum += v
   sum
 
@@ -54,7 +54,7 @@ total xs =
 -- it is a check rustc can make.
 halve :: Option<i32> -> i32
 halve o =
-  guard Some v <- o else
+  guard Some v = o else
     return 0
   v / 2
 
@@ -67,14 +67,14 @@ halve o =
 -- AGENTS.md states — but the parentheses are the spelling.
 unwrap_nested :: Option<Option<i32>> -> i32
 unwrap_nested o = case o of
-  y | Some (Some v) <- y -> v
-  y | Some _ <- y -> -1
+  y | Some (Some v) = y -> v
+  y | Some _ = y -> -1
   _ -> -2
 
 -- The condition form is an expression too, told apart by `then` exactly as
 -- plan 20's is.
 label :: Option<i32> -> &'static str
-label o = if Some _ <- o then "present" else "absent"
+label o = if Some _ = o then "present" else "absent"
 
 -- A parenthesised constructor pattern in an equation's **row**. Juxtaposition
 -- there is ambiguous — `f Some v` could be `f (Some v)` or three patterns —

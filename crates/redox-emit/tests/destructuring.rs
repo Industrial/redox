@@ -167,7 +167,7 @@ fn the_forms_work_in_an_equations_row() {
 
 #[test]
 fn the_forms_work_in_a_condition() {
-  let out = body("  if Point { x = 0, .. } <- p\n    print 1\n");
+  let out = body("  if Point { x = 0, .. } = p\n    print 1\n");
   assert!(out.starts_with("if let Point { x: 0, .. } = p {"), "{out}");
 }
 

@@ -5,5 +5,5 @@
 -- mode. Plan 22 §1.3 reports instead.
 main :: ()
 main =
-  until Some v <- queue.pop ()
+  until Some v = queue.pop ()
     print v

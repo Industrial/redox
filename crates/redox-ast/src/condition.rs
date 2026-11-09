@@ -2,15 +2,18 @@ pub(crate) mod operand;
 
 /// An `if`, `while` or `case`-arm-guard condition — plan 22.
 ///
-/// Doc 18 §3's third and fourth positions for `<-`: *"in a condition or
-/// guard — pattern test, binding"*, replacing doc 03 §5.5's `is` with the
-/// operands in Haskell's order.
+/// Doc 30 §3.1's pattern test: **Rust's `if let` with `let` dropped.**
 ///
 /// ```text
-/// if n > 0                     if n > 0 {
-/// if Some v <- x               if let Some(v) = x {
-/// if Some v <- x && v > 2      if let Some(v) = x && v > 2 {
+/// if n > 0                    if n > 0 {
+/// if Some v = x               if let Some(v) = x {
+/// if Some v = x && v > 2      if let Some(v) = x && v > 2 {
 /// ```
+///
+/// Spelled `<-` when doc 18 §3.1 gave the draw arrow four jobs, and `=` since
+/// doc 30 made `<-` mean `await` and nothing else. The pattern stayed on the
+/// left through both, so this node and every lowering below it never moved —
+/// only the token the parser looks for did.
 ///
 /// **A list of operands joined by `&&`**, because that is exactly what a Rust
 /// let-chain is. The ordinary case is one operand and emits the expression it

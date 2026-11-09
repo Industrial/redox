@@ -51,7 +51,7 @@ fn a_return_nested_in_a_tails_block_is_rejected() {
     "  for c in items\n    return ()\n",
     "  loop\n    return ()\n",
     "  if bad conn\n    print 1\n  else\n    return ()\n",
-    "  guard Some v <- conn else\n    return ()\n",
+    "  guard Some v = conn else\n    return ()\n",
   ] {
     assert_eq!(
       codes(&tail(body)),
