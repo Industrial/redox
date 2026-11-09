@@ -50,6 +50,29 @@ call-grammar rules dissolved into juxtaposition, plan 32 had nothing left to bro
 once `.(` and the `.+`-family left, and plan 37's `defer` closed doc 03 §23 item 1 — the one
 disclosed exception to doc 01 §36 — by ceasing to exist.
 
+### What doc 30 will do to this table
+
+`docs/30 - Bind.md`, decided **2026-11-09**, makes `<-` mean `await` and nothing else — doc
+18 §3.1 had given it four jobs and kept Haskell's meaning in only one of them. The
+conversion is pending; this note is here so a reader of a row below is not surprised by a
+spelling the row does not mention.
+
+| Row | What doc 30 changes | Status after |
+|---|---|---|
+| 13 `haskell-surface` | The callback bind becomes `with x = f` | stays `done`; §3.3's cell |
+| 15 `await-postfix` | Postfix `.await` is **deleted** — every await binds | becomes `superseded`, the fourth |
+| 20 `control-flow` | `for x <- xs` becomes `for x in xs` | stays `done` |
+| 22 `is-and-guard` | A condition and a `guard` take `=`, not `<-` | stays `done`; one token in the parser |
+| 29 `comprehensions-and-collections` | The generator takes `in` | stays `done` |
+| 30 `with-and-use` | `RDX0044`'s message names `with` | stays `done`; the lowering is untouched |
+| 39 `async` | Inherits `<-` as the await form, and the `async` marker | still `not-started` |
+
+Doc 30 §6 fixes the order: `in`, then `with`, then `=`, then `<-` last — because only then
+is the token free. Doc 30 §4 measures the cost: 28 `<-` sites in six `.sdx` files, seven
+Rust sources, seven emit-test files.
+
+---
+
 ## Plan records
 
 `docs/<doc> - <plan> - <Name>.md`, one per row. A plan takes the next free document number
