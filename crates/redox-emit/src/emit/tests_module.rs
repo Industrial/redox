@@ -33,14 +33,17 @@ use redox_ast::TestDecl;
 /// descriptions differ only in punctuation are the realistic case, and
 /// without this they would be two functions of one name — which rustc
 /// reports, but about a line the author did not write.
-pub(crate) fn emit_tests_module(out: &mut Sink<'_>, tests: &[&TestDecl]) {
+pub(crate) fn emit_tests_module(out: &mut Sink<'_>, tests: &[&TestDecl], indent: usize) {
   if tests.is_empty() {
     return;
   }
 
   out.unmark();
-  out.push_str("#[cfg(test)]\nmod __rdx_tests {\n");
-  pad(out, RUST_INDENT);
+  pad(out, indent);
+  out.push_str("#[cfg(test)]\n");
+  pad(out, indent);
+  out.push_str("mod __rdx_tests {\n");
+  pad(out, indent + RUST_INDENT);
   out.push_str("use super::*;\n");
 
   let mut used: Vec<String> = Vec::new();
@@ -56,19 +59,20 @@ pub(crate) fn emit_tests_module(out: &mut Sink<'_>, tests: &[&TestDecl]) {
 
     out.unmark();
     out.push('\n');
-    emit_trivia(out, &t.leading, RUST_INDENT);
+    emit_trivia(out, &t.leading, indent + RUST_INDENT);
     out.mark(t.span);
-    pad(out, RUST_INDENT);
+    pad(out, indent + RUST_INDENT);
     out.push_str("#[test]\n");
-    pad(out, RUST_INDENT);
+    pad(out, indent + RUST_INDENT);
     out.push_str(&format!("fn {name}() {{\n"));
     // A test returns nothing, so its last statement is a statement and not a
     // tail expression.
-    emit_stmts(out, &t.body.stmts, RUST_INDENT * 2, false);
+    emit_stmts(out, &t.body.stmts, indent + RUST_INDENT * 2, false);
     out.unmark();
-    pad(out, RUST_INDENT);
+    pad(out, indent + RUST_INDENT);
     out.push_str("}\n");
   }
 
+  pad(out, indent);
   out.push_str("}\n");
 }

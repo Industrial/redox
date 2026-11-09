@@ -3,7 +3,7 @@
 Plan ID: `paths-colon-colon`
 Depends on: 03 (`parser-core`), 13 (`haskell-surface`)
 Milestone: 4 — *specification-correct*
-Status: `planned`
+Status: `done`
 
 ---
 
@@ -28,9 +28,15 @@ Three things point at it, and the third is the one that decides.
   `mod`, which needs plan 24's `export`". Plan 24 shipped with doc 18, so the block is
   gone and the thing it blocked is this.
 - **Doc 18 §9 does not compile.** §9 is *"A page of it, end to end"*, and its first three
-  lines are a module header and two imports. Every other construct on that page now works;
-  these do not. A page the specification offers as the language's own demonstration, which
-  the compiler rejects on line 2, is the clearest possible statement of what to build next.
+  lines are a module header and two imports. A page the specification offers as the
+  language's own demonstration, which the compiler rejects on line 2, is the clearest
+  possible statement of what to build next.
+
+  **Corrected after the fact:** the first draft of this bullet added *"every other construct
+  on that page now works"*, which is false — §9 also uses `guard` with `<-` in condition
+  position (plan 22), string interpolation (plan 23), and a `write!` macro call that has no
+  spelling at all. This plan moves the page from failing on line 2 to failing on its first
+  `guard`. §10.0 records the cost of having asserted that without checking.
 
 ### 1.2 What `module` means, decided here
 
@@ -210,4 +216,120 @@ nothing to take.
 
 ## 10. Result
 
-*Filled in when the plan ships, including anything above that turned out wrong.*
+Shipped. 517 tests pass; `fmt`, `clippy -D warnings` and the full gate are green.
+`examples/module.sdx` joins the corpus, and `examples/cargo-project/` moved to the module
+shape it was written wanting.
+
+### 10.0 Which criteria were met, and the two that were not
+
+Criteria 1–6 and 9 are met as written. Two are not, and both are §1.1's fault rather than
+the implementation's.
+
+**Criterion 7 was met differently.** §3 asked for `examples/module/` as a *directory*,
+because a bodiless `module` only means something when the sibling it names exists.
+`examples/cargo-project/` is already that directory, already built through `compile_dir`,
+and already carried plan 09's note about why it could not use the module shape — so it is
+where the bodiless form belongs, and §10.5 is what that looks like. The single-file
+`examples/module.sdx` covers the form with a body, which needs no sibling. A second
+directory would have duplicated the harness for nothing.
+
+**Criterion 8 could not be met, and §1.1 was wrong to imply it could.** §1.1 said of doc 18
+§9's page that *"every other construct on that page now works"*. It does not. The page also
+uses:
+
+| Construct | Plan | Status |
+|---|---|---|
+| `guard Ok raw <- … else return …` | 22 | `partial` — `<-` in condition position outstanding |
+| `#{cfg.path}` string interpolation | 23 | `not-started` |
+| `write! f "{}" (…)` | — | no macro-call spelling exists |
+
+So §9's page needs plans 22 and 23 before it can be a golden, and this plan moved it from
+*failing on line 2* to *failing on its first `guard`*. That is real progress and it is not
+the criterion as written. **The claim should have been checked against the page line by line
+before it was made** — the three constructs above are visible in §9's own Redox column, and
+§1.1 asserted their absence without looking.
+
+### 10.1 §1.2's doubt about doc 18 §9, resolved
+
+§1.2 said the lowering was not in doubt and the example's placement was. **The placement is
+wrong.** `module config` emits `mod config;`, so writing it at the top of the config module
+declares a child module named `config` inside `config` — and the file it would then load does
+not exist, which rustc says in as many words: *"file not found for module `config`"*.
+
+Doc 18 §9's Rust column has it right and its Redox column does not. What §9 means is that
+*some other* file declares `module config`; the page itself needs no header, because doc 18
+§8 declined the one Haskell would have given it. The header line is removable without
+changing a byte of the Rust.
+
+### 10.2 §4's leaf 4 was wrong about rustfmt, in a way that cost a design decision
+
+Leaf 4 asserted that items keep source order because *"rustfmt reorders nothing across blank
+lines"*. True — and the emitter had just stopped putting a blank line between adjacent
+imports, because grouping a `use` block is Rust's own convention and reads better.
+
+rustfmt's `reorder_imports` defaults to **on** and sorts `use` statements **within a
+contiguous block**. So the grouped form was reordered, and the choice was:
+
+1. replicate rustfmt's sort — which is not plain lexicographic, and would be a fifth
+   rustfmt rule the emitter has to carry;
+2. keep one blank line between every item, which is what the emitter already did, and let
+   the question not arise.
+
+(2) ships. It costs one line per import and keeps decision 3 — the author's order is the
+author's. Recorded here because the first version of this plan reasoned from half of
+rustfmt's behaviour and reached a conclusion that happened to be right for the wrong reason.
+
+### 10.3 Two latent defects, both found by the example
+
+**A lowercase path segment was read as a type variable.** `write_ok :: &mut String ->
+fmt::Result` emitted `fn write_ok<FMT>(s: &mut String) -> FMT::Result`, which rustc rejects
+with *"associated type `Result` not found"*. Doc 18 §5.3's rule is about a type *variable*,
+and a variable is never part of a path — so `type_vars` now skips an identifier adjacent to
+`::` on either side. The defect shipped with plan 26's synthesised generics and was
+unexercised because no signature had named a module until now.
+
+**A trailing `*` continued the line.** `import crate::models::*` is doc 03 §13.1's glob and
+a `*` is the last token of every one of them, so the path scanner swallowed the following
+declaration whole — `use crate::models::*exportimportcrate::models::User;`. `*` left
+`continues_line`, which is the second token to leave it for this reason: `>` left when a
+generic type's close swallowed the next line under plan 13. Twice is a pattern, and it is
+now written down where the set is defined: **a token that ends a construct should not
+continue a line, however operator-like it looks.**
+
+### 10.4 What §6 disclosed, measured
+
+The recursion was the risk, and it was the cheap part. Lifting `emit_items` out of
+`emit_with_map` took the blank-line rule, the source order and the gathered test module with
+it, so a module body got all three for nothing — and plan 14's acceptance criterion 5, that
+a test inside a module lands in *that* module's test module, fell out of gathering per
+item-list rather than per file.
+
+What it cost instead was **nine item emitters gaining an `indent`**. Every one of them had
+assumed column zero. None of them was hard; all of them were necessary; and plan 06's span
+map needed no change at all, because threading the indent keeps every line attributed by
+construction rather than by a later fix-up.
+
+### 10.5 Plan 09's note, resolved
+
+`examples/cargo-project/src/main.rs` carried a note from plan 09 explaining why its
+`include!` had to sit at the crate root: Redox emitted no visibility, so inside
+`mod greeting { … }` every item was private and unreachable. It named plan 24 as the fix.
+
+Plan 24 shipped `export` with doc 18 and this plan gave the module a declaration to be, so
+the crate now uses the shape it was written wanting — `mod greeting { include!(…) }`, with
+`greeting::greet` called from `main`. The note is rewritten rather than deleted, because
+what it recorded is still the reason the shape is possible.
+
+### 10.6 Disclosures
+
+- **A `module` body cannot hold a `const`.** Doc 03 §13.4's module-scope bindings are row
+  16, so a module body is useful for functions, types and tests and not yet for constants.
+  §6 said this would bound criterion 4's usefulness; it does.
+- **No import is resolved**, by design (decision 4). An unresolvable path is rustc's error,
+  reported against the `.sdx` through plan 07's map — which is what `mod config;` with no
+  sibling file produced while §10.1 was being settled, and it pointed at the right line.
+- **A zero-parameter function's signature takes one type, not `() -> T`.** `sizes :: usize`
+  is the zero-parameter form and `sizes :: () -> usize` declares a unit *parameter*. Both
+  are legal and they are different functions; the example says which it means. This is not
+  new to plan 14 and is the second example to meet it, so it is recorded here rather than
+  found a third time.

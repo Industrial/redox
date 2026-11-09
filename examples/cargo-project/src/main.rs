@@ -10,23 +10,25 @@
 //! into `$OUT_DIR/greeting.rs` and plan 06's map can carry them back to
 //! `src/greeting.sdx`.
 //!
-//! **Why at the crate root and not inside `mod greeting`.** A module would be
-//! the nicer shape, and it does not work yet: Redox emits `fn greet(…)` with
-//! no visibility, so inside `mod greeting { include!(…) }` every item is
-//! private to that module and unreachable from here. Doc 03 §9.6 specifies the
-//! spelling that fixes it — `export` lowers to `pub`, `export(crate)` to
-//! `pub(crate)` — and **plan 24** (`data-declarations`) implements it. Until
-//! then, include at the root, where private items are still crate-visible.
+//! **The module shape, which plan 09 could not have.** Plan 09 recorded that
+//! this `include!` had to sit at the crate root: Redox emitted `fn greet(…)`
+//! with no visibility, so inside `mod greeting { … }` every item was private
+//! to that module and unreachable from here. Doc 03 §9.6 specified the
+//! spelling that fixes it, **plan 24** implemented it — `export` lowers to
+//! `pub` — and **plan 14** gave the module a declaration to be. The note plan
+//! 09 left here named the blocking plan; this is what it looks like resolved.
 //!
-//! Plan 09 found this by building this crate, which is the argument for a
-//! worked project over a unit test: nothing else would have noticed that
-//! Redox cannot yet produce a reachable item inside a module.
+//! Plan 09 found it by building this crate, which is the argument for a worked
+//! project over a unit test: nothing else would have noticed that Redox could
+//! not produce a reachable item inside a module.
 //!
 //! A crate can hold both kinds of source. This file is plain Rust.
 
-include!(concat!(env!("OUT_DIR"), "/greeting.rs"));
+mod greeting {
+  include!(concat!(env!("OUT_DIR"), "/greeting.rs"));
+}
 
 fn main() {
-  println!("{}", greet("world"));
-  println!("{}", twice(21));
+  println!("{}", greeting::greet("world"));
+  println!("{}", greeting::twice(21));
 }

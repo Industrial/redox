@@ -713,6 +713,12 @@ test "a default config retries three times"
   assert (load "fixtures/empty.toml" |> unwrap).retries == 3
 ```
 
+**The `module config` line is in the wrong place**, found when plan 14 built it:
+`module` is Rust's `mod`, so a header inside the config module declares a child module named
+`config` inside itself, and rustc says *"file not found for module `config`"*. What §9 means
+is that some *other* file declares it; this page needs no header, because §8 declined the one
+Haskell would have given it. The Rust below is unchanged either way — the line is removable.
+
 ```rust
 //! Configuration loading.
 mod config;

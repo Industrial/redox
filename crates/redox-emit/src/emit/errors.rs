@@ -28,21 +28,23 @@ use redox_ast::ErrorsDecl;
 /// Paths are written in full — `std::fmt::Display`, `std::error::Error` —
 /// because Redox emits no `use`, so a short path would depend on what the
 /// author happened to import. Doc 03 §12.5's own Rust does the same.
-pub(crate) fn emit_errors(out: &mut Sink<'_>, d: &ErrorsDecl) {
+pub(crate) fn emit_errors(out: &mut Sink<'_>, d: &ErrorsDecl, indent: usize) {
   out.unmark();
-  emit_trivia(out, &d.leading, 0);
+  emit_trivia(out, &d.leading, indent);
   out.mark(d.span);
   let name = &d.name.text;
 
+  pad(out, indent);
   out.push_str("#[derive(Debug)]\n");
   // Doc 03 §12.5's example shows `pub enum`, which reads as having been
   // written `export errors ConfigError`: the marker governs this declaration
   // like any other, and §9.6's rule that absent means private is not
   // suspended for one construct.
+  pad(out, indent);
   out.push_str(&format!("{}enum {name} {{\n", d.visibility.rust_text()));
   for v in &d.variants {
     out.mark(v.span);
-    pad(out, RUST_INDENT);
+    pad(out, indent + RUST_INDENT);
     out.push_str(&v.name.text);
     if !v.fields.is_empty() {
       let texts: Vec<&str> = v.fields.iter().map(|t| t.text.as_str()).collect();
@@ -51,18 +53,20 @@ pub(crate) fn emit_errors(out: &mut Sink<'_>, d: &ErrorsDecl) {
     out.push_str(",\n");
   }
   out.unmark();
+  pad(out, indent);
   out.push_str("}\n\n");
 
+  pad(out, indent);
   out.push_str(&format!("impl std::fmt::Display for {name} {{\n"));
-  pad(out, RUST_INDENT);
+  pad(out, indent + RUST_INDENT);
   out.push_str("fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {\n");
-  pad(out, RUST_INDENT * 2);
+  pad(out, indent + RUST_INDENT * 2);
   out.push_str("match self {\n");
   for v in &d.variants {
     out.mark(v.span);
     let (format, args) = error_message(&v.message);
     let binders: Vec<String> = (0..v.fields.len()).map(|i| format!("_{i}")).collect();
-    pad(out, RUST_INDENT * 3);
+    pad(out, indent + RUST_INDENT * 3);
     out.push_str(&format!("{name}::{}", v.name.text));
     if !binders.is_empty() {
       out.push_str(&format!("({})", binders.join(", ")));
@@ -74,11 +78,14 @@ pub(crate) fn emit_errors(out: &mut Sink<'_>, d: &ErrorsDecl) {
     out.push_str("),\n");
   }
   out.unmark();
-  pad(out, RUST_INDENT * 2);
+  pad(out, indent + RUST_INDENT * 2);
   out.push_str("}\n");
-  pad(out, RUST_INDENT);
-  out.push_str("}\n}\n\n");
+  pad(out, indent + RUST_INDENT);
+  out.push_str("}\n");
+  pad(out, indent);
+  out.push_str("}\n\n");
 
+  pad(out, indent);
   out.push_str(&format!("impl std::error::Error for {name} {{}}\n"));
 
   for v in &d.variants {
@@ -88,13 +95,16 @@ pub(crate) fn emit_errors(out: &mut Sink<'_>, d: &ErrorsDecl) {
     let ty = &v.fields[0].text;
     out.mark(v.span);
     out.push('\n');
+    pad(out, indent);
     out.push_str(&format!("impl From<{ty}> for {name} {{\n"));
-    pad(out, RUST_INDENT);
+    pad(out, indent + RUST_INDENT);
     out.push_str(&format!("fn from(e: {ty}) -> Self {{\n"));
-    pad(out, RUST_INDENT * 2);
+    pad(out, indent + RUST_INDENT * 2);
     out.push_str(&format!("{name}::{}(e)\n", v.name.text));
-    pad(out, RUST_INDENT);
-    out.push_str("}\n}\n");
+    pad(out, indent + RUST_INDENT);
+    out.push_str("}\n");
+    pad(out, indent);
+    out.push_str("}\n");
   }
   out.unmark();
 }

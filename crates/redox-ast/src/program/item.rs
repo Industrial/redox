@@ -11,7 +11,9 @@ pub(crate) mod errors_decl;
 pub(crate) mod field_decl;
 pub(crate) mod fn_decl;
 pub(crate) mod guard;
+pub(crate) mod import_decl;
 pub(crate) mod instance_decl;
+pub(crate) mod module_decl;
 pub(crate) mod param;
 pub(crate) mod pattern;
 pub(crate) mod signature;
@@ -24,7 +26,9 @@ use crate::FnDecl;
 use crate::program::item::class_decl::ClassDecl;
 use crate::program::item::data_decl::DataDecl;
 use crate::program::item::errors_decl::ErrorsDecl;
+use crate::program::item::import_decl::ImportDecl;
 use crate::program::item::instance_decl::InstanceDecl;
+use crate::program::item::module_decl::ModuleDecl;
 use crate::program::item::test_decl::TestDecl;
 use crate::program::item::type_alias::TypeAlias;
 use redox_lexer::Span;
@@ -49,6 +53,11 @@ pub enum Item {
   /// emitted where it appears: §15 asks for one module per file, so the
   /// tests are gathered and written together.
   Test(TestDecl),
+  /// Doc 03 §13.1's `import` — plan 14.
+  Import(ImportDecl),
+  /// Doc 18 §7's `module`, which is Rust's `mod` — plan 14. The only item
+  /// that **contains** items, and so the only one the emitter recurses on.
+  Module(ModuleDecl),
 }
 
 impl Item {
@@ -61,6 +70,8 @@ impl Item {
       Item::Instance(i) => i.span,
       Item::Errors(e) => e.span,
       Item::Test(t) => t.span,
+      Item::Import(i) => i.span,
+      Item::Module(m) => m.span,
     }
   }
 }

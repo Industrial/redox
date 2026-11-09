@@ -1,13 +1,7 @@
-use crate::emit::class::emit_class;
-use crate::emit::data::emit_data;
-use crate::emit::emit_fn::emit_fn;
-use crate::emit::errors::emit_errors;
-use crate::emit::instance::emit_instance;
+use crate::emit::items::emit_items;
 use crate::emit::sink::Sink;
-use crate::emit::tests_module::emit_tests_module;
 use crate::emit::trivia::emit_trivia;
-use crate::emit::type_alias::emit_type_alias;
-use redox_ast::{Item, Program};
+use redox_ast::Program;
 use redox_diag::SourceMap;
 
 /// Emit `program`, and record where each generated line came from.
@@ -25,51 +19,11 @@ use redox_diag::SourceMap;
 /// `emit/`.
 pub fn emit_with_map(program: &Program, source: &str, source_path: &str) -> (String, SourceMap) {
   let mut out = Sink::new(source);
-  // Doc 03 §15 asks for **one** test module per file, so the tests are
-  // gathered and written after everything else rather than emitted where
-  // they appear. They are the only item that moves.
-  let tests: Vec<&redox_ast::TestDecl> = program
-    .items
-    .iter()
-    .filter_map(|item| match item {
-      Item::Test(t) => Some(t),
-      _ => None,
-    })
-    .collect();
-  let mut written = 0usize;
+  // The items, with the blank-line rule, source order and the gathered test
+  // module — all of which a `module` body wants too, which is why they live
+  // in `emit_items` rather than here (plan 14).
+  emit_items(&mut out, &program.items, 0);
 
-  for item in &program.items {
-    if matches!(item, Item::Test(_)) {
-      continue;
-    }
-    let i = written;
-    written += 1;
-    // One blank line between items. Driven by position in the tree, not by
-    // how many blank lines the source happened to have, so output is a
-    // function of structure and therefore stable.
-    if i > 0 {
-      // The separator belongs to no construct, so it is a synthetic line.
-      out.unmark();
-      out.push('\n');
-    }
-    match item {
-      Item::Fn(f) => emit_fn(&mut out, f),
-      Item::Data(d) => emit_data(&mut out, d),
-      Item::Type(a) => emit_type_alias(&mut out, a),
-      Item::Class(c) => emit_class(&mut out, c),
-      Item::Instance(i) => emit_instance(&mut out, i),
-      Item::Errors(e) => emit_errors(&mut out, e),
-      Item::Test(_) => unreachable!("tests are gathered, not emitted in place"),
-    }
-  }
-
-  if !tests.is_empty() {
-    if written > 0 {
-      out.unmark();
-      out.push('\n');
-    }
-    emit_tests_module(&mut out, &tests);
-  }
   out.unmark();
   emit_trivia(&mut out, &program.trailing, 0);
   // A source file's final newline arrives here as a trailing `BlankLines`

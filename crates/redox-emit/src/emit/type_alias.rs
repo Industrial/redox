@@ -1,3 +1,4 @@
+use crate::emit::pad::pad;
 use crate::emit::sink::Sink;
 use crate::emit::trivia::emit_trivia;
 use redox_ast::TypeAlias;
@@ -7,9 +8,10 @@ use redox_ast::TypeAlias;
 /// The keyword, the `=` and the type are unchanged, and the type is written
 /// verbatim (doc 03 §14.1) — so this is the shortest lowering in the emitter
 /// and the one with the least to go wrong.
-pub(crate) fn emit_type_alias(out: &mut Sink<'_>, a: &TypeAlias) {
+pub(crate) fn emit_type_alias(out: &mut Sink<'_>, a: &TypeAlias, indent: usize) {
   out.mark(a.span);
-  emit_trivia(out, &a.leading, 0);
+  emit_trivia(out, &a.leading, indent);
+  pad(out, indent);
   out.push_str(&format!(
     "{}type {} = {};\n",
     a.visibility.rust_text(),

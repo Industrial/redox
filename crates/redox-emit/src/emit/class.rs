@@ -1,4 +1,5 @@
 use crate::emit::member::emit_member;
+use crate::emit::pad::pad;
 use crate::emit::rust_indent::RUST_INDENT;
 use crate::emit::sink::Sink;
 use crate::emit::trivia::emit_trivia;
@@ -17,11 +18,12 @@ use redox_ast::ClassDecl;
 /// The superclass list becomes Rust's supertrait bounds, joined with `+`.
 /// Nothing else changes: Rust's trait system *is* Haskell's class system, so
 /// doc 18 §2.5 changes the words and leaves the content alone.
-pub(crate) fn emit_class(out: &mut Sink<'_>, c: &ClassDecl) {
+pub(crate) fn emit_class(out: &mut Sink<'_>, c: &ClassDecl, indent: usize) {
   out.unmark();
-  emit_trivia(out, &c.leading, 0);
+  emit_trivia(out, &c.leading, indent);
   out.mark(c.span);
 
+  pad(out, indent);
   out.push_str(&format!(
     "{}trait {}",
     c.visibility.rust_text(),
@@ -38,9 +40,10 @@ pub(crate) fn emit_class(out: &mut Sink<'_>, c: &ClassDecl) {
   out.push_str(" {\n");
 
   for m in &c.members {
-    emit_member(out, m, RUST_INDENT);
+    emit_member(out, m, indent + RUST_INDENT);
   }
 
   out.unmark();
+  pad(out, indent);
   out.push_str("}\n");
 }

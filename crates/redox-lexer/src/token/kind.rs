@@ -184,6 +184,14 @@ impl TokenKind {
   /// writable with parentheses; a type ending in `>` is not avoidable at all,
   /// and doc 18 §5.6 deleted the chained comparison that made the dangling
   /// form attractive in the first place.
+  ///
+  /// `*` left the set for the same reason, one plan later:
+  /// `import crate::models::*` is doc 03 §13.1's glob, a `*` is the last
+  /// token of every one of them, and the import path swallowed the following
+  /// declaration whole. A multiplication split after `*` is writable with
+  /// parentheses; a glob import is not avoidable at all. Twice is a pattern
+  /// worth naming — **a token that ends a construct should not continue a
+  /// line**, however operator-like it looks.
   pub(crate) fn continues_line(&self) -> bool {
     matches!(
       self,
@@ -191,7 +199,6 @@ impl TokenKind {
         | Self::Comma
         | Self::Plus
         | Self::Minus
-        | Self::Star
         | Self::Slash
         | Self::Percent
         | Self::EqEq

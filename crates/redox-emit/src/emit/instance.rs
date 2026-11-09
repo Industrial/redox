@@ -1,5 +1,6 @@
 use crate::emit::generics::generics;
 use crate::emit::member::emit_member;
+use crate::emit::pad::pad;
 use crate::emit::rust_indent::RUST_INDENT;
 use crate::emit::sink::Sink;
 use crate::emit::trivia::emit_trivia;
@@ -17,11 +18,12 @@ use redox_ast::InstanceDecl;
 /// and the constraints become its bounds. That is the one place a Redox type
 /// is assembled rather than copied verbatim, and `TypeApp` exists to make it
 /// possible: a captured string cannot say which of its words were variables.
-pub(crate) fn emit_instance(out: &mut Sink<'_>, i: &InstanceDecl) {
+pub(crate) fn emit_instance(out: &mut Sink<'_>, i: &InstanceDecl, indent: usize) {
   out.unmark();
-  emit_trivia(out, &i.leading, 0);
+  emit_trivia(out, &i.leading, indent);
   out.mark(i.span);
 
+  pad(out, indent);
   out.push_str("impl");
   out.push_str(&generics(&i.target, &i.constraints));
   out.push(' ');
@@ -32,9 +34,10 @@ pub(crate) fn emit_instance(out: &mut Sink<'_>, i: &InstanceDecl) {
   out.push_str(" {\n");
 
   for m in &i.members {
-    emit_member(out, m, RUST_INDENT);
+    emit_member(out, m, indent + RUST_INDENT);
   }
 
   out.unmark();
+  pad(out, indent);
   out.push_str("}\n");
 }

@@ -22,12 +22,13 @@ use redox_ast::{ConstructorFields, DataDecl};
 /// A single constructor whose name *differs* from the type is an `enum` of one
 /// variant, and that is correct rather than a gap: `data Shape = Circle f64`
 /// introduces `Circle`, and a struct named `Point` would not.
-pub(crate) fn emit_data(out: &mut Sink<'_>, d: &DataDecl) {
+pub(crate) fn emit_data(out: &mut Sink<'_>, d: &DataDecl, indent: usize) {
   out.mark(d.span);
-  emit_trivia(out, &d.leading, 0);
+  emit_trivia(out, &d.leading, indent);
 
   if !d.derives.is_empty() {
     let names: Vec<&str> = d.derives.iter().map(|i| i.text.as_str()).collect();
+    pad(out, indent);
     out.push_str(&format!("#[derive({})]\n", names.join(", ")));
   }
 
@@ -44,15 +45,17 @@ pub(crate) fn emit_data(out: &mut Sink<'_>, d: &DataDecl) {
       .constructors
       .first()
       .map_or(&ConstructorFields::Unit, |c| &c.fields);
+    pad(out, indent);
     out.push_str(&format!(
       "{}struct {}",
       d.visibility.rust_text(),
       d.name.text
     ));
-    emit_fields(out, fields, 0, true);
+    emit_fields(out, fields, indent, true);
     return;
   }
 
+  pad(out, indent);
   out.push_str(&format!(
     "{}enum {} {{\n",
     d.visibility.rust_text(),
@@ -60,11 +63,12 @@ pub(crate) fn emit_data(out: &mut Sink<'_>, d: &DataDecl) {
   ));
   for c in &d.constructors {
     out.mark(c.span);
-    pad(out, RUST_INDENT);
+    pad(out, indent + RUST_INDENT);
     out.push_str(&c.name.text);
-    emit_fields(out, &c.fields, RUST_INDENT, false);
+    emit_fields(out, &c.fields, indent + RUST_INDENT, false);
   }
   out.unmark();
+  pad(out, indent);
   out.push_str("}\n");
 
   // **A constructor is in scope under its own name**, as it is in Haskell —
@@ -82,5 +86,6 @@ pub(crate) fn emit_data(out: &mut Sink<'_>, d: &DataDecl) {
   // Two names colliding is rustc's error to give, which is the same division
   // of labour Haskell has: both languages reject the collision, neither
   // resolves it.
+  pad(out, indent);
   out.push_str(&format!("use {}::*;\n", d.name.text));
 }

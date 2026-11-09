@@ -2,10 +2,16 @@
 --
 -- `build.rs` turns this into `$OUT_DIR/greeting.rs`, and `src/main.rs` brings
 -- it in with `include!`. Nothing here knows it is being transpiled.
-greet :: &str -> String
+--
+-- The `export` markers are what make this file includable **inside a
+-- module**, which is what plan 09 found it could not be: without them every
+-- item is private to the module that includes it. Doc 03 §9.6 specified the
+-- spelling, plan 24 implemented it, and plan 14's `module` is what then had
+-- something to declare.
+export greet :: &str -> String
 greet name =
   "hello, ".to_string () + name
 
-twice :: i32 -> i32
+export twice :: i32 -> i32
 twice n =
   n * 2

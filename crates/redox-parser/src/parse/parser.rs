@@ -21,10 +21,13 @@ pub(crate) mod field_decl;
 pub(crate) mod field_init;
 pub(crate) mod flush_word;
 pub(crate) mod generalise;
+pub(crate) mod import_decl;
+pub(crate) mod import_path;
 pub(crate) mod instance_decl;
 pub(crate) mod is_word;
 pub(crate) mod lambda;
 pub(crate) mod method_context;
+pub(crate) mod module_decl;
 pub(crate) mod opens_a_section;
 pub(crate) mod parse_expr;
 pub(crate) mod parse_spine;
@@ -66,7 +69,9 @@ use crate::parse::parser::constraints::constraints;
 use crate::parse::parser::data_decl::data_decl;
 use crate::parse::parser::errors_decl::errors_decl;
 use crate::parse::parser::generalise::generalise;
+use crate::parse::parser::import_decl::import_decl;
 use crate::parse::parser::instance_decl::instance_decl;
+use crate::parse::parser::module_decl::module_decl;
 use crate::parse::parser::parse_expr::parse_expr;
 use crate::parse::parser::parse_spine::parse_spine;
 use crate::parse::parser::patterns::patterns;
@@ -139,6 +144,30 @@ impl<'a> Parser<'a> {
     items
   }
 
+  /// The items of an indented block, to the matching `Dedent`.
+  ///
+  /// Plan 14's `module` body. The same item-level recovery `program` uses —
+  /// a bad item is reported and skipped and its siblings are still parsed —
+  /// because a module body is a list of items and wants exactly that.
+  pub(crate) fn items_until_dedent(&mut self) -> Result<Vec<Item>, ParseError> {
+    let mut items = Vec::new();
+    loop {
+      self.skip_separators();
+      if self.check(&TokenKind::Dedent) || self.at_eof() {
+        break;
+      }
+      match self.item() {
+        Ok(item) => items.push(item),
+        Err(e) => {
+          self.errors.push(e);
+          self.recover_to_item();
+        }
+      }
+    }
+    self.expect(&TokenKind::Dedent, "expected the module body to end")?;
+    Ok(items)
+  }
+
   /// ```text
   /// Item := Ident "::" Spine Newline
   ///         Ident Binder* "=" Newline Indent Stmt+ Dedent
@@ -175,6 +204,16 @@ impl<'a> Parser<'a> {
       let alias = type_alias(self, leading, start, visibility)?;
       self.newline_with_trailing("expected a line break after the alias")?;
       return Ok(Item::Type(alias));
+    }
+    if self.check(&TokenKind::Kw(Keyword::Import)) {
+      let decl = import_decl(self, leading, start, visibility)?;
+      self.newline_with_trailing("expected a line break after the import")?;
+      return Ok(Item::Import(decl));
+    }
+    if self.check(&TokenKind::Kw(Keyword::Module)) {
+      let decl = module_decl(self, leading, start, visibility)?;
+      self.newline_with_trailing("expected a line break after the module")?;
+      return Ok(Item::Module(decl));
     }
     if self.check(&TokenKind::Kw(Keyword::Test)) {
       let decl = test_decl(self, leading, start)?;

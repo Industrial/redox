@@ -1,0 +1,89 @@
+// Doc 03 §13.1's `import` and doc 18 §7's `module` — plan 14.
+//
+// Checked by compiling and running: a module body emitted at the wrong
+// indent is a rustc error, and a `test` block gathered into the wrong
+// module's test module would compile and then not see what it tests.
+//
+// The **bodiless** `module name`, which loads a sibling file, is exercised by
+// `examples/cargo-project/` instead: it needs a sibling to load, and that
+// crate is already built through `compile_dir`. Plan 09 recorded the gap that
+// made the module shape impossible there, and `export` closed it.
+
+// Doc 03 §13.1's forms. `::` everywhere, so `.` unambiguously means field or
+// method access — doc 01 §22's correction, whose other half shipped with doc
+// 18 §5.2.
+use std::collections::HashMap;
+
+use std::fmt::{self, Write};
+
+use std::collections::BTreeMap as Sorted;
+
+// An inline `module` with a body, which doc 03 §13.5 calls "needed for the
+// near-universal test-module convention". Members need `export` to be
+// reachable from outside, exactly as in Rust.
+mod inner {
+    pub fn hello() -> &'static str {
+        "hi"
+    }
+
+    // Modules nest, because nothing in Rust stops them either.
+    pub mod deeper {
+        pub fn deep() -> u32 {
+            1
+        }
+    }
+
+    #[cfg(test)]
+    mod __rdx_tests {
+        use super::*;
+
+        // A `test` block inside a module body lands in **that** module's test
+        // module, not the file's. Both exist in the output below.
+        #[test]
+        fn inner_sees_its_own_module() {
+            assert_eq!(hello(), "hi");
+        }
+    }
+}
+
+// The imports are used, so rustc has nothing to say about them. Each map is
+// bound by a `where` local first: `.len ()` on an ascription block would put
+// a brace in a method chain's receiver, which rustfmt reformats.
+fn sizes() -> usize {
+    let a = {
+        let __rdx_t: HashMap<String, u32> = HashMap::new();
+        __rdx_t
+    };
+    let b = {
+        let __rdx_t: Sorted<String, u32> = Sorted::new();
+        __rdx_t
+    };
+    a.len() + b.len()
+}
+
+fn write_ok(s: &mut String) -> fmt::Result {
+    s.write_str("ok")
+}
+
+fn main() {
+    println!("{}", sizes());
+    println!("{}", inner::hello());
+    println!("{}", inner::deeper::deep());
+    // The `fmt` import is used by `write_ok`'s return type, and `write_ok` is
+    // called here so rustc has nothing to say about either.
+    let mut buffer = {
+        let __rdx_t: String = String::new();
+        __rdx_t
+    };
+    println!("{}", write_ok(&mut buffer).is_ok());
+}
+
+#[cfg(test)]
+mod __rdx_tests {
+    use super::*;
+
+    #[test]
+    fn the_file_has_its_own_test_module() {
+        assert_eq!(sizes(), 0);
+    }
+}

@@ -22,12 +22,16 @@ use crate::parse::parser::primitive_type::primitive_type;
 /// each group the order is the source's, because the emitter's output has to
 /// be byte-stable.
 ///
-/// Three things are excluded, each for a reason worth stating:
+/// Four things are excluded, each for a reason worth stating:
 ///
 /// - **primitives** — `i32` is lowercase and concrete; see `primitive_type`;
 /// - **`'static`** — a lifetime that needs no declaration;
 /// - **the type keywords** `dyn`, `impl`, `mut` and `as`, which are lowercase
-///   words inside a type and name nothing.
+///   words inside a type and name nothing;
+/// - **path segments** — `fmt` in `fmt::Result` is a module. A type variable
+///   is never part of a path, so an identifier adjacent to `::` on either
+///   side is skipped. Found by `fmt::Result` in a signature emitting
+///   `fn write_ok<FMT>(…) -> FMT::Result`.
 ///
 /// Reads the captured type **text**, which is a token sequence (doc 03
 /// §14.1), so an identifier in it is delimited by characters that cannot
@@ -50,6 +54,18 @@ pub(crate) fn type_vars(types: &[&str]) -> Vec<String> {
       }
       let word: String = chars[start..i].iter().collect();
       let is_lifetime = start > 0 && chars[start - 1] == '\'';
+
+      // **A path segment is not a type variable.** `fmt::Result` has a
+      // lowercase `fmt` and `fmt` is a *module*; making it a parameter emitted
+      // `fn write_ok<FMT>(…) -> FMT::Result`, which rustc rejects with
+      // "associated type `Result` not found". Doc 18 §5.3's rule is about a
+      // type variable, and a variable is never part of a path — so an
+      // identifier adjacent to `::` on either side is skipped.
+      let after_colons = start >= 2 && chars[start - 2] == ':' && chars[start - 1] == ':';
+      let before_colons = chars.get(i) == Some(&':') && chars.get(i + 1) == Some(&':');
+      if after_colons || before_colons {
+        continue;
+      }
 
       if is_lifetime {
         if word != "static" {

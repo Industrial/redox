@@ -30,6 +30,12 @@ pub(crate) fn token_text(kind: &TokenKind) -> String {
     TokenKind::RParen => ")".to_string(),
     TokenKind::LBracket => "[".to_string(),
     TokenKind::RBracket => "]".to_string(),
+    // Doc 03 §13.1's brace-nested import trees — `{self, Read, Write}`. The
+    // braces reached the debug fallback and emitted `LBraceself`, which is
+    // what that fallback is for: a visible marker rather than a silent wrong
+    // answer.
+    TokenKind::LBrace => "{".to_string(),
+    TokenKind::RBrace => "}".to_string(),
     TokenKind::Comma => ",".to_string(),
     TokenKind::Semi => ";".to_string(),
     TokenKind::Amp => "&".to_string(),
