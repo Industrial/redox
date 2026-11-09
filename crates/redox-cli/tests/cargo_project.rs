@@ -201,7 +201,11 @@ fn redox_check_reports_a_project_error_against_the_sdx() {
 fn a_broken_source_returns_renderable_diagnostics() {
   let dir = std::env::temp_dir().join(format!("redox-proj-bad-{}", std::process::id()));
   std::fs::create_dir_all(&dir).expect("should create");
-  std::fs::write(dir.join("bad.sdx"), "main :: ()\nmain =\n  print (1 +)\n").expect("should write");
+  // `(1 +)` was the broken source here until doc 18 §4 made it a **left
+  // section**, which parses. `(1 + * 2)` is not broken either — `*` opens a
+  // deref. An unterminated group has no reading in any grammar.
+  let broken = "main :: ()\nmain =\n  print (1 +\n";
+  std::fs::write(dir.join("bad.sdx"), broken).expect("should write");
 
   let errors = redox_driver::compile_dir(&dir, &dir.join("out"))
     .expect_err("a parse error should be reported");

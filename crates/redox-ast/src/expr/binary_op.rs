@@ -63,4 +63,50 @@ impl BinaryOp {
       Self::Coalesce | Self::Pipeline => return None,
     })
   }
+
+  /// Whether this is `..` or `..=`.
+  ///
+  /// Those two are written with no surrounding spaces, which is Rust's style
+  /// and therefore rustfmt's — it rewrites `1 .. 4` to `1..4`. Every other
+  /// operator takes its spaces, so the emitter asks here rather than
+  /// carrying two spelling tables.
+  pub fn is_range(self) -> bool {
+    matches!(self, Self::Range | Self::RangeInclusive)
+  }
+
+  /// The `PartialOrd`/`PartialEq` method this comparison is, if it is one.
+  ///
+  /// Doc 18 §4 lowers a comparison section to the **method** form —
+  /// `(> 0)` becomes `|__rdx_1| __rdx_1.gt(&0)` rather than
+  /// `|__rdx_1| __rdx_1 > 0` — because §1.1's auto-ref point applies: the
+  /// closure an iterator adaptor receives is handed a reference, and
+  /// `&i32 > i32` does not compile while `(&i32).gt(&0)` does.
+  pub fn compare_method(self) -> Option<&'static str> {
+    Some(match self {
+      Self::Eq => "eq",
+      Self::Ne => "ne",
+      Self::Lt => "lt",
+      Self::Gt => "gt",
+      Self::Le => "le",
+      Self::Ge => "ge",
+      _ => return None,
+    })
+  }
+
+  /// This comparison with its operands exchanged.
+  ///
+  /// `(0 <)` and `(> 0)` are the same predicate written from either side, and
+  /// doc 18 §4 gives them the same lowering — which this is what makes
+  /// possible: flip the operator and the left section becomes a right one.
+  pub fn flipped(self) -> Option<Self> {
+    Some(match self {
+      Self::Eq => Self::Eq,
+      Self::Ne => Self::Ne,
+      Self::Lt => Self::Gt,
+      Self::Gt => Self::Lt,
+      Self::Le => Self::Ge,
+      Self::Ge => Self::Le,
+      _ => return None,
+    })
+  }
 }

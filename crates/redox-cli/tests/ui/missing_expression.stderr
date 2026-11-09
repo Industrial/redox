@@ -1,6 +1,6 @@
 error[RDX0102]: expected an expression
-  --> missing_expression.sdx:3:13
+  --> missing_expression.sdx:6:3
   |
-3 |   print (1 +)
-  |             ^
+6 |   + 1
+  |   ^
 

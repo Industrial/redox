@@ -827,7 +827,8 @@ Since then, one construct per commit:
 | `2f29272` | `case … of`, with guards, alternation and ranges | §2.3, §5.4 |
 | `9c4bf31` | `data`, `newtype`, `deriving` and `type` declarations | §2.4 |
 | `9c5c48d` | record literals: construction, punning and update | §2.4, §6 |
-| *this* | `class` and `instance` | §2.5, §5.3 |
+| `accbd58` | `class` and `instance` | §2.5, §5.3 |
+| *this* | sections, all six forms | §4 |
 
 The guard commit closed a hole the clause commit had left: doc 18 §2.3's own example
 `fib 0 = 0` did not parse, because the clause body required a line break and an indent. It
@@ -837,8 +838,8 @@ prose.
 
 ### 11.2 Specification for later plans
 
-Comprehensions, sections, `where` locals, `??`, `errors` and `test` blocks, the unit
-expression `()`, and `export` → `pub`, are specified here and **not implemented**. The full pattern
+Comprehensions, `where` locals, `??`, `errors` and `test` blocks, the unit expression `()`,
+and `export` → `pub`, are specified here and **not implemented**. The full pattern
 grammar — a constructor pattern with fields included — is doc 04's plan 33. Doc 04's plan rows for those constructs are re-pointed at this document
 rather than doc 03; the lowerings they must produce are doc 03's, unchanged, as §1 requires.
 

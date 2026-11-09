@@ -1,6 +1,7 @@
 pub(crate) mod application;
 pub(crate) mod arguments;
 pub(crate) mod atom;
+pub(crate) mod binary_op;
 pub(crate) mod capture_type;
 pub(crate) mod case_arm;
 pub(crate) mod case_of;
@@ -30,6 +31,7 @@ pub(crate) mod receiver;
 pub(crate) mod receiver_text;
 pub(crate) mod record_literal;
 pub(crate) mod rewritten;
+pub(crate) mod section;
 pub(crate) mod signature_from;
 pub(crate) mod signature_only;
 pub(crate) mod spaced_colon_colon;

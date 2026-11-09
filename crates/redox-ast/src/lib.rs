@@ -34,6 +34,7 @@ pub use expr::binary_op::BinaryOp;
 pub use expr::case_arm::CaseArm;
 pub use expr::field_init::FieldInit;
 pub use expr::ident::Ident;
+pub use expr::section::Section;
 pub use expr::type_expr::TypeExpr;
 pub use expr::unary_op::UnaryOp;
 pub use program::Program;

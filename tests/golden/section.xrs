@@ -1,0 +1,63 @@
+// Doc 18 §4's sections, checked by running the generated Rust: a section
+// lowered with its operands the wrong way round prints the wrong number, and
+// a comparison lowered to the operator form would not compile at all.
+//
+// The collections here are a range and an `Option`, because an array literal
+// is not parsed yet. That is enough: a section's lowering does not depend on
+// what it is mapped over.
+
+struct User {
+    name: &'static str,
+    age: u32,
+}
+
+fn main() {
+    // A right section: the operator's right operand is supplied.
+    println!("{}", {
+        let __rdx_t: i32 = (1..4).map(|__rdx_1| __rdx_1 + 1).sum();
+        __rdx_t
+    });
+
+    // A left section, new in doc 18 §4. `(10 -)` is what doc 03 §5.4 could not
+    // spell: with only right sections, subtracting *from* a value had no
+    // section form at all.
+    println!("{}", {
+        let __rdx_t: i32 = (1..4).map(|__rdx_1| 10 - __rdx_1).sum();
+        __rdx_t
+    });
+
+    // A comparison, which lowers to the **method** form because an adaptor
+    // hands its closure a reference and `&i32 > 1` does not compile.
+    println!("{}", {
+        let __rdx_t: usize = (1..4).filter(|__rdx_1| __rdx_1.gt(&1)).count();
+        __rdx_t
+    });
+
+    // And flipped: `(1 <)` is the same predicate, so doc 18 §4 gives it the
+    // same lowering.
+    println!("{}", {
+        let __rdx_t: usize = (1..4).filter(|__rdx_1| __rdx_1.gt(&1)).count();
+        __rdx_t
+    });
+
+    // A field selector, as in GHC's record dot.
+    let u = User { name: "a", age: 30 };
+    println!("{}", {
+        let __rdx_t: u32 = (Some(u)).into_iter().map(|__rdx_1| __rdx_1.age).sum();
+        __rdx_t
+    });
+
+    // A method reference — a section of the pipeline, which is what retires
+    // doc 03 §8.5's `&:name` sigil. Unlike `&:` it tells a field from a
+    // method: `(.name)` selects and `(|> name)` calls.
+    let v = User { name: "bb", age: 2 };
+    let names = (Some(v)).into_iter().map(|__rdx_1| __rdx_1.name);
+    println!("{}", {
+        let __rdx_t: usize = names.map(|__rdx_1| __rdx_1.len()).sum();
+        __rdx_t
+    });
+
+    // `(- 1)` is negation, always. Doc 18 §4 declines the subtraction section,
+    // which retires doc 03 decision 50's adjacency rule.
+    println!("{}", -1);
+}

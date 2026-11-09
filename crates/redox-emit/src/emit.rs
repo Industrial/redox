@@ -25,6 +25,8 @@ pub(crate) mod print_call;
 pub(crate) mod record;
 pub(crate) mod rust_escapes;
 pub(crate) mod rust_indent;
+pub(crate) mod section;
+pub(crate) mod section_param;
 pub(crate) mod signature;
 pub(crate) mod sink;
 pub(crate) mod stmt;

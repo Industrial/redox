@@ -5,6 +5,7 @@ use crate::emit::print_call::print_call;
 use crate::emit::record::emit_record;
 use crate::emit::rust_escapes::rust_escapes;
 use crate::emit::rust_indent::RUST_INDENT;
+use crate::emit::section::emit_section;
 use redox_ast::{BinaryOp, Expr};
 
 /// Render an expression as Rust, starting at column `indent`.
@@ -61,6 +62,8 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
         emit_expr(inner, indent + RUST_INDENT)
       )
     }
+    // Doc 18 §4. An operator with one side supplied, as a closure.
+    Expr::Section { section, .. } => emit_section(section, indent),
     // Doc 18 §2.4. A record literal: construction, punning, or the update
     // lowering, decided by the case of the head.
     Expr::Record { head, fields, .. } => emit_record(head, fields, indent),
@@ -88,6 +91,13 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
       ..
     } => pipeline(lhs, rhs, indent),
     Expr::Binary { op, lhs, rhs, .. } => match op.rust_text() {
+      // A range operator is written **tight**, which is Rust's own style and
+      // therefore rustfmt's: it rewrites `1 .. 4` to `1..4`, and plan 04's
+      // guarantee is that the emitter does not produce output rustfmt
+      // rewrites. Every other operator takes its spaces.
+      Some(text) if op.is_range() => {
+        format!("{}{text}{}", emit_expr(lhs, indent), emit_expr(rhs, indent))
+      }
       Some(text) => format!(
         "{} {text} {}",
         emit_expr(lhs, indent),

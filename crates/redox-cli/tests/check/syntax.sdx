@@ -1,5 +1,11 @@
 -- A syntax error never reaches rustc, so it keeps its own `RDX` code rather
 -- than acquiring one of rustc's.
+--
+-- The error was `print (1 +)` until doc 18 §4 made that a **left section**,
+-- which parses and then fails in rustc — the opposite of what this asserts.
+-- An unterminated group was tried next and is a *lexer* error (`RDX0012`),
+-- not a parse one. A statement that begins with a binary operator has
+-- nowhere left to go: `+` is not a prefix operator in any reading.
 main :: ()
 main =
-  print (1 +)
+  + 1

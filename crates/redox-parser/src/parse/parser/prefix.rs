@@ -4,6 +4,7 @@ use crate::parse::parser::case_of::case_of;
 use crate::parse::parser::lambda::lambda;
 use crate::parse::parser::parse_expr::parse_expr;
 use crate::parse::parser::path_or_ident::path_or_ident;
+use crate::parse::parser::section::section;
 use crate::parse::parser::unary_op::unary_op;
 use crate::parse::precedence::prefix_power::PREFIX_POWER;
 use redox_ast::Expr;
@@ -67,6 +68,12 @@ pub(crate) fn prefix(p: &mut Parser) -> Result<Expr, ParseError> {
     }
     TokenKind::LParen => {
       p.advance();
+      // Doc 18 §4's sections. Tried before the grouping, because `(> 0)` is
+      // not an expression at all — and `section` puts the cursor back when
+      // what follows turns out to be an ordinary group.
+      if let Some(found) = section(p, start)? {
+        return Ok(found);
+      }
       let inner = parse_expr(p, 0)?;
       p.expect(&TokenKind::RParen, "expected `)` to close the group")?;
       Ok(Expr::Paren {

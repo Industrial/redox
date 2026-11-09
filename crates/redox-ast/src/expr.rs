@@ -2,11 +2,13 @@ pub(crate) mod binary_op;
 pub(crate) mod case_arm;
 pub(crate) mod field_init;
 pub(crate) mod ident;
+pub(crate) mod section;
 pub(crate) mod type_expr;
 pub(crate) mod unary_op;
 
 use crate::expr::case_arm::CaseArm;
 use crate::expr::field_init::FieldInit;
+use crate::expr::section::Section;
 use crate::{BinaryOp, Ident, TypeExpr, UnaryOp};
 use redox_lexer::Span;
 
@@ -116,6 +118,14 @@ pub enum Expr {
     fields: Vec<FieldInit>,
     span: Span,
   },
+  /// A section — an operator with one side supplied, doc 18 §4.
+  ///
+  /// Always a one-parameter closure over the reserved `__rdx_1`, so a section
+  /// is a value and needs no special call site.
+  Section {
+    section: Section,
+    span: Span,
+  },
   /// `case e of` with `->` arms, doc 18 §2.3.
   ///
   /// Lowers to Rust's `match`, which it already was in all but spelling: the
@@ -168,6 +178,7 @@ impl Expr {
       | Expr::StrLit { span, .. }
       | Expr::Case { span, .. }
       | Expr::Record { span, .. }
+      | Expr::Section { span, .. }
       | Expr::Num { span, .. }
       | Expr::Bool { span, .. }
       | Expr::Char { span, .. }

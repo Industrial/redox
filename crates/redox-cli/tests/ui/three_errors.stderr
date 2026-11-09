@@ -1,18 +1,6 @@
 error[RDX0102]: expected an expression
-  --> three_errors.sdx:3:13
-  |
-3 |   print (1 +)
-  |             ^
-
-error[RDX0102]: expected an expression
   --> three_errors.sdx:7:14
   |
 7 |   print (2 + +)
   |              ^
-
-error[RDX0102]: expected an expression
-  --> three_errors.sdx:11:13
-   |
-11 |   print (3 *)
-   |             ^
 
