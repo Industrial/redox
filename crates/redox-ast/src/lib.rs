@@ -44,6 +44,7 @@ pub use program::item::class_decl::ClassDecl;
 pub use program::item::class_member::ClassMember;
 pub use program::item::clause::Clause;
 pub use program::item::clause_body::ClauseBody;
+pub use program::item::const_decl::ConstDecl;
 pub use program::item::constraint::Constraint;
 pub use program::item::constructor::Constructor;
 pub use program::item::constructor_fields::ConstructorFields;

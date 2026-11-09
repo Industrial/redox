@@ -11,6 +11,7 @@ pub(crate) mod data;
 pub(crate) mod double_braces;
 pub(crate) mod emit_body;
 pub(crate) mod emit_clauses;
+pub(crate) mod emit_const;
 pub(crate) mod emit_fn;
 pub(crate) mod emit_stmts;
 pub(crate) mod error_message;

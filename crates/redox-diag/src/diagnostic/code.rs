@@ -58,6 +58,14 @@ pub enum Code {
   ExpectedType,
   /// A declaration body with no statements.
   EmptyBody,
+  /// A module-scope binding written doc 01 §4.3's way — `PI = 3.14159`.
+  ///
+  /// Doc 03 §13.4 corrected that spelling out of existence: Rust forbids
+  /// `let` at module scope and requires a type on a `const`. The generic
+  /// "expected `::`" is true and unhelpful here, because the author followed
+  /// a **published** specification — so this code exists to name the
+  /// correction rather than the token.
+  ModuleScopeBinding,
 }
 
 impl Code {
@@ -84,6 +92,7 @@ impl Code {
       Self::ExpectedName => 103,
       Self::ExpectedType => 104,
       Self::EmptyBody => 105,
+      Self::ModuleScopeBinding => 106,
     }
   }
 
@@ -113,6 +122,7 @@ impl Code {
       Self::ExpectedName,
       Self::ExpectedType,
       Self::EmptyBody,
+      Self::ModuleScopeBinding,
     ]
   }
 

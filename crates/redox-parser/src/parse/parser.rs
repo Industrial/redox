@@ -10,6 +10,7 @@ pub(crate) mod case_of;
 pub(crate) mod class_body;
 pub(crate) mod class_decl;
 pub(crate) mod class_member;
+pub(crate) mod const_decl;
 pub(crate) mod constraints;
 pub(crate) mod constructor;
 pub(crate) mod constructor_fields;
@@ -65,6 +66,7 @@ pub(crate) mod visibility;
 use crate::ParseError;
 use crate::parse::parser::capture_type::capture_type;
 use crate::parse::parser::class_decl::class_decl;
+use crate::parse::parser::const_decl::const_decl;
 use crate::parse::parser::constraints::constraints;
 use crate::parse::parser::data_decl::data_decl;
 use crate::parse::parser::errors_decl::errors_decl;
@@ -205,6 +207,11 @@ impl<'a> Parser<'a> {
       self.newline_with_trailing("expected a line break after the alias")?;
       return Ok(Item::Type(alias));
     }
+    if self.check(&TokenKind::Kw(Keyword::Const)) || self.check(&TokenKind::Kw(Keyword::Static)) {
+      let decl = const_decl(self, leading, start, visibility)?;
+      self.newline_with_trailing("expected a line break after the binding")?;
+      return Ok(Item::Const(decl));
+    }
     if self.check(&TokenKind::Kw(Keyword::Import)) {
       let decl = import_decl(self, leading, start, visibility)?;
       self.newline_with_trailing("expected a line break after the import")?;
@@ -270,6 +277,31 @@ impl<'a> Parser<'a> {
     let start = self.peek_span().0;
 
     let name = self.ident("expected a name to begin a declaration")?;
+    // Doc 01 §4.3's `PI = 3.14159`, which doc 03 §13.4 corrected out of
+    // existence. The generic "expected `::`" is true and unhelpful: the
+    // author followed a published specification, so the message names the
+    // correction instead of the token.
+    //
+    // **The value has to be on the same line.** `main =` followed by a line
+    // break is a *function* whose signature line is missing, and that wants
+    // the `::` message — the first version of this check fired on it too and
+    // `reports_a_missing_signature_marker` caught it.
+    let binds_on_this_line = self.check(&TokenKind::Eq)
+      && self
+        .peek_at(1)
+        .is_some_and(|t| t.kind != TokenKind::Newline);
+    if binds_on_this_line {
+      return Err(ParseError::with(
+        Code::ModuleScopeBinding,
+        format!(
+          "a module-scope binding needs `const` or `static` and a type: \
+           `const {} :: T = …`. Rust forbids `let` at module scope, and doc \
+           03 §13.4 corrects doc 01 §4.3 accordingly",
+          name.text
+        ),
+        name.span,
+      ));
+    }
     self.expect(
       &TokenKind::ColonColon,
       "expected `::` after the name, to begin the signature",
@@ -278,6 +310,10 @@ impl<'a> Parser<'a> {
     // `f :: Ord t => &[t] -> &t` and `f :: &[t] -> &t` begin with the same
     // token — see `constraints`.
     let bounds = constraints(self)?;
+    // Doc 18 §2.2's `const fn` marker, consumed **before** the spine: a type
+    // is verbatim text, so leaving `const` in one would make the first
+    // parameter's type `const u32`, which is not a Rust type.
+    let is_const = self.eat_keyword(Keyword::Const);
     let spine = parse_spine(self)?;
     self.newline_with_trailing("expected a line break after the signature")?;
 
@@ -338,6 +374,7 @@ impl<'a> Parser<'a> {
     // §5.3. Done here rather than in the two signature builders because it
     // needs the constraint clause, which only this knows about.
     generalise(&mut sig, &bounds, reserved);
+    sig.is_const = is_const;
 
     let end = self.prev_span().1;
     let trailing = clauses.last().and_then(|c| c.trailing.clone());

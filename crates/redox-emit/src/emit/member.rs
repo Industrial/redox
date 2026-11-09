@@ -43,8 +43,9 @@ pub(crate) fn emit_member(out: &mut Sink<'_>, m: &ClassMember, indent: usize) {
       pad(out, indent);
       let sig = signature(&f.sig, indent);
       out.push_str(&format!(
-        "{}fn {}{sig}",
+        "{}{}fn {}{sig}",
         f.visibility.rust_text(),
+        if f.sig.is_const { "const " } else { "" },
         f.name.text
       ));
 

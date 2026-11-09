@@ -1,0 +1,5 @@
+-- Doc 01 §4.3's `PI = 3.14159`, which doc 03 §13.4 corrected out of
+-- existence: Rust forbids `let` at module scope and requires a type on a
+-- `const`. The author who writes this followed a published specification, so
+-- the message names the correction rather than the missing token.
+PI = 3.14159

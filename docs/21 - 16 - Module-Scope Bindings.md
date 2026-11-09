@@ -3,7 +3,7 @@
 Plan ID: `module-scope-bindings`
 Depends on: 03 (`parser-core`), 14 (`paths-colon-colon`)
 Milestone: 4 — *specification-correct*
-Status: `planned`
+Status: `done`
 
 ---
 
@@ -167,4 +167,57 @@ someone else's.
 
 ## 10. Result
 
-*Filled in when the plan ships, including anything above that turned out wrong.*
+Shipped. 535 tests pass; `fmt`, `clippy -D warnings` and the gate are green. Criteria 1–6
+and 8 are met as written; criterion 7 is met with one line removed from the example, for the
+reason in §10.2.
+
+### 10.1 §1.2's check was too broad, and the suite caught it in one run
+
+The first version fired on **any** top-level name followed by `=`, which includes `main =`
+with its signature line missing — a *function*, which wants the `::` message.
+`reports_a_missing_signature_marker` failed immediately and named the message it got.
+
+The distinction is where the value sits: a binding's is on the same line, a function's `=`
+is followed by a line break and an indented body. So the check now requires the next token
+after `=` not to be a newline.
+
+One case stays ambiguous and is resolved deliberately: `main = "x"` — a zero-parameter
+function written inline with no signature line — gets the binding message. Without a
+signature there is nothing to distinguish it from a binding, and *"a module-scope binding
+needs `const` or `static` and a type"* is the more useful of the two things it could say.
+
+### 10.2 The example corpus cannot demonstrate a lint
+
+§13.4 says *"the uppercase-name convention is a lint, not semantics"*, so
+`const threshold :: u32 = 2` is legal Redox and legal Rust. It is also a rustc **warning** —
+`non_upper_case_globals` — and `examples.rs` requires rustc to emit *nothing*.
+
+So the corpus cannot hold anything whose correct behaviour is a warning, which is a general
+property of that harness worth naming: it proves silence, and silence is a stronger claim
+than correctness. The assertion moved to `crates/redox-emit/tests/constants.rs`, and the
+example says in its own comments why the line is not there.
+
+This is the third kind of thing the corpus has turned out unable to hold — after an
+unconstructed `struct` (plan 24) and an unread tuple variant (plan 14), both `dead_code`.
+The pattern is the same each time and the resolution is the same: assert it in the emit
+tests and say so in the example.
+
+### 10.3 `const_item.rs` was the wrong filename
+
+Doc 06 §2.3's naming rule rejected it: the construct is `emit_const`, so the path must end
+`emit_const.rs` or `emit/const.rs` — and the second is unavailable, because `const` is a
+Rust keyword and the module would need `r#const`. `directory_structure.rs` said exactly
+that, which is the fourth time this session the machine-checked architecture rules have
+caught something reading did not.
+
+### 10.4 Disclosures
+
+- **`static mut`** is still unreachable, as §6 said, and a `mut` after `static` is a parse
+  error rather than anything subtler.
+- **No lint pass**, so §13.4's naming convention is rustc's `non_upper_case_globals` and
+  nothing of Redox's. Row 38 owns the first Redox lint and is still outstanding.
+- **`const` generics** have no spelling, which §6 recorded and this plan did not change.
+- **A `const fn` member of a `class` or `instance`** emits `const fn`, because the marker
+  lives on `Signature` and `member.rs` reads it — untested beyond one assertion, since a
+  `const fn` in a trait is unstable Rust and rustc would reject the output. Worth knowing
+  before someone writes it.

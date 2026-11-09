@@ -25,5 +25,13 @@ pub struct Signature {
   /// byte-stable and a map's iteration order is not (see `redox-emit`'s own
   /// module doc).
   pub bounds: Vec<(String, String)>,
+  /// `name :: const T -> U` — doc 18 §2.2's `const fn`.
+  ///
+  /// A marker between `::` and the spine, consumed before the types are
+  /// captured. It has to be: a type in Redox is verbatim text (doc 03
+  /// §14.1), and leaving `const` in one would make the first parameter's
+  /// type `const u32`, which is not a Rust type — which is exactly what
+  /// happened before plan 16.
+  pub is_const: bool,
   pub span: Span,
 }

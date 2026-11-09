@@ -19,6 +19,9 @@ pub(crate) fn emit_fn(out: &mut Sink<'_>, f: &FnDecl, indent: usize) {
   out.mark(f.span);
   pad(out, indent);
   out.push_str(&f.visibility.rust_text());
+  if f.sig.is_const {
+    out.push_str("const ");
+  }
   out.push_str("fn ");
   out.push_str(&f.name.text);
   let sig = signature(&f.sig, indent);

@@ -2,6 +2,7 @@ pub(crate) mod class_decl;
 pub(crate) mod class_member;
 pub(crate) mod clause;
 pub(crate) mod clause_body;
+pub(crate) mod const_decl;
 pub(crate) mod constraint;
 pub(crate) mod constructor;
 pub(crate) mod constructor_fields;
@@ -24,6 +25,7 @@ pub(crate) mod visibility;
 
 use crate::FnDecl;
 use crate::program::item::class_decl::ClassDecl;
+use crate::program::item::const_decl::ConstDecl;
 use crate::program::item::data_decl::DataDecl;
 use crate::program::item::errors_decl::ErrorsDecl;
 use crate::program::item::import_decl::ImportDecl;
@@ -58,6 +60,8 @@ pub enum Item {
   /// Doc 18 §7's `module`, which is Rust's `mod` — plan 14. The only item
   /// that **contains** items, and so the only one the emitter recurses on.
   Module(ModuleDecl),
+  /// Doc 03 §13.4's module-scope `const` or `static` — plan 16.
+  Const(ConstDecl),
 }
 
 impl Item {
@@ -72,6 +76,7 @@ impl Item {
       Item::Test(t) => t.span,
       Item::Import(i) => i.span,
       Item::Module(m) => m.span,
+      Item::Const(c) => c.span,
     }
   }
 }

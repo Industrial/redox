@@ -1,0 +1,6 @@
+error[RDX0106]: a module-scope binding needs `const` or `static` and a type: `const PI :: T = …`. Rust forbids `let` at module scope, and doc 03 §13.4 corrects doc 01 §4.3 accordingly
+  --> module_scope_binding.sdx:5:1
+  |
+5 | PI = 3.14159
+  | ^^
+

@@ -37,6 +37,7 @@ pub(crate) fn signature_only(spine: &[TypeExpr], span: Span) -> Signature {
     // `signature_from` gives.
     ret: (ret.text != "()").then(|| ret.clone()),
     generics: Vec::new(),
+    is_const: false,
     bounds: Vec::new(),
     span,
   }
