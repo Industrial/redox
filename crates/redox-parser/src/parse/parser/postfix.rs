@@ -2,7 +2,7 @@ use crate::ParseError;
 use crate::parse::parser::Parser;
 use crate::parse::parser::arguments::arguments;
 use crate::parse::parser::parse_expr::parse_expr;
-use redox_ast::Expr;
+use redox_ast::{Expr, Ident};
 use redox_lexer::TokenKind;
 
 /// One postfix step: a call, an index, a field, or a method call.
@@ -37,7 +37,27 @@ pub(crate) fn postfix(p: &mut Parser, lhs: Expr) -> Result<Result<Expr, Expr>, P
 
   if p.check(&TokenKind::Dot) {
     p.advance();
-    let name = p.ident("expected a field or method name after `.`")?;
+
+    // `m.0` — a tuple field. Doc 18 §2.4's `newtype Meters = Meters f64`
+    // lowers to a tuple struct, and a tuple struct whose field cannot be read
+    // is a declaration with no use. The index is an `Ident` carrying digits
+    // rather than a variant of its own, because `Expr::Field` already holds
+    // exactly "a name after a dot" and the emitter writes it through
+    // unchanged.
+    if let TokenKind::Int(digits) = &p.peek().kind {
+      let name = Ident {
+        text: digits.clone(),
+        span: p.peek_span(),
+      };
+      p.advance();
+      return Ok(Ok(Expr::Field {
+        recv: Box::new(lhs),
+        name,
+        span: (start, p.prev_span().1),
+      }));
+    }
+
+    let name = p.ident("expected a field name, a tuple index, or a method name after `.`")?;
     // A `(` immediately after the name makes it a method call; otherwise it is
     // a field. Doc 03 §5.2 keeps the parenless zero-argument form on the `!`
     // sigil, and plan 19 decides the general case.

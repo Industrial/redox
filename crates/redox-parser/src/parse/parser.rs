@@ -4,6 +4,11 @@ pub(crate) mod atom;
 pub(crate) mod capture_type;
 pub(crate) mod case_arm;
 pub(crate) mod case_of;
+pub(crate) mod constructor;
+pub(crate) mod constructor_fields;
+pub(crate) mod data_decl;
+pub(crate) mod deriving;
+pub(crate) mod field_decl;
 pub(crate) mod lambda;
 pub(crate) mod parse_expr;
 pub(crate) mod parse_spine;
@@ -16,17 +21,21 @@ pub(crate) mod prefix;
 pub(crate) mod range_or_literal;
 pub(crate) mod signature_from;
 pub(crate) mod spaced_colon_colon;
+pub(crate) mod starts_a_field_type;
 pub(crate) mod starts_argument;
 pub(crate) mod tight_colon_colon;
 pub(crate) mod token_text;
+pub(crate) mod type_alias;
 pub(crate) mod unary_op;
 
 use crate::ParseError;
 use crate::parse::parser::capture_type::capture_type;
+use crate::parse::parser::data_decl::data_decl;
 use crate::parse::parser::parse_expr::parse_expr;
 use crate::parse::parser::parse_spine::parse_spine;
 use crate::parse::parser::patterns::patterns;
 use crate::parse::parser::signature_from::signature_from;
+use crate::parse::parser::type_alias::type_alias;
 use redox_ast::{Binding, Block, FnDecl, Ident, Item, Program, Stmt, StmtKind, TypeExpr};
 use redox_diag::Code;
 use redox_lexer::{Keyword, Span, Token, TokenKind, Trivia};
@@ -107,6 +116,21 @@ impl<'a> Parser<'a> {
   fn item(&mut self) -> Result<Item, ParseError> {
     let leading = self.peek_leading();
     let start = self.peek_span().0;
+
+    // Doc 18 §2.4's declarations are told apart by their first token, which
+    // is a reserved word — so one token of lookahead settles which item this
+    // is, with no backtracking and no ambiguity against a function's
+    // signature line (a function begins with a *name*).
+    if self.check(&TokenKind::Kw(Keyword::Data)) || self.check(&TokenKind::Kw(Keyword::Newtype)) {
+      let decl = data_decl(self, leading, start)?;
+      self.newline_with_trailing("expected a line break after the declaration")?;
+      return Ok(Item::Data(decl));
+    }
+    if self.check(&TokenKind::Kw(Keyword::Type)) {
+      let alias = type_alias(self, leading, start)?;
+      self.newline_with_trailing("expected a line break after the alias")?;
+      return Ok(Item::Type(alias));
+    }
 
     // The signature line.
     let name = self.ident("expected a name to begin a declaration")?;

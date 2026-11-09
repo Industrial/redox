@@ -495,9 +495,9 @@ keyword rather than Rust's `|`, which is what makes the first rule unambiguous �
 
 ---
 
-## 6. Three new lowerings, disclosed
+## 6. Four new lowerings, disclosed
 
-The brief holds the emitter fixed, and it very nearly is. Three lowerings are new. Each is
+The brief holds the emitter fixed, and it very nearly is. Four lowerings are new. Each is
 type-free, each exists only because a Haskell construct arrived without one, and each is listed
 here rather than discovered later.
 
@@ -506,6 +506,18 @@ here rather than discovered later.
 | `e :: T` ascription | `{ let __rdx_t: T = e; __rdx_t }` | The type is written, not inferred. Replaces the `into` clause and most turbofish needs. |
 | `p { x = 1 }` record update | `{ let mut __rdx_r = p; __rdx_r.x = 1; __rdx_r }` | Needs no type path, which `Point { x: 1, ..p }` would. Moves `p`, as `..p` does. |
 | `[a, b] :: C<_>` ascribed literal | `C::from([a, b])` | The container is named in the ascription. Covers the deleted set and map literals. |
+| `data T = A \| B` | the `enum`, plus `use T::*;` | Syntactic: the declaration names the type and the constructors, and nothing else is consulted. |
+
+The fourth was **not in this document's first draft**, and it is not optional sugar. In Haskell
+a constructor is in scope under its own name; in Rust it is not. Without the `use`, `Close` is
+an ordinary name — as an expression it fails to resolve, and as a `case` pattern it silently
+becomes an *irrefutable binding*, so a `describe` written exactly as §2.4 and §2.3 write it
+returns its first arm for every input. That is doc 02 §5.2's worst failure mode reached by
+following this document, which is the strongest argument available for disclosing lowerings
+rather than discovering them.
+
+Two constructors colliding is rustc's error to give, which is the division of labour Haskell
+has as well: both languages reject the collision, neither resolves it.
 
 ### 6.1 And one lowering deleted outright
 
@@ -795,7 +807,8 @@ Since then, one construct per commit:
 | `aafdb08` | the `\|` guard ladder, and short bodies on the `=` line | §2.3 |
 | `a0114c8` | the keyword table: eleven words leave, nine arrive | §7 |
 | `643b9b2` | expressions carry their column, so a multi-line lowering is rustfmt-clean | §6 |
-| *this* | `case … of`, with guards, alternation and ranges | §2.3, §5.4 |
+| `2f29272` | `case … of`, with guards, alternation and ranges | §2.3, §5.4 |
+| *this* | `data`, `newtype`, `deriving` and `type` declarations | §2.4 |
 
 The guard commit closed a hole the clause commit had left: doc 18 §2.3's own example
 `fib 0 = 0` did not parse, because the clause body required a line break and an indent. It
@@ -805,9 +818,10 @@ prose.
 
 ### 11.2 Specification for later plans
 
-`data`, `newtype`, `class`, `instance`, `deriving`, comprehensions, sections, `where` locals,
-`??`, `errors` and `test` blocks, the unit expression `()`, and `export` → `pub`, are specified
-here and **not implemented**. Doc 04's plan rows for those constructs are re-pointed at this document
+`class`, `instance`, record *literals* (`Point { x = 10 }`, punning and update),
+comprehensions, sections, `where` locals, `??`, `errors` and `test` blocks, the unit expression
+`()`, and `export` → `pub`, are specified here and **not implemented**. The full pattern
+grammar — a constructor pattern with fields included — is doc 04's plan 33. Doc 04's plan rows for those constructs are re-pointed at this document
 rather than doc 03; the lowerings they must produce are doc 03's, unchanged, as §1 requires.
 
 `<-` is implemented in statement position (§3.1), which is the position the flattening

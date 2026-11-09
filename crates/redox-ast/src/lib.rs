@@ -39,11 +39,16 @@ pub use program::Program;
 pub use program::item::Item;
 pub use program::item::clause::Clause;
 pub use program::item::clause_body::ClauseBody;
+pub use program::item::constructor::Constructor;
+pub use program::item::constructor_fields::ConstructorFields;
+pub use program::item::data_decl::DataDecl;
+pub use program::item::field_decl::FieldDecl;
 pub use program::item::fn_decl::FnDecl;
 pub use program::item::guard::Guard;
 pub use program::item::param::Param;
 pub use program::item::pattern::Pattern;
 pub use program::item::signature::Signature;
+pub use program::item::type_alias::TypeAlias;
 
 // Re-exported so downstream crates naming a span or a trivium need not add a
 // second dependency edge onto `redox-lexer` (doc 06 §5).

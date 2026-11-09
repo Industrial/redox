@@ -1,6 +1,8 @@
+use crate::emit::data::emit_data;
 use crate::emit::emit_fn::emit_fn;
 use crate::emit::sink::Sink;
 use crate::emit::trivia::emit_trivia;
+use crate::emit::type_alias::emit_type_alias;
 use redox_ast::{Item, Program};
 use redox_diag::SourceMap;
 
@@ -30,6 +32,8 @@ pub fn emit_with_map(program: &Program, source: &str, source_path: &str) -> (Str
     }
     match item {
       Item::Fn(f) => emit_fn(&mut out, f),
+      Item::Data(d) => emit_data(&mut out, d),
+      Item::Type(a) => emit_type_alias(&mut out, a),
     }
   }
   out.unmark();

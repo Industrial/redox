@@ -34,7 +34,9 @@ fn errors(src: &str) -> Vec<redox_parser::ParseError> {
 fn parses_the_hello_slice() {
   let p = prog("main :: ()\nmain =\n  print \"hello\"\n");
   assert_eq!(p.items.len(), 1);
-  let Item::Fn(f) = &p.items[0];
+  let Item::Fn(f) = &p.items[0] else {
+    panic!("expected a function item")
+  };
   assert_eq!(f.name.text, "main");
   assert_eq!(stmts(f).len(), 1);
   let StmtKind::Expr(Expr::Call { callee, args, .. }) = &stmts(f)[0].kind else {
@@ -55,7 +57,9 @@ fn parses_the_hello_slice() {
 fn nodes_carry_spans_that_index_the_source() {
   let src = "main :: ()\nmain =\n  print \"hello\"\n";
   let p = prog(src);
-  let Item::Fn(f) = &p.items[0];
+  let Item::Fn(f) = &p.items[0] else {
+    panic!("expected a function item")
+  };
   assert_eq!(&src[f.name.span.0..f.name.span.1], "main");
   let StmtKind::Expr(e) = &stmts(f)[0].kind else {
     panic!("expected an expression statement");
@@ -66,7 +70,9 @@ fn nodes_carry_spans_that_index_the_source() {
 #[test]
 fn carries_a_leading_comment_onto_the_item() {
   let p = prog("-- a note\nmain :: ()\nmain =\n  print \"x\"\n");
-  let Item::Fn(f) = &p.items[0];
+  let Item::Fn(f) = &p.items[0] else {
+    panic!("expected a function item")
+  };
   assert_eq!(f.leading.len(), 1);
   assert_eq!(f.leading[0].text, "a note");
 }
@@ -74,7 +80,9 @@ fn carries_a_leading_comment_onto_the_item() {
 #[test]
 fn carries_a_trailing_comment_onto_the_statement() {
   let p = prog("main :: ()\nmain =\n  print \"x\" -- why\n");
-  let Item::Fn(f) = &p.items[0];
+  let Item::Fn(f) = &p.items[0] else {
+    panic!("expected a function item")
+  };
   assert_eq!(
     stmts(f)[0].trailing.as_ref().map(|t| t.text.as_str()),
     Some("why")

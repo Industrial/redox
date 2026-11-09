@@ -1,0 +1,52 @@
+// Doc 18 §2.4's `data`, `newtype` and `type`, checked by compiling and
+// running the generated Rust: a declaration lowered to the wrong Rust shape
+// does not compile at all.
+//
+// What this corpus can hold is bounded by its own strictness — it requires
+// rustc to emit **nothing**, so every declared thing has to be used:
+//
+//   * a record struct needs the record *literal* of §2.4, which is the next
+//     commit, and an unconstructed struct is a `dead_code` warning;
+//   * a tuple *variant*'s field needs a constructor pattern with a binder —
+//     `Key c -> …` — which is doc 04's plan 33, the full pattern grammar, and
+//     an unread field is a `dead_code` warning too.
+//
+// Both shapes are covered by `crates/redox-emit/tests/data.rs`. This file
+// covers what runs: unit variants, a constructor in scope under its own name,
+// a tuple struct whose field *is* read, an alias, and `deriving`.
+
+// Several constructors make an `enum`, and a constructor is in scope under
+// its own name as it is in Haskell — which is what keeps the `case` arm
+// below a match rather than an irrefutable binding.
+#[derive(Debug)]
+enum Event {
+    Click,
+    Close,
+}
+use Event::*;
+
+// A single-field tuple struct. `newtype` and `data` lower identically here,
+// because Rust has one such form and not two.
+struct Meters(f64);
+
+// The one declaration form that is already Rust.
+type Depth = f64;
+
+// A constructor is applied by juxtaposition, like any other function.
+fn describe(e: Event) -> &'static str {
+    match e {
+        Close => "close",
+        _ => "click",
+    }
+}
+
+fn depth(m: Meters) -> Depth {
+    m.0
+}
+
+fn main() {
+    println!("{}", describe(Close));
+    println!("{}", describe(Click));
+    println!("{}", depth(Meters(5.0)));
+    println!("{}", depth(Meters(1.5)));
+}
