@@ -58,6 +58,7 @@ pub(crate) mod prefix;
 pub(crate) mod primitive_type;
 pub(crate) mod qualifiers;
 pub(crate) mod range_or_literal;
+pub(crate) mod reaches_a_draw_arrow;
 pub(crate) mod receiver;
 pub(crate) mod receiver_text;
 pub(crate) mod record_literal;
@@ -78,6 +79,7 @@ pub(crate) mod substitute_var;
 pub(crate) mod test_decl;
 pub(crate) mod tight_colon_colon;
 pub(crate) mod token_text;
+pub(crate) mod try_await;
 pub(crate) mod type_alias;
 pub(crate) mod type_app;
 pub(crate) mod type_stop;
@@ -109,6 +111,7 @@ use crate::parse::parser::patterns::patterns;
 use crate::parse::parser::signature_from::signature_from;
 use crate::parse::parser::signature_only::signature_only;
 use crate::parse::parser::test_decl::test_decl;
+use crate::parse::parser::try_await::try_await;
 use crate::parse::parser::type_alias::type_alias;
 use crate::parse::parser::type_stop::TypeStop;
 use crate::parse::parser::visibility::visibility;
@@ -781,6 +784,12 @@ impl<'a> Parser<'a> {
       }
     } else if let Some(draw) = self.try_draw()? {
       draw
+    } else if let Some(awaited) = try_await(self)? {
+      // Doc 30's await-bind, asked **before** the binding: both can open with
+      // a pattern, and the two are told apart by which token ends it — `<-`
+      // or `=`. `try_await`'s scan stops at an `=` at depth zero for exactly
+      // that reason, so neither claims the other's statement.
+      awaited
     } else if let Some(binding) = self.try_binding()? {
       StmtKind::Binding(binding)
     } else {

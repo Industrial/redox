@@ -21,9 +21,10 @@ pub(crate) fn wraps_as_receiver(e: &Expr) -> bool {
     return false;
   }
 
-  // `?` and `.await` are themselves postfix, so a receiver that is one needs
-  // no parentheses: `fetch(id).await?` and `f()?.await` both chain.
-  if matches!(e, Expr::Try { .. } | Expr::Await { .. }) {
+  // `?` is itself postfix, so a receiver that is one needs no parentheses:
+  // `f()?.len()` chains. `.await` was here too until doc 30 deleted it — an
+  // await is a statement now, so it never appears as a receiver.
+  if matches!(e, Expr::Try { .. }) {
     return false;
   }
 

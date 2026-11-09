@@ -28,6 +28,33 @@ pub enum StmtKind {
     /// The callback-taking expression.
     value: Expr,
   },
+  /// `user <- fetch id` — doc 30's await-bind.
+  ///
+  /// ```text
+  /// user <- fetch id          let user = fetch(id).await;
+  /// <- flush ()           →   flush().await;
+  /// (a, b) <- load id         let (a, b) = load(id).await;
+  /// ```
+  ///
+  /// **The only thing `<-` means.** Haskell's monadic bind for the monad
+  /// Redox has: `do` binds an effect's result to a name and this binds a
+  /// future's. Doc 30 §1.1 is the argument; doc 18 §3.1's four positions were
+  /// given other spellings to free the token for it.
+  ///
+  /// `pattern` is `None` for the effect-only form — `<- flush ()` — which
+  /// binds nothing. An `Option` rather than a `Pattern::Wildcard`, because
+  /// *there is no binder* and *there is one and it discards* lower
+  /// differently: the first emits `f().await;` and the second would emit
+  /// `let _ = f().await;`.
+  ///
+  /// Legal only inside an `async` function or block, and **rustc enforces
+  /// that** — doc 03 §14.3 provides no executor, so `async` passes through and
+  /// the error for an await outside one is rustc's, landed on the `.sdx` by
+  /// plan 07's remapping.
+  Await {
+    pattern: Option<crate::Pattern>,
+    value: Expr,
+  },
   /// `counter += 1` — doc 01 §4.3's compound assignment, plan 20.
   ///
   /// **The only assignment spelling docs 01, 03 and 18 define.** §4.3 shows

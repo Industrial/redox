@@ -11,6 +11,7 @@ pub(crate) mod comprehension;
 pub(crate) mod condition_head;
 pub(crate) mod data;
 pub(crate) mod double_braces;
+pub(crate) mod emit_await;
 pub(crate) mod emit_body;
 pub(crate) mod emit_clauses;
 pub(crate) mod emit_condition;

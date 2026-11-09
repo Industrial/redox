@@ -2,7 +2,7 @@
 
 Supersedes: doc 18 §3's table and §3.1; doc 03 §14.3's postfix `.await`
 Affects: plans 13, 15, 20, 22, 29, 30, 39
-Status: `decided`, conversion pending
+Status: `done` — converted 2026-11-09 in four commits; §8.4 names the one gap
 
 ---
 
@@ -312,4 +312,94 @@ which is the state this document exists to end.
 
 ## 8. Result
 
-*Filled in when the conversion ships, including anything above that turned out wrong.*
+Shipped in four commits, one per construct, as §6 fixed the order. 657 tests pass; `fmt`,
+`clippy -D warnings` and every gate target are green. **`<-` means `await` and nothing
+else.**
+
+| Step | Commit | What moved |
+|---|---|---|
+| 1 | `for x in xs`, and the comprehension's generator | Two parse sites, 28 corpus lines, no lowering |
+| 2 | The callback bind is `with x = f` | One keyword back, `try_draw` reads a keyword instead of scanning |
+| 3 | A condition and a `guard` take `=` | Three `expect` calls and one scan |
+| 4 | `<-` becomes await; postfix `.await` is deleted | `StmtKind::Await` in, `Expr::Await` out |
+
+### 8.1 The conversion cost what §4.1 measured, and less
+
+Not one golden moved in steps 1 or 2, because neither changed a lowering: `for c <- 1 .. 4`
+and `for c in 1 .. 4` both emitted `for c in 1..4`, and `with conn = f` emits plan 13's
+closure unchanged. Step 3 moved one UI expectation, and only the **quoted source line** in
+it — the diagnostic's text was already right.
+
+Step 2 made the parser strictly simpler rather than merely different. Doc 18 §3.1's `x <- f`
+needed a token of lookahead *and* a hard-won lexer fix: `x <- f` once lexed as `<` then `-`,
+parsed as `x < -f`, and emitted valid Rust comparing `x` against negated `f` with no
+diagnostic at all. A keyword cannot do that, so the construct that caused this project's
+worst shipped defect is now the one that cannot recur.
+
+### 8.2 §3.1's claim held exactly
+
+*"Only the token the parser looks for changes, from `DrawArrow` to `Eq`."* It was three
+`expect` calls and one scan. `Condition`, `ConditionOperand`, `emit_condition`,
+`condition_head`, the let-chain breaking and `RDX0107` were all untouched, and plan 22's
+suite passed without an assertion changing except the two that quote source.
+
+`holds_a_draw_arrow` is now `holds_a_pattern_test`, because its name said which token it
+looked for. Its doc comment records that depth matters *more* than it did: a record literal's
+`=` lives inside its braces, so `if p { x = 1 }.valid` must stay an ordinary condition, and
+the bracket count is what keeps the two apart. `==`, `+=` and the other four compound
+operators are different tokens and are never seen.
+
+### 8.3 The receiver rule carried step 4 for free
+
+`.await` is a postfix and binds tighter than every operator, so an operator-valued future
+needs parenthesising:
+
+```text
+n <- count () ?? 0    →    let n = (match count() { … }).await;
+```
+
+`emit_await` reaches `receiver` for that rather than answering the question a second time,
+and the answer was already right — the first probe of the new form produced the parentheses
+with no work. This is the fourth construct to inherit that rule unchanged.
+
+### 8.4 The runnable example waits for row 39, and that is the one gap
+
+Every `<-` needs an `async` function around it, and `async` in a signature is **not
+implemented**: `run :: async ()` emits `fn run<ASYNC>() -> ASYNC ()`, reading the marker as a
+type variable. §2.2 assigned the marker to row 39 before the conversion started, and that
+assignment stands.
+
+So step 4 is proved by `crates/redox-emit/tests/await_bind.rs` — eight tests over the three
+forms, the receiver rule, and the two things `<-` is *not* — and **not** by a program that
+runs. That is a weaker proof than every other construct in this project has, and it is
+stated here rather than papered over: `examples/async.sdx` is row 39's first deliverable, and
+until it exists the await-bind's lowering is asserted and not executed.
+
+The alternative was to implement row 39's marker inside this conversion, which would have
+made doc 30 a plan for a row it does not own.
+
+### 8.5 Two things deleted, and one test moved
+
+`Expr::Await` is gone, with its emitter arm, its postfix parse arm, and
+`await_postfix.rs`'s seven tests. `wraps_as_receiver` lost its `Await` case: an await is a
+statement now, so it never appears as a receiver.
+
+`question_dot_is_one_token_and_not_two_postfixes` **moved** rather than went, as §4.1 said it
+should. It also stopped using `.await` to demonstrate itself, which is fitting: doc 30 §2.4
+is precisely that the `?.` collision matters more after this change, so the test now shows it
+with `user?.profile` against `(parse x)? .inner`.
+
+### 8.6 The architecture tests, a tenth time
+
+`try_await.rs` declared two constructs; `reaches_a_draw_arrow` became a sibling. Tenth time
+in this run, and by now the expected tax on any new parser function rather than a surprise.
+
+### 8.7 One thing still unexplained, with more evidence
+
+Plan 23 §10.8 recorded a full-gate run that exits 1 with no task reporting a failure, where
+an immediate re-run passes. It happened again during step 2, and this time **twice
+consecutively** before passing — while every target passed when run individually in the same
+shell.
+
+Still no identified task, so still not in AGENTS.md's gotcha list. The new fact is that one
+re-run is not always enough.

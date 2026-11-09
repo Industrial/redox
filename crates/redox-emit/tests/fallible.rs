@@ -146,15 +146,24 @@ fn a_one_statement_try_works() {
 // --- §5.9: plan 15's token is untouched -----------------------------------
 
 /// `?.` is **one token**, which plan 15 §10.1 records. This plan is the one
-/// that could have broken it, so it is asserted here as well as there:
-/// `x? .await` is two postfixes and `x?.await` is a parse error.
+/// that could have broken it, so it is asserted here too.
+///
+/// It no longer reaches for `.await` to show it: doc 30 deleted postfix
+/// `.await`, which is also why doc 30 §2.4 says the collision matters *more*
+/// now rather than less — `?` sits beside an awaited value far more often, and
+/// the shape that avoids it is a second binding.
 #[test]
 fn question_dot_is_still_one_token() {
-  let out = body("  n = (fetch id)? .await\n");
-  assert!(out.contains("fetch(id)?.await"), "{out}");
+  // One token, so this is a chain and not `?` then a field.
+  let out = body("  n = user?.profile\n");
   assert!(
-    parse_source("main :: ()\nmain =\n  n = x?.await\n").is_err(),
-    "`?.await` must stay a parse error — `?.` is one token"
+    out.contains("(|| Some(&user.as_ref()?.profile))()"),
+    "{out}"
+  );
+  // Separated by a space, so these are two postfixes: `?` then a field.
+  assert_eq!(
+    body("  n = (parse x)? .inner\n"),
+    "let n = parse(x)?.inner;"
   );
 }
 

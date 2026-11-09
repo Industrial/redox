@@ -1,4 +1,5 @@
 use crate::emit::assert_call::assert_call;
+use crate::emit::emit_await::emit_await;
 use crate::emit::emit_control::emit_control;
 use crate::emit::expr::emit_expr;
 use crate::emit::inline_comment::emit_inline_comment;
@@ -79,6 +80,11 @@ pub(crate) fn emit_stmt(out: &mut Sink<'_>, stmt: &Stmt, indent: usize, tail: bo
     StmtKind::Assert(e) => {
       out.push_str(&assert_call(e, indent));
       out.push(';');
+    }
+    // Doc 30's await-bind. A statement, which is the whole of the decision:
+    // `<-` means `await` and nothing else, and every await binds.
+    StmtKind::Await { pattern, value } => {
+      out.push_str(&emit_await(pattern, value, indent));
     }
     // Doc 01 §4.3's compound assignment — plan 20. The operator's own Rust
     // text plus `=`, so the five share one arm.

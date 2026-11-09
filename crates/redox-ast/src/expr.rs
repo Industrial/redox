@@ -258,21 +258,6 @@ pub enum Expr {
     body: crate::Block,
     span: Span,
   },
-  /// `e.await` — doc 03 §14.3's postfix await, plan 15.
-  ///
-  /// **A correction, not a feature.** Doc 01 §24 specified prefix `await`,
-  /// which Rust does not have: it has had postfix `.await` since 1.39. §14.3
-  /// gives the reason the postfix form is the right one in one sentence —
-  /// *"postfix composes with method chains, with `?`, and with the receiver
-  /// pipeline of §5.3; prefix requires parenthesising to do any of them."*
-  ///
-  /// A node of its own rather than an `Expr::Field` named `await`, because
-  /// `await` is a reserved word and is not an `Ident` — a node pretending
-  /// otherwise would let the formatter and the span map both read it wrongly.
-  Await {
-    inner: Box<Expr>,
-    span: Span,
-  },
   /// `e?` — Rust's try operator, unchanged.
   ///
   /// A spelling, not a lowering. It is here because doc 03 §12.5's `from`
@@ -360,7 +345,6 @@ impl Expr {
       | Expr::Section { span, .. }
       | Expr::Unit { span }
       | Expr::Try { span, .. }
-      | Expr::Await { span, .. }
       | Expr::If { span, .. }
       | Expr::Do { span, .. }
       | Expr::List { span, .. }

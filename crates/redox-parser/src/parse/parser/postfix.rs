@@ -5,7 +5,7 @@ use crate::parse::parser::optional_chain::optional_chain;
 use crate::parse::parser::parse_expr::parse_expr;
 use crate::parse::parser::record_literal::record_literal;
 use redox_ast::{Expr, Ident};
-use redox_lexer::{Keyword, TokenKind};
+use redox_lexer::TokenKind;
 
 /// One postfix step: a call, an index, a field, or a method call.
 ///
@@ -66,16 +66,6 @@ pub(crate) fn postfix(p: &mut Parser, lhs: Expr) -> Result<Result<Expr, Expr>, P
 
   if p.check(&TokenKind::Dot) {
     p.advance();
-
-    // `.await` — doc 03 §14.3's correction to doc 01 §24. A reserved word, so
-    // it is matched as the keyword it is and never reaches the field arm.
-    if p.check(&TokenKind::Kw(Keyword::Await)) {
-      p.advance();
-      return Ok(Ok(Expr::Await {
-        inner: Box::new(lhs),
-        span: (start, p.prev_span().1),
-      }));
-    }
 
     // `m.0` — a tuple field. Doc 18 §2.4's `newtype Meters = Meters f64`
     // lowers to a tuple struct, and a tuple struct whose field cannot be read

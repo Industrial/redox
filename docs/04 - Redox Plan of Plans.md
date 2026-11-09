@@ -52,24 +52,28 @@ disclosed exception to doc 01 §36 — by ceasing to exist.
 
 ### What doc 30 will do to this table
 
-`docs/30 - Bind.md`, decided **2026-11-09**, makes `<-` mean `await` and nothing else — doc
-18 §3.1 had given it four jobs and kept Haskell's meaning in only one of them. The
-conversion is pending; this note is here so a reader of a row below is not surprised by a
-spelling the row does not mention.
+`docs/30 - Bind.md`, decided and **converted 2026-11-09** in four commits, makes `<-` mean
+`await` and nothing else — doc 18 §3.1 had given it four jobs and kept Haskell's meaning in
+only one of them. This note is here so a reader of a row below is not surprised by a spelling
+the row does not mention.
 
-| Row | What doc 30 changes | Status after |
+| Row | What doc 30 changed | Status |
 |---|---|---|
-| 13 `haskell-surface` | The callback bind becomes `with x = f` | stays `done`; §3.3's cell |
-| 15 `await-postfix` | Postfix `.await` is **deleted** — every await binds | becomes `superseded`, the fourth |
-| 20 `control-flow` | `for x <- xs` becomes `for x in xs` | stays `done` |
-| 22 `is-and-guard` | A condition and a `guard` take `=`, not `<-` | stays `done`; one token in the parser |
-| 29 `comprehensions-and-collections` | The generator takes `in` | stays `done` |
-| 30 `with-and-use` | `RDX0044`'s message names `with` | stays `done`; the lowering is untouched |
-| 39 `async` | Inherits `<-` as the await form, and the `async` marker | still `not-started` |
+| 13 `haskell-surface` | The callback bind is `with x = f` | `done` |
+| 15 `await-postfix` | Postfix `.await` is **deleted** — every await binds | **`superseded`**, the fourth |
+| 20 `control-flow` | `for x <- xs` is `for x in xs` | `done` |
+| 22 `is-and-guard` | A condition and a `guard` take `=` | `done` — three `expect` calls and one scan |
+| 29 `comprehensions-and-collections` | The generator takes `in` | `done` |
+| 30 `with-and-use` | `RDX0044`'s message names `with`; the lowering is untouched | `done` |
+| 39 `async` | Inherits `<-` as the await form. **The `async` marker is still its own**, and doc 30 §8.4 records that the await-bind therefore has no runnable example yet | `not-started` |
 
-Doc 30 §6 fixes the order: `in`, then `with`, then `=`, then `<-` last — because only then
-is the token free. Doc 30 §4 measures the cost: 28 `<-` sites in six `.sdx` files, seven
-Rust sources, seven emit-test files.
+The order was `in`, then `with`, then `=`, then `<-` last, because only then was the token
+free. Not one golden moved in the first two steps and one UI expectation's quoted source line
+moved in the third — doc 30 §8.1.
+
+**Row 39 now carries a debt.** Doc 30 §8.4: `<-` is proved by eight emit tests and not by a
+program that runs, because every await needs an `async` function and `async` in a signature
+is row 39's. `examples/async.sdx` is its first deliverable.
 
 ---
 
@@ -165,7 +169,7 @@ regardless of schedule (doc 03 §20).
 |---|---|---|---|---|---|
 | 13 | `haskell-surface` | **The surface is doc 18's.** Comments become `--`/`{- -}`/`-- |`/`-- !`; a declaration becomes a `::` signature line plus an equation; application becomes juxtaposition. The generated Rust is **byte-identical** — the only golden diff is a comment — which is doc 18 §1's rule measured rather than asserted. Deleted `stmt_call`, `parse_signature`, `parameter` and `POSTFIX_POWER`; `ranges-rust-spelling` is subsumed, since doc 18 §8 keeps Rust's `..`/`..=` for the same reason doc 03 decision 34 did | — | 12 | `done` |
 | 14 | `paths-colon-colon` | `::` everywhere including imports; `.` means field or method only. Corrects doc 01 §22 **Partial.** Doc 18 §5.2's tight `::` is a path and `.` is field or method only, both implemented and tested; `import` is not parsed, so the import half is outstanding. **Scope widened and plan authored, 2026-11-09**, as `docs/19 - 14 - Paths, Imports and Modules.md`: doc 03 §13.5's module organisation — inline blocks, glob imports and brace-nested trees — had **no row at all**, and `import` is where it belongs. Doc 18 §7 retires `mod` for `module`, so the two arrive together. **Done 2026-11-09.** `import` in all five of §13.1's forms, `module` bodiless and with a body, nested, with per-module test gathering. Closed plan 09's recorded gap: `examples/cargo-project/` now uses the module shape its own note said it could not | — | 03 | `done` |
-| 15 | `await-postfix` | Postfix `.await`. Corrects doc 01 §24. **Plan authored 2026-11-09** as `docs/20 - 15 - Postfix Await.md`. One leaf: the postfix machinery already exists for `?`, a field, a tuple index and a method call, and doc 03 §14.3 wants no lowering. Row 39 keeps `async fn` and `async` blocks, so every use of `.await` is a rustc error until it lands — disclosed in the plan's §6. **Done 2026-11-09.** Found that `?.` is one token — doc 03 §12.3's optional chaining — so `x?.await` is a parse error rather than two postfixes, and the collision is now pinned by a test so row 28 cannot change it quietly | — | 03 | `done` |
+| 15 | `await-postfix` | Postfix `.await`. Corrects doc 01 §24. **Plan authored 2026-11-09** as `docs/20 - 15 - Postfix Await.md`. One leaf: the postfix machinery already exists for `?`, a field, a tuple index and a method call, and doc 03 §14.3 wants no lowering. Row 39 keeps `async fn` and `async` blocks, so every use of `.await` is a rustc error until it lands — disclosed in the plan's §6. **Done 2026-11-09.** Found that `?.` is one token — doc 03 §12.3's optional chaining — so `x?.await` is a parse error rather than two postfixes. **Superseded 2026-11-09 by `docs/30 - Bind.md`**, which deletes postfix `.await` entirely: every await binds, spelled `x <- f`. The fourth row retired by a later surface decision rather than by being wrong — and the only one retired by *replacement* rather than deletion, since await still exists. The `?.` collision test survived the deletion and moved to row 28's suite, because doc 30 §2.4 makes it matter more rather than less | — | 03 | `superseded` |
 | 16 | `module-scope-bindings` | Top-level bindings require a type and lower to `const`/`static`; `let` is illegal at Rust module scope. Corrects doc 01 §4.3. **Scope widened and plan authored 2026-11-09** as `docs/21 - 16 - Module-Scope Bindings.md`: doc 18 §2.2's `const fn` is the same keyword in the same position as §13.4's `const`, and splitting them would mean reading the token in one plan and acting on it in another. Row 39 keeps `async`. **Done 2026-11-09**, with `RDX0106` naming §13.4's correction when an author writes doc 01 §4.3's `PI = 3.14159`. Found that the example corpus cannot demonstrate a *lint*: it requires rustc silence, and a lowercase `const` is a rustc warning | — | 03 | `done` |
 | 17 | `comments-as-trivia` | `#`, `###`, `##`, `##!` as trivia attached to AST nodes and re-emitted. Corrects doc 01 §4.1 **Done**, with doc 18 §5.1's spellings in place of `#`: trivia is attached to AST nodes and re-emitted, which plan 02 delivered and every plan since has kept — doc 02 §10.1's rule, and the defect this row names Emerald for | `crates/emerald-fmt/src/lib.rs`'s disclosed comment-loss defect, as the anti-pattern to avoid | 02, 04 | `done` |
 | 18 | `attributes-passthrough` | `#[...]`/`#![...]` verbatim; `derive` clause. Closes doc 02 §10.2's critical gap **Partial.** `deriving` is a clause of the declaration (doc 18 §2.4) and lowers to `#[derive(…)]`; verbatim `#[…]` and `#![…]` passthrough is outstanding. **Plan authored 2026-11-09** as `docs/22 - 18 - Attributes.md`. One leaf: plan 02 already lexes `TokenKind::Attr`, so the work is deciding what an attribute attaches to — and the answer is **trivia**, which keeps source order with comments and reaches nine item kinds and every statement at once. **Done 2026-11-09** in two `TriviaKind` variants, two `emit_trivia` arms and a deletion — `TokenKind::Attr` became unreachable and is gone. Attributes on a *field* or *variant* remain outstanding: `FieldDecl` and `Constructor` have no `leading` | — | 03 | `done` |
@@ -227,7 +231,7 @@ as a gesture.
 | 36 | `typed-domain-errors` | `errors` declaration generating the enum plus `Display`, `Error` and `From` impls. `std` only **Done** as doc 03 §12.5: the enum, `Display`, `Error` and a `From` per `from` row, naming nothing outside `std` | — | 28 | `done` |
 | 37 | `defer` | Scope-exit blocks, LIFO, via a generated `core`-only `Drop` guard. **Blocked on doc 03 §23 item 1** — the one disclosed exception to doc 01 §36 **Superseded.** Doc 18 §3.1 deletes `defer`, which closes doc 03 §23 item 1 — the one disclosed exception to doc 01 §36 — by removing the construct that needed it | — | 20 | `superseded` |
 | 38 | `panic-and-lints` | `todo`/`unimplemented`/`unreachable`/`panic`/`assert` spellings; `RDX1001` `unwrap` discouragement **Partial.** `todo`, `unimplemented`, `unreachable`, `panic` and the `assert` family are implemented (doc 03 §12.6); `RDX1001`'s `unwrap` discouragement is outstanding | — | 23 | `partial` |
-| 39 | `async` | `async` functions and blocks, postfix `.await`, no executor | — | 15, 26 | `not-started` |
+| 39 | `async` | `async` functions and blocks, postfix `.await`, no executor. **Postfix `.await` is gone** — `docs/30 - Bind.md` makes await `x <- f`, already shipped — so this row is the `async` marker on a signature, `async` blocks, and the example the await-bind does not yet have. **Doc 30 §8.4 is a debt against this row**: `<-` is proved by eight emit tests and not by a running program, because every await needs an `async` function and `run :: async ()` currently emits `fn run<ASYNC>() -> ASYNC ()` — the marker read as a type variable. `examples/async.sdx` is this row's first deliverable | — | 26 | `not-started` |
 | 40 | `lsp` | `redox-lsp` on `lsp-server` + `lsp-types` (doc 02 §5.5): diagnostics on change, semantic tokens, document symbols, and a formatter hook onto plan 34. Rustc errors arrive already remapped to the `.sdx` through plan 07, so the server reports them against the file the user wrote. Editor-agnostic by construction — plan 49 ships the clients. Emerald does this in 545 lines; Redox's is simpler, having no symbol table to build | `crates/emerald-lsp` (545 lines, directly adaptable) and plan 90's warning to purge `(`-assuming heuristics first | 07, 34 | `not-started` |
 | 41 | `tree-sitter-grammar` | `tree-sitter-redox/` per doc 02 §5.4: `grammar.js` plus an external scanner for INDENT/DEDENT, the generated parser, `highlights`/`injections`/`locals` queries, and a corpus suite — which doubles as an independent check on the grammar's shape (doc 02 §9.4). The cost is disclosed, not hidden: an indentation-sensitive tree-sitter grammar is genuinely fiddly, and it is a second grammar to keep in sync with plan 46's inventory | Emerald plan 24's `tree-sitter-emerald` layout and corpus-test convention | 19 | `not-started` — **scope narrowed 2026-11-08**: the editor configs this row carried moved to plan 49, which names Vim, Neovim, VSCode and Cursor explicitly and is too large to ride along with a grammar |
 | 42 | `fuzzing` | `lex_source`, `parse_program`, `emit_program` and a generated-program target whose oracle is *the generated Rust must parse* — a stronger oracle than Emerald had | `crates/emerald-fuzz-smoke` architecture: logic in a stable crate, `fuzz_targets/*.rs` as three-line wrappers, zero dependencies | 04 | `not-started` |
