@@ -22,6 +22,9 @@ members = [
   # `fuzz/`, outside this workspace, because `libfuzzer-sys` does not build on
   # stable and a member that does not build breaks `cargo check` for everyone.
   "crates/redox-fuzz",
+  # Plan 44 (`docs/38 - 44 - Zero-cost Benchmarks.md`) — doc 03's zero-cost
+  # claim, asserted as identical optimised IR rather than as a timing.
+  "crates/redox-bench",
 ]
 # `.tmp/` is the gitignored scratch area. Excluded so a throwaway crate there
 # — plan 01 leaf 4's LALRPOP bake-off arm, for instance — cannot be picked up

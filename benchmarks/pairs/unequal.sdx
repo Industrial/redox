@@ -1,0 +1,14 @@
+-- Plan 44's **negative case**, and criterion 4.
+--
+-- An IR comparison that passes on every pair cannot distinguish *the lowering
+-- is free* from *the comparison is vacuous*. So this pair is deliberately
+-- **not** equivalent: the hand-written side clones and the Redox side does
+-- not. If the comparison calls these identical, it is comparing nothing.
+--
+-- The function is named after the pair, which is criterion 2's convention and
+-- which this file broke first: it declared `first` while the pair was called
+-- `unequal`, so the comparison looked for a symbol that was not there and
+-- found an **empty** body — passing every equality assertion vacuously.
+
+unequal :: Vec<String> -> usize
+unequal xs = xs.len ()

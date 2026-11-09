@@ -1,0 +1,6 @@
+-- A section inside a pipeline. The generated closure is the **method** form
+-- doc 18 §4 requires — `|__rdx_1| __rdx_1.gt(&1)` — because an adaptor hands
+-- its closure a reference and `&i32 > i32` does not compile.
+
+total :: Vec<i32> -> i32
+total xs = xs |> into_iter |> filter (> 1) |> sum :: i32

@@ -65,6 +65,12 @@ examples/*.xrs
 # Plan 06's source map is the same kind of artifact, and `examples/*.xrs`
 # does not match it — the suffix is `.xrs.map`.
 examples/*.xrs.map
+# Plan 44's pair corpus is the same shape: `benchmarks/pairs/*.sdx` and the
+# hand-written `.rs` beside it are the inputs, and anything transpiled from
+# them is an artifact. Eight of these were left behind by `redox build` runs
+# during the plan's development before the rule existed.
+benchmarks/pairs/*.xrs
+benchmarks/pairs/*.xrs.map
 Cargo.lock
 Thumbs.db
 charts/

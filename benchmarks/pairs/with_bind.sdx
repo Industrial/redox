@@ -1,0 +1,11 @@
+-- Doc 30 §3.3's callback bind. `with v = o.map` rewrites every statement after
+-- it into the closure `o.map` is handed, so a callback reads like a `let`.
+--
+-- The generated closure carries a **block** — `|v| { v * 2 }` — where a Rust
+-- author writes the expression bare. That block is the whole difference, and
+-- this pair is what says it costs nothing.
+
+scale :: Option<i32> -> Option<i32>
+scale o =
+  with v = o.map
+  v * 2

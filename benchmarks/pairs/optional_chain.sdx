@@ -1,0 +1,12 @@
+-- `?.` generates a closure with `?` inside it — doc 03 §12.3's chain.
+--
+-- Two things about it that a pair has to get right, and the first attempt got
+-- both wrong. `?.` is **field** access and not a method call, so the pair needs
+-- a struct. And it yields `Option<&T>`, not `Option<T>` — the reference is the
+-- lowering's contract, and `examples/fallible.sdx` declares it the same way:
+-- `first_name :: &Option<User> -> Option<&String>`.
+
+data Point = Point { x :: i32, y :: i32 }
+
+optional_chain :: &Option<Point> -> Option<&i32>
+optional_chain p = p?.x

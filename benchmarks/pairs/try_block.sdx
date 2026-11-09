@@ -1,0 +1,20 @@
+-- `try` is a block in which `?` returns from the **block**, lowered to an
+-- immediately-invoked closure because Rust has try blocks only unstably —
+-- examples/fallible.sdx makes the same point about why the closure is there.
+--
+-- So the claim worth asserting is not that the generated closure matches a
+-- hand-written closure; it would, trivially. It is that the wrapper is
+-- **free**: the hand-written half uses `?` in the function body directly,
+-- with no closure at all, and the two must still optimise to the same IR.
+--
+-- Nothing here calls a helper, deliberately. The first version of this pair
+-- had both halves call a `parse_it`, and it **failed** — rustc inlined that
+-- helper into the hand-written half and not through the closure in the
+-- generated one, so the IR differed by an inlining decision about a *third*
+-- function rather than by anything the `try` lowering costs. `?` on a
+-- parameter leaves the closure as the only variable.
+
+attempt :: Result<i32, String> -> Result<i32, String>
+attempt r = try
+  a = r?
+  Ok (a + 1)
