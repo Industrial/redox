@@ -3,7 +3,7 @@
 Plan ID: `grammar-inventories`
 Depends on: 45 (`reachability-residue`)
 Milestone: 7 — *tooling*
-Status: `planned`
+Status: `done` 2026-11-10
 
 ---
 
@@ -255,4 +255,80 @@ Two deliberate departures:
 
 ## 10. Result
 
-*Filled in when the plan ships, including anything above that turned out wrong.*
+Shipped 2026-11-10. `docs/GRAMMAR.md` with **88 graded rows** — 34 `PASSTHROUGH`, 48
+`SUGARED`, 6 `UNREACHABLE` — across Rust's lexical, item, type, expression, pattern and
+control-flow areas, six fixtures under `tests/unreachable/`, and
+`crates/redox-cli/tests/grammar_inventory.rs` holding the citations honest.
+
+(That count was first written here as 77, from memory, and corrected after counting the rows
+the way the test counts them. A row whose whole subject is unchecked claims should not open
+with one.)
+
+Doc 02 §4.1's artifact exists, forty-five rows after it was asked for, and it says something
+the blueprint could not have: **six constructs are unreachable, and five of them were not on
+any list.**
+
+### 10.1 The test was verified to fail, both ways
+
+A test that cannot fail reads as coverage, so both drift modes were induced:
+
+- a citation pointed at `examples/no_such_file.sdx` — `every_row_cites_evidence_that_exists`
+  failed with the path named;
+- `tests/unreachable/as_cast.sdx` was replaced with a program that compiles —
+  `every_unreachable_fixture_still_fails` failed with *"now compiles"*.
+
+Both restored cleanly. The second is the one worth having: it is the only mechanism in this
+repository that notices a gap **closing**, and it is why §3 criterion 3 was written to fail
+when the compiler improves.
+
+### 10.2 §1.3's ratio held, and it is the row's real finding
+
+The first pass reported 16 failures out of 26 probes. **Eleven were the probe's own bug** —
+`format` as a function, `True` for `true`, `where t: Clone` for a bound clause,
+`@non_exhaustive` for an attribute, an instance method missing its repeated signature, `a.0`
+on an array. A third pass was needed to separate the last two.
+
+So the honest grade of this row's own first draft would have been *wrong about two thirds of
+its gaps*, and every one of those errors points the same way: toward implementing something
+that already works. The inventory is only worth its page because the evidence is checked.
+
+One probe failure remains **unexplained and is recorded as such**: the associated-constant
+probe failed three ways before the cause turned out to be an instance method written without
+the signature an instance must repeat — not the constant at all. Associated constants are
+graded `PASSTHROUGH` on `examples/class.sdx`'s evidence, which uses them.
+
+### 10.3 Two documents were wrong, and one row's promise came due
+
+- **Doc 03 §18 claimed `|` alternatives were closed.** They are shadowed: doc 18 made `|` a
+  guard, so `1 | 2 -> true` parses as `1` guarded by `2` and fails at rustc about types. The
+  claim is struck in §18 with the reason and the fixture.
+- **Plan 45 §6 promised that §10 would record `unsafe trait`/`unsafe impl`** if the spelling
+  did not extend to them. It did not, and §10 did not. Plan 45 §10.6 now records it, and the
+  gap has a fixture so it cannot be lost a third time.
+
+Both were corrections to shipped documents, which §5 made criteria 5 and 6 precisely so they
+could not be deferred as someone else's tidying.
+
+### 10.4 What `SUGARED` turned out to mean in practice
+
+§1.4 defined the grades before the inventory was written, and writing it moved most rows one
+column left of where a casual reading would put them. Redox is a *surface* over Rust, so
+almost nothing is `PASSTHROUGH` in the strict sense — functions, structs, traits, impls,
+modules, imports, `match`, closures and every control-flow form are all spelled differently.
+
+What stayed `PASSTHROUGH` is the part Redox deliberately does not touch: literals, types,
+paths, operators, and patterns other than binding ones. That is doc 03 §14.1's *"a type is
+verbatim text"* rule showing up as a column, and it is the clearest single statement of where
+this compiler does and does not intervene.
+
+### 10.5 The MoonScript axis, and what declining it cost
+
+§1.5's record is eleven rows. Doc 02 §4.1 asked for a graded production list against
+Emerald's 761-line inventory, and doc 18's replacement of the surface made that archaeology —
+but the eleven rows are not nothing: they are the only place that says what MoonScript
+contributed to the language as it now stands. Significant indentation, implicit return,
+comprehensions and interpolation survived; the object model, tables, `switch` and `with`
+blocks did not.
+
+What the decline costs is a reader who wants to know *why* a MoonScript feature is absent and
+has to follow doc 18 §§2.1–2.7 to find out. Recorded rather than hidden.

@@ -1723,7 +1723,8 @@ the grounds that any `UNREACHABLE` construct is one a Redox user cannot write �
 violation of doc 01 §26. That inventory, as it stands after this document:
 
 **Closed by this document.** Attributes (§13.2), granular visibility (§9.6), `where`
-clauses (§14.2), `impl Trait` (§14.4), match ergonomics — `@` bindings, `|` alternatives,
+clauses (§14.2), `impl Trait` (§14.4), match ergonomics — `@` bindings, ~~`|`
+alternatives~~ (**corrected by plan 46 §1.2: see below**),
 slice patterns (§6.4), `loop` and labelled break (§7.2, §7.7), `const`/`static`/`const fn`
 (§13.3), type aliases, unit structs, tuple structs (§9.7), `move` closures and explicit
 closure return types (§8.6), raw, char, byte and C-string literals (§11.2), tuple-struct
@@ -1765,6 +1766,28 @@ met rather than outstanding.
 > So doc 02 §4.1's standard applied even more sharply than this section claimed: the
 > constructs were not escape-hatch-only, they were unreachable. Plan 45 leaf 1 implemented
 > the hatch, which is why every decline above is now a decline rather than a gap.
+
+> **Correction, plan 46 §1.2.** The "Closed by this document" list above claims **`|`
+> alternatives**. It is wrong, and has been since doc 18: that document made Haskell's
+> surface the language, and `|` in a `case` arm introduces a **guard**. So `1 | 2 -> true`
+> parses and means *`1` guarded by `2`*, failing at rustc with *"mismatched types: expected
+> `bool`, found integer"* — a type error about the wrong thing, which is the worst way for a
+> gap to present.
+>
+> Separate arms match the same values, so expressiveness survives and `docs/GRAMMAR.md`
+> grades the row `UNREACHABLE` with that as the nearest alternative. What has no spelling is
+> Rust's *binding* case, where one arm body serves several patterns.
+>
+> `@` bindings and slice patterns in the same clause **are** reachable; both were probed.
+> The fixture is `tests/unreachable/or_pattern.sdx`.
+
+> **Also recorded by plan 46 §1.2**, against this section's remit rather than its text:
+> **`unsafe trait` and `unsafe impl`** are unreachable. Plan 45 shipped `unsafe` as a block
+> and a function marker, and its §6 said the spelling *"should extend"* to a trait and an
+> impl — *"if it does not, §10 records that"*. It does not, and plan 45 §10 did not record
+> it. Fixture: `tests/unreachable/unsafe_class.sdx`. The FFI **export** direction
+> (`extern "C"` on a function) and `as` casts are unreachable too, and neither was ever on
+> this list; `docs/GRAMMAR.md` is now where that list lives.
 
 ---
 

@@ -1,0 +1,15 @@
+-- Rust's `as` cast. UNREACHABLE: plan 46 §1.2.
+--
+-- `as` is reserved for `import … as`, and all three positions a cast could
+-- take are rejected — a binding, an argument, and a tail expression.
+--
+-- The nearest working thing is `u8::try_from n`, which is NOT a cast: `as`
+-- truncates and `try_from` is fallible, so a program wanting the truncating
+-- conversion cannot write it.
+
+narrow :: i32 -> u8
+narrow n = n as u8
+
+main :: ()
+main =
+  print (narrow 300)

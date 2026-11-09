@@ -356,7 +356,21 @@ head with `verbatim_triple/dedent_triple_body.rs` under it, which is also the be
 the dedent rule is now one named thing that `scan_string` and the hatch both call, rather than
 a helper sharing a file with its only caller.
 
-### 10.6 Declined, with the specification's words
+### 10.6 Amended by plan 46: `unsafe trait` and `unsafe impl` were not checked
+
+§6 said of `unsafe` on a trait or an impl that *"the spelling leaf 2 chooses should extend to
+them; if it does not, §10 records that rather than this section promising it"*.
+
+**It does not, and this section did not record it.** Plan 46 §1.2 probed it: `unsafe class`
+and `unsafe instance` both fail with *"expected a name to begin a declaration"*, because leaf
+2 put the marker in the signature's `::` run and in the expression prefix, and a declaration
+keyword is neither place.
+
+Added here rather than quietly fixed because §6 made a conditional promise and the condition
+came true. The gap is graded `UNREACHABLE` in `docs/GRAMMAR.md` with
+`tests/unreachable/unsafe_class.sdx` holding it, so it cannot be forgotten a third time.
+
+### 10.7 Declined, with the specification's words
 
 Macro **definition** is not implemented, under doc 03 §23 item 3's own alternative. Macro
 **invocation** is named in §6 and in doc 03 §18 and left: it needs a spelling decision, not an

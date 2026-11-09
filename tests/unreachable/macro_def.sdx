@@ -1,0 +1,15 @@
+-- A macro definition. UNREACHABLE, and **declined**: doc 03 §23 item 3's own
+-- alternative is "accept permanently that Redox macros require inline Rust",
+-- taken by plan 45 §6.
+--
+-- Kept as a fixture rather than dropped because the grade is still
+-- UNREACHABLE: a decline is a statement about intent, and this file is a
+-- statement about the language. If a later row gives macros a spelling, this
+-- failing becomes a passing and the inventory notices.
+
+macro twice
+  ($e:expr) => { $e + $e }
+
+main :: ()
+main =
+  print 1

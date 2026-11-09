@@ -1,0 +1,16 @@
+-- Rust's `unsafe trait`. UNREACHABLE: plan 46 §1.2.
+--
+-- Plan 45 shipped `unsafe` as a block and as a function marker, and its §6
+-- said the spelling "should extend" to a trait and an impl — "if it does not,
+-- §10 records that". It does not, and plan 45 §10 did not record it; plan 46
+-- is the check that plan asked for.
+--
+-- There is no alternative: a trait whose implementors must uphold an invariant
+-- rustc cannot check has no safe spelling, by design.
+
+unsafe class Raw t
+  size :: &t -> usize
+
+main :: ()
+main =
+  print 1

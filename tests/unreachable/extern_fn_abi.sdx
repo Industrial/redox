@@ -1,0 +1,18 @@
+-- Rust's `extern "C" fn` — the FFI **export** direction. UNREACHABLE:
+-- plan 46 §1.2.
+--
+-- Plan 45 leaf 3 shipped the *import* direction, an `extern` block declaring
+-- foreign functions, and not this one: a Redox function given the C ABI so
+-- that C can call it. Doc 01 §26 names FFI without saying which way, and half
+-- of it is still missing.
+--
+-- There is no alternative within the surface. Inline Rust reaches it, which is
+-- doc 02 §4.1's "escape hatch used for a common construct is a bug report
+-- against the grammar".
+
+callme :: extern "C" i32 -> i32
+callme n = n + 1
+
+main :: ()
+main =
+  print (callme 1)

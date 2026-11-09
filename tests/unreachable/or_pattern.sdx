@@ -1,0 +1,20 @@
+-- Rust's `|` or-pattern. UNREACHABLE: plan 46 §1.2.
+--
+-- Doc 03 §18 lists `|` alternatives under "Closed by this document". They are
+-- not: doc 18 made Haskell's surface the language, where `|` in a `case` arm
+-- introduces a **guard**. So this parses, and means `1` guarded by `2` — it
+-- fails at rustc with "mismatched types: expected `bool`, found integer",
+-- which is a type error about the wrong thing.
+--
+-- The nearest working thing is separate arms, which match the same values.
+-- What has no spelling is Rust's *binding* case, where one arm body serves
+-- several patterns.
+
+small :: i32 -> bool
+small n = case n of
+  1 | 2 -> true
+  _ -> false
+
+main :: ()
+main =
+  print (small 2)
