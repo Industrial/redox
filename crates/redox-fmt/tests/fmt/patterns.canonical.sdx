@@ -1,0 +1,20 @@
+v
+7
+_
+0..13
+18..=64
+None
+Some v
+Some (Some v)
+Pair a b
+(a, b)
+(a,)
+[a, b]
+[first, .., last]
+[_head, rest @ ..]
+Point { x = 0, y, .. }
+Rect {}
+whole @ Rect { w, h }
+13 or 14 or 15
+Some 1 or None
+Some (Point { x = 1, y = 2 })

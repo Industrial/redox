@@ -1,0 +1,39 @@
+-- Plan 34 leaf 4's pattern fixture: one `case` arm per form, in the accepted
+-- spelling. Its canonical counterpart is `patterns.canonical.sdx`.
+--
+-- `case` arms rather than bindings, because a binding's pattern must be
+-- irrefutable and most of these are not.
+
+shape :: Thing -> i32
+shape t = case t of
+  -- A name, a literal, a wildcard.
+  v -> 0
+  7 -> 1
+  _ -> 2
+  -- Ranges, tight — unlike a range expression, which the corpus spaces.
+  0..13 -> 3
+  18..=64 -> 4
+  -- Juxtaposition, and left-associative, so a nested constructor needs its
+  -- parentheses.
+  None -> 5
+  Some v -> 6
+  Some (Some v) -> 7
+  Pair a b -> 8
+  -- A tuple keeps a one-element comma, because `(a)` is a group.
+  (a, b) -> 9
+  (a,) -> 10
+  -- Slices, including both rests.
+  [a, b] -> 11
+  [first, .., last] -> 12
+  [_head, rest @ ..] -> 13
+  -- A record pattern uses `=`, not the `:` that Rust uses.
+  Point { x = 0, y, .. } -> 14
+  Rect {} -> 15
+  -- `@` binds a name to a pattern.
+  whole @ Rect { w, h } -> 16
+  -- `or`, not `|` — `|` is the guard ladder's separator.
+  13 or 14 or 15 -> 17
+  Some 1 or None -> 18
+  -- A constructor argument that is a record needs parentheses for the same
+  -- reason a record is not a bare expression argument.
+  Some (Point { x = 1, y = 2 }) -> 19

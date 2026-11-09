@@ -28,8 +28,15 @@
 //! item that holds it and items are leaf 2 — §4's corrected order has
 //! expressions first precisely because everything above them delegates down.
 
+//! **Leaf 4's first half is in**, as `pattern_text`. Patterns split off from
+//! the rest of leaf 4 cleanly because they carry neither indentation nor
+//! trivia — a pattern is always one line — so they need no `indent` and
+//! nothing from the source, which the statement printer will need both of.
+
 mod expr_text;
 mod format;
+mod pattern_text;
 
 pub use expr_text::expr_text;
 pub use format::format;
+pub use pattern_text::pattern_text;

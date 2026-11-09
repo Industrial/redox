@@ -536,3 +536,87 @@ them, so the printer is built first and connected last.
 The consequence for the corpus is the useful part. `every_example_is_already_canonical`
 (§1.5) still passes untouched, so leaf 6's reconciliation — where an example changes or §3's
 table does, one row at a time — happens when leaf 2 lands and not in pieces before it.
+
+### 10.17 Leaf 4 splits at patterns, and the split is not arbitrary
+
+Leaf 4 is *"statement kinds and pattern forms, including the two-space
+re-indentation"*. The pattern half shipped alone, because patterns are the part of leaf 4
+that needs **neither of the two things that make the rest of it hard**: a pattern is always
+one line, so there is no indentation to re-derive, and a comment inside one belongs to the
+enclosing statement, so there is no trivia to place. `pattern_text` therefore takes no
+`indent` and no `source` — nothing is sliced and everything is printed, which is the first
+printer in this plan that can say that.
+
+The statement half needs both, and it also needs the five block-bearing expressions §10.15
+moved into it. Shipping the pattern half first means the statement printer can use
+`pattern_text` rather than growing its own.
+
+### 10.18 `Pattern::rust_text` was the wrong thing to reuse, in exactly three places
+
+It exists on the AST and is close enough to be tempting. Three of the eleven forms differ:
+
+| Redox | Rust |
+|---|---|
+| `Some v` | `Some(v)` |
+| `Point { x = 0, .. }` | `Point { x: 0, .. }` |
+| `13 or 14` | `13 \| 14` |
+
+Each difference is a token Redox spends elsewhere. `(` and `)` are grouping, because
+juxtaposition is the application form — doc 18 §2.1, the same rule as a call. `:` is half of
+the `::` that ascribes, so a record pattern uses `=`. And `|` is the guard ladder's
+separator, so an alternation says `or`.
+
+The other eight are spelled identically, including the two that look like they would not be:
+a slice's rest is `..` and a named rest is `name @ ..`, exactly as in Rust.
+`examples/destructuring.sdx` settles both — the `...` spread that `lexical.sdx` lexes is a
+token the pattern grammar does not use, which is worth knowing because it reads like the
+Redox spelling and is not one.
+
+### 10.19 "Parenthesise unless atomic" is three rules in pattern position, not one
+
+The printer's first version used one predicate everywhere and over-parenthesised in two
+places that the fixture caught against the corpus's own spelling:
+
+```
+whole @ (Rect { w, h })      -- the corpus writes  whole @ Rect { w, h }
+(Some 1) or None             -- the corpus writes  Some 1 or None
+```
+
+Both were right by the argument-position rule and wrong by the position they were in. The
+rule for a **constructor argument** — parenthesise anything that could absorb what follows —
+holds because what follows is another pattern and juxtaposition is greedy. After `@` and
+after `or`, what follows is `or`, `->` or `,`: keywords and punctuation, which no pattern can
+absorb as an argument. So those two positions need parentheses only around a nested `or`,
+which is the one case where the follower *is* a pattern-level token.
+
+That is `beside_a_keyword`, and the generalisation is worth keeping: in a grammar where
+juxtaposition is application, how much a form needs protecting depends on **what comes after
+it**, not on what it is. Leaf 3 had the same shape of finding in `operand` versus `argument`
+and the two were not recognised as the same thing until here.
+
+### 10.20 A span scan has to match a span, not the word `span`
+
+Leaf 3's property normaliser looks for the literal `span: (`, which is correct for `Expr`:
+every variant there is a struct variant with a named field.
+
+`Pattern` has two **tuple** variants — `Wildcard(Span)` and `Rest(Span)` — whose spans print
+as `Wildcard((496, 497))` with no field name. The scan left them in, and the property
+reported that printing `_` had changed the pattern, which is the most confusing possible
+failure for the simplest possible input.
+
+The fix matches the shape: a parenthesised pair of bare integers. Nothing else in a pattern's
+debug form has it, because a numeric literal prints as a quoted `text` field. This is the
+second time in this plan that a property test reported a defect in its own normaliser
+(§10.5 was the first), and both times the normaliser was a reasonable reading of a debug
+format that has more than one shape in it.
+
+### 10.21 A probe program has to be a program
+
+The round-trip probe wraps a pattern in `case t of`, and its first version gave the wrapper a
+signature of `()` beside a clause taking one parameter. That does not parse, so every pattern
+"did not re-parse" — reported against `n`, the simplest binding pattern in the corpus, which
+sent the search in entirely the wrong direction.
+
+Worth a line because the probe is the kind of code that looks like scaffolding and is not:
+it is a Redox program, the parser holds it to the same rules, and a defect in it is reported
+as a defect in the subject.
