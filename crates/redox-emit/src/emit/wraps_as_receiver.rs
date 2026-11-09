@@ -21,6 +21,12 @@ pub(crate) fn wraps_as_receiver(e: &Expr) -> bool {
     return false;
   }
 
+  // `?` and `.await` are themselves postfix, so a receiver that is one needs
+  // no parentheses: `fetch(id).await?` and `f()?.await` both chain.
+  if matches!(e, Expr::Try { .. } | Expr::Await { .. }) {
+    return false;
+  }
+
   matches!(
     e,
     Expr::Binary { .. }

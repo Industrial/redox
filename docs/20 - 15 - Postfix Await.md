@@ -3,7 +3,7 @@
 Plan ID: `await-postfix`
 Depends on: 03 (`parser-core`)
 Milestone: 4 — *specification-correct*
-Status: `planned`
+Status: `done`
 
 ---
 
@@ -136,4 +136,58 @@ moon run :check :lint :test :cargo-check :cargo-test :ci-format :audit
 
 ## 10. Result
 
-*Filled in when the plan ships, including anything above that turned out wrong.*
+Shipped. 525 tests pass; `fmt`, `clippy -D warnings` and the gate are green. One arm in
+`postfix`, one in `emit_expr`, one node, and one line in `wraps_as_receiver`.
+
+### 10.1 `?.` is one token, so `x?.await` is not two postfixes
+
+Criterion 2 asked that `.await` and `?` compose. They do in the order §14.3's own example
+uses — `.await?` — and **not** in the other order without a space, because `?.` is a single
+token: doc 03 §12.3's optional chaining.
+
+```text
+(fetch id).await?      fetch(id).await?        composes
+(fetch id)? .await     fetch(id)?.await        composes, with a space
+(fetch id)?.await      parse error             `?.` is §12.3's operator
+```
+
+Two of doc 03's own constructs collide on those two characters, and the collision was
+invisible until both existed. The outcome is the right one — a parse error rather than a
+silently different reading, which is doc 02 §5.2's rule — and
+`question_dot_is_one_token_and_not_two_postfixes` pins it, so implementing `?.` under row
+28 cannot quietly change what `x?.await` means.
+
+### 10.2 Criterion 5 was weaker than what shipped
+
+Criterion 5 said `xs |> await` "must emit whatever a pipeline emits". It does not emit
+anything: `await` is a reserved word and not an expression, so the pipeline has no operand
+and the parse fails. That is better than the criterion asked for, and the test asserts the
+stronger property.
+
+### 10.3 Criterion 6's golden cannot exist, and §3 half-knew it
+
+§3 said the example corpus could not hold this plan, and then criterion 6 asked for a
+golden — which was incoherent, because `tests/golden/` is keyed to `examples/` and
+`examples.rs` requires **every parseable example to compile and run**. There is no "golden
+without an example", by design: the harness's `NOT_PARSEABLE` list excuses a file from
+parsing, and nothing excuses one from compiling.
+
+So criterion 6 is met by the emit tests, which assert exact generated text in the same
+style every other `redox-emit` test does. Adding a `CANNOT_COMPILE` list for one example
+would have weakened the harness for every future example, which is a worse trade than
+leaving one passthrough proven by seven exact-text assertions.
+
+### 10.4 One thing §4 did not mention and needed
+
+`wraps_as_receiver` had to learn that `?` and `.await` are **themselves postfix**, so a
+receiver that is one needs no parentheses — otherwise `fetch(id).await?` would have come
+out `(fetch(id).await)?`. The rule was already there for pipelines, added under plan 13 for
+the same reason, and this is the second kind of expression to join it.
+
+### 10.5 Disclosures
+
+- **Every use of `.await` is a rustc error today**, as §6 said: `async fn` and `async`
+  blocks are row 39. The construct parses and lowers correctly, and the function containing
+  it cannot yet be declared `async`.
+- **No runtime proof.** There is no executor (doc 01 §24), so what is verified is the text.
+  §3 said this and it remains true.

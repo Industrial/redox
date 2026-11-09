@@ -84,6 +84,10 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
     // Rust's try operator, unchanged. The receiver needs parentheses for the
     // same reason a method call's does: `?` binds tighter than any operator.
     Expr::Try { inner, .. } => format!("{}?", receiver(inner, indent)),
+    // Doc 03 §14.3's postfix await, verbatim passthrough. The receiver is
+    // parenthesised on the same rule as a method call's, which is why doc 18
+    // §2.1 names `(get u).await` among its surviving required-parens cases.
+    Expr::Await { inner, .. } => format!("{}.await", receiver(inner, indent)),
     // Rust's array literal, unchanged — a spelling, not a lowering.
     Expr::List { items, .. } => format!("[{}]", expr_list(items, indent)),
     // Doc 18 §3.2. An iterator chain, built inside out.
