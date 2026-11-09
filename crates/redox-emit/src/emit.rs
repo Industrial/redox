@@ -1,6 +1,7 @@
 pub(crate) mod arm;
 pub(crate) mod case;
 pub(crate) mod class;
+pub(crate) mod coalesce;
 pub(crate) mod data;
 pub(crate) mod double_braces;
 pub(crate) mod emit_body;

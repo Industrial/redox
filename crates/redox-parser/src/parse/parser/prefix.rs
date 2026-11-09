@@ -68,6 +68,16 @@ pub(crate) fn prefix(p: &mut Parser) -> Result<Expr, ParseError> {
     }
     TokenKind::LParen => {
       p.advance();
+      // `()` — the unit value. Doc 18 §7 replaces the `!` zero-argument
+      // suffix with `f ()`, so this is what makes a no-argument call
+      // writable: juxtaposition needs something to juxtapose.
+      if p.check(&TokenKind::RParen) {
+        p.advance();
+        return Ok(Expr::Unit {
+          span: (start, p.prev_span().1),
+        });
+      }
+
       // Doc 18 §4's sections. Tried before the grouping, because `(> 0)` is
       // not an expression at all — and `section` puts the cursor back when
       // what follows turns out to be an ordinary group.

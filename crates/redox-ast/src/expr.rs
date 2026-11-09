@@ -118,6 +118,15 @@ pub enum Expr {
     fields: Vec<FieldInit>,
     span: Span,
   },
+  /// `()` — the unit value.
+  ///
+  /// Doc 18 §7 retires doc 03 §5.2's `!` zero-argument suffix in favour of
+  /// `f ()`, which makes the unit expression load-bearing rather than
+  /// decorative: without it a no-argument call has no spelling at all, since
+  /// juxtaposition needs something to juxtapose.
+  Unit {
+    span: Span,
+  },
   /// A section — an operator with one side supplied, doc 18 §4.
   ///
   /// Always a one-parameter closure over the reserved `__rdx_1`, so a section
@@ -179,6 +188,7 @@ impl Expr {
       | Expr::Case { span, .. }
       | Expr::Record { span, .. }
       | Expr::Section { span, .. }
+      | Expr::Unit { span }
       | Expr::Num { span, .. }
       | Expr::Bool { span, .. }
       | Expr::Char { span, .. }

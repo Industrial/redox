@@ -49,19 +49,22 @@ fn a_lambda_argument_survives() {
   assert!(out.contains("xs.map(|n| n * n)"), "{out}");
 }
 
-/// The placeholder is gone for `|>` and still there for `??`, which has no
-/// lowering yet. Asserted so that implementing one does not silently leave
-/// the other claiming to work.
+/// **No operator emits the placeholder any more.**
+///
+/// It was the honest hole for `|>` and then for `??`, and both now lower, so
+/// this asserts the emitter makes no such claim about either. The arm itself
+/// stays in `emit_expr`: a *new* operator with no lowering must fail loudly
+/// in the generated file rather than quietly produce something plausible,
+/// which is what the placeholder is for.
 #[test]
-fn the_placeholder_is_gone_for_the_pipeline_only() {
-  assert!(
-    !body("r = xs |> iter").contains("compile_error!"),
-    "the pipeline is lowered now"
-  );
-  assert!(
-    body("r = a ?? b").contains("compile_error!"),
-    "`??` still needs a lowering, and must keep saying so"
-  );
+fn no_operator_emits_the_placeholder() {
+  for src in ["r = xs |> iter", "r = a ?? b"] {
+    assert!(
+      !body(src).contains("compile_error!"),
+      "`{src}` is lowered now:\n{}",
+      body(src)
+    );
+  }
 }
 
 /// Doc 18 §4 explains why the spelling is `|>` and not Haskell's: composition

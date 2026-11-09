@@ -1,0 +1,50 @@
+// Doc 03 §12.1's `??`, which doc 18 leaves unchanged, and doc 18 §7's unit
+// expression — checked by running the generated Rust: a coalesce lowered to
+// the wrong arm prints the wrong word.
+
+fn main() {
+    // `??` is `Option`-only and lowers to a `match`, not to
+    // `unwrap_or_else`. Doc 03 §12.1's first reason is decisive: that method's
+    // closure arity differs between `Option` and `Result`, so the lowering
+    // would depend on the operand's type — and doc 03 §2's admission test 1
+    // requires a lowering fixed by the source text alone.
+    let present = Some("found");
+    println!(
+        "{}",
+        match present {
+            Some(__rdx_v) => __rdx_v,
+            None => "anonymous",
+        }
+    );
+
+    let missing = none_str();
+    println!(
+        "{}",
+        match missing {
+            Some(__rdx_v) => __rdx_v,
+            None => "anonymous",
+        }
+    );
+
+    // The fallback's laziness is explicit in the generated code, which is the
+    // third of §12.1's reasons: the `None` arm is only evaluated when taken.
+    println!(
+        "{}",
+        match missing {
+            Some(__rdx_v) => __rdx_v,
+            None => expensive(),
+        }
+    );
+}
+
+// `f ()` is doc 18 §7's replacement for doc 03 §5.2's `!` zero-argument
+// suffix, so the unit expression is what makes a no-argument call writable at
+// all — juxtaposition needs something to juxtapose. A lone `()` argument
+// *is* the empty argument list, so `none_str ()` is `none_str()`.
+fn none_str() -> Option<&'static str> {
+    None
+}
+
+fn expensive() -> &'static str {
+    "computed"
+}

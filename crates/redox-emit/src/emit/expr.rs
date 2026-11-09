@@ -1,4 +1,5 @@
 use crate::emit::case::emit_case;
+use crate::emit::coalesce::coalesce;
 use crate::emit::expr_list::expr_list;
 use crate::emit::pipeline::pipeline;
 use crate::emit::print_call::print_call;
@@ -71,6 +72,7 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
     Expr::Case {
       scrutinee, arms, ..
     } => emit_case(scrutinee, arms, indent),
+    Expr::Unit { .. } => "()".to_string(),
     Expr::StrLit { value, .. } => rust_escapes(value),
     Expr::Num { text, .. } => text.clone(),
     Expr::Bool { value, .. } => value.to_string(),
@@ -90,6 +92,15 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
       rhs,
       ..
     } => pipeline(lhs, rhs, indent),
+    // Doc 03 §12.1, which doc 18 leaves unchanged: `??` is `Option`-only and
+    // lowers to a `match`. A *lowering*, not a spelling, which is why it
+    // sits beside the pipeline rather than in the operator table.
+    Expr::Binary {
+      op: BinaryOp::Coalesce,
+      lhs,
+      rhs,
+      ..
+    } => coalesce(lhs, rhs, indent),
     Expr::Binary { op, lhs, rhs, .. } => match op.rust_text() {
       // A range operator is written **tight**, which is Rust's own style and
       // therefore rustfmt's: it rewrites `1 .. 4` to `1..4`, and plan 04's
@@ -103,9 +114,11 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
         emit_expr(lhs, indent),
         emit_expr(rhs, indent)
       ),
-      // `??` still needs a lowering rather than a spelling — a later plan.
-      // Until then the parser accepts it and this emits a hard error rather
-      // than something that merely looks plausible.
+      // Both operators that need a lowering rather than a spelling — `??`
+      // and `|>` — are matched above, so this arm is unreachable through any
+      // source. Kept as a hard error rather than removed: a *new* operator
+      // with no lowering must fail loudly in the generated file, not quietly
+      // produce something that looks plausible.
       None => format!("compile_error!(\"`{op:?}` is parsed but not yet lowered\")"),
     },
     Expr::Field { recv, name, .. } => format!("{}.{}", emit_expr(recv, indent), name.text),

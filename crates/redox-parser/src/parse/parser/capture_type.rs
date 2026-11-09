@@ -13,10 +13,18 @@ use redox_lexer::TokenKind;
 ///
 /// The scan stops at the first `,`, `)`, `}`, `|` , `=` or `->` at angle,
 /// paren, bracket and brace depth zero, with one refinement that earns its
-/// place: **an `->` preceded by `)` does not end a type**, because that is
-/// `Fn(i32) -> i32` rather than a signature's arrow. Without it, `&dyn
-/// Fn(i32) -> i32` could not be a parameter type and doc 03 §14.1's "every
-/// Rust type form is reachable" would be false on day one.
+/// place: **an `->` after a parenthesised group that followed a name does not
+/// end a type**, because that is `Fn(i32) -> i32` rather than a signature's
+/// arrow. Without it, `&dyn Fn(i32) -> i32` could not be a parameter type and
+/// doc 03 §14.1's "every Rust type form is reachable" would be false on day
+/// one.
+///
+/// "That followed a name" is the half the first version left out, and it cost
+/// a wrong answer rather than a missing one: `() -> Option<T>` is a spine
+/// whose first type is **unit**, and testing only for a preceding `)`
+/// swallowed the arrow and the return type into it. The function then
+/// reported zero parameters where the equation bound one, so the diagnostic
+/// blamed the equation.
 ///
 /// `}` and `|` joined the set with doc 18 §2.4's declarations, which are the
 /// first place a type is followed by either: `{ x :: f64, y :: f64 }` ended
@@ -27,7 +35,11 @@ pub(crate) fn capture_type(p: &mut Parser, message: &str) -> Result<TypeExpr, Pa
   let start = p.peek_span().0;
   let mut depth = 0i32;
   let mut text = String::new();
-  let mut prev_was_close_paren = false;
+  // Whether the `(` of the group just closed followed an identifier, which
+  // is what makes it `Fn(…)` rather than a unit or a tuple.
+  let mut group_followed_a_name = false;
+  let mut prev_was_a_name = false;
+  let mut closed_a_named_group = false;
 
   loop {
     let kind = &p.peek().kind;
@@ -39,7 +51,13 @@ pub(crate) fn capture_type(p: &mut Parser, message: &str) -> Result<TypeExpr, Pa
         // constructors.
         TokenKind::RBrace | TokenKind::Or | TokenKind::Pipe => true,
         // The refinement: `Fn(i32) -> i32` keeps going; `: i32 ->` stops.
-        TokenKind::Arrow => !prev_was_close_paren,
+        // The `(` has to have followed a *name* for that to apply — `()` is
+        // the unit type, and `() -> Option<T>` is a signature spine whose
+        // first type is unit, not a function type. Testing only for a
+        // preceding `)` swallowed the arrow and the return type into the
+        // unit, and reported the arity of a zero-parameter function as zero
+        // when the equation bound one.
+        TokenKind::Arrow => !closed_a_named_group,
         TokenKind::Newline | TokenKind::Indent | TokenKind::Dedent | TokenKind::Eof => true,
         _ => false,
       };
@@ -49,13 +67,23 @@ pub(crate) fn capture_type(p: &mut Parser, message: &str) -> Result<TypeExpr, Pa
     }
 
     match kind {
-      TokenKind::Lt | TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => depth += 1,
+      TokenKind::LParen => {
+        if depth == 0 {
+          group_followed_a_name = prev_was_a_name;
+        }
+        depth += 1;
+      }
+      TokenKind::Lt | TokenKind::LBracket | TokenKind::LBrace => depth += 1,
       TokenKind::Gt | TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => depth -= 1,
       // `>>` closes two generic argument lists, as in `Vec<Vec<u8>>`.
       TokenKind::Shr => depth -= 2,
       _ => {}
     }
-    prev_was_close_paren = matches!(kind, TokenKind::RParen);
+    closed_a_named_group = matches!(kind, TokenKind::RParen) && group_followed_a_name;
+    prev_was_a_name = matches!(
+      kind,
+      TokenKind::Ident(_) | TokenKind::Kw(redox_lexer::Keyword::Fn)
+    );
 
     if !text.is_empty() && p.peek().ws_before {
       text.push(' ');

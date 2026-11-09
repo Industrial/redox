@@ -1,6 +1,8 @@
 use crate::emit::double_braces::double_braces;
+use crate::emit::expr::emit_expr;
 use crate::emit::expr_list::expr_list;
 use crate::emit::rust_escapes::rust_escapes;
+use crate::emit::rust_indent::RUST_INDENT;
 use crate::emit::unparen::unparen;
 use redox_ast::Expr;
 
@@ -29,18 +31,36 @@ pub(crate) fn print_call(args: &[Expr], indent: usize) -> String {
     [Expr::StrLit { value, .. }] => {
       format!("println!({})", double_braces(&rust_escapes(value)))
     }
-    [] => "println!()".to_string(),
+    // `print` and `print ()` are the same call, for the reason `expr_list`
+    // gives: a lone unit argument is the empty argument list.
+    [] | [Expr::Unit { .. }] => "println!()".to_string(),
     _ => {
       let holes = vec!["{}"; args.len()].join(" ");
-      // The arguments are emitted at `indent`, the column the `println!`
-      // itself starts at, which is what makes a multi-line argument come out
-      // the way rustfmt writes it: `println!("{}", {` with the block's body
-      // one level in and its closing brace back at `indent`. Spreading the
-      // arguments one per line instead was tried first and is *wrong* —
-      // rustfmt reformats that back to the hanging form, so the emitter would
-      // have been producing output rustfmt rewrites, which is exactly what
-      // plan 04's guarantee forbids.
-      format!("println!(\"{holes}\", {})", expr_list(args, indent))
+      let one_line = expr_list(args, indent);
+
+      // **rustfmt overflows a block-like last argument and spreads anything
+      // else.** `println!("{}", { … })` keeps the braces hanging off the
+      // call; `println!("{}", match … )` is rewritten one argument per line.
+      // Both were measured against rustfmt's defaults outside the
+      // repository, and the first version of this got it backwards in each
+      // direction before the ascription and `??` examples found it.
+      //
+      // So: a multi-line argument that *opens with a brace* is emitted at the
+      // call's own column and left to hang; anything else multi-line is
+      // spread. Neither form is a preference — it is which one rustfmt leaves
+      // alone, which is plan 04's guarantee.
+      if one_line.contains('\n') && !one_line.starts_with('{') {
+        let inner_pad = " ".repeat(indent + RUST_INDENT);
+        let close_pad = " ".repeat(indent);
+        let spread = args
+          .iter()
+          .map(|e| emit_expr(unparen(e), indent + RUST_INDENT))
+          .collect::<Vec<_>>()
+          .join(&format!(",\n{inner_pad}"));
+        return format!("println!(\n{inner_pad}\"{holes}\",\n{inner_pad}{spread}\n{close_pad})");
+      }
+
+      format!("println!(\"{holes}\", {one_line})")
     }
   }
 }
