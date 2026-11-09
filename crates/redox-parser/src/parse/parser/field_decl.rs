@@ -15,6 +15,10 @@ use redox_lexer::TokenKind;
 /// declaration and a literal alike.
 pub(crate) fn field_decl(p: &mut Parser) -> Result<FieldDecl, ParseError> {
   let start = p.peek_span().0;
+  // Plan 48 leaf 2. Read before the visibility marker, as an item's trivia
+  // is: a `--- doc` on a field attaches to the first token of the field, and
+  // that is the marker when there is one.
+  let leading = p.peek_leading();
   // §9.6: "Per-field and per-variant visibility use the same markers inside
   // a declaration body."
   let visibility = visibility(p)?;
@@ -25,6 +29,7 @@ pub(crate) fn field_decl(p: &mut Parser) -> Result<FieldDecl, ParseError> {
     name,
     ty,
     visibility,
+    leading,
     span: (start, p.prev_span().1),
   })
 }

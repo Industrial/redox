@@ -43,6 +43,15 @@ const ALLOWED: &[(&str, &str)] = &[
      heuristic sees long prose in a string and cannot tell a generator from \
      a captured stdout (plan 47 §10.2)",
   ),
+  (
+    "conformance.rs",
+    "the same case as status.rs one row later, which is itself the finding: \
+     its literals are the TEMPLATE for docs/CONFORMANCE.md, and that \
+     document is the expectation — a file, compared byte for byte and \
+     blessable. Two generated documents in two consecutive plans both trip \
+     a heuristic written against captured stdout, so the shape is now \
+     established rather than exceptional (plan 48 §10.6)",
+  ),
 ];
 
 fn tests_dir() -> PathBuf {

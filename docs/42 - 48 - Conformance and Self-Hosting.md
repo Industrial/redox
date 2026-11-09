@@ -3,7 +3,7 @@
 Plan ID: `conformance-self-hosting`
 Depends on: 45 (`reachability-residue`), 46 (`grammar-inventories`)
 Milestone: 7 — *tooling*
-Status: `planned`
+Status: `done` 2026-11-10
 
 ---
 
@@ -29,17 +29,17 @@ The answer is **no**, and §1.2 says what it would take.
 Measured 2026-11-10 across all **430** Rust source files in `crates/*/src`, with comments
 dropped and string bodies blanked.
 
-| Blocker (plan 46 grades each `UNREACHABLE`) | Occurrences |
+| Blocker (plan 46 grades each `UNREACHABLE`) | Lines containing one |
 |---|---:|
-| **Macro invocation** | **848** |
-| `as` cast | 9 |
+| **Macro invocation** | **855** |
+| `as` cast | 12 |
 | `unsafe trait` | 0 |
 | `unsafe impl` | 0 |
 | `extern "C" fn` | 0 |
 | Macro definition | 0 |
 | `\|` or-pattern | not counted — see below |
 
-**210 of 430 files (49%) contain at least one blocker.** Per crate:
+**209 of 430 files (49%) contain at least one blocker.** Per crate:
 
 | Crate | Files | Blocked | |
 |---|---:|---:|---:|
@@ -50,7 +50,7 @@ dropped and string bodies blanked.
 | `redox-driver` | 27 | 16 | 59% |
 | `redox-lexer` | 32 | 16 | 50% |
 | `redox-bench` | 14 | 6 | 43% |
-| `redox-parser` | 104 | 32 | 31% |
+| `redox-parser` | 104 | 31 | 30% |
 | `redox-lsp` | 22 | 6 | 27% |
 | `redox-ast` | 48 | 6 | 12% |
 | `redox-fuzz` | 6 | 0 | 0% |
@@ -62,17 +62,26 @@ Two things about this table are worth more than the totals.
 not *this* obstacle — which is a result only a count could give, and the opposite of what doc
 02 §4.8 expected the attempt to find.
 
-**One blocker is 94% of the problem.** 848 macro invocations against 9 casts. `format!`,
+**One blocker is 99% of the problem.** 855 lines carry a macro invocation against 12 with a
+cast. `format!`,
 `write!`, `assert!`, `println!`, `vec!`, `matches!` and `panic!` are how this compiler
 formats, asserts and reports; doc 18 §7 retired `!` as a suffix and left no spelling, so none
 of them can be written.
 
-**The measurement needed triaging, twice.** The first pass reported **22** casts; most were
-`use … as …` **imports**, which Redox spells and which are not casts. Excluding import lines
-brought it to 14, of which 5 are still false positives — a multi-line `use` whose `as` sits on
-a continuation line, and the words *"as though"* inside a doc comment the stripper missed. The
-honest number is **9**, and §6 records that the counter is line-based rather than a Rust
-parser. Plan 46 §1.3's ratio, arriving on schedule in the row that cited it.
+**The measurement needed triaging, three times, and the unit changed once.** The first pass
+reported **22** casts; most were `use … as …` **imports**, which Redox spells and which are
+not casts. Excluding import lines brought it to 14, of which 5 were still false positives — a
+multi-line `use` whose `as` sits on a continuation line, and the words *"as though"* in a doc
+comment the stripper missed.
+
+Then the shipped counter disagreed with the probe: **855 and 12**, against the probe's 848 and
+9. Both are right about different things. The probe counted **occurrences**; the counter counts
+**lines containing one**, which is the unit the per-crate table already uses and the one that
+matters here — a line with two `format!` calls is not twice as hard to port. The table above is
+the counter's, because the counter is what the gate compares.
+
+§6 records that the counter is line-based regexes rather than a Rust parser. Plan 46 §1.3's
+ratio, arriving on schedule in the row that cited it.
 
 `|` or-patterns are **not counted**: no line-based regex separates a pattern alternative from a
 bitwise or, and counting them wrongly is worse than leaving the cell empty. §6.
@@ -81,16 +90,16 @@ bitwise or, and counting them wrongly is worse than leaving the cell empty. §6.
 
 **No. The compiler's source cannot currently be expressed in Redox without the escape hatch.**
 
-But the shape of the no is the finding. One construct — macro invocation — accounts for 848 of
-857 blocking occurrences. If it were spelled:
+But the shape of the no is the finding. One construct — macro invocation — accounts for 855 of
+867 blocking lines. If it were spelled:
 
-- the blocked set drops to **9 `as` casts in 7 files**;
+- the blocked set drops to **12 lines carrying an `as` cast**;
 - `redox-fuzz` and `redox-ast` become portable almost entirely (0% and 12% blocked);
 - the criterion becomes a question about two constructs rather than about the language.
 
 So the useful output of this row is not a verdict, it is a **priority**: doc 03 §18 lists macro
 invocation as open and plan 45 §1.5 declined to take it because it needs a spelling decision.
-This row is the measurement that says how much that decision is worth — 94% of the distance to
+This row is the measurement that says how much that decision is worth — 99% of the distance to
 a property doc 01 §34 made a project goal.
 
 ### 1.3 A worked port, because a count is not a proof
@@ -248,4 +257,102 @@ milestone.
 
 ## 10. Result
 
-*Filled in when the plan ships, including anything above that turned out wrong.*
+Shipped 2026-11-10. `docs/CONFORMANCE.md`, generated and gate-compared;
+`conformance/clause.sdx` with its committed `.xrs`; and
+`crates/redox-cli/tests/conformance.rs`.
+
+**The answer to doc 02 §4.8's criterion is no, and 99% of the no is one construct.** 855 of
+867 blocking lines are macro invocations. That is the row's output: not a verdict, a price tag
+on a spelling decision plan 45 §1.5 deferred.
+
+### 10.1 The port found a defect the count could not see, and it was load-bearing
+
+§1.3 argued for porting a module on the grounds that *"a count over regexes can be wrong in
+ways only compiling something reveals"*. It was right, and about something better than a
+miscount.
+
+`clause.rs` has four field doc comments. Expressed in Redox, **every one vanished** — absent
+from the `.xrs`, and *deleted from the `.sdx`* by `redox fmt`. AGENTS.md calls that rule
+load-bearing: *"comments are trivia, never discarded. They must reach the generated `.xrs` —
+the `.xrs` is a human-facing artifact"* (doc 02 §10.1, correcting doc 01 §4.1).
+
+The cause took four measurements to reach, and three of them were my own errors:
+
+1. The first probe used `---`, which is **not** the doc marker. `scan_comment` reads `-- |`
+   for a doc comment and `-- !` for an inner one, both Haskell's; `---` is an ordinary
+   divider comment. So the first "discarded" finding was about the wrong syntax — and reached
+   the right conclusion anyway, which is luck and not method.
+2. Re-probed with `-- |`: the defect is real. A declaration's doc comment survives; a field's
+   does not.
+3. Instrumenting the parser showed it receives **zero** trivia at a field, so the loss is in
+   the lexer, not the parser.
+4. `scan_dashes` decides leading-versus-trailing by asking whether the last token is
+   structural — its test for *"this line already has content"*, because at a line start the
+   last token is a `Newline`, `Indent` or `Dedent`. **Inside a continuation there is no
+   `Newline`**: it is suppressed so the off-side rule never sees the indentation. So a comment
+   opening a continuation line reads the *previous* line's last token — a `{` — concludes it
+   is trailing, and is held for a `Newline` that never arrives.
+
+Fixed with an `at_line_start` flag. And the first fix was **half right**, in an instructive
+way: setting it only on the continuation branch repaired the *second* field of a record and
+not the first, because after a `,` the continuation branch runs, while after the opening `{`
+neither branch sets anything — `end_of_line` and `start_of_line` both return early while
+`depth > 0`. The flag belongs where the newline is **consumed**, before the branch.
+
+No corpus file had a comment inside a continuation, which is why nothing caught it. The port
+is now that file.
+
+### 10.2 Criterion 3 was wrong, and §3 is corrected
+
+§3 criterion 3 said **rustc** compiles the ported `.xrs`. It cannot: the port is one module
+lifted out of a crate, so `crate::Stmt` does not resolve, and rustc would reject it for a
+reason about the extraction rather than about Redox.
+
+The oracle is `syn::parse_file` — *is this valid Rust syntax* — which is the question actually
+askable about an isolated module, and which plan 42 §1.3 chose for the same reason. Weaker than
+rustc and said so. A test also asserts the port contains no `rust(`, which is the escape hatch
+the criterion forbids.
+
+### 10.3 Plan 47's mechanism fired on this row's first code change
+
+The lexer fix added lines, so `docs/STATUS.md`'s source count went from 24,159 to 24,227 and
+`status_is_current` **failed the gate** until it was re-blessed. That is plan 47 §1.2's
+argument working one row later: the numbers cannot rot, because the commit that changes them
+fails until it updates them.
+
+It was also the *only* failure. Nothing in the goldens, the UI corpus or the formatter's
+idempotence properties broke, which is the evidence that a change to trivia classification —
+which touches every comment in every file — was safe.
+
+### 10.4 The probe and the shipped counter disagreed, and both were right
+
+855 and 12, against the probe's 848 and 9. The probe counted **occurrences**; the counter
+counts **lines containing one**. §1.1 now states the unit, because the earlier draft of this
+plan gave a number without one — which is the same error plan 46 §10 had to correct about its
+own row count, two rows running.
+
+The line is the better unit here: a line with two `format!` calls is not twice as hard to
+port.
+
+### 10.5 What the four zeroes are worth
+
+§5 criterion 4 asked for them to be reported rather than omitted, and they turned out to be
+the most useful cells in the table. `unsafe trait`, `unsafe impl`, `extern "C" fn` and
+`macro_rules!` are all **zero** in 24,227 lines of compiler.
+
+Doc 02 §4.8 expected the attempt to *"find every `UNREACHABLE` construct the hard way"*. Four
+of the seven are not findable that way at all, because the compiler never reaches for them —
+which is a fact about what a transpiler is made of, and one only a count could produce.
+
+### 10.6 A second generated document tripped the same check, so it is now a shape
+
+`no_literal_expectations.rs` failed the gate on `conformance.rs`, exactly as it failed on
+plan 47's `status.rs`: its heuristic counts literals ending `\n",` and cannot distinguish a
+**template for a generated document** from a **captured stdout**. Both are long prose in a
+string; only one is an expectation.
+
+Allowed, with the reason — and the reason now says the shape is established rather than
+exceptional, because two consecutive plans hit it. The rule plan 08 §2.1 wrote is satisfied
+either way: these tests' expectation *is* a file, `docs/CONFORMANCE.md`, compared byte for
+byte and blessable. A third generated document should expect the same failure and not read it
+as a defect.

@@ -71,6 +71,12 @@ examples/*.xrs.map
 # during the plan's development before the rule existed.
 benchmarks/pairs/*.xrs
 benchmarks/pairs/*.xrs.map
+
+# Plan 48's conformance port is the other way round: `conformance/*.xrs` is a
+# committed expectation, compared byte for byte by `conformance.rs`, because
+# the point of the port is that its generated Rust can be read. Its source map
+# is still an artifact.
+conformance/*.xrs.map
 Cargo.lock
 Thumbs.db
 charts/

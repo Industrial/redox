@@ -65,6 +65,27 @@ pub(crate) struct Lexer<'a> {
   /// A comment that trailed content on the current line, held until the
   /// closing `Newline` exists to carry it.
   trailing: Option<Trivia>,
+  /// Whether the cursor sits at the start of a **continuation** line.
+  ///
+  /// Plan 48 leaf 2. `scan_dashes` decides whether a comment leads the next
+  /// token or trails the previous one by asking whether the last token is
+  /// structural — which is its test for *"this line already has content"*,
+  /// because at a line start the last token is a `Newline`, `Indent` or
+  /// `Dedent`.
+  ///
+  /// Inside a continuation that test is **wrong**, and silently: the
+  /// `Newline` is suppressed, so a comment opening the next line sees the
+  /// previous line's last token — a `{`, say — decides it is a trailing
+  /// comment, and is then held for a `Newline` that never arrives. The
+  /// comment is dropped.
+  ///
+  /// Found by porting `redox-ast`'s `clause.rs`, whose record fields each
+  /// carry a doc comment: every one vanished from the `.xrs`, and `redox fmt`
+  /// deleted them from the `.sdx`. AGENTS.md calls comment preservation
+  /// load-bearing — *"comments are trivia, never discarded"* (doc 02 §10.1)
+  /// — and no corpus file had a comment inside a continuation, so nothing
+  /// caught it.
+  at_line_start: bool,
 }
 
 impl<'a> Lexer<'a> {
@@ -77,6 +98,9 @@ impl<'a> Lexer<'a> {
       depth: 0,
       open_delims: Vec::new(),
       trailing: None,
+      // The file's first line is a line start, and a comment opening the file
+      // leads whatever follows it.
+      at_line_start: true,
     }
   }
 
@@ -105,6 +129,16 @@ impl<'a> Lexer<'a> {
       // line, so continuation is also a property of the line ahead.
       let trailing_continues = self.toks.last().is_some_and(|t| t.kind.continues_line());
       self.cur.bump();
+      // Consuming the newline starts a line, on **every** path out of here —
+      // which is the whole of plan 48 leaf 2's fix, and why it is set before
+      // the branch rather than inside it.
+      //
+      // Setting it only on the continuation branch fixed the second field of
+      // a record and not the first: after a `,` the continuation branch runs,
+      // but after the opening `{` neither branch sets anything, because
+      // `end_of_line` and `start_of_line` both return early while `depth > 0`
+      // and no `Newline` token is produced for `scan_dashes` to see.
+      self.at_line_start = true;
       if trailing_continues || self.next_line_continues() {
         // Consume the continuation line's indentation here, so the off-side
         // rule never sees it. Suppressing only the `Newline` would still let
@@ -309,7 +343,11 @@ impl<'a> Lexer<'a> {
     // exactly the test for "this line already has content": at a line start
     // the last token is a `Newline`, `Indent` or `Dedent`, and at file start
     // there is none.
-    if self.toks.last().is_some_and(|t| !t.kind.is_structural()) {
+    // `at_line_start` is what makes this correct inside a continuation, where
+    // the `Newline` that would otherwise answer the question is suppressed and
+    // the test below would read the *previous* line's last token (plan 48
+    // leaf 2).
+    if !self.at_line_start && self.toks.last().is_some_and(|t| !t.kind.is_structural()) {
       self.trailing = Some(trivium);
     } else {
       self.pending.push(trivium);
@@ -500,6 +538,11 @@ impl<'a> Lexer<'a> {
   /// Append a token, handing it any pending trivia unless it is structural —
   /// see [`TokenKind::is_structural`].
   fn push(&mut self, kind: TokenKind, span: Span, ws_before: bool) {
+    // Content ends the line start, which is what makes a later comment on the
+    // same line a *trailing* one.
+    if !kind.is_structural() {
+      self.at_line_start = false;
+    }
     let leading = if kind.is_structural() {
       Vec::new()
     } else {

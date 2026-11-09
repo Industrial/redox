@@ -2,6 +2,7 @@ use crate::emit::pad::pad;
 use crate::emit::rust_indent::RUST_INDENT;
 use crate::emit::sink::Sink;
 use crate::emit::struct_variant_width::STRUCT_VARIANT_WIDTH;
+use crate::emit::trivia::emit_trivia;
 use redox_ast::ConstructorFields;
 
 /// Emit a constructor's fields, at `indent` spaces.
@@ -46,7 +47,13 @@ pub(crate) fn emit_fields(
         .map(|f| format!("{}{}: {}", f.visibility.rust_text(), f.name.text, f.ty.text))
         .collect::<Vec<_>>()
         .join(", ");
-      if !top && joined.len() <= STRUCT_VARIANT_WIDTH {
+      // A field carrying its own doc comment cannot take the one-line form:
+      // the comment has to go on a line of its own, and collapsing the record
+      // would drop it. Plan 48 leaf 2 found field trivia discarded entirely,
+      // which AGENTS.md calls a load-bearing rule — "comments are trivia,
+      // never discarded" (doc 02 §10.1) — so the width test now yields to it.
+      let documented = decls.iter().any(|f| !f.leading.is_empty());
+      if !top && !documented && joined.len() <= STRUCT_VARIANT_WIDTH {
         out.push_str(&format!(" {{ {joined} }},\n"));
         return;
       }
@@ -54,6 +61,7 @@ pub(crate) fn emit_fields(
       out.push_str(" {\n");
       for f in decls {
         out.mark(f.span);
+        emit_trivia(out, &f.leading, indent + RUST_INDENT);
         pad(out, indent + RUST_INDENT);
         out.push_str(&format!(
           "{}{}: {},\n",

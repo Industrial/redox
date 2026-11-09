@@ -1,0 +1,66 @@
+// `crates/redox-ast/src/program/item/clause.rs`, expressed in Redox.
+//
+// Plan 48 (`docs/42 - 48 - Conformance and Self-Hosting.md`) leaf 2. Doc 02
+// §4.8 phrases the conformance criterion as "the compiler's source can be
+// expressed in Redox without the inline-Rust escape hatch", and this is one
+// module of it: 45 lines of real compiler code, one of the 42 blocker-free
+// files in `redox-ast`.
+//
+// What it proves: a real compiler data type is expressible — a declaration,
+// named fields, derives, visibility, doc comments and verbatim types all
+// survive. What it does not prove: that the compiler is expressible. This is
+// 0.2% of it, and `docs/CONFORMANCE.md` counts the rest.
+//
+// No `rust """…"""` anywhere in this file, which is the whole point.
+//
+// Writing it found a defect. Every one of the four field doc comments below
+// was **silently discarded** — gone from the `.xrs`, and deleted from this
+// file by `redox fmt`. AGENTS.md calls that rule load-bearing: "comments are
+// trivia, never discarded; they must reach the generated `.xrs`" (doc 02
+// §10.1). The lexer classified a comment opening a continuation line as
+// *trailing* the previous line, then held it for a `Newline` that a
+// continuation never produces. No corpus file had a comment inside a
+// continuation, so nothing caught it. Fixed in `redox-lexer`'s
+// `at_line_start`, which is exactly the "hard way" doc 02 §4.8 said a port
+// would find things.
+
+use crate::Pattern;
+
+use crate::program::item::clause_body::ClauseBody;
+
+use redox_lexer::Span;
+
+use redox_lexer::Trivia;
+
+/// One equation of a function.
+//
+// Doc 18 §2.3. A function is a signature line plus **one or more** clauses,
+// each a row of patterns and either a body or a list of guards:
+//
+// ```text
+// fib :: u64 -> u64            tier :: u64 -> &'static str
+// fib 0 = 0                    tier spend
+// fib 1 = 1                      | spend > 10_000 = "platinum"
+// fib n = fib (n - 1) + …        | otherwise      = "basic"
+// ```
+//
+// Doc 03 spelled each clause as a closure with a repeated signature, which is
+// why `RDX0045` existed to catch the clauses disagreeing. With the signature
+// hoisted the disagreement reduces to arity, which `signature_from` reports.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Clause {
+    /// One pattern per parameter, in order.
+    pub patterns: Vec<Pattern>,
+    /// The clause's body: one block, or a guard ladder.
+    pub body: ClauseBody,
+    /// `where` locals — doc 18 §2.2.
+    //
+    // Emitted **before** the body, which is the only order Rust allows: a
+    // `let` has to precede its use. Haskell's `where` reads the other way
+    // round — the definition follows the expression that uses it — and that
+    // reordering is the whole of the lowering.
+    pub wheres: Vec<crate::Stmt>,
+    pub span: Span,
+    /// A comment that trailed the clause's last line.
+    pub trailing: Option<Trivia>,
+}

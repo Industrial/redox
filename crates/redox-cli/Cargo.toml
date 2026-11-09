@@ -24,3 +24,12 @@ redox-emit = { path = "../redox-emit" }
 # Plan 34: `redox fmt`.
 redox-fmt = { path = "../redox-fmt" }
 redox-parser = { path = "../redox-parser" }
+
+[dev-dependencies]
+# Plan 48 leaf 2's oracle. The conformance port is one module lifted out of a
+# crate, so `crate::Stmt` cannot resolve and **rustc cannot type-check it** —
+# a property of the extraction, not of Redox. `syn` answers the question that
+# is actually askable about an isolated module: is this valid Rust *syntax*.
+# Plan 42 §1.3 chose it as an oracle for the same reason and it is already in
+# `Cargo.lock`.
+syn = { version = "2", features = ["full", "parsing"] }
