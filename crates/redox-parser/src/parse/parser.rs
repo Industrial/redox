@@ -9,7 +9,9 @@ pub(crate) mod path_or_ident;
 pub(crate) mod postfix;
 pub(crate) mod prefix;
 pub(crate) mod signature_from;
+pub(crate) mod spaced_colon_colon;
 pub(crate) mod starts_argument;
+pub(crate) mod tight_colon_colon;
 pub(crate) mod token_text;
 pub(crate) mod unary_op;
 

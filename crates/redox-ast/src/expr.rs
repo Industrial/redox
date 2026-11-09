@@ -3,7 +3,7 @@ pub(crate) mod ident;
 pub(crate) mod type_expr;
 pub(crate) mod unary_op;
 
-use crate::{BinaryOp, Ident, UnaryOp};
+use crate::{BinaryOp, Ident, TypeExpr, UnaryOp};
 use redox_lexer::Span;
 
 /// An expression.
@@ -66,6 +66,19 @@ pub enum Expr {
   },
   /// A string literal, stored **raw, including its delimiters**. Interpolation
   /// is plan 23; the lexer already produces the parts.
+  /// `e :: T`, doc 18 §6's ascription.
+  ///
+  /// Lowers to `{ let __rdx_t: T = e; __rdx_t }` — a block, because Rust has
+  /// no expression-level ascription and a `let` is the only way to state a
+  /// type without naming a path. One of doc 18's three new lowerings, and the
+  /// one that replaces doc 03's `into` clause and most turbofish needs.
+  ///
+  /// Type-free by construction: the type is **written**, never inferred.
+  Ascribe {
+    inner: Box<Expr>,
+    ty: TypeExpr,
+    span: Span,
+  },
   StrLit {
     value: String,
     span: Span,
@@ -107,6 +120,7 @@ impl Expr {
       | Expr::Unary { span, .. }
       | Expr::Paren { span, .. }
       | Expr::Path { span, .. }
+      | Expr::Ascribe { span, .. }
       | Expr::StrLit { span, .. }
       | Expr::Num { span, .. }
       | Expr::Bool { span, .. }

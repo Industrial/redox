@@ -1,6 +1,8 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
 use crate::parse::parser::application::application;
+use crate::parse::parser::capture_type::capture_type;
+use crate::parse::parser::spaced_colon_colon::spaced_colon_colon;
 use crate::parse::precedence::binary_power::binary_power;
 use redox_ast::Expr;
 
@@ -19,6 +21,22 @@ pub(crate) fn parse_expr(p: &mut Parser, min: u8) -> Result<Expr, ParseError> {
   let mut lhs = application(p)?;
 
   loop {
+    // Doc 18 §6's ascription, at the loosest binding power there is: it
+    // applies to the whole expression, so it is tried only at the top level
+    // (`min == 0`) and only after the binary loop has taken everything else.
+    // `1 + 2 :: u64` therefore ascribes the sum, not the `2`.
+    if min == 0 && spaced_colon_colon(p) {
+      p.advance();
+      let ty = capture_type(p, "expected a type after `::`")?;
+      let span = (lhs.span().0, ty.span.1);
+      lhs = Expr::Ascribe {
+        inner: Box::new(lhs),
+        ty,
+        span,
+      };
+      continue;
+    }
+
     let Some((op, left, right)) = binary_power(&p.peek().kind) else {
       return Ok(lhs);
     };

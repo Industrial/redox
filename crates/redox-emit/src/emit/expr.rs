@@ -11,6 +11,15 @@ use redox_ast::Expr;
 /// so a new node must fail to compile here rather than fail at runtime.
 pub(crate) fn emit_expr(e: &Expr) -> String {
   match e {
+    // Doc 18 §6. A block, because Rust has no expression-level ascription:
+    // `{ let __rdx_t: T = e; __rdx_t }` states the type and yields the value.
+    // The `__rdx_` prefix is reserved for generated identifiers (doc 02), so
+    // this cannot collide with anything the author wrote.
+    Expr::Ascribe { inner, ty, .. } => format!(
+      "{{ let __rdx_t: {} = {}; __rdx_t }}",
+      ty.text,
+      emit_expr(inner)
+    ),
     Expr::StrLit { value, .. } => rust_escapes(value),
     Expr::Num { text, .. } => text.clone(),
     Expr::Bool { value, .. } => value.to_string(),

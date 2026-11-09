@@ -66,7 +66,14 @@ mod tests {
   /// to end.
   #[test]
   fn reports_every_recovered_parse_error() {
-    let source = "a :: ()\na =\n  1 +\n\nb :: ()\nb =\n  2 + +\n";
+    // Both errors are inside parentheses, which is what keeps them
+    // *independent*. A bare `1 +` runs off the end of its line, so statement
+    // recovery swallows the following signature line and the two errors
+    // collapse into one — true of doc 18's grammar and not of doc 03's,
+    // because a signature line is now a thing recovery can land in the middle
+    // of. The parenthesised form bounds each error to its own statement,
+    // which is what this test is actually about.
+    let source = "a :: ()\na =\n  print (1 +)\n\nb :: ()\nb =\n  print (2 + +)\n";
     let failure = redox_parser::parse_source(source).expect_err("should fail");
     let diagnostics = diagnose(Path::new("a.sdx"), source, &failure);
     assert!(
