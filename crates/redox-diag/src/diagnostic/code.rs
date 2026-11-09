@@ -82,6 +82,21 @@ pub enum Code {
   /// message names the correction rather than the token — the same reason
   /// `ModuleScopeBinding` exists for doc 01 §4.3.
   EllipsisRestPattern,
+  /// `RDX0109` — the input nests brackets deeper than the parser's stack
+  /// can hold.
+  ///
+  /// Found by plan 42's fuzz sweep, which is the first thing that ever
+  /// handed the parser three hundred nested parentheses. A recursive-descent
+  /// parser with no limit overflows its stack and **aborts the process** —
+  /// not a diagnostic, not a panic that can be caught, an abort. Plan 40's
+  /// language server runs the parser on every keystroke, so that is a crash
+  /// in front of a user who typed a bracket too many.
+  ///
+  /// Measured rather than guessed: 24 levels parse and 32 abort, in a debug
+  /// build. The limit is 16, which is well below the first failure and far
+  /// above anything a human writes — the deepest nesting in the whole corpus
+  /// is a handful.
+  NestingTooDeep,
 
   // ---- lints: RDX1000+ ----
   /// `unwrap` or `expect` used — doc 03 §12.7, plan 38.
@@ -146,6 +161,7 @@ impl Code {
       Self::ModuleScopeBinding => 106,
       Self::PatternUntil => 107,
       Self::EllipsisRestPattern => 108,
+      Self::NestingTooDeep => 109,
       // Doc 03 §17's published number, and the first in the lint band.
       Self::UnwrapUsed => 1001,
       // Doc 03 §17's published assignment, not the next free number.
@@ -182,6 +198,7 @@ impl Code {
       Self::ModuleScopeBinding,
       Self::PatternUntil,
       Self::EllipsisRestPattern,
+      Self::NestingTooDeep,
       Self::UnwrapUsed,
       Self::ReturnInCallbackTail,
     ]

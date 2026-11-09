@@ -33,5 +33,6 @@ mod parse;
 
 pub use parse::error::ParseError;
 pub use parse::failure::ParseFailure;
+pub use parse::max_nesting::MAX_NESTING;
 pub use parse::parse;
 pub use parse::source::parse_source;

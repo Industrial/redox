@@ -1,0 +1,49 @@
+[package]
+name = "redox-fuzz-targets"
+version = "0.0.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+# Plan 42 §1.2: this crate is **outside** the workspace, deliberately.
+# `libfuzzer-sys` does not build on stable, and a workspace member that does
+# not build breaks `cargo check` for everyone — so the exclusion is what
+# `cargo-fuzz` requires and what keeps the rest of the repository buildable.
+[workspace]
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+# Every target is a three-line wrapper around a function in here. Criterion 7:
+# anything longer belongs in the stable crate, where the gate tests it.
+redox-fuzz = { path = "../crates/redox-fuzz" }
+
+[[bin]]
+name = "lex_source"
+path = "fuzz_targets/lex_source.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "parse_program"
+path = "fuzz_targets/parse_program.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "emit_program"
+path = "fuzz_targets/emit_program.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "roundtrip"
+path = "fuzz_targets/roundtrip.rs"
+test = false
+doc = false
+bench = false

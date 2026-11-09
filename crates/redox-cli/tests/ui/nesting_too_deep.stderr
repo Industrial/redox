@@ -1,0 +1,6 @@
+error[RDX0109]: this input nests brackets 20 deep, and the limit is 16: deeper than that overflows the parser's stack
+  --> nesting_too_deep.sdx:1:1
+  |
+1 | -- RDX0109: nesting deeper than the parser can hold.
+  | ^
+

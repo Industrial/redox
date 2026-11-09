@@ -3,7 +3,7 @@
 Plan ID: `fuzzing`
 Depends on: 04 (`emitter-determinism`), 43 (`test-suite-expansion`) — see §1.3
 Milestone: 7 — *tooling*
-Status: `planned`
+Status: `done` — both leaves shipped 2026-11-09
 
 ---
 
@@ -220,4 +220,96 @@ is available only because Redox is a *source-to-source* compiler — there is an
 
 ## 10. Result
 
-*Filled in when the plan ships, including anything above that turned out wrong.*
+Shipped 2026-11-09. `crates/redox-fuzz/` with four targets and a deterministic sweep of 341
+inputs, `fuzz/` with four three-line libFuzzer harnesses outside the workspace, and a README
+recording what it needs.
+
+**And a crash, found on the sweep's first run, before any fuzzer was involved.**
+
+### 10.1 The parser overflowed its stack, and that is the row's whole justification
+
+The sweep's deep-nesting case handed the parser three hundred nested parentheses. The test
+binary did not fail — it **aborted**:
+
+```
+thread 'the_generated_rust_always_parses' has overflowed its stack
+fatal runtime error: stack overflow, aborting
+```
+
+Not a panic that unwinds, not a diagnostic: an abort, which takes the whole process with it
+and every other test in the binary. Plan 40's language server runs `parse_source` on every
+keystroke, so this is a crash in front of someone who typed one bracket too many — and it had
+been there since plan 03 shipped the recursive descent, unreachable by anything in the corpus.
+
+**Measured rather than guessed**, which turned out to matter: 24 levels of nested parentheses
+parse and 32 abort, in a debug build. A limit chosen by taste would have been 64 or 256, both
+of which are past the cliff. The cliff is two orders of magnitude lower than it looks.
+
+So `redox_parser::MAX_NESTING` is **16**, `RDX0109` reports it, and the check is a linear
+pre-pass over the tokens inside `parse` — the chokepoint every caller arrives through.
+
+A pre-pass rather than a depth counter threaded through the descent, for two reasons: the
+question is about the **input** and the answer is wanted before parsing starts, and a counter
+cannot be defeated by an error-recovery path that forgets to decrement. `tests/ui/`'s
+`nesting_too_deep.sdx` is the case.
+
+### 10.2 The fuzzing paid for itself before a fuzzer ran
+
+Worth stating plainly, because §1.1 is a paragraph about not having the tool. The row's value
+did not come from libFuzzer — it came from **writing down a list of hostile inputs and
+running them**, which nothing in this repository had done. The deep-nesting case is eleven
+characters of Rust in `hostile()`.
+
+That is the argument §1.2 made in the abstract, confirmed in the concrete: the split exists so
+the row delivers on a machine with no fuzzer, and the first thing it delivered was a crash.
+
+### 10.3 A stack overflow cannot be caught, so the probe had to be an example
+
+Narrowing the threshold needed a program that overflows on purpose. A `#[test]` cannot do it:
+the abort takes the whole test binary down, so the run reports nothing useful about which
+depth failed — which is exactly how the find first presented itself, as `signal: 6, SIGABRT`
+with no indication of the cause.
+
+The probe was a `cargo run --example` instead, deleted once the number was known. Recorded
+because the next person measuring a stack limit will reach for a test first.
+
+### 10.4 Seven spinning processes were devenv, not a parser hang
+
+A first attempt at narrowing ran five `cargo run` invocations in a loop and timed out with
+seven processes alive, which read as *the parser hangs at depth 24*. It did not: each
+invocation re-enters the devenv shell, and the startup cost — not the parse — consumed the
+budget.
+
+Recorded because the wrong conclusion was one sentence away and would have produced a very
+different fix. The correction was to build once and run the binary with a per-depth `timeout`,
+which separates *crashed* from *timed out* instead of conflating them.
+
+### 10.5 The architecture tests shaped the crate, twice
+
+Four root-level files with no children became a `target/` **grouping module** — four peers
+with no natural head, which is doc 06 §1.2's shape, and `target` is the domain word rather
+than a bucket since `fuzz/fuzz_targets/` wraps them one-for-one.
+
+And `MAX_NESTING` took its own file, because it is a construct. That is the rule working
+rather than the rule being satisfied: the constant's file is where the measurement and the
+reasoning now live, and a reader who wants to know *why 16* finds four paragraphs instead of a
+number in a header.
+
+### 10.6 What the sweep asserts, and what it does not
+
+341 inputs: the three corpora as bytes, eight deterministic mutations of each, and eleven
+hand-written hostile cases. Four assertions — the input set is deterministic, no target
+panics, the generated Rust always parses, and an input that must be rejected is rejected.
+
+`the_input_set_is_deterministic` exists because *deterministic* is the property everything
+else rests on and the easiest to lose: a `HashMap` anywhere in the traversal would break it
+silently and the sweep would still pass.
+
+**What it does not assert**, restated from §1.4 because the register will be read: `syn`
+accepting a file does not mean rustc will. This catches a mangled syntax, not a mangled
+program — and that is the right division, because every semantic error rustc can find is one
+AGENTS.md says rustc should find, while a syntax error in generated code is Redox's own bug.
+
+§6's declines all stand: no fuzzer is pinned, there is no structure-aware generator, and the
+mutation is crude on purpose — a mutation that produced *valid* programs would be testing the
+corpus again.

@@ -17,6 +17,11 @@ members = [
   # Plan 40 (`docs/35 - 40 - LSP.md`) — the language server, editor-agnostic
   # by construction; plan 49 ships the clients.
   "crates/redox-lsp",
+  # Plan 42 (`docs/37 - 42 - Fuzzing.md`) — the fuzz targets' logic, in stable
+  # Rust so the ordinary gate exercises it. The libFuzzer harnesses live in
+  # `fuzz/`, outside this workspace, because `libfuzzer-sys` does not build on
+  # stable and a member that does not build breaks `cargo check` for everyone.
+  "crates/redox-fuzz",
 ]
 # `.tmp/` is the gitignored scratch area. Excluded so a throwaway crate there
 # — plan 01 leaf 4's LALRPOP bake-off arm, for instance — cannot be picked up

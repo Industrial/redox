@@ -1,0 +1,8 @@
+-- RDX0109: nesting deeper than the parser can hold.
+--
+-- Plan 42 found this by fuzzing, and it was a **stack overflow** before the
+-- limit existed — an abort, not a diagnostic. 24 levels parse and 32 abort in
+-- a debug build, so the limit is 16 with headroom.
+
+deep :: ()
+deep = ((((((((((((((((((((1))))))))))))))))))))
