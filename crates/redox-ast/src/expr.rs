@@ -4,6 +4,7 @@ pub(crate) mod field_init;
 pub(crate) mod ident;
 pub(crate) mod qualifier;
 pub(crate) mod section;
+pub(crate) mod str_interp_part;
 pub(crate) mod type_expr;
 pub(crate) mod unary_op;
 
@@ -97,10 +98,44 @@ pub enum Expr {
     ty: TypeExpr,
     span: Span,
   },
-  /// A string literal, stored **raw, including its delimiters**. Interpolation
-  /// is plan 23; the lexer already produces the parts.
+  /// A string literal with **no** interpolation, stored raw, including its
+  /// delimiters — which is what plan 02 carried `raw` for, and why an
+  /// interpolated string is a different node rather than a flag on this one.
+  ///
+  /// A `"""` block is **not** stored raw: Rust has no triple-quoted string,
+  /// so the lexer's dedented value arrives as a [`StrLit`](Self::StrLit)
+  /// holding an ordinary escaped Rust string. Plan 23 §1.3.
   StrLit {
     value: String,
+    span: Span,
+  },
+  /// An interpolated string — doc 03 §11.1, plan 23.
+  ///
+  /// ```text
+  /// "hello #{name}"           format!("hello {}", name)
+  /// "total: #{amount:.2}"  →  format!("total: {:.2}", amount)
+  /// ```
+  ///
+  /// Separate from `StrLit` so that every string without an interpolation
+  /// takes exactly the path it took before this plan — which plan 23's
+  /// criterion 6 asserts, because one node for both would have made every
+  /// existing golden a diff.
+  StrInterp {
+    parts: Vec<crate::StrInterpPart>,
+    span: Span,
+  },
+  /// A literal passed through **verbatim and never used as a format string** —
+  /// `r"…"`, `r#"…"#`, `b'x'`, `b"…"`, `c"…"`. Doc 03 §11.2, plan 23.
+  ///
+  /// §11.2 calls all four *"pure passthrough"*, and the reason they are one
+  /// node is that nothing downstream needs to tell them apart: none may be
+  /// escaped, brace-doubled or treated as a template. Keeping them out of
+  /// `StrLit` is what stops `print b"x"` emitting `println!(b"x")`.
+  ///
+  /// §11.3 declines regex literals **on condition** that `r"…"` exists, so
+  /// this node is what makes that decline honest.
+  RawLit {
+    text: String,
     span: Span,
   },
   /// `Point { x = 10 }` and `p { x = 99 }`, doc 18 §2.4's record literal.
@@ -253,6 +288,8 @@ impl Expr {
       | Expr::Lambda { span, .. }
       | Expr::Ascribe { span, .. }
       | Expr::StrLit { span, .. }
+      | Expr::StrInterp { span, .. }
+      | Expr::RawLit { span, .. }
       | Expr::Case { span, .. }
       | Expr::Record { span, .. }
       | Expr::Section { span, .. }

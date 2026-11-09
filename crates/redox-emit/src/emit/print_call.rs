@@ -2,6 +2,7 @@ use crate::emit::double_braces::double_braces;
 use crate::emit::expr::emit_expr;
 use crate::emit::expr_list::expr_list;
 use crate::emit::fn_call_width::FN_CALL_WIDTH;
+use crate::emit::format_template::format_template;
 use crate::emit::rust_escapes::rust_escapes;
 use crate::emit::rust_indent::RUST_INDENT;
 use crate::emit::unparen::unparen;
@@ -31,6 +32,24 @@ pub(crate) fn print_call(args: &[Expr], indent: usize) -> String {
   match unwrapped.as_slice() {
     [Expr::StrLit { value, .. }] => {
       format!("println!({})", double_braces(&rust_escapes(value)))
+    }
+    // An interpolated string is `println!` with **its own** template — doc 03
+    // §11.1, plan 23. The alternative, `println!("{}", format!(…))`, is two
+    // macros and one allocation to say what one says, and is not what a
+    // person would write.
+    //
+    // This arm is also where plan 23's §1.2 defect lived: before the node
+    // existed, an interpolated string arrived as a `StrLit` whose raw text
+    // still held `#{name}`, took the arm above, and `double_braces` turned it
+    // into `println!("hi #{{name}}")` — valid Rust printing `hi #{name}`,
+    // with no diagnostic anywhere.
+    [Expr::StrInterp { parts, .. }] => {
+      let (template, args) = format_template(parts, indent);
+      if args.is_empty() {
+        format!("println!(\"{template}\")")
+      } else {
+        format!("println!(\"{template}\", {})", args.join(", "))
+      }
     }
     // `print` and `print ()` are the same call, for the reason `expr_list`
     // gives: a lone unit argument is the empty argument list.

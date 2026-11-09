@@ -11,14 +11,21 @@
 /// Trivia is the general mechanism; a field on a node is the special case.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TriviaKind {
-  /// `#` — an ordinary comment, on its own line or trailing code. The stored
-  /// text excludes the `#` and one optional following space.
+  /// `--` — an ordinary comment, on its own line or trailing code. The stored
+  /// text excludes the `--` and one optional following space.
+  ///
+  /// Doc 18 §5.1 changed the marker from `#` to `--`, which emptied `#` of
+  /// four of its six meanings and made the longest-match table a line. These
+  /// four doc comments named the old markers until plan 23 noticed — the
+  /// scanners were converted and their documentation was not.
   LineComment,
-  /// `##` — an outer doc comment, becoming `///`.
+  /// `-- |` — an outer doc comment, becoming `///`. Haddock's own marker.
   DocComment,
-  /// `##!` — an inner doc comment, becoming `//!`.
+  /// `-- !` — an inner doc comment, becoming `//!`. Doc 18 §5.1's own
+  /// invention, since Haskell has no module-level analogue of `//!`; it
+  /// echoes Rust's `/`-to-`!` step.
   InnerDocComment,
-  /// `### … ###` — a fenced multi-line comment, becoming `/* … */`. The stored
+  /// `{- … -}` — a fenced multi-line comment, becoming `/* … */`. The stored
   /// text is the body between the fences.
   FencedComment,
   /// `#[…]` — an outer attribute, copied through verbatim (doc 03 §13.2).

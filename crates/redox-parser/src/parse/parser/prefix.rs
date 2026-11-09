@@ -1,18 +1,21 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
 use crate::parse::parser::bracketed::bracketed;
+use crate::parse::parser::byte_literal::byte_literal;
 use crate::parse::parser::case_of::case_of;
 use crate::parse::parser::do_block::do_block;
 use crate::parse::parser::if_expression::if_expression;
+use crate::parse::parser::interpolated_string::interpolated_string;
 use crate::parse::parser::lambda::lambda;
 use crate::parse::parser::parse_expr::parse_expr;
 use crate::parse::parser::path_or_ident::path_or_ident;
+use crate::parse::parser::rust_string_body::rust_string_body;
 use crate::parse::parser::section::section;
 use crate::parse::parser::unary_op::unary_op;
 use crate::parse::precedence::prefix_power::PREFIX_POWER;
 use redox_ast::Expr;
 use redox_diag::Code;
-use redox_lexer::{Keyword, TokenKind};
+use redox_lexer::{Keyword, StrPart, TokenKind};
 
 /// A prefix position: a literal, a name, a grouping, a receiver sigil, or a
 /// unary operator.
@@ -35,12 +38,74 @@ pub(crate) fn prefix(p: &mut Parser) -> Result<Expr, ParseError> {
       p.advance();
       Ok(Expr::Num { text, span })
     }
-    // `raw` rather than `parts`: the emitter still passes a simple literal
-    // through verbatim, and interpolation is plan 23.
-    TokenKind::Str { raw, .. } => {
+    // A string with no interpolation keeps `raw` — passed through verbatim,
+    // which is what plan 02 carried `raw` for. One holding an interpolation
+    // becomes `Expr::StrInterp` instead, so every existing path is untouched
+    // (plan 23's criterion 6).
+    //
+    // A `"""` block arrives with its dedent already computed and `raw`
+    // holding triple-quoted source, which is not Rust at all — so it takes
+    // the dedented value and the emitter escapes it. Plan 23 §1.3.
+    TokenKind::Str { parts, raw } => {
       let span = p.peek_span();
       p.advance();
+      if parts
+        .iter()
+        .any(|part| matches!(part, StrPart::Interp { .. }))
+      {
+        return interpolated_string(&parts, span);
+      }
+      if raw.starts_with("\"\"\"") {
+        let value = parts
+          .iter()
+          .map(|part| match part {
+            StrPart::Text(text) => text.as_str(),
+            StrPart::Interp { .. } => unreachable!("checked above"),
+          })
+          .collect::<String>();
+        return Ok(Expr::StrLit {
+          value: format!("\"{}\"", rust_string_body(&value)),
+          span,
+        });
+      }
       Ok(Expr::StrLit { value: raw, span })
+    }
+    // Doc 03 §11.2's four literal kinds, *"all pure passthrough"* — plan 23.
+    // Rust's own spellings, which is why one node carries all of them: nothing
+    // downstream needs to tell them apart, and none may be escaped,
+    // brace-doubled or used as a format template.
+    TokenKind::RawStr { text, hashes } => {
+      let span = p.peek_span();
+      p.advance();
+      let pad = "#".repeat(hashes);
+      Ok(Expr::RawLit {
+        text: format!("r{pad}\"{text}\"{pad}"),
+        span,
+      })
+    }
+    TokenKind::ByteStr(text) => {
+      let span = p.peek_span();
+      p.advance();
+      Ok(Expr::RawLit {
+        text: format!("b\"{}\"", rust_string_body(&text)),
+        span,
+      })
+    }
+    TokenKind::CStr(text) => {
+      let span = p.peek_span();
+      p.advance();
+      Ok(Expr::RawLit {
+        text: format!("c\"{}\"", rust_string_body(&text)),
+        span,
+      })
+    }
+    TokenKind::Byte(value) => {
+      let span = p.peek_span();
+      p.advance();
+      Ok(Expr::RawLit {
+        text: byte_literal(value),
+        span,
+      })
     }
     TokenKind::Char(value) => {
       let span = p.peek_span();

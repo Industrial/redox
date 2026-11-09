@@ -13,6 +13,7 @@ pub(crate) mod scan_operator;
 pub(crate) mod scan_quote;
 pub(crate) mod scan_raw_string;
 pub(crate) mod scan_string;
+pub(crate) mod skip_interpolation;
 pub(crate) mod split_format_spec;
 pub(crate) mod trim_comment;
 

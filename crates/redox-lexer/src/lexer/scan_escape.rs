@@ -32,9 +32,16 @@ pub(crate) fn scan_escape(cur: &mut Cursor) -> Result<char, LexError> {
     '\'' => '\'',
     '#' => '#',
     'x' => {
-      let digits = cur.eat_while(|c| c.is_ascii_hexdigit());
-      let text = cur.slice(digits);
-      if text.len() != 2 {
+      // **Exactly two characters, not as many hex digits as follow.** Rust
+      // reads two and stops, so `b"\\x7fELF"` is `0x7f` then `E`, `L`, `F`.
+      // Scanning greedily consumed the `E` as a third digit and rejected a
+      // literal rustc accepts — found by plan 23's example, which is the only
+      // place a hex escape has ever been followed by a letter.
+      let start = cur.pos();
+      cur.bump();
+      cur.bump();
+      let text = cur.slice((start, cur.pos()));
+      if text.len() != 2 || !text.chars().all(|c| c.is_ascii_hexdigit()) {
         return Err(err(
           "`\\x` takes exactly two hexadecimal digits".to_string(),
           cur,

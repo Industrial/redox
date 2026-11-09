@@ -3,6 +3,7 @@ pub(crate) mod split_parts;
 use crate::lexer::cursor::Cursor;
 use crate::lexer::dedent_block::dedent_block;
 use crate::lexer::scan_string::split_parts::split_parts;
+use crate::lexer::skip_interpolation::skip_interpolation;
 use crate::{LexError, TokenKind};
 use redox_diag::Code;
 
@@ -40,6 +41,14 @@ pub(crate) fn scan_string(cur: &mut Cursor) -> Result<TokenKind, LexError> {
     }
     if cur.starts_with(delim) {
       break;
+    }
+    // An interpolation's body is skipped whole, because a string literal
+    // inside it must not be mistaken for this string's closing quote —
+    // `"outer #{String::from("inner")} done"`. Plan 23 found this claim
+    // false after plan 02 asserted it; `skip_interpolation` says why.
+    if cur.starts_with("#{") {
+      skip_interpolation(cur, 0)?;
+      continue;
     }
     if cur.peek() == Some('\\') {
       cur.bump();

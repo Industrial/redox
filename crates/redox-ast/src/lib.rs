@@ -39,6 +39,7 @@ pub use expr::field_init::FieldInit;
 pub use expr::ident::Ident;
 pub use expr::qualifier::Qualifier;
 pub use expr::section::Section;
+pub use expr::str_interp_part::StrInterpPart;
 pub use expr::type_expr::TypeExpr;
 pub use expr::unary_op::UnaryOp;
 pub use program::Program;

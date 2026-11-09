@@ -5,6 +5,7 @@ use crate::emit::comprehension::emit_comprehension;
 use crate::emit::emit_condition::emit_condition;
 use crate::emit::emit_do::emit_do;
 use crate::emit::expr_list::expr_list;
+use crate::emit::format_template::format_template;
 use crate::emit::panic_macro::panic_macro;
 use crate::emit::pipeline::pipeline;
 use crate::emit::print_call::print_call;
@@ -117,6 +118,18 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
       ..
     } => emit_comprehension(element, qualifiers, indent),
     Expr::StrLit { value, .. } => rust_escapes(value),
+    // Doc 03 §11.1's interpolation — plan 23. `format!` here; `print_call`
+    // takes the same template to `println!` instead.
+    Expr::StrInterp { parts, .. } => {
+      let (template, args) = format_template(parts, indent);
+      if args.is_empty() {
+        format!("format!(\"{template}\")")
+      } else {
+        format!("format!(\"{template}\", {})", args.join(", "))
+      }
+    }
+    // Doc 03 §11.2's four literal kinds — verbatim, never a format string.
+    Expr::RawLit { text, .. } => text.clone(),
     Expr::Num { text, .. } => text.clone(),
     Expr::Bool { value, .. } => value.to_string(),
     Expr::Char { value, .. } => format!("{value:?}"),

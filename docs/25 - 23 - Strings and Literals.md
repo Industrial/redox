@@ -34,8 +34,14 @@ body already lexed, and its format spec already separated. `StrPart`'s own doc c
 `parts` is *"what plan 23's emitter consumes"*. `RawStr`, `ByteStr`, `CStr`, `Char` and
 `Byte` are all tokens. The dedent is computed by `dedent_block`.
 
-**None of it reaches the output.** This plan is almost entirely parser and emitter work on
-top of a lexer that has been ready for twenty-one plans.
+**None of it reaches the output.** This plan is mostly parser and emitter work on top of a
+lexer that has been ready for twenty-one plans.
+
+**That last clause turned out to be wrong, and §10.6 records it.** The lexer was ready for
+the cases anyone had tried: three of the five defects this plan fixed are in the lexer, one
+of them a case plan 02's own doc comment asserted worked (§10.2). The sentence is corrected
+rather than deleted, because *a plan that believes an upstream stage is finished will write
+its own leaves too small* is the lesson, and it is invisible if the belief is edited away.
 
 ### 1.2 The interpolation gap is silent, and that is why this row matters
 
@@ -90,9 +96,10 @@ The lexer lexes the interpolation's body with the ordinary scanners and hands ov
 free, and the plan's job is to run the ordinary expression parser over that token slice
 rather than to accept an identifier.
 
-This needs one new thing from the parser: the ability to parse an expression from a token
-slice that is not the main stream. It is a constructor on `Parser`, not a second parser —
-writing a second one is how two grammars drift apart.
+This needs one thing from the parser: the ability to parse an expression from a token slice
+that is not the main stream. `Parser::new` already takes a slice, so it needs no new
+constructor — only a synthetic `Eof` appended, because `lex_fragment` strips the one the
+main stream carries. Not a second parser: writing one is how two grammars drift apart.
 
 ---
 
@@ -129,10 +136,19 @@ The brace-beside-interpolation case is the one the current compiler cannot expre
 
 ## 4. Leaves
 
+### Leaf 0 — `leaf-lexer-repairs`
+
+**Added during implementation, not planned.** Three defects in plan 02's scanner, all
+reachable from doc 03 §11.2's own table and all found by writing the example: a string
+literal inside an interpolation ended the outer string (§10.2), `\x` scanned greedily and
+rejected `b"\x7fELF"` (§10.3), and a decoded control character was re-emitted literally
+(§10.3).
+
 ### Leaf 1 — `leaf-interp-node`
 
-`Expr::StrInterp { parts, span }` with `StrLitPart::{Text, Interp { expr, spec }}`, and the
-parser that builds it: `Parser::expr_from_tokens` over `StrPart::Interp`'s slice.
+`Expr::StrInterp { parts, span }` with `StrInterpPart::{Text, Interp { expr, spec }}`, and
+the parser that builds it: `interpolated_string` over the lexer's parts, and
+`expr_from_tokens` over each `StrPart::Interp`'s slice.
 
 A string with **no** interpolation stays an `Expr::StrLit`, so every existing path is
 untouched — a plain literal is still passed through raw, which is what plan 02 designed
@@ -179,6 +195,10 @@ the token's span preserved for the source map.
 10. `examples/strings.sdx` compiles with **zero** rustc output, runs, and matches its
     `.stdout`; a golden covers the text.
 11. Any new diagnostic has an `RDX` code reached by the UI corpus.
+12. A string literal inside an interpolation works — `"outer #{String::from("inner")} done"`
+    — which plan 02's `lex_fragment` claimed and did not do. *Added with leaf 0.*
+13. `b"\x7fELF"` parses, and a decoded control character is re-escaped rather than written
+    as itself. *Added with leaf 0.*
 
 ---
 
@@ -234,4 +254,108 @@ an identifier for eleven plans, and widening it later meant revisiting every cal
 
 ## 10. Result
 
-*Filled in when the plan ships, including anything above that turned out wrong.*
+Shipped. 603 tests pass; `fmt`, `clippy -D warnings` and
+`moon run :check :lint :test :cargo-check :cargo-test :ci-format :audit` are green. Every
+criterion is met. §1.1 was right that the lexer had finished the scanning — and wrong that
+the scanning was finished, which is a different claim and the one that cost the most.
+
+### 10.1 The silent defect, and what it looked like
+
+```text
+print "hi #{name}"      →    println!("hi #{{name}}");      -- before
+print "hi #{name}"      →    println!("hi {}", name);       -- after
+```
+
+The first compiles, runs, and prints `hi #{name}`. Doc 02 §5.2's worst failure mode, live in
+the most common thing a string does, for twenty-one plans.
+
+It was not a missing feature so much as two correct things colliding. `print_call` routed a
+`StrLit` through `double_braces` — right, because a brace the author wrote must print as a
+brace — and the `StrLit` still held *raw source* in which the interpolation had never been
+replaced. Neither function was wrong. The fix is that an interpolated string stops being a
+`StrLit` at all, which is why §9's decision 1 keeps the two nodes separate and criterion 4
+asserts the brace and the hole in **one** template: fixing either alone would have passed a
+test that checked only the other.
+
+### 10.2 Plan 02 claimed a case that did not work, and the claim was in a doc comment
+
+`lex_fragment`'s own doc comment has said since plan 02 that *"`"#{f(x, "y")}"` works and
+nothing needs a second tokenizer."* It did not work. The **outer** string's scanner stopped
+at the first unescaped `"` — the one opening `"y"` — so the string ended mid-interpolation
+and the error was `unterminated interpolation; expected }`.
+
+The mechanism was right and incomplete: `split_parts` counted braces to find the
+interpolation's end, and `scan_string` counted nothing to find the string's. **Two scanners
+walking the same text have to agree about where it ends**, and they now agree by both
+calling `skip_interpolation`, which counts braces outside string literals and skips string
+literals whole.
+
+Writing the case into the example is what found it, because every simpler interpolation
+works. A doc comment is not a test — this is the second time this run that a claim in prose
+turned out false (plan 14's §1.1 was the first), and both were found by exercising them
+rather than reading them.
+
+### 10.3 Two escape defects, both in literals rustc accepts
+
+- **`\x` scanned greedily.** `eat_while(is_ascii_hexdigit)` on `\x7fELF` consumed `7fE` as
+  three digits and rejected the literal. Rust reads exactly two characters and stops, so
+  `b"\x7fELF"` is `0x7f`, `E`, `L`, `F` — a four-byte ELF magic, which is the only reason
+  anyone writes a hex escape followed by a letter. Fixed to take two.
+- **A decoded control character was re-emitted literally.** The lexer decodes escapes, so
+  `\x7f` became a `DEL` byte, and re-encoding passed it through as itself. Valid Rust, but
+  it puts an unprintable byte in a human-facing artifact (doc 02 §10.1) — one that nothing
+  in a diff or a terminal shows. Now every ASCII control character is re-escaped as `\xNN`,
+  while `\n`, `\r` and `\t` keep their named forms because those three are what a person
+  reads.
+
+Both were in plan 02's scanner, both were reachable from doc 03 §11.2's own table, and both
+needed an example that used a byte string for something real rather than for the word
+`bytes`.
+
+### 10.4 The diagnostic got better by accident, and the corpus noticed
+
+`RDX0005`'s span used to cover the string's **whole body**; it now covers from the `#{` that
+was never closed. That is more useful and was not the point of the change — `skip_interpolation`
+simply owns the region it scans.
+
+The first version of it entered *after* the `#{` and the span lost those two characters,
+moving four columns right of the thing the message names. The UI corpus caught that in one
+run, which is the argument for a corpus that asserts rendered text rather than codes.
+
+### 10.5 Row 23's fourth item was already done
+
+Doc 04's row 23 names *"`##`/`##!` doc comments"*. Plan 17 shipped all four comment forms as
+trivia, and doc 18 §5.1 then changed their markers to `--`, `{- -}`, `-- |` and `-- !`. The
+row's cell predates both.
+
+What was **not** done is the documentation: `TriviaKind`'s four doc comments still named `#`,
+`##`, `##!` and `### … ###`. The scanners were converted and their prose was not, which is
+the same drift as §10.2 one layer down. Corrected here, with a line saying when the markers
+changed and why — so the next reader learns the history rather than the stale spelling.
+
+### 10.6 What §1.1's framing got wrong
+
+§1.1 said *"this plan is almost entirely parser and emitter work on top of a lexer that has
+been ready for twenty-one plans."* Three of the five defects above are **in the lexer**. The
+lexer was ready for the cases anyone had tried, which is not the same thing, and a plan that
+believes an upstream stage is finished will write its own leaves too small.
+
+The leaf list was right anyway, because leaf 5 is an example that runs — and an example that
+runs does not care which crate the defect is in.
+
+### 10.7 The architecture tests, an eighth time
+
+`interpolated_string.rs` declared two constructs; `expr_from_tokens` became a sibling under
+`parse/parser/` rather than a child, which is where the depth cap put plan 22's helpers for
+the same reason and where the crate's other helpers already were.
+
+### 10.8 One unexplained thing, recorded as unexplained
+
+The first full-gate run after a batch of edits exited 1 with no task reporting a failure;
+an immediate re-run with no changes on disk passed. It happened three times across plans 20,
+22 and 23. Re-running `moon run :format` and the gate twice in a row afterwards reproduced
+nothing — both runs passed and the working tree was byte-identical between them.
+
+So the cause is **not established**, and it is deliberately not written into AGENTS.md's
+gotcha list, which is for traps with a verified cause. The mitigation is to re-run and read
+the second result; if it recurs with a diagnosable failure, that is when it earns an entry.

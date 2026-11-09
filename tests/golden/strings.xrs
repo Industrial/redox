@@ -1,0 +1,111 @@
+// Doc 03 §11's strings: interpolation with Rust's own format specs, the four
+// literal kinds doc 01 left unreachable, and the `"""` block's dedent — plan
+// 23.
+//
+// Plan 02's lexer scanned all of this twenty-one plans ago and nothing
+// consumed it. What that cost was **silent**: `print "hi #{name}"` emitted
+// `println!("hi #{{name}}")`, which is valid Rust that prints the literal text
+// `hi #{name}` with no diagnostic anywhere. Doc 02 §5.2's worst failure mode,
+// in the most common thing a string does.
+//
+// Checked by compiling and **running** with zero rustc output, because a
+// dropped format spec, a swallowed interpolation and a doubled brace all emit
+// Rust that compiles and prints the wrong thing.
+
+// An interpolation holds an **expression**, not a name: the lexer lexes the
+// body with the ordinary scanners and the parser runs the ordinary expression
+// parser over those tokens. So arithmetic, field access and application all
+// work, and none of them is a special case.
+fn sum_line(a: i32, b: i32) -> String {
+    format!("{} + {} = {}", a, b, a + b)
+}
+
+// Rust's format-spec grammar is carried inside the interpolation and copied
+// verbatim. Redox does not parse `.2`, does not validate it, and does not know
+// what it means — rustc does, which is why **every** Rust spec is reachable
+// with no list to fall behind.
+//
+// `1.5` with the spec prints `1.50`; a dropped spec prints `1.5`. That is the
+// difference the run catches and the text cannot.
+fn money(amount: f64) -> String {
+    format!("total: {:.2}", amount)
+}
+
+// Three specs that are not width or precision, to make the "every spec"
+// claim mean something.
+fn shapes(n: i32) -> String {
+    format!("|{:>5}|{:05}|{:#x}|", n, n, n)
+}
+
+// A brace the author wrote and an interpolation in the **same** template.
+// These are the two things the old code confused: doubling the author's brace
+// is right, and doubling the interpolation's was the defect.
+fn braces(n: i32) -> String {
+    format!("{{}} is not a hole, but {} is", n)
+}
+
+// An interpolation may hold a string literal of its own, because the lexer is
+// recursive — `lex_fragment` runs the same scanners.
+fn nested() -> String {
+    format!("outer {} done", String::from("inner"))
+}
+
+// Doc 03 §11.2's literal kinds. `r"…"` is what makes §11.3's refusal to add
+// regex literals honest: a regex is an ordinary crate call over a raw string,
+// and without this there is no raw string to give it.
+fn pattern_text() -> &'static str {
+    r"^\d+\.\d+$"
+}
+
+// A raw string with hashes, for a body containing a quote.
+fn quoted() -> &'static str {
+    r#"he said "yes""#
+}
+
+// `char` had no spelling at all before this row.
+fn initial() -> char {
+    'R'
+}
+
+// Byte and byte-string literals, for the binary work doc 01 §26 requires.
+// Printed through `len` and a comparison, because `&[u8; N]` does not
+// implement `Display` — rustc says so, which is the division of labour
+// working rather than a gap.
+fn tag() -> u8 {
+    b'x'
+}
+
+fn magic() -> &'static [u8; 4] {
+    b"\x7FELF"
+}
+
+// A C-string, for FFI. Shown through its byte count for the same reason.
+fn ffi_name() -> &'static core::ffi::CStr {
+    c"redox"
+}
+
+// Doc 01 §7.2's `"""` block strips the **common** indentation and keeps the
+// relative indentation. Rust has no triple-quoted string, so the lexer's
+// dedented value becomes one ordinary escaped Rust literal — and the block's
+// own span is preserved, because doc 03 §11.2 ties the form to line numbering
+// the source map depends on.
+fn block() -> &'static str {
+    "first\n  indented\nlast"
+}
+
+fn main() {
+    println!("{}", sum_line(2, 3));
+    println!("{}", money(1.5));
+    println!("{}", shapes(42));
+    println!("{}", braces(7));
+    println!("{}", nested());
+    println!("{}", pattern_text());
+    println!("{}", quoted());
+    println!("{}", initial());
+    println!("{}", tag());
+    println!("{}", magic().len());
+    println!("{}", ffi_name().count_bytes());
+    println!("{}", block());
+    // A string with no interpolation takes the path it always took.
+    println!("plain, unchanged");
+}

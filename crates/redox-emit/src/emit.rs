@@ -26,6 +26,7 @@ pub(crate) mod expr_list;
 pub(crate) mod field_value;
 pub(crate) mod fields;
 pub(crate) mod fn_call_width;
+pub(crate) mod format_template;
 pub(crate) mod generics;
 pub(crate) mod guards;
 pub(crate) mod import;
