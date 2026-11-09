@@ -39,18 +39,15 @@ pub(crate) fn emit_fields(
       out.push_str(if top { ";\n" } else { ",\n" });
     }
     ConstructorFields::Record(decls) => {
-      let one_line = format!(
-        "{{ {} }}",
-        decls
-          .iter()
-          .map(|f| format!("{}: {}", f.name.text, f.ty.text))
-          .collect::<Vec<_>>()
-          .join(", ")
-      );
-      if !top && one_line.len() <= STRUCT_VARIANT_WIDTH {
-        out.push(' ');
-        out.push_str(&one_line);
-        out.push_str(",\n");
+      // The comma-joined field text, which is what rustfmt's width thresholds
+      // are measured against — see `STRUCT_VARIANT_WIDTH`.
+      let joined = decls
+        .iter()
+        .map(|f| format!("{}: {}", f.name.text, f.ty.text))
+        .collect::<Vec<_>>()
+        .join(", ");
+      if !top && joined.len() <= STRUCT_VARIANT_WIDTH {
+        out.push_str(&format!(" {{ {joined} }},\n"));
         return;
       }
 

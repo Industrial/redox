@@ -260,9 +260,20 @@ p2 = p { x = 99 }
 
 ```rust
 let p = Point { x: 10, y: 20 };
-let q = Point { x: x, y: y };
-let p2 = { let mut __rdx_r = p; __rdx_r.x = 99; __rdx_r };
+let q = Point { x, y };
+let p2 = {
+    let mut __rdx_r = p;
+    __rdx_r.x = 99;
+    __rdx_r
+};
 ```
+
+Two corrections to that table, made when it was implemented. The punned field emits **Rust's
+own shorthand** rather than `x: x`: the two are equivalent, and `x: x` is what clippy's
+`redundant_field_names` flags in the *user's* build, which fails doc 01 §3.4's readability
+requirement for no gain. And the update block spans lines, because rustfmt expands a block of
+statements unconditionally — a one-line block is not rustfmt-clean, which is plan 04's
+guarantee and not a matter of taste.
 
 ### 2.5 Move 5 — `class` and `instance`
 
@@ -808,7 +819,8 @@ Since then, one construct per commit:
 | `a0114c8` | the keyword table: eleven words leave, nine arrive | §7 |
 | `643b9b2` | expressions carry their column, so a multi-line lowering is rustfmt-clean | §6 |
 | `2f29272` | `case … of`, with guards, alternation and ranges | §2.3, §5.4 |
-| *this* | `data`, `newtype`, `deriving` and `type` declarations | §2.4 |
+| `9c4bf31` | `data`, `newtype`, `deriving` and `type` declarations | §2.4 |
+| *this* | record literals: construction, punning and update | §2.4, §6 |
 
 The guard commit closed a hole the clause commit had left: doc 18 §2.3's own example
 `fib 0 = 0` did not parse, because the clause body required a line break and an indent. It
@@ -818,9 +830,9 @@ prose.
 
 ### 11.2 Specification for later plans
 
-`class`, `instance`, record *literals* (`Point { x = 10 }`, punning and update),
-comprehensions, sections, `where` locals, `??`, `errors` and `test` blocks, the unit expression
-`()`, and `export` → `pub`, are specified here and **not implemented**. The full pattern
+`class`, `instance`, comprehensions, sections, `where` locals, `??`, `errors` and `test`
+blocks, the unit expression `()`, and `export` → `pub`, are specified here and **not
+implemented**. The full pattern
 grammar — a constructor pattern with fields included — is doc 04's plan 33. Doc 04's plan rows for those constructs are re-pointed at this document
 rather than doc 03; the lowerings they must produce are doc 03's, unchanged, as §1 requires.
 

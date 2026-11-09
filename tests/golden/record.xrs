@@ -1,0 +1,34 @@
+// Doc 18 §2.4's record literal: construction, punning and update, checked by
+// running the generated Rust — an update lowered to the wrong order prints
+// the wrong number.
+
+#[derive(Debug, Clone, PartialEq)]
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+fn main() {
+    // Construction. `=` for a value, against `::` for a type.
+    let p = Point { x: 10, y: 20 };
+    println!("{}", p.x);
+    println!("{}", p.y);
+
+    // Punning, in the direction Haskell had it first.
+    let x = 1;
+    let y = 2;
+    let q = Point { x, y };
+    println!("{}", q.x);
+    println!("{}", q.y);
+
+    // Update. One of doc 18 §6's disclosed lowerings: a block, because Rust's
+    // own `Point { x: 99, ..p }` needs the type's path and the source gives
+    // only the value's name.
+    let r = {
+        let mut __rdx_r = p;
+        __rdx_r.x = 99;
+        __rdx_r
+    };
+    println!("{}", r.x);
+    println!("{}", r.y);
+}

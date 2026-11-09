@@ -1,10 +1,12 @@
 pub(crate) mod binary_op;
 pub(crate) mod case_arm;
+pub(crate) mod field_init;
 pub(crate) mod ident;
 pub(crate) mod type_expr;
 pub(crate) mod unary_op;
 
 use crate::expr::case_arm::CaseArm;
+use crate::expr::field_init::FieldInit;
 use crate::{BinaryOp, Ident, TypeExpr, UnaryOp};
 use redox_lexer::Span;
 
@@ -97,6 +99,23 @@ pub enum Expr {
     value: String,
     span: Span,
   },
+  /// `Point { x = 10 }` and `p { x = 99 }`, doc 18 §2.4's record literal.
+  ///
+  /// One node for both construction and update, because the source is one
+  /// form: `head { fields }`. Which it *means* is decided by the case of the
+  /// head — doc 18 §5.3 makes case meaningful, and §2.4 says that is "why the
+  /// update form is admissible at all". An uppercase head names a
+  /// constructor and builds; anything else names a value and updates.
+  ///
+  /// Update is one of doc 18 §6's disclosed lowerings:
+  /// `{ let mut __rdx_r = p; __rdx_r.x = 99; __rdx_r }`. Rust's own
+  /// `Point { x: 99, ..p }` would need the type's *path*, which the source
+  /// does not give — only the value's name.
+  Record {
+    head: Box<Expr>,
+    fields: Vec<FieldInit>,
+    span: Span,
+  },
   /// `case e of` with `->` arms, doc 18 §2.3.
   ///
   /// Lowers to Rust's `match`, which it already was in all but spelling: the
@@ -148,6 +167,7 @@ impl Expr {
       | Expr::Ascribe { span, .. }
       | Expr::StrLit { span, .. }
       | Expr::Case { span, .. }
+      | Expr::Record { span, .. }
       | Expr::Num { span, .. }
       | Expr::Bool { span, .. }
       | Expr::Char { span, .. }

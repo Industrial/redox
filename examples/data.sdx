@@ -3,15 +3,13 @@
 -- does not compile at all.
 --
 -- What this corpus can hold is bounded by its own strictness — it requires
--- rustc to emit **nothing**, so every declared thing has to be used:
+-- rustc to emit **nothing**, so every declared thing has to be used. The
+-- record struct therefore lives in `examples/record.sdx`, which constructs
+-- one; and a tuple *variant*'s field needs a constructor pattern with a
+-- binder — `Key c -> …` — which is doc 04's plan 33, the full pattern
+-- grammar, so an unread field would be a `dead_code` warning.
 --
---   * a record struct needs the record *literal* of §2.4, which is the next
---     commit, and an unconstructed struct is a `dead_code` warning;
---   * a tuple *variant*'s field needs a constructor pattern with a binder —
---     `Key c -> …` — which is doc 04's plan 33, the full pattern grammar, and
---     an unread field is a `dead_code` warning too.
---
--- Both shapes are covered by `crates/redox-emit/tests/data.rs`. This file
+-- `crates/redox-emit/tests/data.rs` covers the record variant. This file
 -- covers what runs: unit variants, a constructor in scope under its own name,
 -- a tuple struct whose field *is* read, an alias, and `deriving`.
 

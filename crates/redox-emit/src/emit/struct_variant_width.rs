@@ -1,14 +1,23 @@
-/// rustfmt's `struct_variant_width` default.
+/// The widest comma-joined field text an enum's record variant may have and
+/// still be written on one line.
 ///
-/// An enum's record variant stays on one line while its body is no wider than
-/// this, and is expanded one field per line beyond it. The number is
-/// rustfmt's, not Redox's, and it is here because plan 04's guarantee is that
-/// the emitter never writes a line rustfmt would re-break — which requires
-/// knowing where rustfmt breaks.
+/// `Click { x: i32, y: i32 },` stays inline; past this it is one field per
+/// line. The threshold is rustfmt's, not Redox's, and it is here because plan
+/// 04's guarantee is that the emitter never writes a line rustfmt would
+/// re-break — which requires knowing where rustfmt breaks, in *both*
+/// directions: emitting a line too wide gets it re-broken, and expanding one
+/// rustfmt would keep gets it re-joined.
 ///
-/// Pinned rather than discovered: reading it from a rustfmt invocation would
-/// make the output depend on an external tool at *emission* time, which
-/// `docs/COMPILER.md` §5 forbids for exactly the reasons that matter here —
-/// determinism and the span map. If a future rustfmt changes the default,
-/// `generated_rust_is_rustfmt_clean` fails and names this constant.
-pub(crate) const STRUCT_VARIANT_WIDTH: usize = 35;
+/// **Measured, not read off rustfmt's documentation.** `struct_variant_width`
+/// defaults to 35, but 35 is not the length of anything this emitter has: a
+/// variant whose field text is 34 characters stays inline and one with 35
+/// expands, so the number that belongs in the emitter is 34. Determined by
+/// bisecting rustfmt's actual behaviour at the boundary — the documented
+/// default would have been wrong by one, in the direction that produces output
+/// rustfmt rewrites.
+///
+/// Pinned rather than discovered at run time: invoking rustfmt during
+/// *emission* is what `docs/COMPILER.md` §5 forbids, for the determinism and
+/// span-map reasons that apply here exactly. If a future rustfmt moves the
+/// boundary, `generated_rust_is_rustfmt_clean` fails and names this constant.
+pub(crate) const STRUCT_VARIANT_WIDTH: usize = 34;

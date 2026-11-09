@@ -2,6 +2,7 @@ use crate::ParseError;
 use crate::parse::parser::Parser;
 use crate::parse::parser::arguments::arguments;
 use crate::parse::parser::parse_expr::parse_expr;
+use crate::parse::parser::record_literal::record_literal;
 use redox_ast::{Expr, Ident};
 use redox_lexer::TokenKind;
 
@@ -33,6 +34,13 @@ pub(crate) fn postfix(p: &mut Parser, lhs: Expr) -> Result<Result<Expr, Expr>, P
       index: Box::new(index),
       span: (start, p.prev_span().1),
     }));
+  }
+
+  // Doc 18 §2.4's record literal. A `{` after an expression is unambiguous:
+  // Redox has no brace-delimited block in expression position — layout does
+  // that job — so nothing else a `{` could open is in the grammar.
+  if p.check(&TokenKind::LBrace) {
+    return Ok(Ok(record_literal(p, lhs)?));
   }
 
   if p.check(&TokenKind::Dot) {
