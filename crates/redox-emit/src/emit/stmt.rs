@@ -58,7 +58,7 @@ pub(crate) fn emit_stmt(out: &mut Sink<'_>, stmt: &Stmt, indent: usize, tail: bo
       if b.is_mut {
         out.push_str("mut ");
       }
-      out.push_str(&b.name.text);
+      out.push_str(&b.pattern.rust_text());
       if let Some(ty) = &b.ty {
         out.push_str(": ");
         out.push_str(&ty.text);

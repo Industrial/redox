@@ -1,0 +1,11 @@
+-- Doc 03 §6.5 published `[first, ...rest] = values`. Doc 18 §7 then removed
+-- `...` from the language, and both of Rust's own tokens were already
+-- Redox's: `..` to discard and `rest @ ..` to bind.
+--
+-- An author who writes this followed a published specification, so the
+-- message names the correction rather than the token — the same reason
+-- `RDX0106` exists for doc 01 §4.3's module-scope binding.
+main :: ()
+main =
+  [first, ...rest] = values
+  print first

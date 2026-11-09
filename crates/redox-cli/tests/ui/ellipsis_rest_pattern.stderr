@@ -1,0 +1,6 @@
+error[RDX0108]: `...` left the language with doc 18 §7 — write a rest pattern Rust's way: `..` to discard, or `rest @ ..` to bind
+  --> ellipsis_rest_pattern.sdx:10:11
+   |
+10 |   [first, ...rest] = values
+   |           ^^^
+

@@ -74,6 +74,14 @@ pub enum Code {
   /// a binding construct meant, and lowering to it would be doc 02 §5.2's
   /// failure mode. Plan 22 §1.3 reports instead.
   PatternUntil,
+  /// `...rest` in a pattern — doc 03 §6.5's published spelling, plan 33.
+  ///
+  /// Doc 18 §7 removed `...` from the language, and both of Rust's own tokens
+  /// were already Redox's: `..` to discard and `rest @ ..` to bind. An author
+  /// who wrote `...rest` followed a **published** specification, so the
+  /// message names the correction rather than the token — the same reason
+  /// `ModuleScopeBinding` exists for doc 01 §4.3.
+  EllipsisRestPattern,
 
   // ---- doc 03 §17's published surface codes: RDX0040-RDX0099 ----
   /// `return` inside a draw arrow's tail — doc 03 §7.6, plan 30.
@@ -120,6 +128,7 @@ impl Code {
       Self::EmptyBody => 105,
       Self::ModuleScopeBinding => 106,
       Self::PatternUntil => 107,
+      Self::EllipsisRestPattern => 108,
       // Doc 03 §17's published assignment, not the next free number.
       Self::ReturnInCallbackTail => 44,
     }
@@ -153,6 +162,7 @@ impl Code {
       Self::EmptyBody,
       Self::ModuleScopeBinding,
       Self::PatternUntil,
+      Self::EllipsisRestPattern,
       Self::ReturnInCallbackTail,
     ]
   }

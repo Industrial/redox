@@ -167,6 +167,25 @@ pub(crate) fn prefix(p: &mut Parser) -> Result<Expr, ParseError> {
         return Ok(found);
       }
       let inner = parse_expr(p, 0)?;
+
+      // A tuple, told from a group by its **comma** — plan 33, and the same
+      // rule the tuple *pattern* uses one position over.
+      if p.check(&TokenKind::Comma) {
+        let mut items = vec![inner];
+        while p.check(&TokenKind::Comma) {
+          p.advance();
+          if p.check(&TokenKind::RParen) {
+            break;
+          }
+          items.push(parse_expr(p, 0)?);
+        }
+        p.expect(&TokenKind::RParen, "expected `)` to close the tuple")?;
+        return Ok(Expr::Tuple {
+          items,
+          span: (start, p.prev_span().1),
+        });
+      }
+
       p.expect(&TokenKind::RParen, "expected `)` to close the group")?;
       Ok(Expr::Paren {
         inner: Box::new(inner),

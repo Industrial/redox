@@ -2,8 +2,10 @@ use crate::ParseError;
 use crate::parse::parser::Parser;
 use crate::parse::parser::constructor_path::constructor_path;
 use crate::parse::parser::pattern::pattern;
+use crate::parse::parser::record_pattern::record_pattern;
 use crate::parse::parser::starts_a_pattern_argument::starts_a_pattern_argument;
 use redox_ast::Pattern;
+use redox_lexer::TokenKind;
 
 /// A constructor applied to sub-patterns, or a single pattern — plan 22.
 ///
@@ -44,6 +46,15 @@ pub(crate) fn pattern_app(p: &mut Parser) -> Result<Pattern, ParseError> {
   let Some(path) = constructor_path(p) else {
     return pattern(p);
   };
+
+  // Doc 03 §6.3's record pattern — plan 33. A `{` after the path is the
+  // record form, and it is handled here rather than in `pattern` because
+  // `constructor_path` has already consumed an uppercase head by the time
+  // `pattern` would see one. `{` is deliberately not in
+  // `starts_a_pattern_argument`: it opens a field list, not an argument.
+  if p.check(&TokenKind::LBrace) {
+    return record_pattern(p, path, start);
+  }
 
   let mut args = Vec::new();
   while starts_a_pattern_argument(p) {

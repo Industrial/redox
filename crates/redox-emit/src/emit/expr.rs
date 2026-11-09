@@ -134,6 +134,18 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
     // Doc 01 §13.1's optional chain and doc 03 §12.4's `try` block — plan 28.
     Expr::OptionalChain { head, segments, .. } => optional_chain(head, segments, indent),
     Expr::TryBlock { body, .. } => try_block(body, indent),
+    // A tuple expression — plan 33. Verbatim, and `expr_list` is what every
+    // other comma-separated run uses, so the spacing matches.
+    Expr::Tuple { items, .. } => {
+      // A one-element tuple keeps Rust's trailing comma, for the reason
+      // `Pattern::Tuple` records: `(a)` is a group and `(a,)` is a tuple.
+      let inner = expr_list(items, indent);
+      if items.len() == 1 {
+        format!("({inner},)")
+      } else {
+        format!("({inner})")
+      }
+    }
     // Doc 03 §10.4's array repeat — plan 29. **Verbatim, never `vec!`**: a
     // repeat expression is a fixed-size array and `vec!` is a heap
     // allocation. Both compile, so only this line tells them apart.

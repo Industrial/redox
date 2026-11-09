@@ -154,6 +154,21 @@ pub enum Expr {
     parts: Vec<crate::StrInterpPart>,
     span: Span,
   },
+  /// `(3, 4)` — a tuple expression, plan 33.
+  ///
+  /// **No row owned this.** Doc 03 §6.5's destructuring example is
+  /// `(a, b) = get_coordinates!`, so a tuple *value* was always assumed, and
+  /// §10.4's literal table lists arrays, maps, sets and word arrays and no
+  /// tuple at all. Plan 33 found it by needing to pass a tuple to the function
+  /// whose parameter it destructures: without this, `(a, b) = p` can only be
+  /// reached through a Rust function that already returns one.
+  ///
+  /// Pure passthrough, and told from a parenthesised group by its **comma** —
+  /// exactly as the tuple *pattern* is. One rule, two positions.
+  Tuple {
+    items: Vec<Expr>,
+    span: Span,
+  },
   /// `[0u8; 1024]` — Rust's array-repeat expression, doc 03 §10.4 and §18,
   /// plan 29.
   ///
@@ -337,6 +352,7 @@ impl Expr {
       | Expr::Ascribe { span, .. }
       | Expr::StrLit { span, .. }
       | Expr::StrInterp { span, .. }
+      | Expr::Tuple { span, .. }
       | Expr::ArrayRepeat { span, .. }
       | Expr::RawLit { span, .. }
       | Expr::Case { span, .. }

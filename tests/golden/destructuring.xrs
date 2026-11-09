@@ -1,0 +1,131 @@
+// Doc 03 §6.4 and §6.5's pattern forms — tuple, slice, record, as-pattern
+// and rest. Plan 33.
+//
+// Every one of these "passes through to native Rust syntax" (§6.4), so the
+// work is in the parser and the risk is in telling the forms apart: a `(` is
+// a group or a tuple by its comma, and `..` means four things by position.
+//
+// Checked by compiling and **running** with zero rustc output. The case only
+// a run catches is the middle rest: `[a, .., z]` and `[a, z]` differ only at
+// run time, and only on an array of more than two elements.
+
+struct Point {
+    x: i32,
+    y: i32,
+    label: String,
+}
+
+enum Shape {
+    Circle { radius: i32 },
+    Rect { w: i32, h: i32 },
+}
+use Shape::*;
+
+// §6.5's tuple destructuring. Both bindings are used, so a lowering that
+// bound one name to the pair fails to compile.
+fn sum_pair(p: (i32, i32)) -> i32 {
+    let (a, b) = p;
+    a + b
+}
+
+// Nested, because each form is independent and a lowering that worked only at
+// the top level would pass every flat test.
+fn inner_sum(p: (i32, (i32, i32))) -> i32 {
+    let (a, (b, c)) = p;
+    a + b + c
+}
+
+// A **middle** rest over an array long enough that `first` and `last` differ
+// from the second and second-to-last. This is the assertion the golden cannot
+// make.
+fn ends(row: [i32; 5]) -> i32 {
+    let [first, .., last] = row;
+    first * 10 + last
+}
+
+// A **named** rest, with its length printed: a lowering that bound the whole
+// slice gives 5 rather than 4.
+fn tail_len(row: [i32; 5]) -> usize {
+    let [_head, rest @ ..] = row;
+    rest.len()
+}
+
+// §6.3's record pattern, with `=` rather than §6.3's published `:` — doc 18
+// §2.4 made the literal `=` and §5.2 left `:` no job inside braces. The
+// pattern now reads identically to the literal that builds it.
+//
+// `..` here is *"and other fields"*: `label` is not named.
+// The bindings are `&i32`, because matching a `&Point` borrows each field —
+// Rust's match ergonomics, unchanged here. `*` dereferences, as it does in
+// Rust, which is doc 01 §25.1's no-silent-clone rule staying visible at the
+// use site rather than hidden in the lowering.
+fn origin_label(p: &Point) -> i32 {
+    match p {
+        Point { x: 0, y, .. } => *y,
+        Point { x, y: 0, .. } => *x,
+        Point { x, y, .. } => *x + *y,
+    }
+}
+
+// A pun binding a field that is not `Copy`, which the pattern borrows rather
+// than moves — so `label` reaches the caller without a clone.
+fn label_of(p: &Point) -> &String {
+    match p {
+        Point { label, .. } => label,
+    }
+}
+
+// A record pattern on an enum variant, so the path is a test as well as a
+// destructuring.
+fn area(s: &Shape) -> i32 {
+    match s {
+        Circle { radius } => 3 * *radius * *radius,
+        Rect { w, h } => *w * *h,
+    }
+}
+
+// §6.4's as-pattern. `@`'s one remaining meaning after doc 18 §4.3 dropped
+// `@name` and `@@name`, and Haskell's spelling too. The bound name is used
+// **beside** the bindings from the pattern it names, which is the whole point.
+fn describe(s: &Shape) -> i32 {
+    match s {
+        whole @ Rect { w, h } => *w + *h + area(whole),
+        other => area(other),
+    }
+}
+
+// Every form works in an equation's **row** too, parenthesised where
+// juxtaposition would be ambiguous — plan 22 §10.2's rule.
+fn first_of(__rdx_a0: (i32, i32)) -> i32 {
+    match __rdx_a0 {
+        (a, _) => a,
+    }
+}
+
+// And in a `<-` condition, because the vocabulary is shared and sharing it is
+// the point.
+fn has_origin(o: &Option<Point>) -> bool {
+    if let Some(Point { x: 0, y: 0, .. }) = o {
+        return true;
+    }
+    false
+}
+
+fn main() {
+    println!("{}", sum_pair((3, 4)));
+    println!("{}", inner_sum((1, (2, 3))));
+    println!("{}", ends([1, 2, 3, 4, 5]));
+    println!("{}", tail_len([9, 2, 3, 4, 5]));
+    let p = Point {
+        x: 0,
+        y: 7,
+        label: "o".to_string(),
+    };
+    println!("{}", origin_label(&p));
+    println!("{}", label_of(&p));
+    println!("{}", area(&(Circle { radius: 2 })));
+    println!("{}", area(&(Rect { w: 3, h: 4 })));
+    println!("{}", describe(&(Rect { w: 3, h: 4 })));
+    println!("{}", first_of((8, 9)));
+    println!("{}", has_origin(&None));
+}

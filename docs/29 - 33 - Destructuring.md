@@ -156,6 +156,12 @@ The slice-with-middle-rest case is the one a golden could not catch: `[a, .., z]
 
 ## 4. Leaves
 
+### Leaf 0 — `leaf-tuple-expression`
+
+**Added during implementation, not planned.** `Expr::Tuple` — no row owned a tuple
+*expression*, and without one a tuple pattern can be fed only by a Rust function that
+already returns a tuple. §10.1.
+
 ### Leaf 1 — `leaf-tuple-and-slice`
 
 `Pattern::Tuple { items }` and `Pattern::Slice { items }`, with `Pattern::Rest` and
@@ -201,7 +207,10 @@ A binding's left side becomes a `Pattern`. A plain name still emits what it emit
     the correction rather than the token.
 11. `examples/destructuring.sdx` compiles with **zero** rustc output, runs, and matches its
     `.stdout`; a golden covers the text.
-12. Any new diagnostic has an `RDX` code reached by the UI corpus.
+12. `(3, 4)` is a tuple **expression**, told from a group by its comma, and `(a,)` keeps
+    Rust's trailing comma in both positions — asserted beside the group, because a test for
+    either alone passes whatever the other does. *Added with leaf 0; see §10.1 and §10.3.*
+13. Any new diagnostic has an `RDX` code reached by the UI corpus.
 
 ---
 
@@ -255,4 +264,101 @@ already the shape here.
 
 ## 10. Result
 
-*Filled in when the plan ships, including anything above that turned out wrong.*
+Shipped. 657 tests pass; `fmt`, `clippy -D warnings` and
+`moon run :check :lint :test :cargo-check :cargo-test :ci-format :audit` are green. Every
+criterion is met, and criterion 8 — the one guarding every existing golden — passed on the
+first run: **not one golden changed** when a binding's left side became a `Pattern`.
+
+### 10.1 A tuple *expression* had no owner either
+
+`(a, b) = p` destructures a tuple, and nothing could build one. Doc 03 §6.5's example is
+`(a, b) = get_coordinates!`, so a tuple *value* was always assumed to exist; §10.4's literal
+table lists arrays, maps, sets and word arrays and **no tuple at all**; and no row's sentence
+names one.
+
+Found by writing `sum_pair (3, 4)` in the example — `expected ')' to close the group`. Without
+it the whole row is only half reachable: a tuple pattern can be fed only by a Rust function
+that already returns a tuple.
+
+Implemented here, told from a parenthesised group by its **comma** — the same rule the tuple
+*pattern* uses one position over, which is one rule in two places rather than two rules.
+
+Sixth row whose scope was smaller than the thing it claimed to deliver, after plan 14's doc
+03 §13.5, plan 16's `const fn`, plan 18's `use T::*`, plan 20's assignment and plan 22's
+`Pattern::Apply`. The pattern across all six is unchanged and now unmistakable: **a surface
+the specification uses in an example but no row's sentence names.**
+
+### 10.2 `is_irrefutable` has to stay one rule, and rustc said so
+
+The first version was clever: a tuple is irrefutable when every element is, a slice never is,
+an as-pattern inherits from its inner. It compiled, and `first_of (a, _) = a` then failed with
+
+```text
+cannot find value `a` in this scope
+```
+
+Because that answer decides two things at once. `signature_from` lends a parameter its name
+only for a `Pattern::Binding`, so a tuple pattern's parameter is `__rdx_a0` and `a` and `b`
+come from the `match` arm `emit_clauses` builds — and calling the pattern irrefutable
+**suppressed the `match`**, leaving the body referring to names nothing bound.
+
+So it is `Binding | Wildcard` and nothing else. The cost is a `match` where a `let` would
+have done, which rustc accepts with a single irrefutable arm. One rule that cannot produce an
+unbound name is worth more than a second lowering that can, and the doc comment now says
+which two questions the answer serves — because that coupling is what made the clever version
+wrong.
+
+### 10.3 A one-element tuple needs Rust's trailing comma
+
+`(a)` is a parenthesised group; `(a,)` is a tuple. Joining elements with `", "` gives the
+first for a one-element tuple, which turns a destructuring of a `(T,)` into a binding of the
+whole value.
+
+rustc catches it, because the types differ — but only because they differ. It was caught
+here instead by `a_group_is_not_a_tuple`, which asserts the group and the tuple **side by
+side**: a test for either alone passes whatever the other does. Both `Pattern::Tuple` and
+`Expr::Tuple` emit the comma, and each carries the other's reason.
+
+### 10.4 Two parser collisions, both from a token already in use
+
+- **`pattern_app` intercepted the record pattern.** An uppercase head goes through
+  `constructor_path`, which consumes `Point` before `pattern`'s identifier arm could see the
+  `{` after it. The record form is therefore recognised in `pattern_app` as well, and `{` is
+  deliberately absent from `starts_a_pattern_argument` — it opens a field list, not an
+  argument.
+- **A record *literal* must not read as a binding.** `p { x = 1 }` has an `=`, so the
+  binding lookahead had to scan for one at **depth zero**; the literal's is inside its
+  braces. `a_record_literal_is_not_read_as_a_binding` asserts it, and the scan is a
+  lookahead that advances nothing — plan 22's condition parser established that shape for
+  the same reason.
+
+### 10.5 §1.3's prediction held
+
+With `...` gone, a rest pattern is `..` and `rest @ ..` — Rust's own, because both tokens
+were already Redox's. No lowering, no new token, and `[first, .., last]` reads the same in
+both languages. `RDX0108` catches the published `...rest` spelling and names the correction,
+because an author who writes it followed doc 03 §6.5.
+
+That is the third of doc 18's deletions to pay for itself rather than cost, and the first
+where the payment was *a construct this plan did not have to build*.
+
+### 10.6 Two things the example ran into, neither this row's
+
+- **`f [a, b]` reads as an index, not an argument.** `[` after an expression is the postfix
+  index, so a list literal as a juxtaposed argument needs parentheses: `f ([a, b])`. A
+  pre-existing consequence of juxtaposition meeting indexing; it produces a parse error
+  rather than a wrong program, so it is a sharp edge and belongs to row 13 if anywhere.
+- **Matching a `&Point` binds `&i32`.** Rust's match ergonomics, unchanged — so the example
+  writes `*y`. Worth recording because it is doc 01 §25.1's no-silent-clone rule showing
+  through: the borrow is visible at the use site rather than hidden in the lowering, which is
+  the posture doc 03 §12.3 takes for `?.` as well.
+
+### 10.7 What the run caught that the text could not
+
+`ends ([1, 2, 3, 4, 5])` prints `15` — `first * 10 + last` over a **middle** rest. A lowering
+that dropped the `..` would be `[a, z]`, which is a different pattern against a five-element
+array and a type error; one that bound the wrong end prints `12`. And `tail_len` prints `4`,
+where a lowering binding the whole slice prints `5`.
+
+Both are one character of difference in the emitted text and a different number on screen,
+which is what §3 asked the example to be.

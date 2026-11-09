@@ -51,6 +51,7 @@ pub(crate) mod path_or_ident;
 pub(crate) mod pattern;
 pub(crate) mod pattern_alt;
 pub(crate) mod pattern_app;
+pub(crate) mod pattern_series;
 pub(crate) mod patterns;
 pub(crate) mod postfix;
 pub(crate) mod prefix;
@@ -60,6 +61,7 @@ pub(crate) mod range_or_literal;
 pub(crate) mod receiver;
 pub(crate) mod receiver_text;
 pub(crate) mod record_literal;
+pub(crate) mod record_pattern;
 pub(crate) mod return_in_tail;
 pub(crate) mod rewritten;
 pub(crate) mod rust_generic;
@@ -102,6 +104,7 @@ use crate::parse::parser::instance_decl::instance_decl;
 use crate::parse::parser::module_decl::module_decl;
 use crate::parse::parser::parse_expr::parse_expr;
 use crate::parse::parser::parse_spine::parse_spine;
+use crate::parse::parser::pattern_alt::pattern_alt;
 use crate::parse::parser::patterns::patterns;
 use crate::parse::parser::signature_from::signature_from;
 use crate::parse::parser::signature_only::signature_only;
@@ -834,22 +837,17 @@ impl<'a> Parser<'a> {
   /// while anything else is an expression statement.
   fn try_binding(&mut self) -> Result<Option<Binding>, ParseError> {
     let is_mut = self.check(&TokenKind::Kw(Keyword::Mut));
-    if !is_mut {
-      let looks_like = matches!(self.peek().kind, TokenKind::Ident(_))
-        && matches!(
-          self.peek_at(1).map(|t| &t.kind),
-          Some(TokenKind::Eq) | Some(TokenKind::Colon)
-        );
-      if !looks_like {
-        return Ok(None);
-      }
+    if !is_mut && !self.looks_like_a_binding() {
+      return Ok(None);
     }
 
     let start = self.peek_span().0;
     if is_mut {
       self.advance();
     }
-    let name = self.ident("expected a name in a binding")?;
+    // Doc 03 §6.5's destructuring — plan 33. A plain name is a
+    // `Pattern::Binding` and takes the path it always took.
+    let pattern = pattern_alt(self)?;
 
     let ty = if self.check(&TokenKind::Colon) {
       self.advance();
@@ -861,12 +859,64 @@ impl<'a> Parser<'a> {
     self.expect(&TokenKind::Eq, "expected `=` in a binding")?;
     let value = parse_expr(self, 0)?;
     Ok(Some(Binding {
-      name,
+      pattern,
       ty,
       value,
       is_mut,
       span: (start, self.prev_span().1),
     }))
+  }
+
+  /// Whether a binding starts here — plan 33.
+  ///
+  /// A plain binding is an identifier then `=` or `:`, which is one token of
+  /// lookahead. A **destructuring** binding opens with `(`, `[` or an
+  /// uppercase name followed by `{`, and its `=` is an unknown distance away —
+  /// so those three openers are recognised by their first token and the `=` is
+  /// found by scanning to it at depth zero.
+  ///
+  /// Scanning rather than backtracking, for the reason plan 22's condition
+  /// parser gives: a lookahead that reads token kinds and advances nothing
+  /// cannot leave the parser somewhere unexpected when it answers no.
+  fn looks_like_a_binding(&self) -> bool {
+    match &self.peek().kind {
+      TokenKind::Ident(_) => {
+        matches!(
+          self.peek_at(1).map(|t| &t.kind),
+          Some(TokenKind::Eq) | Some(TokenKind::Colon) | Some(TokenKind::LBrace)
+        ) && self.reaches_a_binding_eq()
+      }
+      TokenKind::LParen | TokenKind::LBracket => self.reaches_a_binding_eq(),
+      _ => false,
+    }
+  }
+
+  /// Whether a top-level `=` appears before this statement ends.
+  ///
+  /// What tells `(a, b) = p` from the expression `(a, b)`, and `Point { x } = p`
+  /// from the record *literal* `Point { x = 1 }` — the literal's `=` is inside
+  /// its braces, so it is not at depth zero.
+  fn reaches_a_binding_eq(&self) -> bool {
+    let mut depth = 0i32;
+    let mut i = 0;
+    while let Some(tok) = self.peek_at(i) {
+      match &tok.kind {
+        TokenKind::Eq if depth == 0 => return true,
+        TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => depth += 1,
+        TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
+          depth -= 1;
+          if depth < 0 {
+            return false;
+          }
+        }
+        TokenKind::Newline | TokenKind::Indent | TokenKind::Dedent | TokenKind::Eof => {
+          return false;
+        }
+        _ => {}
+      }
+      i += 1;
+    }
+    false
   }
 
   /// Capture a type as verbatim source text (plan 03 §1.1), reading to its

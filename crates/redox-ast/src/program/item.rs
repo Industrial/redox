@@ -17,6 +17,7 @@ pub(crate) mod instance_decl;
 pub(crate) mod module_decl;
 pub(crate) mod param;
 pub(crate) mod pattern;
+pub(crate) mod record_pattern_field;
 pub(crate) mod signature;
 pub(crate) mod test_decl;
 pub(crate) mod type_alias;
