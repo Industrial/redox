@@ -3,7 +3,7 @@
 Plan ID: `formatter`
 Depends on: 17 (`comments-as-trivia`), 33 (`destructuring-and-splat`), doc 30 (`<-` is await)
 Milestone: 6 — *full surface*
-Status: `partial` — leaves 1 and 5 shipped 2026-11-09; §10 names what is owed
+Status: `done` — all six leaves shipped 2026-11-09
 
 ---
 
@@ -130,6 +130,11 @@ accepted and the right is what `fmt` emits.
 | indentation | two spaces per level | Every `.sdx` in the corpus |
 | a trailing comma in a list, tuple or record | removed, except where a one-element tuple needs it | Plan 33 §10.3: `(a,)` is a tuple and `(a)` is a group |
 | `1..=10` and `1..10` | unchanged — both are meaningful | Not a normalisation; listed so nobody adds one |
+| a local binding's type | spaced — `n : u64 = 0` | **Added 2026-11-09, leaf 2.** One colon, not two (§10.22), and spaced for the same reason `::` is: a tight `total: i32` reads as a record field |
+| a prefix operator | tight — `-1`, `&mut x` | **Added 2026-11-09, leaf 2.** The corpus wrote `- 1` once and `-1` everywhere else |
+| a method call as a juxtaposed argument | parenthesised — `print (xs.len ())` | **Added 2026-11-09, leaf 2.** Its trailing ` ()` reads as the *next* argument, and dropping the parentheses changed a program (§10.29) |
+| before a trailing comment | two spaces | **Added 2026-11-09, leaf 4.** Four of the corpus's five, and nothing distinguishes the fifth |
+| an `errors` block's messages | aligned to one column | **Added 2026-11-09, leaf 2.** The one place row 7's argument against alignment does not hold: a `case`'s arms are heterogeneous and an `errors` block is a table (§10.31) |
 
 **Nothing about `<-`, `with`, `=`-in-a-condition or `in`** appears here, because doc 30 left
 each with exactly one spelling. A construct with one spelling needs no canonical form, and
@@ -730,3 +735,152 @@ already removed, so the printer puts one back — `{-a fenced comment-}` was the
 is not what anyone writes. And a trailing comment takes **one** space: the corpus writes two in
 four places and one in a fifth, and the fifth is `comments.sdx`, the file whose whole subject is
 comments, which is the tiebreak §1.5 gives.
+
+### 10.28 Leaf 2 landed, and `format` is a join
+
+The fifteen item kinds print from the tree, and `format` is now a loop over them. Leaf 1's
+three models — item boundaries rather than spans, `trimmed_range`, `blank_line_in` — are
+deleted rather than refactored, and the reason is worth keeping: **a blank line is a trivium**,
+so the gaps leaf 1 measured out of the source were in the tree the whole time. Leaf 1 measured
+them because it was not printing trivia yet. Leaf 4 made that code unnecessary, not merely
+easier.
+
+Leaf 6 ran at the same time, because it had to: the moment `format` printed items,
+`every_example_is_already_canonical` had something to say. Eight examples changed, each for a
+reason below, and `redox fmt --check` passes on all twenty-eight.
+
+### 10.29 Three places where the AST does not record what the author wrote
+
+This is the finding of leaf 2, and it is the same shape three times. **The AST stores what the
+emitter needs**, which is a cooked value, and a formatter needs the author's text. Each one was
+found by running the formatter over the corpus, and each would have silently rewritten working
+programs.
+
+**A signature's type variables.** `parser::generalise` rewrites a signature's types in place,
+replacing each type variable with its Rust spelling, so `largest :: Ord t => Option<t> -> t`
+is stored as `Ord T => Option<T> -> T`. It cannot be undone from the tree, because doc 18 §5.3
+makes the case of the first letter the only difference between a variable and a concrete type,
+and `T` is a legal concrete name. Printing from the AST would have rewritten every generic
+declaration in `generic.sdx`, `class.sdx`, `module.sdx` and `async.sdx` into Rust's convention
+— a change to the **language's surface**, not a formatting choice.
+
+**A block string.** `examples/strings.sdx` writes
+
+```text
+block = """
+  first
+    indented
+  last
+  """
+```
+
+and the lexer stores the *cooked* value with its common indentation removed. Printing it gave
+`block = "first\n  indented\nlast"` — the same value, a different literal form. A formatter
+that rewrites one literal form into another is doing something nobody asked for, and this one
+would have done it to the only block string in the corpus.
+
+**A byte string's hex escapes.** `b"\x7fELF"` is stored as `b"\x7FELF"`. The same byte, so
+the program is unchanged; not the author's spelling.
+
+The first is handled by slicing the signature line, which is criterion 7 and is correct rather
+than a shortcut — but it means the formatter can never normalise a signature's spacing, and
+the fix is a change to the AST. The other two are handled by slicing **every literal by its
+span**, which is strictly better than the stored text for all of them and fixes the hex-escape
+case for free.
+
+**What would lift the first**, named for a successor: `Signature` keeping the source's variable
+names and the emitter applying `rust_generic` when it writes, which moves `generalise`'s third
+step from parse time to emit time. That is the right design — the Rust name is a lowering
+concern — and `TypeApp` already works that way, which is why an `instance` can be printed from
+the tree while a signature cannot.
+
+Spans are what made all three recoverable. AGENTS.md's rule that *"every AST node carries a
+byte span"* was written down after Emerald found a node type with no span at all; this is the
+third time in this plan it has paid for itself, after the equation-body layout (§10.30) and
+the single-constructor `data` shape.
+
+### 10.30 Two layouts the tree cannot tell apart, and the span can
+
+```text
+add a b = a + b          main =
+                           print "hello"
+```
+
+Both are a `Plain(Block)` holding one `StmtKind::Expr`. Nothing in the node records which the
+author wrote, and §3 has no row choosing between them — so a formatter that picked one would
+rewrite every function of the other shape. The **span** records it: `add`'s block starts on
+the clause's own line and `main`'s starts on the next.
+
+A single-constructor `data` is the same question. The corpus writes both
+`data Square = Square { side :: f64 }` and the indented `= Profile { … }` form, §3 row 9 only
+distinguishes one alternative from several, and the span decides.
+
+Both are now `same_line`, and the generalisation is the useful part: **where §3 has no row, the
+author's choice is the answer, and a span is how a formatter asks.** A plan that reached for a
+rule in either place would have been inventing one.
+
+### 10.31 The fourth and fifth time one predicate served two positions
+
+Leaf 3 found `operand` and `argument` were different questions. Leaf 4's first half found three
+pattern positions. Leaf 2 found two more:
+
+- **A receiver.** `argument` was printing the receiver of `.name`, `[i]`, `?` and `?.`, and an
+  argument is juxtaposed where a receiver is postfixed. The sets differ in both directions:
+  `xs.len ()` needs parentheses as an argument and none as a receiver; `[1, 2]` likewise;
+  `f x` needs them as both. Using one gave `(boxed.as_mut ()).poll (&mut cx)` and
+  `(raw.parse ())?` against a corpus that writes both bare.
+- **A prefix operand.** `&ConfigError::Missing (String::from "retries")` — a prefix operator
+  binds looser than application, so it takes a whole one, and printing the operand as an
+  argument parenthesised the application inside it.
+
+Five findings of one shape is a rule: **in a language where juxtaposition is application,
+"does this need parentheses" has a different answer in every position, and sharing one
+predicate between two of them is a defect waiting for a corpus large enough to show it.** The
+emitter reached the same conclusion on its own side — `emit::receiver` is `receiver`'s
+counterpart — which is the strongest available evidence that this is the language's shape and
+not this plan's mistake.
+
+The one that mattered most changed a program. `print (total ([1, 2, 3].to_vec ()))` became
+`print (total ([1, 2, 3]).to_vec ())`: the method call's receiver needed parentheses, and once
+it had them they read as the argument, so `.to_vec` attached to `total (…)` instead. §3's new
+row — a method call in argument position keeps its parentheses — is the fix, and three corpus
+lines gained a pair to match.
+
+### 10.32 Leaf 6, one row at a time
+
+Eight examples changed. Six are §3 row 3 and its new neighbours doing what they say:
+
+| Change | Row |
+|---|---|
+| `print (zeros ()).len ()` → `print ((zeros ()).len ())` ×3 | the new method-call row |
+| `print (retries "12").is_ok ()` → parenthesised, ×2; `print (halve 4).is_some ()` | likewise |
+| `print "done".len ()` → `print ("done".len ())` | likewise |
+| `&(Circle { radius = 2 })` → `&Circle { radius = 2 }` ×3 | row 3 — a record ends at `}`, so the grouping is redundant |
+| `((1 .. 4) \|> map (+ 1) …)` → `(1 .. 4 \|> …)` ×5 | row 3 — `..` binds tighter than `\|>` |
+| `(Some u) \|> into_iter` → `Some u \|> into_iter` ×2 | row 3 |
+| `print ((-3) + 10)` → `print (-3 + 10)`; `print (- 1)` → `print (-1)` | row 3, and the new prefix row |
+| `assert (hello ()) == "hi"` ×2 | row 3 — application binds tighter than `==` |
+| `total: i32` → `total : i32` | the new binding-type row |
+| `print "one" -- …` → two spaces | the new trailing-comment row |
+| `errors` messages realigned to one column | the new `errors` row |
+
+The last is the only one where the formatter's output is arguably worse in isolation: the
+corpus aligned its three short variants to a narrow column and let the long `from` row run
+over, which reads well and is not a rule anyone could implement. A uniform column is a rule.
+
+One golden was re-blessed — `destructuring.xrs` — and its diff is three lines of redundant
+parentheses in the generated Rust, which is the proof the corpus changes preserved meaning:
+the examples compile and run against their `.stdout` unchanged.
+
+### 10.33 A harness defect, for the fourth time
+
+`literal_text` began slicing by span, and the idempotence property immediately reported
+`name =  ()),.to_string ()`. The printer was right: the test printed a re-parsed expression
+against the *printed text*, while the re-parse's spans are offsets into the **probe program**
+it was parsed from. `reparse` now returns both.
+
+Fourth time in this plan that a property reported a defect in the subject when the defect was
+in the harness — after the span normaliser (§10.5), the tuple-variant spans (§10.20) and the
+probe's own signature (§10.21). The pattern is specific enough to name: **a harness that
+rebuilds the subject's inputs has to rebuild all of them**, and a span is an input that looks
+like a detail.

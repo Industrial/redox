@@ -209,7 +209,7 @@ fn matching_brace(text: &str, open: usize) -> Option<usize> {
 /// is a single expression must stay on the equation line. Moving it to an
 /// indented block is a change `redox fmt` would make silently and rustc would
 /// never see, because the file would stop parsing as Redox first.
-fn reparse(text: &str) -> Option<Stmt> {
+fn reparse(text: &str) -> Option<(Stmt, String)> {
   let indented = format!("__rdx_probe :: ()\n__rdx_probe =\n{text}\n");
   let tail = format!("__rdx_probe :: ()\n__rdx_probe = {}\n", text.trim_start());
   for whole in [indented, tail] {
@@ -220,7 +220,9 @@ fn reparse(text: &str) -> Option<Stmt> {
       .first()
       .and_then(|block| block.stmts.first())
     {
-      return Some(stmt.clone());
+      // The probe text comes back with it: a re-parsed node's spans are
+      // offsets into the probe, and `literal_text` slices by span.
+      return Some((stmt.clone(), whole));
     }
   }
   None
@@ -282,7 +284,7 @@ fn printing_preserves_the_statement() {
     for block in bodies(&program) {
       for stmt in &block.stmts {
         let printed = redox_fmt::stmt_text(stmt, 1, &source);
-        let Some(reparsed) = reparse(&printed) else {
+        let Some((reparsed, probe)) = reparse(&printed) else {
           panic!("{}: did not re-parse:\n{printed}", path.display());
         };
         assert_eq!(
@@ -291,7 +293,7 @@ fn printing_preserves_the_statement() {
           "{}: printing this changed it:\n{printed}",
           path.display()
         );
-        let twice = redox_fmt::stmt_text(&reparsed, 1, &printed);
+        let twice = redox_fmt::stmt_text(&reparsed, 1, &probe);
         assert_eq!(
           printed,
           twice,

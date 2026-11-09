@@ -31,7 +31,7 @@ module inner
   -- A `test` block inside a module body lands in **that** module's test
   -- module, not the file's. Both exist in the output below.
   test "inner sees its own module"
-    assert (hello ()) == "hi"
+    assert hello () == "hi"
 
 -- The imports are used, so rustc has nothing to say about them. Each map is
 -- bound by a `where` local first: `.len ()` on an ascription block would put
@@ -53,7 +53,7 @@ main =
   -- The `fmt` import is used by `write_ok`'s return type, and `write_ok` is
   -- called here so rustc has nothing to say about either.
   mut buffer = String::new () :: String
-  print (write_ok (&mut buffer)).is_ok ()
+  print ((write_ok (&mut buffer)).is_ok ())
 
 test "the file has its own test module"
-  assert (sizes ()) == 0
+  assert sizes () == 0

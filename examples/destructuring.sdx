@@ -103,8 +103,8 @@ main =
   p = Point { x = 0, y = 7, label = "o".to_string () }
   print (origin_label (&p))
   print (label_of (&p))
-  print (area (&(Circle { radius = 2 })))
-  print (area (&(Rect { w = 3, h = 4 })))
-  print (describe (&(Rect { w = 3, h = 4 })))
+  print (area (&Circle { radius = 2 }))
+  print (area (&Rect { w = 3, h = 4 }))
+  print (describe (&Rect { w = 3, h = 4 }))
   print (first_of (8, 9))
   print (has_origin (&None))

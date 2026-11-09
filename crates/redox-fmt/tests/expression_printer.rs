@@ -285,10 +285,10 @@ fn printing_is_idempotent() {
       if once.contains('\n') {
         continue;
       }
-      let Some(reparsed) = reparse(&once) else {
+      let Some((reparsed, probe)) = reparse(&once) else {
         panic!("{}: `{once}` did not re-parse", path.display());
       };
-      let twice = redox_fmt::expr_text(&reparsed, 0, 0, &once);
+      let twice = redox_fmt::expr_text(&reparsed, 0, 0, &probe);
       assert_eq!(
         once,
         twice,
@@ -313,7 +313,7 @@ fn printing_preserves_meaning() {
       if printed.contains('\n') {
         continue;
       }
-      let Some(reparsed) = reparse(&printed) else {
+      let Some((reparsed, _)) = reparse(&printed) else {
         panic!("{}: `{printed}` did not re-parse", path.display());
       };
       assert_eq!(
@@ -334,11 +334,21 @@ fn printing_preserves_meaning() {
   );
 }
 
-/// Parse one expression by putting it where a binding's value goes.
-fn reparse(text: &str) -> Option<Expr> {
+/// Parse one expression by putting it where a binding's value goes, and hand
+/// back **the text its spans refer to** alongside it.
+///
+/// The probe text is returned because a re-parsed node's spans are offsets
+/// into the probe, not into the printed expression. Printing the re-parse
+/// against the printed text was the first version, and it was fine until
+/// `literal_text` began slicing the source: then a string literal's span
+/// pointed at the wrong bytes and the second pass produced
+/// `name =  ()),.to_string ()` — a harness defect reported as a printer
+/// defect, which is the third time in this plan (§10.5, §10.20).
+fn reparse(text: &str) -> Option<(Expr, String)> {
   let whole = format!("__rdx_probe :: ()\n__rdx_probe =\n  __rdx_it = {text}\n");
   let program = redox_parser::parse_source(&whole).ok()?;
-  binding_values(&program).first().map(|e| (*e).clone())
+  let found = binding_values(&program).first().map(|e| (*e).clone())?;
+  Some((found, whole))
 }
 
 /// The fixture is reachable, so a rename cannot silently skip the test above.

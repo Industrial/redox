@@ -1,23 +1,23 @@
 pub(crate) mod argument;
 pub(crate) mod can_drop_paren;
-pub(crate) mod char_text;
 pub(crate) mod comma_list;
 pub(crate) mod comprehension_text;
-pub(crate) mod interp_text;
 pub(crate) mod lambda_text;
+pub(crate) mod literal_text;
 pub(crate) mod operand;
 pub(crate) mod power_of;
+pub(crate) mod receiver;
 pub(crate) mod record_text;
 pub(crate) mod section_text;
 
 use crate::expr_text::argument::argument;
 use crate::expr_text::can_drop_paren::can_drop_paren;
-use crate::expr_text::char_text::char_text;
 use crate::expr_text::comma_list::comma_list;
 use crate::expr_text::comprehension_text::comprehension_text;
-use crate::expr_text::interp_text::interp_text;
 use crate::expr_text::lambda_text::lambda_text;
+use crate::expr_text::literal_text::literal_text;
 use crate::expr_text::operand::operand;
+use crate::expr_text::receiver::receiver;
 use crate::expr_text::record_text::record_text;
 use crate::expr_text::section_text::section_text;
 use crate::stmt_text::block_text::block_text;
@@ -82,14 +82,14 @@ pub fn expr_text(expr: &Expr, required: u8, indent: usize, source: &str) -> Stri
       recv, name, args, ..
     } => format!(
       "{}.{} ({})",
-      argument(recv, indent, source),
+      receiver(recv, indent, source),
       name.text,
       comma_list(args, indent, source)
     ),
-    Expr::Field { recv, name, .. } => format!("{}.{}", argument(recv, indent, source), name.text),
+    Expr::Field { recv, name, .. } => format!("{}.{}", receiver(recv, indent, source), name.text),
     Expr::Index { recv, index, .. } => format!(
       "{}[{}]",
-      argument(recv, indent, source),
+      receiver(recv, indent, source),
       expr_text(index, 0, indent, source)
     ),
     Expr::Binary { op, lhs, rhs, .. } => {
@@ -105,10 +105,29 @@ pub fn expr_text(expr: &Expr, required: u8, indent: usize, source: &str) -> Stri
     }
     // `&mut ` already carries its trailing space in `rust_text`, which is
     // also the Redox spelling.
+    //
+    // The operand is **not** an argument. A prefix operator binds tighter
+    // than every binary one and looser than application, so it takes a whole
+    // application without parentheses: `examples/errors.sdx` writes
+    // `&ConfigError::Missing (String::from "retries")`, and printing the
+    // operand as an argument parenthesised the application inside it.
+    //
+    // `u8::MAX` as the required power states that exactly: only the forms
+    // binding tighter than any operator stay bare, so a binary expression
+    // gets its parentheses and `-(a + b)` survives.
+    //
+    // A nested unary is the one case precedence does not cover — `-(-x)`
+    // would print as `--x`, which lexes as one token. No corpus case reaches
+    // it, so it is guarded here rather than found later.
     Expr::Unary {
       op, operand: inner, ..
     } => {
-      format!("{}{}", op.rust_text(), argument(inner, indent, source))
+      let printed = if matches!(**inner, Expr::Unary { .. }) {
+        format!("({})", expr_text(inner, 0, indent, source))
+      } else {
+        operand(inner, u8::MAX, indent, source)
+      };
+      format!("{}{printed}", op.rust_text())
     }
     // §3 row 3, the one normalisation that can change meaning. `can_drop_paren`
     // is the whole decision and it is conservative by construction.
@@ -127,7 +146,7 @@ pub fn expr_text(expr: &Expr, required: u8, indent: usize, source: &str) -> Stri
       ..
     } => lambda_text(params, body, *is_move, indent, source),
     Expr::OptionalChain { head, segments, .. } => {
-      let mut out = argument(head, indent, source);
+      let mut out = receiver(head, indent, source);
       for segment in segments {
         out.push_str("?.");
         out.push_str(segment);
@@ -148,12 +167,15 @@ pub fn expr_text(expr: &Expr, required: u8, indent: usize, source: &str) -> Stri
     Expr::Ascribe { inner, ty, .. } => {
       format!("{} :: {}", operand(inner, 0, indent, source), ty.text)
     }
-    // The lexer keeps a string's source text, quotes and escapes included, so
-    // there is nothing to re-escape and no way to lose an escape.
-    Expr::StrLit { value, .. } => value.clone(),
-    Expr::RawLit { text, .. } => text.clone(),
-    Expr::Num { text, .. } => text.clone(),
-    Expr::StrInterp { parts, .. } => interp_text(parts, indent, source),
+    // Every literal is sliced verbatim, and `literal_text` records why the
+    // stored text is not enough: a block string is kept **cooked**, so
+    // printing it rewrote one literal form into another, and a byte string's
+    // hex escapes are uppercased on the way in.
+    Expr::StrLit { .. }
+    | Expr::RawLit { .. }
+    | Expr::Num { .. }
+    | Expr::Char { .. }
+    | Expr::StrInterp { .. } => literal_text(expr, source),
     // §3 row 12: no trailing comma, except the one that makes `(a,)` a tuple
     // rather than a group — plan 33 §10.3.
     Expr::Tuple { items, .. } => {
@@ -175,11 +197,10 @@ pub fn expr_text(expr: &Expr, required: u8, indent: usize, source: &str) -> Stri
       qualifiers,
       ..
     } => comprehension_text(element, qualifiers, indent, source),
-    Expr::Try { inner, .. } => format!("{}?", argument(inner, indent, source)),
+    Expr::Try { inner, .. } => format!("{}?", receiver(inner, indent, source)),
     Expr::Unit { .. } => "()".to_string(),
     Expr::Section { section, .. } => section_text(section, indent, source),
     Expr::Bool { value, .. } => value.to_string(),
-    Expr::Char { value, .. } => char_text(*value),
     Expr::SelfField { name, .. } => format!("self.{}", name.text),
     Expr::SelfType { name, .. } => format!("Self::{}", name.text),
     Expr::Ident(ident) => ident.text.clone(),

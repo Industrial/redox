@@ -56,11 +56,16 @@ pub(crate) fn power_of(expr: &Expr) -> Option<u8> {
     // question passes straight through. `((x)) + 1` reduces to `x + 1` by this
     // line, which is also what makes the normalisation idempotent.
     Expr::Paren { inner, .. } => power_of(inner),
+    // Bracket-terminated, so nothing after them can be absorbed: a record
+    // ends at `}`, a comprehension at `]`, a section at `)`. They were
+    // declining with the open-ended forms below, which parenthesised
+    // `[ n * 2 | n in xs ] :: Vec<i32>` — a spelling `examples/comprehension.sdx`
+    // writes without parentheses, correctly.
+    Expr::Record { .. } | Expr::Comprehension { .. } | Expr::Section { .. } => Some(u8::MAX),
+    // Open-ended: each extends as far right as it can, so a surrounding
+    // parenthesis is doing real work whatever a precedence table says.
     Expr::Lambda { .. }
     | Expr::Ascribe { .. }
-    | Expr::Record { .. }
-    | Expr::Comprehension { .. }
-    | Expr::Section { .. }
     | Expr::If { .. }
     | Expr::Do { .. }
     | Expr::Case { .. }

@@ -1,5 +1,5 @@
-use crate::expr_text::argument::argument;
 use crate::expr_text::expr_text;
+use crate::expr_text::receiver::receiver;
 use redox_ast::{Expr, FieldInit};
 
 /// A record literal — `Point { x = 3.0, y = 4.0 }`.
@@ -19,7 +19,7 @@ pub(crate) fn record_text(
   source: &str,
 ) -> String {
   if fields.is_empty() {
-    return format!("{} {{}}", argument(head, indent, source));
+    return format!("{} {{}}", receiver(head, indent, source));
   }
   let printed: Vec<String> = fields
     .iter()
@@ -34,7 +34,7 @@ pub(crate) fn record_text(
     .collect();
   format!(
     "{} {{ {} }}",
-    argument(head, indent, source),
+    receiver(head, indent, source),
     printed.join(", ")
   )
 }

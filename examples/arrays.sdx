@@ -47,9 +47,9 @@ total = (zeros ()).len () + (row ()).len () + (growable ()).len ()
 
 main :: ()
 main =
-  print (zeros ()).len ()
+  print ((zeros ()).len ())
   print (row ())[0]
-  print (growable ()).len ()
+  print ((growable ()).len ())
   print (grid ())[1][0]
-  print (lists ()).len ()
+  print ((lists ()).len ())
   print (total ())

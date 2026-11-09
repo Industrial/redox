@@ -1,0 +1,40 @@
+pub(crate) mod takes_a_postfix;
+
+use crate::expr_text::expr_text;
+use crate::expr_text::receiver::takes_a_postfix::takes_a_postfix;
+use redox_ast::Expr;
+
+/// One expression in **receiver** position — before `.name`, `.name (…)`,
+/// `[i]`, `?` or `?.` — parenthesised only when it cannot take a postfix.
+///
+/// # The third position, and the last
+///
+/// `argument` was doing this job and it is the wrong question. An argument is
+/// *juxtaposed*, so it must neither open as an operator nor end inviting more;
+/// a receiver is *postfixed*, so all it has to do is be a single atom the `.`
+/// can attach to. The two sets differ in both directions:
+///
+/// | | argument | receiver |
+/// |---|---|---|
+/// | `xs.len ()` | parenthesised — the trailing `()` reads as the next argument | bare — `a.b ().c ()` chains |
+/// | `[1, 2]` | parenthesised — `[` after a name is indexing | bare — `[1, 2].to_vec ()` |
+/// | `f x` | parenthesised | parenthesised — `(f x).a`, or the `.a` binds to `x` |
+///
+/// Using `argument` here produced `(boxed.as_mut ()).poll (&mut cx)` and
+/// `(raw.parse ())?` against a corpus that writes both bare, and the pattern
+/// is now familiar enough to state as a rule: **in a language where
+/// juxtaposition is application, "does this need parentheses" has a different
+/// answer in every position, and sharing one predicate between two of them is
+/// a bug waiting for a corpus big enough to show it.** This plan found it four
+/// times — `operand` versus `argument` in leaf 3, three pattern positions in
+/// leaf 4's first half, the argument predicate twice in its second, and here.
+///
+/// The emitter reached the same conclusion independently: `emit::receiver` is
+/// this function's counterpart on the Rust side.
+pub(crate) fn receiver(expr: &Expr, indent: usize, source: &str) -> String {
+  if takes_a_postfix(expr) {
+    expr_text(expr, 0, indent, source)
+  } else {
+    format!("({})", expr_text(expr, 0, indent, source))
+  }
+}

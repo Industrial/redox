@@ -1,0 +1,56 @@
+pub(crate) mod stored;
+
+use crate::expr_text::literal_text::stored::stored;
+use redox_ast::Expr;
+
+/// A literal, **verbatim from the source**.
+///
+/// # Why the stored text is not enough
+///
+/// Leaf 3 printed `StrLit.value`, `RawLit.text`, `Num.text` and a re-escaped
+/// `Char`, on the evidence that the lexer keeps a string's source text —
+/// quotes and escapes included — so there was nothing to re-escape and no way
+/// to lose an escape. That is true of an ordinary string and false of two
+/// other forms, which leaf 2 found by running the formatter over the corpus:
+///
+/// - **A block string.** `examples/strings.sdx` writes
+///
+///   ```text
+///   block = """
+///     first
+///       indented
+///     last
+///     """
+///   ```
+///
+///   and the lexer stores the *cooked* value with its common indentation
+///   removed, as a single-line quoted literal. Printing it gave
+///   `block = "first\n  indented\nlast"` — the same value, a different
+///   literal, and a formatter rewriting one literal form into another.
+///
+/// - **A hex escape's case.** `b"\x7fELF"` is stored as `b"\x7FELF"`. The same
+///   byte, so the program is unchanged, but not the author's spelling.
+///
+/// Both are the same shape of defect as `generalise`'s rewrite of a
+/// signature's type variables: the lexer and parser store what the *emitter*
+/// needs, which is a cooked value, and a formatter needs what the author
+/// wrote. Spans are what make the author's text recoverable, which is
+/// AGENTS.md's rule earning its place for the third time in this plan.
+///
+/// # What this costs
+///
+/// An interpolated string is sliced too, so an expression inside `#{…}` is
+/// **not** normalised — `String::from("inner")` keeps its parentheses where
+/// §3 row 1 would juxtapose them. Deliberate: the alternative is printing the
+/// parts, which puts the block-string defect back for any interpolated block
+/// string. Recorded rather than left to be noticed.
+pub(crate) fn literal_text(expr: &Expr, source: &str) -> String {
+  let (start, end) = expr.span();
+  if start < end && end <= source.len() {
+    return source[start..end].to_string();
+  }
+  // A span outside the source means the node did not come from this text —
+  // which happens only in a test that built a tree by hand. Falling back to
+  // the stored form keeps that case printable instead of panicking.
+  stored(expr)
+}

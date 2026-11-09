@@ -1,0 +1,34 @@
+/// Whether two byte offsets fall on the same source line.
+///
+/// # What it is for, and why a span is the right place to ask
+///
+/// An equation's body has two shapes and the **tree cannot tell them apart**:
+///
+/// ```text
+/// add a b = a + b          -- one statement, an expression
+///
+/// main =
+///   print "hello"          -- one statement, an expression
+/// ```
+///
+/// Both are a `Plain(Block)` holding one `StmtKind::Expr`. Nothing in the node
+/// records which the author wrote, and §3 has no row choosing between them —
+/// so a formatter that picked one would silently rewrite every function of the
+/// other shape in the corpus.
+///
+/// The **span** records it: `add`'s block starts on the clause's own line and
+/// `main`'s starts on the next. So the author's choice is recoverable, and
+/// AGENTS.md's rule that *"every AST node carries a byte span"* is what makes
+/// it recoverable — the concrete payoff of a rule written down after Emerald
+/// found a node type with no span at all.
+///
+/// Counting newlines rather than keeping a line table: this is asked once per
+/// clause, and a table would be a cache to invalidate.
+pub(crate) fn same_line(source: &str, left: usize, right: usize) -> bool {
+  let (lo, hi) = if left <= right {
+    (left, right)
+  } else {
+    (right, left)
+  };
+  !source[lo.min(source.len())..hi.min(source.len())].contains('\n')
+}

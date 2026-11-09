@@ -41,10 +41,12 @@
 
 mod expr_text;
 mod format;
+mod item_text;
 mod pattern_text;
 mod stmt_text;
 
 pub use expr_text::expr_text;
 pub use format::format;
+pub use item_text::item_text;
 pub use pattern_text::pattern_text;
 pub use stmt_text::stmt_text;

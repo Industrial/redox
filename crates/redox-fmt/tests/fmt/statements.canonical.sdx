@@ -7,7 +7,7 @@
   -- operator and the separator a `const` item uses.
   mut total : i32 = 1
   total += 2
-  print "x" -- a trailing comment
+  print "x"  -- a trailing comment
   {- a fenced comment -}
   if n > 0 && Some v = o
     print "both"

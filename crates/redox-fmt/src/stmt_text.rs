@@ -46,10 +46,13 @@ pub fn stmt_text(stmt: &Stmt, indent: usize, source: &str) -> String {
     kind_text(&stmt.kind, indent, source)
   );
   if let Some(trailing) = &stmt.trailing {
-    // One space before a trailing comment. The corpus writes two in four
-    // places and one in a fifth, and the fifth is `comments.sdx` — the file
-    // whose whole subject is comments — so that is the tiebreak §1.5 gives.
-    code.push(' ');
+    // **Two** spaces before a trailing comment. The corpus writes two in four
+    // places and one in a fifth, and nothing distinguishes the fifth — so the
+    // majority decides and `examples/comments.sdx` gains a space. Picking one
+    // the other way was the first attempt, on the reasoning that the file
+    // about comments should be the authority on comments; four files against
+    // one is the better argument.
+    code.push_str("  ");
     code.push_str(trivia_text(trailing, 0).trim_start());
   }
   lines.push(code);

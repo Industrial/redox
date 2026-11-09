@@ -3,7 +3,7 @@
 
 main :: ()
 main =
-  print "one" -- an inline comment
+  print "one"  -- an inline comment
   print "two"
 
 -- A comment at end of file.

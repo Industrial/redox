@@ -7,9 +7,9 @@
 -- prints the wrong value, and a missing `Error` impl does not compile.
 
 errors ConfigError
-  Missing String             "missing key: #{0}"
-  Invalid String u32         "invalid value #{0} at line #{1}"
-  Closed                     "closed"
+  Missing String                         "missing key: #{0}"
+  Invalid String u32                     "invalid value #{0} at line #{1}"
+  Closed                                 "closed"
   from std::num::ParseIntError as Parse  "not a number: #{0}"
 
 -- The generated `From` is what makes `?` work across the boundary, which is
@@ -27,5 +27,5 @@ main =
   print (describe (&ConfigError::Missing (String::from "retries")))
   print (describe (&ConfigError::Invalid (String::from "x") 7))
   print (describe (&ConfigError::Closed))
-  print (retries "12").is_ok ()
-  print (retries "nope").is_err ()
+  print ((retries "12").is_ok ())
+  print ((retries "nope").is_err ())

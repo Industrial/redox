@@ -1,4 +1,4 @@
-use crate::expr_text::argument::argument;
+use crate::expr_text::expr_text;
 use redox_ast::Section;
 
 /// An operator or accessor section — `(> 0)`, `(+ 1)`, `(.age)`.
@@ -17,7 +17,7 @@ pub(crate) fn section_text(section: &Section, indent: usize, source: &str) -> St
       format!(
         "({} {})",
         op.redox_text(),
-        argument(operand, indent, source)
+        expr_text(operand, 0, indent, source)
       )
     }
     // `(0 <)` — doc 18 §4 gives it the same lowering as its flip, and the
@@ -27,7 +27,7 @@ pub(crate) fn section_text(section: &Section, indent: usize, source: &str) -> St
     Section::Left { op, operand } => {
       format!(
         "({} {})",
-        argument(operand, indent, source),
+        expr_text(operand, 0, indent, source),
         op.redox_text()
       )
     }

@@ -14,9 +14,9 @@ main =
   -- Shifts bind looser than arithmetic: 1 << (1 + 1) = 4
   print (1 << 1 + 1)
   -- Unary binds tighter than binary: (-3) + 10 = 7
-  print ((-3) + 10)
+  print (-3 + 10)
   -- A typed binding, a method call, and a path
-  total: i32 = 40 + 2
+  total : i32 = 40 + 2
   print total
   print ("done".len ())
   print (i32::max 1 9)

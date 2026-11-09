@@ -1,82 +1,67 @@
-pub(crate) mod blank_line_in;
-pub(crate) mod item_start;
-pub(crate) mod item_text;
-pub(crate) mod trimmed_range;
+pub(crate) mod trimmed_tail;
 
-use crate::format::blank_line_in::blank_line_in;
-use crate::format::item_start::item_start;
-use crate::format::item_text::item_text;
-use crate::format::trimmed_range::trimmed_range;
+use crate::format::trimmed_tail::trimmed_tail;
+use crate::item_text::item_text;
+use crate::stmt_text::trivia_text::trivia_text;
 use redox_ast::Program;
 
-/// Format a parsed program back into canonical Redox — plan 34, leaf 1.
+/// Format a parsed program back into canonical Redox.
 ///
-/// # What this increment does, and what it deliberately does not
+/// # Leaf 2 replaced the span slicer
 ///
-/// It canonicalises **file-level structure**: a run of blank lines between
-/// items collapsed to one, no leading blank lines, exactly one trailing
-/// newline, and no trailing whitespace on any line. Every item's own text is
-/// passed through **verbatim**, sliced out of the source.
+/// Leaf 1 cut each item out of the source between item boundaries and
+/// canonicalised only the gaps between them. Every printer since has replaced
+/// one slice with a real printer, and leaf 2 was the last: an item is now
+/// printed from the tree, so this function is a join.
 ///
-/// A gap of *zero* blank lines stays zero, which is not a detail:
-/// `blank_line_in` records why an author's grouping of adjacent imports
-/// decides what rustfmt is allowed to do to them.
+/// The three models leaf 1 needed — item boundaries rather than spans
+/// (§10's note on a comment emitted twice), `trimmed_range`, and
+/// `blank_line_in` — are all gone with it. The reason they are not merely
+/// refactored away is worth recording: **a blank line is a trivium**, so the
+/// gaps leaf 1 measured out of the source were already in the tree. Leaf 1
+/// measured them because it was not printing trivia yet, and leaf 4 made that
+/// unnecessary rather than easier.
 ///
-/// That is plan 34's criterion 7 — *"a construct the formatter does not yet
-/// print is passed through verbatim rather than mangled"* — used as the
-/// starting point rather than as a fallback. The consequence is worth stating:
-/// this formatter **cannot lose text**, cannot reorder anything, and cannot
-/// change what a program means, because it does not rewrite any construct. It
-/// is also correspondingly modest.
+/// # What survives from leaf 1
 ///
-/// §1.2 of the plan says the row will be `partial` for a while. Each later
-/// leaf replaces one span-slice with a real printer, and the three property
-/// tests of §1.4 hold at every step by construction — which is the reason to
-/// build it in this order.
+/// Its three file-level rules, now as consequences rather than code. A run of
+/// blank lines collapses to one because `TriviaKind::BlankLines` does not
+/// record a run's length. There is exactly one trailing newline because each
+/// item is followed by one. No line has trailing whitespace because every
+/// printer writes its own indentation and a blank line is written empty.
 ///
-/// # Items are cut at boundaries, then trimmed
+/// Leading blank lines are the one rule that still needs saying, and it is
+/// said here: a `BlankLines` trivium on the first item would otherwise open
+/// the file with an empty line.
 ///
-/// An item owns the source from its own start to the **next item's** start,
-/// which is not the same as its span: a declaration's span runs to the newline
-/// that ends it, and can reach *into the following comment*, which is also the
-/// next item's leading trivia. Slicing by spans emitted that comment **twice**
-/// — caught in `examples/case.sdx` by the property test that counts `--`
-/// markers.
+/// # One construct is still sliced
 ///
-/// Within a region, `trimmed_range` finds the real text, and the whitespace
-/// left over at each end is the gap `blank_line_in` measures.
+/// A function's **signature line**, for the reason `signature_line` records at
+/// length: `parser::generalise` rewrites a signature's type variables into
+/// Rust's uppercase convention in place, so the tree cannot say what the
+/// author wrote. That is criterion 7 doing its job, and it is the one thing
+/// standing between this formatter and reading no source at all.
 pub fn format(program: &Program, source: &str) -> String {
-  let starts: Vec<usize> = program.items.iter().map(item_start).collect();
-
-  // Where the last item ends: before a trailing comment if there is one, and
-  // at the end of the source otherwise.
-  let tail = program
-    .trailing
-    .first()
-    .map_or(source.len(), |trivium| trivium.span.0);
-
-  // Each item's real text range, in order, plus the file's trailing trivia as
-  // one more block — so the gap logic treats it like any other neighbour.
-  let mut blocks: Vec<(usize, usize)> = Vec::new();
-  for (i, _) in program.items.iter().enumerate() {
-    let end = starts.get(i + 1).copied().unwrap_or(tail);
-    if let Some(range) = trimmed_range(source, starts[i], end) {
-      blocks.push(range);
-    }
-  }
-  if let Some(range) = trimmed_range(source, tail, source.len()) {
-    blocks.push(range);
-  }
-
   let mut out = String::new();
-  for (i, range) in blocks.iter().enumerate() {
-    out.push_str(&item_text(source, *range));
+  let mut first = true;
+  for item in &program.items {
+    let text = item_text(item, 0, source);
+    // A file does not open with a blank line, whatever the author wrote.
+    let text = if first {
+      first = false;
+      text.trim_start_matches('\n').to_string()
+    } else {
+      text
+    };
+    out.push_str(&text);
     out.push('\n');
-    if let Some(next) = blocks.get(i + 1)
-      && blank_line_in(&source[range.1..next.0])
-    {
-      out.push('\n');
-    }
   }
-  out
+  for trivium in &program.trailing {
+    out.push_str(&trivia_text(trivium, 0));
+    out.push('\n');
+  }
+  // A blank line **before** an end-of-file comment is content and stays;
+  // blank lines at the very end are not. `trimmed_tail` records why that
+  // decision is made on the finished text rather than on the trivium.
+  trimmed_tail(out)
 }
