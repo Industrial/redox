@@ -1,14 +1,12 @@
-pub(crate) mod remap;
-pub(crate) mod rustc_message;
 pub(crate) mod rustc_path;
 pub(crate) mod scratch_dir;
 
 use crate::build_command::parse_build_args::parse_build_args;
-use crate::check_command::remap::remap;
-use crate::check_command::rustc_message::RustcMessage;
 use crate::check_command::rustc_path::rustc_path;
 use crate::check_command::scratch_dir::ScratchDir;
+use redox_driver::RustcMessage;
 use redox_driver::diagnose;
+use redox_driver::remap;
 use std::process::Command;
 
 /// `redox check <file.sdx> [--plain]`.

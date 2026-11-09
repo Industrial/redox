@@ -1,4 +1,4 @@
-use crate::check_command::remap::char_offset::char_offset;
+use crate::remap::char_offset::char_offset;
 
 /// Byte offset of a position in the **generated** file, clamped into range.
 ///

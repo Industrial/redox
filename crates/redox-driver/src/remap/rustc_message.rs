@@ -14,18 +14,18 @@
 /// diagnostic, and [`RustcMessage::parse`] declines it so Redox can print its
 /// own count.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct RustcMessage {
-  pub(crate) path: String,
+pub struct RustcMessage {
+  pub path: String,
   /// 1-based, in the **generated** file.
-  pub(crate) line: usize,
+  pub line: usize,
   /// 1-based, in the generated file.
-  pub(crate) col: usize,
+  pub col: usize,
   /// `error` or `warning`, rustc's own word.
-  pub(crate) level: String,
+  pub level: String,
   /// `E0308`, or a lint name, or `None` where rustc gave none.
-  pub(crate) code: Option<String>,
+  pub code: Option<String>,
   /// rustc's message, verbatim — never reworded (plan 07 §1.1).
-  pub(crate) message: String,
+  pub message: String,
 }
 
 impl RustcMessage {
@@ -40,7 +40,7 @@ impl RustcMessage {
   /// A Windows path (`C:\…`) would defeat a naive left split too, which is why
   /// the line and column are found by taking the *last two* colon-separated
   /// fields before the level rather than the second and third overall.
-  pub(crate) fn parse(line: &str) -> Option<Self> {
+  pub fn parse(line: &str) -> Option<Self> {
     // `path:line:col: level...` — find the `: ` that ends the position.
     let (position, rest) = line.split_once(": ")?;
 
@@ -71,7 +71,7 @@ impl RustcMessage {
     })
   }
 
-  pub(crate) fn is_error(&self) -> bool {
+  pub fn is_error(&self) -> bool {
     self.level == "error"
   }
 }

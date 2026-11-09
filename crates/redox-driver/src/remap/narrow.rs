@@ -1,4 +1,4 @@
-use crate::check_command::remap::char_offset::char_offset;
+use crate::remap::char_offset::char_offset;
 use redox_diag::Span;
 
 /// Narrow `span` to the single character at `line`:`col`, if that position

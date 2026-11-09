@@ -1,10 +1,11 @@
 pub(crate) mod char_offset;
 pub(crate) mod generated_offset;
 pub(crate) mod narrow;
+pub(crate) mod rustc_message;
 
-use crate::check_command::remap::generated_offset::generated_offset;
-use crate::check_command::remap::narrow::narrow;
-use crate::check_command::rustc_message::RustcMessage;
+use crate::remap::generated_offset::generated_offset;
+use crate::remap::narrow::narrow;
+use crate::remap::rustc_message::RustcMessage;
 use redox_diag::{Diagnostic, DiagnosticCode, SourceMap};
 
 /// Turn one of rustc's diagnostics into one against the `.sdx`.
@@ -26,7 +27,7 @@ use redox_diag::{Diagnostic, DiagnosticCode, SourceMap};
 ///    brace or a blank. The diagnostic is reported against the `.xrs`, with a
 ///    note saying so. Relocating it to the nearest mapped line would be a
 ///    guess presented as a fact.
-pub(crate) fn remap(
+pub fn remap(
   message: &RustcMessage,
   map: &SourceMap,
   sdx_path: &str,
@@ -94,7 +95,7 @@ pub(crate) fn remap(
 #[cfg(test)]
 mod tests {
   use super::remap;
-  use crate::check_command::rustc_message::RustcMessage;
+  use crate::remap::rustc_message::RustcMessage;
   use redox_diag::{Origin, SourceMap};
 
   const SDX: &str = "add = (a: i32, b: i32): i32 ->\n  a + \"x\"\n";
