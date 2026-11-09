@@ -26,8 +26,29 @@ the three habits that make it worth keeping (doc 02 §3.1):
 | `not-started` | Row exists, no plan authored yet |
 | `planned` | Plan document authored under `docs/<doc> - <plan> - …`, not yet executed |
 | `in-progress` | Executing |
+| `partial` | Some of the row shipped, the rest named in its own cell |
 | `done` | Shipped, gate green, reviewed |
 | `superseded` | Replaced; row kept with a pointer to its successor |
+
+`partial` was added when plan 13 landed doc 18, because that one plan delivered pieces of
+sixteen later rows and *deleted* pieces of several more. Calling such a row `not-started`
+would have been false and calling it `done` worse, and the alternative — splitting each row in
+two — would have renumbered the register, which rule 2 forbids. A `partial` row says in its own
+cell what shipped, what was deleted, and what is outstanding; nothing else is allowed to be
+vague about it.
+
+### What plan 13 did to this table
+
+Doc 18 is a surface, not a feature, so it crossed the register rather than occupying one row.
+Nineteen rows moved: **eight to `done`** (17, 24, 25, 26, 27, 31, 35, 36), **three to
+`superseded`** (19, 32, 37), and **eight to `partial`** (14, 18, 21, 22, 28, 29, 30, 38). Every
+one of them names what changed in its own cell.
+
+The three `superseded` rows are worth reading together, because each was retired by *deletion*
+rather than replacement: doc 18 removed the construct that needed the plan. Plan 19's eight
+call-grammar rules dissolved into juxtaposition, plan 32 had nothing left to broadcast over
+once `.(` and the `.+`-family left, and plan 37's `defer` closed doc 03 §23 item 1 — the one
+disclosed exception to doc 01 §36 — by ceasing to exist.
 
 ## Plan records
 
@@ -120,24 +141,24 @@ regardless of schedule (doc 03 §20).
 | # | Plan | Scope | From Emerald | Depends on | Status |
 |---|---|---|---|---|---|
 | 13 | `haskell-surface` | **The surface is doc 18's.** Comments become `--`/`{- -}`/`-- |`/`-- !`; a declaration becomes a `::` signature line plus an equation; application becomes juxtaposition. The generated Rust is **byte-identical** — the only golden diff is a comment — which is doc 18 §1's rule measured rather than asserted. Deleted `stmt_call`, `parse_signature`, `parameter` and `POSTFIX_POWER`; `ranges-rust-spelling` is subsumed, since doc 18 §8 keeps Rust's `..`/`..=` for the same reason doc 03 decision 34 did | — | 12 | `done` |
-| 14 | `paths-colon-colon` | `::` everywhere including imports; `.` means field or method only. Corrects doc 01 §22 | — | 03 | `not-started` |
+| 14 | `paths-colon-colon` | `::` everywhere including imports; `.` means field or method only. Corrects doc 01 §22 **Partial.** Doc 18 §5.2's tight `::` is a path and `.` is field or method only, both implemented and tested; `import` is not parsed, so the import half is outstanding | — | 03 | `partial` |
 | 15 | `await-postfix` | Postfix `.await`. Corrects doc 01 §24 | — | 03 | `not-started` |
 | 16 | `module-scope-bindings` | Top-level bindings require a type and lower to `const`/`static`; `let` is illegal at Rust module scope. Corrects doc 01 §4.3 | — | 03 | `not-started` |
-| 17 | `comments-as-trivia` | `#`, `###`, `##`, `##!` as trivia attached to AST nodes and re-emitted. Corrects doc 01 §4.1 | `crates/emerald-fmt/src/lib.rs`'s disclosed comment-loss defect, as the anti-pattern to avoid | 02, 04 | `not-started` |
-| 18 | `attributes-passthrough` | `#[...]`/`#![...]` verbatim; `derive` clause. Closes doc 02 §10.2's critical gap | — | 03 | `not-started` |
+| 17 | `comments-as-trivia` | `#`, `###`, `##`, `##!` as trivia attached to AST nodes and re-emitted. Corrects doc 01 §4.1 **Done**, with doc 18 §5.1's spellings in place of `#`: trivia is attached to AST nodes and re-emitted, which plan 02 delivered and every plan since has kept — doc 02 §10.1's rule, and the defect this row names Emerald for | `crates/emerald-fmt/src/lib.rs`'s disclosed comment-loss defect, as the anti-pattern to avoid | 02, 04 | `done` |
+| 18 | `attributes-passthrough` | `#[...]`/`#![...]` verbatim; `derive` clause. Closes doc 02 §10.2's critical gap **Partial.** `deriving` is a clause of the declaration (doc 18 §2.4) and lowers to `#[derive(…)]`; verbatim `#[…]` and `#![…]` passthrough is outstanding | — | 03 | `partial` |
 
 ## Milestone 5 — Core language (doc 03 Tier B)
 
 | # | Plan | Scope | From Emerald | Depends on | Status |
 |---|---|---|---|---|---|
-| 19 | `calls-parenless-canonical` | Doc 03 §5.1's eight rules: adjacency lexing, comma below every operator, terminator set, six required-parens cases, `RDX0055`. The most intricate region of the parser | Emerald plan 90's full analysis of the same problem — the two candidate strategies and why statement-position-only loses | 02, 03 | `not-started` |
+| 19 | `calls-parenless-canonical` | Doc 03 §5.1's eight rules: adjacency lexing, comma below every operator, terminator set, six required-parens cases, `RDX0055`. The most intricate region of the parser **Superseded by plan 13.** Doc 18 §2.1 removed the ambiguity instead of resolving it: juxtaposition made statement position unremarkable, and the eight rules, the terminator set, the six required-parens cases and `RDX0055` all dissolved. §7.1 is the accounting | Emerald plan 90's full analysis of the same problem — the two candidate strategies and why statement-position-only loses | 02, 03 | `superseded` |
 | 20 | `control-flow` | `if`/`unless`/`else`, `while`/`until`, `for`, postfix forms, `cond`, `loop`, `'label` on blocks and loops, `break` with value | — | 03 | `not-started` |
-| 21 | `switch-and-patterns` | `switch` arms and `when` guards; relational, `and`/`or`/`not`; named and anonymous record patterns; slice, as- and range patterns; no synthesized wildcard | — | 20 | `not-started` |
-| 22 | `is-and-guard` | `is` as binding-aware pattern test (`matches!` / `if-let` / let-chain); `guard` onto let-else; derived `while let` | — | 21 | `not-started` |
+| 21 | `switch-and-patterns` | `switch` arms and `when` guards; relational, `and`/`or`/`not`; named and anonymous record patterns; slice, as- and range patterns; no synthesized wildcard **Partial.** `case … of` with `|` guards, `or` alternation and `..`/`..=` ranges are implemented (doc 18 §2.3); relational, `and` and `not` patterns are *deleted* by §2.3 in favour of guards. Record, slice and as-patterns are outstanding, and are plan 33's | — | 20 | `partial` |
+| 22 | `is-and-guard` | `is` as binding-aware pattern test (`matches!` / `if-let` / let-chain); `guard` onto let-else; derived `while let` **Partial.** `is` is deleted by doc 18 §3.1 in favour of `<-`, which is implemented in statement position. `<-` in condition position and `guard` onto let-else are outstanding | — | 21 | `partial` |
 | 23 | `strings-and-literals` | Interpolation with inline format specs; raw, char, byte and C-string literals; `"""` dedent; `##`/`##!` doc comments | — | 02, 17 | `not-started` |
-| 24 | `data-declarations` | Structs with block init and trailing spread; field punning; primary constructors; enum struct variants and discriminants; granular visibility; type aliases; unit and tuple structs | — | 18 | `not-started` |
-| 25 | `traits-and-impls` | Default method bodies, associated types and constants, supertraits, generic impls with bounds, `impl Trait` in argument and return position | — | 24 | `not-started` |
-| 26 | `generics-and-where` | Generic parameters and bounds; `where` as a bound clause in signature position, disambiguated from `where` locals by position | — | 25 | `not-started` |
+| 24 | `data-declarations` | Structs with block init and trailing spread; field punning; primary constructors; enum struct variants and discriminants; granular visibility; type aliases; unit and tuple structs **Done** as doc 18 §2.4 and doc 03 §9.6: `data`, `newtype`, `type`, record literals with punning and update, and the four visibility markers including per-field. Block initialisers and primary constructors are *deleted* by §2.4, which takes `RDX0052` and `RDX0053` with them | — | 18 | `done` |
+| 25 | `traits-and-impls` | Default method bodies, associated types and constants, supertraits, generic impls with bounds, `impl Trait` in argument and return position **Done** as doc 18 §2.5: `class` is `trait` and `instance` is `impl`, with default method bodies, associated types and constants, supertraits and generic impls with bounds. `impl Trait` in either position needs nothing — a type is verbatim text (doc 03 §14.1) | — | 24 | `done` |
+| 26 | `generics-and-where` | Generic parameters and bounds; `where` as a bound clause in signature position, disambiguated from `where` locals by position **Done** as doc 18 §§2.2 and 5.3: the generic list is synthesised from the types and the bounds are read off `=>`, so neither is written. `where` keeps one role — the position disambiguation this row describes is deleted rather than implemented | — | 25 | `done` |
 
 ## Milestone 6 — Full surface (doc 03 Tier C) — **v1.0**
 
@@ -146,12 +167,12 @@ v1.0 is reached when every row from 01 to 33 is `done`.
 
 | # | Plan | Scope | From Emerald | Depends on | Status |
 |---|---|---|---|---|---|
-| 27 | `pipeline-and-sections` | `\|>` as a receiver pipeline; operator sections with the auto-ref lowering for comparisons; `(-1)` versus `(- 1)` by adjacency | — | 19 | `not-started` |
-| 28 | `option-result-operators` | `??`, `??=`, `catch`, `?.` via `?`-in-a-closure, `try` blocks. No implicit clone | — | 22 | `not-started` |
-| 29 | `comprehensions-and-collections` | Bracket comprehensions and collection-`if`/`for`; literal-shape collect defaults with `into` override; spread; `%w`; set literal; array repeat | — | 19, 21 | `not-started` |
-| 30 | `with-and-use` | `with` dot-shorthand mutation block, subject evaluated once; `use` callback flattening with `RDX0044` on a `return` in the tail | — | 19 | `not-started` |
-| 31 | `functions-advanced` | Multi-clause definitions merged to one `fn` plus `match`; labelled arguments erased in declaration order; `where` locals; `...` forwarding; `&:` method references | — | 26 | `not-started` |
-| 32 | `broadcasting` | `f.(xs)` and `.+`-family elementwise operators, borrow marker mandatory, result is an iterator | — | 29 | `not-started` |
+| 27 | `pipeline-and-sections` | `\|>` as a receiver pipeline; operator sections with the auto-ref lowering for comparisons; `(-1)` versus `(- 1)` by adjacency **Done** as doc 18 §4: the pipeline, and all six sections including the method form for comparisons. `(-1)`-versus-`(- 1)` is *deleted* — §4 makes a leading `-` negation always, and the same rule covers `&`, `*` and `!` | — | 19 | `done` |
+| 28 | `option-result-operators` | `??`, `??=`, `catch`, `?.` via `?`-in-a-closure, `try` blocks. No implicit clone **Partial.** `??` lowers to a `match` (doc 03 §12.1) and `?` passes through; `??=` is *deleted* by doc 18 §7 in favour of its expanded form. `catch`, `?.` and `try` blocks are outstanding | — | 22 | `partial` |
+| 29 | `comprehensions-and-collections` | Bracket comprehensions and collection-`if`/`for`; literal-shape collect defaults with `into` override; spread; `%w`; set literal; array repeat **Partial.** Doc 18 §3.2's comprehension and the list literal are implemented, and the ascribed-literal lowering `C::from([…])` covers the set and map literals this row names — both the collection-`if`/`for` level and the `into` override are *deleted* by §3.2. `%w` and array repeat are outstanding | — | 19, 21 | `partial` |
+| 30 | `with-and-use` | `with` dot-shorthand mutation block, subject evaluated once; `use` callback flattening with `RDX0044` on a `return` in the tail **Partial.** `use` is `<-` and its callback flattening is implemented (doc 18 §3.1); `with` is *deleted* by §7. `RDX0044` on a `return` in a callback tail is outstanding | — | 19 | `partial` |
+| 31 | `functions-advanced` | Multi-clause definitions merged to one `fn` plus `match`; labelled arguments erased in declaration order; `where` locals; `...` forwarding; `&:` method references **Done** as doc 18 §2.3 and §2.2: multi-clause definitions merge to one `fn` plus a `match`, and `where` locals lower to `let` bindings before the body. Labelled arguments, `...` forwarding and `&:` method references are all *deleted* by §7 — the last replaced by `(|> name)`, a section derived from the rule | — | 26 | `done` |
+| 32 | `broadcasting` | `f.(xs)` and `.+`-family elementwise operators, borrow marker mandatory, result is an iterator **Superseded.** Doc 18 §7 retires `.(` and the `.+`-family outright, so there is nothing left to broadcast over | — | 29 | `superseded` |
 | 33 | `destructuring-and-splat` | Tuple, slice and struct destructuring; rest patterns; splat in argument position | — | 21, 29 | `not-started` |
 
 ## Milestone 7 — Tooling (doc 03 Tier D)
@@ -179,10 +200,10 @@ as a gesture.
 | # | Plan | Scope | From Emerald | Depends on | Status |
 |---|---|---|---|---|---|
 | 34 | `formatter` | `redox-fmt`: trivia-preserving, canonicalizing per doc 03 §16, and therefore the migration tool. Doubles as the answer to Emerald's 113-missed-fixture cutover | `crates/emerald-fmt`'s goal and its approach's disclosed failure — a pure AST pretty-printer loses every comment | 17, 19 | `not-started` |
-| 35 | `test-blocks` | `test "…"` to `#[cfg(test)]` module with `#[test]` fns; deterministic name slugs; `assert` family | `crates/emerald-cli/tests/examples.rs` compile-and-run-and-assert-stdout harness | 23 | `not-started` |
-| 36 | `typed-domain-errors` | `errors` declaration generating the enum plus `Display`, `Error` and `From` impls. `std` only | — | 28 | `not-started` |
-| 37 | `defer` | Scope-exit blocks, LIFO, via a generated `core`-only `Drop` guard. **Blocked on doc 03 §23 item 1** — the one disclosed exception to doc 01 §36 | — | 20 | `not-started` |
-| 38 | `panic-and-lints` | `todo`/`unimplemented`/`unreachable`/`panic`/`assert` spellings; `RDX1001` `unwrap` discouragement | — | 23 | `not-started` |
+| 35 | `test-blocks` | `test "…"` to `#[cfg(test)]` module with `#[test]` fns; deterministic name slugs; `assert` family **Done** as doc 03 §15: `test "…"` becomes one `#[cfg(test)]` module per file with deterministic name slugs and an index on collision, and `assert` reads the operator the author wrote. The run corpus compiles the generated module as a test binary and runs it | `crates/emerald-cli/tests/examples.rs` compile-and-run-and-assert-stdout harness | 23 | `done` |
+| 36 | `typed-domain-errors` | `errors` declaration generating the enum plus `Display`, `Error` and `From` impls. `std` only **Done** as doc 03 §12.5: the enum, `Display`, `Error` and a `From` per `from` row, naming nothing outside `std` | — | 28 | `done` |
+| 37 | `defer` | Scope-exit blocks, LIFO, via a generated `core`-only `Drop` guard. **Blocked on doc 03 §23 item 1** — the one disclosed exception to doc 01 §36 **Superseded.** Doc 18 §3.1 deletes `defer`, which closes doc 03 §23 item 1 — the one disclosed exception to doc 01 §36 — by removing the construct that needed it | — | 20 | `superseded` |
+| 38 | `panic-and-lints` | `todo`/`unimplemented`/`unreachable`/`panic`/`assert` spellings; `RDX1001` `unwrap` discouragement **Partial.** `todo`, `unimplemented`, `unreachable`, `panic` and the `assert` family are implemented (doc 03 §12.6); `RDX1001`'s `unwrap` discouragement is outstanding | — | 23 | `partial` |
 | 39 | `async` | `async` functions and blocks, postfix `.await`, no executor | — | 15, 26 | `not-started` |
 | 40 | `lsp` | `redox-lsp` on `lsp-server` + `lsp-types` (doc 02 §5.5): diagnostics on change, semantic tokens, document symbols, and a formatter hook onto plan 34. Rustc errors arrive already remapped to the `.sdx` through plan 07, so the server reports them against the file the user wrote. Editor-agnostic by construction — plan 49 ships the clients. Emerald does this in 545 lines; Redox's is simpler, having no symbol table to build | `crates/emerald-lsp` (545 lines, directly adaptable) and plan 90's warning to purge `(`-assuming heuristics first | 07, 34 | `not-started` |
 | 41 | `tree-sitter-grammar` | `tree-sitter-redox/` per doc 02 §5.4: `grammar.js` plus an external scanner for INDENT/DEDENT, the generated parser, `highlights`/`injections`/`locals` queries, and a corpus suite — which doubles as an independent check on the grammar's shape (doc 02 §9.4). The cost is disclosed, not hidden: an indentation-sensitive tree-sitter grammar is genuinely fiddly, and it is a second grammar to keep in sync with plan 46's inventory | Emerald plan 24's `tree-sitter-emerald` layout and corpus-test convention | 19 | `not-started` — **scope narrowed 2026-11-08**: the editor configs this row carried moved to plan 49, which names Vim, Neovim, VSCode and Cursor explicitly and is too large to ride along with a grammar |
