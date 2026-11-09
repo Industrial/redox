@@ -2,6 +2,7 @@ use crate::emit::ascribed_list::ascribed_list;
 use crate::emit::case::emit_case;
 use crate::emit::coalesce::coalesce;
 use crate::emit::comprehension::emit_comprehension;
+use crate::emit::emit_do::emit_do;
 use crate::emit::expr_list::expr_list;
 use crate::emit::panic_macro::panic_macro;
 use crate::emit::pipeline::pipeline;
@@ -11,6 +12,7 @@ use crate::emit::record::emit_record;
 use crate::emit::rust_escapes::rust_escapes;
 use crate::emit::rust_indent::RUST_INDENT;
 use crate::emit::section::emit_section;
+use crate::emit::unparen::unparen;
 use redox_ast::{BinaryOp, Expr};
 
 /// Render an expression as Rust, starting at column `indent`.
@@ -80,6 +82,23 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
     Expr::Case {
       scrutinee, arms, ..
     } => emit_case(scrutinee, arms, indent),
+    // Doc 01 §8's conditional expression — plan 20. One line, because Rust's
+    // own `if` expression is one when its arms are: see
+    // `SINGLE_LINE_IF_ELSE_MAX_WIDTH` for when rustfmt disagrees.
+    Expr::If {
+      condition,
+      then,
+      otherwise,
+      ..
+    } => format!(
+      "if {} {{ {} }} else {{ {} }}",
+      emit_expr(unparen(condition), indent),
+      emit_expr(unparen(then), indent),
+      emit_expr(unparen(otherwise), indent)
+    ),
+    // Doc 03 §7.2's `do` block — plan 20. A block expression, labelled when
+    // the author labelled it.
+    Expr::Do { label, body, .. } => emit_do(label, body, indent),
     Expr::Unit { .. } => "()".to_string(),
     // Rust's try operator, unchanged. The receiver needs parentheses for the
     // same reason a method call's does: `?` binds tighter than any operator.

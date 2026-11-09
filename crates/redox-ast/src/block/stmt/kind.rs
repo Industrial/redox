@@ -28,6 +28,76 @@ pub enum StmtKind {
     /// The callback-taking expression.
     value: Expr,
   },
+  /// `counter += 1` — doc 01 §4.3's compound assignment, plan 20.
+  ///
+  /// **The only assignment spelling docs 01, 03 and 18 define.** §4.3 shows
+  /// `mut counter = 0` followed by `counter += 1`, doc 18 §2.5's
+  /// `increment self = self.value += 1` uses it on a *field*, and plain
+  /// reassignment — `counter = 2` — appears nowhere: at statement level
+  /// `x = v` is a binding, and telling a rebinding from a binding would need
+  /// scope tracking Redox does not have and AGENTS.md forbids it growing.
+  ///
+  /// So this plan implements the five compound operators and no more, and
+  /// plan 20 §10 records the consequence: a loop can advance a counter and
+  /// cannot rebind a non-numeric variable.
+  ///
+  /// The target is an **expression**, not a name, because §2.5's example
+  /// assigns to `self.value`.
+  Assign {
+    target: Expr,
+    /// One of `Add`, `Sub`, `Mul`, `Div`, `Rem`, emitted as `+=` and so on.
+    /// Reusing `BinaryOp` rather than a second enum keeps the spelling in one
+    /// place — the operator's Rust text plus `=`.
+    op: crate::BinaryOp,
+    value: Expr,
+  },
+  /// `if c` with an indented block — doc 01 §8, plan 20.
+  ///
+  /// The **statement** form. `if c then a else b` is an expression and lives
+  /// in `Expr::If`; the two are told apart by whether `then` follows the
+  /// condition, which doc 18 §7 arrives the keyword for.
+  If {
+    condition: Expr,
+    then_block: crate::Block,
+    /// `else` or `else if`, where the second is an `else` whose block holds
+    /// one `If` statement — which is how Rust reads it too.
+    otherwise: Option<crate::Block>,
+  },
+  /// `while c` and `until c` — doc 03 §7.7, plan 20.
+  ///
+  /// One node with a flag, because `until` is `while` with a negation and
+  /// nothing else. Plan 16 made the same call for `const` and `static`.
+  While {
+    condition: Expr,
+    /// `until` rather than `while`. The emitted condition is **parenthesised**
+    /// when set: `until a && b` is `while !(a && b)`, and `while !a && b`
+    /// would be a different loop that differs on the second iteration and
+    /// nowhere else — doc 02 §5.2's worst failure mode.
+    negated: bool,
+    body: crate::Block,
+    label: Option<String>,
+  },
+  /// `for x <- xs` — doc 18 §3's fourth position for `<-`, plan 20.
+  For {
+    binder: crate::Ident,
+    source: Expr,
+    body: crate::Block,
+    label: Option<String>,
+  },
+  /// `loop` — doc 03 §7.7, *"required by the break-with-value idiom"*.
+  Loop {
+    body: crate::Block,
+    label: Option<String>,
+  },
+  /// `break`, `break v`, `break 'l`, `break 'l v` — doc 03 §7.2, plan 20.
+  Break {
+    label: Option<String>,
+    value: Option<Expr>,
+  },
+  /// `continue` and `continue 'l`.
+  Continue {
+    label: Option<String>,
+  },
   /// `assert e`, doc 03 §12.6's assertion spelling.
   ///
   /// A statement rather than a call, because `assert` is a reserved word —

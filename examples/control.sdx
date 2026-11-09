@@ -1,0 +1,105 @@
+-- Doc 01 §8's control flow, as doc 18 §1.1 leaves it — plan 20.
+--
+-- Doc 18 deletes `cond`, `unless` and every postfix form, so what is left is
+-- `if`, `while`, `until`, `for`, `loop`, `do`, `break` and `continue`. Each
+-- one lowers to the Rust construct of the same name; `until` is the only
+-- rewrite.
+--
+-- Checked by compiling and **running** with zero rustc output, because the
+-- one thing a golden cannot catch here is an `until` parenthesised wrongly.
+
+-- `if` with an indented block is a statement, and `else if` chains as Rust's
+-- does — an `else` whose branch is another `if`.
+classify :: i32 -> ()
+classify n =
+  if n > 0
+    print "positive"
+  else if n < 0
+    print "negative"
+  else
+    print "zero"
+
+-- `if c then a else b` is an *expression*, told apart from the statement by
+-- `then`. One keyword decides which of the two nodes the parser builds.
+tier :: i32 -> &'static str
+tier n = if n > 9 then "big" else "small"
+
+-- `until c` is `while !(c)`, **parenthesised**. This is the case the run
+-- catches and the text cannot: stop once `n` is over 5 *and* even.
+--
+--   `while !(n > 5 && n % 2 == 0)`  runs to n = 6   — correct
+--   `while !(n > 5) && n % 2 == 0`  stops at n = 1  — the missing parentheses
+--
+-- The two agree on the first iteration and part company on the second, so
+-- only the printed value tells them apart.
+settle :: i32
+settle =
+  mut n = 0
+  until n > 5 && n % 2 == 0
+    n += 1
+  n
+
+-- `for x <- xs` is `for x in xs`. A range needs no special case: `1 .. 4` is
+-- an ordinary expression, and the receiver rule parenthesises it where `.`
+-- would otherwise bind tighter.
+count_up :: ()
+count_up =
+  for c <- 1 .. 4
+    print c
+
+-- A label goes before the keyword and reaches a `break` in a nested loop —
+-- the one thing an unlabelled `break` cannot do, since it leaves the inner
+-- loop only.
+nested :: i32
+nested =
+  mut seen = 0
+  'outer loop
+    for d <- 1 .. 9
+      seen += 1
+      if d > 2
+        break 'outer
+  seen
+
+-- `do` is a block expression, and `do 'name` is a labelled block — which is
+-- how a value leaves a loop that is not the last expression of a function.
+first_square_over :: i32 -> i32
+first_square_over limit = do 'search
+  for c <- 1 .. 20
+    if c * c > limit
+      break 'search c
+  0
+
+-- `return` inside a loop inside a function needs nothing from this plan: the
+-- statement already existed, and a loop body is a statement list like any
+-- other. Asserted rather than assumed.
+first_divisor :: i32 -> i32
+first_divisor n =
+  for d <- 2 .. 20
+    if n % d == 0
+      return d
+  n
+
+-- `continue` skips the rest of an iteration; labelled, it skips to the next
+-- turn of an outer loop.
+odd_sum :: i32
+odd_sum =
+  mut total = 0
+  for c <- 1 .. 10
+    if c % 2 == 0
+      continue
+    total += c
+  total
+
+main :: ()
+main =
+  classify 3
+  classify (0 - 3)
+  classify 0
+  print (tier 4)
+  print (tier 40)
+  print (settle ())
+  count_up ()
+  print (nested ())
+  print (first_square_over 30)
+  print (first_divisor 91)
+  print (odd_sum ())

@@ -1,4 +1,5 @@
 use crate::emit::assert_call::assert_call;
+use crate::emit::emit_control::emit_control;
 use crate::emit::expr::emit_expr;
 use crate::emit::inline_comment::emit_inline_comment;
 use crate::emit::pad::pad;
@@ -23,6 +24,23 @@ use redox_ast::{Stmt, StmtKind};
 pub(crate) fn emit_stmt(out: &mut Sink<'_>, stmt: &Stmt, indent: usize, tail: bool) {
   out.mark(stmt.span);
   emit_trivia(out, &stmt.leading, indent);
+
+  // Plan 20's control flow writes its own padding, its own braces and its own
+  // trailing newline, because each form spans lines and an `else if` has to
+  // reuse the line its `}` is on.
+  if matches!(
+    stmt.kind,
+    StmtKind::If { .. }
+      | StmtKind::While { .. }
+      | StmtKind::For { .. }
+      | StmtKind::Loop { .. }
+      | StmtKind::Break { .. }
+      | StmtKind::Continue { .. }
+  ) {
+    emit_control(out, &stmt.kind, indent);
+    return;
+  }
+
   pad(out, indent);
   match &stmt.kind {
     StmtKind::Expr(e) => {
@@ -60,6 +78,25 @@ pub(crate) fn emit_stmt(out: &mut Sink<'_>, stmt: &Stmt, indent: usize, tail: bo
     StmtKind::Assert(e) => {
       out.push_str(&assert_call(e, indent));
       out.push(';');
+    }
+    // Doc 01 §4.3's compound assignment — plan 20. The operator's own Rust
+    // text plus `=`, so the five share one arm.
+    StmtKind::Assign { target, op, value } => {
+      out.push_str(&format!(
+        "{} {}= {};",
+        emit_expr(unparen(target), indent),
+        op.rust_text().unwrap_or("/* unsupported */"),
+        emit_expr(unparen(value), indent)
+      ));
+    }
+    // Written above, before the padding — plan 20.
+    StmtKind::If { .. }
+    | StmtKind::While { .. }
+    | StmtKind::For { .. }
+    | StmtKind::Loop { .. }
+    | StmtKind::Break { .. }
+    | StmtKind::Continue { .. } => {
+      unreachable!("a control-flow statement is written by `emit_control`")
     }
     StmtKind::Return(value) => {
       out.push_str("return");

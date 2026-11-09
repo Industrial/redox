@@ -152,7 +152,14 @@ part of leaf 2's nodes, so this leaf is the block form and the `'name:` prefix.
 
 `StmtKind::Break { label, value }` and `StmtKind::Continue { label }`.
 
-### Leaf 5 — `leaf-proof-and-gate`
+### Leaf 5 — `leaf-assignment`
+
+**Added during implementation, not planned.** `StmtKind::Assign { target, op, value }` for
+doc 01 §4.3's five compound operators. No row owned statement-level assignment, and §3's
+counting loop does not terminate without it — §10.1 and §10.2 record why it landed here and
+what it deliberately does not cover.
+
+### Leaf 6 — `leaf-proof-and-gate`
 
 `examples/control.sdx`, emit tests per construct, a golden, and the gate.
 
@@ -175,6 +182,11 @@ part of leaf 2's nodes, so this leaf is the block form and the `'name:` prefix.
 10. `examples/control.sdx` compiles with **zero** rustc output, runs, and matches its
     `.stdout`; a golden covers the text.
 11. Any new diagnostic has an `RDX` code reached by the UI corpus.
+12. `n += 1` and the other four compound operators emit their Rust, and a compound
+    assignment to a field — doc 18 §2.5's `self.value += 1` — works, because the target is
+    an expression and not a name. *Added with leaf 5.*
+13. A plain `=` is still a **binding**, asserted, so §10.2's disclosed limit is a tested
+    fact rather than an accident. *Added with leaf 5.*
 
 ---
 
@@ -188,6 +200,10 @@ part of leaf 2's nodes, so this leaf is the block form and the `'name:` prefix.
   `while Some v <- x` is not this plan, and the `while` it would use is.
 - **`for` over a range needs no special case**, because `1 .. 4` is an expression and the
   receiver rule parenthesises it — the same machinery plan 13's comprehension needed.
+- **Plain reassignment** — `counter = 2` — is not deferred, it is **unspecified**: no
+  surface doc gives it a spelling, and telling it from a binding needs scope tracking
+  AGENTS.md forbids. §10.2 states the consequence: a loop can advance a numeric accumulator
+  and cannot rebind anything else.
 - **Loop labels on a `do` block that is not a loop** are legal Rust (`'a: { break 'a v }`)
   and this plan emits them, but `continue 'a` on a block label is not. Redox will emit it
   and rustc will reject it, which is the division of labour AGENTS.md states.
@@ -222,4 +238,93 @@ moon run :check :lint :test :cargo-check :cargo-test :ci-format :audit
 
 ## 10. Result
 
-*Filled in when the plan ships, including anything above that turned out wrong.*
+Shipped. 563 tests pass; `fmt`, `clippy -D warnings` and
+`moon run :check :lint :cargo-check` are green. Every criterion is met as written, and the
+plan grew one leaf it did not have.
+
+### 10.1 No row owned assignment, and loops do not work without it
+
+§3 asked for *"a loop that counts"*. The first attempt at one emitted this:
+
+```rust
+while n < 3 {
+    let n = n + 1;      // a new binding, shadowing the old
+}
+```
+
+— an infinite loop that compiles. Redox had no assignment statement at all: at statement
+level `x = v` is a **binding**, and nothing else accepted a `=`.
+
+Doc 01 §4.3 answers it in two lines — `mut counter = 0` then `counter += 1` — and doc 18
+§2.5's `increment self = self.value += 1` uses the same form on a field. So the surface was
+specified; no plan had claimed it. Doc 04 row 16 was module-scope bindings, row 20 is
+control flow, and compound assignment fell between them. It is implemented here, because a
+`while` whose body cannot change its condition is not a loop, and shipping row 20 without
+it would have shipped a construct that cannot be used correctly.
+
+This is the fourth time a row's scope was smaller than the thing it claimed to deliver —
+after plan 14's doc 03 §13.5, plan 16's `const fn`, and plan 18's `use T::*`.
+
+### 10.2 Plain reassignment has no spelling, in any specification
+
+The five compound operators are what docs 01, 03 and 18 define, and **plain reassignment
+appears in none of them**. `counter = 2` is a binding wherever it is written.
+
+This is not an implementation gap that a later plan closes by trying harder. Telling a
+rebinding from a binding means knowing whether the name is already bound, which is scope
+tracking — and AGENTS.md's rule is that every check rustc can make, rustc makes. Redox has
+no scope table and must not grow one for this.
+
+So the consequence is disclosed rather than designed around: **a loop can advance a numeric
+accumulator and cannot rebind anything else.** `examples/control.sdx` is written within that
+limit — every mutating loop in it uses `+=` — and `a_plain_equals_is_still_a_binding`
+asserts the boundary so the limit is a tested fact and not an accident waiting to be
+"fixed".
+
+If the limit ever has to go, the spelling is the decision, not the implementation: a
+distinct token (`:=`) costs one lexer arm and no analysis, which is the shape of answer this
+project can afford. That belongs in a surface-design doc, not in a plan.
+
+### 10.3 The parenthesisation is the only thing here a golden cannot catch
+
+Criterion 3 is the plan's reason for existing, and §9's decision 2 called it correctly.
+`until n > 5 && n % 2 == 0` lowers to:
+
+```rust
+while !(n > 5 && n % 2 == 0) { n += 1 }      // settles at n = 6
+while !(n > 5) && n % 2 == 0 { n += 1 }      // stops at n = 1
+```
+
+Both are legal Rust, both read correctly at a glance, and they agree on the first iteration.
+`examples/control.sdx` prints `6`, so the wrong lowering fails the run corpus with a
+one-character diff — doc 02 §5.2's worst failure mode, caught by the only corpus that can
+catch it.
+
+`until_parenthesises_a_single_term_as_well` pins the no-special-case decision too:
+`until done` is `while !(done)`, not `while !done`. The tighter form is correct there and
+would be a special case, so there is none.
+
+### 10.4 What criterion 9 was right to ask for
+
+§1.6 claimed `return` inside a loop *"for free"*, and it was free — a loop body is a
+statement list, and `StmtKind::Return` predates this plan. Criterion 9 asserted it anyway,
+which is the practice plan 14 established after §1.1's identical free-of-charge claim turned
+out to be false. Free claims are cheap to assert and the assertion is what makes them facts.
+
+### 10.5 The architecture tests caught a fifth thing
+
+`emit/do_block.rs` declared `emit_do`, and doc 06 §2.3 requires the path to name the
+construct — `emit_do.rs` by the stem, or `emit/do.rs` by parent-plus-stem, and the second is
+unavailable because `do` is a keyword and the `mod` declaration would not parse. Renamed to
+`emit/emit_do.rs`, the same resolution plan 16 reached for `emit_const.rs`.
+
+Fifth time these tests found something that reading the file did not. Both are worth the
+twenty seconds they cost.
+
+### 10.6 The nullary call, which is a surface rule and not a defect
+
+`print settle` emitted `println!("{}", settle)` — the function item, which rustc rejects
+with *"use parentheses to call this function"*. Doc 18 §7 replaced doc 03 §5.2's `!`
+zero-argument suffix with `f ()`, so the call is spelled `settle ()`: juxtaposition needs
+something to juxtapose, and a lone `()` is the empty argument list. The example was wrong,
+not the emitter — and rustc said so, which is the division of labour working.

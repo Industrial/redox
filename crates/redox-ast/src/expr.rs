@@ -137,6 +137,31 @@ pub enum Expr {
     qualifiers: Vec<Qualifier>,
     span: Span,
   },
+  /// `if c then a else b` — doc 01 §8's conditional **expression**, plan 20.
+  ///
+  /// Doc 18 §7 arrives `then` for exactly this construct and nothing else
+  /// uses the word, which is why two surface forms exist for one Rust
+  /// construct: the alternative is a reserved keyword with no use.
+  ///
+  /// The `else` is not optional. Rust's `if` without one has type `()`, so a
+  /// conditional *expression* that omitted it could only ever be a statement
+  /// — and the statement form is `StmtKind::If`.
+  If {
+    condition: Box<Expr>,
+    then: Box<Expr>,
+    otherwise: Box<Expr>,
+    span: Span,
+  },
+  /// `do` and `do 'label` — doc 03 §7.2's block expression, plan 20.
+  ///
+  /// An expression, because §7.2's own example assigns one to a binding. The
+  /// labelled form is Rust's labelled block, native since 1.65, which is what
+  /// *"permitting early exit with a value"* needs.
+  Do {
+    label: Option<String>,
+    body: crate::Block,
+    span: Span,
+  },
   /// `e.await` — doc 03 §14.3's postfix await, plan 15.
   ///
   /// **A correction, not a feature.** Doc 01 §24 specified prefix `await`,
@@ -234,6 +259,8 @@ impl Expr {
       | Expr::Unit { span }
       | Expr::Try { span, .. }
       | Expr::Await { span, .. }
+      | Expr::If { span, .. }
+      | Expr::Do { span, .. }
       | Expr::List { span, .. }
       | Expr::Comprehension { span, .. }
       | Expr::Num { span, .. }

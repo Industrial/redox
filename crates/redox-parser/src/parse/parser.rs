@@ -10,18 +10,22 @@ pub(crate) mod case_of;
 pub(crate) mod class_body;
 pub(crate) mod class_decl;
 pub(crate) mod class_member;
+pub(crate) mod compound_assign;
 pub(crate) mod const_decl;
 pub(crate) mod constraints;
 pub(crate) mod constructor;
 pub(crate) mod constructor_fields;
+pub(crate) mod control_flow;
 pub(crate) mod data_decl;
 pub(crate) mod deriving;
+pub(crate) mod do_block;
 pub(crate) mod error_variant;
 pub(crate) mod errors_decl;
 pub(crate) mod field_decl;
 pub(crate) mod field_init;
 pub(crate) mod flush_word;
 pub(crate) mod generalise;
+pub(crate) mod if_expression;
 pub(crate) mod import_decl;
 pub(crate) mod import_path;
 pub(crate) mod instance_decl;
@@ -66,8 +70,10 @@ pub(crate) mod visibility;
 use crate::ParseError;
 use crate::parse::parser::capture_type::capture_type;
 use crate::parse::parser::class_decl::class_decl;
+use crate::parse::parser::compound_assign::compound_assign;
 use crate::parse::parser::const_decl::const_decl;
 use crate::parse::parser::constraints::constraints;
+use crate::parse::parser::control_flow::control_flow;
 use crate::parse::parser::data_decl::data_decl;
 use crate::parse::parser::errors_decl::errors_decl;
 use crate::parse::parser::generalise::generalise;
@@ -508,6 +514,74 @@ impl<'a> Parser<'a> {
     self.statements()
   }
 
+  /// An indented block of statements, for a construct whose body is one.
+  ///
+  /// `indented_block` with a line break in front of it, which every
+  /// control-flow body needs and no other caller does: an `if`'s condition
+  /// ends its line, and the block opens on the next.
+  pub(crate) fn statement_block(&mut self, message: &str) -> Result<Block, ParseError> {
+    self.newline_with_trailing("expected a line break before the body")?;
+    self.indented_block(Code::EmptyBody, message)
+  }
+
+  /// Whether the statement ends here — a line break, a dedent, or the end of
+  /// the file.
+  ///
+  /// What tells `break` from `break v`, and the same test `return` already
+  /// made inline. Named once now that two statements ask it.
+  pub(crate) fn at_statement_end(&self) -> bool {
+    self.check(&TokenKind::Newline) || self.check(&TokenKind::Dedent) || self.at_eof()
+  }
+
+  /// `if c` with an indented block, and its `else` — doc 01 §8, plan 20.
+  ///
+  /// `else if` is read by recursion: the `else` branch is a block holding one
+  /// `If` statement, which is how Rust reads it and what lets the emitter
+  /// write `} else if … {` without a third node.
+  pub(crate) fn if_statement(&mut self) -> Result<StmtKind, ParseError> {
+    self.expect(&TokenKind::Kw(Keyword::If), "expected `if`")?;
+    let condition = parse_expr(self, 0)?;
+    let then_block = self.statement_block("expected an indented `if` body")?;
+
+    self.skip_separators();
+    if !self.check(&TokenKind::Kw(Keyword::Else)) {
+      return Ok(StmtKind::If {
+        condition,
+        then_block,
+        otherwise: None,
+      });
+    }
+    self.advance();
+
+    // `else if` — one statement in a block of its own, so the chain is a
+    // chain and the emitter needs no special case.
+    if self.check(&TokenKind::Kw(Keyword::If)) {
+      let start = self.peek_span().0;
+      let nested = self.if_statement()?;
+      let end = self.prev_span().1;
+      return Ok(StmtKind::If {
+        condition,
+        then_block,
+        otherwise: Some(Block {
+          stmts: vec![Stmt {
+            kind: nested,
+            span: (start, end),
+            leading: Vec::new(),
+            trailing: None,
+          }],
+          span: (start, end),
+        }),
+      });
+    }
+
+    let otherwise = self.statement_block("expected an indented `else` body")?;
+    Ok(StmtKind::If {
+      condition,
+      then_block,
+      otherwise: Some(otherwise),
+    })
+  }
+
   /// Doc 18 §2.2's `where` locals, if the clause has any.
   ///
   /// ```text
@@ -639,6 +713,20 @@ impl<'a> Parser<'a> {
     let leading = self.peek_leading();
     let start = self.peek_span().0;
 
+    // Plan 20's control flow comes first: every one of its forms begins with
+    // a keyword or a label, none of which can begin an expression, so asking
+    // here costs one comparison and no backtracking.
+    if let Some(kind) = control_flow(self)? {
+      let end = self.prev_span().1;
+      let trailing = self.newline_with_trailing("expected a line break after the statement")?;
+      return Ok(Stmt {
+        kind,
+        span: (start, end),
+        leading,
+        trailing,
+      });
+    }
+
     let kind = if self.check(&TokenKind::Kw(Keyword::Assert)) {
       self.advance();
       StmtKind::Assert(parse_expr(self, 0)?)
@@ -654,7 +742,18 @@ impl<'a> Parser<'a> {
     } else if let Some(binding) = self.try_binding()? {
       StmtKind::Binding(binding)
     } else {
-      StmtKind::Expr(parse_expr(self, 0)?)
+      let value = parse_expr(self, 0)?;
+      // Doc 01 §4.3's compound assignment, read after the place expression
+      // because the five tokens can only follow one. A plain `=` here is a
+      // *binding*, which `try_binding` already took.
+      match compound_assign(self) {
+        Some(op) => StmtKind::Assign {
+          target: value,
+          op,
+          value: parse_expr(self, 0)?,
+        },
+        None => StmtKind::Expr(value),
+      }
     };
 
     let end = self.prev_span().1;
