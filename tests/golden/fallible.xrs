@@ -149,10 +149,13 @@ fn main() {
 
     println!("{}", first_name(&u).is_some());
     println!("{}", first_name(&empty).is_some());
-    println!("{}", describe_tag(first_tag(&u).unwrap()));
-    println!("{}", nickname_of(&u).unwrap().is_none());
+    // `u` is `Some` by construction, so these three unwraps cannot panic. Doc
+    // 03 §12.7's lint fires on the name alone — it has no types and so cannot
+    // know that — and the pragma is how an author says they do.
+    println!("{}", describe_tag(first_tag(&u).unwrap())); // redox: allow unwrap
+    println!("{}", nickname_of(&u).unwrap().is_none()); // redox: allow unwrap
 
-    println!("{}", attempt("1", "2").unwrap());
+    println!("{}", attempt("1", "2").unwrap()); // redox: allow unwrap
     println!("{}", attempt("1", "no").is_err());
     println!("{}", after_a_failed_try());
 }

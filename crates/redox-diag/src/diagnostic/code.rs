@@ -83,6 +83,19 @@ pub enum Code {
   /// `ModuleScopeBinding` exists for doc 01 §4.3.
   EllipsisRestPattern,
 
+  // ---- lints: RDX1000+ ----
+  /// `unwrap` or `expect` used — doc 03 §12.7, plan 38.
+  ///
+  /// The **first lint**, and the first diagnostic in the project that is not
+  /// an error: §12.7 makes these *"lintable rather than prohibited"*, so the
+  /// build succeeds and the author decides. Suppressible per line with
+  /// `-- redox: allow unwrap`.
+  ///
+  /// Detected lexically — a `.` then the name — so a user's own method called
+  /// `unwrap` warns too. Plan 38 §1.5 takes that trade: the warning is
+  /// suppressible, and the alternative needs a type checker AGENTS.md forbids.
+  UnwrapUsed,
+
   // ---- doc 03 §17's published surface codes: RDX0040-RDX0099 ----
   /// `return` inside a `with` callback's tail — doc 03 §7.6, plan 30.
   ///
@@ -133,6 +146,8 @@ impl Code {
       Self::ModuleScopeBinding => 106,
       Self::PatternUntil => 107,
       Self::EllipsisRestPattern => 108,
+      // Doc 03 §17's published number, and the first in the lint band.
+      Self::UnwrapUsed => 1001,
       // Doc 03 §17's published assignment, not the next free number.
       Self::ReturnInCallbackTail => 44,
     }
@@ -167,6 +182,7 @@ impl Code {
       Self::ModuleScopeBinding,
       Self::PatternUntil,
       Self::EllipsisRestPattern,
+      Self::UnwrapUsed,
       Self::ReturnInCallbackTail,
     ]
   }
@@ -206,8 +222,8 @@ mod tests {
         );
       } else {
         assert!(
-          (40..=99).contains(&n) || (100..=199).contains(&n),
-          "{code:?} is {n}, outside RDX0040-0099 and RDX0100-0199"
+          (40..=99).contains(&n) || (100..=199).contains(&n) || n >= 1000,
+          "{code:?} is {n}, outside RDX0040-0099, RDX0100-0199 and the RDX1000+ lint band"
         );
       }
     }

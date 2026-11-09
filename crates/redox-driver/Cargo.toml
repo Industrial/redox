@@ -12,4 +12,7 @@ license.workspace = true
 blake3 = "1"
 redox-diag = { path = "../redox-diag" }
 redox-emit = { path = "../redox-emit" }
+# Plan 38: `RDX1001` is a lexical lint — a `.` then the name — so the driver
+# scans tokens rather than walking an AST that could silently miss a variant.
+redox-lexer = { path = "../redox-lexer" }
 redox-parser = { path = "../redox-parser" }

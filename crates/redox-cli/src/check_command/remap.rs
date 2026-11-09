@@ -44,11 +44,27 @@ pub(crate) fn remap(
       .unwrap_or_else(|| message.level.clone()),
   );
 
+  // rustc's level, now that plan 38 gives it somewhere to go. Before the
+  // severity existed, a rustc warning rendered as `error[warning]` — the
+  // comment above says the fallback exists to avoid an empty `error[]`, and
+  // the result was a worse lie than the one it prevented.
+  //
+  // Plan 38 §1.2 said this path was unaffected, and §10 records why it was
+  // changed anyway: once a severity exists, rendering a warning as an error is
+  // a defect one would be *choosing* to leave. It changes only the rendering —
+  // `check` already does not fail on a rustc warning.
+  let severity = if message.level == "warning" {
+    redox_diag::Severity::Warning
+  } else {
+    redox_diag::Severity::Error
+  };
+
   match map.origin(message.line) {
     Some(origin) => {
       let shifted = origin.map_col(message.col);
       Diagnostic {
         code,
+        severity,
         message: message.message.clone(),
         span: narrow(origin.span, sdx_source, origin.src_line, shifted),
         help: None,
@@ -60,6 +76,7 @@ pub(crate) fn remap(
       let offset = generated_offset(xrs_source, message.line, message.col);
       Diagnostic {
         code,
+        severity,
         message: message.message.clone(),
         span: (offset, offset + 1),
         help: Some(format!(

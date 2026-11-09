@@ -287,6 +287,21 @@ fn build(source: &Path, tag: &str) -> Case {
     source.display(),
     String::from_utf8_lossy(&out.stderr)
   );
+  // **Redox's own diagnostics count too, as of plan 38.** The corpus has
+  // always demanded zero *rustc* output; it said nothing about Redox's,
+  // because until `RDX1001` every Redox diagnostic was fatal and
+  // `status.success()` covered them all.
+  //
+  // A warning broke that: `examples/fallible.sdx` emitted three `RDX1001`s
+  // that nothing noticed. An example is exemplary code, so a lint firing on
+  // one is either a bug in the example or a deliberate exception that should
+  // say so with the pragma. Plan 38 §10 records it.
+  assert!(
+    out.stderr.is_empty(),
+    "redox should emit nothing for an example, got:\n{}\n\
+     if a warning is intended, suppress it at the call site and say why",
+    String::from_utf8_lossy(&out.stderr)
+  );
   let rust = std::fs::read_to_string(&xrs).expect("should read the generated .xrs");
   Case { rust, xrs, dir }
 }

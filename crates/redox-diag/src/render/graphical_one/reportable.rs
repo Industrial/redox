@@ -20,6 +20,7 @@ pub(crate) struct Reportable {
   help: Option<String>,
   span: (usize, usize),
   source: miette::NamedSource<String>,
+  severity: crate::Severity,
 }
 
 impl Reportable {
@@ -30,6 +31,7 @@ impl Reportable {
       help: d.help.clone(),
       span: anchor_span(&d.source, d.span),
       source: miette::NamedSource::new(&d.path, d.source.clone()).with_language("Rust"),
+      severity: d.severity,
     }
   }
 }
@@ -51,6 +53,12 @@ impl std::error::Error for Reportable {}
 impl miette::Diagnostic for Reportable {
   fn code(&self) -> Option<Box<dyn std::fmt::Display + '_>> {
     Some(Box::new(&self.code))
+  }
+
+  /// What decides whether the rendered line reads `error[RDX…]` or
+  /// `warning[RDX…]` — doc 03 §12.7, plan 38.
+  fn severity(&self) -> Option<miette::Severity> {
+    Some(self.severity.to_miette())
   }
 
   fn help(&self) -> Option<Box<dyn std::fmt::Display + '_>> {

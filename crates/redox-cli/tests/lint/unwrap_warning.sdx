@@ -1,0 +1,14 @@
+-- Doc 03 §12.7's `unwrap` discouragement — `RDX1001`, plan 38.
+--
+-- **This program compiles.** It is the first UI case that does: every other
+-- asserts a failure, and this one asserts that a warning is a warning. §12.7
+-- makes `unwrap` and `expect` "lintable rather than prohibited", so the build
+-- succeeds and the author decides.
+--
+-- The message names the ergonomic path — `?`, `??`, `catch` — which is the
+-- only thing this lint has that `clippy::unwrap_used` does not.
+main :: ()
+main =
+  raw = Some 7
+  port = raw.unwrap ()
+  print port

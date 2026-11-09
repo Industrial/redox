@@ -1,5 +1,6 @@
 pub(crate) mod code;
 pub(crate) mod diagnostic_code;
+pub(crate) mod severity;
 
 use crate::Span;
 use crate::diagnostic::diagnostic_code::DiagnosticCode;
@@ -18,6 +19,12 @@ use crate::diagnostic::diagnostic_code::DiagnosticCode;
 pub struct Diagnostic {
   /// Redox's own code, or another compiler's passed through (plan 07).
   pub code: DiagnosticCode,
+  /// Whether this stops the build — doc 03 §12.7's lint band, plan 38.
+  ///
+  /// `Error` by default, so every construction that predates `RDX1001` means
+  /// what it meant and a new one that forgets to say is fatal rather than
+  /// silent.
+  pub severity: crate::Severity,
   pub message: String,
   pub span: Span,
   /// A one-line suggestion, shown after the snippet.

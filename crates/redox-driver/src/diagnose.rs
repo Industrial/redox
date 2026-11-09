@@ -25,6 +25,7 @@ pub fn diagnose(path: &Path, source: &str, failure: &ParseFailure) -> Vec<Diagno
   match failure {
     ParseFailure::Lex(e) => vec![Diagnostic {
       code: e.code.into(),
+      severity: redox_diag::Severity::Error,
       message: e.message.clone(),
       span: e.span,
       help: e.help.clone(),
@@ -35,6 +36,7 @@ pub fn diagnose(path: &Path, source: &str, failure: &ParseFailure) -> Vec<Diagno
       .iter()
       .map(|e| Diagnostic {
         code: e.code.into(),
+        severity: redox_diag::Severity::Error,
         message: e.message.clone(),
         span: e.span,
         help: None,

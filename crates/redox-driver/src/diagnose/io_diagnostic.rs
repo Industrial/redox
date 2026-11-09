@@ -19,6 +19,7 @@ use redox_diag::{Diagnostic, DiagnosticCode};
 pub(crate) fn io_diagnostic(path: &str, message: String) -> Diagnostic {
   Diagnostic {
     code: DiagnosticCode::Foreign("io".to_string()),
+    severity: redox_diag::Severity::Error,
     message,
     span: (0, 0),
     help: None,

@@ -19,7 +19,10 @@ main =
   -- A generic type survives verbatim — doc 03 §14.1 — and the value is an
   -- application, because `Some 1` is juxtaposition like everything else.
   wide = Some 1 :: Option<u8>
-  print (wide.unwrap ())
+  -- `wide` is `Some` by construction two lines up, so the panic is
+  -- unreachable — doc 03 §12.7's lint is suppressed per line rather than
+  -- argued with.
+  print (wide.unwrap ())  -- redox: allow unwrap
   -- A multi-line lowering as a macro argument: `println!` keeps the call on
   -- one line and lets the block hang, which is the form rustfmt writes.
   print (1 + 1 :: u64)

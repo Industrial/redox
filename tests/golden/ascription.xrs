@@ -27,7 +27,10 @@ fn main() {
         let __rdx_t: Option<u8> = Some(1);
         __rdx_t
     };
-    println!("{}", wide.unwrap());
+    // `wide` is `Some` by construction two lines up, so the panic is
+    // unreachable — doc 03 §12.7's lint is suppressed per line rather than
+    // argued with.
+    println!("{}", wide.unwrap()); // redox: allow unwrap
     // A multi-line lowering as a macro argument: `println!` keeps the call on
     // one line and lets the block hang, which is the form rustfmt writes.
     println!("{}", {

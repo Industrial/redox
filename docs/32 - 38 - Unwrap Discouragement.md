@@ -3,7 +3,7 @@
 Plan ID: `panic-and-lints`
 Depends on: 05 (`diagnostics-miette`), 17 (`comments-as-trivia`), 23 (`strings-and-literals`)
 Milestone: 7 — *tooling*
-Status: `planned`
+Status: `done` — 2026-11-09
 
 ---
 
@@ -46,11 +46,14 @@ plan 30 established the whole-program-pass shape this lint needs.
 work is a `Severity` enum on `redox-diag`'s `Diagnostic`, defaulting to `Error` so no
 existing construction changes, and one `fn severity` in the miette impl.
 
-Plan 07's path is unaffected: it carries rustc's level as the code's text when rustc gave no
-code (`remap.rs`), which is a separate mechanism for a foreign diagnostic and stays as it is.
-This plan's severity is for **Redox's own** diagnostics, and §9's decision 2 records why the
-two are not unified: a foreign level is a string Redox must not interpret, and a Redox
-severity is a closed enum that decides whether the build fails.
+This plan's severity is for **Redox's own** diagnostics, and §9's decision 2 records why it
+is not the same thing as plan 07's level: a foreign level is a string Redox must not
+interpret, and a Redox severity is a closed enum that decides whether the build fails.
+
+**This section said plan 07's path was unaffected and would stay as it is. It was changed
+anyway** — §10.4. `remap.rs` fell back to rustc's level as the *code* text, so a rustc
+warning rendered as `error[warning]`, and once a severity existed leaving that was a defect
+one would be choosing. Mapping one to the other at a single boundary is not merging them.
 
 ### 1.3 Suppression: a comment, not an attribute
 
@@ -123,19 +126,18 @@ does not take it.
 
 ## 3. Concrete proof this plan targets
 
-Two UI cases, because this plan's deliverable is a message and the UI corpus is the only one
-that asserts rendered text:
+Two corpus cases, because this plan's deliverable is a message and only a corpus of rendered
+text can assert one:
 
-- `tests/ui/unwrap_warning.sdx` — a program that **compiles successfully** and prints the
-  warning. This is new for the corpus: every case so far fails to compile, and this one must
-  not, which is criterion 4.
-- `tests/ui/unwrap_suppressed.sdx` — the same program with the pragma, whose `.stderr` is
-  **empty**. An expectation that asserts nothing is printed is the only way to prove
-  suppression works.
+- `unwrap_warning.sdx` — a program that **compiles successfully** and prints the warning.
+- `unwrap_suppressed.sdx` — the same program with the pragma, whose `.stderr` is **empty**.
+  An expectation that asserts nothing is printed is the only way to prove suppression works.
 
-Plus emit tests for the detection: `unwrap`, `expect`, the four `unwrap_or*` forms that must
-stay silent, a nested call site, and a user method named `unwrap` that warns anyway because
-§1.5 says it must.
+**These are not UI cases, and §10.1 records why they could not be.** `tests/ui/`'s harness
+asserts `!out.status.success()` — *"a UI case must be rejected"* — and that assertion is
+load-bearing, so a program that must succeed has no home there. The two live in a new
+`tests/lint/` corpus whose harness asserts the mirror invariant, and `code_coverage.rs` reads
+both directories and both severities.
 
 The suppressed case is the one a golden could not catch, and it is also the one that fails
 loudest if severity is wrong: if the warning is still an error, that program does not
@@ -153,16 +155,19 @@ build.
 
 ### Leaf 2 — `leaf-unwrap-lint`
 
-The pass: a walk over the AST finding `unwrap`/`expect` method calls, a whole-program pass as
-plan 30's `check_callback_tails` is, for the same no-double-reporting reason.
+The pass: a `.` followed by the name `unwrap` or `expect`, scanned over **tokens**.
+
+An `Expr` walker was written first and replaced, for the reason §10.5 records: a walker needs
+an arm per variant, and one that forgets a variant silently misses call sites while the suite
+stays green. A token scan cannot miss one.
 
 ### Leaf 3 — `leaf-suppression`
 
-The `-- redox: allow unwrap` pragma, read from a statement's trailing trivia.
+The `-- redox: allow unwrap` pragma, read from the trivia on any token of the line.
 
 ### Leaf 4 — `leaf-proof-and-gate`
 
-Two UI cases, the emit tests, and the gate.
+The `tests/lint/` corpus with its harness, the two cases, and the gate.
 
 ---
 
@@ -232,4 +237,90 @@ the design this plan has to change the first thing about.
 
 ## 10. Result
 
-*Filled in when the plan ships, including anything above that turned out wrong.*
+Shipped. 667 tests pass; `fmt`, `clippy -D warnings` and the gate are green. Row 38 is
+closed, and `RDX1000`+ is open with one code in it.
+
+§12.7's *"it costs nothing because no analysis is involved"* was right about the detection
+and §1.1 was right that it is wrong about everything else. Three of the five findings below
+are about machinery that had to exist before a warning could be printed at all.
+
+### 10.1 The UI corpus is an **error** corpus, by assertion
+
+§3 said a successful case would be *"new for the corpus"* and assumed the harness allowed
+one. It does not:
+
+```rust
+assert!(!out.status.success(), "a UI case must be rejected, but {} built successfully");
+```
+
+That assertion is load-bearing — a case meant to fail that quietly starts succeeding would
+otherwise pass — so relaxing it was not an option. The two warning cases went to a **new
+corpus**, `tests/lint/`, whose harness asserts the mirror invariant: the program must build,
+and its `.stderr` is whatever Redox said. The pair now covers both halves the way
+`examples/` (must run, zero output) and `tests/ui/` (must fail) already did.
+
+`code_coverage.rs` reads both directories and both severities as a result. It matched only
+lines beginning `error[`, so a catalogue whose first lint renders `warning[RDX1001]` would
+have called that lint unreachable and failed — a test that would have been right about the
+letter and wrong about the fact.
+
+### 10.2 `plain_one` hardcoded the word `error`
+
+```rust
+let mut out = format!("error[{}]: {}\n", d.code.text(), d.message);
+```
+
+Correct for thirty-odd codes and wrong for the thirty-first. The severity now picks the
+word, and the lint corpus's expectation reads `warning[RDX1001]` — which is criterion 7, and
+which would have passed a weaker test: the diagnostic *was* being rendered, with the right
+code, the right caret and the right help. Only the first word was a lie.
+
+### 10.3 The lint caught four real call sites, and the examples corpus did not notice
+
+`examples/fallible.sdx` had three `.unwrap ()` and `examples/ascription.sdx` one, and the
+suite stayed green — because the examples corpus demanded zero **rustc** output and said
+nothing about Redox's. It did not need to before: every Redox diagnostic was fatal, so
+`status.success()` covered them all. A warning broke that invariant silently.
+
+So `support.rs`'s `build` now asserts Redox's stderr is empty too, and the four sites carry
+the pragma with a sentence saying why the panic cannot happen. That is the lint working as
+designed on its first contact with real code: it has no types, it cannot know `u` is `Some`,
+and the pragma is how an author says so.
+
+It also puts the pragma in the example corpus, where a reader meets it beside the code it
+excuses rather than only in a test fixture.
+
+### 10.4 Plan 07's level finally meant something, and §1.2 was overruled
+
+§1.2 said *"plan 07's path is unaffected and stays as it is."* It was changed anyway, and the
+reason is in the code: `remap.rs`'s own comment says the code falls back to rustc's level
+*"to keep the rendered output from printing an empty `error[]`"* — so a rustc warning
+rendered as **`error[warning]`**, a worse lie than the one the fallback prevented.
+
+Once a `Severity` existed, leaving that was a defect one would be choosing. `check` already
+did not fail on a rustc warning, so the change is rendering only. Decision 2's substance
+stands — a foreign level is a string Redox must not interpret and a Redox severity is a
+closed enum — and mapping one to the other at a single boundary is not merging them.
+
+### 10.5 The lint scans tokens, and that was a correctness choice
+
+The first implementation was an `Expr` walker, and it needed `children_of` with an arm per
+variant. The problem is not the size: a walker that forgets a variant **silently misses call
+sites**, and nothing in the suite would notice, because a lint's absence looks like a clean
+program.
+
+A token scan — a `.` then the name — cannot miss one, gains an exact span for free, and says
+exactly what §12.7 says and nothing more. It knows less and is therefore right more often,
+which is the trade worth taking in a lint. The cost is lexing twice, named in the function's
+doc rather than hidden.
+
+### 10.6 What the pragma cost, and the one thing left ugly
+
+`-- redox: allow unwrap` works and reaches nothing downstream, which is what §1.3 wanted.
+What it costs is a second syntax inside comments, and the decision log said so before the
+code existed.
+
+The residue: suppression is **per line**, not per call site, so `a.unwrap () + b.unwrap ()`
+is suppressed together. §1.4 disclosed it as per *statement* and tokens made it per *line* —
+the same thing for every program anyone writes, and the finer unit needs the attribute §1.3
+ruled out.

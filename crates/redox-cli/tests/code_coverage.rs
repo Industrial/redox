@@ -11,7 +11,7 @@
 //!    change which error a program gets and no test objects.
 //!
 //! The corpus is the evidence for both: a code is covered when some
-//! `tests/ui/*.stderr` contains it. Declaring a code therefore obliges the
+//! `tests/ui/*.stderr` **or** `tests/lint/*.stderr` contains it. Declaring a code therefore obliges the
 //! author to write the program that triggers it, which is the cheapest moment
 //! to find out it cannot be triggered at all.
 
@@ -26,14 +26,28 @@ use std::path::Path;
 const NOT_YET_REACHABLE: &[(Code, &str)] = &[];
 
 fn codes_in_corpus() -> BTreeSet<String> {
-  let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/ui");
+  let root = Path::new(env!("CARGO_MANIFEST_DIR"));
   let mut found = BTreeSet::new();
-  for entry in std::fs::read_dir(&dir).expect("should read tests/ui") {
-    let path = entry.expect("should read an entry").path();
-    if path.extension().is_some_and(|x| x == "stderr") {
+  // Two corpora since plan 38, because they assert opposite things: a UI case
+  // must fail to build and a lint case must succeed. A warning has no home in
+  // the first, and giving it one would have cost `ui.rs` the assertion that
+  // makes it useful.
+  for name in ["tests/ui", "tests/lint"] {
+    let dir = root.join(name);
+    for entry in std::fs::read_dir(&dir).unwrap_or_else(|e| panic!("should read {name}: {e}")) {
+      let path = entry.expect("should read an entry").path();
+      if !path.extension().is_some_and(|x| x == "stderr") {
+        continue;
+      }
       let text = std::fs::read_to_string(&path).expect("should read an expectation");
       for line in text.lines() {
-        if let Some(rest) = line.strip_prefix("error[")
+        // **Both severities.** A lint renders `warning[RDX1001]`, and a
+        // catalogue that counted only errors would call its own first lint
+        // unreachable.
+        let rest = line
+          .strip_prefix("error[")
+          .or_else(|| line.strip_prefix("warning["));
+        if let Some(rest) = rest
           && let Some(code) = rest.split(']').next()
         {
           found.insert(code.to_string());

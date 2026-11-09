@@ -16,9 +16,18 @@ use std::fmt::Write as _;
 /// 1 | add = (a: i32)
 ///   |               ^
 /// ```
+///
+/// The first word is the **severity**, not a constant: plan 38's `RDX1001` is
+/// a warning, and this renderer said `error[RDX1001]` until it stopped being
+/// one. A hardcoded word is the kind of thing that stays right for thirty-odd
+/// codes and is wrong for the thirty-first.
 pub(crate) fn plain_one(d: &Diagnostic) -> String {
   let (line, col) = line_col(&d.source, d.span.0);
-  let mut out = format!("error[{}]: {}\n", d.code.text(), d.message);
+  let level = match d.severity {
+    crate::Severity::Error => "error",
+    crate::Severity::Warning => "warning",
+  };
+  let mut out = format!("{level}[{}]: {}\n", d.code.text(), d.message);
   let _ = writeln!(out, "  --> {}:{line}:{col}", d.path);
 
   if let Some((line, text, col)) = snippet_line(&d.source, line, col) {

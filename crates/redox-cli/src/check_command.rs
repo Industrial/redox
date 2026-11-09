@@ -37,6 +37,18 @@ pub(crate) fn check_command(args: &[String]) -> Result<(), String> {
   // A syntax error is Redox's own, and never reaches rustc.
   let program = redox_parser::parse_source(&source)
     .map_err(|failure| redox_diag::render(&diagnose(&args.input, &source, &failure), args.plain))?;
+
+  // Doc 03 §12.7's lints — plan 38. Reported and **not** fatal: §12.7 makes
+  // `unwrap` *"lintable rather than prohibited"*, so the warning goes to
+  // stderr and the command carries on.
+  //
+  // After the parse, because a warning about a program nobody can compile is
+  // noise, and before rustc runs, so Redox's own warnings are not
+  // buried under rustc's.
+  let warnings = redox_driver::lint(&args.input, &source);
+  if !warnings.is_empty() {
+    eprint!("{}", redox_diag::render(&warnings, args.plain));
+  }
   let (rust, map) = redox_emit::emit_with_map(&program, &source, &sdx_path);
 
   let rustc = rustc_path().ok_or_else(|| {

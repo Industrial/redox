@@ -19,6 +19,7 @@
 mod cache;
 mod compile_dir;
 mod diagnose;
+mod lint;
 
 pub use cache::fingerprint::Fingerprint;
 pub use cache::reporter::CacheReporter;
@@ -27,3 +28,4 @@ pub use compile_dir::compile_dir;
 pub use compile_dir::compiled::Compiled;
 pub use compile_dir::with::compile_dir_with;
 pub use diagnose::diagnose;
+pub use lint::lint;
