@@ -62,20 +62,26 @@ mod tests {
     }
   }
 
+  /// **No command advertises a plan**, because every declared command is now
+  /// built.
+  ///
+  /// This asserted the opposite until plan 34 — it required `fmt` to say
+  /// *"plan 34"* — and its own comment recorded the pattern: *"`watch` was
+  /// listed here until plan 12 implemented it, and this test failed when it
+  /// did, which is the usage text and the table staying in step."* `fmt` was
+  /// the last planned command, so the assertion inverts rather than moving to
+  /// another name.
+  ///
+  /// Plan 11 §2.1's guarantee is unchanged and still enforced: a `Ready`
+  /// command must not advertise a plan, and now none may, because none is
+  /// planned. A future row that declares a command ahead of itself makes this
+  /// fail and has to say so.
   #[test]
-  fn a_planned_command_is_marked_as_such() {
+  fn no_command_advertises_a_plan() {
     let text = usage();
     assert!(
-      text.contains("plan 34"),
-      "fmt should say it is plan 34:\n{text}"
-    );
-    // `watch` was listed here until plan 12 implemented it, and this test
-    // failed when it did — which is the usage text and the table staying in
-    // step, exactly what plan 11 §2.1 set out to guarantee. A `Ready` command
-    // must not advertise a plan.
-    assert!(
-      !text.contains("plan 12"),
-      "watch is implemented, so it should no longer name a plan:\n{text}"
+      !text.contains("plan "),
+      "every command is implemented, so none should name a plan:\n{text}"
     );
   }
 

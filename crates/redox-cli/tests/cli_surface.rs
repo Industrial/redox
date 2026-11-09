@@ -53,30 +53,33 @@ fn the_surface_is_exactly_doc_01_section_27() {
   }
 }
 
-/// Criterion 3: a declared-but-unimplemented command says so and names its
-/// plan — the distinction plan 11 §1.2 exists to make.
+/// Criterion 3: **every declared command is implemented.**
+///
+/// This test used to pick the one planned command and assert it said so, and
+/// its own comment recorded the pattern: *"`watch` was here too until plan 12
+/// implemented it, and this test failing was how plan 12 learned it had
+/// changed the surface."*
+///
+/// Plan 34 implemented `fmt`, which was the last one — so the test inverts.
+/// There is nothing left to assert *about* a planned command, and what is
+/// worth asserting is that the list is empty: doc 01 §27's surface is fully
+/// built, and a future row that declares a command ahead of itself will make
+/// this fail and have to say so.
+///
+/// The `Planned` rendering it used to check is unit-tested in
+/// `run/command.rs`, which is where it belongs — it is a property of the type,
+/// not of any command.
 #[test]
-fn a_planned_command_names_its_plan() {
-  // `fmt` is the only planned command left. `watch` was here too until plan 12
-  // implemented it, and this test failing was how plan 12 learned it had
-  // changed the surface — the table, the usage text and this test are kept in
-  // step by each other rather than by memory.
-  let (name, plan) = ("fmt", "plan 34");
-
-  let out = redox(&[name]);
-  let stderr = String::from_utf8_lossy(&out.stderr);
-  assert!(!out.status.success(), "`{name}` should not succeed yet");
+fn every_declared_command_is_implemented() {
+  let out = redox(&["--help"]);
+  let stdout = String::from_utf8_lossy(&out.stdout);
   assert!(
-    stderr.contains("not implemented yet"),
-    "`{name}` should say it is not implemented:\n{stderr}"
+    !stdout.contains("not implemented"),
+    "a command in the usage text is declared but unbuilt:\n{stdout}"
   );
   assert!(
-    stderr.contains(plan),
-    "`{name}` should name {plan}:\n{stderr}"
-  );
-  assert!(
-    !stderr.contains("unknown command"),
-    "`{name}` is declared by doc 01 §27, so it is not unknown:\n{stderr}"
+    !stdout.contains("plan "),
+    "the usage text names a plan, so some command is still planned:\n{stdout}"
   );
 }
 

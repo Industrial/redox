@@ -3,7 +3,7 @@
 Plan ID: `formatter`
 Depends on: 17 (`comments-as-trivia`), 33 (`destructuring-and-splat`), doc 30 (`<-` is await)
 Milestone: 6 — *full surface*
-Status: `planned`
+Status: `partial` — leaves 1 and 5 shipped 2026-11-09; §10 names what is owed
 
 ---
 
@@ -252,4 +252,124 @@ formatter is a solved problem *in this repository* because the emitter had to so
 
 ## 10. Result
 
-*Filled in when the plan ships, including anything above that turned out wrong.*
+**Leaf 1 and leaf 5 shipped; the row is `partial`.** 671 tests pass; `fmt`, `clippy -D
+warnings` and the gate are green. `redox fmt` and `redox fmt --check` work, the four
+properties of §1.4 hold over every `.sdx` in the repository, and §1.5's inversion is a test
+rather than an aspiration.
+
+What the row still owes: leaves 2, 3 and 4 — the item, expression, statement and pattern
+printers — and leaf 6, which cannot run until they exist. §1.2 said this would be the shape
+of it.
+
+### 10.1 What a span-slice formatter actually buys
+
+The increment canonicalises file-level structure and passes every item through verbatim,
+sliced from the source. That sounded modest when §1.2 proposed it and turned out to be the
+whole reason this went smoothly: a formatter that rewrites nothing **cannot** lose text,
+reorder anything, or change meaning, so §1.4's properties hold by construction and every
+later leaf has a green baseline to break.
+
+It is also already useful: it collapses blank-line runs, strips trailing whitespace, and
+normalises the trailing newline, which is most of what a formatter does to a file in
+practice.
+
+### 10.2 Three bugs, each caught by a different property
+
+The properties earned their place immediately. None of these was found by reading the code.
+
+- **A blank line grew per item**, caught by idempotence. A declaration's span runs to the
+  newline that ends it, so slicing to it and then adding a separator doubled the gap.
+- **A comment was emitted twice**, caught by the `--`-counting property on
+  `examples/case.sdx`. A declaration's span can reach *into the following comment*, which is
+  also the next item's leading trivia — so slicing both regions duplicated it. The fix is
+  the model: an item owns the source from its own start to the **next item's** start, which
+  makes the regions contiguous and disjoint, so text can neither duplicate nor vanish.
+- **Three adjacent imports were pushed apart**, caught by meaning-preservation on
+  `examples/async.sdx`. See §10.3 — this is the interesting one.
+
+### 10.3 A blank line between items is load-bearing, and the plan had it backwards
+
+The first version had a `SEPARATOR` constant and a doc comment arguing at length that there
+was **no exception**: one blank line between items, always, and plan 14 §10.2's import rule
+cited as the reason not to *remove* them.
+
+That reasoning was half right and the conclusion was wrong. Plan 14 §10.2 is that rustfmt's
+`reorder_imports` sorts within a **contiguous** block, so
+
+```text
+import core::task::Context
+import core::task::Poll
+import core::task::Waker
+```
+
+is one block rustfmt may sort, and three blank-line-separated imports are three blocks it may
+not. The author's grouping therefore decides what the generated Rust is allowed to do — in
+both directions. A formatter that *imposes* blank lines regroups every import in the corpus
+just as surely as one that removes them.
+
+So the rule is the ordinary one after all: collapse a run of blank lines to one, leave zero
+as zero. Worth recording because the wrong version was argued for confidently and in detail,
+and the argument cited the right source.
+
+### 10.4 Measuring the gap needed a third model
+
+Two attempts failed before the right one:
+
+1. Count trailing blank lines of the earlier region — saw none, because a comment trivium's
+   span *starts at the newline before the comment*, so the blank line had landed in the
+   later region.
+2. Count leading blank lines of the later region — the mirror failure for a declaration.
+
+The gap is split across the boundary, so neither region alone can measure it. `trimmed_range`
+finds each block's real text and the gap is the source **between** two blocks — which is
+obvious in hindsight and was not obvious from either failure.
+
+### 10.5 The property test that reported a defect in its own normaliser
+
+`formatting_preserves_meaning` failed on `examples/async.sdx` with two debug dumps that
+looked identical for the first three hundred characters. The cause was the normaliser:
+`{:#?}` prints a span across four lines —
+
+```text
+span: (
+    613,
+    640,
+),
+```
+
+— so dropping lines that *begin* with `span:` left the numbers behind, and the comparison
+still saw them move. The test was reporting a defect in the subject that was a defect in
+itself.
+
+Rewritten to scan single-line `{:?}` output and blank each `span: (…)`. Recorded because a
+property test with a wrong normaliser is worse than no test: it fails on correct code, and
+the natural response is to go looking in the wrong place.
+
+### 10.6 `fmt` was the last planned command, so two tests inverted
+
+`State::Planned` is now unconstructed outside tests, and two tests asserted that `fmt`
+*names its plan*. Both carried a comment recording the same pattern from plan 12 — *"`watch`
+was here too until plan 12 implemented it, and this test failing was how plan 12 learned it
+had changed the surface"* — and both now assert the opposite: **no command advertises a
+plan**, because every declared command is built.
+
+The variant stays rather than being removed, which is the opposite of what plan 18 did with
+`TokenKind::Attr`, and the difference is whether it can come back: `Attr` could not, and this
+is constructed again the moment a row declares a command ahead of itself. Rows 40, 49 and 50
+each bring one.
+
+### 10.7 `--check` reports names, not a diff
+
+Criterion 1 asked for a diff. It prints a file list, and the narrowing is deliberate: the
+information wanted from `--check` is *which files*, and the diff wanted after that is
+`redox fmt FILE && git diff`, which reads better than anything this command would render.
+
+### 10.8 The corpus was already canonical, which proves less than it looks
+
+`every_example_is_already_canonical` passes, so no example needed reformatting — and leaf 6
+had nothing to reconcile. That is a weak result rather than a strong one: this increment only
+canonicalises file-level structure, and the corpus was already consistent there. The real
+test of §1.5 comes with leaves 2 to 4, when the formatter starts having opinions about the
+inside of a construct.
+
+Stated so the green tick is not mistaken for the claim §1.5 actually makes.

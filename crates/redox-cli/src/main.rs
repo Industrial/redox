@@ -8,6 +8,7 @@
 
 mod build_command;
 mod check_command;
+mod fmt_command;
 mod run;
 mod watch_command;
 

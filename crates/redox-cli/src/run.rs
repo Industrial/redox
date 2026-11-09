@@ -4,6 +4,7 @@ pub(crate) mod usage;
 
 use crate::build_command::build_command;
 use crate::check_command::check_command;
+use crate::fmt_command::fmt_command;
 use crate::run::commands::lookup::lookup;
 use crate::run::usage::usage;
 use crate::watch_command::watch_command;
@@ -43,6 +44,7 @@ pub(crate) fn run(args: &[String]) -> Result<(), String> {
     }
     "build" => build_command(&args[1..]),
     "check" => check_command(&args[1..]),
+    "fmt" => fmt_command(&args[1..]),
     "watch" => watch_command(&args[1..]),
     // Unreachable while `COMMANDS` and this match agree, and
     // `cli_surface.rs::every_ready_command_dispatches` is what keeps them

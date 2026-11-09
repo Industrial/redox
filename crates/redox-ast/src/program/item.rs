@@ -14,6 +14,7 @@ pub(crate) mod fn_decl;
 pub(crate) mod guard;
 pub(crate) mod import_decl;
 pub(crate) mod instance_decl;
+pub(crate) mod leading;
 pub(crate) mod module_decl;
 pub(crate) mod param;
 pub(crate) mod pattern;

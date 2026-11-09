@@ -3,3 +3,12 @@ name = "redox-fmt"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+
+[dependencies]
+# Plan 34 leaf 1: the formatter prints from the AST and slices unprinted
+# constructs out of the source by their spans.
+redox-ast = { path = "../redox-ast" }
+
+[dev-dependencies]
+# Plan 34 §1.4: the property tests re-parse what the formatter printed.
+redox-parser = { path = "../redox-parser" }

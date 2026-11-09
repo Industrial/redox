@@ -33,11 +33,10 @@ pub(crate) const COMMANDS: &[Command] = &[
   },
   Command {
     name: "fmt",
-    summary: "format a .sdx in place",
-    state: State::Planned {
-      plan: 34,
-      id: "formatter",
-    },
+    // Plural, because plan 34 §1.5's gate is `redox fmt --check examples/*.sdx`
+    // and a one-file command would make that a shell loop nobody checks.
+    summary: "format .sdx files in place, or --check them",
+    state: State::Ready,
   },
   Command {
     name: "watch",

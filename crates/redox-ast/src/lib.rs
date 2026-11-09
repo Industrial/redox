@@ -60,6 +60,7 @@ pub use program::item::fn_decl::FnDecl;
 pub use program::item::guard::Guard;
 pub use program::item::import_decl::ImportDecl;
 pub use program::item::instance_decl::InstanceDecl;
+pub use program::item::leading::leading;
 pub use program::item::module_decl::ModuleDecl;
 pub use program::item::param::Param;
 pub use program::item::pattern::Pattern;
