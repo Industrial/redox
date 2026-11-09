@@ -33,10 +33,18 @@
 //! trivia — a pattern is always one line — so they need no `indent` and
 //! nothing from the source, which the statement printer will need both of.
 
+//! **Leaf 4 is complete.** `stmt_text` prints a statement with its trivia,
+//! `block_text` re-indents a block at two spaces per level (§3 row 11), and
+//! the five block-bearing expressions — `if`, `do`, `case`, `async`, `try` —
+//! are printed rather than sliced, which is what §10.15 said leaf 4 owed. No
+//! expression form reads the source any more.
+
 mod expr_text;
 mod format;
 mod pattern_text;
+mod stmt_text;
 
 pub use expr_text::expr_text;
 pub use format::format;
 pub use pattern_text::pattern_text;
+pub use stmt_text::stmt_text;

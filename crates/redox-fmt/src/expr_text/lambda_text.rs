@@ -16,7 +16,13 @@ use redox_ast::{Expr, Param};
 /// extends as far right as it can, so there is nothing for a parenthesis to
 /// protect it from — and `power_of` declines on the lambda itself for the same
 /// reason, which is what keeps a surrounding parenthesis in place.
-pub(crate) fn lambda_text(params: &[Param], body: &Expr, is_move: bool, source: &str) -> String {
+pub(crate) fn lambda_text(
+  params: &[Param],
+  body: &Expr,
+  is_move: bool,
+  indent: usize,
+  source: &str,
+) -> String {
   let mut out = String::from("\\");
   if is_move {
     out.push_str("move ");
@@ -28,6 +34,6 @@ pub(crate) fn lambda_text(params: &[Param], body: &Expr, is_move: bool, source: 
     out.push_str(&param_text(param));
   }
   out.push_str(" -> ");
-  out.push_str(&expr_text(body, 0, source));
+  out.push_str(&expr_text(body, 0, indent, source));
   out
 }

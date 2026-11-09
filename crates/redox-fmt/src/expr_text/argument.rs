@@ -38,12 +38,12 @@ use redox_ast::Expr;
 /// survived because `can_drop_paren` declines on a lambda. Both arms print the
 /// **inner** expression, so a layer can be added at most once no matter how
 /// many times the formatter runs. Leaf 5's idempotence property caught it.
-pub(crate) fn argument(expr: &Expr, source: &str) -> String {
+pub(crate) fn argument(expr: &Expr, indent: usize, source: &str) -> String {
   match expr {
     // Recursing rather than printing collapses `((x))` to `x` in one step.
-    Expr::Paren { inner, .. } if stands_alone(inner) => argument(inner, source),
-    Expr::Paren { inner, .. } => format!("({})", expr_text(inner, 0, source)),
-    _ if stands_alone(expr) => expr_text(expr, 0, source),
-    _ => format!("({})", expr_text(expr, 0, source)),
+    Expr::Paren { inner, .. } if stands_alone(inner) => argument(inner, indent, source),
+    Expr::Paren { inner, .. } => format!("({})", expr_text(inner, 0, indent, source)),
+    _ if stands_alone(expr) => expr_text(expr, 0, indent, source),
+    _ => format!("({})", expr_text(expr, 0, indent, source)),
   }
 }

@@ -124,7 +124,7 @@ accepted and the right is what `fmt` emits.
 | ~~`x.map (f)` as a chain head~~ | ~~`x \|> map f`~~ | Retired with the row above, same reason |
 | two spaces or none before a method's `()` | one space — `x.len ()` | The corpus's own habit, made a rule |
 | `case` arm bodies aligned with padding | one space after `->` | Alignment breaks on the next edit |
-| a binding's `::` type annotation | spaced — `n :: u64 = 0` | Doc 18 §5.2: a spaced `::` ascribes and a tight one is a path. The formatter must never tighten one |
+| a `::` type annotation | spaced — `(1 + 2) :: u64`, `threshold :: f64 = 0.5` | Doc 18 §5.2: a spaced `::` ascribes and a tight one is a path. The formatter must never tighten one. **Example corrected 2026-11-09, leaf 4 §10.22**: a *binding* takes **one** colon — `n : u64 = 0` — and `n :: u64 = 0` does not parse. The row's rule is right and its example named the one of three similar forms it does not apply to |
 | `data` alternatives on one line | one per line with a leading `\|` when more than one | Doc 18 §2.4's own example |
 | guard ladders | one `\|` per line | Doc 18 §2.3's own example |
 | indentation | two spaces per level | Every `.sdx` in the corpus |
@@ -620,3 +620,113 @@ sent the search in entirely the wrong direction.
 Worth a line because the probe is the kind of code that looks like scaffolding and is not:
 it is a Redox program, the parser holds it to the same rules, and a defect in it is reported
 as a defect in the subject.
+
+### 10.22 `::` is three separators, and §3 row 8 named the wrong one
+
+Row 8 read *"a binding's `::` type annotation → spaced — `n :: u64 = 0`"*. The fixture would
+not parse, with *"expected `=` in a binding"* pointing at the `::`, because `try_binding`
+reads a single `TokenKind::Colon` and `::` is its own token.
+
+Three forms look alike and none is the others:
+
+| Form | Separator | Owner |
+|---|---|---|
+| A local binding | `:` — `n : u64 = 0` | leaf 4 |
+| A `const` or `static` item | `::` — `threshold :: f64 = 0.5` | leaf 2 |
+| An expression ascription | `::` — `(1 + 2) :: u64` | leaf 3 |
+
+The row's *rule* is right and load-bearing — a spaced `::` ascribes, a tight one is a path,
+and the formatter must never tighten one. Its *example* was the one of the three the rule does
+not apply to. Corrected in place.
+
+### 10.23 `else if` has to be reconstructed, and a comment must stop it
+
+The AST has no `else if`. The parser builds `otherwise: Some(Block)` whose single statement is
+another `If`, and printing that literally gives
+
+```text
+if a
+  ...
+else
+  if b
+    ...
+```
+
+which is correct Redox and is not what anyone writes. `examples/control.sdx` writes
+`else if n < 0`, so the chain is reconstructed when the block holds exactly one statement,
+that statement is an `If`, and it carries **no trivia**.
+
+The trivia condition is the part worth keeping. A comment above the inner `if` belongs on its
+own line, and `else if -- why` is not a line Redox can write, so collapsing the chain would
+have to move the comment or drop it — and dropping a comment is doc 02 §3.2's defect. A
+commented inner `if` therefore stays a nested block, which is uglier and right.
+
+### 10.24 `stands_alone` was a question about the tree and had to become one about the text
+
+Leaf 3's argument predicate was wrong twice, and both failures were found by the corpus
+round-trip rather than by the fixture — because nobody writing a fixture thinks to try them.
+
+**It allowed a list.** `parser::starts_argument` is the authority on what can begin a
+parenless argument, and its allow-list is a literal, an identifier, `(`, `@`, `@@`, `true`,
+`false`. **No `[`** — after a name, `[` is indexing. `examples/destructuring.sdx` writes
+`print (ends ([1, 2, 3, 4, 5]))` with parentheses its author needed, and leaf 3 dropped them
+to produce `ends [1, 2, 3, 4, 5]`, which does not parse.
+
+**It asked about the receiver.** For a postfix form it recursed into the receiver, which is
+not idempotent: `[1, 2, 3].to_vec ()` has a receiver that does not stand alone, so the whole
+thing was wrapped — `(([1, 2, 3]).to_vec ())`. On the next pass the receiver carried its own
+parentheses, the same test said yes, and the outer pair came off. Caught in
+`examples/draw_condition.sdx`.
+
+The fix is one idea, and it is the reusable part: **the predicate is a question about the text
+the printer emits, not about the tree it was handed.** A postfix form always prints safely,
+because its receiver goes through `argument` and so either stands alone or arrives
+parenthesised. Once that is the question being asked, both answers fall out.
+
+### 10.25 A method section is `(|> len)`, and the corpus said so in a comment
+
+`Section::Method` was printed as `(.len ())`, by analogy with `Section::Field`'s `(.age)`. It
+does not parse — the section grammar wants `)` after the name — and
+`examples/section.sdx` has the answer two lines above the code that uses it:
+
+> method: `(.name)` selects and `(|> name)` calls.
+
+The `|>` is the clue rather than an oddity: a method section is a pipeline stage with its
+receiver left out, which is exactly what it lowers to. Reported as *"did not re-parse"* on a
+line whose section was the only thing wrong with it.
+
+Worth a §10 entry because of where the information was. §1.5 says the corpus is the style
+guide, and this is the second time in the row that the corpus's **comments** carried a
+spelling the code could not have been derived from — plan 33's `Some (Some v)` note was the
+first. A printer written from the AST alone will get these wrong, and the fix each time was
+to read the example.
+
+### 10.26 The expression `if` is a tail, not a statement — a constraint on leaf 2
+
+`if c then a else b` re-parses as an equation's **tail** and not as an indented statement. The
+expression `if` is told apart from the statement `if` by `then`, but only in expression
+position; at the start of an indented statement the parser commits to the statement form and
+the `then` is a syntax error.
+
+So `tier n = if n > 9 then "big" else "small"` — real, from `examples/control.sdx` — produces
+a `StmtKind::Expr` holding an `Expr::If` that cannot be printed as a standalone statement.
+
+**This is a constraint leaf 2 has to honour**: an equation whose body is a single expression
+must stay on the equation line. Moving it into an indented block is a change `redox fmt` would
+make silently, and rustc would never see it, because the file would stop parsing as *Redox*
+first. The round-trip probe tries both positions, which is how the asymmetry surfaced.
+
+### 10.27 Trivia makes this the first printer that can lose text
+
+The expression and pattern printers work from nodes that carry no trivia, so criterion 4 —
+every comment and attribute survives — was vacuous for both. A statement carries `leading` and
+`trailing` trivia, so it is a live assertion from here on, and it is asserted by **counting
+markers** in the output against the trivia the statement held: a comment that survives into the
+wrong place is still a comment the count finds, and a count is the only check that does not
+need to know where each one should have gone.
+
+Two spelling decisions came with it. A fenced comment's stored text has its surrounding space
+already removed, so the printer puts one back — `{-a fenced comment-}` was the first output and
+is not what anyone writes. And a trailing comment takes **one** space: the corpus writes two in
+four places and one in a fifth, and the fifth is `comments.sdx`, the file whose whole subject is
+comments, which is the tiebreak §1.5 gives.

@@ -9,7 +9,6 @@ pub(crate) mod operand;
 pub(crate) mod power_of;
 pub(crate) mod record_text;
 pub(crate) mod section_text;
-pub(crate) mod verbatim;
 
 use crate::expr_text::argument::argument;
 use crate::expr_text::can_drop_paren::can_drop_paren;
@@ -21,7 +20,9 @@ use crate::expr_text::lambda_text::lambda_text;
 use crate::expr_text::operand::operand;
 use crate::expr_text::record_text::record_text;
 use crate::expr_text::section_text::section_text;
-use crate::expr_text::verbatim::verbatim;
+use crate::stmt_text::block_text::block_text;
+use crate::stmt_text::case_arm_text::case_arm_text;
+use crate::stmt_text::condition_text::condition_text;
 use redox_ast::Expr;
 
 /// One expression in canonical Redox — plan 34, leaf 3.
@@ -32,20 +33,21 @@ use redox_ast::Expr;
 /// wrote can be dropped, and it is threaded through rather than recomputed
 /// because only the *parent* knows it.
 ///
-/// # Why `source` is a parameter
+/// `indent` is the statement depth this expression sits at, which only the
+/// five block-bearing forms use — they print their bodies at `indent + 1`.
+/// Threaded rather than defaulted, because a block printed at the wrong depth
+/// is the one mistake the off-side rule turns into a different program.
 ///
-/// A construct this leaf does not print is sliced out of the source and
-/// returned verbatim, which is plan 34's criterion 7 — *"a construct the
-/// formatter does not yet print is passed through verbatim rather than
-/// mangled"*. Leaf 1 established that discipline for items; this is the same
-/// thing one level down, and it is why leaf 3 can ship before leaf 4 exists.
+/// # `source` is no longer read, and the parameter stays
 ///
-/// The forms left verbatim are exactly the **block-bearing** ones — `if`,
-/// `do`, `case`, `async` and `try` blocks — and §10 records why that is not an
-/// arbitrary cut: their bodies are statement sequences, so printing them is
-/// printing statements, which is leaf 4. §4's leaf split reads as
-/// expressions / statements / items, and the real boundary is single-line
-/// expressions / block-bearing constructs / items.
+/// Leaf 3 sliced the block-bearing forms verbatim out of the source, per
+/// criterion 7. Leaf 4 prints them, so nothing here reads `source` any more —
+/// every expression form is printed from the tree.
+///
+/// The parameter is kept because leaf 2 will need it the moment an item turns
+/// out to have a form the printer does not cover, and because removing it
+/// would churn every call site for no gain. That is a judgement, not an
+/// oversight, so it is written down.
 ///
 /// # What it normalises
 ///
@@ -60,16 +62,16 @@ use redox_ast::Expr;
 /// rewritten to `|>`) replace one construct with another, which is a refactor
 /// and not a normalisation — and the property that guards this formatter
 /// cannot guard it.
-pub fn expr_text(expr: &Expr, required: u8, source: &str) -> String {
+pub fn expr_text(expr: &Expr, required: u8, indent: usize, source: &str) -> String {
   match expr {
     // Doc 18 §2.1: juxtaposition is the call form, parentheses are grouping.
     // So the arguments are separated by spaces and each is parenthesised only
     // if it would otherwise read as more application.
     Expr::Call { callee, args, .. } => {
-      let mut out = argument(callee, source);
+      let mut out = argument(callee, indent, source);
       for arg in args {
         out.push(' ');
-        out.push_str(&argument(arg, source));
+        out.push_str(&argument(arg, indent, source));
       }
       out
     }
@@ -80,15 +82,15 @@ pub fn expr_text(expr: &Expr, required: u8, source: &str) -> String {
       recv, name, args, ..
     } => format!(
       "{}.{} ({})",
-      argument(recv, source),
+      argument(recv, indent, source),
       name.text,
-      comma_list(args, source)
+      comma_list(args, indent, source)
     ),
-    Expr::Field { recv, name, .. } => format!("{}.{}", argument(recv, source), name.text),
+    Expr::Field { recv, name, .. } => format!("{}.{}", argument(recv, indent, source), name.text),
     Expr::Index { recv, index, .. } => format!(
       "{}[{}]",
-      argument(recv, source),
-      expr_text(index, 0, source)
+      argument(recv, indent, source),
+      expr_text(index, 0, indent, source)
     ),
     Expr::Binary { op, lhs, rhs, .. } => {
       // Left-associative, so the right operand must bind one rung tighter for
@@ -96,9 +98,9 @@ pub fn expr_text(expr: &Expr, required: u8, source: &str) -> String {
       let power = op.power();
       format!(
         "{} {} {}",
-        operand(lhs, power, source),
+        operand(lhs, power, indent, source),
         op.redox_text(),
-        operand(rhs, power + 1, source)
+        operand(rhs, power + 1, indent, source)
       )
     }
     // `&mut ` already carries its trailing space in `rust_text`, which is
@@ -106,15 +108,15 @@ pub fn expr_text(expr: &Expr, required: u8, source: &str) -> String {
     Expr::Unary {
       op, operand: inner, ..
     } => {
-      format!("{}{}", op.rust_text(), argument(inner, source))
+      format!("{}{}", op.rust_text(), argument(inner, indent, source))
     }
     // §3 row 3, the one normalisation that can change meaning. `can_drop_paren`
     // is the whole decision and it is conservative by construction.
     Expr::Paren { inner, .. } => {
       if can_drop_paren(inner, required) {
-        expr_text(inner, required, source)
+        expr_text(inner, required, indent, source)
       } else {
-        format!("({})", expr_text(inner, 0, source))
+        format!("({})", expr_text(inner, 0, indent, source))
       }
     }
     Expr::Path { text, .. } => text.clone(),
@@ -123,9 +125,9 @@ pub fn expr_text(expr: &Expr, required: u8, source: &str) -> String {
       body,
       is_move,
       ..
-    } => lambda_text(params, body, *is_move, source),
+    } => lambda_text(params, body, *is_move, indent, source),
     Expr::OptionalChain { head, segments, .. } => {
-      let mut out = argument(head, source);
+      let mut out = argument(head, indent, source);
       for segment in segments {
         out.push_str("?.");
         out.push_str(segment);
@@ -144,48 +146,85 @@ pub fn expr_text(expr: &Expr, required: u8, source: &str) -> String {
     // the parentheses only around the forms `power_of` declines on, which is
     // the right set: a lambda or a second ascription does need them.
     Expr::Ascribe { inner, ty, .. } => {
-      format!("{} :: {}", operand(inner, 0, source), ty.text)
+      format!("{} :: {}", operand(inner, 0, indent, source), ty.text)
     }
     // The lexer keeps a string's source text, quotes and escapes included, so
     // there is nothing to re-escape and no way to lose an escape.
     Expr::StrLit { value, .. } => value.clone(),
     Expr::RawLit { text, .. } => text.clone(),
     Expr::Num { text, .. } => text.clone(),
-    Expr::StrInterp { parts, .. } => interp_text(parts, source),
+    Expr::StrInterp { parts, .. } => interp_text(parts, indent, source),
     // §3 row 12: no trailing comma, except the one that makes `(a,)` a tuple
     // rather than a group — plan 33 §10.3.
     Expr::Tuple { items, .. } => {
       if items.len() == 1 {
-        format!("({},)", expr_text(&items[0], 0, source))
+        format!("({},)", expr_text(&items[0], 0, indent, source))
       } else {
-        format!("({})", comma_list(items, source))
+        format!("({})", comma_list(items, indent, source))
       }
     }
-    Expr::List { items, .. } => format!("[{}]", comma_list(items, source)),
+    Expr::List { items, .. } => format!("[{}]", comma_list(items, indent, source)),
     Expr::ArrayRepeat { value, count, .. } => format!(
       "[{}; {}]",
-      expr_text(value, 0, source),
-      expr_text(count, 0, source)
+      expr_text(value, 0, indent, source),
+      expr_text(count, 0, indent, source)
     ),
-    Expr::Record { head, fields, .. } => record_text(head, fields, source),
+    Expr::Record { head, fields, .. } => record_text(head, fields, indent, source),
     Expr::Comprehension {
       element,
       qualifiers,
       ..
-    } => comprehension_text(element, qualifiers, source),
-    Expr::Try { inner, .. } => format!("{}?", argument(inner, source)),
+    } => comprehension_text(element, qualifiers, indent, source),
+    Expr::Try { inner, .. } => format!("{}?", argument(inner, indent, source)),
     Expr::Unit { .. } => "()".to_string(),
-    Expr::Section { section, .. } => section_text(section, source),
+    Expr::Section { section, .. } => section_text(section, indent, source),
     Expr::Bool { value, .. } => value.to_string(),
     Expr::Char { value, .. } => char_text(*value),
     Expr::SelfField { name, .. } => format!("self.{}", name.text),
     Expr::SelfType { name, .. } => format!("Self::{}", name.text),
     Expr::Ident(ident) => ident.text.clone(),
-    // The block-bearing forms. Leaf 4's, and verbatim until then.
-    Expr::If { .. }
-    | Expr::Do { .. }
-    | Expr::Case { .. }
-    | Expr::AsyncBlock { .. }
-    | Expr::TryBlock { .. } => verbatim(expr, source),
+    // The block-bearing forms, which §10.15 moved to leaf 4 because their
+    // bodies are statement sequences. The first line is unindented and every
+    // later line sits at `indent + 1`, matching `kind_text`'s convention —
+    // the caller has already written whatever this hangs from.
+    //
+    // `if c then a else b` is the **expression** `if`, told apart from the
+    // statement by `then`, and it is the one of the five that stays on one
+    // line.
+    Expr::If {
+      condition,
+      then,
+      otherwise,
+      ..
+    } => format!(
+      "if {} then {} else {}",
+      condition_text(condition, indent, source),
+      expr_text(then, 0, indent, source),
+      expr_text(otherwise, 0, indent, source)
+    ),
+    Expr::Do { label, body, .. } => format!(
+      "do{}\n{}",
+      label.as_ref().map_or(String::new(), |n| format!(" '{n}")),
+      block_text(body, indent + 1, source)
+    ),
+    Expr::AsyncBlock { body, .. } => {
+      format!("async\n{}", block_text(body, indent + 1, source))
+    }
+    Expr::TryBlock { body, .. } => {
+      format!("try\n{}", block_text(body, indent + 1, source))
+    }
+    Expr::Case {
+      scrutinee, arms, ..
+    } => {
+      let printed: Vec<String> = arms
+        .iter()
+        .map(|arm| case_arm_text(arm, indent + 1, source))
+        .collect();
+      format!(
+        "case {} of\n{}",
+        expr_text(scrutinee, 0, indent, source),
+        printed.join("\n")
+      )
+    }
   }
 }

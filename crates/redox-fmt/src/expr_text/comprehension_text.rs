@@ -13,19 +13,24 @@ use redox_ast::{Expr, Qualifier};
 /// The generator keyword is `in`, not `<-`. Doc 30 took `<-` for `await` and
 /// nothing else, and §3 notes that a construct with one spelling needs no
 /// canonical form: there is no second spelling here to normalise *from*.
-pub(crate) fn comprehension_text(element: &Expr, qualifiers: &[Qualifier], source: &str) -> String {
+pub(crate) fn comprehension_text(
+  element: &Expr,
+  qualifiers: &[Qualifier],
+  indent: usize,
+  source: &str,
+) -> String {
   let printed: Vec<String> = qualifiers
     .iter()
     .map(|qualifier| match qualifier {
       Qualifier::Draw { name, source: from } => {
-        format!("{} in {}", name.text, expr_text(from, 0, source))
+        format!("{} in {}", name.text, expr_text(from, 0, indent, source))
       }
-      Qualifier::Guard(guard) => expr_text(guard, 0, source),
+      Qualifier::Guard(guard) => expr_text(guard, 0, indent, source),
     })
     .collect();
   format!(
     "[ {} | {} ]",
-    expr_text(element, 0, source),
+    expr_text(element, 0, indent, source),
     printed.join(", ")
   )
 }

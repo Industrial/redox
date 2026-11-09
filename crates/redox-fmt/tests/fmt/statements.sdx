@@ -1,0 +1,56 @@
+-- Plan 34 leaf 4's statement fixture: every `StmtKind`, plus the trivia forms
+-- and the two-space re-indentation of §3 row 11. Its canonical counterpart is
+-- `statements.canonical.sdx`.
+--
+-- `with` comes **last**, and that is not a style choice: everything after a
+-- `with` is inside the closure it generates, so a `return` below one is
+-- `RDX`'s `ReturnInCallbackTail` — doc 03 §7.6, plan 30. The fixture hit it.
+
+everything :: Option<i32> -> i32
+everything o =
+  -- A leading comment, on its own line.
+
+  -- | A doc comment, and below it an attribute.
+  #[inline]
+  n = 0
+  -- A local binding's type takes **one** colon; `::` is the ascription
+  -- operator and the separator a `const` item uses.
+  mut total : i32 = 1
+  total += 2
+  print "x" -- a trailing comment
+  {- a fenced comment -}
+  if n > 0 && Some v = o
+    print "both"
+  else if n < 0
+    print "negative"
+  else
+    print "zero"
+  while n < 3
+    total += 1
+  until n > 5 && n % 2 == 0
+    total += 1
+  'outer loop
+    for d in 1 .. 9
+      total += 1
+      if d > 2
+        break 'outer
+      continue 'outer
+  for c in 1 .. 4
+    print c
+  guard Some v = o else
+    return 0
+  assert total > 0
+  kind = case o of
+    Some 1 or Some 2 -> "small"
+    Some v | v > 9 -> "big"
+    _ -> "none"
+  nested = do 'search
+    for c in 1 .. 20
+      break 'search c
+    0
+  branch = if n > 0 then "pos" else "neg"
+  print kind
+  print nested
+  print branch
+  with drawn = o
+  total

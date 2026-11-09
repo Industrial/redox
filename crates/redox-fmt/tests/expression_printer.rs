@@ -246,7 +246,7 @@ fn each_normalisation_reaches_its_canonical_form() {
 
   let mut lines = Vec::new();
   for value in binding_values(&program) {
-    lines.push(redox_fmt::expr_text(value, 0, &source));
+    lines.push(redox_fmt::expr_text(value, 0, 0, &source));
   }
   let printed = format!("{}\n", lines.join("\n"));
 
@@ -278,7 +278,7 @@ fn printing_is_idempotent() {
       continue;
     };
     for value in binding_values(&program) {
-      let once = redox_fmt::expr_text(value, 0, &source);
+      let once = redox_fmt::expr_text(value, 0, 0, &source);
       // A block-bearing form is a verbatim slice and spans more than one
       // line, so it cannot be re-parsed as a binding's value. Leaf 4 prints
       // those, and will assert them.
@@ -288,7 +288,7 @@ fn printing_is_idempotent() {
       let Some(reparsed) = reparse(&once) else {
         panic!("{}: `{once}` did not re-parse", path.display());
       };
-      let twice = redox_fmt::expr_text(&reparsed, 0, &once);
+      let twice = redox_fmt::expr_text(&reparsed, 0, 0, &once);
       assert_eq!(
         once,
         twice,
@@ -309,7 +309,7 @@ fn printing_preserves_meaning() {
       continue;
     };
     for value in binding_values(&program) {
-      let printed = redox_fmt::expr_text(value, 0, &source);
+      let printed = redox_fmt::expr_text(value, 0, 0, &source);
       if printed.contains('\n') {
         continue;
       }

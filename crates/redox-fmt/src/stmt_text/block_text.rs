@@ -1,0 +1,20 @@
+use crate::stmt_text::stmt_text;
+use redox_ast::Block;
+
+/// A block's statements, one per line, each at `indent`.
+///
+/// No trailing newline, and no leading one: the caller decides what the block
+/// hangs from. A `for` writes its header line, a `\n`, and then this.
+///
+/// An empty block prints as nothing, which is a shape the parser does not
+/// produce — the off-side rule needs at least one statement to open a block —
+/// so it falls out of the `join` rather than being special-cased. A special
+/// case for an unreachable shape is one nobody will ever check.
+pub(crate) fn block_text(block: &Block, indent: usize, source: &str) -> String {
+  block
+    .stmts
+    .iter()
+    .map(|stmt| stmt_text(stmt, indent, source))
+    .collect::<Vec<_>>()
+    .join("\n")
+}

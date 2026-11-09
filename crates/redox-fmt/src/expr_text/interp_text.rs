@@ -12,14 +12,14 @@ use redox_ast::StrInterpPart;
 /// anything, so nothing can.
 ///
 /// A format spec is appended after a `:`, which is where the lexer found it.
-pub(crate) fn interp_text(parts: &[StrInterpPart], source: &str) -> String {
+pub(crate) fn interp_text(parts: &[StrInterpPart], indent: usize, source: &str) -> String {
   let mut out = String::from("\"");
   for part in parts {
     match part {
       StrInterpPart::Text(text) => out.push_str(text),
       StrInterpPart::Interp { expr, spec } => {
         out.push_str("#{");
-        out.push_str(&expr_text(expr, 0, source));
+        out.push_str(&expr_text(expr, 0, indent, source));
         if let Some(spec) = spec {
           out.push(':');
           out.push_str(spec);

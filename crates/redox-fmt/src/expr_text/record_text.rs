@@ -12,16 +12,29 @@ use redox_ast::{Expr, FieldInit};
 /// Braces take one space inside, which is again the corpus's habit made a
 /// rule. An empty record prints as `Head {}`: there is nothing to put a space
 /// around, and `Head { }` would not survive its own idempotence check.
-pub(crate) fn record_text(head: &Expr, fields: &[FieldInit], source: &str) -> String {
+pub(crate) fn record_text(
+  head: &Expr,
+  fields: &[FieldInit],
+  indent: usize,
+  source: &str,
+) -> String {
   if fields.is_empty() {
-    return format!("{} {{}}", argument(head, source));
+    return format!("{} {{}}", argument(head, indent, source));
   }
   let printed: Vec<String> = fields
     .iter()
     .map(|field| match &field.value {
-      Some(value) => format!("{} = {}", field.name.text, expr_text(value, 0, source)),
+      Some(value) => format!(
+        "{} = {}",
+        field.name.text,
+        expr_text(value, 0, indent, source)
+      ),
       None => field.name.text.clone(),
     })
     .collect();
-  format!("{} {{ {} }}", argument(head, source), printed.join(", "))
+  format!(
+    "{} {{ {} }}",
+    argument(head, indent, source),
+    printed.join(", ")
+  )
 }

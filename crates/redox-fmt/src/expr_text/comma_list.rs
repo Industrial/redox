@@ -11,10 +11,10 @@ use redox_ast::Expr;
 ///
 /// Each element is printed at power 0, because a comma is looser than every
 /// operator.
-pub(crate) fn comma_list(items: &[Expr], source: &str) -> String {
+pub(crate) fn comma_list(items: &[Expr], indent: usize, source: &str) -> String {
   items
     .iter()
-    .map(|item| expr_text(item, 0, source))
+    .map(|item| expr_text(item, 0, indent, source))
     .collect::<Vec<_>>()
     .join(", ")
 }
