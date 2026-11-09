@@ -1,5 +1,6 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
+use crate::parse::parser::pattern_alt::pattern_alt;
 use crate::parse::parser::range_or_literal::range_or_literal;
 use crate::parse::parser::token_text::token_text;
 use redox_ast::Pattern;
@@ -17,6 +18,22 @@ pub(crate) fn pattern(p: &mut Parser) -> Result<Pattern, ParseError> {
       Ok(Pattern::Wildcard(span))
     }
     TokenKind::Ident(_) => Ok(Pattern::Binding(p.ident("expected a pattern")?)),
+    // A parenthesised group, which is how a constructor application reaches
+    // an equation's *row* — `depth (Meters d) = d`. Juxtaposition in a row is
+    // ambiguous without it, exactly as in Haskell, so the parentheses are
+    // required there and optional nowhere. Plan 22; see `pattern_app`.
+    //
+    // A tuple pattern — `(a, b)` — is **not** this: it needs a comma, and it
+    // is plan 33's along with the record and slice forms.
+    TokenKind::LParen => {
+      p.advance();
+      let inner = pattern_alt(p)?;
+      p.expect(
+        &TokenKind::RParen,
+        "expected `)` to close a parenthesised pattern",
+      )?;
+      Ok(inner)
+    }
     // `self` is a reserved word, not an identifier, so an equation's binder
     // row needs it named here. Doc 18 §2.5's methods are written
     // `describe self = …`, and the binder is dropped by `receiver` — it is
@@ -49,7 +66,7 @@ pub(crate) fn pattern(p: &mut Parser) -> Result<Pattern, ParseError> {
     }
     _ => Err(ParseError::with(
       redox_diag::Code::ExpectedName,
-      "expected a parameter name, a literal pattern, a range, `_`, or `=`",
+      "expected a parameter name, a literal pattern, a range, `_`, `(`, or `=`",
       span,
     )),
   }

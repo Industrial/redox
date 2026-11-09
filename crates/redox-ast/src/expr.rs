@@ -147,7 +147,7 @@ pub enum Expr {
   /// conditional *expression* that omitted it could only ever be a statement
   /// — and the statement form is `StmtKind::If`.
   If {
-    condition: Box<Expr>,
+    condition: Box<crate::Condition>,
     then: Box<Expr>,
     otherwise: Box<Expr>,
     span: Span,

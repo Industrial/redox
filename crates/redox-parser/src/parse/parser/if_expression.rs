@@ -1,5 +1,6 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
+use crate::parse::parser::condition::condition;
 use crate::parse::parser::parse_expr::parse_expr;
 use redox_ast::Expr;
 use redox_lexer::{Keyword, TokenKind};
@@ -20,7 +21,7 @@ use redox_lexer::{Keyword, TokenKind};
 pub(crate) fn if_expression(p: &mut Parser) -> Result<Expr, ParseError> {
   let start = p.peek_span().0;
   p.expect(&TokenKind::Kw(Keyword::If), "expected `if`")?;
-  let condition = parse_expr(p, 0)?;
+  let condition = condition(p)?;
   p.expect(
     &TokenKind::Kw(Keyword::Then),
     "expected `then` — an `if` without it is the indented statement form",

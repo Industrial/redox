@@ -26,7 +26,7 @@ pub struct CaseArm {
   /// this is one condition, not a list, because Rust has the construct
   /// already — the `match` arm guard — and doc 18 §1 holds the lowerings
   /// fixed wherever Rust already has the shape.
-  pub guard: Option<Expr>,
+  pub guard: Option<crate::Condition>,
   pub body: Expr,
   pub span: Span,
 }

@@ -1,0 +1,102 @@
+-- Doc 18 §3's third and fourth positions for `<-` — a pattern test in a
+-- condition and in a guard — plus doc 03 §7.1's `guard`. Plan 22.
+--
+-- `<-` reads the same way everywhere: *a name drawn out of something*. In a
+-- condition it is doc 03 §5.5's `is` with the operands in Haskell's order,
+-- and it lowers to the Rust `let` that puts the pattern on the left too.
+--
+-- Checked by compiling and **running** with zero rustc output, because the
+-- let-chain is the case a golden cannot catch: lowered as two nested `if`s it
+-- prints the same thing here and a different thing the moment an `else` is
+-- attached.
+
+-- A constructor applied to a sub-pattern — `Some v` — is the pattern form
+-- every use of `Option` needs, and no row owned it before this one. See the
+-- plan's §10.
+first_or :: Option<i32> -> i32 -> i32
+first_or o fallback =
+  if Some v <- o
+    return v
+  fallback
+
+-- **The let-chain.** `if P <- e && c` is *one* condition with two operands,
+-- and `c` reads the binding `P` made — which is the whole reason let-chains
+-- exist, and the one case two statements cannot express, because the `else`
+-- here belongs to the whole chain and not to the pattern test alone.
+--
+-- Each branch `return`s rather than evaluating to its value: plan 20's
+-- indented `if` is a **statement**, so it is not a tail expression, and a
+-- branch written as a bare value emits `"big";` instead. Recorded in plan 22
+-- §10 as a gap belonging to plan 20, not worked around silently.
+describe :: Option<i32> -> &'static str
+describe o =
+  if Some v <- o && v > 2
+    return "big"
+  else if Some _ <- o
+    return "small"
+  else
+    return "nothing"
+
+-- `while P <- e` drains, and the collection is mutated by a **method** — not
+-- by rebinding `stack`, which plan 20 §10.2 records as unspelled. A wrong
+-- lowering here either loops forever or stops on the first turn.
+total :: Vec<i32> -> i32
+total xs =
+  mut stack = xs
+  mut sum = 0
+  while Some v <- stack.pop ()
+    sum += v
+  sum
+
+-- `guard P <- e else <diverging>` is Rust's let-else, which is what doc 03
+-- §7.1 chose it for: the else branch must diverge, and that is `guard`'s own
+-- requirement. rustc enforces it — Redox does not check divergence, because
+-- it is a check rustc can make.
+halve :: Option<i32> -> i32
+halve o =
+  guard Some v <- o else
+    return 0
+  v / 2
+
+-- A pattern test in an **arm guard** lowers to `if let` inside the match
+-- guard. That form was unstable for years; plan 22 §1.5 verified it is stable
+-- before the leaf was written, rather than discovering it at the gate.
+-- `Some (Some v)` needs its parentheses, exactly as in Haskell: juxtaposition
+-- is left-associative, so `Some Some v` is `Some` applied to two arguments
+-- and means nothing. rustc rejects the arity, which is the division of labour
+-- AGENTS.md states — but the parentheses are the spelling.
+unwrap_nested :: Option<Option<i32>> -> i32
+unwrap_nested o = case o of
+  y | Some (Some v) <- y -> v
+  y | Some _ <- y -> -1
+  _ -> -2
+
+-- The condition form is an expression too, told apart by `then` exactly as
+-- plan 20's is.
+label :: Option<i32> -> &'static str
+label o = if Some _ <- o then "present" else "absent"
+
+-- A parenthesised constructor pattern in an equation's **row**. Juxtaposition
+-- there is ambiguous — `f Some v` could be `f (Some v)` or three patterns —
+-- so the parentheses are required, as they are in Haskell.
+doubled :: Option<i32> -> i32
+doubled (Some n) = n * 2
+doubled _ = 0
+
+main :: ()
+main =
+  print (first_or (Some 7) 0)
+  print (first_or None 5)
+  print (describe (Some 9))
+  print (describe (Some 1))
+  print (describe None)
+  print (total ([1, 2, 3].to_vec ()))
+  print (halve (Some 10))
+  print (halve None)
+  print (unwrap_nested (Some (Some 4)))
+  print (unwrap_nested (Some None))
+  print (unwrap_nested None)
+  print (label (Some 1))
+  print (label None)
+  print (doubled (Some 6))
+  print (doubled None)

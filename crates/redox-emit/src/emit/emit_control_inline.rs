@@ -1,9 +1,8 @@
+use crate::emit::condition_head::condition_head;
 use crate::emit::emit_stmts::emit_stmts;
-use crate::emit::expr::emit_expr;
 use crate::emit::pad::pad;
 use crate::emit::rust_indent::RUST_INDENT;
 use crate::emit::sink::Sink;
-use crate::emit::unparen::unparen;
 use redox_ast::StmtKind;
 
 /// An `else if`'s nested `if`, written without its leading pad.
@@ -21,10 +20,7 @@ pub(crate) fn emit_control_inline(out: &mut Sink<'_>, kind: &StmtKind, indent: u
     unreachable!("only an `if` is written inline")
   };
 
-  out.push_str(&format!(
-    "if {} {{\n",
-    emit_expr(unparen(condition), indent)
-  ));
+  out.push_str(&condition_head("if", condition, indent));
   emit_stmts(out, &then_block.stmts, indent + RUST_INDENT, false);
 
   let Some(otherwise) = otherwise else {

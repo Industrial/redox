@@ -35,6 +35,31 @@ pub enum Pattern {
     inclusive: bool,
     span: Span,
   },
+  /// A constructor applied to sub-patterns — `Some v`, `Ok raw`,
+  /// `Move x _`, `Event::Close d` — plan 22.
+  ///
+  /// **No row owned this.** Row 21 shipped literal, range, alternation and
+  /// *nullary* constructor patterns, and row 21's remainder is named "record,
+  /// slice and as-patterns", which this is not: it is the tuple-variant form,
+  /// and it is the one pattern every use of `Option` and `Result` needs. Plan
+  /// 22 §10 records why it landed there — `if Some v <- x` cannot be written
+  /// without it, so the row that introduced the position had to introduce the
+  /// pattern.
+  ///
+  /// The constructor is carried as **verbatim path text**, the discipline doc
+  /// 03 §14.1 applies to types and this enum already applies to literals: the
+  /// emitter passes it through and Redox never has to agree with rustc about
+  /// what `Event::Close` resolves to.
+  ///
+  /// Doc 18 §5.3's case rule is what makes this decidable from source text
+  /// alone — an uppercase head is a constructor, a lowercase one binds — so
+  /// no name resolution is involved, which is doc 03 §2's first admission
+  /// test.
+  Apply {
+    path: String,
+    args: Vec<Pattern>,
+    span: Span,
+  },
   /// `Teen or PreTeen`, doc 03's alternation, lowering to Rust's `|`.
   ///
   /// Keeps the `or` **keyword** rather than Rust's bar, which doc 18 §5.4
@@ -47,7 +72,10 @@ impl Pattern {
   pub fn span(&self) -> Span {
     match self {
       Self::Binding(ident) => ident.span,
-      Self::Literal { span, .. } | Self::Wildcard(span) | Self::Range { span, .. } => *span,
+      Self::Literal { span, .. }
+      | Self::Wildcard(span)
+      | Self::Range { span, .. }
+      | Self::Apply { span, .. } => *span,
       // An alternation's span is its ends', and it is never empty: the
       // parser builds one only after reading a first pattern.
       Self::Or(alts) => (
@@ -75,6 +103,17 @@ impl Pattern {
       Self::Range {
         lo, hi, inclusive, ..
       } => format!("{lo}{}{hi}", if *inclusive { "..=" } else { ".." }),
+      // `Some v` is `Some(v)`. A nullary constructor never reaches here: it
+      // parses as a `Binding`, which emits the bare path — and that is right
+      // either way, because doc 18 §2.4 emits `use T::*;` beside the enum.
+      Self::Apply { path, args, .. } => format!(
+        "{path}({})",
+        args
+          .iter()
+          .map(Self::rust_text)
+          .collect::<Vec<_>>()
+          .join(", ")
+      ),
       Self::Or(alts) => alts
         .iter()
         .map(Self::rust_text)

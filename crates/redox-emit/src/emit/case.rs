@@ -1,3 +1,4 @@
+use crate::emit::emit_condition::emit_condition;
 use crate::emit::expr::emit_expr;
 use crate::emit::rust_indent::RUST_INDENT;
 use crate::emit::unparen::unparen;
@@ -33,7 +34,10 @@ pub(crate) fn emit_case(scrutinee: &Expr, arms: &[CaseArm], indent: usize) -> St
     out.push_str(&arm.pattern.rust_text());
     if let Some(guard) = &arm.guard {
       out.push_str(" if ");
-      out.push_str(&emit_expr(guard, indent + RUST_INDENT));
+      // A pattern test in an arm guard emits `if let` inside the match
+      // guard — `if_let_guard`, stable as of rustc 1.97.1 and verified before
+      // plan 22 was written.
+      out.push_str(&emit_condition(guard, indent + RUST_INDENT));
     }
     out.push_str(" => ");
     out.push_str(&emit_expr(unparen(&arm.body), indent + RUST_INDENT));

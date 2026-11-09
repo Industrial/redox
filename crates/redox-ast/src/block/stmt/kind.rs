@@ -51,13 +51,34 @@ pub enum StmtKind {
     op: crate::BinaryOp,
     value: Expr,
   },
+  /// `guard P <- e else <diverging>` — doc 03 §7.1's early-exit binding,
+  /// plan 22.
+  ///
+  /// ```text
+  /// guard Ok raw <- read p else        let Ok(raw) = read(p) else {
+  ///   return Err Error::Unreadable         return Err(Error::Unreadable)
+  ///                                    };
+  /// ```
+  ///
+  /// Doc 18 §3.1 keeps the keyword — *"`let`-`else` has no Haskell analogue
+  /// and no other spelling"* — and gives it `<-` for consistency with the
+  /// other three positions.
+  ///
+  /// The else branch must **diverge**, and Redox does not check that: it is a
+  /// check rustc can make, so rustc makes it, and plan 07's remapping reports
+  /// it against the `guard` line. AGENTS.md's rule, applied.
+  Guard {
+    pattern: crate::Pattern,
+    source: Expr,
+    otherwise: crate::Block,
+  },
   /// `if c` with an indented block — doc 01 §8, plan 20.
   ///
   /// The **statement** form. `if c then a else b` is an expression and lives
   /// in `Expr::If`; the two are told apart by whether `then` follows the
   /// condition, which doc 18 §7 arrives the keyword for.
   If {
-    condition: Expr,
+    condition: crate::Condition,
     then_block: crate::Block,
     /// `else` or `else if`, where the second is an `else` whose block holds
     /// one `If` statement — which is how Rust reads it too.
@@ -68,7 +89,7 @@ pub enum StmtKind {
   /// One node with a flag, because `until` is `while` with a negation and
   /// nothing else. Plan 16 made the same call for `const` and `static`.
   While {
-    condition: Expr,
+    condition: crate::Condition,
     /// `until` rather than `while`. The emitted condition is **parenthesised**
     /// when set: `until a && b` is `while !(a && b)`, and `while !a && b`
     /// would be a different loop that differs on the second iteration and

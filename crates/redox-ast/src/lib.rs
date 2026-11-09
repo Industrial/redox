@@ -22,6 +22,7 @@
 //! types.
 
 mod block;
+mod condition;
 mod expr;
 mod program;
 
@@ -29,6 +30,8 @@ pub use block::Block;
 pub use block::stmt::Stmt;
 pub use block::stmt::binding::Binding;
 pub use block::stmt::kind::StmtKind;
+pub use condition::Condition;
+pub use condition::operand::ConditionOperand;
 pub use expr::Expr;
 pub use expr::binary_op::BinaryOp;
 pub use expr::case_arm::CaseArm;

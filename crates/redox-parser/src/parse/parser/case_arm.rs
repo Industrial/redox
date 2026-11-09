@@ -1,5 +1,6 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
+use crate::parse::parser::condition::condition;
 use crate::parse::parser::parse_expr::parse_expr;
 use crate::parse::parser::pattern_alt::pattern_alt;
 use redox_ast::CaseArm;
@@ -19,9 +20,14 @@ pub(crate) fn case_arm(p: &mut Parser) -> Result<CaseArm, ParseError> {
   let start = p.peek_span().0;
   let pattern = pattern_alt(p)?;
 
+  // An arm guard may be a pattern test as of plan 22 — doc 18 §3's fourth
+  // position, *"in a condition or guard"*. It lowers to `if let` inside the
+  // match guard, which is `if_let_guard` and **stable** as of rustc 1.97.1 —
+  // verified before the plan was written, because a plan that promises an
+  // unstable lowering cannot ship (plan 22 §1.5).
   let guard = if p.check(&TokenKind::Or) {
     p.advance();
-    Some(parse_expr(p, 0)?)
+    Some(condition(p)?)
   } else {
     None
   };

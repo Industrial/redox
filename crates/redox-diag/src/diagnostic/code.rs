@@ -66,6 +66,14 @@ pub enum Code {
   /// a **published** specification — so this code exists to name the
   /// correction rather than the token.
   ModuleScopeBinding,
+  /// `until Some v <- x` — a pattern test under a keyword that negates.
+  ///
+  /// `until c` lowers to `while !(c)`, and a pattern test cannot be negated:
+  /// `while !(let Some(v) = x)` is not Rust. The nearest Rust that compiles,
+  /// `while !matches!(x, Some(_))`, **binds nothing** — so it cannot be what
+  /// a binding construct meant, and lowering to it would be doc 02 §5.2's
+  /// failure mode. Plan 22 §1.3 reports instead.
+  PatternUntil,
 }
 
 impl Code {
@@ -93,6 +101,7 @@ impl Code {
       Self::ExpectedType => 104,
       Self::EmptyBody => 105,
       Self::ModuleScopeBinding => 106,
+      Self::PatternUntil => 107,
     }
   }
 
@@ -123,6 +132,7 @@ impl Code {
       Self::ExpectedType,
       Self::EmptyBody,
       Self::ModuleScopeBinding,
+      Self::PatternUntil,
     ]
   }
 

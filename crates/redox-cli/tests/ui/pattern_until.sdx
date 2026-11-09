@@ -1,0 +1,9 @@
+-- `until c` lowers to `while !(c)`, and a pattern test cannot be negated:
+-- `while !(let Some(v) = x)` is not Rust. The nearest Rust that compiles,
+-- `while !matches!(x, Some(_))`, binds nothing — so it cannot be what a
+-- binding construct meant, and lowering to it would be doc 02 §5.2's failure
+-- mode. Plan 22 §1.3 reports instead.
+main :: ()
+main =
+  until Some v <- queue.pop ()
+    print v

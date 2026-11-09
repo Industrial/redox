@@ -1,3 +1,5 @@
+use crate::emit::condition_head::condition_head;
+use crate::emit::emit_condition::emit_condition;
 use crate::emit::emit_control_inline::emit_control_inline;
 use crate::emit::emit_stmts::emit_stmts;
 use crate::emit::expr::emit_expr;
@@ -36,10 +38,7 @@ pub(crate) fn emit_control(out: &mut Sink<'_>, kind: &StmtKind, indent: usize) {
       otherwise,
     } => {
       pad(out, indent);
-      out.push_str(&format!(
-        "if {} {{\n",
-        emit_expr(unparen(condition), indent)
-      ));
+      out.push_str(&condition_head("if", condition, indent));
       emit_stmts(out, &then_block.stmts, indent + RUST_INDENT, false);
 
       let Some(otherwise) = otherwise else {
@@ -78,9 +77,16 @@ pub(crate) fn emit_control(out: &mut Sink<'_>, kind: &StmtKind, indent: usize) {
       label,
     } => {
       pad(out, indent);
-      let text = emit_expr(unparen(condition), indent);
-      let test = if *negated { format!("!({text})") } else { text };
-      out.push_str(&format!("{}while {test} {{\n", label_prefix(label)));
+      // A pattern test can never be negated here — the parser rejects
+      // `until P <- e` outright (plan 22 §1.3) — so `until` keeps the simple
+      // text wrap, and only `while` can need rustfmt's chain breaking.
+      if *negated {
+        let text = emit_condition(condition, indent);
+        out.push_str(&format!("{}while !({text}) {{\n", label_prefix(label)));
+      } else {
+        out.push_str(&label_prefix(label));
+        out.push_str(&condition_head("while", condition, indent));
+      }
       emit_stmts(out, &body.stmts, indent + RUST_INDENT, false);
       out.unmark();
       pad(out, indent);
@@ -113,6 +119,28 @@ pub(crate) fn emit_control(out: &mut Sink<'_>, kind: &StmtKind, indent: usize) {
       out.unmark();
       pad(out, indent);
       out.push_str("}\n");
+    }
+
+    // Doc 03 §7.1's `guard`, lowering to let-else — plan 22. Its else body is
+    // a statement block like any other, so a `return`, a `break` or a panic
+    // form all reach it, and rustc is what insists one of them diverges.
+    StmtKind::Guard {
+      pattern,
+      source,
+      otherwise,
+    } => {
+      pad(out, indent);
+      out.push_str(&format!(
+        "let {} = {} else {{\n",
+        pattern.rust_text(),
+        emit_expr(unparen(source), indent)
+      ));
+      emit_stmts(out, &otherwise.stmts, indent + RUST_INDENT, false);
+      out.unmark();
+      pad(out, indent);
+      // The `;` is **required**: let-else is a `let` statement, and omitting
+      // it is a parse error rustc reports against this line.
+      out.push_str("};\n");
     }
 
     StmtKind::Break { label, value } => {

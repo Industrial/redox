@@ -36,6 +36,7 @@ pub(crate) fn emit_stmt(out: &mut Sink<'_>, stmt: &Stmt, indent: usize, tail: bo
       | StmtKind::Loop { .. }
       | StmtKind::Break { .. }
       | StmtKind::Continue { .. }
+      | StmtKind::Guard { .. }
   ) {
     emit_control(out, &stmt.kind, indent);
     return;
@@ -95,6 +96,7 @@ pub(crate) fn emit_stmt(out: &mut Sink<'_>, stmt: &Stmt, indent: usize, tail: bo
     | StmtKind::For { .. }
     | StmtKind::Loop { .. }
     | StmtKind::Break { .. }
+    | StmtKind::Guard { .. }
     | StmtKind::Continue { .. } => {
       unreachable!("a control-flow statement is written by `emit_control`")
     }

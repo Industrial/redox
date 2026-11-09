@@ -2,6 +2,7 @@ use crate::emit::ascribed_list::ascribed_list;
 use crate::emit::case::emit_case;
 use crate::emit::coalesce::coalesce;
 use crate::emit::comprehension::emit_comprehension;
+use crate::emit::emit_condition::emit_condition;
 use crate::emit::emit_do::emit_do;
 use crate::emit::expr_list::expr_list;
 use crate::emit::panic_macro::panic_macro;
@@ -92,7 +93,7 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
       ..
     } => format!(
       "if {} {{ {} }} else {{ {} }}",
-      emit_expr(unparen(condition), indent),
+      emit_condition(condition, indent),
       emit_expr(unparen(then), indent),
       emit_expr(unparen(otherwise), indent)
     ),
