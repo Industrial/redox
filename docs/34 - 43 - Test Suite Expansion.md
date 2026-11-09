@@ -160,4 +160,73 @@ moon run :check :lint :test :cargo-check :cargo-test :ci-format :audit
 
 ## 10. Result
 
-*Filled in when the plan ships, including anything above that turned out wrong.*
+Shipped 2026-11-09. One property test, `crates/redox-lexer/tests/indentation_round_trip.rs`,
+in three tests: the corpus property, its negative case and two positive counterparts.
+
+The register correction landed as planned — row 43 says what it actually owed, and row 42's
+dependency direction is reversed.
+
+### 10.1 The negative case was wrong first, and the way it was wrong is the finding
+
+Criterion 2 asked for "a hand-written fixture whose indentation is deliberately
+inconsistent". The first attempt wrote that as a line indented *deeper* than its
+predecessor:
+
+```
+main =
+  print 1
+   print 2
+```
+
+It lexed, and it was **right** to lex. A deeper line opens a block — that is the off-side
+rule, and three spaces after two is a nested block with one statement in it, not an error.
+
+`RDX0002` is narrower than §1.3's phrasing suggests. The width stack can only be asked for a
+level it does not hold on the way **down**:
+
+```
+main =
+    print 1
+  print 2
+```
+
+Two matches neither 0 nor 4, so there is no enclosing level to return to. That is the error,
+and it is the only shape that produces it.
+
+So the doc's "an indentation width matching no enclosing level" was accurate and the test
+author's reading of it was not — *matching no enclosing level* is a statement about dedents,
+because an indent needs no enclosing level to match. Both shapes are now in the file, the
+dedent asserting `is_err` and the nest asserting `is_ok`, with the mistake recorded beside
+them: a negative case that passes for the wrong reason is worse than none, and this one would
+have passed had the lexer been broken in either direction.
+
+### 10.2 The property is weaker than "re-derive the indentation", deliberately
+
+§1.3 says *re-deriving the indentation from the token stream reproduces the source's block
+structure*. A literal reading needs a fixed indent unit — depth 2 means four spaces — and
+Redox has none: the lexer accepts any consistent width, so there is nothing to multiply.
+
+What the test asserts instead is that **within one file, one token depth means one text
+width**. A line whose first token sits at depth *n* must have the same leading width as every
+other line at depth *n* in that file. That is the whole of what the width stack claims, it
+needs no unit, and it fails on exactly the disagreements that would make plan 34 leaf 4
+re-indent wrongly.
+
+The corpus passes it unchanged, `lexical.sdx` included — criterion 3 met with the one file
+every other sweep exempts.
+
+### 10.3 What the gate did, and did not, say
+
+The run that verified this reported `:test` and `:cargo-test` as exit 1 twice, each passing
+when run alone immediately after, and the full seven-target gate then passed unchanged with
+no edit in between. `cargo nextest run --workspace` was 674/674 throughout, clippy clean.
+
+Doctests were the obvious suspect — `cargo test` runs them, nextest does not — and
+`cargo test --workspace --doc` was green, so they are not it. Running the watcher tests four
+ways concurrently did not reproduce a failure either.
+
+This is the third sighting of the condition plan 23 §10.8 and doc 30 §8.7 record, and the
+first where an individually-run target failed rather than only the combined run. It is still
+unexplained, and still deliberately **not** in AGENTS.md's gotcha list: that list is for traps
+with a known mechanism, and writing "sometimes the gate fails" into it would teach a future
+reader to ignore a red gate. The honest record is here, in the three plans that hit it.
