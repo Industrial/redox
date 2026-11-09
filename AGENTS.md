@@ -9,42 +9,48 @@ feature boundaries.
 Run these through Moon, from inside the devenv shell:
 
 ```bash
-moon run :check          # blaze check  — the fast inner-loop verdict
-moon run :build          # blaze build
-moon run :test           # blaze test   (unit, integration, doctests)
+moon run :check          # cargo check --all-features --all-targets
+moon run :build          # cargo build
+moon run :test           # cargo nextest run, then the doctests
 moon run :lint           # cargo fmt --check && cargo clippy -D warnings
 moon run :format         # treefmt (Rust, Nix, shell, JS/TS, YAML, TOML)
-moon run :cargo-check    # cargo check  — rustc's verdict, runs in the push gate
-moon run :cargo-test     # cargo nextest run — likewise
 moon run :audit :coverage :docs :check-docs
 ```
 
+**Moon runs cargo. blaze is for development.** That is the standard: blaze is
+the inner loop you drive by hand while writing a feature, and cargo is what
+moon and CI run to reach a verdict. The `:cargo-check` and `:cargo-test`
+targets that used to exist to double-check blaze are gone — `:check` and
+`:test` *are* rustc's answer now.
+
 ### The Rust targets are per-crate, and cached
 
-`:check`, `:build`, `:test`, `:cargo-check`, `:cargo-test`, `:cargo-build` and `:lint` are
-defined **once** in `.moon/tasks/tag-crate.yml` and inherited by each crate through its
-`tags: ['crate']`. So `moon run :check` is eleven `blaze check -p <crate>` runs, not one
-`--workspace` run, and moon skips the crates whose inputs have not changed. Only
-workspace-wide work — `:format`, `:ci-format`, `:audit`, `:coverage`, `:docs`,
-`:check-docs`, `:fix`, `:bench` — still lives on the root project in `moon.yml`.
+`:check`, `:build`, `:test` and `:lint` are defined **once** in
+`.moon/tasks/tag-crate.yml` and inherited by each crate through its `tags: ['crate']`. So
+`moon run :check` is eleven `cargo check -p <crate>` runs, not one `--workspace` run, and
+moon skips the crates whose inputs have not changed. Only workspace-wide work —
+`:format`, `:ci-format`, `:audit`, `:coverage`, `:docs`, `:check-docs`, `:fix`, `:bench` —
+still lives on the root project in `moon.yml`.
 
-They all used to be `--workspace` with `cache: false`, which meant a one-line edit
+They all used to be `blaze … --workspace` with `cache: false`, which meant a one-line edit
 re-checked, re-built and re-tested all eleven crates on every commit with nothing ever
-skipped. blaze needs 12–16 GB to hold the whole workspace at
-`--all-features --cfg-test --dev-deps`, and the journal records 35 OOM kills of
-blaze-engine in one day. Measured after the change:
+skipped, and blaze needs 12–16 GB to hold the whole workspace at
+`--all-features --cfg-test --dev-deps`. The journal records 35 OOM kills of blaze-engine in
+one day. Measured, cold then repeated, on the full push gate:
 
-| | before | after |
-|---|---|---|
-| no-op push gate | full workspace build, uncached | **67/68 cached, 1.3s, no toolchain process at all** |
-| one leaf crate edited | the whole workspace | that crate alone, 68ms for `:check` |
-| a universal dependency edited | the whole workspace | all 11, correctly |
-| cold full push gate | 12–16 GB, OOM-prone | 22.6 GB peak, completes |
+| | `blaze --workspace`, uncached | per-crate blaze, cached | **per-crate cargo, cached** |
+|---|---|---|---|
+| cold full gate | 12–16 GB, OOM-prone | 203s, 22.6 GB peak | **24s, 0.4 GB peak** |
+| no-op gate | the whole workspace again | 1.3s, 67/68 cached | **0.6s, 45/46 cached** |
+| one leaf crate edited | the whole workspace | that crate alone | **that crate alone** |
+| a universal dependency edited | the whole workspace | all 11, correctly | **all 11, correctly** |
 
-The cold case is the one that got *worse*, and the reason is in the gotchas below: blaze
-spawns a worker per (crate, flag-set), so eleven crates cost more resident memory than one
-`--workspace` call. The caching is what pays for that, and it only pays when the gate is
-mostly cached — which is the normal case and not the first run after a config change.
+The middle column is why the standard is what it is. Scoping blaze per crate made its
+*cold* residency worse, not better — a cold `moon run :check` left 6 daemon workers holding
+7.4 GB where one `blaze check --workspace` leaves 3 holding 3.3 GB, because the daemon is
+designed to hold one big graph and this asked it to hold eleven small ones. cargo holds
+nothing between invocations, so the same per-crate caching costs a fiftieth of the memory.
+blaze keeps its advantage exactly where it is still used: a warm inner loop driven by hand.
 
 **Two things keep this safe, and both are easy to break.**
 
@@ -70,14 +76,32 @@ Two smaller traps, both already paid for:
   `system`, no manifest), which then inherited the per-crate tasks. It is gone, and
   `.moon/workspace.yml` now spells the project sources out instead of globbing.
 
-### Rust goes through blaze
+### blaze is the development loop, by hand
 
-[blaze](https://ix.dev/blaze) is the default Rust build command here, pinned by
-`cursor.features.program-blaze` in `devenv.nix`. It keeps the workspace
-compiled in a per-user daemon and rebuilds only what changed, so `build`,
-`check`, `run` and `test` are roughly an order of magnitude faster than cargo on
-an incremental edit. Use `blaze` wherever you would have typed `cargo`, for
-those four commands.
+[blaze](https://ix.dev/blaze) is pinned by `cursor.features.program-blaze` in
+`devenv.nix`. It keeps the workspace compiled in a per-user daemon and rebuilds
+only what changed, so `build`, `check`, `run` and `test` are roughly an order of
+magnitude faster than cargo on an incremental edit.
+
+**Use it while developing a feature, typing it yourself:**
+
+```bash
+blaze check          # the fast inner-loop verdict while editing
+blaze test           # unit, integration and doctests in one command
+blaze run -p redox-cli -- build examples/hello.sdx
+```
+
+**Moon does not invoke it, and neither does CI.** That split is deliberate and
+measured: the daemon's speed comes from holding the build graph resident, and
+asking it for one crate at a time makes it hold several graphs instead of one —
+15 orphaned workers on 23.3 GB in a single session, and a cold gate at 22.6 GB
+against cargo's 0.4 GB for the same work. The table above has the numbers.
+blaze is worth that cost when a human is iterating in seconds; it is not worth
+it for a gate that wants one answer and then exits.
+
+So: `blaze` by hand, `moon run :check` / `:test` / `:lint` for a verdict. If
+`blaze` and `moon` ever disagree, moon is cargo and cargo is rustc, so moon
+wins.
 
 Two things to know before reaching for it:
 

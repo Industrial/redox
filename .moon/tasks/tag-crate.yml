@@ -1,21 +1,37 @@
 # Per-crate tasks, inherited by every project tagged `crate`.
 # https://moonrepo.dev/docs/config/tasks
 #
-# Why these are per-crate and not `--workspace`
-# ---------------------------------------------
-# Every Rust task here used to live on the root project and carry
-# `--workspace`, with `cache: false` on the blaze ones. That combination meant
-# a one-line edit in redox-lexer re-checked, re-built and re-tested all eleven
-# crates, every commit, with nothing ever skipped. blaze needs 12-16 GB to hold
-# the whole workspace at `--all-features --cfg-test --dev-deps`, and as crates
-# were added it outgrew what the box had: the journal records 35 OOM kills of
-# blaze-engine in one day.
+# Moon runs cargo. blaze is for development.
+# ------------------------------------------
+# These targets are **cargo's**, deliberately, and that is the standard here:
+# blaze is the interactive inner loop a developer drives by hand while writing
+# a feature, and cargo is what moon and CI run to reach a verdict.
 #
-# Scoping each task to one crate with `-p $project` and letting moon cache the
-# verdict means an untouched crate is skipped outright — blaze is not invoked
-# for it at all. Measured on this workspace: a first `moon run :check` takes
-# 60s and peaks at 7.1 GB; the immediate re-run is 11/11 cached in 93ms and
-# starts no toolchain process whatsoever.
+# The reason is measured, not stylistic. blaze keeps the workspace compiled
+# inside a daemon, and that daemon spawns a worker per (crate, flag-set) which
+# stays resident holding its build graph. Running these targets through blaze
+# meant:
+#
+#   * 15 orphaned `blaze-engine` processes holding 23.3 GB mid-session, one per
+#     crate-and-flags pair the gate had asked for;
+#   * a cold `moon run :check` leaving 6 workers on 7.4 GB where a single
+#     `blaze check --workspace` leaves 3 on 3.3 GB — per-crate scoping makes
+#     blaze's residency *worse*, because the daemon's whole design is to hold
+#     one big graph and this asks it to hold eleven small ones;
+#   * 22.6 GB peak on a cold full gate against 12-16 GB before, on a box whose
+#     journal already recorded 35 OOM kills of blaze-engine in a day.
+#
+# cargo holds nothing between invocations. It is slower on a warm inner loop,
+# which is exactly where blaze is used by hand and where its daemon earns the
+# memory it costs.
+#
+# So `blaze check` / `blaze test` stay in AGENTS.md as the commands to type
+# while developing. Nothing in moon invokes them.
+#
+# One consequence worth stating: there is no longer a blaze verdict and a cargo
+# verdict to reconcile, so the `cargo-check` / `cargo-test` / `cargo-build`
+# targets that existed only to double-check blaze are gone. `:check` IS rustc's
+# answer now.
 #
 # What makes the caching safe
 # ---------------------------
@@ -27,30 +43,19 @@
 # reported the other ten cached. A breaking change there would have been
 # reported green.
 #
-# The `dependency_sources` file group is what closes that hole: each crate
-# overrides it in its own moon.yml with the sources of its transitive
-# dependencies, so those files are real inputs to its hash. `deps` is still
-# declared, because the ordering it gives is worth having.
+# The `dependency_sources` file group closes that hole: each crate overrides it
+# in its own moon.yml with the sources of its transitive dependencies, so those
+# files are real inputs to its hash. `deps` is still declared, because the
+# ordering it gives is worth having, and
+# crates/redox-cli/tests/moon_project_graph.rs fails if the list drifts from
+# Cargo.toml.
 #
-# Everything here is cached
-# -------------------------
-# Every task here is a verdict: its value is a pass/fail that re-derives
-# identically from identical inputs.
-#
-# That includes the build tasks, which were briefly left uncached on the
-# grounds that their value is an artifact rather than an answer. Measured, that
-# exemption cost more than it was worth: eleven `blaze build` runs fired on
-# every gate even when nothing had changed, and a no-op push gate still took
-# 45s and peaked at 17.6 GB with 56 of 68 tasks cached — the twelve that ran
-# being these eleven builds and `format`.
-#
-# The cost of caching them is one narrow surprise: delete `target/` by hand and
-# `moon run :build` reports cached without putting a binary back, because moon
-# is not tracking blaze's output layout as `outputs` and cannot —
-# `.moon/workspace.yml` deliberately keeps `**/target/**` out of the hasher.
-# `moon run :build --force` rebuilds. In the gate, where `:build` is asked
-# whether the crate builds rather than for the artifact, the answer is what
-# matters.
+# Everything here is cached, builds included: every task is a verdict whose
+# value re-derives identically from identical inputs. The one narrow surprise
+# is that deleting `target/` by hand leaves `moon run :build` reporting cached
+# without putting a binary back, because moon is not tracking cargo's output
+# layout as `outputs` — `.moon/workspace.yml` deliberately keeps
+# `**/target/**` out of the hasher. `moon run :build --force` rebuilds.
 fileGroups:
   # The crate's own sources, and the two workspace manifests that change what
   # any crate compiles to.
@@ -68,67 +73,50 @@ fileGroups:
   # here so a crate with no intra-workspace dependencies still resolves it.
   dependency_sources: []
 tasks:
-  # ---- blaze: the fast inner loop ------------------------------------------
   check:
-    description: 'Check this crate compiles (blaze)'
-    command: 'blaze'
-    args: ['check', '-p', '$project', '--all-features']
+    description: "Check this crate compiles — rustc's verdict"
+    command: 'cargo'
+    args: ['check', '-p', '$project', '--all-features', '--all-targets']
     deps: ['^:check']
-    inputs: ['@group(sources)', '@group(dependency_sources)']
+    inputs: ['@group(sources)', '@group(tests)', '@group(dependency_sources)']
     options:
       cache: true
       outputStyle: buffer-only-failure
   build:
-    description: 'Build this crate (blaze)'
-    command: 'blaze'
+    description: 'Build this crate'
+    command: 'cargo'
     args: ['build', '-p', '$project']
     deps: ['^:build']
     inputs: ['@group(sources)', '@group(dependency_sources)']
     options:
       cache: true
       outputStyle: buffer-only-failure
+  # nextest does not run doctests — it says so and exits without them — so the
+  # doctests need their own `cargo test --doc` or they quietly stop being
+  # checked. `blaze test` covered unit, integration and doctests in one
+  # command, which is exactly the kind of coverage that disappears unnoticed in
+  # a migration like this one.
+  #
+  # The lib-target guard is not optional: doctests only exist in a lib, and
+  # `cargo test --doc -p redox-cli` on a binary-only crate exits 101 with
+  # `no library targets found in package`. Guarding on the file rather than
+  # swallowing the error with `|| true` keeps a real doctest failure fatal.
   test:
-    description: 'Test this crate (blaze — unit, integration and doctests)'
-    command: 'blaze'
-    args: ['test', '-p', '$project']
+    description: 'Test this crate (nextest, then the doctests)'
+    command: 'bash'
+    args:
+      - '-c'
+      - |
+        set -e
+        cargo nextest run -p $project --all-features
+        if [ -f "$projectRoot/src/lib.rs" ]; then
+          cargo test --doc -p $project --all-features
+        fi
     deps: ['^:test']
     inputs: ['@group(sources)', '@group(tests)', '@group(dependency_sources)']
     options:
       cache: true
       outputStyle: buffer-only-failure
-  # ---- cargo: rustc is still the final word -------------------------------
-  # blaze's verdict is its own front end's and not yet all of rustc's, so the
-  # push gate runs these as well. See AGENTS.md.
-  cargo-check:
-    description: "Check this crate with cargo — rustc's verdict"
-    command: 'cargo'
-    args: ['check', '-p', '$project', '--all-features']
-    deps: ['^:cargo-check']
-    inputs: ['@group(sources)', '@group(dependency_sources)']
-    options:
-      cache: true
-      outputStyle: buffer-only-failure
-  cargo-test:
-    description: 'Test this crate with nextest under rustc'
-    command: 'cargo'
-    args: ['nextest', 'run', '-p', '$project']
-    deps: ['^:cargo-test']
-    inputs: ['@group(sources)', '@group(tests)', '@group(dependency_sources)']
-    options:
-      cache: true
-      outputStyle: buffer-only-failure
-  cargo-build:
-    description: 'Build this crate with cargo'
-    command: 'cargo'
-    args: ['build', '-p', '$project']
-    deps: ['^:cargo-build']
-    inputs: ['@group(sources)', '@group(dependency_sources)']
-    options:
-      cache: true
-      outputStyle: buffer-only-failure
-  # ---- lint ----------------------------------------------------------------
-  # blaze ships no clippy and no rustfmt, so this stays cargo's.
-  #
   # `dependency_sources` belongs here too: clippy compiles the crate before it
   # lints it, so a dependency changing a type or a signature can turn a clean
   # clippy run into a failing one. Only `fmt` is genuinely local, and it is not
@@ -138,7 +126,7 @@ tasks:
     command: 'bash'
     args:
       - '-c'
-      - 'cargo fmt -p $project -- --check && cargo clippy -p $project --all-features -- -D warnings'
+      - 'cargo fmt -p $project -- --check && cargo clippy -p $project --all-features --all-targets -- -D warnings'
     deps: ['^:lint']
     inputs: ['@group(sources)', '@group(tests)', '@group(dependency_sources)']
     options:

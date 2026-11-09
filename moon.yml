@@ -19,12 +19,10 @@ workspace:
     # the ones tagged `crate` — verified with `moon task project-template:check`,
     # which resolved and reported the per-crate description. Until that scopes
     # the way its documentation says, the root has to opt out by name, or
-    # `moon run :check` would also try `blaze check -p project-template`.
+    # `moon run :check` would also try `cargo check -p project-template`, and
+    # the workspace root is not a package.
     exclude:
       - 'build'
-      - 'cargo-build'
-      - 'cargo-check'
-      - 'cargo-test'
       - 'check'
       - 'lint'
       - 'test'

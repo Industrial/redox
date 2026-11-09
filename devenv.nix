@@ -40,11 +40,13 @@
   cursor.features.git-hooks-moon = {
     enable = true;
     # Preserve this repo's Moon gate composition (not the shared ci-* defaults).
-    # :check / :build / :test are blaze's. blaze's verdict is its own front
-    # end's and not yet all of rustc's, so the push gate adds :cargo-check and
-    # :cargo-test — rustc is still the last word before anything leaves here.
+    # :check / :build / :test are cargo's. blaze's verdict is its own front
+    # end's, so moon and the gate run cargo and blaze stays the by-hand inner
+    # loop — see .moon/tasks/tag-crate.yml for the measurements behind that.
+    # :check and :test are therefore already rustc's last word, and the
+    # :cargo-check / :cargo-test duplicates they used to need are gone.
     preCommitTargets = ":format :check :lint :test";
-    prePushTargets = ":format :check :lint :build :test :cargo-check :cargo-test :audit :check-docs";
+    prePushTargets = ":format :check :lint :build :test :audit :check-docs";
   };
   cursor.features.git-hooks-prek.enable = true;
 
