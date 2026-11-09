@@ -307,8 +307,10 @@ impl<'a> Parser<'a> {
       let start = self.peek_span().0;
       self.advance();
 
-      let condition = if matches!(&self.peek().kind, TokenKind::Ident(text) if text == "otherwise")
-      {
+      // `otherwise` is a reserved word (doc 18 §7), not an identifier the
+      // parser compares against: `| otherwise = …` must not be readable as a
+      // comparison against a variable someone happened to name `otherwise`.
+      let condition = if self.check(&TokenKind::Kw(Keyword::Otherwise)) {
         self.advance();
         None
       } else {

@@ -555,11 +555,14 @@ runtime scaffolding at all, and doc 01 §36 needs no exception.
 | Two roles for `where` | 14.2 | `=>` constraints; `where` keeps one role |
 | `=>` as an arm arrow | 6.1 | `->`; `=>` becomes the constraint arrow |
 
-**The keyword count is flat, and saying otherwise would be dishonest.** Ten keywords leave —
-`is`, `and`, `use`, `with`, `defer`, `cond`, `into`, `derive`, `mod`, `unless` — and about ten
-arrive: `case`, `of`, `then`, `otherwise`, `data`, `newtype`, `instance`, `deriving`, `module`,
-`do`. What falls is the number of **constructs**, which is what the parser, the emitter and the
-formatter are each sized by. Operators fall outright: `=>` (as an arm), `??=`,
+**The keyword count is flat, and saying otherwise would be dishonest.** Eleven keywords leave
+— `is`, `and`, `use`, `with`, `defer`, `cond`, `into`, `derive`, `mod`, `unless`, `switch` —
+and nine arrive: `case`, `of`, `then`, `otherwise`, `data`, `newtype`, `instance`, `deriving`,
+`module`. (`do` was already reserved, and `switch` belongs on the leaving list because §2.3
+replaces it with `case … of`; the first draft of this table counted ten and ten, which was
+wrong in both columns and wrong by the same amount, so the conclusion stands.) What falls is
+the number of **constructs**, which is what the parser, the emitter and the formatter are each
+sized by. Operators fall outright: `=>` (as an arm), `??=`,
 `.+ .- .* ./ .%`, `.(`, `...`, `%w[`, `#{` (set), `&:`, `@`, `@@` and `!` leave; `::`, `<-`,
 `\`, `$`, `|`, `--` and `{- -}` arrive.
 
@@ -789,7 +792,8 @@ Since then, one construct per commit:
 | `0abcdf0` | lambdas `\x -> …`, `$`, and parentheses that are only grouping | §4, §2.1 |
 | `2ce7485` | the `\|>` receiver pipeline — parsed since plan 03, previously a `compile_error!` | §4 |
 | `3bb6710` | multi-clause equations with pattern binders | §2.3 |
-| *this* | the `\|` guard ladder, and short bodies on the `=` line | §2.3 |
+| `aafdb08` | the `\|` guard ladder, and short bodies on the `=` line | §2.3 |
+| *this* | the keyword table: eleven words leave, nine arrive | §7 |
 
 The guard commit closed a hole the clause commit had left: doc 18 §2.3's own example
 `fib 0 = 0` did not parse, because the clause body required a line break and an indent. It
