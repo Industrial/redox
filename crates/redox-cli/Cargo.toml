@@ -12,6 +12,12 @@ name = "redox"
 path = "src/main.rs"
 
 [dependencies]
+# Plan 12 §2.1: watching a directory means inotify on Linux, kqueue on the
+# BSDs, FSEvents on macOS and ReadDirectoryChangesW on Windows — four
+# platform APIs behind one interface, which is exactly the library function
+# doc 02 §5.5 says not to write. The alternative is polling mtime on a
+# timer, the heuristic plan 12 §1.1 exists to avoid.
+notify = "8"
 redox-diag = { path = "../redox-diag" }
 redox-driver = { path = "../redox-driver" }
 redox-emit = { path = "../redox-emit" }

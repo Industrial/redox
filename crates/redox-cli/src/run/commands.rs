@@ -42,10 +42,7 @@ pub(crate) const COMMANDS: &[Command] = &[
   Command {
     name: "watch",
     summary: "rebuild on change",
-    state: State::Planned {
-      plan: 12,
-      id: "watcher",
-    },
+    state: State::Ready,
   },
   Command {
     name: "--version",

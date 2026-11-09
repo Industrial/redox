@@ -57,23 +57,27 @@ fn the_surface_is_exactly_doc_01_section_27() {
 /// plan — the distinction plan 11 §1.2 exists to make.
 #[test]
 fn a_planned_command_names_its_plan() {
-  for (name, plan) in [("fmt", "plan 34"), ("watch", "plan 12")] {
-    let out = redox(&[name]);
-    let stderr = String::from_utf8_lossy(&out.stderr);
-    assert!(!out.status.success(), "`{name}` should not succeed yet");
-    assert!(
-      stderr.contains("not implemented yet"),
-      "`{name}` should say it is not implemented:\n{stderr}"
-    );
-    assert!(
-      stderr.contains(plan),
-      "`{name}` should name {plan}:\n{stderr}"
-    );
-    assert!(
-      !stderr.contains("unknown command"),
-      "`{name}` is declared by doc 01 §27, so it is not unknown:\n{stderr}"
-    );
-  }
+  // `fmt` is the only planned command left. `watch` was here too until plan 12
+  // implemented it, and this test failing was how plan 12 learned it had
+  // changed the surface — the table, the usage text and this test are kept in
+  // step by each other rather than by memory.
+  let (name, plan) = ("fmt", "plan 34");
+
+  let out = redox(&[name]);
+  let stderr = String::from_utf8_lossy(&out.stderr);
+  assert!(!out.status.success(), "`{name}` should not succeed yet");
+  assert!(
+    stderr.contains("not implemented yet"),
+    "`{name}` should say it is not implemented:\n{stderr}"
+  );
+  assert!(
+    stderr.contains(plan),
+    "`{name}` should name {plan}:\n{stderr}"
+  );
+  assert!(
+    !stderr.contains("unknown command"),
+    "`{name}` is declared by doc 01 §27, so it is not unknown:\n{stderr}"
+  );
 }
 
 /// Criterion 4: an unknown command is reported as unknown, with the usage.

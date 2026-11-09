@@ -9,6 +9,7 @@
 mod build_command;
 mod check_command;
 mod run;
+mod watch_command;
 
 use std::process::ExitCode;
 

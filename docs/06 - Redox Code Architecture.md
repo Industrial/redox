@@ -453,6 +453,7 @@ Run by the ordinary gate. None is optional and none may be weakened to make a ch
 | A Redox crate builds and runs under plain Cargo | `cargo_project.rs` |
 | A cache hit produces byte-identical output, and a wiped or corrupt cache changes nothing | `cache.rs` |
 | The CLI surface is exactly doc 01 §27's six commands | `cli_surface.rs` |
+| The watcher holds no timing constant, and survives a compile error | `watch.rs` |
 
 Hidden directories (`.hermes` and similar tooling artifacts) are skipped, and `tests/`
 directories are exempt per §7.

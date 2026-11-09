@@ -69,9 +69,13 @@ mod tests {
       text.contains("plan 34"),
       "fmt should say it is plan 34:\n{text}"
     );
+    // `watch` was listed here until plan 12 implemented it, and this test
+    // failed when it did — which is the usage text and the table staying in
+    // step, exactly what plan 11 §2.1 set out to guarantee. A `Ready` command
+    // must not advertise a plan.
     assert!(
-      text.contains("plan 12"),
-      "watch should say it is plan 12:\n{text}"
+      !text.contains("plan 12"),
+      "watch is implemented, so it should no longer name a plan:\n{text}"
     );
   }
 
