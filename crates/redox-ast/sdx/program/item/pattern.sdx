@@ -54,11 +54,7 @@ export data Pattern
   -- | alone — an uppercase head is a constructor, a lowercase one binds — so
   -- | no name resolution is involved, which is doc 03 §2's first admission
   -- | test.
-  | Apply {
-    path : String,
-    args : Vec<Pattern>,
-    span : Span,
-  }
+  | Apply { path : String, args : Vec<Pattern>, span : Span }
   -- | `(a, b)` — doc 03 §6.5's tuple pattern, plan 33.
   -- |
   -- | Distinct from a parenthesised group, which `pattern` unwraps: a group
@@ -78,23 +74,14 @@ export data Pattern
   -- | `{active: true}` with no path — is **deleted** by doc 18 §2.3 along with
   -- | `RDX0042` and `RDX0043`: it lowered to a field-access conjunction, which
   -- | is shorter written directly.
-  | Record {
-    path : String,
-    fields : Vec<crate::RecordPatternField>,
-    rest : bool,
-    span : Span,
-  }
+  | Record { path : String, fields : Vec<crate::RecordPatternField>, rest : bool, span : Span }
   -- | `whole @ Move x y` — doc 03 §6.4's as-pattern, plan 33.
   -- |
   -- | `@`'s **one remaining meaning**: doc 18 §4.3 dropped `@name` and
   -- | `@@name` for `self.name` and `Self::name` and says that leaving `@` with
   -- | exactly this is *"a cost worth paying twice over"*. Haskell's spelling
   -- | too.
-  | As {
-    name : crate::Ident,
-    inner : Box<Pattern>,
-    span : Span,
-  }
+  | As { name : crate::Ident, inner : Box<Pattern>, span : Span }
   -- | `..` in a slice or tuple pattern — doc 03 §6.5's rest, plan 33.
   -- |
   -- | Spelled `..` and not doc 03's `...rest`, because doc 18 §7 removed `...`
@@ -120,11 +107,7 @@ instance Pattern
   export span : &self -> Span
   span self = case self of
     Binding ident -> ident.span
-    -- One line, because `or` does not continue a line: an alternation split
-    -- across lines is `RDX0101`, which plan 68 found here.
     Literal { span, .. } or Wildcard span or Range { span, .. } or Apply { span, .. } or Tuple { span, .. } or Slice { span, .. } or Record { span, .. } or As { span, .. } or Rest span or NamedRest { span, .. } -> *span
-    -- An alternation's span is its ends', and it is never empty: the
-    -- parser builds one only after reading a first pattern.
     Or alts ->
       lo = alts |> .first |> .map_or 0 (\a -> (.span a).0)
       hi = alts |> .last |> .map_or 0 (\a -> (.span a).1)
@@ -137,21 +120,6 @@ instance Pattern
   -- | emitted before doc 18 §2.3 existed.
   export is_irrefutable : &self -> bool
   is_irrefutable self = case self of
-    -- **Only a bare name or `_`.** A destructuring pattern — `(a, b)`,
-    -- `[a, b]`, `Point { x }` — is treated as refutable even where it matches
-    -- everything, and plan 33 §10 records why: this answer decides whether an
-    -- equation's row needs a `match` *and* whether the row's bindings are in
-    -- scope in the body.
-    --
-    -- `signature_from` lends a parameter its name only for a `Binding`, so a
-    -- tuple pattern's parameter is `__rdx_a0` and `a` and `b` come from the
-    -- `match` arm. Calling such a pattern irrefutable suppressed the `match`
-    -- and left the body referring to names nothing bound — which rustc caught
-    -- as `cannot find value a`, against a line the author wrote.
-    --
-    -- The cost is a `match` where a `let` would have done. rustc accepts one
-    -- with a single irrefutable arm, and one rule that cannot produce an
-    -- unbound name is worth more than a second lowering that could.
     Binding _ or Wildcard _ -> true
     _ -> false
 
@@ -167,36 +135,40 @@ instance Pattern
       else
         ".."
       format! \-> "#{lo}#{marker}#{hi}"
-    -- **A one-element tuple keeps Rust's trailing comma.** `(a)` is a
-    -- parenthesised group and `(a,)` is a tuple, so dropping the comma
-    -- turns a destructuring of a `(T,)` into a binding of the whole value —
-    -- which rustc catches, but only because the types differ. Caught here by
-    -- asserting the group and the tuple side by side.
     Tuple { items, .. } ->
-      inner = items |> .iter |> .map (\p -> .rust_text p) |> .collect : Vec<String> |> .join ", "
+      inner = (items
+        |> .iter
+        |> .map (\p -> .rust_text p)
+        |> .collect : Vec<String>)
+        |> .join ", "
       if .len items == 1
         format! \-> "(#{inner},)"
       else
         format! \-> "(#{inner})"
     Slice { items, .. } ->
-      inner = items |> .iter |> .map (\p -> .rust_text p) |> .collect : Vec<String> |> .join ", "
+      inner = (items
+        |> .iter
+        |> .map (\p -> .rust_text p)
+        |> .collect : Vec<String>)
+        |> .join ", "
       format! \-> "[#{inner}]"
-    -- `=` becomes `:`, which is the one character this form changes.
     Record { path, fields, rest, .. } ->
-      mut parts : Vec<String> = fields |> .iter |> .map (\p -> .rust_text p) |> .collect
+      mut parts : Vec<String> = fields
+        |> .iter
+        |> .map (\p -> .rust_text p)
+        |> .collect
       if *rest
         .push (.to_string "..") parts
       format! \-> "#{path} { #{(.join ", " parts)} }"
     As { name, inner, .. } -> format! \-> "#{name.text} @ #{(.rust_text inner)}"
     Rest _ -> .to_string ".."
     NamedRest { name, .. } -> format! \-> "#{name.text} @ .."
-    -- `Some v` is `Some(v)`. A nullary constructor never reaches here: it
-    -- parses as a `Binding`, which emits the bare path — and that is right
-    -- either way, because doc 18 §2.4 emits `use T::*;` beside the enum.
     Apply { path, args, .. } ->
-      inner = args |> .iter |> .map (\p -> .rust_text p) |> .collect : Vec<String> |> .join ", "
+      inner = (args |> .iter |> .map (\p -> .rust_text p) |> .collect : Vec<String>)
+        |> .join ", "
       format! \-> "#{path}(#{inner})"
-    Or alts -> alts |> .iter |> .map (\p -> .rust_text p) |> .collect : Vec<String> |> .join " | "
+    Or alts -> (alts |> .iter |> .map (\p -> .rust_text p) |> .collect : Vec<String>)
+      |> .join " | "
 
 instance Pattern
   -- | Every name this pattern binds, in source order.
@@ -241,8 +213,6 @@ instance Pattern
           case &field.pattern of
             Some pattern -> .collect_binders into pattern
             None -> .push (.clone field.name.text) into
-      -- A *testing* pattern binds nothing, so this arm is the empty answer
-      -- rather than an oversight.
       Literal { .. } or Wildcard _ or Range { .. } or Rest _ -> ()
     -- `RDX0113` requires this, and `clippy::no_effect` objects to the `();`
     -- it generates — see the crate root for the allow and the successor the

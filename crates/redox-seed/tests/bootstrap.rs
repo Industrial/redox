@@ -7,15 +7,24 @@
 //!
 //! # What it does
 //!
-//! Clones `HEAD` into `target/`, **deletes** the generated trees in the clone,
-//! runs `./bootstrap.sh` there, and requires every file to come back
-//! byte-identical to what this working tree has.
+//! Copies the **tracked working tree** into `target/`, runs `./bootstrap.sh`
+//! there, and requires every file to come back byte-identical to what this
+//! tree has.
 //!
-//! Deleting rather than relying on them being untracked is deliberate. It makes
-//! the test independent of commit order — it proves the claim that matters,
-//! *a tree without the generated Rust can be rebuilt from the seed*, whether or
-//! not the ignore flip is in `HEAD` yet — and it is strictly the harder case,
-//! since a clone that still carried them would pass trivially.
+//! # Why the working tree and not `git clone HEAD`
+//!
+//! It cloned `HEAD` at first, which validated the **committed** seed against
+//! the **working tree's** generated Rust. Those are two different compilers
+//! in precisely the commit that matters most — the one refreshing the seed —
+//! and `preCommitTargets` runs `:test`, so the result was a deadlock rather
+//! than a warning: the seed could not be committed because this test failed,
+//! and it could not pass until the seed was committed.
+//!
+//! The property leaf 5 wants is *"a checkout of **this** source, with the
+//! generated Rust absent, bootstraps"*. That is the working tree.
+//! `git ls-files` enumerates exactly the tracked set at its current content,
+//! and the generated trees are untracked — so they are absent for free, and
+//! the old delete-them-first step is gone with the reason for it.
 //!
 //! `assert_the_generated_trees_are_ignored` covers the other half: that they
 //! really are untracked in this working tree.
@@ -74,37 +83,51 @@ fn a_clone_without_the_generated_rust_bootstraps_from_the_seed() {
   let clone = root.join("target/redox-bootstrap-clone");
   let _ = std::fs::remove_dir_all(&clone);
 
-  let cloned = Command::new("git")
-    .args(["clone", "--quiet", "--no-hardlinks", "--depth", "1"])
-    .arg(&root)
-    .arg(&clone)
+  let listed = Command::new("git")
+    .arg("ls-files")
+    .current_dir(&root)
     .output()
-    .expect("should run git clone");
+    .expect("should run git ls-files");
+  assert!(listed.status.success(), "git ls-files should succeed");
+  let tracked = String::from_utf8_lossy(&listed.stdout);
+
+  let mut copied = 0usize;
+  for rel in tracked.lines().filter(|l| !l.trim().is_empty()) {
+    let from = root.join(rel);
+    // A tracked path that is not on disk is a staged deletion, which a
+    // checkout of this state would not have either.
+    if !from.is_file() {
+      continue;
+    }
+    let to = clone.join(rel);
+    if let Some(parent) = to.parent() {
+      std::fs::create_dir_all(parent).expect("should create a directory in the copy");
+    }
+    std::fs::copy(&from, &to).unwrap_or_else(|e| panic!("should copy {rel}: {e}"));
+    copied += 1;
+  }
   assert!(
-    cloned.status.success(),
-    "should clone the workspace:\n{}",
-    String::from_utf8_lossy(&cloned.stderr)
+    copied > 200,
+    "only {copied} tracked files copied, which is too few to be this repository — \
+     the copy is the thing under test, so a broken copy must not read as a pass"
   );
 
-  // The state a clean clone is in: no generated Rust at all.
-  //
-  // Since the flip landed, a clone arrives in that state already and there is
-  // nothing to delete — so the removal is **tolerant** and the assertion is
-  // what carries the weight. Before the flip the clone still carried those
-  // trees and the removal did the work. Either way the bootstrap starts from
-  // an empty `src/`, which is the only thing this test needs to be true, and
-  // it holds whichever commit is `HEAD`.
+  // The generated trees are untracked, so a copy of the tracked set does not
+  // contain them. Asserted rather than assumed: if the ignore flip were ever
+  // reverted they would arrive here and the bootstrap would be graded against
+  // files it did not write.
   for crate_name in PORTED {
     let generated = clone.join("crates").join(crate_name).join("src");
-    let _ = std::fs::remove_dir_all(&generated);
     assert!(
       !generated.exists(),
-      "{} should be gone before bootstrapping — it could not be removed, so the \
-       bootstrap would be graded against files it did not write",
+      "{} is tracked, so it arrived in the copy — the ignore flip has been reverted \
+       and this test would grade the bootstrap against files it did not produce",
       generated.display()
     );
   }
 
+  // `std::fs::copy` preserves the permission bits, so the copied
+  // `bootstrap.sh` is still executable.
   let boot = Command::new("./bootstrap.sh")
     .current_dir(&clone)
     .output()

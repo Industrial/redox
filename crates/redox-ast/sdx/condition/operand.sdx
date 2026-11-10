@@ -10,8 +10,5 @@ export data ConditionOperand
   -- | the lowering reorders nothing and never has. Doc 18 §3.1 spelled this
   -- | `<-`; doc 30 §3.1 spells it `=`, which is Rust's own form with the `let`
   -- | dropped and costs no keyword.
-  | Pattern {
-    pattern : crate::Pattern,
-    source : crate::Expr,
-  }
+  | Pattern { pattern : crate::Pattern, source : crate::Expr }
   deriving (Debug, Clone, PartialEq, Eq)

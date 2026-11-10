@@ -52,5 +52,5 @@ instance Condition
   -- | plan 64 §6 discloses that a value-passing shape cannot carry one.
   export has_pattern : &self -> bool
   has_pattern self = .any (\o -> case o of
-      ConditionOperand::Pattern { .. } -> true
-      _ -> false) (.iter self.operands)
+    ConditionOperand::Pattern { .. } -> true
+    _ -> false) (.iter self.operands)

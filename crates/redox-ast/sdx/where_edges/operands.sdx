@@ -30,13 +30,12 @@ operands e = case e of
     parts
       |> .iter
       |> .filter_map (\p -> case p of
-        StrInterpPart::Interp { expr, .. } -> Some expr
-        StrInterpPart::Text _ -> None)
+      StrInterpPart::Interp { expr, .. } -> Some expr
+      StrInterpPart::Text _ -> None)
       |> .collect
-  -- A **punned** field — `Point { x, y }` — carries `None` and is a
-  -- reference to `x`, which this does not see. A group binding mentioned
-  -- solely as a pun is therefore not an edge; disclosed rather than fixed,
-  -- because the entry then stays in source order.
   Expr::Record { fields, .. } ->
-    fields |> .iter |> .filter_map (\f -> .as_ref f.value) |> .collect
+    fields
+      |> .iter
+      |> .filter_map (\f -> .as_ref f.value)
+      |> .collect
   _ -> Vec::new ()

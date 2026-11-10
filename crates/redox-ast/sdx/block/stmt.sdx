@@ -21,12 +21,7 @@ import redox_lexer::{Span, Trivia}
 -- | stays as the trivia carrier and keeps its name: it is still a block
 -- | element, and the thing that changed is that its payload is no longer a
 -- | kind of its own.
-export data Stmt = Stmt {
-  export expr : Expr,
-  export span : Span,
-  export leading : Vec<Trivia>,
-  export trailing : Option<Trivia>,
-}
+export data Stmt = Stmt { export expr : Expr, export span : Span, export leading : Vec<Trivia>, export trailing : Option<Trivia> }
   deriving (Debug, Clone, PartialEq, Eq)
 instance Stmt
   -- | The single name a `where` entry defines, when it defines exactly one —
@@ -52,10 +47,10 @@ instance Stmt
   -- | order-independent in Rust and must not be reported.
   export where_entry_name : &self -> Option<String>
   where_entry_name self = case &self.expr of
-    Expr::Binding b -> case (.as_slice (.binders b.pattern)) of
+    Expr::Binding b -> case .as_slice (.binders b.pattern) of
       [one] -> Some (.clone one)
       _ -> None
-    Expr::Item { item, .. } -> case (.as_ref item) of
+    Expr::Item { item, .. } -> case .as_ref item of
       Item::Fn decl -> Some (.clone decl.name.text)
       _ -> None
     _ -> None

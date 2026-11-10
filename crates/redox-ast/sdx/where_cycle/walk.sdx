@@ -21,9 +21,12 @@ walk at graph state path =
   .push at path
   for next in &graph[at]
     if state[*next] == 1
-      from = path |> .iter |> .position (\i -> *i == *next) |> .unwrap_or 0
+      from = path
+        |> .iter
+        |> .position (\i -> *i == *next)
+        |> .unwrap_or 0
       end = .len path
-      return Some (.to_vec (path[from..end]))
+      return Some (.to_vec path[from .. end])
     if state[*next] == 0 && walk (*next) graph state path is Some found
       return Some found
   .pop path

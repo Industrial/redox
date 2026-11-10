@@ -9,7 +9,7 @@ import crate::where_edges::operands::operands
 export(crate) mentions : &Expr -> &[(usize, String)] -> &mut Vec<usize> -> ()
 mentions e named into =
   if e is Expr::Ident name && .find (\pair -> pair.1 == name.text) (.iter named) is Some found
-    .push (found.0) into
+    .push found.0 into
   for child in operands e
     mentions child named into
   ()

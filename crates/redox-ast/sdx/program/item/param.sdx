@@ -5,10 +5,5 @@ import redox_lexer::Span
 -- |
 -- | The type is optional at the AST level because a `self` parameter has none,
 -- | and because rustc — not Redox — decides when one is required (doc 02 §6.2).
-export data Param = Param {
-  export name : Ident,
-  export ty : Option<TypeExpr>,
-  export is_mut : bool,
-  export span : Span,
-}
+export data Param = Param { export name : Ident, export ty : Option<TypeExpr>, export is_mut : bool, export span : Span }
   deriving (Debug, Clone, PartialEq, Eq)

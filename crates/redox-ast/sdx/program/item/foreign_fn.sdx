@@ -13,10 +13,5 @@ import redox_lexer::{Span, Trivia}
 -- | Distinct from [`FnDecl`](crate::FnDecl) because a foreign function has no
 -- | body at all, where a `FnDecl` with no clauses would be a defect everywhere
 -- | else in the compiler.
-export data ForeignFn = ForeignFn {
-  export name : Ident,
-  export sig : Signature,
-  export span : Span,
-  export leading : Vec<Trivia>,
-}
+export data ForeignFn = ForeignFn { export name : Ident, export sig : Signature, export span : Span, export leading : Vec<Trivia> }
   deriving (Debug, Clone, PartialEq, Eq)

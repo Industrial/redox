@@ -12,11 +12,7 @@ export data ClassMember
   -- | `class`, which declares the constant, and present in an `instance`,
   -- | which supplies it — but Redox does not enforce that pairing, because
   -- | rustc does and AGENTS.md says every check rustc can make, rustc makes.
-  | AssocConst {
-    name : Ident,
-    ty : TypeExpr,
-    value : Option<Expr>,
-  }
+  | AssocConst { name : Ident, ty : TypeExpr, value : Option<Expr> }
   -- | A method, with or without a body.
   -- |
   -- | No clauses is a *required* method — `fn area(&self) -> f64;`. One or

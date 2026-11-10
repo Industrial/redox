@@ -64,8 +64,13 @@
     # loop — see .moon/tasks/tag-crate.yml for the measurements behind that.
     # :check and :test are therefore already rustc's last word, and the
     # :cargo-check / :cargo-test duplicates they used to need are gone.
-    preCommitTargets = ":format :check :lint :test";
-    prePushTargets = ":format :check :lint :build :test :audit";
+    # `:sdx-format-check` is plan 73's: `redox fmt` is the project's own
+    # formatter and was in no gate at all, so 245 `.sdx` files went unchecked
+    # and a formatter bug that deleted a member's visibility survived. It is
+    # the *check* rather than the write, beside `:lint`, because a gate that
+    # rewrites the source it is grading cannot fail.
+    preCommitTargets = ":format :sdx-format-check :check :lint :test";
+    prePushTargets = ":format :sdx-format-check :check :lint :build :test :audit";
   };
   cursor.features.git-hooks-prek.enable = true;
 

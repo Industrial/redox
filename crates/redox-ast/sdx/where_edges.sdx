@@ -53,21 +53,21 @@ where_edges entries =
     |> .iter
     |> .enumerate
     |> .filter_map (\pair -> case &pair.1.expr of
-      Expr::Binding b -> case (.as_slice (.binders b.pattern)) of
-        [one] -> Some ((pair.0, .clone one))
-        _ -> None
-      _ -> None)
+    Expr::Binding b -> case .as_slice (.binders b.pattern) of
+      [one] -> Some (pair.0, .clone one)
+      _ -> None
+    _ -> None)
     |> .collect
 
   entries
     |> .iter
     |> .map (\entry ->
-      case &entry.expr of
-        Expr::Binding b ->
-          mut found = Vec::new ()
-          mentions (&b.value) (&named) (&mut found)
-          .sort_unstable found
-          .dedup found
-          found
-        _ -> Vec::new ())
+    case &entry.expr of
+      Expr::Binding b ->
+        mut found = Vec::new ()
+        mentions (&b.value) (&named) (&mut found)
+        .sort_unstable found
+        .dedup found
+        found
+      _ -> Vec::new ())
     |> .collect

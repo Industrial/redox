@@ -5,10 +5,7 @@ import crate::{Expr, Stmt}
 import redox_lexer::Span
 
 -- | An indented sequence of statements.
-export data Block = Block {
-  export stmts : Vec<Stmt>,
-  export span : Span,
-}
+export data Block = Block { export stmts : Vec<Stmt>, export span : Span }
   deriving (Debug, Clone, PartialEq, Eq)
 
 instance Block
@@ -29,6 +26,6 @@ instance Block
   -- | carry one depends on the form being written — so the caller that cares
   -- | adds the test and the callers that do not are not made to.
   export sole_expression : &self -> Option<&Expr>
-  sole_expression self = case (.as_slice self.stmts) of
-    [stmt] | !(.is_statement_form stmt.expr) -> Some (&stmt.expr)
+  sole_expression self = case .as_slice self.stmts of
+    [stmt] | !.is_statement_form stmt.expr -> Some (&stmt.expr)
     _ -> None

@@ -1,4 +1,6 @@
 import crate::item_text::visibility_text::visibility_text
+import crate::stmt_text::indent_text::indent_text
+import crate::stmt_text::trivia_text::trivia_text
 import redox_ast::{Constructor, ConstructorFields}
 
 -- | One `data` alternative — `Click`, `Meters f64`, `Square { side : f64 }`.
@@ -8,8 +10,22 @@ import redox_ast::{Constructor, ConstructorFields}
 -- | because juxtaposition is the application form for types as much as for
 -- | values; and a record field uses `::`, which is the declaration separator
 -- | and not the single `:` a local binding takes.
-export(crate) constructor_text : &Constructor -> String
-constructor_text constructor = case &constructor.fields of
+-- |
+-- | # Why a documented field forces one field per line
+-- |
+-- | A record collapsed onto one line has **nowhere to put a field's
+-- | comments**, so the joined form silently deleted them — three doc comments
+-- | in and one out, and the same loss in the generated Rust. Plan 48 found
+-- | exactly this class of defect in the *parser*, fixed it, and gave
+-- | `FieldDecl` its `leading` field; the emitter prints it and this printer
+-- | never did, which no corpus file could reveal until plan 68's port wrote
+-- | 110 documented fields.
+-- |
+-- | So the rule is `pipeline_text`'s, for a different shape: where a field is
+-- | documented there is no joined form left to keep. An undocumented record
+-- | still prints on one line, which is why nothing else in the corpus moves.
+export(crate) constructor_text : &Constructor -> usize -> String
+constructor_text constructor indent = case &constructor.fields of
   ConstructorFields::Unit -> .clone constructor.name.text
   ConstructorFields::Tuple types ->
     mut out = .clone constructor.name.text
@@ -25,6 +41,21 @@ constructor_text constructor = case &constructor.fields of
       format! \-> "#{vis}#{field.name.text} : #{field.ty.text}")
       |> .collect
     if .is_empty printed
-      format! \-> "#{constructor.name.text} {}"
-    else
-      format! \-> "#{constructor.name.text} { #{(.join ", " printed)} }"
+      return format! \-> "#{constructor.name.text} {}"
+    -- Any documented field, and the whole record breaks. Asked of the
+    -- **fields** rather than of the printed text, because the question is
+    -- whether anything would be lost by joining and the printed form is
+    -- exactly what has already lost it.
+    documented = fields
+      |> .iter
+      |> .any (\field -> !.is_empty field.leading)
+    if !documented
+      return format! \-> "#{constructor.name.text} { #{(.join ", " printed)} }"
+    pad = indent_text (indent + 1)
+    mut lines : Vec<String> = Vec::new ()
+    for field in fields
+      for trivium in &field.leading
+        .push (trivia_text trivium (indent + 1)) lines
+      vis = visibility_text (&field.visibility)
+      .push (format! \-> "#{pad}#{vis}#{field.name.text} : #{field.ty.text},") lines
+    format! \-> "#{constructor.name.text} {\n#{(.join "\n" lines)}\n#{(indent_text indent)}}"

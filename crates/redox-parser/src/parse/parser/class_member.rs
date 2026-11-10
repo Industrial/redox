@@ -39,6 +39,18 @@ pub(crate) fn class_member(p: &mut Parser, ctx: &MethodContext) -> Result<ClassM
   // The same shape as plan 68's fix to `constructor`, where the doc comment
   // sits above the `=` or `|` rather than above the name. Peek first.
   let leading = p.peek_leading();
+  // **And the span, for the same reason.** `start` used to be read further
+  // down, after `visibility(p)` had taken the `export` — which the emitter
+  // never minded, because it prints `decl.visibility`, and which broke the
+  // *formatter*: `signature_line` rebuilds a signature from the source slice
+  // at `decl.span.0`, so a span beginning at the name produced a signature
+  // with no visibility, and `redox fmt` wrote that back as canonical. Every
+  // member with a marker lost it — `pub fn` became `fn`.
+  //
+  // Plan 68 moved `peek_leading` above `visibility` for the trivia and left
+  // this one behind. Plan 73 found it by putting `redox fmt --check` in the
+  // gate, which is the only thing that reads these members back.
+  let start = p.peek_span().0;
 
   // A trait's members take their visibility from the trait, and an inherent
   // `impl`'s may each have their own — so the marker is read here and rustc
@@ -86,7 +98,9 @@ pub(crate) fn class_member(p: &mut Parser, ctx: &MethodContext) -> Result<ClassM
   // the name-mismatch guard fires — `RDX0103: this equation defines `x`, but
   // the signature above it is for `y``. Reading the name here, and branching
   // before the loop starts, is what keeps the two apart.
-  let start = p.peek_span().0;
+  // `start` is **not** taken here: it is captured at the top of this function,
+  // before `visibility(p)`, so the span covers the member's `export`. The
+  // comment there says what went wrong when it was not.
   // The name is **peeked**, not consumed, and that is load-bearing rather
   // than fussy: `Parser::equations`'s loop reads the name once per equation,
   // because doc 18 §2.3 makes every equation repeat it. A member with a

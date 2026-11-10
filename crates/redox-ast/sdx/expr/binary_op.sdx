@@ -102,15 +102,7 @@ instance BinaryOp
     Pipeline -> "|>"
     Compose -> ">>>"
     ComposeBack -> "<<<"
-    -- The remaining operators are spelled as Rust spells them, which is
-    -- doc 02 §5.2's rule restated: an expression that reads like Rust and
-    -- binds differently is the worst available failure mode, so neither the
-    -- spelling nor the precedence diverges.
-    -- A `case` where the Rust wrote `.expect`, which is what doc 03
-    -- §12.7 asks for rather than a suppression: `RDX1001` does not
-    -- reach a `case` arm’s attribute, and the ergonomic path was
-    -- available anyway. The panic is the same one.
-    other -> case (.rust_text other) of
+    other -> case .rust_text other of
       Some text -> text
       None -> unreachable!
 
@@ -138,13 +130,10 @@ instance BinaryOp
   export power : self -> u8
   power self = case self of
     Pipeline -> 1
-    -- Doc 03 §4.5 places `catch` *at `??`'s level*, so they share a rung.
     Coalesce or Catch -> 3
     Range or RangeInclusive -> 5
     Or -> 7
     And -> 9
-    -- Comparison is non-associative in Rust. Equal powers let `a < b < c`
-    -- parse so that rustc rejects it — doc 02 §6.2's division of labour.
     Eq or Ne or Lt or Gt or Le or Ge -> 11
     BitOr -> 13
     BitXor -> 15
@@ -152,10 +141,6 @@ instance BinaryOp
     Shl or Shr -> 19
     Add or Sub -> 21
     Mul or Div or Rem -> 23
-    -- Plan 66: Haskell's `.` sits at its tightest operator level and `>>>`
-    -- is reached the same way, so composition binds above `*` — which is
-    -- what makes `xs |> f >>> g` read as `(f >>> g) xs`. 25 is the next
-    -- odd rung above the table's top, so nothing below is renumbered.
     Compose or ComposeBack -> 25
 
   -- | Whether this is `..` or `..=`.

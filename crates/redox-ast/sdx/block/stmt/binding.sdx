@@ -15,11 +15,5 @@ import redox_lexer::Span
 -- | behaviour. A plain `x = 1` is a `Pattern::Binding`, which emits exactly
 -- | what it emitted before — plan 33's criterion 8 asserts that, because this
 -- | is the path every existing golden takes.
-export data Binding = Binding {
-  export pattern : Pattern,
-  export ty : Option<TypeExpr>,
-  export value : Expr,
-  export is_mut : bool,
-  export span : Span,
-}
+export data Binding = Binding { export pattern : Pattern, export ty : Option<TypeExpr>, export value : Expr, export is_mut : bool, export span : Span }
   deriving (Debug, Clone, PartialEq, Eq)

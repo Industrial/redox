@@ -43,6 +43,38 @@ tasks:
     options:
       cache: false
       outputStyle: buffer-only-failure
+  # Plan 73. **`redox fmt` was in no gate.** `:format` above is treefmt, which
+  # has no `.sdx` formatter, and the only `fmt --check` in the per-crate tasks
+  # is `cargo fmt --check` for Rust — so the project's own formatter had never
+  # been run over the project's own 245 `.sdx` files except by hand. That is how
+  # `crates/redox-ast/sdx` came to have 50 of 53 files non-canonical, and how a
+  # formatter bug that **deleted a member's visibility** survived unnoticed.
+  #
+  # Both tasks call `./sdx-fmt.sh`, which owns the one list of what is and is
+  # not canonical and why. Two task bodies would be two exclusion lists free to
+  # drift.
+  sdx-format:
+    description: 'Format the canonical .sdx corpora with redox fmt'
+    command: './sdx-fmt.sh'
+    inputs:
+      - 'sdx-fmt.sh'
+      - '**/*.sdx'
+      - 'crates/redox-fmt/src/**/*'
+    options:
+      cache: false
+      outputStyle: buffer-only-failure
+  sdx-format-check:
+    description: 'Fail if any canonical .sdx is not formatted'
+    command: './sdx-fmt.sh'
+    args: ['--check']
+    inputs:
+      - 'sdx-fmt.sh'
+      - '**/*.sdx'
+      - 'crates/redox-fmt/src/**/*'
+    options:
+      cache: false
+      outputStyle: buffer-only-failure
+
   ci-format:
     description: 'Format check for CI (treefmt with fail-on-change)'
     command: 'treefmt'

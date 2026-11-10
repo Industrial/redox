@@ -2,6 +2,7 @@ import crate::item_text::constructor_text::constructor_text
 import crate::item_text::same_line::same_line
 import crate::item_text::visibility_text::visibility_text
 import crate::stmt_text::indent_text::indent_text
+import crate::stmt_text::trivia_text::trivia_text
 import redox_ast::DataDecl
 
 -- | A `data` or `newtype` declaration, with its `deriving` clause.
@@ -52,7 +53,7 @@ data_text decl indent source =
   header = format! \-> "#{(visibility_text (&decl.visibility))}#{keyword} #{decl.name.text}"
   mut out = case .as_slice decl.constructors of
     [only] | same_line source decl.span.0 only.span.0 ->
-      format! \-> "#{header} = #{(constructor_text only)}"
+      format! \-> "#{header} = #{(constructor_text only indent)}"
     many ->
       -- Two things the Rust wrote differently, both forced.
       --
@@ -79,7 +80,19 @@ data_text decl indent source =
           '='
         else
           '|'
-        format! \-> "#{pad}#{lead} #{(constructor_text constructor)}")
+        -- The variant's own comments, above its `=` or `|` and at the
+        -- ladder's indentation — where the author wrote them and where
+        -- `emit_data` puts them. Dropped entirely until plan 73: plan 68 gave
+        -- `Constructor` a `leading` field because the **parser** was
+        -- discarding it, fixed that, taught the emitter, and left this
+        -- printer alone. No corpus file had a documented variant until that
+        -- row's own port wrote them, so nothing could have caught it.
+        mut head = String::new ()
+        for trivium in &constructor.leading
+          head
+            |> .push_str (&trivia_text trivium (indent + 1))
+          head |> .push '\n'
+        format! \-> "#{head}#{pad}#{lead} #{(constructor_text constructor (indent + 1))}")
         |> .collect
       format! \-> "#{header}\n#{(.join "\n" printed)}"
   if !.is_empty decl.derives

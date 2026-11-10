@@ -58,51 +58,23 @@ export data Expr
     span : Span,
   }
   -- | `recv.name`
-  | Field {
-    recv : Box<Expr>,
-    name : Ident,
-    span : Span,
-  }
+  | Field { recv : Box<Expr>, name : Ident, span : Span }
   -- | `recv[index]`
-  | Index {
-    recv : Box<Expr>,
-    index : Box<Expr>,
-    span : Span,
-  }
-  | Binary {
-    op : BinaryOp,
-    lhs : Box<Expr>,
-    rhs : Box<Expr>,
-    span : Span,
-  }
-  | Unary {
-    op : UnaryOp,
-    operand : Box<Expr>,
-    span : Span,
-  }
+  | Index { recv : Box<Expr>, index : Box<Expr>, span : Span }
+  | Binary { op : BinaryOp, lhs : Box<Expr>, rhs : Box<Expr>, span : Span }
+  | Unary { op : UnaryOp, operand : Box<Expr>, span : Span }
   -- | `(inner)` — kept in the tree so the emitter reproduces the grouping the
   -- | author wrote rather than re-deriving it from precedence.
-  | Paren {
-    inner : Box<Expr>,
-    span : Span,
-  }
+  | Paren { inner : Box<Expr>, span : Span }
   -- | `a::b::c` — a path, carried verbatim (doc 03 §13.1).
-  | Path {
-    text : String,
-    span : Span,
-  }
+  | Path { text : String, span : Span }
   -- | `\x -> e`, doc 18 §4's lambda.
   -- |
   -- | Lowers to a Rust closure: `|x| e`, with `move` and per-parameter types
   -- | carried through. Doc 18 §8 declines currying, so the parameters are a
   -- | list rather than nested single-parameter lambdas — `\x y -> e` is one
   -- | closure of two arguments, matching how application works.
-  | Lambda {
-    params : Vec<crate::Param>,
-    body : Box<Expr>,
-    is_move : bool,
-    span : Span,
-  }
+  | Lambda { params : Vec<crate::Param>, body : Box<Expr>, is_move : bool, span : Span }
   -- | `.name` — a method as a function, plan 57.
   -- |
   -- | The receiver is the **last** argument (§1.2), so this node is the
@@ -113,10 +85,7 @@ export data Expr
   -- | Alone — applied to nothing — it is a value awaiting its receiver and
   -- | lowers to `|__rdx_1| __rdx_1.name()`, which is the text `(|> name)`
   -- | emitted before plan 57 retired that spelling.
-  | MethodRef {
-    name : Ident,
-    span : Span,
-  }
+  | MethodRef { name : Ident, span : Span }
   -- | `async` with an indented block — doc 03 §14.3, plan 39.
   -- |
   -- | ```text
@@ -132,10 +101,7 @@ export data Expr
   -- | Distinct from `try` by one word and nothing else in the lowering, which
   -- | is why both are blocks and neither is a closure: `try` wraps its block in
   -- | `(|| … )()` and this prefixes `async`.
-  | AsyncBlock {
-    body : crate::Block,
-    span : Span,
-  }
+  | AsyncBlock { body : crate::Block, span : Span }
   -- | `unsafe` with an indented block — Rust's `unsafe { … }`, plan 45 leaf 2.
   -- |
   -- | The fourth construct of [`AsyncBlock`](Self::AsyncBlock)'s shape, and
@@ -145,10 +111,7 @@ export data Expr
   -- | Doc 01 §26 names Unsafe Rust as something that must remain possible and
   -- | doc 03 §23 item 2 forbids reaching it through the escape hatch, so this
   -- | is a construct rather than a passage of inline Rust.
-  | UnsafeBlock {
-    body : crate::Block,
-    span : Span,
-  }
+  | UnsafeBlock { body : crate::Block, span : Span }
   -- | `try` with an indented block — doc 03 §12.4, plan 28.
   -- |
   -- | A block in which `?` returns from the **block** rather than the
@@ -160,10 +123,7 @@ export data Expr
   -- | Distinct from plan 20's `Do` by exactly the `(|| … )()` wrapper: a `try`
   -- | lowered to a bare block compiles, and its `?` then returns from the
   -- | function. That is why plan 28 §3 proves it by running.
-  | TryBlock {
-    body : crate::Block,
-    span : Span,
-  }
+  | TryBlock { body : crate::Block, span : Span }
   -- | `e : T`, doc 18 §6's ascription.
   -- |
   -- | Lowers to `{ let __rdx_t: T = e; __rdx_t }` — a block, because Rust has
@@ -172,11 +132,7 @@ export data Expr
   -- | one that replaces doc 03's `into` clause and most turbofish needs.
   -- |
   -- | Type-free by construction: the type is **written**, never inferred.
-  | Ascribe {
-    inner : Box<Expr>,
-    ty : TypeExpr,
-    span : Span,
-  }
+  | Ascribe { inner : Box<Expr>, ty : TypeExpr, span : Span }
   -- | A string literal with **no** interpolation, stored raw, including its
   -- | delimiters — which is what plan 02 carried `raw` for, and why an
   -- | interpolated string is a different node rather than a flag on this one.
@@ -184,10 +140,7 @@ export data Expr
   -- | A `"""` block is **not** stored raw: Rust has no triple-quoted string,
   -- | so the lexer's dedented value arrives as a [`StrLit`](Self::StrLit)
   -- | holding an ordinary escaped Rust string. Plan 23 §1.3.
-  | StrLit {
-    value : String,
-    span : Span,
-  }
+  | StrLit { value : String, span : Span }
   -- | An interpolated string — doc 03 §11.1, plan 23.
   -- |
   -- | ```text
@@ -199,10 +152,7 @@ export data Expr
   -- | takes exactly the path it took before this plan — which plan 23's
   -- | criterion 6 asserts, because one node for both would have made every
   -- | existing golden a diff.
-  | StrInterp {
-    parts : Vec<crate::StrInterpPart>,
-    span : Span,
-  }
+  | StrInterp { parts : Vec<crate::StrInterpPart>, span : Span }
   -- | `(3, 4)` — a tuple expression, plan 33.
   -- |
   -- | **No row owned this.** Doc 03 §6.5's destructuring example is
@@ -214,10 +164,7 @@ export data Expr
   -- |
   -- | Pure passthrough, and told from a parenthesised group by its **comma** —
   -- | exactly as the tuple *pattern* is. One rule, two positions.
-  | Tuple {
-    items : Vec<Expr>,
-    span : Span,
-  }
+  | Tuple { items : Vec<Expr>, span : Span }
   -- | `[0u8; 1024]` — Rust's array-repeat expression, doc 03 §10.4 and §18,
   -- | plan 29.
   -- |
@@ -229,11 +176,7 @@ export data Expr
   -- | allocate on the heap where the author asked for a stack array.
   -- |
   -- | The two share a bracket and nothing else; the `;` tells them apart.
-  | ArrayRepeat {
-    value : Box<Expr>,
-    count : Box<Expr>,
-    span : Span,
-  }
+  | ArrayRepeat { value : Box<Expr>, count : Box<Expr>, span : Span }
   -- | A literal passed through **verbatim and never used as a format string** —
   -- | `r"…"`, `r#"…"#`, `b'x'`, `b"…"`, `c"…"`. Doc 03 §11.2, plan 23.
   -- |
@@ -244,10 +187,7 @@ export data Expr
   -- |
   -- | §11.3 declines regex literals **on condition** that `r"…"` exists, so
   -- | this node is what makes that decline honest.
-  | RawLit {
-    text : String,
-    span : Span,
-  }
+  | RawLit { text : String, span : Span }
   -- | `Point { x = 10 }` and `p { x = 99 }`, doc 18 §2.4's record literal.
   -- |
   -- | One node for both construction and update, because the source is one
@@ -260,11 +200,7 @@ export data Expr
   -- | `{ let mut __rdx_r = p; __rdx_r.x = 99; __rdx_r }`. Rust's own
   -- | `Point { x: 99, ..p }` would need the type's *path*, which the source
   -- | does not give — only the value's name.
-  | Record {
-    head : Box<Expr>,
-    fields : Vec<FieldInit>,
-    span : Span,
-  }
+  | Record { head : Box<Expr>, fields : Vec<FieldInit>, span : Span }
   -- | `[a, b, c]` — a list literal, which is Rust's array literal unchanged.
   -- |
   -- | A spelling rather than a lowering. It is here because doc 18 §3.2's
@@ -272,16 +208,9 @@ export data Expr
   -- | follows the first expression — a `|` opens a comprehension, a `,` or a
   -- | `]` closes a literal — and reading one without the other would have
   -- | left `[` ambiguous.
-  | List {
-    items : Vec<Expr>,
-    span : Span,
-  }
+  | List { items : Vec<Expr>, span : Span }
   -- | `[ e | x <- xs, cond ]` — doc 18 §3.2's comprehension.
-  | Comprehension {
-    element : Box<Expr>,
-    qualifiers : Vec<Qualifier>,
-    span : Span,
-  }
+  | Comprehension { element : Box<Expr>, qualifiers : Vec<Qualifier>, span : Span }
   -- | `if c` with an indented block — doc 01 §8, plan 20.
   -- |
   -- | **One spelling since plan 55 leaf 7.** Leaf 1 merged two nodes —
@@ -304,12 +233,7 @@ export data Expr
   -- | `else` has type `()`, so only the two-armed form carries a value — and
   -- | `else if` is an `else` whose block holds a single `If`, which is how
   -- | Rust reads it too.
-  | If {
-    condition : crate::Condition,
-    then_block : crate::Block,
-    r#otherwise : Option<crate::Block>,
-    span : Span,
-  }
+  | If { condition : crate::Condition, then_block : crate::Block, r#otherwise : Option<crate::Block>, span : Span }
   -- | An indented block as an expression, and `'label` on one — plan 55 leaf
   -- | 7.
   -- |
@@ -329,70 +253,39 @@ export data Expr
   -- | The label makes it Rust's labelled block, native since 1.65, which is
   -- | what *"permitting early exit with a value"* needs — and the one
   -- | capability the keyword carried that nothing else provides.
-  | Block {
-    label : Option<String>,
-    body : crate::Block,
-    span : Span,
-  }
+  | Block { label : Option<String>, body : crate::Block, span : Span }
   -- | `e?` — Rust's try operator, unchanged.
   -- |
   -- | A spelling, not a lowering. It is here because doc 03 §12.5's `from`
   -- | row exists to make `?` work across an error boundary, and a generated
   -- | `From` impl with no `?` to use it would be a feature with no caller.
-  | Try {
-    inner : Box<Expr>,
-    span : Span,
-  }
+  | Try { inner : Box<Expr>, span : Span }
   -- | `()` — the unit value.
   -- |
   -- | Doc 18 §7 retires doc 03 §5.2's `!` zero-argument suffix in favour of
   -- | `f ()`, which makes the unit expression load-bearing rather than
   -- | decorative: without it a no-argument call has no spelling at all, since
   -- | juxtaposition needs something to juxtapose.
-  | Unit {
-    span : Span,
-  }
+  | Unit { span : Span }
   -- | A section — an operator with one side supplied, doc 18 §4.
   -- |
   -- | Always a one-parameter closure over the reserved `__rdx_1`, so a section
   -- | is a value and needs no special call site.
-  | Section {
-    section : Section,
-    span : Span,
-  }
+  | Section { section : Section, span : Span }
   -- | `case e of` with `->` arms, doc 18 §2.3.
   -- |
   -- | Lowers to Rust's `match`, which it already was in all but spelling: the
   -- | arms, the guards and the alternation are Rust's, and what changes is the
   -- | arrow. `switch` leaves the language with this.
-  | Case {
-    scrutinee : Box<Expr>,
-    arms : Vec<CaseArm>,
-    span : Span,
-  }
+  | Case { scrutinee : Box<Expr>, arms : Vec<CaseArm>, span : Span }
   -- | An integer or float literal, carried verbatim with any suffix.
-  | Num {
-    text : String,
-    span : Span,
-  }
-  | Bool {
-    value : bool,
-    span : Span,
-  }
-  | Char {
-    value : char,
-    span : Span,
-  }
+  | Num { text : String, span : Span }
+  | Bool { value : bool, span : Span }
+  | Char { value : char, span : Span }
   -- | `@field` → `self.field` (doc 01 §16.1).
-  | SelfField {
-    name : Ident,
-    span : Span,
-  }
+  | SelfField { name : Ident, span : Span }
   -- | `@@name` → `Self::name` (doc 01 §16.2).
-  | SelfType {
-    name : Ident,
-    span : Span,
-  }
+  | SelfType { name : Ident, span : Span }
   | Ident Ident
 
   -- ---- The forms plan 55 leaf 1 promoted out of `StmtKind` ----
@@ -437,18 +330,12 @@ export data Expr
   -- | It is a statement form, so a nested expression position refuses it the
   -- | same way a `let` is refused. There is no Rust expression that is a
   -- | declaration.
-  | Item {
-    item : Box<crate::Item>,
-    span : Span,
-  }
+  | Item { item : Box<crate::Item>, span : Span }
   -- | `return` with an optional value.
   -- |
   -- | A Rust expression of type `!` — `let x = return;` compiles — so this one
   -- | needs no position rule at all.
-  | Return {
-    value : Option<Box<Expr>>,
-    span : Span,
-  }
+  | Return { value : Option<Box<Expr>>, span : Span }
   -- | `with name = expr` — doc 30 §3.3's callback bind, doc 03 §7.6's
   -- | lowering.
   -- |
@@ -500,11 +387,7 @@ export data Expr
   -- | that** — doc 03 §14.3 provides no executor, so `async` passes through and
   -- | the error for an await outside one is rustc's, landed on the `.sdx` by
   -- | plan 07's remapping.
-  | Await {
-    pattern : Option<crate::Pattern>,
-    value : Box<Expr>,
-    span : Span,
-  }
+  | Await { pattern : Option<crate::Pattern>, value : Box<Expr>, span : Span }
   -- | Assignment to a place — `counter := 2` and `counter += 1`, one node.
   -- |
   -- | Doc 01 §4.3's compound assignment arrived with plan 20 and the plain
@@ -571,12 +454,7 @@ export data Expr
   -- |
   -- | **A statement in Rust**, like the binding it is a refutable form of, so
   -- | a nested one is refused for `Binding`'s reason.
-  | Guard {
-    pattern : crate::Pattern,
-    source : Box<Expr>,
-    r#otherwise : crate::Block,
-    span : Span,
-  }
+  | Guard { pattern : crate::Pattern, source : Box<Expr>, r#otherwise : crate::Block, span : Span }
   -- | `while c` and `until c` — doc 03 §7.7, plan 20.
   -- |
   -- | One node with a flag, because `until` is `while` with a negation and
@@ -593,30 +471,13 @@ export data Expr
     span : Span,
   }
   -- | `for x in xs` — doc 30 §3.2's `for`, plan 20.
-  | For {
-    binder : Ident,
-    source : Box<Expr>,
-    body : crate::Block,
-    label : Option<String>,
-    span : Span,
-  }
+  | For { binder : Ident, source : Box<Expr>, body : crate::Block, label : Option<String>, span : Span }
   -- | `loop` — doc 03 §7.7, *"required by the break-with-value idiom"*.
-  | Loop {
-    body : crate::Block,
-    label : Option<String>,
-    span : Span,
-  }
+  | Loop { body : crate::Block, label : Option<String>, span : Span }
   -- | `break`, `break v`, `break 'l`, `break 'l v` — doc 03 §7.2, plan 20.
-  | Break {
-    label : Option<String>,
-    value : Option<Box<Expr>>,
-    span : Span,
-  }
+  | Break { label : Option<String>, value : Option<Box<Expr>>, span : Span }
   -- | `continue` and `continue 'l`.
-  | Continue {
-    label : Option<String>,
-    span : Span,
-  }
+  | Continue { label : Option<String>, span : Span }
   -- | A `rust` escape hatch in **expression** position — plan 64 leaf 4.
   -- |
   -- | ```text
@@ -630,10 +491,7 @@ export data Expr
   -- | the same hatch as an **item**, which is a separate node — `InlineRust` —
   -- | because an item is emitted into the sink directly where an expression
   -- | has to compose.
-  | RustHatch {
-    code : String,
-    span : Span,
-  }
+  | RustHatch { code : String, span : Span }
   -- | A macro invocation — `name! \-> e`, plan 64.
   -- |
   -- | `!` marks the name and a nullary lambda opens each argument, so no
@@ -649,19 +507,10 @@ export data Expr
   -- |
   -- | `name` is the head verbatim, so a path reaches here whole and
   -- | `id_effect::effect!` needs no second production.
-  | MacroCall {
-    name : String,
-    args : Vec<Expr>,
-    span : Span,
-  }
+  | MacroCall { name : String, args : Vec<Expr>, span : Span }
   deriving (Debug, Clone, PartialEq, Eq)
 instance Expr
   export span : &self -> Span
-  -- One line, because `or` does not continue a line. Exhaustive with no
-  -- wildcard: a new variant must be considered here, because AGENTS.md
-  -- records what a node with no span cost Emerald — found twenty-one plans
-  -- after its diagnostics row shipped, by which point the fix was judged too
-  -- large.
   span self = case self of
     Call { span, .. } or Field { span, .. } or Index { span, .. } or Binary { span, .. } or Unary { span, .. } or Paren { span, .. } or Path { span, .. } or Lambda { span, .. } or MethodRef { span, .. } or AsyncBlock { span, .. } or UnsafeBlock { span, .. } or TryBlock { span, .. } or Ascribe { span, .. } or StrLit { span, .. } or StrInterp { span, .. } or Tuple { span, .. } or ArrayRepeat { span, .. } or RawLit { span, .. } or Case { span, .. } or Record { span, .. } or Expr::Section { span, .. } or Try { span, .. } or Item { span, .. } or If { span, .. } or Block { span, .. } or List { span, .. } or Comprehension { span, .. } or Num { span, .. } or Bool { span, .. } or Char { span, .. } or SelfField { span, .. } or SelfType { span, .. } or Return { span, .. } or Draw { span, .. } or Await { span, .. } or Assign { span, .. } or Guard { span, .. } or While { span, .. } or For { span, .. } or Loop { span, .. } or Break { span, .. } or Continue { span, .. } or MacroCall { span, .. } or RustHatch { span, .. } or Unit { span } -> *span
     Ident i -> i.span
@@ -727,6 +576,4 @@ instance Expr
       None -> [then_block] : Vec<&crate::Block>
     While { body, .. } or For { body, .. } or Loop { body, .. } -> [body] : Vec<&crate::Block>
     Guard { r#otherwise, .. } -> [r#otherwise] : Vec<&crate::Block>
-    -- A local declaration's blocks belong to a different function; see the
-    -- note above.
     Item { .. } or Call { .. } or Field { .. } or Index { .. } or Binary { .. } or Unary { .. } or Paren { .. } or Path { .. } or Lambda { .. } or MethodRef { .. } or AsyncBlock { .. } or UnsafeBlock { .. } or TryBlock { .. } or Ascribe { .. } or StrLit { .. } or StrInterp { .. } or Tuple { .. } or ArrayRepeat { .. } or RawLit { .. } or Record { .. } or List { .. } or Comprehension { .. } or Block { .. } or Try { .. } or Unit { .. } or Expr::Section { .. } or Case { .. } or Num { .. } or Bool { .. } or Char { .. } or SelfField { .. } or SelfType { .. } or Return { .. } or Draw { .. } or Await { .. } or Assign { .. } or Break { .. } or Continue { .. } or MacroCall { .. } or RustHatch { .. } or Ident _ or Binding _ -> Vec::new ()

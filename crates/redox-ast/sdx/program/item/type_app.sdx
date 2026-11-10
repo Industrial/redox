@@ -33,7 +33,10 @@ instance TypeApp
   rust_text self =
     if .is_empty self.args
       return .clone self.head.text
-    args : Vec<String> = self.args |> .iter |> .map (\a -> TypeApp::rust_name (&a.text)) |> .collect
+    args : Vec<String> = self.args
+      |> .iter
+      |> .map (\a -> TypeApp::rust_name (&a.text))
+      |> .collect
     format! \-> "#{self.head.text}<#{(.join ", " args)}>"
 
   -- | The type variables, in order of first appearance.
@@ -47,7 +50,7 @@ instance TypeApp
   vars self =
     mut seen : Vec<&str> = Vec::new ()
     for a in &self.args
-      if TypeApp::is_var (&a.text) && !(.contains (&(.as_str a.text)) seen)
+      if TypeApp::is_var (&a.text) && !.contains (&.as_str a.text) seen
         .push (&a.text) seen
     seen
 
@@ -59,7 +62,7 @@ instance TypeApp
   -- | `impl Convert<f64> for Meters`, and the case of the first letter alone
   -- | made it `Convert<F64>`.
   export is_var : &str -> bool
-  is_var text = .is_some_and char::is_lowercase (.next (.chars text)) && !(primitive_type text)
+  is_var text = .is_some_and char::is_lowercase (.next (.chars text)) && !primitive_type text
 
   -- | A type argument's Rust spelling: a variable uppercased, a concrete type
   -- | left alone.

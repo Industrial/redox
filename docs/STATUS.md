@@ -39,14 +39,14 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 | `redox-diag` | 1793 | 0 |
 | `redox-driver` | 2981 | 0 |
 | `redox-emit` | 6156 | 4421 |
-| `redox-fmt` | 2966 | 1463 |
+| `redox-fmt` | 3028 | 1463 |
 | `redox-fuzz` | 124 | 292 |
 | `redox-lexer` | 3008 | 1158 |
 | `redox-lsp` | 934 | 502 |
 | `redox-mcp` | 808 | 776 |
-| `redox-parser` | 7974 | 609 |
-| `redox-seed` | 298 | 633 |
-| **total** | **32555** | **19255** |
+| `redox-parser` | 7988 | 609 |
+| `redox-seed` | 298 | 656 |
+| **total** | **32631** | **19278** |
 
 ---
 
