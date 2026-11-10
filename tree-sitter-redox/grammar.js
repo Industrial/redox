@@ -763,7 +763,11 @@ module.exports = grammar({
 		// discarding the reading the parser needs — no longer has a case to
 		// describe.
 		pattern_test: ($) =>
-			seq(field("source", $._expression), "is", field("pattern", $.pattern_run)),
+			seq(
+				field("source", $._expression),
+				"is",
+				field("pattern", $.pattern_run),
+			),
 
 		// ------------------------------------------------------------- patterns
 

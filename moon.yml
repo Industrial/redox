@@ -133,7 +133,6 @@ tasks:
     options:
       cache: false
       outputStyle: buffer-only-failure
-
   bench:
     description: 'Run benchmarks (no-op if no benches)'
     command: 'bash'

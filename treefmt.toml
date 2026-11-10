@@ -78,6 +78,22 @@ priority = 3
 command = "biome"
 options = ["format", "--write"]
 includes = ["*.{js,jsx,ts,tsx,json}"]
+# `tree-sitter-redox/src/` is **generated**: `tree-sitter generate` writes
+# `grammar.json`, `node-types.json` and `parser.c` from `grammar.js`, in
+# tree-sitter's own layout. Biome reformats the two JSON files and generate
+# writes them back, so each tool undoes the other and whichever ran last leaves
+# the tree dirty.
+#
+# Harmless but not free: it cost four hand-reverts in one session, and once a
+# commit message that described it as content loss. It is not — parsing both
+# forms gives identical values, 21 conflicts and 99 rules either way. The
+# misreading is worth knowing about, because `git diff -w` invites it:
+# whitespace-insensitive diffing ignores changes *within* a line, not a line
+# structure biome has collapsed, so a four-line array reflowed onto one line
+# reads as three deletions.
+#
+# `grammar.js` stays formatted — it is the hand-written half.
+excludes = ["tree-sitter-redox/src/*"]
 priority = 4
 
 [formatter.yaml]
