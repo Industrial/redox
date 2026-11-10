@@ -281,7 +281,7 @@ around:
 |---|---|---|
 | **Refused** | 11 | the parser says no and names a code — the system working |
 | **Deferred** | 4 | Redox accepts it and **rustc** rejects the generated code |
-| **Silent** | 1 | nothing catches it: `i = j` emits `let i = j;` and shadows |
+| **Silent** | 1 | nothing catches it: `i = j` emits `let i = j;` and shadows — **resolved by row 54**, which gave assignment its own token rather than trying to tell the two readings apart |
 
 The four deferred cases are the milestone's subject. Each is a **borrowed Haskell surface whose
 semantics did not come with it**, so the error arrives in a language the author did not write:
@@ -290,8 +290,8 @@ semantics did not come with it**, so the error arrives in a language the author 
 |---|---|---|---|
 | `map (add 1)` | partial application | `map(add(1))` | `E0061` arity |
 | `5 \|> double` | reverse application | `5.double()` | `E0599` no method |
-| out-of-order `where` | a recursive binding group | `let` in source order | `E0425` not found |
-| `if c` / bare branch value | an expression | `"big";` | `E0308` mismatched types |
+| out-of-order `where` | a recursive binding group | `let` in source order | `E0425` not found — row 61 |
+| `if c` / bare branch value | an expression | `"big";` | `E0308` mismatched types — **resolved by row 55 leaf 0**, and it was eight hardcoded `false`s in the emitter rather than the grammar fork it looked like |
 
 Three further measurements set the milestone's priorities. **14 non-tail `return`s against 2
 `if … then … else` expressions** — the statement/expression split is pushing imperative control
