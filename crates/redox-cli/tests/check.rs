@@ -266,6 +266,65 @@ fn a_discarded_result_is_reported_against_the_sdx() {
   );
 }
 
+/// Plan 56 criterion 3: a borrowed capture produces a **rustc** error, at the
+/// generated closure, reported against the `.sdx`.
+///
+/// This is the row's §1.3 claim being measured rather than argued: an
+/// under-applied call allocates a closure over the arguments it was given, and
+/// a capture that outlives its borrow is rustc's to reject. Redox has no borrow
+/// checker and must never grow one, so if rustc did *not* catch this the
+/// feature would be unsound and nothing else in the gate would notice.
+///
+/// # Why this is in `tests/check/` and not `tests/ui/`
+///
+/// Plan 56 criterion 3 names `tests/ui/`, and it cannot live there for exactly
+/// the reason plan 54 criterion 3 could not — see
+/// [`assigning_to_an_immutable_binding_is_rustcs_error`] above. `ui.rs` runs
+/// `redox build`, which parses, lints, emits and writes without ever invoking
+/// rustc, so this program **builds clean** and that harness's
+/// `assert!(!out.status.success())` would fail on its own expectation rather
+/// than on the program. Two plans have now named `tests/ui/` for a rustc
+/// error; the corpus that runs real rustc and remaps its spans is this one.
+///
+/// `tests/check/borrowed_capture.sdx` under-applies on **line 20**, at the
+/// argument paren in column 26 of
+/// `make_prefixer = Box::new (prefix (s.as_str ()))`.
+#[test]
+fn a_borrowed_capture_is_rustcs_error_at_the_generated_closure() {
+  if support::skip_without_rustc("a_borrowed_capture_is_rustcs_error_at_the_generated_closure") {
+    return;
+  }
+  let checked = check("borrowed_capture");
+  assert!(
+    !checked.success,
+    "a capture that outlives its borrow must fail"
+  );
+
+  // rustc's own code and wording. `E0373` and not `E0382`, which is what
+  // `move` would have produced — plan 56 §5 criterion 6 withdrew the `move`
+  // so that this is the message the author sees.
+  assert!(
+    checked.stderr.contains("error[E0373]"),
+    "rustc's closure-outlives error, not a Redox one:\n{}",
+    checked.stderr
+  );
+  assert!(
+    checked.stderr.contains("but it borrows `s`"),
+    "rustc should name the captured binding:\n{}",
+    checked.stderr
+  );
+  assert!(
+    checked.stderr.contains("borrowed_capture.sdx:20:26"),
+    "reported against the under-applied call on line 20 of the .sdx:\n{}",
+    checked.stderr
+  );
+  assert!(
+    !checked.stderr.contains(".xrs"),
+    "never against the generated Rust:\n{}",
+    checked.stderr
+  );
+}
+
 /// Criterion 6: a program rustc accepts produces nothing and exits zero.
 #[test]
 fn a_clean_program_passes_silently() {

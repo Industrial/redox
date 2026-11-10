@@ -1,3 +1,4 @@
+/// The `miette`-shaped view of a diagnostic, kept out of the data type.
 pub(crate) mod reportable;
 
 use crate::Diagnostic;

@@ -1,5 +1,8 @@
+/// Read a `.xrs.map` sidecar back.
 pub(crate) mod parse_map;
+/// Serialise a map as the `.xrs.map` sidecar.
 pub(crate) mod render_map;
+/// The sidecar's format version.
 pub(crate) mod version;
 
 use crate::source::origin::Origin;

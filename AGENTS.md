@@ -17,6 +17,28 @@ moon run :format         # treefmt (Rust, Nix, shell, JS/TS, YAML, TOML)
 moon run :audit :coverage :docs :check-docs
 ```
 
+**`:check-docs` is red, and has been for a long time.** Measured 2026-11-10:
+**495** `missing_docs_in_private_items` errors across eleven crates — 121 in
+`redox-parser`, 98 in `redox-emit`, 56 in `redox-driver`, 54 in `redox-fmt`,
+46 in `redox-ast`, 42 in `redox-lexer`, then the rest. The task opts into the
+lint deliberately (`-W clippy::missing_docs_in_private_items` under
+`-D warnings`), so this is a convention the project chose and then stopped
+running: `:check-docs` is in no gate, and nothing else runs it.
+
+`redox-diag` was brought to zero at plan 56 — 23 module declarations, six
+struct fields and one associated function — because its declaration lists are
+the first thing a reader of that crate meets, and a grouping module with no
+doc comment contradicts the layout rule below.
+
+**The remaining 468 are a decision, not a chore.** Filling them thinly would
+be worse than leaving them: most are private fields and helpers whose names
+already say what they are, and "match the surrounding comment density" is a
+rule in this file. The two honest options are to document them properly, crate
+by crate, or to stop listing `:check-docs` as a command. Picking one is owed;
+until then this paragraph is why the target fails.
+
+```bash
+
 **Moon runs cargo. blaze is for development.** That is the standard: blaze is
 the inner loop you drive by hand while writing a feature, and cargo is what
 moon and CI run to reach a verdict. The `:cargo-check` and `:cargo-test`

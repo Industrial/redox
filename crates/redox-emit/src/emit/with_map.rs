@@ -1,3 +1,5 @@
+use crate::emit::arity_scope::ArityScope;
+use crate::emit::arity_table::ArityTable;
 use crate::emit::items::emit_items;
 use crate::emit::sink::Sink;
 use crate::emit::trivia::emit_trivia;
@@ -18,6 +20,14 @@ use redox_diag::SourceMap;
 /// `emit_with_map` the correct name for a file called `with_map.rs` under
 /// `emit/`.
 pub fn emit_with_map(program: &Program, source: &str, source_path: &str) -> (String, SourceMap) {
+  // Plan 56 leaf 1. The arity table is installed **here**, at the emitter's
+  // entry, and nowhere else: `redox_fmt::format` reads the same `Program` and
+  // must keep printing the author's `add 1` as `add 1`, so nothing about
+  // currying may be visible before this point (§11.3). The guard's lifetime is
+  // §1.4's boundary — currying is available where the signature is in the file
+  // being emitted.
+  let _arity = ArityScope::enter(ArityTable::from_items(&program.items));
+
   let mut out = Sink::new(source);
   // The items, with the blank-line rule, source order and the gathered test
   // module — all of which a `module` body wants too, which is why they live

@@ -1,6 +1,10 @@
+/// A stable diagnostic code.
 pub(crate) mod code;
+/// Redox's own code, or another compiler's passed through.
 pub(crate) mod diagnostic_code;
+/// A lint an author can switch off by name.
 pub(crate) mod lint;
+/// Whether a diagnostic stops the build.
 pub(crate) mod severity;
 
 use crate::Span;

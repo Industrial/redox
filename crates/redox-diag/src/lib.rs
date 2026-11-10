@@ -15,8 +15,11 @@
 //!
 //! Layout follows `docs/06 - Redox Code Architecture.md`.
 
+/// The diagnostic itself, and the code, lint and severity it carries.
 mod diagnostic;
+/// Turning a diagnostic into text, graphical or plain.
 mod render;
+/// Byte offsets, and the map from generated Rust back to `.sdx`.
 mod source;
 
 pub use diagnostic::Diagnostic;

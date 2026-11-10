@@ -1,0 +1,28 @@
+-- Plan 56 criterion 3: a borrowed capture is **rustc's** error, at the
+-- generated closure, reported against the line the author wrote.
+--
+-- `prefix` takes two arguments and is given one, so plan 56 lowers it to
+-- `|__rdx_1| prefix(s.as_str(), __rdx_1)` — a closure borrowing `s`, which
+-- the function then hands back. Redox has no borrow checker and must never
+-- grow one (AGENTS.md), so §1.3's claim is that rustc judges the capture, and
+-- this fixture is the claim being tested rather than reasoned about.
+--
+-- rustc's own advice here is *"use the `move` keyword"*, which plan 56 §5
+-- criterion 6 deliberately declines: `move` would turn this borrow error into
+-- a move error, which is a worse message about the same mistake, and it would
+-- also make the partial application's closure differ in shape from an
+-- operator section's. §11.2 is the finding.
+
+prefix : &str -> &str -> String
+prefix a b = "#{a}#{b}"
+
+make_prefixer : Box<dyn Fn(&str) -> String>
+make_prefixer = Box::new (prefix (s.as_str ()))
+  where
+    s = String::from "hi "
+
+main : ()
+main =
+  shout = make_prefixer ()
+  print (shout "there")
+  ()

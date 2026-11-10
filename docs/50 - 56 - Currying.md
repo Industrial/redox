@@ -3,7 +3,7 @@
 Plan ID: `currying`
 Depends on: 52 (`type-colon`), 55 (`expression-orientation`)
 Milestone: 9 — *surface coherence*
-Status: `planned`
+Status: `done` — five leaves shipped 2026-11-10; leaf 3 withdrawn by §11.1
 
 ---
 
@@ -54,9 +54,15 @@ One parameter, not three. The nested arrows are inside a verbatim type and the p
 count them. So arity is available today, for free, from the construct that already exists — and
 this row needs no analysis Redox does not already perform.
 
-### 1.3 Capture by move, and rustc judges the result
+### 1.3 Capture by borrow, and rustc judges the result
 
-An under-applied call emits a `move` closure capturing the supplied arguments:
+**Titled *"Capture by move"* until §11.2 measured the other side.** Sections emit no capture
+annotation at all and have since plan 29, so a `move` here would make the two closures differ
+in shape — and `move` on a capture of a borrowed argument turns rustc's borrow error into a
+move error, which is a worse message about the same mistake. §5 criterion 6 is the decision and
+this section follows it.
+
+An under-applied call emits a closure capturing the supplied arguments:
 
 ```
 inc = add 1               ->  let inc = |__rdx_1| add(1, __rdx_1);
@@ -327,8 +333,11 @@ different number, so only the run catches it.
    implicit allocation, and it also solves the awkward-position case Haskell needs `flip` for.
    Declined because it leaves `f a b` meaning something different from what its shape says, which
    is the defect this milestone exists to remove.
-2. **Capture by move, uniformly.** §1.3. The lifetime-threading option puts borrow reasoning in
-   the emitter; the `Copy`-only option makes the rule depend on types Redox cannot see.
+2. **Capture by Rust's own inference, uniformly** — *"by move"* as first written, **withdrawn by
+   §11.2**: a plain closure, no annotation, the same shape a section emits. The
+   lifetime-threading option puts borrow reasoning in the emitter; the `Copy`-only option makes
+   the rule depend on types Redox cannot see; and `move` makes §3 case 3 a move error where it
+   asks for a borrow error. §10.3 is that case measured.
 3. **Arity from the signature, not from a symbol table.** §1.2. This is what makes the row
    affordable, and the precondition is verified rather than assumed: `add2 : impl Fn(i32, i32)
    -> i32 -> i32` emits a **one**-parameter function, so the nested arrows inside a verbatim type
@@ -346,7 +355,181 @@ different number, so only the run catches it.
 
 ## 10. Result
 
-*Not yet executed.*
+Executed 2026-11-10. `add 1` is a closure, `add 1 2` is a call, and the distinction is in
+`tests/golden/currying.xrs`.
+
+### 10.1 What shipped
+
+| Leaf | State | Where |
+|---|---|---|
+| 1 `leaf-arity-table` | done | `emit/arity_table.rs`, `emit/arity_scope.rs`, `emit/missing_arity.rs` |
+| 2 `leaf-partial-application` | done | `emit/application.rs` |
+| 3 | **withdrawn by §11.1**, number kept | — |
+| 4 `leaf-sections-unified` | done | `emit/closure.rs`, `emit/closure_param.rs`; `emit/section_param.rs` deleted |
+| 5 `leaf-rust-paths-as-values` | done, as an assertion | `examples/currying.sdx`, `tests/currying.rs` |
+| 6 `leaf-corpus-and-docs` | done | `examples/currying.sdx`, doc 18 §§1, 4, 8 |
+
+Every criterion is met. Criterion 3 is met **in `tests/check/` rather than
+`tests/ui/`**, and §10.3 is why.
+
+### 10.2 The pass is not a pass
+
+§11.3 named the split as *"the check rides `parse()`; the rewrite lives at
+`emit_with_map` entry"*, and **both halves dissolved**.
+
+The check half went with leaf 3: §11.1 withdrew the diagnostic, so nothing
+rides `parse()` at all. The rewrite half turned out to be unnecessary rather
+than misplaced. §11.1's restatement limits currying to a bare `Expr::Ident`
+with a visible in-file signature, and the `Expr::Call` arm already holds the
+callee and the argument list — so the *decision* is entirely local, and the
+only non-local fact is the arity of one name. A tree rewrite would have walked
+every `Expr` variant, every `Item`, every `Clause` and every `Block` to reach a
+conclusion each `Call` can draw for itself, and would have been incomplete by
+construction the first time a position was missed.
+
+So what lives at the emitter's entry is the **table**, not a rewrite:
+`ArityScope::enter` installs it for the file being emitted and restores it on
+drop. The constraint §11.3 actually states is honoured exactly — nothing about
+currying exists before `emit_with_map`, so `redox_fmt::format` sees the tree it
+always saw. Measured: `redox fmt` on `examples/currying.sdx` leaves it
+byte-identical, and `formatting_preserves_meaning` covers the file because
+`redox-fmt`'s `properties.rs` reads `examples/` whole.
+
+`redox-fmt` needed **no change**, which is the test of the placement.
+
+### 10.3 Criterion 3 cannot be a `tests/ui/` case, for a reason already on record
+
+§5 criterion 3 asks for the borrowed capture's message *"captured in
+`tests/ui/`"*, and that harness runs `redox build` — which parses, lints, emits
+and writes without ever invoking rustc. A program whose only fault is a borrow
+error **builds clean**, so `ui.rs`'s own `assert!(!out.status.success())` would
+fail on its expectation rather than on the program.
+
+This is the second plan to name `tests/ui/` for a rustc error: plan 54
+criterion 3 did, and `check.rs`'s
+`assigning_to_an_immutable_binding_is_rustcs_error` already carries the
+explanation. The fixture is `tests/check/borrowed_capture.sdx` and the error is
+rustc's, against the `.sdx`:
+
+```text
+error[E0373]: closure may outlive the current function, but it borrows `s`,
+              which is owned by the current function
+  --> borrowed_capture.sdx:20:26
+```
+
+rustc's own advice there is *"use the `move` keyword"* — the keyword §5
+criterion 6 withdrew. That is the amendment paying for itself: with `move` this
+would have been a move error instead, which is a worse message about the same
+mistake.
+
+### 10.4 The same-predicate claim held, and it paid for more than `$`
+
+§11.6's claim was that the flattening predicate and the currying predicate are
+the same predicate. In code they are literally the same function —
+`missing_arity` — called twice:
+
+- `emit_application` flattens `Call(Call(f,[a]),[b])` into `Call(f,[a,b])` when
+  `missing_arity(f, [a])` is `Some`, which reads as *collapse exactly the
+  closure that was about to be allocated and immediately called*;
+- the same call decides whether the result is a closure.
+
+It paid a third time, unplanned. §11.5's emitter bug needed
+`wraps_as_receiver` to know that an `Expr::Call` sometimes emits a closure, and
+`missing_arity` is that knowledge. So one 8-line predicate closes the
+under-application lowering, the `$` ordering and a live parenthesisation defect.
+
+Two consequences of the flatten worth recording, both better than the
+alternative:
+
+| Source | Emitted | Judged by |
+|---|---|---|
+| `add 1 $ 2` | `add(1, 2)` | — |
+| `(add 1) 2` | `add(1, 2)` | — |
+| `(add 1) 2 3` | `add(1, 2, 3)` | rustc, `E0061` |
+| `add 1 2 $ 3` | `add(1, 2)(3)` | rustc — the inner call is saturated, so nothing is flattened |
+
+### 10.5 §11.5's bug was real, and currying did make it routine
+
+Measured before the fix, exactly as §11.5 predicted:
+
+```text
+print ((+ 1) 2)   ->  println!("{}", |__rdx_1| __rdx_1 + 1(2));   // broken Rust
+```
+
+The cause is the one §11.5 names: the `Expr::Call` arm called bare
+`emit_expr(callee)` and never consulted `wraps_as_receiver`, which *does* list
+`Expr::Lambda` and `Expr::Section`. The fix is one word — the callee goes
+through `receiver` — and it emits `(|__rdx_1| __rdx_1 + 1)(2)`.
+
+Currying made it routine in the way §11.5 expected and then **removed its own
+instance of it**. A synthesized closure in callee position arises from
+`(add 1) 2`, and the flatten of §10.4 turns that into `add(1, 2)` before the
+question is asked. What is left needing the fix is the author-written section —
+which was broken at HEAD and is the case the row would otherwise have inherited.
+
+### 10.6 The closure is flat, which §3 case 2 gets wrong
+
+§3 case 2 says a one-of-three partial application is *"nested closures"*. It
+cannot be, and the reason is on the consumer side rather than the producer's.
+
+An under-applied value is bound to a name, and a call of that name is a call of
+an **unknown-arity** name — `two 2 3` where `two = tagged "sum"` emits
+`two(2, 3)`, because no signature in the file names `two`. A nested closure
+would reject that, and would reject `inc 5` for `inc = add 1` the moment a
+second argument appeared anywhere. So the closure binds every parameter still
+missing in one list:
+
+```text
+tagged "sum"   ->  |__rdx_1, __rdx_2| tagged("sum", __rdx_1, __rdx_2)
+```
+
+which is the shape the rest of the language already calls. §11.2's indexed
+generator is what makes it spellable, and it is `__rdx_N` rather than
+`__rdx_aN` for the collision §11.2 names.
+
+### 10.7 Corrections to this document
+
+Five things in §11 were wrong or stale, found by implementing it.
+
+- **§11.3's split is void**, per §10.2. Its *reasoning* is correct and is
+  what kept the lowering out of `parse()`; its *conclusion* describes a pass
+  neither half of which exists.
+- **§11.6's premise is wrong on a detail that does not change its decision.**
+  `$`'s `Expr::Call` is **not** *"indistinguishable from juxtaposition"* — it
+  carries `is_dollar: true`, added so `redox-fmt` can reprint the spelling.
+  The flatten does not read it, and should not: `(add 1) 2` wants the same
+  treatment as `add 1 $ 2` and has `is_dollar: false`.
+- **§11.7's line numbers are stale.** Doc 18 §8's table row is at `:722`, not
+  `:646`, and the composition row at `:725`. §1's sentence is at `:43–44` as
+  stated.
+- **§11.8's corpus count is stale in the other direction.** It corrects §2's 29
+  to 30; there were **31** `.sdx` under `examples/` before this row and 32
+  after. The invariant, not the number: every example green with the exemptions
+  `examples.rs`'s `NOT_PARSEABLE` names.
+- **§11.8's chain-width warning did bite, and the budget is tighter than it
+  says.** `[1, 2].into_iter().map(|__rdx_1| add(1, __rdx_1)).sum()` is 55
+  characters against `CHAIN_WIDTH`'s 60; the same chain over `[1, 2, 3]` is 58.
+  `examples/currying.sdx` pipes two-element arrays for exactly that reason.
+
+### 10.8 What was not done, and why
+
+- **No new diagnostic code.** Leaf 3 is withdrawn, so `RDX0110` is still the
+  next free code and `code_coverage.rs`'s `NOT_YET_REACHABLE` stays `&[]`.
+- **No `docs/GRAMMAR.md` row.** That document grades **Rust** constructs, and
+  this row's lowering target is a closure, which is graded already. §11.7
+  records that a new row is no longer free — it needs a `WITNESSES` entry *and*
+  a lexical corpus witness — and there is no token to witness: an
+  under-application is a call with fewer arguments than a signature elsewhere
+  in the file declares, which no token pattern can express. `construct_coverage`
+  and `grammar_inventory` are both green.
+- **No benchmark pair.** §6 records that plan 44's harness should gain one for
+  the one lowering in the language that allocates. It is plan 44's to add and
+  is left as that row's, not quietly absorbed here.
+- **`docs/STATUS.md` and `docs/CONFORMANCE.md` are not blessed.** Both are
+  generated and both moved: 32 examples, 31 goldens, `redox-emit` at 88 files,
+  and `conformance`'s macro count at 927. They are blessed by the operator, so
+  `status` and `conformance_is_current` are the two red steps this row hands
+  over.
 
 ---
 

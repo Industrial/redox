@@ -1,8 +1,14 @@
+/// Move a span onto a character that can actually be drawn under.
 pub(crate) mod anchor_span;
+/// How many `^` to draw under a span.
 pub(crate) mod caret_width;
+/// The boxed, coloured rendering, by way of `miette`.
 pub(crate) mod graphical_one;
+/// Resolve a byte offset to a 1-based line and column.
 pub(crate) mod line_col;
+/// The rendering with no colour and no width dependence.
 pub(crate) mod plain_one;
+/// Which source line to show, and where in it to point.
 pub(crate) mod snippet_line;
 
 use crate::Diagnostic;

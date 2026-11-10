@@ -1,5 +1,6 @@
+use crate::emit::closure::closure;
+use crate::emit::closure_param::closure_param;
 use crate::emit::expr::emit_expr;
-use crate::emit::section_param::SECTION_PARAM;
 use crate::emit::unparen::unparen;
 use redox_ast::Section;
 
@@ -22,27 +23,39 @@ use redox_ast::Section;
 /// A left comparison section is **flipped into a right one** rather than
 /// lowered separately: `(0 <)` and `(> 0)` are the same predicate written
 /// from either side, which is why §4 gives them one lowering.
+///
+/// This builds a **body**, and [`closure`] writes the closure around it — the
+/// same `closure` plan 56's partial application uses, which is that row's
+/// criterion 6: `(+ 1)` and a one-of-two `add` differ in the table consulted
+/// and nowhere else. The text is byte-identical to what this emitted before
+/// the two were unified, and `tests/golden/section.xrs` is what says so.
 pub(crate) fn emit_section(section: &Section, indent: usize) -> String {
-  match section {
-    Section::Field(name) => format!("|{SECTION_PARAM}| {SECTION_PARAM}.{}", name.text),
-    Section::Method(name) => format!("|{SECTION_PARAM}| {SECTION_PARAM}.{}()", name.text),
+  let param = closure_param(0);
+  let body = match section {
+    Section::Field(name) => format!("{param}.{}", name.text),
+    Section::Method(name) => format!("{param}.{}()", name.text),
 
     Section::Right { op, operand } => {
       let value = emit_expr(unparen(operand), indent);
-      if let Some(method) = op.compare_method() {
-        return format!("|{SECTION_PARAM}| {SECTION_PARAM}.{method}(&{value})");
+      match op.compare_method() {
+        Some(method) => format!("{param}.{method}(&{value})"),
+        None => {
+          let spelling = op.rust_text().unwrap_or("/* unsupported */");
+          format!("{param} {spelling} {value}")
+        }
       }
-      let spelling = op.rust_text().unwrap_or("/* unsupported */");
-      format!("|{SECTION_PARAM}| {SECTION_PARAM} {spelling} {value}")
     }
 
     Section::Left { op, operand } => {
       let value = emit_expr(unparen(operand), indent);
-      if let Some(method) = op.flipped().and_then(redox_ast::BinaryOp::compare_method) {
-        return format!("|{SECTION_PARAM}| {SECTION_PARAM}.{method}(&{value})");
+      match op.flipped().and_then(redox_ast::BinaryOp::compare_method) {
+        Some(method) => format!("{param}.{method}(&{value})"),
+        None => {
+          let spelling = op.rust_text().unwrap_or("/* unsupported */");
+          format!("{value} {spelling} {param}")
+        }
       }
-      let spelling = op.rust_text().unwrap_or("/* unsupported */");
-      format!("|{SECTION_PARAM}| {value} {spelling} {SECTION_PARAM}")
     }
-  }
+  };
+  closure(&[param], &body)
 }

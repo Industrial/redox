@@ -1,0 +1,95 @@
+// Doc 18 §4 and plan 56: an under-applied call is a closure.
+//
+// Juxtaposition starts paying for itself here. `add 1` names a function this
+// file declares, and doc 18 §2.2's signature *states* the arity — two
+// top-level arrows, two parameters — so one argument is one short and the
+// lowering is a closure of the rest. `add 1 2` is saturated and stays one
+// call: full application is not currying and must not pay for it.
+//
+// Compiled and **run**, because doc 02 §8.3 is the only check that catches a
+// partial application which captured the wrong argument: it compiles, and it
+// prints a different number.
+
+fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+
+// Saturated. One call, no closure — the other half of criterion 1, and the
+// line `tests/golden/currying.xrs` is compared against.
+fn saturated() -> i32 {
+    add(1, 2)
+}
+
+// One of two, bound to a name and then called. The call is the interesting
+// half: `inc` is a `where` local, so Redox has no arity for it and emits
+// `inc(5)`, which is why the closure binds its missing parameters in **one**
+// flat list rather than nesting them.
+fn one_of_two() -> i32 {
+    let inc = |__rdx_1| add(1, __rdx_1);
+    inc(5)
+}
+
+// One of **three**, which is where a single-level implementation passes the
+// case above and fails. Two parameters are still missing, so two are bound,
+// and `__rdx_2` is why `SECTION_PARAM` had to become a generator.
+fn tagged(tag: &str, a: i32, b: i32) -> String {
+    format!("{} {} {}", tag, a, b)
+}
+
+fn one_of_three() -> String {
+    let two = |__rdx_1, __rdx_2| tagged("sum", __rdx_1, __rdx_2);
+    two(2, 3)
+}
+
+// `$` is loose application and carries no meaning beyond precedence, so
+// `add 1 $ 2` must mean what `add 1 2` means. The arity table says `add`
+// takes two, so the nested application is flattened back into one call and
+// the closure is never allocated — plan 56 §11.6. If one spelling allocated
+// and the other did not, `$` would have become semantically significant.
+fn through_dollar() -> i32 {
+    add(1, 2)
+}
+
+// The other half of criterion 5, and the row's whole safety argument. `op` is
+// a `where` local, so no signature in this file names it and Redox cannot
+// tell an under-applied call from a saturated one. It is emitted as a call
+// exactly as it always was, and rustc judges — which here means it compiles,
+// because the call happens to be saturated. A diagnostic here would be a
+// false-positive generator, which is plan 56 §11.1 and why leaf 3 is withdrawn.
+fn applied() -> i32 {
+    let op = add;
+    op(7, 8)
+}
+
+// A Rust path is **passable, not curryable**. Redox has no signature for
+// `String::from`, so its arity is unknowable and it is never curried; this
+// works because a path in value position is already a `fn` item, which `map`
+// accepts (plan 56 §1.5).
+fn joined() -> String {
+    ["a", "b"].into_iter().map(String::from).collect()
+}
+
+// Criterion 6. An operator section and a one-of-two partial application share
+// one lowering, so the closure they write has the same shape and **neither
+// carries `move`**: a `move` capture of a borrowed argument turns rustc's
+// borrow error into a move error, which is a worse message about the same
+// mistake.
+fn sectioned() -> i32 {
+    [1, 2].into_iter().map(|__rdx_1| __rdx_1 + 1).sum()
+}
+
+fn partial() -> i32 {
+    [1, 2].into_iter().map(|__rdx_1| add(1, __rdx_1)).sum()
+}
+
+fn main() {
+    println!("{}", saturated());
+    println!("{}", one_of_two());
+    println!("{}", one_of_three());
+    println!("{}", through_dollar());
+    println!("{}", applied());
+    println!("{}", joined());
+    println!("{}", sectioned());
+    println!("{}", partial());
+    ();
+}

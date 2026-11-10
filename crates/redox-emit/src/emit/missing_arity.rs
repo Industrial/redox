@@ -1,0 +1,39 @@
+use crate::emit::arity_scope::ArityScope;
+use crate::emit::unparen::unparen;
+use redox_ast::Expr;
+
+/// How many parameters an application has still to be given — `None` when
+/// that number is not knowable, or is zero.
+///
+/// Plan 56 (`docs/50 - 56 - Currying.md`) leaf 1. **This is one predicate with
+/// two uses**, which is §11.6's reason the `$` ordering costs nothing: the
+/// question *"would this call become a closure?"* and the question *"should
+/// `f a $ b` be flattened back into one call?"* are the same question, read
+/// off the same table. One table, two uses, no second pass.
+///
+/// Three things make it `None`, and each is a boundary stated elsewhere:
+///
+/// - **The callee is not a bare identifier.** §11.1: a `Path`, a `where`
+///   local, an equation binder, a lambda parameter and an imported bare name
+///   are all unknown-arity, and for those Redox cannot tell an under-applied
+///   call from a saturated one. §5 criterion 7 is the sharpest case —
+///   `String::from` is *passable, not partially applicable*.
+/// - **No signature in this file names it.** §1.4: `module` loads nothing, so
+///   the table's scope is the file, and a name outside it keeps the lowering
+///   it has always had.
+/// - **Nothing is supplied.** `f ()` is the *empty* argument list, not a call
+///   with one argument — `expr_list` drops a lone unit for doc 18 §7's reason
+///   — so a unit argument supplies nothing, and §6 leaves nullary application
+///   untouched: `f` alone is the function item.
+///
+/// The parenthesis strip is `unparen`'s own rule: `(add) 1` is `add 1`.
+pub(crate) fn missing_arity(callee: &Expr, args: &[Expr]) -> Option<usize> {
+  let Expr::Ident(name) = unparen(callee) else {
+    return None;
+  };
+  let arity = ArityScope::arity_of(&name.text)?;
+  if args.is_empty() || matches!(args, [Expr::Unit { .. }]) {
+    return None;
+  }
+  (args.len() < arity).then(|| arity - args.len())
+}

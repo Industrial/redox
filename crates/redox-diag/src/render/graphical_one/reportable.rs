@@ -15,15 +15,26 @@ use crate::render::anchor_span::anchor_span;
 ///    plain data that any renderer can consume (doc 06 §6 rule 2); the
 ///    coupling to one renderer lives here, inside `render`.
 pub(crate) struct Reportable {
+  /// What went wrong, in the diagnostic's own words.
   message: String,
+  /// The code as text, because `miette` wants a `Display` and not an enum.
   code: String,
+  /// The suggested fix, when there is one worth naming.
   help: Option<String>,
+  /// The half-open byte range the label points at.
   span: (usize, usize),
+  /// The source text **with its filename**, which is the whole reason this type exists: `miette::SourceSpan` alone renders a nameless box.
   source: miette::NamedSource<String>,
+  /// Whether this stops the build, mapped onto `miette`'s own scale.
   severity: crate::Severity,
 }
 
 impl Reportable {
+  /// Build the `miette` view of one diagnostic.
+  ///
+  /// Everything is cloned rather than borrowed: `miette::NamedSource` owns its
+  /// text, and the `Report` this ends up inside outlives the borrow a renderer
+  /// could lend it.
   pub(crate) fn new(d: &Diagnostic) -> Self {
     Self {
       message: d.message.clone(),

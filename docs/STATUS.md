@@ -20,9 +20,9 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 
 | Status | Rows |
 |---|---:|
-| `done` | 52 |
+| `done` | 53 |
 | `superseded` | 4 |
-| outstanding | 9 |
+| outstanding | 8 |
 | **total** | **65** |
 
 `docs/04 - Redox Plan of Plans.md` is the register and the authority. **`done` is a register status, not a guarantee**: several rows record a later plan finding something they got wrong, which is why the register carries the correction and this table only counts.
@@ -35,17 +35,17 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 |---|---:|---:|
 | `redox-ast` | 2791 | 0 |
 | `redox-bench` | 588 | 217 |
-| `redox-cli` | 1372 | 7765 |
-| `redox-diag` | 1659 | 0 |
+| `redox-cli` | 1372 | 7945 |
+| `redox-diag` | 1690 | 0 |
 | `redox-driver` | 2897 | 0 |
-| `redox-emit` | 4595 | 4256 |
+| `redox-emit` | 4943 | 4256 |
 | `redox-fmt` | 2775 | 1459 |
 | `redox-fuzz` | 120 | 268 |
 | `redox-lexer` | 2759 | 1067 |
 | `redox-lsp` | 889 | 496 |
 | `redox-mcp` | 777 | 776 |
-| `redox-parser` | 7001 | 608 |
-| **total** | **28223** | **16912** |
+| `redox-parser` | 7010 | 608 |
+| **total** | **28611** | **17092** |
 
 ---
 
@@ -53,13 +53,13 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 
 | Corpus | Files | What it asserts |
 |---|---:|---|
-| `examples/*.sdx` | 31 | the CI-checked source of truth for what works |
-| `tests/golden/*.xrs` | 30 | the generated Rust, as exact text |
+| `examples/*.sdx` | 32 | the CI-checked source of truth for what works |
+| `tests/golden/*.xrs` | 31 | the generated Rust, as exact text |
 | `crates/redox-cli/tests/ui/*.sdx` | 36 | the diagnostic a bad program gets |
 | `tests/unreachable/*.sdx` | 7 | the gaps below, asserted to **still fail** |
 | `benchmarks/pairs/*.sdx` | 9 | generated and hand-written Rust, as identical IR |
 
-**31 examples and 30 goldens is not an error.** `examples/lexical.sdx` deliberately does not parse — it is the error-path example, and `benchmarks/REPORT.md` excludes it from the throughput sweep for the same reason. Reporting "31 examples, all green" would be rounding up by exactly one file.
+**32 examples and 31 goldens is not an error.** `examples/lexical.sdx` deliberately does not parse — it is the error-path example, and `benchmarks/REPORT.md` excludes it from the throughput sweep for the same reason. Reporting "32 examples, all green" would be rounding up by exactly one file.
 
 ---
 

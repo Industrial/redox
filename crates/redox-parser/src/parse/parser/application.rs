@@ -14,11 +14,20 @@ use redox_ast::Expr;
 /// and `RDX0055` for the nested call it could not read. All of that is this
 /// function.
 ///
-/// **`f a b` is one saturated call, not two.** Doc 18 §8 declines currying
-/// because Rust functions are not curried, so the arguments accumulate into a
-/// single `Call` with two arguments rather than nesting — `add 10 20` is
-/// `add(10, 20)`, and `f g x` is `f(g, x)`, which doc 18 §2.1 notes has
-/// exactly one reading and so needs no diagnostic.
+/// **`f a b` is one `Call` with two arguments, not two nested calls.** The
+/// arguments accumulate into a single node — `add 10 20` is `add(10, 20)`, and
+/// `f g x` is `f(g, x)`, which doc 18 §2.1 notes has exactly one reading and so
+/// needs no diagnostic.
+///
+/// That paragraph used to read *"doc 18 §8 declines currying because Rust
+/// functions are not curried"*, and plan 56 (`docs/50 - 56 - Currying.md`)
+/// retired the decline — so it is corrected here rather than left to read as
+/// false, which plan 56 §11.7 asked for. What changed is **not** this
+/// function: the tree is still flat, and the parser still counts arity
+/// nowhere. An under-applied call becomes a closure in the *emitter*, which
+/// consults the arity its signatures already state, and it is in the emitter
+/// precisely so that `redox fmt` keeps printing the author's `add 1` as
+/// `add 1`.
 ///
 /// An operator token can never begin an argument, which is what lets the loop
 /// stop without a terminator set. [`starts_argument`] is plan 03's own

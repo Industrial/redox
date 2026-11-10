@@ -41,7 +41,15 @@ Three lowerings are new, all three disclosed in §6; nothing else in the emitter
 is fixed by the source text alone, names nothing outside `core`/`alloc`/`std`, preserves Rust's
 semantics, and buys reachability. Haskell is a type-directed language, so the test does most of
 the editing here: it is what admits equations, guards, `data` and sections, and what rejects
-currying, laziness and every monad abstraction (§8).
+laziness and every monad abstraction (§8).
+
+**Currying was in that reject list until plan 56** (`docs/50 - 56 - Currying.md`), and the
+test is what let it in rather than what kept it out. Test 1 asks that the lowering be fixed by
+the source text alone, and for an under-applied call it is: §2.2's signature *states* the
+arity, so `add 1` against `add : i32 -> i32 -> i32` is one argument short by counting
+top-level arrows and nothing else. What is admitted is partial application — a closure over the
+arguments still missing — and not Haskell's semantics, since a Redox function is still one
+saturated call rather than a chain of one-argument ones. §8's table carries the correction.
 
 ### 1.1 The simplicity dividend is not a bonus — it is the argument
 
@@ -452,8 +460,10 @@ tighter: `1..3.into_iter()` is `1..(3.into_iter())`.
 | `(.name)` | `\|__rdx_1\| __rdx_1.name` | field selector, as in GHC's record dot |
 | `(\|> name)` | `\|__rdx_1\| __rdx_1.name()` | method reference — a section of `\|>` |
 | `(- 1)` | `-1` | always negation; no subtraction section |
+| `add 1` | `\|__rdx_1\| add(1, __rdx_1)` | partial application — **plan 56**, the seventh row of the same mechanism |
 
-The last two rows each delete something. A section of `|>` is a method reference, derived from
+The `(|> name)` and `(- 1)` rows each delete something — *"the last two"* until plan 56 added a
+seventh below them. A section of `|>` is a method reference, derived from
 the rule rather than added to it, so doc 03 §8.5's `&:name` sigil goes — and unlike `&:` it can
 distinguish a field from a method, since `(.name)` selects and `(|> name)` calls. And following
 Haskell in having no subtraction section retires the `(-1)`-versus-`(- 1)` adjacency rule
@@ -488,6 +498,15 @@ field access — the one Haskell token that cannot be had at any price. Reverse 
 Haskell is `&`, which is Rust's reference sigil. So the receiver pipeline keeps Elm's and F#'s
 spelling, and composition is declined for lack of a lowering target: without currying there is
 nothing to compose.
+
+**Amended by plan 56** (`docs/50 - 56 - Currying.md`): there is now something to compose, which
+is why the table above has a seventh row. An operator section and a function partial
+application are **one mechanism with one lowering** — `emit::closure` writes both, and they
+differ in the table consulted and nowhere else — so the two cannot drift into two
+specifications of the same closure. Neither carries `move`: a `move` capture of a borrowed
+argument turns rustc's borrow error into a move error, which is a worse message about the same
+mistake. The decline above narrows to the *spelling*, because `.` is still field access; plan
+58 chooses `>|` / `|<`.
 
 ---
 
@@ -719,10 +738,10 @@ and the reason doc 03's first decision was to adopt Rust's range spelling.
 
 | Declined | Reason |
 |---|---|
-| Currying and partial application | Rust functions are not curried. `f x y` is one saturated call; a partial application is written `\y -> f x y`. **This is the central limitation**, and it is why composition is also declined. |
+| ~~Currying and partial application~~ | **Admitted by plan 56** (`docs/50 - 56 - Currying.md`), and this row was the central limitation until it was. `f x y` is still one saturated call — a Redox function is not a chain of one-argument functions — but an **under-applied** one is now a closure over the arguments still missing: `add 1` is `\|__rdx_1\| add(1, __rdx_1)`. Admission test 1 passes because §2.2's signature *states* the arity, so the lowering is fixed by counting top-level arrows and nothing else. The boundary is the file: arity is known for a bare name with a signature in the file being compiled, and every other callee — a path, a `where` local, an equation binder, a lambda parameter, an imported name — is emitted as a call for rustc to judge. §4's table and the composition row below are amended with it. |
 | Inclusive `..` | Haskell's `[1..10]` includes 10; Rust's excludes it. Doc 03 decision 34 corrected doc 01 for exactly this reason, and it is not being re-broken for cosmetics. `1..10` exclusive, `1..=10` inclusive. |
 | `/=` for inequality | Rust reads `/=` as divide-assign. A silent arithmetic mutation where the author wrote a comparison is the same failure mode as the range inversion. Inequality stays `!=`. |
-| `.` for composition | Field access, which §5.2, §6.3 and the whole pipeline depend on. Without currying there is nothing to compose anyway. |
+| `.` for composition | Field access, which §5.2, §6.3 and the whole pipeline depend on. ~~Without currying there is nothing to compose anyway.~~ **The second sentence is retired by plan 56**: there is now something to compose. What stays declined is the *spelling* — `.` is taken — and plan 58 chooses `>\|` / `\|<` for the operator. |
 | Cons patterns `(x:xs)` | Rust slices are not cons lists; there is no `Cons` to match. Slice patterns stay Rust's: `[a, rest @ ..]`. |
 | Laziness, infinite lists, `seq` | Rust is strict. An iterator is the nearest thing and is already reachable; pretending otherwise would change evaluation order, which admission test 3 forbids. |
 | `do` over user monads; `>>=`, `<$>`, `<*>` | Admissible in the narrow sense — `x >>= f` could emit `x.and_then(f)` and rustc would resolve it — but it duplicates `\|> and_then`, and §16 allows one spelling per construct. Declined on simplicity, not on type-freedom; recorded as the venue if `\|>` proves insufficient. |

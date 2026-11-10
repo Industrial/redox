@@ -1,3 +1,4 @@
+use crate::emit::application::emit_application;
 use crate::emit::ascribed_list::ascribed_list;
 use crate::emit::assert_call::assert_call;
 use crate::emit::case::emit_case;
@@ -238,7 +239,11 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
       {
         return format!("panic!({})", expr_list(args, indent));
       }
-      format!("{}({})", emit_expr(callee, indent), expr_list(args, indent))
+      // Doc 18 §2.1's application, and plan 56's currying: a saturated call,
+      // or the closure an under-applied one becomes. Delegated because the
+      // decision needs the arity table and the `$` flatten, and neither
+      // belongs in a match arm.
+      emit_application(callee, args, indent)
     }
 
     // ---- The forms plan 55 leaf 1 promoted out of `StmtKind` ----
