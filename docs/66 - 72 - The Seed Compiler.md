@@ -1,6 +1,6 @@
 # Plan 72 — The Seed Compiler
 
-Status: `partial` — leaf 1 done 2026-11-10
+Status: `partial` — leaves 1 and 2 done 2026-11-10
 Depends on: 68 (the AST in Redox), 69 (the formatter in Redox), 70 (the source beside the crate), 09 (the cargo integration)
 
 > **Numbering.** Plan **72**, doc index **66**. Row 71 (`cursor-support`, doc 65) was
@@ -377,8 +377,32 @@ reproduces `crates/redox-ast/src` **byte for byte**: 53 of 53 files identical to
 what is committed, after the native rustfmt pass leaf 5 will run, asserted by
 `crates/redox-seed/tests/seed.rs`.
 
-The remaining leaves are untouched. Leaf 2 is next and §11.1 explains why it
-should have been first.
+**Leaf 2 is done, and it settles the question §11.1 said it would.** The
+toolchain carries `wasm32-wasip1`, `wasmtime` 47.0.3 and `binaryen` 130, added
+in `devenv.nix` rather than in the shared `.cursor/nix` harness — `targets` is
+a list option, so a project-only target merges with the harness's `[]` and
+needs no change there.
+
+| | |
+|---|---:|
+| `redox-seed.wasm`, release | **1,351,423 bytes** |
+| after `wasm-opt -Oz --enable-bulk-memory` | **913,549 bytes** |
+| Zig's `zig1.wasm`, for calibration | 2.4 MiB |
+
+So the seed is about **36% of Zig's**, which is the only external number worth
+comparing against, and §2's 1–2 MB estimate was right at the top of the range
+before optimisation and well under it after.
+
+**It runs, and it reproduces the tree.** Under
+`wasmtime run --dir . seed.wasm crates/redox-ast/sdx <out>`: exit 0, 53 files,
+and all **53 byte-identical** to what is committed after the native rustfmt
+pass. The same assertion the native binary passes, from the artifact that would
+actually be checked in.
+
+Leaves 3 through 7 remain: the blob with a recipe and a hash, the fixpoint
+test, the clean-clone bootstrap and first ignore flip, the version-skew rule,
+and the register amendment — of which the amendment is already done, at
+`d945524`.
 
 ---
 
@@ -462,6 +486,57 @@ a crate's `src/`, and there the same cache is wrong three ways:
 The seed deletes it, in `src/run/tidy.rs`, and `tests/seed.rs` asserts the
 absence rather than assuming it — because the failure would otherwise arrive as
 a message about constructs rather than about caching.
+
+### 11.5 §2's second blocker was not a blocker either
+
+§11.1 left one claim open: `miette`'s `fancy` feature is in the seed's graph,
+and whether it *blocks* `wasm32-wasip1` was reasoning rather than measurement.
+
+**It does not block it.** With the target installed, `cargo build --release -p
+redox-seed --target wasm32-wasip1` succeeds with no errors and no warnings,
+`fancy` and its `backtrace` / `owo-colors` / `supports-color` /
+`terminal_size` retinue all present. `backtrace` has a no-op fallback and the
+other two compile and simply report nothing useful under WASI, which is what
+§11.1 guessed might be true.
+
+So the five-crate feature gate — `redox-diag`'s `miette` made optional,
+`redox-driver` forwarding it, three callers enabling it — is **confirmed
+unnecessary** and was correctly not built. §2's table should be read as: one
+measured obstacle (`notify`, avoided by not being `redox-cli`) and one that
+never existed.
+
+That is two corrections in the same direction, and the lesson is the same one
+`AGENTS.md` already keeps a section about: *"a declaration read correctly still
+does not tell you the behaviour"*. Both claims came from reading what a crate
+depends on. Neither survived a compiler.
+
+### 11.6 The cache's safe fallback panics on WASI, and `Command` was the wrong thing to search for
+
+The first `wasmtime` run aborted 47 files into the 53-file tree:
+
+```text
+thread 'main' panicked at library/std/src/sys/process/unsupported.rs:336:5:
+no pids on this platform
+```
+
+`Fingerprint::current()` hashes the compiler's own binary so that rebuilding
+the compiler invalidates every cached result, and on failure falls back to
+*"something that differs every process, so every lookup misses"* — the safe
+direction, and its comment is right about why. On `wasm32-wasip1` **both halves
+fail**: `std::env::current_exe()` is unsupported, so the fallback is always
+taken, and `std::process::id()` is unsupported in a way that panics rather than
+returning an error.
+
+§2 claimed *"nothing in the build path spawns a process"*, which was true and
+**insufficient**: it was a search for `Command`, and `process::id` is not
+`Command`. The honest statement of that precondition is *"nothing in the build
+path touches `std::process`"*, and it was false.
+
+Fixed in `redox-driver` by asking the wall clock, which exists wherever `std`
+does — WASI has `clock_time_get` — and which satisfies the fallback's own
+paragraph **better** than a pid did: a pid is reused between runs, so two
+different compilers could share a fingerprint, where a nanosecond timestamp
+effectively cannot.
 
 ### 11.4 Two smaller drifts, found in passing
 

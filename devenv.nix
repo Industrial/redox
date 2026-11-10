@@ -37,6 +37,25 @@
     channel = "stable";
   };
 
+  # Plan 72 (`docs/66 - 72 - The Seed Compiler.md`) leaf 2 — the bootstrap
+  # seed's target. `crates/redox-seed` is compiled to `wasm32-wasip1` and
+  # checked in as `redox1.wasm`, so a crate written in Redox need not also
+  # commit the Rust it generates.
+  #
+  # Set **here** and not in `.cursor/nix/features/languages-rust.nix`, which
+  # assigns `targets = []`. That is not a conflict: `targets` is a list
+  # option, the module system merges list definitions, and the harness file is
+  # shared with every other project that imports `.cursor/nix` — so a
+  # project-only target belongs in the project's own file. This is the same
+  # split `devenv.yaml` already states: shared input defaults there, project
+  # pins here.
+  #
+  # `wasip1` rather than `wasip2` or `unknown-unknown`: the seed needs real
+  # files and nothing else, preview1 is what `wasmtime` runs with no component
+  # tooling, and a browser build (`unknown-unknown`) is the playground's
+  # target and a different row (plan 72 §6).
+  languages.rust.targets = ["wasm32-wasip1"];
+
   cursor.features.git-hooks-moon = {
     enable = true;
     # Preserve this repo's Moon gate composition (not the shared ci-* defaults).
@@ -66,6 +85,12 @@
     # plan was written, which is exactly the kind of coincidence a pin exists
     # to stop relying on.
     pkgs.tree-sitter
+    # Plan 72 leaf 2. `wasmtime` runs the seed on a clean clone; `binaryen`
+    # is `wasm-opt`, which leaf 1's size criterion needs to be comparable at
+    # all — Zig's 2.4 MiB `zig1.wasm` is the figure *after* `wasm-opt -Oz`,
+    # so a number measured without it would be measuring something else.
+    pkgs.wasmtime
+    pkgs.binaryen
   ];
 
   # Project-only shell wiring (shared features handle moon-sync, prek install).

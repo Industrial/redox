@@ -19,14 +19,38 @@ impl Fingerprint {
   /// The fingerprint of the running compiler.
   ///
   /// If `current_exe` or the read fails, the fingerprint is derived from
-  /// something that differs every process, so every lookup misses. That is
+  /// something that differs every call, so every lookup misses. That is
   /// the safe direction: a cache that cannot identify its compiler must not
   /// claim its results are reusable.
+  ///
+  /// # Why the clock and not the pid
+  ///
+  /// This fallback used `std::process::id()`, which is the obvious thing and
+  /// **panics** on `wasm32-wasip1` — *"no pids on this platform"*, from
+  /// `std`'s `process::unsupported`. Both halves fail on that target:
+  /// `current_exe` is unsupported too, so the fallback is always taken, and
+  /// then it aborts. Plan 72 leaf 2 found it by running `redox-seed` under
+  /// `wasmtime`, 47 files into a 53-file tree.
+  ///
+  /// The wall clock exists wherever `std` does — WASI has `clock_time_get` —
+  /// and it satisfies the paragraph above better than a pid did: a pid is
+  /// reused between runs, so two different compilers could share a
+  /// fingerprint, where a nanosecond timestamp effectively cannot. If even
+  /// the clock fails there is nothing left to ask, and zero is as good a
+  /// constant as any: the cache is then useless rather than wrong, which is
+  /// the direction this function has always chosen.
   pub fn current() -> Self {
     match std::env::current_exe().and_then(std::fs::read) {
       Ok(bytes) => Self::of(&bytes),
-      Err(_) => Self::of(&std::process::id().to_le_bytes()),
+      Err(_) => Self::of(&Self::now().to_le_bytes()),
     }
+  }
+
+  /// Nanoseconds since the epoch, or zero if the clock refuses.
+  fn now() -> u128 {
+    std::time::SystemTime::now()
+      .duration_since(std::time::UNIX_EPOCH)
+      .map_or(0, |d| d.as_nanos())
   }
 
   /// A fingerprint of arbitrary bytes.
