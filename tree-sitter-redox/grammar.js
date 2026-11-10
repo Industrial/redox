@@ -996,6 +996,13 @@ module.exports = grammar({
 					"&",
 					"|",
 					"^",
+					// Plan 66's composition, above the shifts so a three-character
+					// token is never read as its two-character prefix. tree-sitter
+					// lexes the longest valid token rather than the first listed, so
+					// the position is documentation here and load-bearing in
+					// `OPERATOR_TABLE`.
+					">>>",
+					"<<<",
 					"<<",
 					">>",
 					"~",

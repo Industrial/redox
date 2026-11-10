@@ -293,7 +293,10 @@ the function item. Plan 59 takes the zero-argument binding question and plan 64 
 
 **Composition is plan 58's.** This row makes it possible: doc 18 §4 declines composition
 outright, *"for lack of a lowering target: without currying there is nothing to compose"*, and
-names no spelling. Plan 58 chooses `>|` / `|<`.
+names no spelling. Plan 58 names the row and **plan 66 chooses `>>>` / `<<<`** — Haskell's own,
+superseding plan 58's `>|` / `|<`. Plan 66 shipped it, and the shared closure path is this row's
+decision 5 holding: `emit/compose.rs` hands its body to the same `closure` a section and a
+partial application use.
 
 ---
 

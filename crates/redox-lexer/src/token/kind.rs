@@ -78,6 +78,23 @@ pub enum TokenKind {
   FatArrow,
   /// `|>` — the receiver pipeline (doc 03 §5.3).
   Pipe,
+  /// `>>>` forward composition, and `<<<` backward — plan 66.
+  ///
+  /// Haskell's own spelling, borrowed intact from `Control.Category`, which
+  /// is why plan 66 supersedes the bar-shaped pair plan 58 §9 decision 2 chose:
+  /// both its heads pointed the same way, so only the bar's side distinguished
+  /// them and that carries nothing. The superseded spelling is written out in
+  /// plan 66 §1.2 and deliberately nowhere under `crates/` — its criterion 8
+  /// greps for it.
+  ///
+  /// **Three characters, so both are listed above `>>` and `<<`.** A
+  /// three-character token tried after its two-character prefix lexes as the
+  /// prefix and then a stray `>`, which truncates silently; `scan_operator`'s
+  /// `longer_operators_are_tried_before_their_prefixes` is what refuses that
+  /// ordering. The shifts keep their own spellings — plan 58 §1.3 rejected
+  /// `>>` / `<<` for composition and plan 66 decision 8 leaves that standing.
+  Compose,
+  ComposeBack,
   /// `??` and `??=` (doc 03 §12.1).
   Coalesce,
   CoalesceEq,
@@ -187,8 +204,9 @@ impl TokenKind {
   /// line, so suppressing the newline would swallow the `Indent` the parser
   /// needs. `main : ()` / `main =` is the case that proved it.
   ///
-  /// `>` and `>>` are not here either, for a different reason: they close a
-  /// generic argument list far more often than they dangle off a comparison.
+  /// `>`, `>>` and `>>>` are not here either, for a different reason: they
+  /// close a generic argument list far more often than they dangle off a
+  /// comparison — or, for the third, off a composition.
   /// `wide = Some 1 : Option<u8>` swallowed the whole next line into the
   /// type's verbatim text, because `capture_type` ends a type at a newline and
   /// there was no newline to find. A comparison genuinely split after `>` is
@@ -203,10 +221,17 @@ impl TokenKind {
   /// parentheses; a glob import is not avoidable at all. Twice is a pattern
   /// worth naming — **a token that ends a construct should not continue a
   /// line**, however operator-like it looks.
+  ///
+  /// That rule is what splits plan 66's pair. `<<<` ends no construct, so it
+  /// continues; `>>>` closes `Vec<Vec<Vec<i32>>>`, so it does not, and a
+  /// forward chain split across lines leads its continuation line instead —
+  /// which is what `Lexer::next_line_continues` admits and is the house
+  /// style for `|>` already.
   pub(crate) fn continues_line(&self) -> bool {
     matches!(
       self,
       Self::Pipe
+        | Self::ComposeBack
         | Self::Comma
         | Self::Plus
         | Self::Minus

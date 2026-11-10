@@ -68,8 +68,8 @@ ground and the refusal still holds.
 
 **`set i = j`.** A word rather than a sigil, greppable, and `=` untouched. Declined on weight:
 it is the only statement form in the language that would need a keyword to say something every
-other language says with punctuation, and the milestone is already adding `is`, `>|`, `|<` and
-`\->`.
+other language says with punctuation, and the milestone is already adding `is`, `>>>`, `<<<`
+(plan 66, superseding plan 58's `>|` / `|<`) and `\->`.
 
 **Stay assignment-free and make the shadow an error.** The declarative option, and the one
 closest to Haskell. Declined because Redox has `mut`, `while`, `until`, `for` and compound

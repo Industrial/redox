@@ -1,0 +1,92 @@
+// Plan 66: composition is `>>>` forward and `<<<` backward.
+//
+// Haskell's own spelling — `Control.Category` exports both — which is the one
+// choice in this milestone that is borrowed rather than argued. The shifts are
+// untouched: `>>` is still a shift and `examples/expressions.sdx` still
+// asserts `1 << 1 + 1`.
+//
+// Compiled and **run**, because a composition lowered in the wrong order
+// compiles and prints something else. `trimmed >>> wrap` wraps a trimmed
+// string and `wrap >>> shout` shouts a wrapped one, and the two print
+// differently — which is the only check that catches a swapped lowering.
+
+fn trimmed(s: &str) -> &str {
+    s.trim()
+}
+
+fn wrap(s: &str) -> String {
+    format!("[{}]", s)
+}
+
+fn shout(s: String) -> String {
+    s.to_uppercase()
+}
+
+// A type ending in a **triple** closer, which no corpus file had before.
+// `>>>` is one token, so `capture_type` decrements its angle depth by three
+// where `>>` decrements by two; the **opening** side needs nothing, because an
+// identifier separates the angles of a nested generic and this opens as three
+// `<` tokens. And `>>>` deliberately does not continue a line, for the reason
+// `>` and `>>` do not: it closes a type far more often than it dangles.
+fn wide(rows: Vec<Vec<Vec<i32>>>) -> usize {
+    rows.iter().map(|r| r.len()).sum()
+}
+
+fn deep() -> Vec<Vec<Vec<i32>>> {
+    [[[1, 2].to_vec()].to_vec()].to_vec()
+}
+
+// Two **method references** composed, which plan 57 is what makes possible.
+// The lowering is one method chain rather than two closures called in place:
+// `|__rdx_1| __rdx_1.trim().len()`.
+fn lengths(xs: Vec<&str>) -> usize {
+    xs.iter().map(|__rdx_1| __rdx_1.trim().len()).sum()
+}
+
+// A mixed chain, which is legal and left-associative: `a >>> b <<< c` reads
+// as `(a >>> b) <<< c`, so `c` applies first. Refusing a mixed chain would be
+// a *check*, and AGENTS.md's rule is that Redox grows none — rustc judges the
+// types, and here they line up: `&str` to `String` to `&str` to `usize`.
+//
+// It is also the token run `construct_coverage` indexes the pair with, for a
+// reason the witness records: `>>>` on its own is a type's triple closer too.
+fn best(v: Option<&str>) -> Option<usize> {
+    v.map(|__rdx_1| __rdx_1.to_string().trim().len())
+}
+
+fn main() {
+    let tidy = |__rdx_1| wrap(trimmed(__rdx_1));
+    println!("{}", tidy("  hi  "));
+
+    // `f >>> g` and `g <<< f` are the same function, and the golden is where
+    // that is visible: the two bindings below lower to byte-identical Rust.
+    let forward = |__rdx_1| shout(wrap(__rdx_1));
+    let backward = |__rdx_1| shout(wrap(__rdx_1));
+    println!("{}", forward("  hi  "));
+    println!("{}", backward("  hi  "));
+
+    // Doc 18 §4 gives every infix operator a section, and composition's are a
+    // function **of a function**: `(>>> wrap)` is `\f -> f >>> wrap` and
+    // `(wrap >>>)` is `\g -> wrap >>> g`. So each is still missing a different
+    // operand, and they print differently once given one.
+    let then_wrap = |__rdx_1: fn(_) -> _| move |__rdx_2| wrap(__rdx_1(__rdx_2));
+    let wrap_then = |__rdx_1: fn(_) -> _| move |__rdx_2| __rdx_1(wrap(__rdx_2));
+    println!("{}", then_wrap(trimmed)("  hi  "));
+    println!("{}", wrap_then(shout)("  hi  "));
+
+    // A three-stage chain, left-associative, so the functions apply left to
+    // right. It is written on one line because **`redox fmt` collapses it**:
+    // `|>` is the one operator with a multi-line layout of its own, and nothing
+    // gives composition one. The leading-operator form does lex — plan 66 leaf
+    // 2 taught `next_line_continues` to admit it, and
+    // `redox-lexer/tests/continuation.rs` is where criterion 3 asserts it —
+    // so the two spellings differ in what the formatter keeps, not in what the
+    // lexer accepts.
+    let long = |__rdx_1| shout(wrap(trimmed(__rdx_1)));
+    println!("{}", long("  hi  "));
+
+    println!("{}", wide(deep()));
+    println!("{}", lengths([" a ", "bb"].to_vec()));
+    println!("{}", best(Some("  hi  ")).unwrap_or(0));
+    ();
+}

@@ -48,6 +48,10 @@ pub(crate) fn binary_power(kind: &TokenKind) -> Option<(BinaryOp, u8, u8)> {
     TokenKind::Star => BinaryOp::Mul,
     TokenKind::Slash => BinaryOp::Div,
     TokenKind::Percent => BinaryOp::Rem,
+    // Plan 66, the tightest rung: composition binds above `*` so that
+    // `xs |> f >>> g` is `(f >>> g) xs`.
+    TokenKind::Compose => BinaryOp::Compose,
+    TokenKind::ComposeBack => BinaryOp::ComposeBack,
     _ => return None,
   };
   let left = op.power();

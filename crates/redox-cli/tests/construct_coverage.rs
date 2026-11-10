@@ -1050,12 +1050,12 @@ const WITNESSES: &[Covers] = &[
   // --- §1.4 Expressions ---
   Covers {
     row: "Operators and precedence",
-    spelling: "`2 + 3 * 4`, `1 == 1`, `1 << 2`",
+    spelling: "`2 + 3 * 4` as **one** run, because the row is *precedence* and two operators matched apart witness none of it — plus `1 == 1`, `1 << 2`, and `.trim >>> .len <<< .to_string`. Plan 66's composition is one run holding both operators and a method reference, and deliberately **not** `>>>` alone: a triple type closer is the same token, so `wide : Vec<Vec<Vec<i32>>> -> usize` in the very file that adds the operator would have satisfied a bare witness with no composition in the corpus at all — the hollow shape plan 57 §11.6 found from the other side. A `.name` cannot close a type at any depth, which is what makes the run honest. One run rather than three also keeps this file inside `line_cap`'s 1,500 lines, which it was exactly at — plan 66 §10.",
     witness: Witness::All(&[
-      Witness::Toks(&["+"]),
-      Witness::Toks(&["*"]),
+      Witness::Toks(&["+", "«int»", "*"]),
       Witness::Toks(&["=="]),
       Witness::Toks(&["<<"]),
+      Witness::Toks(&[">>>", ".", "«id»", "<<<", "."]),
     ]),
   },
   Covers {

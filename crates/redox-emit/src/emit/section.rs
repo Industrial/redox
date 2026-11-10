@@ -1,8 +1,9 @@
 use crate::emit::closure::closure;
 use crate::emit::closure_param::closure_param;
+use crate::emit::compose::compose;
 use crate::emit::expr::emit_expr;
 use crate::emit::unparen::unparen;
-use redox_ast::Section;
+use redox_ast::{BinaryOp, Expr, Ident, Section};
 
 /// Lower doc 18 §4's section to a one-parameter closure.
 ///
@@ -35,6 +36,51 @@ use redox_ast::Section;
 /// the two were unified, and `tests/golden/section.xrs` is what says so.
 pub(crate) fn emit_section(section: &Section, indent: usize) -> String {
   let param = closure_param(0);
+
+  // Plan 66's composition, and doc 18 §4's *"a section for free"* is free
+  // only for an operator that has a Rust **spelling**. This is the first one
+  // that does not: the arms below would reach `rust_text`'s `None` and write
+  // `/* unsupported */` into the generated file.
+  //
+  // A section of composition is also the one section that is not a function
+  // of a *value*: `(>>> g)` is `\f -> f >>> g`, so it binds a function and
+  // returns the closure `compose` writes over it.
+  //
+  // Two things about the shape were measured rather than chosen.
+  //
+  // **The parameter needs a type.** A closure parameter that is itself
+  // *called* is `E0282` with no annotation at all — `|__rdx_1| move |__rdx_2|
+  // g(__rdx_1(__rdx_2))` does not compile, and neither does the flat
+  // two-parameter shape plan 56 uses for an under-applied call. `fn(_) -> _`
+  // is the narrowest annotation that does: the arity is composition's own,
+  // and both halves stay inferred. The cost is disclosed — the operand must
+  // be a function *item*, not a capturing closure.
+  //
+  // **The inner closure must `move`.** It outlives the parameter it composes,
+  // so without it rustc answers `E0373` and names the fix.
+  let composed = match section {
+    Section::Right { op, operand } if matches!(op, BinaryOp::Compose | BinaryOp::ComposeBack) => {
+      Some((*op, true, operand))
+    }
+    Section::Left { op, operand } if matches!(op, BinaryOp::Compose | BinaryOp::ComposeBack) => {
+      Some((*op, false, operand))
+    }
+    _ => None,
+  };
+  if let Some((op, hole_on_the_left, operand)) = composed {
+    let hole = Expr::Ident(Ident {
+      text: param.clone(),
+      span: operand.span(),
+    });
+    let (lhs, rhs) = if hole_on_the_left {
+      (&hole, operand.as_ref())
+    } else {
+      (operand.as_ref(), &hole)
+    };
+    let inner = compose(op, lhs, rhs, 1, indent);
+    return closure(&[format!("{param}: fn(_) -> _")], &format!("move {inner}"));
+  }
+
   let body = match section {
     Section::Field(name) => format!("{param}.{}", name.text),
 

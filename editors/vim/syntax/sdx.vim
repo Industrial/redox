@@ -79,7 +79,10 @@ syn match   sdxPathSep      "::"
 " a `[-+*…]` class here outranks the comment region at column 1 and the whole
 " line stops being a comment. Excluding `--` is both correct on its own terms
 " and what makes the ordering stop mattering.
-syn match   sdxOperator     "->\|=>\|\\\|??\|?\.\|<|\||>\|<<\|>>\|[+*/%<>=!&|^~]\|-\(-\)\@!"
+" Plan 66's `>>>` and `<<<` are listed **before** the shifts: Vim takes the
+" first alternative that matches at a position, so `>>` first would colour two
+" of the three characters and leave the last one to the `[<>]` class.
+syn match   sdxOperator     "->\|=>\|\\\|??\||>\|>>>\|<<<\|<<\|>>\|[+*/%<>=!&|^~]\|-\(-\)\@!"
 
 hi def link sdxComment      Comment
 hi def link sdxDocComment   SpecialComment

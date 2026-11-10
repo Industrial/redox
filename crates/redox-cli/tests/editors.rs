@@ -839,6 +839,177 @@ fn every_coloured_keyword_is_still_in_the_grammar() {
   );
 }
 
+/// And every **operator** a highlighter colours lexes as one token.
+///
+/// [`every_coloured_keyword_is_still_in_the_grammar`] closes the reverse
+/// direction for keywords. It does not cover operators, and plan 66 found what
+/// that costs: `editors/vim/syntax/sdx.vim` and
+/// `editors/vscode/syntaxes/redox.tmLanguage.json` were both still colouring
+/// **`?.`**, which plan 57 deleted, and **`<|`**, which has never been a Redox
+/// token at all. Two dead spellings in the same regex that row was editing,
+/// found by eye because no gate asked.
+///
+/// # The oracle is the lexer's behaviour, not a table
+///
+/// `OPERATOR_TABLE` is private to `redox-lexer`, so an integration test cannot
+/// read it. That turns out to be the better position: this asks
+/// [`redox_lexer::lex`] whether the spelling **is one token**, which is the
+/// property a highlighter is claiming by colouring it as a unit.
+///
+/// A dead spelling fails that for free. `?.` lexes as `Question` then `Dot` —
+/// two tokens, since plan 57 retired `QuestionDot` — and `<|` as `Lt` then
+/// `Or`. Neither needs a list to be recognised as gone.
+#[test]
+fn every_coloured_operator_lexes_as_one_token() {
+  let vim = std::fs::read_to_string(editors_dir().join("vim/syntax/sdx.vim"))
+    .expect("should read the Vim syntax file");
+  let textmate =
+    std::fs::read_to_string(editors_dir().join("vscode/syntaxes/redox.tmLanguage.json"))
+      .expect("should read the TextMate grammar");
+
+  let mut sources: Vec<(&str, Vec<String>)> = Vec::new();
+
+  // Vim: the `sdxOperator` match, whose alternatives are separated by `\|`.
+  let line = vim
+    .lines()
+    .find(|l| l.trim_start().starts_with("syn match   sdxOperator"))
+    .expect("the Vim syntax file should carry an `sdxOperator` match");
+  // Not `between`: it locates the *close* marker first, so it cannot handle a
+  // pair of identical delimiters.
+  let body = line.split('"').nth(1).expect("the match should be quoted");
+  sources.push((
+    "editors/vim/syntax/sdx.vim",
+    body.split("\\|").map(|a| a.replace('\\', "")).collect(),
+  ));
+
+  // TextMate: the `keyword.operator.redox` match, alternatives on `|`.
+  let control = textmate
+    .split("\"keyword.operator.redox\"")
+    .nth(1)
+    .and_then(|rest| rest.split("\"match\": \"").nth(1))
+    .and_then(|rest| rest.split('"').next())
+    .expect("the TextMate grammar should carry a `keyword.operator.redox` match");
+  sources.push((
+    "editors/vscode/syntaxes/redox.tmLanguage.json",
+    textmate_alternatives(control),
+  ));
+
+  let mut dead = Vec::new();
+  let mut checked = 0;
+
+  for (file, alternatives) in &sources {
+    for alt in alternatives {
+      // A character class or a lookahead is not a spelling. `[` and `(` never
+      // begin a Redox operator, so this skips exactly the regex machinery.
+      if alt.is_empty() || alt.starts_with('[') || alt.contains('(') {
+        continue;
+      }
+      let Ok(tokens) = redox_lexer::lex(alt) else {
+        dead.push(format!("  {alt}: {file} — does not lex at all"));
+        continue;
+      };
+      // `is_structural` is `pub(crate)`, so the layout kinds and the terminator
+      // are named here rather than asked for.
+      let real: Vec<_> = tokens
+        .iter()
+        .map(|t| &t.kind)
+        .filter(|k| {
+          !matches!(
+            k,
+            redox_lexer::TokenKind::Newline
+              | redox_lexer::TokenKind::Indent
+              | redox_lexer::TokenKind::Dedent
+              | redox_lexer::TokenKind::Eof
+          )
+        })
+        .collect();
+      checked += 1;
+      if real.len() != 1 {
+        dead.push(format!(
+          "  {alt}: {file} — lexes as {} tokens, {real:?}",
+          real.len()
+        ));
+      }
+    }
+  }
+
+  // Twenty today, ten from each file, after the character classes and the
+  // lambda's doubled backslash are skipped. A floor rather than an equality,
+  // so adding an operator does not have to touch this number — but low enough
+  // that an extraction which silently stopped working fails here.
+  assert!(
+    checked >= 16,
+    "only {checked} operator spellings were extracted, so this test is not reading the \
+     regexes it thinks it is"
+  );
+
+  assert!(
+    dead.is_empty(),
+    "a highlighter colours {} operator spelling(s) that are not one token:\n{}\n\nA \
+     highlighter that colours `?.` after it was retired tells an author the spelling is \
+     live. Either remove the alternative, or — if it is deliberately coloured as two \
+     tokens — move it out of the operator match so this check does not see it.",
+    dead.len(),
+    dead.join("\n"),
+  );
+}
+
+/// Split a TextMate pattern on its **alternation** pipes, and nothing else.
+///
+/// Needed because the two highlighters spell alternation differently: Vim uses
+/// `\|`, so a bare `|` there is literal and splitting on `\|` leaves a
+/// character class intact. TextMate is the reverse — alternation is a bare `|`
+/// and a literal pipe is `\|` — so a naive split tears
+/// `[-+*/%<>=!&|^~]` in half and reports `^~]` as a dead operator. It did,
+/// before this existed.
+///
+/// So: skip an escaped character, and ignore a `|` inside `[…]`. The returned
+/// alternatives have their escapes stripped, which is what makes them
+/// lexable as source text.
+///
+/// # Two escape layers, undone in order
+///
+/// The file is JSON *containing* a regex, so `\\\\` on disk is the regex `\\`
+/// which is one literal backslash, and `\\?` on disk is the regex `\?` which
+/// is one literal `?`. Undoing them in one pass eats the alternation: the
+/// lambda's `\\\\|\\?\\?` reads as *escaped-backslash, escaped-pipe* and
+/// yields the alternative `\|??`, which was reported as a dead operator before
+/// this was split in two.
+fn textmate_alternatives(pattern: &str) -> Vec<String> {
+  // Layer one: JSON. After this, a single `\` is the regex's own escape.
+  let pattern = pattern.replace("\\\\", "\\");
+
+  let mut out = Vec::new();
+  let mut current = String::new();
+  let mut in_class = false;
+  let mut chars = pattern.chars().peekable();
+
+  while let Some(c) = chars.next() {
+    match c {
+      // Layer two: the regex. `\X` is a literal X, whatever X is.
+      '\\' => {
+        if let Some(escaped) = chars.next() {
+          current.push(escaped);
+        }
+      }
+      '[' => {
+        in_class = true;
+        current.push(c);
+      }
+      ']' => {
+        in_class = false;
+        current.push(c);
+      }
+      '|' if !in_class => {
+        out.push(std::mem::take(&mut current));
+      }
+      _ => current.push(c),
+    }
+  }
+  out.push(current);
+  out
+}
+
 /// The grammar's keyword literals: bare lowercase strings in `grammar.js` that
 /// are not `field()` names.
 ///

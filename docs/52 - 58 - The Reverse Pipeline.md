@@ -21,8 +21,9 @@ print (5 |> double)        ->  println!("{}", 5.double());
                            ->  rustc E0599: no method named `double` found for `{integer}`
 ```
 
-And composition arrives with it: `>|` forward, `|<` backward, which doc 18 §4 declined on the
-ground that *"without currying there is nothing to compose"* — a ground plan 56 removed.
+And composition arrives with it: `>>>` forward, `<<<` backward, which doc 18 §4 declined on the
+ground that *"without currying there is nothing to compose"* — a ground plan 56 removed. The
+spelling was `>|` / `|<` until plan 66 took the row and shipped it; §1.3 carries the amendment.
 
 ### 1.1 The current behaviour has a silent failure mode, not just a wrong one
 
@@ -54,23 +55,32 @@ Each `|>` is reverse application in all three lines. There is one rule.
 
 ### 1.3 Composition, and the token collision
 
+**Amended 2026-11-10 by plan 66** (`docs/60 - 66 - The Composition Operator.md`), which owns
+the spelling and has shipped it. What survives unchanged is the paragraph below; what changed
+is the pair.
+
 `>>` and `<<` are Rust's shift operators and `examples/expressions.sdx` contains
 `print (1 << 1 + 1)`, which asserts shift precedence. Taking them for composition would mean
 moving shifts to methods — a migration paid by every program doing bit work, for a gain to
 programs doing none.
 
-So composition takes **`>|` forward and `|<` backward**, which keeps the shifts untouched and
-ties the pair visually to `|>`, the operator they are the point-free sibling of:
+So composition takes **`>>>` forward and `<<<` backward**, which keeps the shifts untouched and
+is Haskell's own spelling — `Control.Category` exports both:
 
 ```
-normalise = .trim >| .to_lowercase
-xs |> map (.trim >| .to_lowercase)
-normalise = .to_lowercase |< .trim      -- Haskell's direction
+normalise = .trim >>> .to_lowercase
+xs |> map (.trim >>> .to_lowercase)
+normalise = .to_lowercase <<< .trim      -- Haskell's direction
 ```
 
-One family of pipe-shaped operators rather than two unrelated pairs. `.` is not considered —
-doc 18 §4 calls it *"the one Haskell token that cannot be had at any price"*, and plan 57 has
-just finished making `.` mean field access and nothing else.
+This row originally chose `>|` / `|<`, on the ground that a pipe-shaped pair ties composition
+visually to `|>`. Plan 66 §1.2 overturns that: both heads of `>|` and `|<` point rightward, so
+the only difference between the glyphs is which side the bar sits on, and that carries no
+meaning. **The collision check still passed** — §11.1 stands, and a later reader must not infer
+that the hazard decision 3 guarded against materialised. It did not; the change is legibility.
+
+`.` is not considered — doc 18 §4 calls it *"the one Haskell token that cannot be had at any
+price"*, and plan 57 has just finished making `.` mean field access and nothing else.
 
 ### 1.4 What `$` is still for
 
@@ -142,6 +152,10 @@ doc 18 §4's comparison sections (`(> 0)`, `(0 <)`; `examples/section.sdx` spell
 doc 18 §5's *"four collisions resolved"* and plan 46's or-patterns finding are two cases where a
 token looked free and was not, so this is a precondition to check rather than assume.
 
+**Verified in §11.1, and then made moot.** The spelling is `>>>` / `<<<` since plan 66, which
+has no `|` in it at all; the guard bar and the comparison sections were never at risk from
+either pair. §11.1 is left standing as the measurement, for plan 66 §1.1's reason.
+
 ---
 
 ## 3. Concrete proof this plan targets
@@ -153,10 +167,14 @@ Six more:
 1. **A function and a method in one pipeline.** `raw |> .trim |> parse_version |> render`.
 2. **A pipeline spanning five lines**, which is the shape plan 51's `examples/application.sdx`
    exists to show and the reason the operator is worth having.
-3. **Forward composition in a `map`.** `xs |> map (.trim >| .to_lowercase)` — composition inside
-   an adaptor, which needs plan 56's currying to produce a function at all.
+3. **Forward composition in a `map`.** `xs |> map (.trim >>> .to_lowercase)` — composition
+   inside an adaptor, which needs plan 56's currying to produce a function at all.
 4. **Backward composition**, asserted to produce the same result as the forward form with the
    operands swapped. Two operators, one tested relationship.
+
+   **Cases 3 and 4 are discharged by plan 66**, which shipped both operators and
+   `examples/compose.sdx`. They stay here because this row's own corpus migration has to keep
+   them green.
 5. **`1 << 2` still a shift**, and `expressions.stdout` still asserting `4` for
    `1 << 1 + 1`.
 6. **The §1.1 silent case made impossible.** A free function named `len` alongside a receiver
@@ -169,15 +187,18 @@ Six more:
 
 ### Leaf 1 — `leaf-tokens`
 
-`>|` and `|<` as tokens, with the §2 collision checks discharged before anything depends on
-them. If either collides, the fallback pair is recorded in §9 decision 3 rather than invented at
-the gate.
+`>>>` and `<<<` as tokens, with the §2 collision checks discharged before anything depends on
+them.
 
-**The collision checks are discharged, in §11.1, before this leaf runs.** Neither spelling is
-in the operator table, and the sharper question — whether maximal munch can steal a valid
-program — is answered by a fact this plan did not state: Redox spells a closure `\n -> …`, not
-`|n|`, so `|<` has no closure parameter list to eat. §9 decision 3's fallback pair is therefore
-not needed, and this leaf is the two token arms and nothing else.
+**The collision checks are discharged, in §11.1, before this leaf runs.** Neither of the
+original spellings is in the operator table, and the sharper question — whether maximal munch
+can steal a valid program — is answered by a fact this plan did not state: Redox spells a
+closure `\n -> …`, not `|n|`, so `|<` has no closure parameter list to eat. §9 decision 3's
+fallback pair is therefore not needed to *rescue* anything.
+
+**This leaf is done, by plan 66 leaves 1 and 2, in the new spelling.** Both tokens are in
+`OPERATOR_TABLE`'s three-character block above `>>` and `<<`, and the leaf turned out to be the
+two token arms **and** a continuation rule — §11.9, which plan 66 leaf 2 discharged.
 
 ### Leaf 2 — `leaf-reverse-application`
 
@@ -212,9 +233,13 @@ carries the finding and is deliberately under the limit until this leaf lands.
 
 ### Leaf 3 — `leaf-composition`
 
-`>|` and `|<`, both producing a function. Shares plan 56's closure-generation path rather than
+`>>>` and `<<<`, both producing a function. Shares plan 56's closure-generation path rather than
 emitting its own shape — one lowering for everything that produces a closure, which is plan 56
 §9 decision 5 applied again.
+
+**Done by plan 66 leaf 4**, which took the precedence rung (power 25) and the lowering with it.
+The shared path held: `emit/compose.rs` folds the chain into nested applications and hands the
+body to the same `closure` a section and a partial application use.
 
 ### Leaf 4 — `leaf-corpus-migration`
 
@@ -245,8 +270,9 @@ semantics section is struck. `docs/GRAMMAR.md` regraded; `docs/STATUS.md` update
    `.name` method.
 2. `5 |> double` runs and prints the right number.
 3. A five-line pipeline mixing functions and methods runs, with asserted stdout.
-4. `>|` and `|<` each produce a function; the swapped-operand equivalence from §3 case 4 is
-   asserted.
+4. `>>>` and `<<<` each produce a function; the swapped-operand equivalence from §3 case 4 is
+   asserted. **Met by plan 66** — `examples/compose.sdx` and `tests/golden/compose.xrs`, where
+   `wrap >>> shout` and `shout <<< wrap` lower to byte-identical Rust.
 4a. A pipeline wider than rustfmt's `chain_width` is broken across lines by the emitter, and
    `generated_rust_is_rustfmt_clean` passes on a five-stage chain —
    `examples/application.sdx`'s fifth stage is restored as the witness.
@@ -265,7 +291,8 @@ semantics section is struck. `docs/GRAMMAR.md` regraded; `docs/STATUS.md` update
    **No count, deliberately.** This criterion said *"All 29 examples green"*, and the corpus has been 29, then 30, then 31 during this milestone alone — `examples/local.sdx` arrived with plan 55 leaf 1. A number here is a criterion that a future example breaks. The invariant is what matters and it is already enforced: `examples.rs` runs every file and excepts exactly the ones its `NOT_PARSEABLE` constant names, today `["lexical.sdx"]`, the error-path example. `docs/STATUS.md` is generated and is where the count lives.
    `examples/lexical.sdx` is excluded from "green" as always, and §11.5 is the reason it also
    holds 3 of the corpus's 28 `|>` occurrences without being migratable.
-9. `construct_coverage` green with `>|` and `|<` indexed.
+9. `construct_coverage` green with `>>>` and `<<<` indexed. **Met by plan 66**, whose criterion
+   9 inherited this one.
 10. Doc 18 §4's composition decline is amended, citing plan 56.
 
 ---
@@ -278,17 +305,19 @@ rather than by capability. A future row may reasonably argue for removing `$`; t
 because the argument is about style and this milestone has been about meaning.
 
 **Composition needs currying and therefore inherits its limits.** Plan 56 §1.4 bounds partial
-application to signatures visible in the file and its loaded modules, so `f >| g` across a module
-boundary without a visible signature is plan 56's diagnostic, not a composition failure. Stated
-because the error will name arity and the reader will be looking at `>|`.
+application to signatures visible in the file and its loaded modules, so `f >>> g` across a
+module boundary without a visible signature is plan 56's diagnostic, not a composition failure.
+Stated because the error will name arity and the reader will be looking at `>>>`.
 
-**Shifts keep the good tokens and composition gets the second-best pair.** `>|` is less
-immediately legible than `>>`. That is the price of not migrating every program doing bit work,
-and §1.3 is the argument.
+**Shifts keep the good tokens and composition gets the third character.** `>>>` is one
+character longer than `>>`. That is the price of not migrating every program doing bit work,
+and §1.3 is the argument. This paragraph read *"composition gets the second-best pair"* while
+the spelling was `>|`; plan 66 §1.3 is why it no longer does — `>>>` is `Control.Category`'s own
+and reads as a heavier `>>`, which is exactly what it is.
 
-**No composition for methods without plan 57's marking.** `.trim >| .to_lowercase` works because
-plan 57 made those functions. `trim >| to_lowercase` is two unresolved names and a plan 56
-diagnostic.
+**No composition for methods without plan 57's marking.** `.trim >>> .to_lowercase` works
+because plan 57 made those functions. `trim >>> to_lowercase` is two unresolved names and a
+plan 56 diagnostic.
 
 ---
 
@@ -324,11 +353,21 @@ is gone, it builds the collision deliberately and asserts both spellings resolve
 1. **Reverse application, not receiver-sugar with a diagnostic.** Keeping the receiver reading
    and merely refusing non-methods would preserve a token that means something unique to Redox,
    and would still not let anyone pipe into their own function.
-2. **`>|` and `|<`, not `>>`/`<<`.** §1.3. The shifts are exercised by a corpus assertion and
-   composition is more common than bit work in the code Redox is for, but not so much more that
-   it is worth a migration priced in every bit-twiddling program.
+2. ~~**`>|` and `|<`, not `>>`/`<<`.**~~ **Superseded 2026-11-10 by plan 66 §9 decision 1**,
+   which takes `>>>` and `<<<` on legibility: both heads of `>|` and `|<` point rightward, so
+   only the bar's side distinguishes them and that carries nothing (plan 66 §1.2). What the
+   decision argued and plan 66 keeps is the *other* half — §1.3's refusal of `>>`/`<<`. The
+   shifts are exercised by a corpus assertion and composition is more common than bit work in
+   the code Redox is for, but not so much more that it is worth a migration priced in every
+   bit-twiddling program. Plan 66 decision 8 leaves that standing and its criterion 5 asserts
+   it.
 3. **If `>|` collides, the fallback is `>>>`/`<<<`.** Recorded now so leaf 1's collision check
    has an answer rather than becoming a design discussion at implementation time.
+
+   **Discharged, and not by firing.** §11.1 measured the collision and found none; plan 66 §1.1
+   is explicit that this fallback never triggered, because the pair changed on legibility rather
+   than on lexing. That the two ended at the same spelling is a coincidence a later reader will
+   otherwise mistake for a cause.
 4. **Keep `$`.** §1.4, §6. The overlap is real and the reading direction is a real difference.
 5. **One closure-generation path shared with plan 56.** Two mechanisms producing closures would
    drift, and plan 44's IR-equality harness would need two pairs where one will do.
@@ -351,6 +390,10 @@ this plan's claims are exactly right, two of its numbers are not, and the
 collision check §2 defers to leaf 1 can be discharged here instead.
 
 ### 11.1 Leaf 1's tokens are free, and the closure spelling is why
+
+**This section stands as measured, and is about `>|` / `|<`.** Plan 66 §1.1 is explicit that it
+must: the spelling changed on legibility, so a reader must not take the change as evidence that
+the hazard below materialised. It did not.
 
 `>|` and `|<` appear nowhere in the lexer's operator table, which holds
 `>`, `>=`, `>>`, `|`, `|>` and `||`. So neither is taken.
@@ -484,6 +527,11 @@ continuation line — five such lines in `examples/application.sdx` and
 So `>|` and `|<` will not lex in the shape the corpus already uses until
 `next_line_continues` learns more than one string. Leaf 1 is *"two token
 arms"* in §4 and §11.1; it is two token arms **and** a continuation rule.
+
+**Fixed 2026-11-10 by plan 66 leaf 2**, in the new spelling. The function
+holds an ordered set — `">>>"`, `"<<<"`, `"|>"`, longest first, for the same
+reason `OPERATOR_TABLE` is ordered that way — and
+`redox-lexer/tests/continuation.rs` asserts a leading chain of each.
 
 Note the asymmetry this exposes: a *trailing* operator continues a line
 through `continues_line` on the token, which any new operator gets for free,

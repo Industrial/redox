@@ -521,7 +521,8 @@ differ in the table consulted and nowhere else — so the two cannot drift into 
 specifications of the same closure. Neither carries `move`: a `move` capture of a borrowed
 argument turns rustc's borrow error into a move error, which is a worse message about the same
 mistake. The decline above narrows to the *spelling*, because `.` is still field access; plan
-58 chooses `>|` / `|<`.
+58 names it and **plan 66 chooses `>>>` / `<<<`**, which is `Control.Category`'s own spelling
+(plan 66 §1.3); plan 58's `>|` / `|<` is superseded.
 
 ---
 
@@ -759,7 +760,7 @@ and the reason doc 03's first decision was to adopt Rust's range spelling.
 | ~~Currying and partial application~~ | **Admitted by plan 56** (`docs/50 - 56 - Currying.md`), and this row was the central limitation until it was. `f x y` is still one saturated call — a Redox function is not a chain of one-argument functions — but an **under-applied** one is now a closure over the arguments still missing: `add 1` is `\|__rdx_1\| add(1, __rdx_1)`. Admission test 1 passes because §2.2's signature *states* the arity, so the lowering is fixed by counting top-level arrows and nothing else. The boundary is the file: arity is known for a bare name with a signature in the file being compiled, and every other callee — a path, a `where` local, an equation binder, a lambda parameter, an imported name — is emitted as a call for rustc to judge. §4's table and the composition row below are amended with it. |
 | Inclusive `..` | Haskell's `[1..10]` includes 10; Rust's excludes it. Doc 03 decision 34 corrected doc 01 for exactly this reason, and it is not being re-broken for cosmetics. `1..10` exclusive, `1..=10` inclusive. |
 | `/=` for inequality | Rust reads `/=` as divide-assign. A silent arithmetic mutation where the author wrote a comparison is the same failure mode as the range inversion. Inequality stays `!=`. |
-| `.` for composition | Field access, which §5.2, §6.3 and the whole pipeline depend on. ~~Without currying there is nothing to compose anyway.~~ **The second sentence is retired by plan 56**: there is now something to compose. What stays declined is the *spelling* — `.` is taken — and plan 58 chooses `>\|` / `\|<` for the operator. |
+| `.` for composition | Field access, which §5.2, §6.3 and the whole pipeline depend on. ~~Without currying there is nothing to compose anyway.~~ **The second sentence is retired by plan 56**: there is now something to compose. What stays declined is the *spelling* — `.` is taken — and **plan 66 chooses `>>>` / `<<<`**, superseding plan 58's `>\|` / `\|<`. |
 | Cons patterns `(x:xs)` | Rust slices are not cons lists; there is no `Cons` to match. Slice patterns stay Rust's: `[a, rest @ ..]`. |
 | Laziness, infinite lists, `seq` | Rust is strict. An iterator is the nearest thing and is already reachable; pretending otherwise would change evaluation order, which admission test 3 forbids. |
 | `do` over user monads; `>>=`, `<$>`, `<*>` | Admissible in the narrow sense — `x >>= f` could emit `x.and_then(f)` and rustc would resolve it — but it duplicates `\|> and_then`, and §16 allows one spelling per construct. Declined on simplicity, not on type-freedom; recorded as the venue if `\|>` proves insufficient. |

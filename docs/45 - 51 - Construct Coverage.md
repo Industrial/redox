@@ -79,7 +79,8 @@ specified, implemented, and invisible.
 
 ### 1.4 Why this row goes first in its milestone
 
-Milestone 9 adds roughly a dozen constructs — `:=`, `is`, `>|`, `|<`, `.name`, `\->`,
+Milestone 9 adds roughly a dozen constructs — `:=`, `is`, `>>>`, `<<<` (plan 66, superseding
+plan 58's `>|` / `|<`), `.name`, `\->`,
 `name! \->`, block modifiers on `try`/`async`. Every one of them is a candidate for the `$`
 failure mode, and the milestone's later rows retire constructs the corpus currently depends on.
 (The `rust` block is **not** among them: plan 45 shipped it.)

@@ -113,8 +113,9 @@
 				},
 				{ "name": "punctuation.separator.type.redox", "match": ":" },
 				{
+					"comment": "Plan 66's `>>>` and `<<<` precede the shifts for the reason the namespace rule above precedes `:`: TextMate takes the first alternative that matches, so `>>` first would colour two of the three characters and leave the third to the character class.",
 					"name": "keyword.operator.redox",
-					"match": "->|=>|\\\\|\\?\\?|\\?\\.|<\\||\\|>|<<|>>|[-+*/%<>=!&|^~]"
+					"match": "->|=>|\\\\|\\?\\?|\\|>|>>>|<<<|<<|>>|[-+*/%<>=!&|^~]"
 				}
 			]
 		}

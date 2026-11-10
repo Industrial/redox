@@ -5,7 +5,7 @@ Depends on: 56 (`currying`) — **corrected 2026-11-10**; this row amends plan 5
 documents rather than consuming its code, and only leaf 4's `xs |> f >>> g` reading
 waits for `|>` to become reverse application
 Milestone: 9 — *surface coherence*
-Status: `planned`
+Status: `done` — all four leaves shipped 2026-11-10
 
 ---
 
@@ -362,4 +362,166 @@ was recorded, argued, conceded in its own §6, and never built.
 
 ## 10. Result
 
-*Not yet executed.*
+Executed 2026-11-10. **Nine of the ten criteria are met.** Criterion 8 is met everywhere this
+row is allowed to edit and is **not** met in one line of `docs/04 - Redox Plan of Plans.md`,
+which is outside the brief — §10.7. Criterion 1 is met by a test that already existed, which is
+the row's first finding and an error in the criterion itself.
+
+### 10.1 Criterion 1's own correction is wrong: the prefix-ordering test exists
+
+The criterion was corrected before registration to say *"nothing enforces it … build the
+check"*. **§2's table row was right and the correction is the error.**
+`crates/redox-lexer/src/lexer/scan_operator.rs` has held
+`longer_operators_are_tried_before_their_prefixes` since plan 02 leaf 7, and it checks exactly
+the property the correction asked for — every ordered pair, `text.starts_with(other)` implies
+the longer one is listed first.
+
+So the check was not built; it was **verified by breaking it**, which is the half the criterion
+genuinely wanted. `(">>>", Compose)` was moved from the three-character block to immediately
+after `(">>", Shr)` and the lexer's own tests were run:
+
+```
+`>>>` must be listed before its prefix `>>`        longer_operators_are_tried_before_their_prefixes
+  left: (Some(Shr), 2)                             scans_the_three_character_operators_whole
+ right: (Some(Compose), 3)
+```
+
+Two tests, and the second prints the silent truncation as a value. The table is restored and
+one test is added — `the_shifts_keep_their_own_spellings`, which asserts what the ordering
+*buys* rather than that it holds, because a reader of plan 58 §1.3 will want `>>` and `<<`
+checked from the other side.
+
+### 10.2 `capture_type` needed two sites beyond §4's table, and both are re-spellings
+
+§4's table names three sites and all three were right. Two more were not named:
+
+| Site | Why |
+|---|---|
+| `parse/parser/token_text.rs` | a captured type is **re-emitted** from these spellings, and with no `Compose` arm the type's verbatim text ends in the debug marker `Compose` instead of `>>>` |
+| `parse/parser/can_end_a_type.rs` | the `TypeStop::Atom` boundary between two juxtaposed payload types, which already lists `Shr` |
+
+The first is load-bearing — criterion 4 fails without it. The second is not reached by any
+fixture today, and it is taken anyway because `>>>` is a closer **this row adds**: a new closer
+absent from the set that answers *can a type end here* is the shape of the `Shl` gap §6
+declines, and §6's reason for declining that one is that it is pre-existing. This one would not
+have been.
+
+### 10.3 Sections are not free, and the measurement is `E0282`
+
+§1.4 is right that doc 18 §4 gives every infix operator a section, and wrong that it is free.
+Two separate costs, both measured:
+
+- `emit_section`'s non-comparison arms write `op.rust_text().unwrap_or("/* unsupported */")`,
+  and composition has no `rust_text` by construction. Doc 18 §4's *"for free"* is free for an
+  operator with a Rust **spelling**; this is the first one without.
+- **A composition section cannot be a bare closure at all.** `(>>> g)` is `\f -> f >>> g`, so
+  the closure binds a *function* and then calls it — and a closure parameter that is called is
+  `E0282` with no annotation. Measured for both candidate shapes:
+
+  | Shape | Verdict |
+  |---|---|
+  | `\|__rdx_1\| move \|__rdx_2\| g(__rdx_1(__rdx_2))` | `E0282: type annotations needed` |
+  | `\|__rdx_1, __rdx_2\| g(__rdx_1(__rdx_2))` — plan 56's flat shape | `E0282`, the same |
+  | `\|__rdx_1: fn(_) -> _\| \|__rdx_2\| …` | `E0373`, *"closure may outlive the current function"* |
+  | `\|__rdx_1: fn(_) -> _\| move \|__rdx_2\| …` | compiles |
+
+  So the lowering is `fn(_) -> _` plus `move`: the narrowest annotation that compiles, with
+  both halves still inferred. **The cost is that the operand must be a function item**, not a
+  capturing closure — a non-capturing one coerces. That is disclosed here rather than
+  diagnosed, because it is rustc's answer and AGENTS.md leaves it to rustc.
+
+The plain binary lowering has no such problem: `emit/compose.rs` folds the chain into nested
+applications over one parameter, so `.trim >>> .to_lowercase` is `|__rdx_1|
+__rdx_1.trim().to_lowercase()` — a method chain, not two closures called in place.
+
+### 10.4 `redox-fmt` needed two methods and nothing else, and then collapsed a corpus line
+
+Criterion 10 cost `BinaryOp::redox_text` and `BinaryOp::power`, and **`redox_text` was the one
+that would have crashed**: its `other =>` arm calls `rust_text().expect(…)`, so a formatter
+printing `>>>` would have panicked rather than printed wrongly. Power 25 needed no renumbering
+and `power() + 1 = 26` collides with nothing, as §4 predicted. `power_of`, `can_drop_paren` and
+`operand` all read the operator's own table and needed no change. `cargo test -p redox-fmt`
+green.
+
+What the criterion did not predict: **`redox fmt` collapses a multi-line composition chain onto
+one line.** `pipeline_text` is the only operator with a layout of its own, so a chain written
+with the operator leading each continuation line — §3 case 2's shape, which now *lexes* —
+is not canonical, and `every_example_is_already_canonical` rejected the corpus witness. The
+example therefore writes the chain on one line and says why, and criterion 3's assertion lives
+where the criterion puts it, in `redox-lexer/tests/continuation.rs`. A row that wants the
+multi-line form preserved owns giving composition a layout.
+
+### 10.5 A bare `[">>>"]` witness would have been hollow, and criterion 4 is what fills it
+
+Criterion 9's first draft here was `Witness::Toks(&[">>>"])`, and it was satisfied — by
+**criterion 4's own fixture, in the same file**. `wide : Vec<Vec<Vec<i32>>> -> usize` closes as
+one `Compose` token whose span text is `>>>`, so the corpus could have contained no composition
+at all and the gate would have been green. The fifth hollow witness of this milestone, and the
+first where the decoy is a *type*.
+
+The witness is one run, `>>> . «id» <<< .`, which holds both operators and reaches into an
+operand: a `.name` cannot close a type at any depth. Verified by breaking it — `examples/`'s
+`.trim >>> .len` was temporarily rewritten as `.len <<< .trim`, and the gate failed naming
+`Operators and precedence [docs/GRAMMAR.md:100 (1.4 Expressions)]`. No `tests/ui/` or
+`tests/run/` fixture contains either operator; outside `examples/cargo-project/target/` the
+only two files that do are `examples/compose.sdx` and `tests/golden/compose.xrs`.
+
+`construct_coverage.rs` was **exactly at `line_cap`'s 1,500 lines** at `e266639`, so the
+addition had to be net-zero. It is: `+` and `*` were matched apart and are now matched as the
+one run `+ «int» *`, which is a better witness for a row named *precedence* — two operators
+found in different files witness no precedence at all — and the rationale moved into the
+`spelling` field, which is the text the failure message prints. A later row adding a witness to
+that file will have to split it, which is what the cap's own message says to do.
+
+### 10.6 The tree-sitter gate does not catch a missing operator
+
+`grammar.js` gained `">>>"` and `"<<<"` and the parser was regenerated, so an editor sees one
+token where it would otherwise see two. But §7's claim that *"the grammar is checked against
+the same corpus"* is weaker than it reads: `every_example_parses_with_no_error` and
+`the_grammars_own_corpus_passes` were **both green before the grammar knew either operator**,
+because the flat `_expression_part` run accepts `>>` followed by `>` as two operators and no
+`ERROR` node appears. A missing operator lingers; only a wrong *structure* fails. The
+`tree-sitter generate` warning about unnecessary conflicts is pre-existing — reproduced from
+`e266639`'s own `grammar.js` with the identical set.
+
+### 10.7 Criterion 8 fails on one line this row may not edit
+
+`grep` for the superseded pair returns nothing under `crates/`, `examples/*.sdx` or `tests/`,
+and under `docs/` returns superseded-spelling notes only — **except**
+`docs/04 - Redox Plan of Plans.md`'s row for plan 58, which still reads *"Composition arrives
+as `>|` / `|<`"* as a statement of fact rather than as a superseded spelling. The register is
+outside this row's editing brief, so the line is reported rather than fixed. It wants the same
+one-clause amendment the other four mentions got.
+
+Two smaller notes from the same grep. `docs/56 - 62`'s two hits remain the false positive §2
+identified — a Rust closure parameter inside a quoted measurement — and the `crates/` hit that
+did appear was this row's own doc comment, rewritten to name plan 58 §9 decision 2 instead of
+spelling the pair.
+
+### 10.8 `>>> g` is not writable as a top-level binding, for plan 59's reason
+
+§3 case 1 spells the witness `normalise = .trim >>> .to_lowercase`. That exact line is not
+writable at **top level**, and not because of composition: a signature with one arrow over an
+equation with no parameters is the clause lowering's business, which plan 59 owns. As a *local*
+binding it is also not writable with method-reference operands — `|__rdx_1|
+__rdx_1.trim().to_lowercase()` is `E0282`, because method resolution needs a receiver type and
+a closure parameter has none until something constrains it.
+
+Both are rustc's constraints rather than Redox's, and both have the same workaround, which is
+the one the corpus uses: compose **named functions** where the binding stands alone, and
+compose **method references** inside an adaptor, where the item type is known. `examples/compose.sdx`
+does one of each, so the case is witnessed in the only two positions it can be.
+
+### 10.9 What the gate said
+
+`moon run :check`, `:lint`, `:format`, the three blessable corpora, `construct_coverage`,
+`code_coverage`, `grammar_inventory`, `declined`, `plan_orientation`, `editors`, `tree_sitter`,
+`one_construct_per_file`, `directory_structure`, `line_cap`, `redox-fmt`, `redox-lexer` and
+`redox-fuzz`: green. No new diagnostic code was needed, so `code_coverage`'s empty
+`NOT_YET_REACHABLE` is undisturbed.
+
+**`docs/STATUS.md` and `docs/CONFORMANCE.md` are the two red steps, and they are generated.**
+This row adds source lines and one example, so `status_is_current` and `conformance_is_current`
+compare a stale document against a moved count — 32 examples to 33, 31 goldens to 32, and the
+line totals in `redox-ast`, `redox-emit`, `redox-lexer`, `redox-parser` and `redox-cli`. They
+are blessed by whoever reviews the diff, not here.

@@ -47,6 +47,23 @@ mod tests {
     assert_eq!(scan("..."), (Some(TokenKind::DotDotDot), 3));
     assert_eq!(scan("..="), (Some(TokenKind::DotDotEq), 3));
     assert_eq!(scan("??="), (Some(TokenKind::CoalesceEq), 3));
+    assert_eq!(scan(">>>"), (Some(TokenKind::Compose), 3));
+    assert_eq!(scan("<<<"), (Some(TokenKind::ComposeBack), 3));
+  }
+
+  /// Plan 66 criterion 1, and the half the ordering test cannot state.
+  ///
+  /// `longer_operators_are_tried_before_their_prefixes` proves the table's
+  /// order; this proves what the order *buys*, in the one direction a reader
+  /// of plan 58 §1.3 will want checked — the shifts are untouched. A `>>>`
+  /// listed after `>>` scans two characters here and silently truncates,
+  /// which is the failure both tests exist to rule out.
+  #[test]
+  fn the_shifts_keep_their_own_spellings() {
+    assert_eq!(scan(">> 1"), (Some(TokenKind::Shr), 2));
+    assert_eq!(scan("<< 1"), (Some(TokenKind::Shl), 2));
+    assert_eq!(scan(">"), (Some(TokenKind::Gt), 1));
+    assert_eq!(scan("<"), (Some(TokenKind::Lt), 1));
   }
 
   /// Doc 03 §4.2 corrects doc 01 §21: `..` is exclusive and `..=` inclusive,

@@ -26,6 +26,11 @@ pub(crate) fn token_text(kind: &TokenKind) -> String {
     TokenKind::Lt => "<".to_string(),
     TokenKind::Gt => ">".to_string(),
     TokenKind::Shr => ">>".to_string(),
+    // `Vec<Vec<Vec<i32>>>` closes as one token since plan 66, and a captured
+    // type is re-emitted from these spellings — without this arm the type's
+    // text ends in `Compose`, which is the debug marker below doing its job
+    // on a token that does belong inside a type.
+    TokenKind::Compose => ">>>".to_string(),
     TokenKind::LParen => "(".to_string(),
     TokenKind::RParen => ")".to_string(),
     TokenKind::LBracket => "[".to_string(),
@@ -62,6 +67,7 @@ mod tests {
     assert_eq!(token_text(&TokenKind::Ident("Vec".into())), "Vec");
     assert_eq!(token_text(&TokenKind::Lt), "<");
     assert_eq!(token_text(&TokenKind::Shr), ">>");
+    assert_eq!(token_text(&TokenKind::Compose), ">>>");
     assert_eq!(token_text(&TokenKind::Amp), "&");
     assert_eq!(token_text(&TokenKind::Kw(Keyword::Mut)), "mut");
     assert_eq!(token_text(&TokenKind::Label("a".into())), "'a");

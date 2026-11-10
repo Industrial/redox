@@ -42,6 +42,19 @@ pub enum BinaryOp {
   Catch,
   /// `|>` — the receiver pipeline (doc 03 §5.3).
   Pipeline,
+  /// `>>>` — forward composition: `f >>> g` applies `f` and then `g`.
+  ///
+  /// Haskell's `Control.Category` spelling, which is the one choice in this
+  /// milestone that is borrowed rather than argued (plan 66 §1.3). Lowered
+  /// rather than spelled — Rust has no composition operator — so
+  /// [`Self::rust_text`] declines and `emit/compose.rs` writes the closure.
+  Compose,
+  /// `<<<` — backward composition: `f <<< g` applies `g` and then `f`.
+  ///
+  /// The same function as `g >>> f`, which is what plan 66 §6 discloses: the
+  /// only thing this direction buys is a Haskell reader's muscle memory, and
+  /// a later row may drop it on evidence.
+  ComposeBack,
 }
 
 impl BinaryOp {
@@ -71,7 +84,9 @@ impl BinaryOp {
       Self::Shr => ">>",
       Self::Range => "..",
       Self::RangeInclusive => "..=",
-      Self::Coalesce | Self::Catch | Self::Pipeline => return None,
+      Self::Coalesce | Self::Catch | Self::Pipeline | Self::Compose | Self::ComposeBack => {
+        return None;
+      }
     })
   }
 
@@ -86,6 +101,8 @@ impl BinaryOp {
       Self::Coalesce => "??",
       Self::Catch => "catch",
       Self::Pipeline => "|>",
+      Self::Compose => ">>>",
+      Self::ComposeBack => "<<<",
       // The remaining operators are spelled as Rust spells them, which is
       // doc 02 §5.2's rule restated: an expression that reads like Rust and
       // binds differently is the worst available failure mode, so neither the
@@ -134,6 +151,11 @@ impl BinaryOp {
       Self::Shl | Self::Shr => 19,
       Self::Add | Self::Sub => 21,
       Self::Mul | Self::Div | Self::Rem => 23,
+      // Plan 66: Haskell's `.` sits at its tightest operator level and `>>>`
+      // is reached the same way, so composition binds above `*` — which is
+      // what makes `xs |> f >>> g` read as `(f >>> g) xs`. 25 is the next
+      // odd rung above the table's top, so nothing below is renumbered.
+      Self::Compose | Self::ComposeBack => 25,
     }
   }
 

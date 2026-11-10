@@ -176,6 +176,72 @@ fn a_leading_pipeline_operator_continues_the_line() {
   );
 }
 
+/// Plan 66 criterion 3, and the half plan 58 did not find.
+///
+/// `next_line_continues` tested for the literal `"|>"` and nothing else, so a
+/// composition chain written the way the corpus writes a pipeline — operator
+/// leading each continuation line — did not lex at all. The corpus leads
+/// **every** multi-line pipeline with the operator and has no trailing `|>`
+/// anywhere, so that layout is the house style rather than one of two.
+#[test]
+fn a_leading_composition_operator_continues_the_line() {
+  for (src, op, stages) in [
+    (
+      "f = trimmed\n  >>> wrap\n  >>> shout\n",
+      TokenKind::Compose,
+      2,
+    ),
+    ("f = shout\n  <<< wrap\n", TokenKind::ComposeBack, 1),
+  ] {
+    let toks = kinds(src);
+    assert!(
+      !toks.contains(&TokenKind::Indent),
+      "a leading {op:?} must not open a block: {toks:?}"
+    );
+    assert_eq!(
+      toks.iter().filter(|k| **k == op).count(),
+      stages,
+      "every stage should be present: {toks:?}"
+    );
+  }
+}
+
+/// And the forward operator does **not** continue from the end of a line.
+///
+/// `continues_line` excludes it for the reason it excludes `>` and `>>`: it
+/// closes a generic argument list. `<<<` is in that set because it closes
+/// nothing, so a backward chain is writable either way and a forward one is
+/// writable only with the operator leading.
+#[test]
+fn a_trailing_composition_operator_follows_its_angle_brackets() {
+  let forward = kinds("a = f >>>\n  g\nb = 1\n");
+  assert!(
+    forward.contains(&TokenKind::Newline),
+    "a trailing `>>>` must end the line, as `>>` does: {forward:?}"
+  );
+  let backward = kinds("a = f <<<\n  g\n");
+  assert!(
+    !backward.contains(&TokenKind::Indent),
+    "a trailing `<<<` continues, as `<<` does: {backward:?}"
+  );
+}
+
+/// A triple closer is one token, and it must not continue the line either —
+/// `capture_type` ends a type at a newline, so a suppressed one swallows the
+/// next declaration whole. Plan 66 §3 case 3's lexical half.
+#[test]
+fn a_trailing_triple_angle_bracket_does_not_continue_the_line() {
+  let toks = kinds("a = x : Vec<Vec<Vec<i32>>>\nb = 1\n");
+  assert!(
+    toks.contains(&TokenKind::Compose),
+    "the triple closer should be one token: {toks:?}"
+  );
+  assert!(
+    toks.contains(&TokenKind::Newline),
+    "the line must end: {toks:?}"
+  );
+}
+
 /// A leading `.` must **not** continue, because doc 03 §7.5's `with` block
 /// uses it to introduce statements.
 #[test]

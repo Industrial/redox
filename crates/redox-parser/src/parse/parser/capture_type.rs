@@ -111,7 +111,11 @@ pub(crate) fn capture_type(
         // compiler until the OOM killer stopped it. No valid Rust type has a
         // depth-zero closer: in `Vec<u8>` the `<` has already raised the
         // depth before the `>` arrives, and `[u8; 4]` works the same way.
-        TokenKind::Gt | TokenKind::Shr | TokenKind::RBracket => true,
+        //
+        // `>>>` is here for the same reason, and plan 66 is what adds it:
+        // `Vec<Vec<Vec<i32>>>` closes as one token, so a type ending in a
+        // triple closer reaches depth zero on it.
+        TokenKind::Gt | TokenKind::Shr | TokenKind::Compose | TokenKind::RBracket => true,
         _ => false,
       };
       if ends {
@@ -133,6 +137,10 @@ pub(crate) fn capture_type(
       TokenKind::Gt | TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => depth -= 1,
       // `>>` closes two generic argument lists, as in `Vec<Vec<u8>>`.
       TokenKind::Shr => depth -= 2,
+      // And `>>>` closes three, as in `Vec<Vec<Vec<i32>>>` — plan 66. The
+      // **opening** side needs nothing: an identifier separates the angles of
+      // a nested generic, so that type opens as three `Lt` tokens.
+      TokenKind::Compose => depth -= 3,
       _ => {}
     }
     closed_a_named_group = matches!(kind, TokenKind::RParen) && group_followed_a_name;

@@ -12,6 +12,8 @@ pub(crate) mod class;
 pub(crate) mod closure;
 pub(crate) mod closure_param;
 pub(crate) mod coalesce;
+pub(crate) mod compose;
+pub(crate) mod compose_chain;
 pub(crate) mod comprehension;
 pub(crate) mod condition_head;
 pub(crate) mod control_text;

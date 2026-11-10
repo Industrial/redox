@@ -403,14 +403,29 @@ impl<'a> Lexer<'a> {
 
   /// Whether the line ahead opens with a leading continuation operator.
   ///
-  /// Only `|>` qualifies, and deliberately so. A leading `.` is ambiguous:
-  /// doc 03 §7.5's `with` block uses it to introduce *statements*
+  /// `|>`, `>>>` and `<<<` qualify, and nothing else does. A leading `.` is
+  /// ambiguous: doc 03 §7.5's `with` block uses it to introduce *statements*
   /// (`.insert "a", v`), so treating it as continuation would merge a whole
-  /// block into one expression. `|>` has no such second meaning.
+  /// block into one expression. None of the three has such a second meaning.
+  ///
+  /// **An ordered set, longest first**, for the same reason `OPERATOR_TABLE`
+  /// is ordered that way — a prefix tested first answers for the longer
+  /// spelling. Neither of plan 66's operators is a prefix of `|>`, so the
+  /// order costs nothing today and is what keeps a four-character successor
+  /// from truncating silently.
+  ///
+  /// This grew from a raw test for the literal `"|>"` at plan 66 leaf 2, and
+  /// it is plan 58's defect as much as that row's: the corpus leads **every**
+  /// multi-line pipeline with the operator and has no trailing `|>` anywhere,
+  /// so a composition chain in the house style did not lex at all. `>>>` is
+  /// deliberately not in `TokenKind::continues_line` — it closes
+  /// `Vec<Vec<Vec<i32>>>` — which makes this the only way a forward chain
+  /// spans lines.
   fn next_line_continues(&mut self) -> bool {
+    const LEADING: &[&str] = &[">>>", "<<<", "|>"];
     let mark = self.cur.mark();
     self.cur.eat_spaces();
-    let continues = self.cur.starts_with("|>");
+    let continues = LEADING.iter().any(|op| self.cur.starts_with(op));
     self.cur.reset_to(mark);
     continues
   }

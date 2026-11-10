@@ -4,7 +4,8 @@ use crate::TokenKind;
 ///
 /// Plan 02 (`docs/07 - 02 - Lexical Surface.md`), leaf 7. The order is the
 /// whole correctness argument: `..=` must be tried before `..`, `??=` before
-/// `??`, `...` before `..`, and `@@` before `@`. A shorter token tried first
+/// `??`, `...` before `..`, `>>>` before `>>`, `<<<` before `<<`, and `@@`
+/// before `@`. A shorter token tried first
 /// silently truncates the longer one, and
 /// `scan_operator::tests::longer_operators_are_tried_before_their_prefixes`
 /// checks every prefix pair mechanically rather than by eye.
@@ -13,6 +14,8 @@ pub(crate) const OPERATOR_TABLE: &[(&str, TokenKind)] = &[
   ("...", TokenKind::DotDotDot),
   ("..=", TokenKind::DotDotEq),
   ("??=", TokenKind::CoalesceEq),
+  (">>>", TokenKind::Compose),
+  ("<<<", TokenKind::ComposeBack),
   // Two characters.
   ("..", TokenKind::DotDot),
   (".(", TokenKind::DotParen),

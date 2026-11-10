@@ -16,6 +16,12 @@ pub(crate) fn can_end_a_type(kind: &TokenKind) -> bool {
     TokenKind::Ident(_)
       | TokenKind::Gt
       | TokenKind::Shr
+      // A triple closer ends a type exactly as a double does — plan 66. It is
+      // here rather than left out because `>>>` is a token this row *adds*:
+      // a new closer absent from the set that answers "can a type end here"
+      // is the shape of the `Shl` gap plan 66 §6 declines, and the cheap
+      // moment to not have it is now.
+      | TokenKind::Compose
       | TokenKind::RParen
       | TokenKind::RBracket
       | TokenKind::Kw(Keyword::SelfType)

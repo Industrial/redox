@@ -4,6 +4,7 @@ use crate::emit::assert_call::assert_call;
 use crate::emit::case::emit_case;
 use crate::emit::catch_fallback::catch_fallback;
 use crate::emit::coalesce::coalesce;
+use crate::emit::compose::compose;
 use crate::emit::comprehension::emit_comprehension;
 use crate::emit::control_text::control_text;
 use crate::emit::emit_block::emit_block;
@@ -193,6 +194,16 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
       rhs,
       ..
     } => catch_fallback(lhs, rhs, indent),
+    // Plan 66's composition, a third *lowering* rather than a spelling: Rust
+    // has no composition operator, so `f >>> g` is the closure that applies
+    // one and then the other. The two directions share it, operands
+    // exchanged — see `compose`.
+    Expr::Binary {
+      op: op @ (BinaryOp::Compose | BinaryOp::ComposeBack),
+      lhs,
+      rhs,
+      ..
+    } => compose(*op, lhs, rhs, 0, indent),
     Expr::Binary { op, lhs, rhs, .. } => match op.rust_text() {
       // A range operator is written **tight**, which is Rust's own style and
       // therefore rustfmt's: it rewrites `1 .. 4` to `1..4`, and plan 04's
