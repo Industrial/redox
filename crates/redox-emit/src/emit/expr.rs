@@ -1,6 +1,5 @@
 use crate::emit::application::emit_application;
 use crate::emit::ascribed_list::ascribed_list;
-use crate::emit::assert_call::assert_call;
 use crate::emit::bind_mode::BindMode;
 use crate::emit::bind_scope::BindScope;
 use crate::emit::binding_scope::BindingScope;
@@ -14,13 +13,13 @@ use crate::emit::control_text::control_text;
 use crate::emit::emit_block::emit_block;
 use crate::emit::expr_list::expr_list;
 use crate::emit::format_template::format_template;
+use crate::emit::macro_call::macro_call;
 use crate::emit::method_ref::method_ref;
-use crate::emit::panic_macro::panic_macro;
 use crate::emit::pipeline::pipeline;
-use crate::emit::print_call::print_call;
 use crate::emit::receiver::receiver;
 use crate::emit::record::emit_record;
 use crate::emit::rust_escapes::rust_escapes;
+use crate::emit::rust_hatch_text::rust_hatch_text;
 use crate::emit::rust_indent::RUST_INDENT;
 use crate::emit::section::emit_section;
 use crate::emit::try_block::try_block;
@@ -177,7 +176,7 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
     // keyword, because nothing else distinguishes `todo` from a function the
     // author wrote and has not defined yet — which is, after all, what
     // `todo` is for.
-    Expr::Ident(i) => panic_macro(&i.text).map_or_else(|| binding_text(&i.text), str::to_string),
+    Expr::Ident(i) => binding_text(&i.text),
     Expr::Path { text, .. } => binding_text(text),
     // Doc 01 §16: `@field` is `self.field` and `@@name` is `Self::name`.
     Expr::SelfField { name, .. } => format!("self.{}", name.text),
@@ -247,19 +246,6 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
       format!("{}[{}]", receiver(recv, indent), emit_expr(index, indent))
     }
     Expr::Call { callee, args, .. } => {
-      if let Expr::Ident(name) = callee.as_ref()
-        && name.text == "print"
-      {
-        return print_call(args, indent);
-      }
-      // `panic "message"` — doc 03 §12.6. A call rather than a bare name,
-      // because it takes an argument, which is why it is lowered here and
-      // the other three are lowered as identifiers.
-      if let Expr::Ident(name) = callee.as_ref()
-        && name.text == "panic"
-      {
-        return format!("panic!({})", expr_list(args, indent));
-      }
       // Plan 59 leaf 3. `block ()` and `block` are the same program, so they
       // emit the same Rust. A lone unit is the *empty argument list* (doc 18
       // §7), so applying a parameterless binding reads it once — where
@@ -330,7 +316,14 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
         emit_expr(unparen(value), indent)
       )
     }
-    Expr::Assert { value, .. } => assert_call(value, indent),
+    // Plan 64. The arguments are expressions and the `\->` that spelled
+    // them is gone, so nothing here knows or cares whether the macro defers:
+    // it hands Rust the values and Rust hands them to the macro.
+    Expr::MacroCall { name, args, .. } => macro_call(name, args, indent),
+    // Plan 64 leaf 4. Verbatim, re-indented to the position it stands in —
+    // the one "lowering" that changes nothing but whitespace, for the reason
+    // `emit_inline_rust` gives one position over.
+    Expr::RustHatch { code, .. } => rust_hatch_text(code, indent),
     // The effect-only `<- f ()`, which is Rust's `f().await` and needs no
     // binder. `receiver` for `emit_await`'s reason: `.await` is a postfix and
     // binds tighter than every operator.

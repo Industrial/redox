@@ -43,5 +43,5 @@ main =
   compared = (twice $ show 7) == "77"
   -- And in receiver position, for the same reason.
   measured = .len (twice $ show 7)
-  print $ add 1 2
+  println! \-> "#{add 1 2}"
   ()

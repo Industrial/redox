@@ -11,24 +11,27 @@ data User = User { name : &'static str, age : u32 }
 main : ()
 main =
   -- A right section: the operator's right operand is supplied.
-  print (1 .. 4 |> .map (+ 1) |> .sum : i32)
+  println! \-> "#{(1 .. 4 |> .map (+ 1) |> .sum : i32)}"
 
   -- A left section, new in doc 18 §4. `(10 -)` is what doc 03 §5.4 could not
   -- spell: with only right sections, subtracting *from* a value had no
   -- section form at all.
-  print (1 .. 4 |> .map (10 -) |> .sum : i32)
+  -- Bound rather than interpolated so the `( «int» - )` run stays visible
+  -- to `construct_coverage` — see the note in `examples/expressions.sdx`.
+  flipped = 1 .. 4 |> .map (10 -) |> .sum : i32
+  println! \-> "#{flipped}"
 
   -- A comparison, which lowers to the **method** form because an adaptor
   -- hands its closure a reference and `&i32 > 1` does not compile.
-  print (1 .. 4 |> .filter (> 1) |> .count : usize)
+  println! \-> "#{(1 .. 4 |> .filter (> 1) |> .count : usize)}"
 
   -- And flipped: `(1 <)` is the same predicate, so doc 18 §4 gives it the
   -- same lowering.
-  print (1 .. 4 |> .filter (1 <) |> .count : usize)
+  println! \-> "#{(1 .. 4 |> .filter (1 <) |> .count : usize)}"
 
   -- A field selector, as in GHC's record dot.
   u = User { name = "a", age = 30 }
-  print (Some u |> .into_iter |> .map (.age) |> .sum : u32)
+  println! \-> "#{(Some u |> .into_iter |> .map (.age) |> .sum : u32)}"
 
   -- A field selector beside a method, in one expression — plan 57 §3 case 3,
   -- and the distinction `(.name)` carries now that a bare `.name` is a
@@ -41,9 +44,9 @@ main =
   -- construct here, which §10 records.
   v = User { name = "bb", age = 2 }
   names = Some v |> .into_iter |> .map (.name)
-  print (names |> .map (\t -> .len t) |> .sum : usize)
+  println! \-> "#{(names |> .map (\t -> .len t) |> .sum : usize)}"
 
   -- `(- 1)` is negation, always. Doc 18 §4 declines the subtraction section,
   -- which retires doc 03 decision 50's adjacency rule.
-  print (-1)
+  println! \-> "#{(-1)}"
   ()

@@ -7,7 +7,7 @@ main =
   inner =
     n = 2
     n * 10
-  print inner
+  println! \-> "#{inner}"
 
 ----------------------------------------------------------------
 
@@ -31,8 +31,9 @@ main =
             (operator)
             (number)))))
     body: (expression_statement
-      (identifier)
-      (identifier))))
+      (macro_call
+        name: (identifier)
+        argument: (string)))))
 
 ================================================================
 a labelled block
@@ -42,7 +43,7 @@ main : ()
 main =
   found = 'search
     break 'search 1
-  print found
+  println! \-> "#{found}"
 
 ----------------------------------------------------------------
 
@@ -62,8 +63,9 @@ main =
             (label)
             (number)))))
     body: (expression_statement
-      (identifier)
-      (identifier))))
+      (macro_call
+        name: (identifier)
+        argument: (string)))))
 
 ================================================================
 `do` is reserved and names no construct
@@ -73,7 +75,7 @@ main =
 main : ()
 main =
   do = 2
-  print 1
+  println! \-> "#{1}"
 
 ----------------------------------------------------------------
 

@@ -97,19 +97,19 @@ doubled _ = 0
 
 main : ()
 main =
-  print (first_or (Some 7) 0)
-  print (first_or None 5)
-  print (describe (Some 9))
-  print (describe (Some 1))
-  print (describe None)
-  print (total (.to_vec ([1, 2, 3])))
-  print (halve (Some 10))
-  print (halve None)
-  print (unwrap_nested (Some (Some 4)))
-  print (unwrap_nested (Some None))
-  print (unwrap_nested None)
-  print (label (Some 1))
-  print (label None)
-  print (doubled (Some 6))
-  print (doubled None)
+  println! \-> "#{(first_or (Some 7) 0)}"
+  println! \-> "#{(first_or None 5)}"
+  println! \-> "#{(describe (Some 9))}"
+  println! \-> "#{(describe (Some 1))}"
+  println! \-> "#{(describe None)}"
+  println! \-> "#{(total (.to_vec ([1, 2, 3])))}"
+  println! \-> "#{(halve (Some 10))}"
+  println! \-> "#{(halve None)}"
+  println! \-> "#{(unwrap_nested (Some (Some 4)))}"
+  println! \-> "#{(unwrap_nested (Some None))}"
+  println! \-> "#{(unwrap_nested None)}"
+  println! \-> "#{(label (Some 1))}"
+  println! \-> "#{(label None)}"
+  println! \-> "#{(doubled (Some 6))}"
+  println! \-> "#{(doubled None)}"
   ()

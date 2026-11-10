@@ -9,20 +9,20 @@ main : ()
 main =
   -- Construction. `=` for a value, against `::` for a type.
   p = Point { x = 10, y = 20 }
-  print p.x
-  print p.y
+  println! \-> "#{p.x}"
+  println! \-> "#{p.y}"
 
   -- Punning, in the direction Haskell had it first.
   x = 1
   y = 2
   q = Point { x, y }
-  print q.x
-  print q.y
+  println! \-> "#{q.x}"
+  println! \-> "#{q.y}"
 
   -- Update. One of doc 18 §6's disclosed lowerings: a block, because Rust's
   -- own `Point { x: 99, ..p }` needs the type's path and the source gives
   -- only the value's name.
   r = p { x = 99 }
-  print r.x
-  print r.y
+  println! \-> "#{r.x}"
+  println! \-> "#{r.y}"
   ()

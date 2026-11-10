@@ -1,7 +1,8 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
+use crate::parse::parser::rust_hatch::rust_hatch;
 use redox_ast::InlineRust;
-use redox_lexer::{Keyword, TokenKind, Trivia, verbatim_triple};
+use redox_lexer::{Keyword, TokenKind, Trivia};
 
 /// `rust """…"""` — doc 01 §23.1's inline Rust escape hatch, plan 45 leaf 1.
 ///
@@ -11,10 +12,10 @@ use redox_lexer::{Keyword, TokenKind, Trivia, verbatim_triple};
 /// carrying `println!("a\nb")` would reach the emitter holding a real newline
 /// inside a Rust string literal and produce code that does not compile.
 ///
-/// A single-quoted string is **rejected** rather than accepted as a one-line
-/// hatch. Doc 01 §23.1 writes `"""`, a one-line escape hatch is a worse thing
-/// to encourage than a two-line one, and — the deciding reason — a `"…"`
-/// literal has nowhere to put the Rust code's own quotes.
+/// Plan 64 leaf 4 moved the body-reading into [`rust_hatch`], which both this
+/// and the expression position use: the layout-delimited spelling — `rust`
+/// over an indented block — is read there too, and a second reader would be a
+/// second place for the hatch's rules to drift.
 pub(crate) fn inline_rust(
   p: &mut Parser,
   leading: Vec<Trivia>,
@@ -22,25 +23,7 @@ pub(crate) fn inline_rust(
 ) -> Result<InlineRust, ParseError> {
   p.expect(&TokenKind::Kw(Keyword::Rust), "expected `rust`")?;
 
-  let raw = match &p.peek().kind {
-    TokenKind::Str { raw, .. } => raw.clone(),
-    _ => {
-      return Err(ParseError::expected(
-        "expected a `\"\"\"` block of Rust after `rust`",
-        p.peek_span(),
-      ));
-    }
-  };
-  let span = p.peek_span();
-  p.advance();
-
-  let Some(code) = verbatim_triple(&raw) else {
-    return Err(ParseError::expected(
-      "inline Rust needs a `\"\"\"` block: a single-quoted string cannot hold \
-       Rust's own quotes",
-      span,
-    ));
-  };
+  let (code, _) = rust_hatch(p)?;
 
   Ok(InlineRust {
     code,

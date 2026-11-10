@@ -110,7 +110,11 @@ fn a_closers_own_column_is_never_an_inconsistent_dedent() {
   // The interior opens a level at 9; the closer is then placed at the base,
   // short of it, under it, and at column zero.
   for closer in ["  )", "        )", "         )", ")"] {
-    let src = format!("main =\n  m = f (1 +\n         2\n{closer}\n  print m\n");
+    // The statement prints a literal rather than interpolating `m`: this is
+    // a `format!` literal, and `#{m}` inside one is Rust's own
+    // named-argument placeholder, not Redox's interpolation. What the
+    // statement prints is incidental — the test is about the closer's column.
+    let src = format!("main =\n  m = f (1 +\n         2\n{closer}\n  println! \\-> \"done\"\n");
     assert!(
       lex(&src).is_ok(),
       "a `)` at column {} was rejected: {:?}",
@@ -137,13 +141,13 @@ fn an_inconsistent_dedent_inside_brackets_is_still_rejected() {
 /// `statement_block` needs now exists inside `(…)`.
 #[test]
 fn an_indented_block_inside_parentheses_carries_its_layout() {
-  let toks = kinds("v = print (if c\n  a\nelse\n  b)\n");
+  let toks = kinds("v = show (if c\n  a\nelse\n  b)\n");
   assert!(
     toks.contains(&TokenKind::Indent),
     "the branch bodies must open blocks: {toks:?}"
   );
   assert_eq!(
-    indent_balance("v = print (if c\n  a\nelse\n  b)\n"),
+    indent_balance("v = show (if c\n  a\nelse\n  b)\n"),
     (2, 2),
     "one level per branch, both closed inside the parentheses: {toks:?}"
   );
@@ -262,7 +266,7 @@ fn a_leading_dot_does_not_continue_a_with_block() {
 /// newline. This is the case that proved the first version of the rule wrong.
 #[test]
 fn a_trailing_arrow_does_not_suppress_the_newline() {
-  let toks = kinds("main : ()\nmain =\n  print \"x\"\n");
+  let toks = kinds("main : ()\nmain =\n  println! \\-> \"x\"\n");
   assert!(
     toks.contains(&TokenKind::Newline),
     "the header's newline must survive: {toks:?}"

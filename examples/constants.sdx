@@ -40,9 +40,9 @@ scaled n = n * SCALE
 
 main : ()
 main =
-  print MAX
-  print GREETING
-  print LIMIT
-  print (square 7)
-  print (scaled 4)
+  println! \-> "#{MAX}"
+  println! \-> "#{GREETING}"
+  println! \-> "#{LIMIT}"
+  println! \-> "#{(square 7)}"
+  println! \-> "#{(scaled 4)}"
   ()

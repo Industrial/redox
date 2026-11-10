@@ -79,7 +79,7 @@ fn line_indent(source: &str, offset: usize) -> Option<usize> {
 /// *mid-line* — so in
 ///
 /// ```text
-///   print (if n > 9
+///   println! \-> "#{(if n > 9}"
 ///     "big"
 ///   else
 ///     "small")
@@ -234,7 +234,7 @@ fn inconsistent_indentation_is_rejected() {
   // then three — and it lexed fine, correctly: a deeper line opens a block.
   // `RDX0002` is about a **dedent** landing between two levels, which is the
   // only way the width stack can be asked for a level it does not hold.
-  let source = "main : ()\nmain =\n    print 1\n  print 2\n";
+  let source = "main : ()\nmain =\n    println! \\-> \"#{1}\"\n  println! \\-> \"#{2}\"\n";
   let failed = lex(source);
   assert!(
     failed.is_err(),
@@ -247,12 +247,12 @@ fn inconsistent_indentation_is_rejected() {
 /// some unrelated reason.
 #[test]
 fn consistent_indentation_is_accepted() {
-  let flat = "main : ()\nmain =\n  print 1\n  print 2\n";
+  let flat = "main : ()\nmain =\n  println! \\-> \"#{1}\"\n  println! \\-> \"#{2}\"\n";
   assert!(lex(flat).is_ok(), "two lines at one level should lex");
 
   // A deeper line opens a block, and dedenting back to a level the stack
   // holds closes it. This is the case the first negative attempt used, and it
   // is *correct* Redox — which is why it belongs here instead.
-  let nested = "main : ()\nmain =\n  if c\n    print 1\n  print 2\n";
+  let nested = "main : ()\nmain =\n  if c\n    println! \\-> \"#{1}\"\n  println! \\-> \"#{2}\"\n";
   assert!(lex(nested).is_ok(), "a nested block should lex");
 }

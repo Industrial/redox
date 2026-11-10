@@ -47,10 +47,13 @@ total = .len (zeros ()) + .len (row ()) + .len (growable ())
 
 main : ()
 main =
-  print (.len (zeros ()))
-  print (row ())[0]
-  print (.len (growable ()))
-  print (grid ())[1][0]
-  print (.len (lists ()))
-  print (total ())
+  println! \-> "#{(.len (zeros ()))}"
+  -- Bound rather than interpolated so the `) [ «int» ]` run stays visible to
+  -- `construct_coverage` — see the note in `examples/expressions.sdx`.
+  first = (row ())[0]
+  println! \-> "#{first}"
+  println! \-> "#{(.len (growable ()))}"
+  println! \-> "#{(grid ())[1][0]}"
+  println! \-> "#{(.len (lists ()))}"
+  println! \-> "#{(total ())}"
   ()

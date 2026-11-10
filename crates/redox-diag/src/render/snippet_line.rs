@@ -30,15 +30,24 @@ mod tests {
 
   #[test]
   fn keeps_a_line_that_has_text() {
-    let src = "main : ()\nmain =\n  print 1\n";
-    assert_eq!(snippet_line(src, 3, 3), Some((3, "  print 1", 3)));
+    let src = "main : ()\nmain =\n  println! \\-> \"#{1}\"\n";
+    assert_eq!(
+      snippet_line(src, 3, 3),
+      Some((3, "  println! \\-> \"#{1}\"", 3))
+    );
   }
 
   /// The case that motivates the function: an error at end of file.
   #[test]
   fn backs_up_from_the_phantom_line_after_a_trailing_newline() {
-    let src = "main : ()\nmain =\n  print (1 +)\n";
-    assert_eq!(snippet_line(src, 4, 1), Some((3, "  print (1 +)", 14)));
+    let src = "main : ()\nmain =\n  println! \\-> \"#{(1 +)}\"\n";
+    // 26, not 14: the column is one past the line's last character, and
+    // plan 64's `println! \-> "#{…}"` is twelve characters longer than the
+    // `print …` it replaced.
+    assert_eq!(
+      snippet_line(src, 4, 1),
+      Some((3, "  println! \\-> \"#{(1 +)}\"", 26))
+    );
   }
 
   #[test]

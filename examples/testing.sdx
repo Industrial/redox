@@ -15,23 +15,23 @@ halve n
 
 main : ()
 main =
-  print (add 1 2)
-  print (.is_some (halve 4))
+  println! \-> "#{(add 1 2)}"
+  println! \-> "#{(.is_some (halve 4))}"
   ()
 
 -- `==` becomes `assert_eq!`, which prints both values when they differ.
 -- `assert!` prints only the expression's text, which tells the author
 -- nothing they did not type.
 test "adds two numbers"
-  assert add 1 2 == 3
+  assert! \-> add 1 2 == 3
 
 test "rejects an odd input"
-  assert .is_none (halve 3)
+  assert! \-> .is_none (halve 3)
 
 -- Two descriptions that differ only in punctuation slug to the same name, so
 -- the second takes an index — doc 03 §15's collision rule.
 test "halves, evenly"
-  assert halve 4 == Some 2
+  assert! \-> halve 4 == Some 2
 
 test "halves evenly"
-  assert halve 8 == Some 4
+  assert! \-> halve 8 == Some 4

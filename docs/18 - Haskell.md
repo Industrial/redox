@@ -784,7 +784,7 @@ runtime scaffolding at all, and doc 01 §36 needs no exception.
 | `(\|> name)` | §4 | A bare `.name`: a method is a function, receiver last (plan 57) |
 | `?.` optional chaining | 13.1, 12.3 | `try` over a `?` run, with an explicit `&` (plan 57) |
 | `x.f ()` method-call syntax | 5.1 | `.f x`, `x \|> .f` — `.` is field access only (plan 57) |
-| `!` zero-argument suffix | 5.2 | `f ()` |
+| `!` zero-argument suffix | 5.2 | `f ()` — and the token itself went to **macro invocation** in plan 64, which is the one row in this table where retiring a spelling cost a capability. See the note below |
 | Chained comparison `0 < x < 9` | 5.6 | `&&` |
 | `??=`, postfix `if`/`unless`/`until` | 12.1, 7.7 | Their expanded forms |
 | `@` / `@@` sigils | 4.3 | `self.` / `Self::`; `@` is the as-pattern only |
@@ -801,6 +801,27 @@ the number of **constructs**, which is what the parser, the emitter and the form
 sized by. Operators fall outright: `=>` (as an arm), `??=`,
 `.+ .- .* ./ .%`, `.(`, `...`, `%w[`, `#{` (set), `&:`, `@`, `@@` and `!` leave; `::`, `<-`,
 `\`, `$`, `|`, `--` and `{- -}` arrive.
+
+**Corrected by plan 64: one capability *was* lost, and it was the largest in the
+language.** This section's table reads `0` capabilities lost, and that is true of
+every row but one. Retiring `!` as a suffix also spent the token doc 01 §23 had
+**retained** macro-invocation syntax on, and no row here noticed — so `name!` had no
+spelling at all, and `effect!`, `caps!`, `hlist!`, `vec!`, `json!`, `bail!`, `info!`,
+`query!`, `html!` and every proc-macro were unreachable in a language whose premise
+is *"Redox has crates.io"*.
+
+It stood for nineteen rows. Plan 45 §1.5 found it and left the spelling decision;
+plan 48 ported the compiler's own source to Redox and **priced** it, with
+`docs/CONFORMANCE.md` carrying the figure. Worse than unreachable, plan 45 measured
+`assert! true` *appearing* to work — it read as the `assert` keyword applied to
+`!true` and silently emitted `assert!(!true)`, an inverted assertion.
+
+Plan 64 takes the token back: `foo!` is a macro head and `! foo` is negation, told
+apart by **adjacency** — which also makes this section's `3 → 1 uses of adjacency`
+row read `3 → 2` once plan 52 and plan 64 are both counted. The transferable lesson
+is the sequence rather than the token: **a specification retained a construct whose
+enabling token a later document spent**, and three plans found the consequence
+before one took it. Plan 51's cross-checks exist to make that visible sooner.
 
 ### 7.1 What it does to doc 03 §20's estimate
 

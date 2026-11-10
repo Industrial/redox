@@ -55,7 +55,7 @@ fn an_if_as_a_value_is_an_expression() {
 #[test]
 fn an_if_with_an_indented_block_is_a_statement() {
   assert_eq!(
-    body("  if n > 0\n    print \"yes\"\n"),
+    body("  if n > 0\n    println! \\-> \"yes\"\n"),
     "if n > 0 {\n    println!(\"yes\");\n}"
   );
 }
@@ -66,7 +66,7 @@ fn an_if_with_an_indented_block_is_a_statement() {
 fn else_if_chains_as_rust_does() {
   assert_eq!(
     body(
-      "  if n > 0\n    print \"p\"\n  else if n < 0\n    print \"n\"\n  else\n    print \"z\"\n"
+      "  if n > 0\n    println! \\-> \"p\"\n  else if n < 0\n    println! \\-> \"n\"\n  else\n    println! \\-> \"z\"\n"
     ),
     "if n > 0 {\n    println!(\"p\");\n} else if n < 0 {\n    println!(\"n\");\n} else {\n    println!(\"z\");\n}"
   );
@@ -110,7 +110,7 @@ fn until_parenthesises_a_single_term_as_well() {
 #[test]
 fn for_draws_from_its_source_with_in() {
   assert_eq!(
-    body("  for x in xs\n    print x\n"),
+    body("  for x in xs\n    println! \\-> \"#{x}\"\n"),
     "for x in xs {\n    println!(\"{}\", x);\n}"
   );
 }
@@ -120,7 +120,7 @@ fn for_draws_from_its_source_with_in() {
 #[test]
 fn for_over_a_range_needs_no_special_case() {
   assert_eq!(
-    body("  for c in 1 .. 4\n    print c\n"),
+    body("  for c in 1 .. 4\n    println! \\-> \"#{c}\"\n"),
     "for c in 1..4 {\n    println!(\"{}\", c);\n}"
   );
 }
@@ -128,7 +128,7 @@ fn for_over_a_range_needs_no_special_case() {
 #[test]
 fn loop_emits_loop() {
   assert_eq!(
-    body("  loop\n    print 1\n"),
+    body("  loop\n    println! \\-> \"#{1}\"\n"),
     "loop {\n    println!(\"{}\", 1);\n}"
   );
 }
@@ -196,7 +196,7 @@ fn a_label_prefixes_any_loop() {
 /// `'outer` alone cannot be anything else.
 #[test]
 fn a_label_with_no_loop_is_an_error() {
-  assert!(parse_source("main : ()\nmain =\n  'outer\n  print 1\n").is_err());
+  assert!(parse_source("main : ()\nmain =\n  'outer\n  println! \\-> \"#{1}\"\n").is_err());
 }
 
 // --- §5.9: `return` reaches through ---------------------------------------
@@ -312,6 +312,6 @@ fn an_if_used_as_a_value_has_tail_branches() {
 /// start claiming to be its block's value.
 #[test]
 fn an_else_less_if_keeps_its_semicolons() {
-  let out = body("  if 1 > 0\n    print \"y\"\n");
+  let out = body("  if 1 > 0\n    println! \\-> \"y\"\n");
   assert!(out.contains(");"), "{out}");
 }

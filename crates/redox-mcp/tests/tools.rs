@@ -253,7 +253,7 @@ fn source_map_resolves_a_generated_line_to_its_sdx_line() {
   let source = std::fs::read_to_string(&case.sdx).expect("should read");
   let expected = source
     .lines()
-    .position(|l| l.trim_start().starts_with("print "))
+    .position(|l| l.trim_start().starts_with("println! "))
     .expect("the fixture should print")
     + 1;
   assert_eq!(

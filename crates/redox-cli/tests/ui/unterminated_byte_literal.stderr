@@ -1,6 +1,6 @@
 error[RDX0008]: unterminated byte literal
-  --> unterminated_byte_literal.sdx:3:9
+  --> unterminated_byte_literal.sdx:3:19
   |
-3 |   print b'a
-  |         ^^^
+3 |   println! \-> "#{b'a}"
+  |                   ^^^
 

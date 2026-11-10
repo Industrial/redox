@@ -1,3 +1,6 @@
+-- A raw string with no closing quote. Bound rather than interpolated, for
+-- the reason `unterminated_string.sdx` records.
 main : ()
 main =
-  print r"hello
+  s = r"hello
+  ()

@@ -155,7 +155,6 @@ pub(crate) fn code_text(expr: &Expr, indent: usize, source: &str) -> String {
       Some(name) => format!("continue '{name}"),
       None => "continue".to_string(),
     },
-    Expr::Assert { value, .. } => format!("assert {}", expr_text(value, 0, indent, source)),
     // Every other form is a value expression, and its canonical spelling is
     // the same whatever position it sits in. A wildcard rather than a list of
     // thirty-three, because `expr_text` is the exhaustive match: a new form

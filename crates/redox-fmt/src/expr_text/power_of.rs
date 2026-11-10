@@ -55,6 +55,11 @@ pub(crate) fn power_of(expr: &Expr) -> Option<u8> {
     // primary and the parser consumes postfix inside it, so these are a single
     // group rather than a ladder.
     Expr::Call { .. }
+    // Tighter for the same reason the group below is: the `!` and the arrows
+    // are part of the call's own syntax, so there is no ladder for a
+    // parenthesis to disambiguate. A `rust` hatch is self-delimiting too.
+    | Expr::MacroCall { .. }
+    | Expr::RustHatch { .. }
     | Expr::Field { .. }
     | Expr::Index { .. }
     | Expr::Unary { .. }
@@ -112,7 +117,6 @@ pub(crate) fn power_of(expr: &Expr) -> Option<u8> {
     | Expr::For { .. }
     | Expr::Loop { .. }
     | Expr::Break { .. }
-    | Expr::Continue { .. }
-    | Expr::Assert { .. } => None,
+    | Expr::Continue { .. } => None,
   }
 }

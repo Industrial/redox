@@ -57,11 +57,12 @@ fn a_unit_value_is_still_unit() {
   assert!(out.contains("let r = ();"), "{out}");
 }
 
-/// `print ()` is the blank line, for the same reason: the unit argument is
-/// the empty argument list. Bare `print` is not a call at all — juxtaposition
+/// `println!` with no argument is the blank line, for the same reason: a
+/// lone unit is the empty argument list. Plan 64 retired `print ()`, and
+/// `macro_argument` keeps the rule — juxtaposition
 /// needs something to juxtapose, which is the whole point of §7's `f ()`.
 #[test]
 fn print_unit_is_the_blank_line() {
-  let out = body("print ()");
+  let out = body("println!");
   assert!(out.contains("println!();"), "{out}");
 }

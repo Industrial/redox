@@ -14,5 +14,5 @@ main : ()
 main =
   method_ref = (|> len)
   selector = (.name)
-  print 1
+  println! \-> "#{1}"
   ()

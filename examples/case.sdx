@@ -51,15 +51,15 @@ evens limit =
 
 main : ()
 main =
-  print (label 80)
-  print (label 30)
-  print (label 14)
-  print (label 5)
-  print (label 17)
-  print (describe 'e')
-  print (describe 'z')
-  print (grade 0)
-  print (grade 10)
-  print (grade 90)
-  print (evens 10)
+  println! \-> "#{(label 80)}"
+  println! \-> "#{(label 30)}"
+  println! \-> "#{(label 14)}"
+  println! \-> "#{(label 5)}"
+  println! \-> "#{(label 17)}"
+  println! \-> "#{(describe 'e')}"
+  println! \-> "#{(describe 'z')}"
+  println! \-> "#{(grade 0)}"
+  println! \-> "#{(grade 10)}"
+  println! \-> "#{(grade 90)}"
+  println! \-> "#{(evens 10)}"
   ()

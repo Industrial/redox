@@ -44,6 +44,7 @@ pub(crate) mod interpolated_string;
 pub(crate) mod is_word;
 pub(crate) mod lambda;
 pub(crate) mod local_test;
+pub(crate) mod macro_call;
 pub(crate) mod method_call_syntax;
 pub(crate) mod method_context;
 pub(crate) mod modified_block;
@@ -70,9 +71,11 @@ pub(crate) mod receiver_text;
 pub(crate) mod record_literal;
 pub(crate) mod record_pattern;
 pub(crate) mod reserved_word;
+pub(crate) mod retired_spelling;
 pub(crate) mod return_in_tail;
 pub(crate) mod rewritten;
 pub(crate) mod rust_generic;
+pub(crate) mod rust_hatch;
 pub(crate) mod rust_string_body;
 pub(crate) mod scan_run;
 pub(crate) mod section;
@@ -995,14 +998,7 @@ impl<'a> Parser<'a> {
       });
     }
 
-    let expr = if self.check(&TokenKind::Kw(Keyword::Assert)) {
-      self.advance();
-      let value = Box::new(parse_expr(self, 0)?);
-      Expr::Assert {
-        value,
-        span: (start, self.prev_span().1),
-      }
-    } else if self.check(&TokenKind::Kw(Keyword::Return)) {
+    let expr = if self.check(&TokenKind::Kw(Keyword::Return)) {
       self.advance();
       let value = if self.at_statement_end() {
         None

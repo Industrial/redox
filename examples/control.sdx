@@ -17,11 +17,11 @@
 classify : i32 -> ()
 classify n =
   if n > 0
-    print "positive"
+    println! \-> "positive"
   else if n < 0
-    print "negative"
+    println! \-> "negative"
   else
-    print "zero"
+    println! \-> "zero"
   ()
 
 -- The same `if` as a function's whole body, which is where it carries a
@@ -81,9 +81,20 @@ bracketed n = "#{tier n}"
 --
 -- This is the function plan 55 leaf 7 needs: with it, retiring `then` costs an
 -- author nothing in argument position.
+-- `show` rather than a bare macro call, because plan 64 retired the one
+-- built-in that took an arbitrary expression in argument position.
+-- `println!`'s first argument is a Rust format string, so an `if` reaches a
+-- macro through a name or through an interpolation — and an interpolation is
+-- one line, which this deliberately is not. Argument position is still
+-- argument position, which is what this function is a witness for.
+show : &str -> ()
+show s =
+  println! \-> "#{s}"
+  ()
+
 bracketed_block : i32 -> ()
 bracketed_block n =
-  print (if n > 9
+  show (if n > 9
     "big"
   else
     "small")
@@ -112,7 +123,7 @@ settle =
 count_up : ()
 count_up =
   for c in 1 .. 4
-    print c
+    println! \-> "#{c}"
   ()
 
 -- A label goes before the keyword and reaches a `break` in a nested loop —
@@ -279,25 +290,25 @@ main =
   classify 3
   classify (0 - 3)
   classify 0
-  print (tier 4)
-  print (tier 40)
-  print (labelled 20)
-  print (labelled 7)
-  print (labelled 1)
-  print (bracketed 20)
+  println! \-> "#{(tier 4)}"
+  println! \-> "#{(tier 40)}"
+  println! \-> "#{(labelled 20)}"
+  println! \-> "#{(labelled 7)}"
+  println! \-> "#{(labelled 1)}"
+  println! \-> "#{(bracketed 20)}"
   bracketed_block 20
   bracketed_block 1
-  print (settle ())
+  println! \-> "#{(settle ())}"
   count_up ()
-  print (nested ())
-  print (first_square_over 30)
-  print (first_divisor 91)
-  print (odd_sum ())
-  print (swapped ())
-  print (label 50)
-  print (label 1)
-  print (places ())
-  print (compounded ())
-  print (shadowed ())
-  print (ordered ())
+  println! \-> "#{(nested ())}"
+  println! \-> "#{(first_square_over 30)}"
+  println! \-> "#{(first_divisor 91)}"
+  println! \-> "#{(odd_sum ())}"
+  println! \-> "#{(swapped ())}"
+  println! \-> "#{(label 50)}"
+  println! \-> "#{(label 1)}"
+  println! \-> "#{(places ())}"
+  println! \-> "#{(compounded ())}"
+  println! \-> "#{(shadowed ())}"
+  println! \-> "#{(ordered ())}"
   ()

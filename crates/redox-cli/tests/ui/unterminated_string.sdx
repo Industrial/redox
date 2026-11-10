@@ -1,3 +1,12 @@
+-- A string with no closing quote.
+--
+-- Bound rather than interpolated, and plan 64 leaf 6 is why it had to be:
+-- the migration put this literal inside `#{…}`, where the *interpolation*
+-- scanner reaches the end of the line first and `RDX0005` is what the author
+-- sees. A fixture for `RDX0003` has to keep the bad literal where the string
+-- scanner meets it — which `code_coverage` said, by reporting the code as
+-- declared and unreached.
 main : ()
 main =
-  print "hello
+  s = "hello
+  ()

@@ -82,7 +82,7 @@ impl Drop for Project {
   }
 }
 
-const SOURCE: &str = "-- A cached program.\nmain : ()\nmain =\n  print 1\n  ()\n";
+const SOURCE: &str = "-- A cached program.\nmain : ()\nmain =\n  println! \\-> \"#{1}\"\n  ()\n";
 
 /// Criterion 1: the second compile of an unchanged file is a hit, and produces
 /// byte-identical output.
@@ -109,7 +109,7 @@ fn a_changed_source_misses() {
   project.write("a.sdx", SOURCE);
   let (first, _) = project.compile();
 
-  project.write("a.sdx", &SOURCE.replace("print 1", "print 2"));
+  project.write("a.sdx", &SOURCE.replace("#{1}", "#{2}"));
   let (second, hits) = project.compile();
 
   assert_eq!(hits, vec![false], "changed content must miss");
@@ -187,7 +187,7 @@ fn a_different_compiler_invalidates_the_cache() {
 fn the_cache_reports_through_the_caller_not_stdout() {
   let project = Project::new("reporter");
   project.write("a.sdx", SOURCE);
-  project.write("b.sdx", SOURCE.replace("print 1", "print 2").as_str());
+  project.write("b.sdx", SOURCE.replace("#{1}", "#{2}").as_str());
 
   let reporter = Collect::new();
   redox_driver::compile_dir_with(&project.src, &project.out, &reporter).expect("should compile");

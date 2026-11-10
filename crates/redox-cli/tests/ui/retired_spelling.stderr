@@ -1,0 +1,7 @@
+error[RDX0118]: `print` is not a construct any more — macros are callable, so write `println! \-> "#{x}"`, or `eprintln!` to write to stderr
+  --> retired_spelling.sdx:21:3
+   |
+21 |   print "hello"
+   |   ^^^^^
+  = help: `!` marks a macro's name and `\->` opens each argument, so no bracket is needed: `println! \-> "#{total} rows"`
+

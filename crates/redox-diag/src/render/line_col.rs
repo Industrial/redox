@@ -19,7 +19,7 @@ mod tests {
 
   #[test]
   fn resolves_a_byte_offset() {
-    let src = "main : ()\nmain =\n  print 1\n";
+    let src = "main : ()\nmain =\n  println! \\-> \"#{1}\"\n";
     assert_eq!(line_col(src, 0), (1, 1));
     // `main : ()\n` is 10 bytes, `main =\n` is 7, so the `p` of `print` is
     // at 19 — line 3, column 3.

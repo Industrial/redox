@@ -13,5 +13,5 @@ unsafe class Raw
 
 main : ()
 main =
-  print 1
+  println! \-> "#{1}"
   ()

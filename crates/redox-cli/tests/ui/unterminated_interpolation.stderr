@@ -1,6 +1,6 @@
 error[RDX0005]: unterminated interpolation; expected `}`
-  --> unterminated_interpolation.sdx:3:12
+  --> unterminated_interpolation.sdx:3:19
   |
-3 |   print "a #{1 + 2"
-  |            ^^^^^^^^^
+3 |   println! \-> "a #{1 + 2"
+  |                   ^^^^^^^^^
 

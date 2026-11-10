@@ -8,7 +8,7 @@ use redox_lexer::{Keyword, TokenKind, Trivia};
 ///
 /// ```text
 /// test "adds two numbers"
-///   assert add 1 2 == 3
+///   assert! \-> add 1 2 == 3
 /// ```
 ///
 /// A description and an indented body, which is the same body shape a

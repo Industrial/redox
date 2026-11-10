@@ -13,5 +13,5 @@ main =
   a = s.len (1)
   b = s.len ()
   c = s.find "h"
-  print a
+  println! \-> "#{a}"
   ()

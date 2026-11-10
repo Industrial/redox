@@ -76,8 +76,8 @@ scaled p = magnitude p * threshold
 main : ()
 main =
   p = Point { x = 3.0, y = 4.0 }
-  print (magnitude (&p))
-  print (scaled (&p))
-  print (counted 7)
-  print (counted 3)
+  println! \-> "#{(magnitude (&p))}"
+  println! \-> "#{(scaled (&p))}"
+  println! \-> "#{(counted 7)}"
+  println! \-> "#{(counted 3)}"
   ()

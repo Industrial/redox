@@ -10,7 +10,7 @@ use redox_lexer::{Span, Trivia};
 ///
 /// module tests               mod tests {
 ///   test "it parses"     →       #[cfg(test)]
-///     assert 1 == 1                mod __rdx_tests { … }
+///     assert! \-> 1 == 1                mod __rdx_tests { … }
 ///                            }
 /// ```
 ///

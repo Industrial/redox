@@ -37,23 +37,6 @@ struct Blocker {
   matches: fn(&str) -> bool,
 }
 
-/// `name!(…)`, `name![…]` or `name!{…}` — never `!=` and never a bare `!`.
-fn is_macro_call(line: &str) -> bool {
-  let bytes = line.as_bytes();
-  for (i, &c) in bytes.iter().enumerate() {
-    if c != b'!' {
-      continue;
-    }
-    // A name must precede the `!`, and a delimiter must follow it.
-    let before_is_name = i > 0 && (bytes[i - 1].is_ascii_alphanumeric() || bytes[i - 1] == b'_');
-    let after = bytes[i + 1..].iter().find(|b| !b.is_ascii_whitespace());
-    if before_is_name && matches!(after, Some(b'(' | b'[' | b'{')) {
-      return true;
-    }
-  }
-  false
-}
-
 /// `expr as Type`. An **import** is not a cast, which is the correction the
 /// plan's §1.1 records: `use foo as _;` counted as one until it did not.
 fn is_cast(line: &str) -> bool {
@@ -69,11 +52,18 @@ fn is_cast(line: &str) -> bool {
   })
 }
 
+/// The constructs a Redox program cannot express, as `docs/GRAMMAR.md` grades
+/// them.
+///
+/// **Macro invocation left this list in plan 64**, which is the row this
+/// document existed to motivate. Plan 48 measured it at 952 of 964 blocking
+/// occurrences and wrote *"spell it, and what remains is the `as` casts
+/// below"*; the list is now what remains. It is deleted rather than kept at
+/// zero because the sentence under **Blockers** reads *"each is graded
+/// `UNREACHABLE` in `docs/GRAMMAR.md`"* — a `SUGARED` row in this table would
+/// make the document wrong about itself, and plan 46's rule is that the two
+/// cannot be allowed to disagree.
 const BLOCKERS: &[Blocker] = &[
-  Blocker {
-    name: "Macro invocation",
-    matches: is_macro_call,
-  },
   Blocker {
     name: "`as` cast",
     matches: is_cast,
@@ -214,28 +204,26 @@ fn render(root: &Path) -> String {
      ```bash\n\
      REDOX_BLESS=1 cargo test -p redox-cli --test conformance\n\
      ```\n\n\
-     Plan 48 (`docs/42 - 48 - Conformance and Self-Hosting.md`) built it.\n\n\
-     ---\n\n## The answer\n\n**No — and one construct is almost all of it.**\n\n",
+     Plan 48 (`docs/42 - 48 - Conformance and Self-Hosting.md`) built it, and\n\
+     plan 64 changed its answer.\n\n\
+     ---\n\n## The answer\n\n**Almost — and what is left is the `as` cast.**\n\n",
   );
 
-  let macro_count = totals[0];
   let total_hits: usize = totals.iter().sum();
-  let share = if total_hits == 0 {
-    0.0
-  } else {
-    100.0 * macro_count as f64 / total_hits as f64
-  };
   let _ = writeln!(
     out,
-    "Macro invocation accounts for **{macro_count} of {total_hits}** blocking occurrences \
-     ({share:.0}%). Doc 18 §7 retired `!` as a suffix and left no spelling, so `format!`, \
-     `write!`, `assert!`, `println!` and `panic!` — how this compiler formats, asserts and \
-     reports — cannot be written.\n\n\
-     Spell it, and what remains is the `as` casts below. That makes this document a \
-     **priority** rather than a verdict: plan 45 §1.5 declined to spell macro invocation \
-     because it needs a surface decision in doc 03, and this is the measure of what that \
-     decision is worth.\n\n---\n\n## Blockers\n\nEach is graded `UNREACHABLE` in \
-     `docs/GRAMMAR.md`.\n"
+    "**{total_hits} blocking occurrences**, down from 964 — and the construct that was 952 \
+     of them is gone. Plan 48 measured macro invocation at 99% of the obstacle and wrote \
+     *\"spell it, and what remains is the `as` casts below\"*; plan 64 spelled it, as \
+     `name! \\-> e`, and this is what remained.\n\n\
+     That is the whole arc of the measurement in three rows: plan 45 §1.5 **found** the gap \
+     and declined to spell it because it needed a surface decision in doc 03; plan 48 \
+     **priced** it, which is what made the decision worth taking; plan 64 **took** it. A \
+     count is what turned an unreachability note into a priority.\n\n\
+     The figure is not zero and will not be: it is read off `docs/GRAMMAR.md`'s \
+     `UNREACHABLE` rows and moves on any commit that adds Rust, which is why it is \
+     generated rather than written down.\n\n---\n\n## Blockers\n\nEach is graded \
+     `UNREACHABLE` in `docs/GRAMMAR.md`.\n"
   );
   let _ = writeln!(out, "| Blocker | Occurrences |\n|---|---:|");
   for (i, blocker) in BLOCKERS.iter().enumerate() {
@@ -243,9 +231,10 @@ fn render(root: &Path) -> String {
   }
   let _ = writeln!(out, "| `\\|` or-pattern | *not counted* |");
   out.push_str(
-    "\n**Four of the seven gaps are zero**, which is the result doc 02 §4.8 did not expect: \
-     `unsafe trait`, `unsafe impl`, `extern \"C\" fn` and `macro_rules!` are real gaps and \
-     are not *this* obstacle. Only a count could say so.\n\n\
+    "\n**Four of the five remaining gaps are zero**, which is the result doc 02 §4.8 did \
+     not expect: `unsafe trait`, `unsafe impl`, `extern \"C\" fn` and `macro_rules!` are \
+     real gaps and were never *this* obstacle. Only a count could say so — and the same \
+     count is what identified the one that was.\n\n\
      `\\|` or-patterns are **not counted** rather than estimated. The counter is line-based, \
      and no line-based pattern separates a pattern alternative from a bitwise or; a wrong \
      number would be worse than an empty cell.\n\n---\n\n## By crate\n\n",

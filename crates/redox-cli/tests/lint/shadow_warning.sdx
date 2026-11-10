@@ -31,7 +31,7 @@ tally =
   total = 1
   if total > 0
     total = 2
-    print total
+    println! \-> "#{total}"
   total
 
 -- Three bindings of one name warn **twice**. The second shadows the first and
@@ -42,5 +42,5 @@ thrice =
   step = 1
   step = 2
   step = 3
-  print step
+  println! \-> "#{step}"
   ()

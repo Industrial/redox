@@ -56,10 +56,16 @@ fn a_lambda_can_take_no_binders() {
 }
 
 /// `$` is grouping, so this is a call and not an operator in the output.
+///
+/// Asserted in a **binding** rather than through an interpolation, which is
+/// where plan 64 left it: `print $ f 3` was the original fixture, and `$` has
+/// no production inside `#{…}` — an interpolated fragment is parsed by its
+/// own entry point, which the low-precedence grouping never needed. The
+/// binding is the position `$` exists for anyway.
 #[test]
 fn dollar_lowers_to_nothing() {
-  let out = body("print $ f 3");
-  assert!(out.contains("println!(\"{}\", f(3));"), "{out}");
+  let out = body("r = f $ 3");
+  assert!(out.contains("let r = f(3);"), "{out}");
   assert!(!out.contains('$'), "`$` must not survive:\n{out}");
 }
 

@@ -1,6 +1,6 @@
 error[RDX0010]: hexadecimal literal has no digits
-  --> radix_without_digits.sdx:3:9
+  --> radix_without_digits.sdx:3:19
   |
-3 |   print 0x
-  |         ^^
+3 |   println! \-> "#{0x}"
+  |                   ^^
 

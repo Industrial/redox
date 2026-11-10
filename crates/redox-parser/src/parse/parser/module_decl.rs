@@ -11,7 +11,7 @@ use redox_lexer::{Keyword, TokenKind, Trivia};
 ///
 /// module tests
 ///   test "it parses"
-///     assert 1 == 1
+///     assert! \-> 1 == 1
 /// ```
 ///
 /// A name, and an optional indented body of items. The body is **recursive**:

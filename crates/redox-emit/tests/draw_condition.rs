@@ -34,7 +34,7 @@ fn body(src: &str) -> String {
 #[test]
 fn a_pattern_test_in_an_if_emits_if_let() {
   assert_eq!(
-    body("  if x is Some v\n    print v\n"),
+    body("  if x is Some v\n    println! \\-> \"#{v}\"\n"),
     "if let Some(v) = x {\n    println!(\"{}\", v);\n}"
   );
 }
@@ -43,7 +43,7 @@ fn a_pattern_test_in_an_if_emits_if_let() {
 /// which is why doc 18 §3.1 could replace `is` without touching the lowering.
 #[test]
 fn the_pattern_stays_on_the_left() {
-  let out = body("  if read p is Ok raw\n    print raw\n");
+  let out = body("  if read p is Ok raw\n    println! \\-> \"#{raw}\"\n");
   assert!(out.starts_with("if let Ok(raw) = read(p) {"), "{out}");
 }
 
@@ -59,7 +59,7 @@ fn the_pattern_stays_on_the_left() {
 #[test]
 fn a_let_chain_is_one_flat_condition() {
   assert_eq!(
-    body("  if x is Some v && v > 2\n    print v\n"),
+    body("  if x is Some v && v > 2\n    println! \\-> \"#{v}\"\n"),
     "if let Some(v) = x\n    && v > 2\n{\n    println!(\"{}\", v);\n}"
   );
 }
@@ -69,7 +69,9 @@ fn a_let_chain_is_one_flat_condition() {
 #[test]
 fn a_let_chain_takes_an_else() {
   assert_eq!(
-    body("  if x is Some v && v > 2\n    print v\n  else\n    print 0\n"),
+    body(
+      "  if x is Some v && v > 2\n    println! \\-> \"#{v}\"\n  else\n    println! \\-> \"#{0}\"\n"
+    ),
     "if let Some(v) = x\n    && v > 2\n{\n    println!(\"{}\", v);\n} else {\n    println!(\"{}\", 0);\n}"
   );
 }
@@ -79,7 +81,7 @@ fn a_let_chain_takes_an_else() {
 #[test]
 fn a_chain_may_hold_a_pattern_test_anywhere() {
   assert_eq!(
-    body("  if n > 0 && x is Some v && v > n\n    print v\n"),
+    body("  if n > 0 && x is Some v && v > n\n    println! \\-> \"#{v}\"\n"),
     "if n > 0\n    && let Some(v) = x\n    && v > n\n{\n    println!(\"{}\", v);\n}"
   );
 }
@@ -90,7 +92,7 @@ fn a_chain_may_hold_a_pattern_test_anywhere() {
 #[test]
 fn a_two_operand_chain_with_the_let_last_stays_on_one_line() {
   assert_eq!(
-    body("  if n > 0 && x is Some v\n    print v\n"),
+    body("  if n > 0 && x is Some v\n    println! \\-> \"#{v}\"\n"),
     "if n > 0 && let Some(v) = x {\n    println!(\"{}\", v);\n}"
   );
 }
@@ -100,14 +102,14 @@ fn a_two_operand_chain_with_the_let_last_stays_on_one_line() {
 #[test]
 fn a_pattern_test_in_a_while_emits_while_let() {
   assert_eq!(
-    body("  while .pop stack is Some v\n    print v\n"),
+    body("  while .pop stack is Some v\n    println! \\-> \"#{v}\"\n"),
     "while let Some(v) = stack.pop() {\n    println!(\"{}\", v);\n}"
   );
 }
 
 #[test]
 fn a_while_let_chain_emits_as_rusts() {
-  let out = body("  while q is Some v && v > 0\n    print v\n");
+  let out = body("  while q is Some v && v > 0\n    println! \\-> \"#{v}\"\n");
   assert!(
     out.starts_with("while let Some(v) = q\n    && v > 0\n{"),
     "{out}"
@@ -122,8 +124,9 @@ fn a_while_let_chain_emits_as_rusts() {
 /// lowering to something plausible.
 #[test]
 fn until_with_a_pattern_is_an_error() {
-  let failure = parse_source("main : ()\nmain =\n  until x is Some v\n    print v\n")
-    .expect_err("`until` cannot hold a pattern test");
+  let failure =
+    parse_source("main : ()\nmain =\n  until x is Some v\n    println! \\-> \"#{v}\"\n")
+      .expect_err("`until` cannot hold a pattern test");
   let redox_parser::ParseFailure::Parse(errors) = failure else {
     panic!("expected a parse failure, not a lex one");
   };
@@ -166,7 +169,7 @@ fn a_guards_else_takes_any_diverging_form() {
     ("return 0", "return 0;"),
     ("break", "break;"),
     ("continue", "continue;"),
-    ("panic \"no\"", "panic!(\"no\");"),
+    ("panic! \\-> \"no\"", "panic!(\"no\");"),
   ] {
     let out = body(&format!("  guard o is Some v else\n    {sdx}\n"));
     assert_eq!(
@@ -181,7 +184,9 @@ fn a_guards_else_takes_any_diverging_form() {
 /// that cannot exit is a `let`.
 #[test]
 fn a_guard_without_an_else_is_an_error() {
-  assert!(parse_source("main : ()\nmain =\n  guard o is Some v\n  print v\n").is_err());
+  assert!(
+    parse_source("main : ()\nmain =\n  guard o is Some v\n  println! \\-> \"#{v}\"\n").is_err()
+  );
 }
 
 // --- §5.6: an arm guard ----------------------------------------------------
@@ -233,7 +238,10 @@ fn a_pattern_free_condition_is_unchanged() {
     ("if a || b && c", "if a || b && c {"),
     ("while a && b || c", "while a && b || c {"),
   ] {
-    let out = body(&format!("  {sdx}\n    print 1\n"));
+    // A literal rather than an interpolation: this is a `format!` string, and
+    // `#{1}` inside one is Rust's positional argument. What the body prints
+    // is incidental — the assertion is about the condition above it.
+    let out = body(&format!("  {sdx}\n    println! \\-> \"one\"\n"));
     assert!(out.starts_with(want), "{sdx} gave {out}");
   }
 }
@@ -243,7 +251,7 @@ fn a_pattern_free_condition_is_unchanged() {
 /// and must stay one. This is why the lookahead counts brackets.
 #[test]
 fn a_comprehension_in_a_condition_is_not_a_pattern_test() {
-  let out = body("  if .len ([ c | c in cs ]) > 0\n    print 1\n");
+  let out = body("  if .len ([ c | c in cs ]) > 0\n    println! \\-> \"#{1}\"\n");
   assert!(out.starts_with("if "), "{out}");
   assert!(!out.contains("if let"), "{out}");
 }
@@ -262,7 +270,7 @@ fn a_constructor_pattern_applies_by_juxtaposition() {
     ("Some (Some v)", "Some(Some(v))"),
     ("Event::Close d", "Event::Close(d)"),
   ] {
-    let out = body(&format!("  if x is {sdx}\n    print 1\n"));
+    let out = body(&format!("  if x is {sdx}\n    println! \\-> \"one\"\n"));
     assert!(out.starts_with(&format!("if let {want} = x {{")), "{out}");
   }
 }
@@ -273,7 +281,7 @@ fn a_constructor_pattern_applies_by_juxtaposition() {
 /// resolve.
 #[test]
 fn a_nullary_constructor_emits_no_parentheses() {
-  let out = body("  if e is Close\n    print 1\n");
+  let out = body("  if e is Close\n    println! \\-> \"#{1}\"\n");
   assert!(out.starts_with("if let Close = e {"), "{out}");
 }
 

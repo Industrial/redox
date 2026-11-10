@@ -85,7 +85,6 @@ fn expressions(program: &Program) -> Vec<&Expr> {
 
 fn expression_of(stmt: &Stmt) -> Option<&Expr> {
   match &stmt.expr {
-    Expr::Assert { value, .. } => Some(value),
     Expr::Binding(binding) => Some(&binding.value),
     Expr::Return { value, .. } => value.as_deref(),
     other if !other.is_statement_form() => Some(other),

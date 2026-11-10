@@ -36,7 +36,7 @@ mod tests {
 
   #[test]
   fn a_later_line_counts_from_its_own_start() {
-    let source = "main : ()\nmain =\n  print 1\n";
+    let source = "main : ()\nmain =\n  println! \\-> \"#{1}\"\n";
     let at = source.find("print").expect("should be there");
     assert_eq!(diagnostic_line_and_column(source, at), (3, 3));
   }

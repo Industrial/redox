@@ -10,5 +10,5 @@
 -- The decoys: case x of, |>, $, dyn, move, ref, *const, \n -> n, @name.
 main : ()
 main =
-  print "case x of |> $ dyn move ref *const \\n -> n @name"
+  println! \-> "case x of |> $ dyn move ref *const \\n -> n @name"
   ()

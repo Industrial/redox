@@ -15,5 +15,5 @@ callme n = n + 1
 
 main : ()
 main =
-  print (callme 1)
+  println! \-> "#{(callme 1)}"
   ()

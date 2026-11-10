@@ -1,5 +1,4 @@
 use crate::emit::annotated_binding::annotated_binding;
-use crate::emit::assert_call::assert_call;
 use crate::emit::emit_bind::emit_bind;
 use crate::emit::emit_control::emit_control;
 use crate::emit::expr::emit_expr;
@@ -82,11 +81,6 @@ pub(crate) fn emit_stmt(out: &mut Sink<'_>, stmt: &Stmt, indent: usize, tail: bo
       "a draw arrow must be emitted by `emit_stmts`, which has the following \
        statements its callback body needs"
     ),
-    // Doc 03 §12.6. A statement, so it always takes its `;`.
-    Expr::Assert { value, .. } => {
-      out.push_str(&assert_call(value, indent));
-      out.push(';');
-    }
     // Doc 30's await-bind. A statement, which is the whole of the decision:
     // `<-` means `await` and nothing else, and every await binds.
     Expr::Await { pattern, value, .. } => {

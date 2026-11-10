@@ -3,7 +3,7 @@
 //! An integration test rather than a `#[cfg(test)]` module, per
 //! `docs/06 - Redox Code Architecture.md` §7.
 
-use redox_ast::{Expr, Ident, Item, Program, TriviaKind};
+use redox_ast::{Expr, Item, Program, TriviaKind};
 use redox_diag::Code;
 use redox_parser::{ParseFailure, parse_source};
 
@@ -33,7 +33,7 @@ fn errors(src: &str) -> Vec<redox_parser::ParseError> {
 
 #[test]
 fn parses_the_hello_slice() {
-  let p = prog("main : ()\nmain =\n  print \"hello\"\n  ()\n");
+  let p = prog("main : ()\nmain =\n  println! \\-> \"hello\"\n  ()\n");
   assert_eq!(p.items.len(), 1);
   let Item::Fn(f) = &p.items[0] else {
     panic!("expected a function item")
@@ -42,41 +42,39 @@ fn parses_the_hello_slice() {
   // Two, not one: plan 55 §1.6 makes a `()`-returning body end in a written
   // `()`, so every `main` in this file carries a second element.
   assert_eq!(stmts(f).len(), 2);
-  let Expr::Call { callee, args, .. } = &stmts(f)[0].expr else {
-    panic!("expected a call");
+  // A `MacroCall`, not a `Call` with an `Ident` callee — plan 64. The name
+  // is a `String` on the node rather than an expression, because a macro is
+  // not a value and cannot be passed as one.
+  let Expr::MacroCall { name, args, .. } = &stmts(f)[0].expr else {
+    panic!("expected a macro call");
   };
-  // 19..24, not 20..25: `main : ()\n` is 10 bytes where `main :: ()\n` was
-  // 11, so plan 52 moved every offset in this file's bodies by one. The third
-  // such assertion in the repository, after `redox-diag`'s `line_col` and
-  // `redox-driver`'s `narrow` — which is the argument for asserting a span by
-  // slicing the source, as `nodes_carry_spans_that_index_the_source` below
-  // does, rather than by writing the number down.
-  assert_eq!(
-    **callee,
-    Expr::Ident(Ident {
-      text: "print".into(),
-      span: (19, 24)
-    })
-  );
+  assert_eq!(name, "println");
   assert_eq!(args.len(), 1);
+  // The span is asserted by **slicing the source** rather than by writing the
+  // offsets down, which is what the comment this replaces argued for: plan 52
+  // moved every offset in this file by one when `::` became `:`, and plan 64
+  // moves them all again. A slice survives both.
+  let src = "main : ()\nmain =\n  println! \\-> \"hello\"\n  ()\n";
+  let span = stmts(f)[0].expr.span();
+  assert_eq!(&src[span.0..span.1], "println! \\-> \"hello\"");
 }
 
 /// Plan 01 acceptance criterion 6, at the AST level.
 #[test]
 fn nodes_carry_spans_that_index_the_source() {
-  let src = "main : ()\nmain =\n  print \"hello\"\n  ()\n";
+  let src = "main : ()\nmain =\n  println! \\-> \"hello\"\n  ()\n";
   let p = prog(src);
   let Item::Fn(f) = &p.items[0] else {
     panic!("expected a function item")
   };
   assert_eq!(&src[f.name.span.0..f.name.span.1], "main");
   let e = &stmts(f)[0].expr;
-  assert_eq!(&src[e.span().0..e.span().1], "print \"hello\"");
+  assert_eq!(&src[e.span().0..e.span().1], "println! \\-> \"hello\"");
 }
 
 #[test]
 fn carries_a_leading_comment_onto_the_item() {
-  let p = prog("-- a note\nmain : ()\nmain =\n  print \"x\"\n  ()\n");
+  let p = prog("-- a note\nmain : ()\nmain =\n  println! \\-> \"x\"\n  ()\n");
   let Item::Fn(f) = &p.items[0] else {
     panic!("expected a function item")
   };
@@ -86,7 +84,7 @@ fn carries_a_leading_comment_onto_the_item() {
 
 #[test]
 fn carries_a_trailing_comment_onto_the_statement() {
-  let p = prog("main : ()\nmain =\n  print \"x\" -- why\n  ()\n");
+  let p = prog("main : ()\nmain =\n  println! \\-> \"x\" -- why\n  ()\n");
   let Item::Fn(f) = &p.items[0] else {
     panic!("expected a function item")
   };
@@ -98,21 +96,24 @@ fn carries_a_trailing_comment_onto_the_statement() {
 
 #[test]
 fn parses_several_items() {
-  let p = prog("a : ()\na =\n  print \"1\"\n  ()\n\nb : ()\nb =\n  print \"2\"\n  ()\n");
+  let p =
+    prog("a : ()\na =\n  println! \\-> \"1\"\n  ()\n\nb : ()\nb =\n  println! \\-> \"2\"\n  ()\n");
   assert_eq!(p.items.len(), 2);
 }
 
 #[test]
 fn parses_a_file_without_a_trailing_newline() {
   assert_eq!(
-    prog("main : ()\nmain =\n  print \"x\"\n  ()").items.len(),
+    prog("main : ()\nmain =\n  println! \\-> \"x\"\n  ()")
+      .items
+      .len(),
     1
   );
 }
 
 #[test]
 fn keeps_a_comment_at_end_of_file() {
-  let p = prog("main : ()\nmain =\n  print \"x\"\n  ()\n-- the end\n");
+  let p = prog("main : ()\nmain =\n  println! \\-> \"x\"\n  ()\n-- the end\n");
   // Found by kind, not by position: the file's own final newline arrives as a
   // `BlankLines` trivium after the comment.
   assert_eq!(
@@ -132,7 +133,7 @@ fn keeps_a_comment_at_end_of_file() {
 /// spelling the parser no longer accepts.
 #[test]
 fn reports_a_missing_signature_marker() {
-  let errs = errors("main =\n  print \"x\"\n");
+  let errs = errors("main =\n  println! \\-> \"x\"\n");
   assert_eq!(errs.len(), 1);
   assert!(errs[0].message.contains("`:`"), "{}", errs[0].message);
 }
@@ -160,7 +161,7 @@ fn reports_an_arity_disagreement() {
 
 #[test]
 fn reports_an_empty_body() {
-  let errs = errors("main : ()\nmain =\nother = ->\n  print \"x\"\n");
+  let errs = errors("main : ()\nmain =\nother = ->\n  println! \\-> \"x\"\n");
   assert!(
     errs[0].message.contains("indented body"),
     "{}",
@@ -172,8 +173,9 @@ fn reports_an_empty_body() {
 /// LALRPOP arm reports one and stops — `docs/COMPILER.md` §1.
 #[test]
 fn recovers_at_item_boundaries_and_reports_every_bad_item() {
-  let errs =
-    errors("a =\n  print \"1\"\n\nb =\n  print \"2\"\n\nc : ()\nc =\n  print \"3\"\n  ()\n");
+  let errs = errors(
+    "a =\n  println! \\-> \"1\"\n\nb =\n  println! \\-> \"2\"\n\nc : ()\nc =\n  println! \\-> \"3\"\n  ()\n",
+  );
   assert_eq!(errs.len(), 2, "both malformed items should be reported");
 }
 
@@ -215,7 +217,7 @@ fn a_signature_line_is_not_read_as_a_typed_binding() {
 /// And a typed binding still parses as one, keeping its type.
 #[test]
 fn a_typed_binding_still_parses_as_a_binding() {
-  let p = prog("main : ()\nmain =\n  total : i32 = 40 + 2\n  print total\n  ()\n");
+  let p = prog("main : ()\nmain =\n  total : i32 = 40 + 2\n  println! \\-> \"#{total}\"\n  ()\n");
   let Item::Fn(f) = &p.items[0] else {
     panic!("expected a function item")
   };
@@ -265,7 +267,7 @@ fn a_spaced_colon_colon_after_a_name_is_refused() {
 /// A tight `::` is still a path, which is the half that must not regress.
 #[test]
 fn a_tight_colon_colon_is_still_a_path() {
-  let p = prog("main : ()\nmain =\n  y = x::u64\n  print 1\n  ()\n");
+  let p = prog("main : ()\nmain =\n  y = x::u64\n  println! \\-> \"#{1}\"\n  ()\n");
   let Item::Fn(f) = &p.items[0] else {
     panic!("expected a function item")
   };
@@ -299,14 +301,14 @@ fn a_tight_colon_colon_is_still_a_path() {
 #[test]
 fn an_if_parses_as_a_value() {
   for src in [
-    "main : ()\nmain =\n  x = if 1 > 0\n    \"b\"\n  else\n    \"s\"\n  print x\n  ()\n",
+    "main : ()\nmain =\n  x = if 1 > 0\n    \"b\"\n  else\n    \"s\"\n  println! \\-> \"#{x}\"\n  ()\n",
     // An `else if` rung, which is the case that proves the chain survives
     // being read as a value.
-    "main : ()\nmain =\n  x = if 1 > 0\n    \"b\"\n  else if 1 > 2\n    \"m\"\n  else\n    \"s\"\n  print x\n  ()\n",
+    "main : ()\nmain =\n  x = if 1 > 0\n    \"b\"\n  else if 1 > 2\n    \"m\"\n  else\n    \"s\"\n  println! \\-> \"#{x}\"\n  ()\n",
     // And nested, which is what the retired scan was tested against: the
     // inner `if` is a parenthesised argument, which plan 65 made writable
     // and which is what paid for retiring `then`.
-    "main : ()\nmain =\n  x = if (if 1 > 0\n    2\n  else\n    3) > 1\n    \"b\"\n  else\n    \"s\"\n  print x\n  ()\n",
+    "main : ()\nmain =\n  x = if (if 1 > 0\n    2\n  else\n    3) > 1\n    \"b\"\n  else\n    \"s\"\n  println! \\-> \"#{x}\"\n  ()\n",
   ] {
     let p = prog(src);
     assert_eq!(p.items.len(), 1);
@@ -321,9 +323,9 @@ fn an_if_parses_as_a_value() {
 #[test]
 fn a_block_is_an_expression() {
   for src in [
-    "main : ()\nmain =\n  x =\n    1\n  print x\n  ()\n",
-    "main : ()\nmain =\n  x = 'search\n    1\n  print x\n  ()\n",
-    "main : ()\nmain =\n  x =\n    a = 1\n    a + 1\n  print x\n  ()\n",
+    "main : ()\nmain =\n  x =\n    1\n  println! \\-> \"#{x}\"\n  ()\n",
+    "main : ()\nmain =\n  x = 'search\n    1\n  println! \\-> \"#{x}\"\n  ()\n",
+    "main : ()\nmain =\n  x =\n    a = 1\n    a + 1\n  println! \\-> \"#{x}\"\n  ()\n",
   ] {
     let p = prog(src);
     assert_eq!(p.items.len(), 1);
@@ -337,5 +339,5 @@ fn a_block_is_an_expression() {
 /// `else`-less `if` — which only the statement form permits — still parses.
 #[test]
 fn a_statement_if_needs_no_else() {
-  let _ = prog("main : ()\nmain =\n  if 1 > 0\n    print \"y\"\n  ()\n");
+  let _ = prog("main : ()\nmain =\n  if 1 > 0\n    println! \\-> \"y\"\n  ()\n");
 }

@@ -123,7 +123,6 @@ pub enum Keyword {
   False,
   // Testing
   Test,
-  Assert,
   /// Doc 01 §23.1's inline Rust escape hatch — plan 45 leaf 1.
   ///
   /// Reserved rather than contextual. Before this, `rust """…"""` parsed as a
@@ -206,7 +205,6 @@ impl Keyword {
       "true" => Self::True,
       "false" => Self::False,
       "test" => Self::Test,
-      "assert" => Self::Assert,
       "rust" => Self::Rust,
       "unsafe" => Self::Unsafe,
       "extern" => Self::Extern,
@@ -271,7 +269,6 @@ impl Keyword {
       Self::True => "true",
       Self::False => "false",
       Self::Test => "test",
-      Self::Assert => "assert",
       Self::Rust => "rust",
       Self::Unsafe => "unsafe",
       Self::Extern => "extern",
@@ -326,6 +323,9 @@ mod tests {
       // stay, and they are the cases that matter: a keyword must not swallow
       // an identifier that merely begins with it.
       "main", "print", "iff", "switched", "island", "notable", "Selfish", "and", "use", "defer",
+      // `print` is still an ordinary identifier here. Plan 64 retires
+      // the spelling with a **parser** diagnostic, `RDX0118`, rather
+      // than with a keyword, so what the lexer answers is unchanged.
       "cond", "into", "derive", "mod", "unless", "switch", "withhold", "then",
     ] {
       assert!(

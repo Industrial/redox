@@ -10,7 +10,7 @@ use redox_ast::TestDecl;
 ///
 /// ```text
 /// test "adds two numbers"      #[cfg(test)]
-///   assert add 1 2 == 3        mod __rdx_tests {
+///   assert! \-> add 1 2 == 3        mod __rdx_tests {
 ///                          →       use super::*;
 ///
 ///                                  #[test]

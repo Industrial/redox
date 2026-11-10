@@ -22,8 +22,8 @@ main : ()
 main =
   #[redox::allow(unwrap)]
   port = .unwrap (Some 7)
-  print port
-  print (port_of (Some 9))
+  println! \-> "#{port}"
+  println! \-> "#{(port_of (Some 9))}"
   ()
 
 #[redox::allow(unwrap)]

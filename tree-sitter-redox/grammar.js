@@ -173,7 +173,31 @@ module.exports = grammar({
 		// never parses it, so a grammar that looked inside would be claiming to
 		// know Rust. Highlighting it as a string is honest and is what an editor
 		// can act on.
-		inline_rust: ($) => seq("rust", field("code", $.string), $._newline),
+		// Plan 45 leaf 1's item form, plus plan 64 leaf 4's layout body. Both
+		// spellings, because the lexer produces one token for the string form
+		// and another for the indented block, and the parser accepts either.
+		inline_rust: ($) =>
+			seq(
+				"rust",
+				choice(
+					seq(field("code", $.string), $._newline),
+					seq($._newline, field("code", $.statement_block)),
+				),
+			),
+
+		// Plan 64 leaf 4's expression position. `rust` opening a *value* rather
+		// than an item: `markup = rust` with the DSL on the lines under it.
+		rust_hatch: ($) =>
+			prec(
+				-1,
+				seq(
+					"rust",
+					choice(
+						field("code", $.string),
+						seq($._newline, field("code", $.statement_block)),
+					),
+				),
+			),
 
 		// Plan 45 leaf 3. The declarations are signatures, which the grammar
 		// already has a rule for — doc 01 §26's FFI requirement needs no shape of
@@ -573,7 +597,6 @@ module.exports = grammar({
 				$.break_statement,
 				$.continue_statement,
 				$.return_statement,
-				$.assert_statement,
 				$.guard_statement,
 				$.draw_statement,
 				$.await_statement,
@@ -679,8 +702,6 @@ module.exports = grammar({
 			seq("break", optional($.label), optional($._expression), $._newline),
 		continue_statement: ($) => seq("continue", optional($.label), $._newline),
 		return_statement: ($) => seq("return", optional($._expression), $._newline),
-		assert_statement: ($) => seq("assert", $._expression, $._newline),
-
 		guard_statement: ($) =>
 			seq(
 				"guard",
@@ -810,6 +831,8 @@ module.exports = grammar({
 				$.parenthesized,
 				$.list,
 				$.record_literal,
+				$.macro_call,
+				$.rust_hatch,
 				$.path,
 				$.identifier,
 				$.type_identifier,
@@ -924,6 +947,38 @@ module.exports = grammar({
 			// free by asking `control_flow` before it reads an expression at all;
 			// GLR has to be told.
 			prec(-1, $.if_statement),
+
+		// Plan 64's macro invocation: `name! \-> e`, one arrow per argument.
+		//
+		// `token.immediate("!")` is the **adjacency** rule — it matches only
+		// with no whitespace before it, which is what tells `foo!` from
+		// `! foo`. §6 discloses that this is the rule plan 52 struck from
+		// `::`, and that a small token budget is why it comes back.
+		//
+		// `prec.right` so the arrows are taken by the macro rather than
+		// leaving `\-> e` to be read as a lambda standing beside it: a
+		// `lambda` is an `_expression_part` too, and the juxtaposition run in
+		// `_expression` would otherwise have two readings of every argument.
+		macro_call: ($) =>
+			prec.right(
+				1,
+				seq(
+					field("name", choice($.identifier, $.path, $.type_identifier)),
+					token.immediate("!"),
+					repeat(
+						seq(
+							"\\",
+							"->",
+							// A block is named here for the reason `binding` names it:
+							// `$._expression` excludes it, because a bare block opens with
+							// an `_indent` and including it in the juxtaposition run gives
+							// GLR two readings of every indented body. A position that can
+							// take one says so.
+							field("argument", choice($._expression, $.block_expression)),
+						),
+					),
+				),
+			),
 
 		lambda: ($) =>
 			prec.left(

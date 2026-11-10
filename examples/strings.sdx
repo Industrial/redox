@@ -87,18 +87,18 @@ block = """
 
 main : ()
 main =
-  print (sum_line 2 3)
-  print (money 1.5)
-  print (shapes 42)
-  print (braces 7)
-  print (nested ())
-  print (pattern_text ())
-  print (quoted ())
-  print (initial ())
-  print (tag ())
-  print (.len (magic ()))
-  print (.count_bytes (ffi_name ()))
-  print block
+  println! \-> "#{(sum_line 2 3)}"
+  println! \-> "#{(money 1.5)}"
+  println! \-> "#{(shapes 42)}"
+  println! \-> "#{(braces 7)}"
+  println! \-> "#{(nested ())}"
+  println! \-> "#{(pattern_text ())}"
+  println! \-> "#{(quoted ())}"
+  println! \-> "#{(initial ())}"
+  println! \-> "#{(tag ())}"
+  println! \-> "#{(.len (magic ()))}"
+  println! \-> "#{(.count_bytes (ffi_name ()))}"
+  println! \-> "#{block}"
   -- A string with no interpolation takes the path it always took.
-  print "plain, unchanged"
+  println! \-> "plain, unchanged"
   ()

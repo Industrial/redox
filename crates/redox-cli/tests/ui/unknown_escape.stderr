@@ -1,6 +1,6 @@
 error[RDX0009]: unknown escape sequence `\q`
-  --> unknown_escape.sdx:3:12
+  --> unknown_escape.sdx:3:19
   |
-3 |   print "a \q b"
-  |            ^^
+3 |   println! \-> "a \q b"
+  |                   ^^
 

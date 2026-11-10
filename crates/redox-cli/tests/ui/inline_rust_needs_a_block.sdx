@@ -7,7 +7,7 @@
 -- single-quoted string has nowhere to put the Rust code's own quotes.
 main : ()
 main =
-  print 1
+  println! \-> "#{1}"
   ()
 
 rust "let x = 1;"

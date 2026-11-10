@@ -8,7 +8,7 @@
 /// add a b = a + b          -- one statement, an expression
 ///
 /// main =
-///   print "hello"          -- one statement, an expression
+///   println! \-> "hello" -- one statement, an expression
 /// ```
 ///
 /// Both are a `Plain(Block)` holding one expression element. Nothing in the node

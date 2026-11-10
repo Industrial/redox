@@ -6,10 +6,11 @@ use crate::parse::parser::byte_literal::byte_literal;
 use crate::parse::parser::case_of::case_of;
 use crate::parse::parser::interpolated_string::interpolated_string;
 use crate::parse::parser::lambda::lambda;
+use crate::parse::parser::macro_call::macro_call;
 use crate::parse::parser::modified_block::modified_block;
 use crate::parse::parser::parse_expr::parse_expr;
-use crate::parse::parser::path_or_ident::path_or_ident;
 use crate::parse::parser::reserved_word::reserved_word;
+use crate::parse::parser::rust_hatch::rust_hatch;
 use crate::parse::parser::rust_string_body::rust_string_body;
 use crate::parse::parser::section::section;
 use crate::parse::parser::unary_op::unary_op;
@@ -199,6 +200,18 @@ pub(crate) fn prefix(p: &mut Parser) -> Result<Expr, ParseError> {
     }
     // Doc 18 §4's lambda, and `move \x -> …` with it: `move` can only open
     // a closure here, so one token of lookahead settles it.
+    // Plan 64 leaf 4: the escape hatch in expression position. §11.5 found
+    // plan 45's `rust """…"""` working as a **top-level item only** — here it
+    // was `RDX0102` — and §1.4's own sample is an expression binding, so the
+    // row owed both this arm and the layout spelling `rust_hatch` reads.
+    TokenKind::Kw(Keyword::Rust) => {
+      p.advance();
+      let (code, _) = rust_hatch(p)?;
+      Ok(Expr::RustHatch {
+        code,
+        span: (start, p.prev_span().1),
+      })
+    }
     TokenKind::Backslash => lambda(p),
     TokenKind::Kw(Keyword::Move) => lambda(p),
     // Doc 01 §8's conditional — plan 20, and one production since plan 55
@@ -273,7 +286,10 @@ pub(crate) fn prefix(p: &mut Parser) -> Result<Expr, ParseError> {
       let span = (start, name.span.1);
       Ok(Expr::MethodRef { name, span })
     }
-    TokenKind::Ident(_) => path_or_ident(p),
+    // A name, or plan 64's macro invocation when a `!` is glued to it.
+    // `unary_op` is tried at the top of this function, so a `!` reaching
+    // `macro_call` is always *after* an identifier and never before one.
+    TokenKind::Ident(_) => macro_call(p),
     _ => Err(ParseError::with(
       Code::ExpectedExpression,
       "expected an expression",

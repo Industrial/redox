@@ -33,7 +33,7 @@ block = "indented"
 -- `Effect::retry` the same consumed effect on every attempt.
 built : u32
 built =
-  print "built"
+  println! \-> "built"
   7
 
 -- A parameterless binding inside an inline `module`, reached by its path.
@@ -54,11 +54,11 @@ twice f = f () + f ()
 
 main : ()
 main =
-  print LIMIT
-  print GREETING
-  print block
-  print inner::depth
+  println! \-> "#{LIMIT}"
+  println! \-> "#{GREETING}"
+  println! \-> "#{block}"
+  println! \-> "#{inner::depth}"
   -- The case only a run catches. `built` prints once per call, so this prints
   -- `built` **twice** and then 14; a memoised binding would print it once.
-  print (twice (\ -> built))
+  println! \-> "#{(twice (\ -> built))}"
   ()

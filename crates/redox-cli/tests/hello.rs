@@ -211,8 +211,11 @@ fn rejects_a_tab_in_indentation_with_a_located_diagnostic() {
 fn rejects_an_inconsistent_dedent_with_a_located_diagnostic() {
   let dir = scratch("dedent");
   let bad = dir.join("dedent.sdx");
-  std::fs::write(&bad, "main : ()\nmain =\n    print \"a\"\n  print \"b\"\n")
-    .expect("should write the fixture");
+  std::fs::write(
+    &bad,
+    "main : ()\nmain =\n    println! \\-> \"a\"\n  println! \\-> \"b\"\n",
+  )
+  .expect("should write the fixture");
 
   let out = Command::new(env!("CARGO_BIN_EXE_redox"))
     .arg("build")
@@ -232,7 +235,7 @@ fn rejects_an_inconsistent_dedent_with_a_located_diagnostic() {
 fn writes_a_sibling_xrs_when_no_output_is_given() {
   let dir = scratch("default-output");
   let src = dir.join("prog.sdx");
-  std::fs::write(&src, "main : ()\nmain =\n  print \"x\"\n  ()\n")
+  std::fs::write(&src, "main : ()\nmain =\n  println! \\-> \"x\"\n  ()\n")
     .expect("should write the fixture");
 
   let status = Command::new(env!("CARGO_BIN_EXE_redox"))

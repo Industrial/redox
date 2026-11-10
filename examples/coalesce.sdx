@@ -10,14 +10,14 @@ main =
   -- would depend on the operand's type — and doc 03 §2's admission test 1
   -- requires a lowering fixed by the source text alone.
   present = Some "found"
-  print (present ?? "anonymous")
+  println! \-> "#{(present ?? "anonymous")}"
 
   missing = none_str ()
-  print (missing ?? "anonymous")
+  println! \-> "#{(missing ?? "anonymous")}"
 
   -- The fallback's laziness is explicit in the generated code, which is the
   -- third of §12.1's reasons: the `None` arm is only evaluated when taken.
-  print (missing ?? expensive ())
+  println! \-> "#{(missing ?? expensive ())}"
   ()
 
 -- `f ()` is doc 18 §7's replacement for doc 03 §5.2's `!` zero-argument

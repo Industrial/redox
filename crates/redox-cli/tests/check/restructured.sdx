@@ -1,12 +1,18 @@
--- A type error on a line the emitter *restructures*: `print (add "x" 2)`
--- becomes `println!("{}", add("x", 2));`, so rustc's column has no counterpart
--- here and `redox check` underlines the whole statement rather than guessing
--- (plan 07 §2.1). The statement is at line 11, column 3; `check.rs` asserts it.
-add : i32 -> i32 -> i32
-add a b =
-  a + b
-
+-- A type error on a line the emitter *restructures*: the comprehension
+-- becomes `xs.into_iter().map(|x| x + "a").collect::<Vec<_>>()`, far longer
+-- than the line it came from, so rustc's column has no counterpart here and
+-- `redox check` underlines the whole statement rather than guessing
+-- (plan 07 §2.1). The statement is at line 9, column 3; `check.rs` asserts it.
+--
+-- **It used to be `print (add "x" 2)`, and plan 64 took that witness away.**
+-- `println! \-> "#{(add "x" 2)}"` is *longer* in the `.sdx` than
+-- `println!("{}", add("x", 2));` is in the generated Rust, so the shifted
+-- column lands inside the statement's span and `narrow` returns a precise
+-- caret — correctly, but then nothing exercises the fallback. A construct
+-- that still grows under lowering does, and a comprehension grows most.
 main : ()
 main =
-  print (add "x" 2)
+  xs = [1, 2, 3]
+  ys = [ x + "a" | x in xs ]
+  println! \-> "#{(.len ys)}"
   ()

@@ -83,7 +83,7 @@ fn hostile() -> Vec<(&'static str, Vec<u8>)> {
     // level. The one input this file asserts is *rejected*.
     (
       "inconsistent dedent",
-      b"main : ()\nmain =\n    print 1\n  print 2\n".to_vec(),
+      b"main : ()\nmain =\n    println! \\-> \"#{1}\"\n  println! \\-> \"#{2}\"\n".to_vec(),
     ),
     // Deep nesting, to find a recursion limit if there is one. Short enough to
     // stay fast and deep enough to blow a naive recursive descent.
@@ -249,7 +249,7 @@ fn the_generated_rust_always_parses() {
 /// `RDX0002` is about a **dedent** landing between two levels.
 #[test]
 fn an_input_that_must_be_rejected_is_rejected() {
-  let bad = b"main : ()\nmain =\n    print 1\n  print 2\n";
+  let bad = b"main : ()\nmain =\n    println! \\-> \"#{1}\"\n  println! \\-> \"#{2}\"\n";
   assert!(
     redox_lexer::lex(&String::from_utf8_lossy(bad)).is_err(),
     "a dedent matching no enclosing level must be RDX0002"
@@ -260,7 +260,7 @@ fn an_input_that_must_be_rejected_is_rejected() {
   );
   // The positive counterpart, so the case is not passing for an unrelated
   // reason.
-  let good = b"main : ()\nmain =\n  if c\n    print 1\n  print 2\n";
+  let good = b"main : ()\nmain =\n  if c\n    println! \\-> \"#{1}\"\n  println! \\-> \"#{2}\"\n";
   assert!(
     redox_lexer::lex(&String::from_utf8_lossy(good)).is_ok(),
     "a nested block then a dedent to a level that *is* open must lex"

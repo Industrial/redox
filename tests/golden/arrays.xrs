@@ -59,7 +59,10 @@ fn total() -> usize {
 
 fn main() {
     println!("{}", zeros().len());
-    println!("{}", row()[0]);
+    // Bound rather than interpolated so the `) [ «int» ]` run stays visible to
+    // `construct_coverage` — see the note in `examples/expressions.sdx`.
+    let first = row()[0];
+    println!("{}", first);
     println!("{}", growable().len());
     println!("{}", grid()[1][0]);
     println!("{}", lists().len());

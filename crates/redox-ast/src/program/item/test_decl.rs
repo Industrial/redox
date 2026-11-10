@@ -5,7 +5,7 @@ use redox_lexer::{Span, Trivia};
 ///
 /// ```text
 /// test "adds two numbers"      #[cfg(test)]
-///   assert add 1 2 == 3        mod __rdx_tests {
+///   assert! \-> add 1 2 == 3        mod __rdx_tests {
 ///                          →       use super::*;
 ///                                  #[test]
 ///                                  fn adds_two_numbers() {

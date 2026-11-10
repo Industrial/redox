@@ -701,6 +701,16 @@ const WITNESSES: &[Covers] = &[
     witness: Witness::Toks(&["<-"]),
   },
   Covers {
+    row: "Macro invocations",
+    // The `!` has to be witnessed **next to a name**, because a bare `Bang`
+    // is also negation — which is the whole of leaf 1's adjacency rule, and
+    // the hollow-witness shape plan 57 §11.6 and plan 66 §10 each found
+    // from their own side. The `\\` and `->` after it are what make the run a
+    // macro *call* rather than a name followed by a negated something.
+    spelling: "`println! \\-> \"#{total} rows\"`",
+    witness: Witness::Toks(&["«id»", "!", "\\", "->"]),
+  },
+  Covers {
     row: "Inline Rust",
     spelling: "`rust \"\"\"…\"\"\"`",
     witness: Witness::Toks(&["rust"]),

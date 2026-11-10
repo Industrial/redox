@@ -8,4 +8,4 @@
 main : ()
 main =
   [first, ...rest] = values
-  print first
+  println! \-> "#{first}"

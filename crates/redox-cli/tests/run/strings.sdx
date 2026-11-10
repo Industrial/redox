@@ -11,8 +11,8 @@
 -- and this case pins that it is literal text that *compiles*.
 main : ()
 main =
-  print "a\tb"            -- a real tab, decoded by Redox and re-encoded
-  print "brace: \#{"      -- prints `brace: #{`
-  print "see {this}"       -- prints `see {this}`, not a format placeholder
-  print "100% of {n} done" -- both hazards at once
+  println! \-> "a\tb"  -- a real tab, decoded by Redox and re-encoded
+  println! \-> "brace: \#{"  -- prints `brace: #{`
+  println! \-> "see {this}"  -- prints `see {this}`, not a format placeholder
+  println! \-> "100% of {n} done"  -- both hazards at once
   ()

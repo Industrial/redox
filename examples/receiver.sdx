@@ -72,19 +72,19 @@ main : ()
 main =
   -- The associated function, through the type.
   mut c = Counter::start 3
-  print (.current c)
+  println! \-> "#{(.current c)}"
   .bump c
-  print (.current c)
-  print (.plus 10 c)
-  print (.minus 1 c)
+  println! \-> "#{(.current c)}"
+  println! \-> "#{(.plus 10 c)}"
+  println! \-> "#{(.minus 1 c)}"
   -- `total : self -> u32` takes the receiver by value, so this is `c`'s last
   -- use and rustc is the one that knows it.
-  print (.total c)
+  println! \-> "#{(.total c)}"
   m = Meters 4.0
   -- Which `Scale` impl applies is chosen by the argument's type, which is
   -- rustc's job and not Redox's — the ascription is what fixes it here.
   wide = 1.5 : f64
-  print (.times wide m)
+  println! \-> "#{(.times wide m)}"
   narrow = 2 : u32
-  print (.times narrow m)
+  println! \-> "#{(.times narrow m)}"
   ()

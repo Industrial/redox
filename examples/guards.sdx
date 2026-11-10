@@ -25,11 +25,11 @@ step n
 
 main : ()
 main =
-  print (tier 50_000)
-  print (tier 5_000)
-  print (tier 10)
-  print (fib 10)
-  print (step 0)
-  print (step 500)
-  print (step 7)
+  println! \-> "#{(tier 50_000)}"
+  println! \-> "#{(tier 5_000)}"
+  println! \-> "#{(tier 10)}"
+  println! \-> "#{(fib 10)}"
+  println! \-> "#{(step 0)}"
+  println! \-> "#{(step 500)}"
+  println! \-> "#{(step 7)}"
   ()

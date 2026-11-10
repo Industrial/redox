@@ -17,5 +17,5 @@ main : ()
 main =
   total = 1
   total := 2
-  print total
+  println! \-> "#{total}"
   ()

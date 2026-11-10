@@ -77,12 +77,12 @@ partial = .into_iter ([1, 2]) |> .map (add 1) |> .sum
 
 main : ()
 main =
-  print (saturated ())
-  print (one_of_two ())
-  print (one_of_three ())
-  print (through_dollar ())
-  print (applied ())
-  print (joined ())
-  print (sectioned ())
-  print (partial ())
+  println! \-> "#{(saturated ())}"
+  println! \-> "#{(one_of_two ())}"
+  println! \-> "#{(one_of_three ())}"
+  println! \-> "#{(through_dollar ())}"
+  println! \-> "#{(applied ())}"
+  println! \-> "#{(joined ())}"
+  println! \-> "#{(sectioned ())}"
+  println! \-> "#{(partial ())}"
   ()

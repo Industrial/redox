@@ -7,14 +7,14 @@
   -- operator and the separator a `const` item uses.
   mut total : i32 = 1
   total += 2
-  print "x"  -- a trailing comment
+  println! \-> "x"  -- a trailing comment
   {- a fenced comment -}
   if n > 0 && o is Some v
-    print "both"
+    println! \-> "both"
   else if n < 0
-    print "negative"
+    println! \-> "negative"
   else
-    print "zero"
+    println! \-> "zero"
   while n < 3
     total += 1
   until n > 5 && n % 2 == 0
@@ -26,10 +26,10 @@
         break 'outer
       continue 'outer
   for c in 1 .. 4
-    print c
+    println! \-> "#{c}"
   guard o is Some v else
     return 0
-  assert total > 0
+  assert! \-> total > 0
   kind = case o of
     Some 1 or Some 2 -> "small"
     Some v | v > 9 -> "big"
@@ -46,9 +46,9 @@
       "pos"
     else
       "neg"
-  print kind
-  print nested
-  print plain
-  print branch
+  println! \-> "#{kind}"
+  println! \-> "#{nested}"
+  println! \-> "#{plain}"
+  println! \-> "#{branch}"
   with drawn = o
   total

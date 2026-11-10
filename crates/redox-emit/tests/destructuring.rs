@@ -96,7 +96,7 @@ fn a_rest_pattern_takes_rusts_spelling() {
 #[test]
 fn the_published_ellipsis_spelling_is_declined() {
   assert_eq!(
-    codes("main : ()\nmain =\n  [a, ...rest] = xs\n  print a\n"),
+    codes("main : ()\nmain =\n  [a, ...rest] = xs\n  println! \\-> \"#{a}\"\n"),
     vec![Code::EllipsisRestPattern]
   );
 }
@@ -172,7 +172,7 @@ fn the_forms_work_in_an_equations_row() {
 
 #[test]
 fn the_forms_work_in_a_condition() {
-  let out = body("  if p is Point { x = 0, .. }\n    print 1\n");
+  let out = body("  if p is Point { x = 0, .. }\n    println! \\-> \"#{1}\"\n");
   assert!(out.starts_with("if let Point { x: 0, .. } = p {"), "{out}");
 }
 

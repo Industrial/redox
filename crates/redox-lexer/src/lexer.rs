@@ -13,6 +13,7 @@ pub(crate) mod scan_operator;
 pub(crate) mod scan_quote;
 pub(crate) mod scan_raw_ident;
 pub(crate) mod scan_raw_string;
+pub(crate) mod scan_rust_block;
 pub(crate) mod scan_string;
 pub(crate) mod skip_interpolation;
 pub(crate) mod split_format_spec;
@@ -29,6 +30,7 @@ use crate::lexer::scan_operator::scan_operator;
 use crate::lexer::scan_quote::scan_quote;
 use crate::lexer::scan_raw_ident::scan_raw_ident;
 use crate::lexer::scan_raw_string::scan_raw_string;
+use crate::lexer::scan_rust_block::scan_rust_block;
 use crate::lexer::scan_string::scan_string;
 use crate::lexer::trim_comment::trim_comment;
 use crate::token::keyword::Keyword;
@@ -180,8 +182,32 @@ impl<'a> Lexer<'a> {
 
     let start = self.cur.pos();
     let kind = self.scan_token()?;
+    let opens_a_rust_block = kind == TokenKind::Kw(Keyword::Rust);
     self.track_delims(&kind, start);
     self.push(kind, (start, self.cur.pos()), ws);
+
+    // Plan 64 leaf 4's layout-delimited escape hatch, scanned **here** rather
+    // than in the parser because the body is not Redox and the parser never
+    // gets to say so: tokenising `<div class="x">` can fail outright, and a
+    // span slice taken afterwards cannot undo a lexical error reported before
+    // the parser existed.
+    //
+    // A second token beside the keyword, not instead of it. Both readers
+    // dispatch on `rust` — `prefix` for the expression position and the item
+    // parser for plan 45's — so swallowing it would need two more productions
+    // to say the same thing. `scan_rust_block` declines unless the keyword is
+    // alone on its line, which leaves the `"""` spelling untouched.
+    if opens_a_rust_block {
+      let base = *self.indents.last().expect("the base level is never popped");
+      let body_start = self.cur.pos();
+      if let Some(code) = scan_rust_block(&mut self.cur, base) {
+        self.push(
+          TokenKind::RustBlock(code),
+          (body_start, self.cur.pos()),
+          true,
+        );
+      }
+    }
     Ok(())
   }
 

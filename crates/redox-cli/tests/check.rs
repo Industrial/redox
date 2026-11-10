@@ -143,18 +143,18 @@ fn a_restructured_line_underlines_the_statement() {
   let checked = check("restructured");
   assert!(!checked.success);
   assert!(
-    checked.stderr.contains("error[E0308]"),
+    checked.stderr.contains("error[E0277]"),
     "{}",
     checked.stderr
   );
   assert!(
-    checked.stderr.contains("restructured.sdx:11:3"),
-    "should point at the start of the statement on line 11:\n{}",
+    checked.stderr.contains("restructured.sdx:16:3"),
+    "should point at the start of the statement on line 16:\n{}",
     checked.stderr
   );
   assert!(
-    checked.stderr.contains("^^^^^^^^^^^^^^^^^"),
-    "the whole 17-character statement should be underlined:\n{}",
+    checked.stderr.contains("^^^^^^^^^^^^^^^^^^^^^^^^^^"),
+    "the whole 26-character statement should be underlined:\n{}",
     checked.stderr
   );
 }

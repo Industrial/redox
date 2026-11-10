@@ -124,8 +124,11 @@ fn an_inconsistent_dedent_is_an_error() {
   std::fs::create_dir_all(&dir).expect("should create a scratch directory");
   let path = dir.join("inconsistent.sdx");
   // Opens at four, then dedents to two, which matches neither 0 nor 4.
-  std::fs::write(&path, "main : ()\nmain =\n    print 1\n  print 2\n")
-    .expect("should write the case");
+  std::fs::write(
+    &path,
+    "main : ()\nmain =\n    println! \\-> \"#{1}\"\n  println! \\-> \"#{2}\"\n",
+  )
+  .expect("should write the case");
   assert!(
     !parses_cleanly(&path),
     "a dedent matching no enclosing level must produce an ERROR, or the sweep \
@@ -136,7 +139,7 @@ fn an_inconsistent_dedent_is_an_error() {
   let nested = dir.join("nested.sdx");
   std::fs::write(
     &nested,
-    "main : ()\nmain =\n  if c\n    print 1\n  print 2\n",
+    "main : ()\nmain =\n  if c\n    println! \\-> \"#{1}\"\n  println! \\-> \"#{2}\"\n",
   )
   .expect("should write the case");
   assert!(

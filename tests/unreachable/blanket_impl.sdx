@@ -29,5 +29,5 @@ instance Display t => Describe t
 
 main : ()
 main =
-  print 1
+  println! \-> "#{1}"
   ()

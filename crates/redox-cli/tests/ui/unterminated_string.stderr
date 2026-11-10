@@ -1,6 +1,6 @@
 error[RDX0003]: unterminated string literal: a single-quoted string may not span lines — use """ for a multi-line string
-  --> unterminated_string.sdx:3:9
-  |
-3 |   print "hello
-  |         ^^^^^^
+  --> unterminated_string.sdx:11:7
+   |
+11 |   s = "hello
+   |       ^^^^^^
 

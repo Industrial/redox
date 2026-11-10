@@ -35,9 +35,9 @@ describe e = .to_string e
 
 main : ()
 main =
-  print (describe (&Missing (String::from "retries")))
-  print (describe (&ConfigError::Invalid (String::from "x") 7))
-  print (describe (&ConfigError::Closed))
-  print (.is_ok (retries "12"))
-  print (.is_err (retries "nope"))
+  println! \-> "#{(describe (&Missing (String::from "retries")))}"
+  println! \-> "#{(describe (&ConfigError::Invalid (String::from "x") 7))}"
+  println! \-> "#{(describe (&ConfigError::Closed))}"
+  println! \-> "#{(.is_ok (retries "12"))}"
+  println! \-> "#{(.is_err (retries "nope"))}"
   ()

@@ -27,5 +27,5 @@ first u = try
 
 main : ()
 main =
-  print (first (&None))
+  println! \-> "#{(first (&None))}"
   ()

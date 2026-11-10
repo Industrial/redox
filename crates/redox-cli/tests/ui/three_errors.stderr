@@ -1,6 +1,6 @@
 error[RDX0102]: expected an expression
-  --> three_errors.sdx:8:14
+  --> three_errors.sdx:8:24
   |
-8 |   print (2 + +)
-  |              ^
+8 |   println! \-> "#{(2 + +)}"
+  |                        ^
 

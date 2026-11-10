@@ -6,5 +6,5 @@ add a b =
 
 main : ()
 main =
-  print (add 10 20)
+  println! \-> "#{(add 10 20)}"
   ()

@@ -1,0 +1,22 @@
+-- Plan 64 leaf 5: the six retired spellings, and the diagnostic that is the
+-- migration guide.
+--
+-- `print` appeared in 29 of the 31 examples, so this message is the only
+-- thing a reader of an older program will see — plan 52's, 57's, 59's and
+-- 60's choice, applied a fifth time and now the milestone's standing answer
+-- to a retired spelling.
+--
+-- Read in **prefix** position, where a bare name is a value: `println!` has
+-- already been taken by the macro branch, and `.print` and `x.print` are a
+-- method reference and a field. What is left is a name standing where the
+-- six retired constructs stood.
+--
+-- `assert` is the only one of the six that was a reserved word. The other
+-- five were emitter special cases on an ordinary call, which is why this is a
+-- parser diagnostic rather than a lexer one — and why `print` is still in
+-- `leaves_ordinary_identifiers_alone`.
+
+main : ()
+main =
+  print "hello"
+  ()

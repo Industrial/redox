@@ -76,7 +76,7 @@ checked against the host language instead of against this project's history.
 | Items in a function body | `SUGARED` | `examples/local.sdx` — plan 55 leaf 5. A `data`, `errors`, `class`, `instance`, `import`, `const` or `type` is a block element and lowers to the nested Rust item. `test` is refused (`RDX0112`: rustc does not collect a nested `#[test]`) and `module` is out of scope, a bodiless one loading a file |
 | `use` declarations, groups, globs, aliases | `SUGARED` | `examples/module.sdx` — `import` |
 | `extern` blocks | `SUGARED` | `examples/reachability.sdx` — plan 45 leaf 3; `unsafe extern` is emitted because edition 2024 requires it |
-| Macro definitions | `UNREACHABLE` | `tests/unreachable/macro_def.sdx` — **declined** under doc 03 §23 item 3. Alternative: inline Rust |
+| Macro definitions | `UNREACHABLE` | `tests/unreachable/macro_def.sdx` — **declined** under doc 03 §23 item 3. Alternative: inline Rust, which plan 45 leaf 1 shipped and plan 64 leaf 4 gave an expression position and a layout-delimited form. Invocation is `SUGARED` since plan 64; this row is the half that stays declined, which is plan 46's rule working in both directions at once |
 | Attributes, inner and outer | `PASSTHROUGH` | `examples/attributes.sdx` — Rust's own `#[…]`, plan 36. **One exception, and only one:** plan 53's `#[redox::allow(unwrap)]` is *consumed* by the emitter and never reaches the `.xrs`, because an un-consumed `redox::` attribute is rustc's `E0433` — a hard error, not an unknown lint |
 
 ### 1.3 Types
@@ -119,8 +119,8 @@ checked against the host language instead of against this project's history.
 | `?` operator | `PASSTHROUGH` | `examples/fallible.sdx` |
 | `.await` | `SUGARED` | `examples/async.sdx` — the draw arrow `<-` (doc 30) |
 | `as` casts | `UNREACHABLE` | `tests/unreachable/as_cast.sdx` — `as` is reserved for `import … as`. Nearest: `u8::try_from n`, which is **not** a cast — `as` truncates, `try_from` is fallible |
-| Macro invocations | `UNREACHABLE` | `tests/unreachable/macro_call.sdx` — doc 18 §7 retired `!`. Nearest: inline Rust |
-| Inline Rust | `SUGARED` | `examples/reachability.sdx` — doc 01 §23.1, plan 45 leaf 1. No Rust equivalent: it *is* Rust |
+| Macro invocations | `SUGARED` | `examples/macros.sdx` — plan 64. `name! \-> e`: `!` marks the name and a nullary lambda opens each argument, so no bracket appears. Interpolation splices, so `bail! \-> "no route for #{id}"` reaches Rust as two arguments. Was `UNREACHABLE` for nineteen rows — doc 18 §7 spent `!` before any row implemented it, and plan 48 priced the gap at the figure `docs/CONFORMANCE.md` carries |
+| Inline Rust | `SUGARED` | `examples/reachability.sdx` — doc 01 §23.1, plan 45 leaf 1. No Rust equivalent: it *is* Rust. Plan 64 leaf 4 added the **expression** position and a layout-delimited body beside the `"""` string form, because a token-stream DSL's input is not a Redox expression and no value-passing shape can carry it |
 
 ### 1.5 Patterns
 

@@ -1,6 +1,6 @@
 main : ()
 main =
-  print 1
+  println! \-> "#{1}"
   ()
 
 empty : ()

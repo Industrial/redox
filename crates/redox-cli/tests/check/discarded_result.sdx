@@ -33,5 +33,5 @@ main : ()
 main =
   save 1
   u8::try_from 300
-  print "done"
+  println! \-> "done"
   ()

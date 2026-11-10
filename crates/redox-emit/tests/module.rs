@@ -81,7 +81,7 @@ fn modules_nest() {
 #[test]
 fn a_test_inside_a_module_stays_inside_it() {
   let out = xrs(
-    "module inner\n  test \"in here\"\n    assert 1 == 1\ntest \"out there\"\n  assert 2 == 2\n",
+    "module inner\n  test \"in here\"\n    assert! \\-> 1 == 1\ntest \"out there\"\n  assert! \\-> 2 == 2\n",
   );
   let inner_module = out.find("mod inner {").expect("the module");
   let inner_test = out.find("fn in_here()").expect("the inner test");
@@ -125,7 +125,7 @@ fn a_lowercase_path_segment_is_not_a_type_variable() {
 /// whole until the lexer stopped treating it as an operator.
 #[test]
 fn a_glob_import_does_not_swallow_the_next_item() {
-  let out = xrs("import crate::models::*\n\nmain : ()\nmain =\n  print \"x\"\n  ()\n");
+  let out = xrs("import crate::models::*\n\nmain : ()\nmain =\n  println! \\-> \"x\"\n  ()\n");
   assert!(out.contains("use crate::models::*;"), "{out}");
   assert!(out.contains("fn main() {"), "{out}");
 }

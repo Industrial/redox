@@ -609,15 +609,41 @@ pub enum Expr {
     label: Option<String>,
     span: Span,
   },
-  /// `assert e`, doc 03 §12.6's assertion spelling.
+  /// A `rust` escape hatch in **expression** position — plan 64 leaf 4.
   ///
-  /// A construct rather than a call, because `assert` is a reserved word —
-  /// and because the lowering reads the operator the author wrote: `==`
-  /// becomes `assert_eq!` and `!=` becomes `assert_ne!`, which print both
-  /// values when they differ where `assert!` prints only the expression's
-  /// text.
-  Assert {
-    value: Box<Expr>,
+  /// ```text
+  /// markup = rust
+  ///   html! { <div class="x">{ name }</div> }
+  /// ```
+  ///
+  /// Holds the body verbatim and nothing else, because Redox never parsed it:
+  /// a token-stream DSL's input is not a Redox expression, and no
+  /// value-passing shape can carry it (plan 64 §1.4). Plan 45 leaf 1 shipped
+  /// the same hatch as an **item**, which is a separate node — `InlineRust` —
+  /// because an item is emitted into the sink directly where an expression
+  /// has to compose.
+  RustHatch {
+    code: String,
+    span: Span,
+  },
+  /// A macro invocation — `name! \-> e`, plan 64.
+  ///
+  /// `!` marks the name and a nullary lambda opens each argument, so no
+  /// bracket of any kind appears: `bail! \-> "no route for #{id}"` is one
+  /// argument and `write! \-> f \-> "#{n} rows"` is two. Layout closes a
+  /// multi-line one, which plan 55 leaf 1 made writable by making an indented
+  /// block an expression.
+  ///
+  /// `args` holds the **argument expressions**, not the lambdas that spell
+  /// them: `\->` is the argument's opening bracket and nothing survives of it
+  /// in the tree. Whether the macro evaluates an argument once, twice or
+  /// never is the macro's business — plan 64 §6.
+  ///
+  /// `name` is the head verbatim, so a path reaches here whole and
+  /// `id_effect::effect!` needs no second production.
+  MacroCall {
+    name: String,
+    args: Vec<Expr>,
     span: Span,
   },
 }
@@ -668,7 +694,8 @@ impl Expr {
       | Expr::Loop { span, .. }
       | Expr::Break { span, .. }
       | Expr::Continue { span, .. }
-      | Expr::Assert { span, .. } => *span,
+      | Expr::MacroCall { span, .. }
+      | Expr::RustHatch { span, .. } => *span,
       Expr::Ident(i) => i.span,
       Expr::Binding(b) => b.span,
     }
@@ -694,7 +721,6 @@ impl Expr {
         | Expr::Draw { .. }
         | Expr::Await { .. }
         | Expr::Assign { .. }
-        | Expr::Assert { .. }
     ) || self.is_control_flow()
   }
 
@@ -802,7 +828,8 @@ impl Expr {
       | Expr::Assign { .. }
       | Expr::Break { .. }
       | Expr::Continue { .. }
-      | Expr::Assert { .. } => Vec::new(),
+      | Expr::MacroCall { .. }
+      | Expr::RustHatch { .. } => Vec::new(),
     }
   }
 }

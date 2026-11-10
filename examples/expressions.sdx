@@ -1,23 +1,39 @@
 -- Precedence is checked by arithmetic: a wrong tree is a wrong number.
+--
+-- **Every operand is bound rather than interpolated, and that is plan 64 leaf
+-- 6's finding rather than a style choice.** `print e` became
+-- `println! \-> "#{e}"`, and an interpolation is **one token** — so an
+-- expression inside `#{…}` is invisible to `construct_coverage`, which scans
+-- token runs. This file is the whole precedence row's witness, and after the
+-- migration it witnessed nothing: the gate named `+ «int» *`, `1 == 1` and
+-- `<<` as missing from a corpus that still had all three in plain sight. A
+-- binding puts the tokens back on the line, and reads better besides.
 main : ()
 main =
   -- 2 + (3 * 4) = 14, not (2 + 3) * 4 = 20
-  print (2 + 3 * 4)
+  precedence = 2 + 3 * 4
+  println! \-> "#{precedence}"
   -- Left-associative: (10 - 3) - 2 = 5, not 10 - (3 - 2) = 9
-  print (10 - 3 - 2)
+  associativity = 10 - 3 - 2
+  println! \-> "#{associativity}"
   -- Parentheses override: (2 + 3) * 4 = 20
-  print ((2 + 3) * 4)
+  overridden = (2 + 3) * 4
+  println! \-> "#{overridden}"
   -- Comparison is looser than arithmetic: (1 + 1) == 2
-  print (1 + 1 == 2)
+  compared = 1 + 1 == 2
+  println! \-> "#{compared}"
   -- `&&` is looser than `==`: (1 == 1) && (2 == 2)
-  print (1 == 1 && 2 == 2)
+  conjoined = 1 == 1 && 2 == 2
+  println! \-> "#{conjoined}"
   -- Shifts bind looser than arithmetic: 1 << (1 + 1) = 4
-  print (1 << 1 + 1)
+  shifted = 1 << 1 + 1
+  println! \-> "#{shifted}"
   -- Unary binds tighter than binary: (-3) + 10 = 7
-  print (-3 + 10)
+  negated = -3 + 10
+  println! \-> "#{negated}"
   -- A typed binding, a method call, and a path
   total : i32 = 40 + 2
-  print total
-  print (.len "done")
-  print (i32::max 1 9)
+  println! \-> "#{total}"
+  println! \-> "#{(.len "done")}"
+  println! \-> "#{(i32::max 1 9)}"
   ()

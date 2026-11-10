@@ -20,9 +20,9 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 
 | Status | Rows |
 |---|---:|
-| `done` | 61 |
+| `done` | 62 |
 | `superseded` | 4 |
-| outstanding | 2 |
+| outstanding | 1 |
 | **total** | **67** |
 
 `docs/04 - Redox Plan of Plans.md` is the register and the authority. **`done` is a register status, not a guarantee**: several rows record a later plan finding something they got wrong, which is why the register carries the correction and this table only counts.
@@ -33,19 +33,19 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 
 | Crate | `src` | `tests` |
 |---|---:|---:|
-| `redox-ast` | 2876 | 0 |
+| `redox-ast` | 2903 | 0 |
 | `redox-bench` | 588 | 217 |
-| `redox-cli` | 1372 | 8436 |
-| `redox-diag` | 1741 | 0 |
-| `redox-driver` | 2897 | 0 |
-| `redox-emit` | 5879 | 4397 |
-| `redox-fmt` | 2816 | 1464 |
+| `redox-cli` | 1376 | 8454 |
+| `redox-diag` | 1769 | 0 |
+| `redox-driver` | 2901 | 0 |
+| `redox-emit` | 5907 | 4416 |
+| `redox-fmt` | 2910 | 1463 |
 | `redox-fuzz` | 120 | 268 |
-| `redox-lexer` | 2838 | 1146 |
-| `redox-lsp` | 893 | 496 |
+| `redox-lexer` | 2965 | 1158 |
+| `redox-lsp` | 893 | 502 |
 | `redox-mcp` | 777 | 776 |
-| `redox-parser` | 7498 | 608 |
-| **total** | **30295** | **17808** |
+| `redox-parser` | 7684 | 609 |
+| **total** | **30793** | **17863** |
 
 ---
 
@@ -53,25 +53,24 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 
 | Corpus | Files | What it asserts |
 |---|---:|---|
-| `examples/*.sdx` | 35 | the CI-checked source of truth for what works |
-| `tests/golden/*.xrs` | 34 | the generated Rust, as exact text |
-| `crates/redox-cli/tests/ui/*.sdx` | 41 | the diagnostic a bad program gets |
-| `tests/unreachable/*.sdx` | 8 | the gaps below, asserted to **still fail** |
+| `examples/*.sdx` | 36 | the CI-checked source of truth for what works |
+| `tests/golden/*.xrs` | 35 | the generated Rust, as exact text |
+| `crates/redox-cli/tests/ui/*.sdx` | 42 | the diagnostic a bad program gets |
+| `tests/unreachable/*.sdx` | 7 | the gaps below, asserted to **still fail** |
 | `benchmarks/pairs/*.sdx` | 9 | generated and hand-written Rust, as identical IR |
 
-**35 examples and 34 goldens is not an error.** `examples/lexical.sdx` deliberately does not parse — it is the error-path example, and `benchmarks/REPORT.md` excludes it from the throughput sweep for the same reason. Reporting "35 examples, all green" would be rounding up by exactly one file.
+**36 examples and 35 goldens is not an error.** `examples/lexical.sdx` deliberately does not parse — it is the error-path example, and `benchmarks/REPORT.md` excludes it from the throughput sweep for the same reason. Reporting "36 examples, all green" would be rounding up by exactly one file.
 
 ---
 
 ## Gaps
 
-9 Rust constructs a Redox program cannot express. Read out of `docs/GRAMMAR.md`'s `UNREACHABLE` rows rather than listed again here, so the two cannot disagree; each has a fixture that the gate asserts **still fails**, so closing a gap breaks the build until both documents are updated.
+8 Rust constructs a Redox program cannot express. Read out of `docs/GRAMMAR.md`'s `UNREACHABLE` rows rather than listed again here, so the two cannot disagree; each has a fixture that the gate asserts **still fails**, so closing a gap breaks the build until both documents are updated.
 
 | Construct | Fixture |
 |---|---|
 | Blanket impls | `tests/unreachable/blanket_impl.sdx` |
 | Macro definitions | `tests/unreachable/macro_def.sdx` |
-| Macro invocations | `tests/unreachable/macro_call.sdx` |
 | `as` casts | `tests/unreachable/as_cast.sdx` |
 | `extern "C" fn` (export) | `tests/unreachable/extern_fn_abi.sdx` |
 | `ref` and `ref mut` | `tests/unreachable/ref_pattern.sdx` |

@@ -1,5 +1,5 @@
 -- | Formatted wrongly on purpose, so `redox_fmt` has something to change.
 main    :    ()
 main =
-      print    1
+      println! \-> "#{1}"
       ()

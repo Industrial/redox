@@ -22,7 +22,7 @@ fn xrs(src: &str) -> String {
 /// The regression. `x <- f` must not be a comparison.
 #[test]
 fn a_draw_arrow_is_not_a_comparison_against_a_negation() {
-  let out = xrs("main : ()\nmain =\n  with x = f\n  print x\n  ()\n");
+  let out = xrs("main : ()\nmain =\n  with x = f\n  println! \\-> \"#{x}\"\n  ()\n");
   assert!(
     !out.contains("x < -f"),
     "`x = f` must not lower to a comparison:\n{out}"
@@ -33,7 +33,9 @@ fn a_draw_arrow_is_not_a_comparison_against_a_negation() {
 /// One draw arrow wraps the statements that follow it.
 #[test]
 fn one_draw_arrow_wraps_what_follows() {
-  let out = xrs("main : ()\nmain =\n  with conn = pool.with_connection\n  print conn\n  ()\n");
+  let out = xrs(
+    "main : ()\nmain =\n  with conn = pool.with_connection\n  println! \\-> \"#{conn}\"\n  ()\n",
+  );
   assert_eq!(
     out,
     "fn main() {\n    \
@@ -50,7 +52,7 @@ fn one_draw_arrow_wraps_what_follows() {
 #[test]
 fn two_draw_arrows_nest() {
   let out = xrs(
-    "main : ()\nmain =\n  with conn = pool.with_connection\n  with tx = conn.transaction\n  print tx\n  ()\n",
+    "main : ()\nmain =\n  with conn = pool.with_connection\n  with tx = conn.transaction\n  println! \\-> \"#{tx}\"\n  ()\n",
   );
   assert_eq!(
     out,
@@ -90,7 +92,7 @@ fn a_draw_arrow_in_tail_position_omits_its_semicolon() {
 /// statements and must not be confused.
 #[test]
 fn an_ordinary_binding_is_unaffected() {
-  let out = xrs("main : ()\nmain =\n  x = 1\n  print x\n  ()\n");
+  let out = xrs("main : ()\nmain =\n  x = 1\n  println! \\-> \"#{x}\"\n  ()\n");
   assert!(out.contains("let x = 1;"), "{out}");
   assert!(!out.contains("(|x|"), "a binding is not a callback:\n{out}");
 }

@@ -56,7 +56,7 @@ syn keyword sdxSelf         self Self
 syn keyword sdxKeyword      import module data newtype type class instance
 syn keyword sdxKeyword      errors test const static deriving from as where
 syn keyword sdxKeyword      otherwise if else while until for in loop
-syn keyword sdxKeyword      break continue return assert guard is with case of
+syn keyword sdxKeyword      break continue return guard is with case of
 syn keyword sdxKeyword      do async try catch mut move or
 syn keyword sdxKeyword      rust unsafe extern union
 syn keyword sdxKeyword      export

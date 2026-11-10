@@ -32,4 +32,4 @@ main =
   do = 2
   found = do
     1
-  print found
+  println! \-> "#{found}"

@@ -48,14 +48,14 @@ main : ()
 main =
   -- `e : T` states a type without naming a path.
   n = 1 : u64
-  print n
+  println! \-> "#{n}"
   -- Ascription is the loosest thing in an expression: the sum is ascribed,
   -- not the `2`.
   total = 1 + 2 : u64
-  print total
+  println! \-> "#{total}"
   -- A tight `::` is still a path, which is the half that would break every
   -- existing program if it went wrong.
-  print (i32::max 1 9)
+  println! \-> "#{(i32::max 1 9)}"
   -- A generic type survives verbatim — doc 03 §14.1 — and the value is an
   -- application, because `Some 1` is juxtaposition like everything else.
   wide = Some 1 : Option<u8>
@@ -63,12 +63,12 @@ main =
   -- unreachable — doc 03 §12.7's lint is suppressed rather than argued with,
   -- and the attribute is consumed, so the `.xrs` below carries no trace of it.
   #[redox::allow(unwrap)]
-  print (.unwrap wide)
+  println! \-> "#{(.unwrap wide)}"
   -- A multi-line lowering as a macro argument: `println!` keeps the call on
   -- one line and lets the block hang, which is the form rustfmt writes.
-  print (1 + 1 : u64)
+  println! \-> "#{(1 + 1 : u64)}"
   -- Leaf 3's arm, and leaf 4's ascribed `try` block.
-  print (explain (Ok 1))
-  print (explain (Err (Bad 2)))
-  print widened
+  println! \-> "#{(explain (Ok 1))}"
+  println! \-> "#{(explain (Err (Bad 2)))}"
+  println! \-> "#{widened}"
   ()

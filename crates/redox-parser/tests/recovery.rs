@@ -16,7 +16,7 @@ fn errors(src: &str) -> Vec<ParseError> {
 /// Criterion 6: three independent mistakes produce three diagnostics.
 #[test]
 fn three_errors_in_one_file_produce_three_diagnostics() {
-  let src = "a =\n  print 1\n\nb =\n  print 2\n\nc =\n  print 3\n";
+  let src = "a =\n  println! \\-> \"#{1}\"\n\nb =\n  println! \\-> \"#{2}\"\n\nc =\n  println! \\-> \"#{3}\"\n";
   assert_eq!(
     errors(src).len(),
     3,
@@ -28,7 +28,7 @@ fn three_errors_in_one_file_produce_three_diagnostics() {
 #[test]
 fn a_bad_statement_does_not_discard_its_siblings() {
   // The middle statement is malformed; the two around it are fine.
-  let src = "main : ()\nmain =\n  print 1\n  = = =\n  print 3\n";
+  let src = "main : ()\nmain =\n  println! \\-> \"#{1}\"\n  = = =\n  println! \\-> \"#{3}\"\n";
   let errs = errors(src);
   assert!(!errs.is_empty(), "the bad statement should be reported");
   assert_eq!(
@@ -42,14 +42,13 @@ fn a_bad_statement_does_not_discard_its_siblings() {
 /// level recovery buys over item-level alone.
 #[test]
 fn two_bad_statements_in_one_body_are_both_reported() {
-  let src = "main : ()\nmain =\n  = =\n  print 2\n  = =\n";
+  let src = "main : ()\nmain =\n  = =\n  println! \\-> \"#{2}\"\n  = =\n";
   assert_eq!(errors(src).len(), 2);
 }
 
 #[test]
 fn a_well_formed_file_reports_nothing() {
-  let src =
-    "add : i32 -> i32 -> i32\nadd a b =\n  a + b\n\nmain : ()\nmain =\n  print (add 1 2)\n  ()\n";
+  let src = "add : i32 -> i32 -> i32\nadd a b =\n  a + b\n\nmain : ()\nmain =\n  println! \\-> \"#{(add 1 2)}\"\n  ()\n";
   assert!(parse_source(src).is_ok(), "should parse cleanly");
 }
 
@@ -81,9 +80,9 @@ fn a_stray_closer_in_a_type_terminates() {
     // Through a signature.
     "add : i32 !> i32\nadd a =\n  a\n",
     // Through a typed binding — the spelling plan 52 did not change.
-    "main : ()\nmain =\n  n : i32 !> i32 = 1\n  print n\n",
+    "main : ()\nmain =\n  n : i32 !> i32 = 1\n  println! \\-> \"#{n}\"\n",
     // Through an ascription.
-    "main : ()\nmain =\n  n = 1 : i32 !> i32\n  print n\n  ()\n",
+    "main : ()\nmain =\n  n = 1 : i32 !> i32\n  println! \\-> \"#{n}\"\n  ()\n",
     // The original fuzz mutation: a `-` flipped to a carriage return.
     "add : i32 \r> i32\nadd a =\n  a\n",
     // And the closers that are not `>`.

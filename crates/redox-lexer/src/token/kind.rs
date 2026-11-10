@@ -123,6 +123,16 @@ pub enum TokenKind {
   AmpColon,
   /// `\`, doc 18 §4's lambda binder: `\x -> x + 1`.
   Backslash,
+  /// A `rust` block's body, taken verbatim — plan 64 leaf 4.
+  ///
+  /// Carries the **dedented source text** and no structure at all, because
+  /// Redox never parsed it: a token-stream DSL's input is not Redox, which is
+  /// the whole reason the escape hatch exists (plan 64 §1.4).
+  ///
+  /// Produced only for the layout-delimited form. The `"""` string form that
+  /// plan 45 leaf 1 shipped still arrives as a `Str` and is read through
+  /// [`crate::verbatim_triple`], so this is additive.
+  RustBlock(String),
   /// `$`, doc 18 §2.1's low-precedence grouping — it lowers to nothing at
   /// all, and is why a nested application rarely needs brackets.
   Dollar,

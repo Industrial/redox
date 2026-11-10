@@ -40,7 +40,7 @@ fn comment_of(trivia: &[Trivia]) -> Option<&str> {
 #[test]
 fn lexes_the_hello_slice() {
   assert_eq!(
-    kinds("main : ()\nmain =\n  print \"hello\"\n"),
+    kinds("main : ()\nmain =\n  println! \\-> \"hello\"\n"),
     vec![
       // Doc 18 §2.2's signature line, then §2.3's equation. Plan 52 made the
       // marker `:` — `::` is now a path separator and nothing else — and `()`
@@ -55,7 +55,15 @@ fn lexes_the_hello_slice() {
       TokenKind::Eq,
       TokenKind::Newline,
       TokenKind::Indent,
-      TokenKind::Ident("print".into()),
+      // Plan 64's macro head: the name, a `!` **glued** to it, and then
+      // `\->` opening the one argument. The glue is not visible in a token
+      // kind — it is `ws_before` on the `Bang`, which `macro_call` reads —
+      // so this sequence is also what a *negation* would lex as, and the
+      // parser is where the two part company.
+      TokenKind::Ident("println".into()),
+      TokenKind::Bang,
+      TokenKind::Backslash,
+      TokenKind::Arrow,
       str_token("\"hello\""),
       TokenKind::Newline,
       TokenKind::Dedent,
@@ -67,7 +75,7 @@ fn lexes_the_hello_slice() {
 /// Plan 01 acceptance criterion 6: spans index the real source text.
 #[test]
 fn tokens_carry_byte_spans() {
-  let src = "main : ()\nmain =\n  print \"hello\"\n";
+  let src = "main : ()\nmain =\n  println! \\-> \"hello\"\n";
   let toks = lex(src).expect("should lex");
   assert_eq!(toks[0].span, (0, 4));
   assert_eq!(&src[toks[0].span.0..toks[0].span.1], "main");
@@ -80,13 +88,13 @@ fn tokens_carry_byte_spans() {
 
 #[test]
 fn attaches_a_leading_comment_to_the_following_token() {
-  let toks = lex("-- a note\nmain : ()\nmain =\n  print \"x\"\n").expect("should lex");
+  let toks = lex("-- a note\nmain : ()\nmain =\n  println! \\-> \"x\"\n").expect("should lex");
   assert_eq!(comment_of(&toks[0].leading), Some("a note"));
 }
 
 #[test]
 fn attaches_a_trailing_comment_to_the_closing_newline() {
-  let toks = lex("main = = -- why\n  print \"x\"\n").expect("should lex");
+  let toks = lex("main = = -- why\n  println! \\-> \"x\"\n").expect("should lex");
   let nl = toks
     .iter()
     .find(|t| t.kind == TokenKind::Newline)
@@ -96,20 +104,20 @@ fn attaches_a_trailing_comment_to_the_closing_newline() {
 
 #[test]
 fn collapses_a_blank_run_into_one_trivium() {
-  let toks = lex("-- a\n\n\n\nmain : ()\nmain =\n  print \"x\"\n").expect("should lex");
+  let toks = lex("-- a\n\n\n\nmain : ()\nmain =\n  println! \\-> \"x\"\n").expect("should lex");
   let kinds: Vec<_> = toks[0].leading.iter().map(|t| t.kind.clone()).collect();
   assert_eq!(kinds, vec![TriviaKind::LineComment, TriviaKind::BlankLines]);
 }
 
 #[test]
 fn a_blank_line_inside_a_block_does_not_close_it() {
-  let toks = kinds("main : ()\nmain =\n  print \"a\"\n\n  print \"b\"\n");
+  let toks = kinds("main : ()\nmain =\n  println! \\-> \"a\"\n\n  println! \\-> \"b\"\n");
   assert_eq!(toks.iter().filter(|k| **k == TokenKind::Dedent).count(), 1);
 }
 
 #[test]
 fn records_whitespace_adjacency() {
-  let toks = lex("main : ()\nmain =\n  print \"x\"\n").expect("should lex");
+  let toks = lex("main : ()\nmain =\n  println! \\-> \"x\"\n").expect("should lex");
   assert!(!toks[0].ws_before, "the first token has no preceding space");
   assert!(toks[1].ws_before, "`=` is preceded by a space");
 }
@@ -131,7 +139,7 @@ fn rejects_a_tab_in_indentation() {
 /// Plan 01 acceptance criterion 9.
 #[test]
 fn rejects_an_inconsistent_dedent() {
-  let src = "main : ()\nmain =\n    print \"a\"\n  print \"b\"\n";
+  let src = "main : ()\nmain =\n    println! \\-> \"a\"\n  println! \\-> \"b\"\n";
   let err = lex(src).expect_err("should fail");
   assert!(
     err.message.contains("inconsistent dedent"),
@@ -147,20 +155,20 @@ fn rejects_an_inconsistent_dedent() {
 
 #[test]
 fn rejects_an_unterminated_string() {
-  let err = lex("main : ()\nmain =\n  print \"oops\n").expect_err("should fail");
+  let err = lex("main : ()\nmain =\n  println! \\-> \"#{\"oops}\"\n").expect_err("should fail");
   assert!(err.message.contains("unterminated"), "{}", err.message);
 }
 
 #[test]
 fn closes_open_blocks_at_eof_without_a_trailing_newline() {
-  let toks = kinds("main : ()\nmain =\n  print \"x\"");
+  let toks = kinds("main : ()\nmain =\n  println! \\-> \"x\"");
   assert_eq!(toks.last(), Some(&TokenKind::Eof));
   assert_eq!(toks.iter().filter(|k| **k == TokenKind::Dedent).count(), 1);
 }
 
 #[test]
 fn keeps_trailing_file_trivia_on_eof() {
-  let toks = lex("main : ()\nmain =\n  print \"x\"\n-- the end\n").expect("should lex");
+  let toks = lex("main : ()\nmain =\n  println! \\-> \"x\"\n-- the end\n").expect("should lex");
   let eof = toks.last().expect("eof");
   assert_eq!(eof.kind, TokenKind::Eof);
   // Found by kind, not by position: the file's own final newline arrives as a
@@ -174,7 +182,7 @@ fn keeps_trailing_file_trivia_on_eof() {
 /// generated Rust.
 #[test]
 fn a_comment_between_items_attaches_to_the_next_item() {
-  let src = "a : ()\na =\n  print \"1\"\n-- between\nb : ()\nb =\n  print \"2\"\n";
+  let src = "a : ()\na =\n  println! \\-> \"1\"\n-- between\nb : ()\nb =\n  println! \\-> \"2\"\n";
   let toks = lex(src).expect("should lex");
   let b = toks
     .iter()
@@ -191,7 +199,7 @@ fn a_comment_between_items_attaches_to_the_next_item() {
 /// trailing comment never reaches `Eof`.
 #[test]
 fn structural_tokens_never_claim_trivia() {
-  let toks = lex("main : ()\nmain =\n  print \"x\"\n-- tail\n").expect("should lex");
+  let toks = lex("main : ()\nmain =\n  println! \\-> \"x\"\n-- tail\n").expect("should lex");
   for t in &toks {
     if matches!(
       t.kind,
@@ -204,7 +212,7 @@ fn structural_tokens_never_claim_trivia() {
 
 #[test]
 fn handles_crlf_line_endings() {
-  let toks = kinds("main : ()\r\nmain =\r\n  print \"x\"\r\n");
+  let toks = kinds("main : ()\r\nmain =\r\n  println! \\-> \"#{\"x\"\r}\"\n");
   assert!(toks.contains(&TokenKind::Indent));
   assert_eq!(toks.last(), Some(&TokenKind::Eof));
 }
@@ -214,9 +222,9 @@ fn handles_crlf_line_endings() {
 #[test]
 fn accepts_any_consistent_indentation_width() {
   for src in [
-    "main : ()\nmain =\n  print \"x\"\n",
-    "main : ()\nmain =\n    print \"x\"\n",
-    "main : ()\nmain =\n\u{20}\u{20}\u{20}print \"x\"\n",
+    "main : ()\nmain =\n  println! \\-> \"x\"\n",
+    "main : ()\nmain =\n    println! \\-> \"x\"\n",
+    "main : ()\nmain =\n\u{20}\u{20}\u{20}println! \\-> \"x\"\n",
   ] {
     let toks = kinds(src);
     assert!(toks.contains(&TokenKind::Indent), "{src:?}");

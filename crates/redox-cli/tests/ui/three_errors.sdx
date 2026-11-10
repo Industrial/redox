@@ -1,13 +1,13 @@
 a : ()
 a =
-  print (1 +)
+  println! \-> "#{(1 +)}"
   ()
 
 b : ()
 b =
-  print (2 + +)
+  println! \-> "#{(2 + +)}"
 
 c : ()
 c =
-  print (3 *)
+  println! \-> "#{(3 *)}"
   ()

@@ -86,7 +86,7 @@ fn a_ladder_lives_inside_a_match_arm() {
 /// ladder is total, so the chain reaches rustc and rustc reports the type.
 #[test]
 fn a_ladder_without_otherwise_still_emits() {
-  let rust = xrs("noisy : ()\nnoisy\n  | 1 > 0 = print \"hi\"\n");
+  let rust = xrs("noisy : ()\nnoisy\n  | 1 > 0 = println! \\-> \"hi\"\n");
   assert!(rust.contains("if 1 > 0 {"), "{rust}");
   assert!(!rust.contains("else"), "nothing is invented:\n{rust}");
 }

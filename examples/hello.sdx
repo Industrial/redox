@@ -1,5 +1,5 @@
 -- The smallest Redox program.
 main : ()
 main =
-  print "hello"
+  println! \-> "hello"
   ()

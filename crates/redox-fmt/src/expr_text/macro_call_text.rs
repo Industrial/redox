@@ -1,0 +1,46 @@
+use crate::expr_text::expr_text;
+use redox_ast::Expr;
+
+/// A macro invocation — `name! \-> e`, plan 64.
+///
+/// ```text
+/// println! \-> "#{a}"
+/// write! \-> f \-> "#{n} rows"
+/// todo!
+///
+/// catch_unwind! \->
+///   a = f x
+///   a + 1
+/// ```
+///
+/// # The arrow is glued, and the lambda's is not
+///
+/// `lambda_text` prints `\ -> body` with spaces around the arrow, and this
+/// prints `\->`. That is deliberate rather than an inconsistency: a lambda's
+/// `\` and `->` bracket a **parameter list** that may have items between
+/// them, so the spaces are where a parameter would go. A macro argument's
+/// `\->` can never have anything between the two characters — it is one
+/// opening bracket spelled with two — so closing it up is what says so.
+///
+/// # A block argument puts nothing after the arrow
+///
+/// `Expr::Block` prints with **nothing on its own first line** and no leading
+/// newline either (see the `Expr::Block` arm of `expr_text`), so the arrow has
+/// to supply the newline itself — a space would be trailing whitespace on the
+/// macro's line, and nothing at all puts the block's first statement on it.
+/// `binding_text` has exactly the same problem with `= ` and solves it the
+/// same way.
+///
+/// The test is on the argument's **node** rather than on its printed text,
+/// because a *labelled* block, an `async` block and a `try` block all print
+/// their own first line and so take the ordinary spacing. Only the unlabelled
+/// block has nothing to put there.
+pub(crate) fn macro_call_text(name: &str, args: &[Expr], indent: usize, source: &str) -> String {
+  let mut out = format!("{name}!");
+  for arg in args {
+    let hangs = matches!(arg, Expr::Block { label: None, .. });
+    out.push_str(if hangs { " \\->\n" } else { " \\-> " });
+    out.push_str(&expr_text(arg, 0, indent, source));
+  }
+  out
+}

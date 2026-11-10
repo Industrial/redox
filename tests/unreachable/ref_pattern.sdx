@@ -29,5 +29,5 @@ first_of p = case p of
 main : ()
 main =
   pair = (String::from "x", 1)
-  print (first_of (&pair))
+  println! \-> "#{(first_of (&pair))}"
   ()

@@ -204,7 +204,7 @@ fn a_broken_source_returns_renderable_diagnostics() {
   // `(1 +)` was the broken source here until doc 18 §4 made it a **left
   // section**, which parses. `(1 + * 2)` is not broken either — `*` opens a
   // deref. An unterminated group has no reading in any grammar.
-  let broken = "main : ()\nmain =\n  print (1 +\n";
+  let broken = "main : ()\nmain =\n  println! \\-> \"#{(1 +}\"\n";
   std::fs::write(dir.join("bad.sdx"), broken).expect("should write");
 
   let errors = redox_driver::compile_dir(&dir, &dir.join("out"))

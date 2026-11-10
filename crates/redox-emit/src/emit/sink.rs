@@ -151,15 +151,21 @@ mod tests {
 
   #[test]
   fn attributes_a_line_to_the_current_mark() {
-    // Doc 18 §2.2's two-line form: the signature occupies bytes 0..16 and the
-    // body's `print 1` starts at 19 on line 3.
-    let source = "main : ()\nmain =\n  print 1\n";
-    assert_eq!(&source[19..26], "print 1", "the premise of this test");
+    // Doc 18 §2.2's two-line form: the signature occupies bytes 0..16 and
+    // the body's statement starts at 19 on line 3. Plan 64 made that
+    // statement a macro call, so the slice is longer than the `print 1` this
+    // premise used to name.
+    let source = "main : ()\nmain =\n  println! \\-> \"#{1}\"\n";
+    assert_eq!(
+      &source[19..38],
+      "println! \\-> \"#{1}\"",
+      "the premise of this test"
+    );
 
     let mut sink = Sink::new(source);
     sink.mark((0, 16)); // the signature line and the equation head
     sink.push_str("fn main() {\n");
-    sink.mark((19, 26)); // `print 1`
+    sink.mark((19, 38)); // the macro call
     sink.push_str("    println!();\n");
     sink.unmark();
     sink.push_str("}\n");

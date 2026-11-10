@@ -12,17 +12,20 @@ it with:
 REDOX_BLESS=1 cargo test -p redox-cli --test conformance
 ```
 
-Plan 48 (`docs/42 - 48 - Conformance and Self-Hosting.md`) built it.
+Plan 48 (`docs/42 - 48 - Conformance and Self-Hosting.md`) built it, and
+plan 64 changed its answer.
 
 ---
 
 ## The answer
 
-**No — and one construct is almost all of it.**
+**Almost — and what is left is the `as` cast.**
 
-Macro invocation accounts for **952 of 964** blocking occurrences (99%). Doc 18 §7 retired `!` as a suffix and left no spelling, so `format!`, `write!`, `assert!`, `println!` and `panic!` — how this compiler formats, asserts and reports — cannot be written.
+**12 blocking occurrences**, down from 964 — and the construct that was 952 of them is gone. Plan 48 measured macro invocation at 99% of the obstacle and wrote *"spell it, and what remains is the `as` casts below"*; plan 64 spelled it, as `name! \-> e`, and this is what remained.
 
-Spell it, and what remains is the `as` casts below. That makes this document a **priority** rather than a verdict: plan 45 §1.5 declined to spell macro invocation because it needs a surface decision in doc 03, and this is the measure of what that decision is worth.
+That is the whole arc of the measurement in three rows: plan 45 §1.5 **found** the gap and declined to spell it because it needed a surface decision in doc 03; plan 48 **priced** it, which is what made the decision worth taking; plan 64 **took** it. A count is what turned an unreachability note into a priority.
+
+The figure is not zero and will not be: it is read off `docs/GRAMMAR.md`'s `UNREACHABLE` rows and moves on any commit that adds Rust, which is why it is generated rather than written down.
 
 ---
 
@@ -32,7 +35,6 @@ Each is graded `UNREACHABLE` in `docs/GRAMMAR.md`.
 
 | Blocker | Occurrences |
 |---|---:|
-| Macro invocation | 952 |
 | `as` cast | 12 |
 | `unsafe trait` | 0 |
 | `unsafe impl` | 0 |
@@ -40,7 +42,7 @@ Each is graded `UNREACHABLE` in `docs/GRAMMAR.md`.
 | Macro definition | 0 |
 | `\|` or-pattern | *not counted* |
 
-**Four of the seven gaps are zero**, which is the result doc 02 §4.8 did not expect: `unsafe trait`, `unsafe impl`, `extern "C" fn` and `macro_rules!` are real gaps and are not *this* obstacle. Only a count could say so.
+**Four of the five remaining gaps are zero**, which is the result doc 02 §4.8 did not expect: `unsafe trait`, `unsafe impl`, `extern "C" fn` and `macro_rules!` are real gaps and were never *this* obstacle. Only a count could say so — and the same count is what identified the one that was.
 
 `\|` or-patterns are **not counted** rather than estimated. The counter is line-based, and no line-based pattern separates a pattern alternative from a bitwise or; a wrong number would be worse than an empty cell.
 
@@ -50,19 +52,19 @@ Each is graded `UNREACHABLE` in `docs/GRAMMAR.md`.
 
 | Crate | Files | With a blocker | |
 |---|---:|---:|---:|
-| `redox-ast` | 48 | 8 | 17% |
-| `redox-bench` | 13 | 5 | 38% |
-| `redox-cli` | 24 | 20 | 83% |
-| `redox-diag` | 21 | 16 | 76% |
-| `redox-driver` | 48 | 24 | 50% |
-| `redox-emit` | 106 | 72 | 68% |
-| `redox-fmt` | 55 | 35 | 64% |
+| `redox-ast` | 48 | 0 | 0% |
+| `redox-bench` | 13 | 1 | 8% |
+| `redox-cli` | 24 | 0 | 0% |
+| `redox-diag` | 21 | 1 | 5% |
+| `redox-driver` | 48 | 1 | 2% |
+| `redox-emit` | 107 | 0 | 0% |
+| `redox-fmt` | 57 | 0 | 0% |
 | `redox-fuzz` | 6 | 0 | 0% |
-| `redox-lexer` | 32 | 16 | 50% |
-| `redox-lsp` | 22 | 6 | 27% |
-| `redox-mcp` | 19 | 7 | 37% |
-| `redox-parser` | 110 | 37 | 34% |
-| **total** | **504** | **246** | **49%** |
+| `redox-lexer` | 33 | 3 | 9% |
+| `redox-lsp` | 22 | 2 | 9% |
+| `redox-mcp` | 19 | 0 | 0% |
+| `redox-parser` | 113 | 1 | 1% |
+| **total** | **511** | **9** | **2%** |
 
 ---
 

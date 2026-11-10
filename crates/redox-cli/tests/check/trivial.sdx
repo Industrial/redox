@@ -2,5 +2,5 @@
 -- assertions about rustc resolution and artefact cleanup.
 main : ()
 main =
-  print 1
+  println! \-> "#{1}"
   ()

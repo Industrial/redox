@@ -38,7 +38,7 @@ main =
   -- so each argument says what it is rather than leaving a literal's default
   -- to settle it.
   wide = 2.0 : f64
-  print (.value (Convert::wrap wide : Meters))
+  println! \-> "#{(.value (Convert::wrap wide : Meters))}"
   narrow = 3 : u32
-  print (.value (Convert::wrap narrow : Meters))
+  println! \-> "#{(.value (Convert::wrap narrow : Meters))}"
   ()

@@ -50,14 +50,14 @@ best v = v |> .map (.trim >>> .len <<< .to_string)
 main : ()
 main =
   tidy = trimmed >>> wrap
-  print (tidy "  hi  ")
+  println! \-> "#{(tidy "  hi  ")}"
 
   -- `f >>> g` and `g <<< f` are the same function, and the golden is where
   -- that is visible: the two bindings below lower to byte-identical Rust.
   forward = wrap >>> shout
   backward = shout <<< wrap
-  print (forward "  hi  ")
-  print (backward "  hi  ")
+  println! \-> "#{(forward "  hi  ")}"
+  println! \-> "#{(backward "  hi  ")}"
 
   -- Doc 18 §4 gives every infix operator a section, and composition's are a
   -- function **of a function**: `(>>> wrap)` is `\f -> f >>> wrap` and
@@ -65,8 +65,8 @@ main =
   -- operand, and they print differently once given one.
   then_wrap = (>>> wrap)
   wrap_then = (wrap >>>)
-  print ((then_wrap trimmed) "  hi  ")
-  print ((wrap_then shout) "  hi  ")
+  println! \-> "#{((then_wrap trimmed) "  hi  ")}"
+  println! \-> "#{((wrap_then shout) "  hi  ")}"
 
   -- A three-stage chain, left-associative, so the functions apply left to
   -- right. It is written on one line because **`redox fmt` collapses it**:
@@ -77,9 +77,9 @@ main =
   -- so the two spellings differ in what the formatter keeps, not in what the
   -- lexer accepts.
   long = trimmed >>> wrap >>> shout
-  print (long "  hi  ")
+  println! \-> "#{(long "  hi  ")}"
 
-  print (wide (deep ()))
-  print (lengths (.to_vec ([" a ", "bb"])))
-  print (.unwrap_or 0 (best (Some "  hi  ")))
+  println! \-> "#{(wide (deep ()))}"
+  println! \-> "#{(lengths (.to_vec ([" a ", "bb"])))}"
+  println! \-> "#{(.unwrap_or 0 (best (Some "  hi  ")))}"
   ()

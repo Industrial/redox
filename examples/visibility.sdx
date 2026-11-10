@@ -33,7 +33,7 @@ double d = d * 2.0
 main : ()
 main =
   p = Point { x = 3.0, y = 4.0 }
-  print p.x
-  print (area (&p))
-  print (double (area (&p)))
+  println! \-> "#{p.x}"
+  println! \-> "#{(area (&p))}"
+  println! \-> "#{(double (area (&p)))}"
   ()

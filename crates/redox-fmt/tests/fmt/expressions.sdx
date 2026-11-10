@@ -65,5 +65,5 @@ main =
   -- wrap fired on a `Paren` the printer then kept.
   ak = f (\q -> q + 1)
   al = f ((x))
-  print a
+  println! \-> "#{a}"
   ()

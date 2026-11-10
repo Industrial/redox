@@ -12,5 +12,5 @@ narrow n = n as u8
 
 main : ()
 main =
-  print (narrow 300)
+  println! \-> "#{(narrow 300)}"
   ()

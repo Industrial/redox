@@ -5,11 +5,13 @@ pub(crate) mod comprehension_text;
 pub(crate) mod dollar_text;
 pub(crate) mod lambda_text;
 pub(crate) mod literal_text;
+pub(crate) mod macro_call_text;
 pub(crate) mod operand;
 pub(crate) mod pipeline_text;
 pub(crate) mod power_of;
 pub(crate) mod receiver;
 pub(crate) mod record_text;
+pub(crate) mod rust_hatch_text;
 pub(crate) mod section_text;
 
 use crate::expr_text::argument::argument;
@@ -19,10 +21,12 @@ use crate::expr_text::comprehension_text::comprehension_text;
 use crate::expr_text::dollar_text::dollar_text;
 use crate::expr_text::lambda_text::lambda_text;
 use crate::expr_text::literal_text::literal_text;
+use crate::expr_text::macro_call_text::macro_call_text;
 use crate::expr_text::operand::operand;
 use crate::expr_text::pipeline_text::pipeline_text;
 use crate::expr_text::receiver::receiver;
 use crate::expr_text::record_text::record_text;
+use crate::expr_text::rust_hatch_text::rust_hatch_text;
 use crate::expr_text::section_text::section_text;
 use crate::stmt_text::block_text::block_text;
 use crate::stmt_text::case_arm_text::case_arm_text;
@@ -193,6 +197,15 @@ pub fn expr_text(expr: &Expr, required: u8, indent: usize, source: &str) -> Stri
     // property reported the program had changed. `operand` at power 0 keeps
     // the parentheses only around the forms `power_of` declines on, which is
     // the right set: a lambda or a second ascription does need them.
+    // Plan 64's macro invocation. One line for the whole call unless an
+    // argument is a block — `macro_call_text` is where the arrow's spacing
+    // is decided.
+    Expr::MacroCall { name, args, .. } => macro_call_text(name, args, indent, source),
+    // Plan 64 leaf 4. Printed in the **layout** spelling whichever one the
+    // author wrote, because that is the one §3's canonical table can state a
+    // rule for: a `"""` block's closing delimiter has no canonical column,
+    // and the formatter would be choosing one.
+    Expr::RustHatch { code, .. } => rust_hatch_text(code, indent),
     Expr::Ascribe { inner, ty, .. } => {
       format!("{} : {}", operand(inner, 0, indent, source), ty.text)
     }
@@ -287,7 +300,6 @@ pub fn expr_text(expr: &Expr, required: u8, indent: usize, source: &str) -> Stri
     | Expr::For { .. }
     | Expr::Loop { .. }
     | Expr::Break { .. }
-    | Expr::Continue { .. }
-    | Expr::Assert { .. } => code_text(expr, indent, source),
+    | Expr::Continue { .. } => code_text(expr, indent, source),
   }
 }

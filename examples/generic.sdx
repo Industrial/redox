@@ -51,9 +51,9 @@ area w h = scaled
 
 main : ()
 main =
-  print (add 1 2)
-  print (pick 7 "ignored")
-  print (first "borrowed")
-  print (area 3.0 4.0)
-  print (largest (Some 3))
+  println! \-> "#{(add 1 2)}"
+  println! \-> "#{(pick 7 "ignored")}"
+  println! \-> "#{(first "borrowed")}"
+  println! \-> "#{(area 3.0 4.0)}"
+  println! \-> "#{(largest (Some 3))}"
   ()

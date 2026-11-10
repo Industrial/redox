@@ -6,4 +6,4 @@
 main : ()
 main =
   until .pop queue is Some v
-    print v
+    println! \-> "#{v}"

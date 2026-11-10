@@ -1466,20 +1466,36 @@ impl From<io::Error> for ConfigError {
 This generates items for a user-declared type, as `derive` does; it is not runtime
 scaffolding in the sense of §7.3.
 
-### 12.6 Panic family
+### 12.6 Panic family — retired by plan 64
 
-Rust's panic and assertion macros were reachable only through raw macro syntax. Spellings
-are added because partial code and invariant assertions are routine.
+**This section's spellings are deleted.** It existed for one reason, stated in its own
+opening line: *"Rust's panic and assertion macros were reachable only through raw macro
+syntax."* Plan 64 made them reachable — `name! \-> e`, with `!` marking the name and a
+nullary lambda opening each argument — so the premise is gone and with it the family.
 
-| Redox | Rust |
+| Retired | Write instead |
 |---|---|
-| `todo` | `todo!()` |
-| `unimplemented` | `unimplemented!()` |
-| `unreachable` | `unreachable!()` |
-| `panic "message"` | `panic!("message")` |
-| `assert cond` | `assert!(cond)` |
-| `assert a == b` | `assert_eq!(a, b)` |
-| `assert a != b` | `assert_ne!(a, b)` |
+| `todo` | `todo!` |
+| `unimplemented` | `unimplemented!` |
+| `unreachable` | `unreachable!` |
+| `panic "message"` | `panic! \-> "message"` |
+| `assert cond` | `assert! \-> cond` |
+| `assert a == b` | `assert! \-> a == b`, which still emits `assert_eq!(a, b)` |
+| `assert a != b` | `assert! \-> a != b`, which still emits `assert_ne!(a, b)` |
+
+Each retired spelling is `RDX0118`, naming its replacement — the milestone's standing
+answer to a retired spelling, and the fifth row to choose it.
+
+**The last two rows are not a leftover.** `assert!` keeps the `==` → `assert_eq!` rewrite
+after the keyword's retirement, and plan 64 §11.2 is why: those macros print **both
+values** when they differ where `assert!` prints only the expression's text, so routing
+`assert` into the general macro path without the rewrite would be a regression in
+diagnostic quality rather than a simplification.
+
+`print` went with them, and it is the one whose retirement **gained** a capability rather
+than only tidying: `eprint "x"` emitted `eprint("x")`, a call to a function no program
+defines, so there was no way to write to stderr at all and a diagnostic-emitting program
+could not exist. `eprintln!` needs no special case and arrives by the general path.
 
 ### 12.7 `unwrap` discouragement
 
@@ -1553,10 +1569,26 @@ transpile-time evaluation is **declined**: it would require shipping a literal-o
 interpreter, a scope expansion of the same order as the type checker doc 02 §12.4 declines
 permanently, and Emerald's own plan 61 needed a step-limit flag for it.
 
-Doc 01 §23's macro **invocation** syntax is retained. Macro **definition** has no native
-spelling and uses doc 01 §23.1's inline-Rust escape hatch — recorded in §23 as an open
-item, since a language whose own macros require the escape hatch is a candidate for a
-future round.
+Doc 01 §23's macro **invocation** syntax is retained, and **plan 64 implemented it** —
+`name! \-> e`, nineteen rows after this sentence was written, because doc 18 §7 spent the
+enabling token before any row took the spelling decision. `docs/GRAMMAR.md` grades it
+`SUGARED`.
+
+Macro **definition** stays declined, and the decline is now honest in the way plan 45 §6
+described: its alternative is doc 01 §23.1's inline-Rust escape hatch, which plan 45 leaf 1
+shipped as a top-level item and plan 64 leaf 4 gave an **expression position** and a
+**layout-delimited body**. A token-stream DSL — `html!`, `quote!`, `sqlx::query!` —
+consumes tokens that are not Redox expressions, so no value-passing shape can carry it and
+the hatch is not a workaround but the answer:
+
+```
+markup = rust
+  html! { <div class="x">{ name }</div> }
+```
+
+Brace-free in Redox; whatever braces the embedded Rust needs are the embedded Rust's
+business. It remains an open item in §23 for the reason it always was — a language whose
+own macros require the escape hatch is a candidate for a future round.
 
 ### 13.4 Module-scope bindings — correcting doc 01 §4.3
 

@@ -81,8 +81,19 @@ fn bracketed(n: i32) -> String {
 //
 // This is the function plan 55 leaf 7 needs: with it, retiring `then` costs an
 // author nothing in argument position.
+// `show` rather than a bare macro call, because plan 64 retired the one
+// built-in that took an arbitrary expression in argument position.
+// `println!`'s first argument is a Rust format string, so an `if` reaches a
+// macro through a name or through an interpolation — and an interpolation is
+// one line, which this deliberately is not. Argument position is still
+// argument position, which is what this function is a witness for.
+fn show(s: &str) {
+    println!("{}", s);
+    ();
+}
+
 fn bracketed_block(n: i32) {
-    println!("{}", if n > 9 { "big" } else { "small" });
+    show(if n > 9 { "big" } else { "small" });
     ();
 }
 

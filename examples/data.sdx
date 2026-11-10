@@ -56,9 +56,9 @@ warmer c = c.0 + 1.0
 
 main : ()
 main =
-  print (describe Close)
-  print (describe Click)
-  print (depth (Meters 5.0))
-  print (depth (Meters 1.5))
-  print (warmer (Celsius 20.0))
+  println! \-> "#{(describe Close)}"
+  println! \-> "#{(describe Click)}"
+  println! \-> "#{(depth (Meters 5.0))}"
+  println! \-> "#{(depth (Meters 1.5))}"
+  println! \-> "#{(warmer (Celsius 20.0))}"
   ()

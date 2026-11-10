@@ -84,6 +84,6 @@ fn a_narrow_literal_stays_on_one_line() {
 /// which is the case that would break if `{` were read as anything else.
 #[test]
 fn a_record_literal_is_an_argument() {
-  let out = body("print (area (Point { x = 1, y = 2 }))");
+  let out = body("println! \\-> \"#{(area (Point { x = 1, y = 2 }))}\"");
   assert!(out.contains("area(Point { x: 1, y: 2 })"), "{out}");
 }

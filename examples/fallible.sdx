@@ -104,7 +104,7 @@ attempt x y = try
 -- below: the closure's return type is inferred from its tail and its `?`s, so
 -- nothing annotates it and a caller's signature is enough.
 print_outcome : Result<i32, String> -> ()
-print_outcome r = print (.is_ok r)
+print_outcome r = println! \-> "#{(.is_ok r)}"
 
 -- **The case the whole plan exists for, and it is doubly caught.**
 --
@@ -129,28 +129,28 @@ describe_tag t = &t.0
 
 main : ()
 main =
-  print (fallback "12")
-  print (fallback "no")
-  print (reason "7")
-  print (reason "no")
+  println! \-> "#{(fallback "12")}"
+  println! \-> "#{(fallback "no")}"
+  println! \-> "#{(reason "7")}"
+  println! \-> "#{(reason "no")}"
 
   u = Some (User { profile = Some (Profile { name = .to_string "ada", tag = Tag (.to_string "t1"), nickname = None }) })
   empty = None : Option<User>
 
-  print (.is_some (first_name (&u)))
-  print (.is_some (first_name (&empty)))
+  println! \-> "#{(.is_some (first_name (&u)))}"
+  println! \-> "#{(.is_some (first_name (&empty)))}"
   -- `u` is `Some` by construction, so these three unwraps cannot panic. Doc
   -- 03 §12.7's lint fires on the name alone — it has no types and so cannot
   -- know that — and the attribute is how an author says they do. It is
   -- consumed rather than emitted, so the generated Rust carries no trace of
   -- it and rustc never sees a `redox` it cannot resolve.
   #[redox::allow(unwrap)]
-  print (describe_tag (.unwrap (first_tag (&u))))
+  println! \-> "#{(describe_tag (.unwrap (first_tag (&u))))}"
   #[redox::allow(unwrap)]
-  print (.is_none (.unwrap (nickname_of (&u))))
+  println! \-> "#{(.is_none (.unwrap (nickname_of (&u))))}"
 
   #[redox::allow(unwrap)]
-  print (.unwrap (attempt "1" "2"))
-  print (.is_err (attempt "1" "no"))
-  print (after_a_failed_try ())
+  println! \-> "#{(.unwrap (attempt "1" "2"))}"
+  println! \-> "#{(.is_err (attempt "1" "no"))}"
+  println! \-> "#{(after_a_failed_try ())}"
   ()

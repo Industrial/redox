@@ -5,8 +5,8 @@ a nested block
 main : ()
 main =
   if c
-    print 1
-  print 2
+    println! \-> "#{1}"
+  println! \-> "#{2}"
 
 ----------------------------------------------------------------
 
@@ -21,11 +21,13 @@ main =
         (identifier))
       consequence: (statement_block
         (expression_statement
-          (identifier)
-          (number))))
+          (macro_call
+            name: (identifier)
+            argument: (string)))))
     body: (expression_statement
-      (identifier)
-      (number))))
+      (macro_call
+        name: (identifier)
+        argument: (string)))))
 
 ================================================================
 a dedent of two levels at once
@@ -35,8 +37,8 @@ main : ()
 main =
   if c
     if d
-      print 1
-  print 2
+      println! \-> "#{1}"
+  println! \-> "#{2}"
 
 ----------------------------------------------------------------
 
@@ -55,11 +57,13 @@ main =
             (identifier))
           consequence: (statement_block
             (expression_statement
-              (identifier)
-              (number))))))
+              (macro_call
+                name: (identifier)
+                argument: (string)))))))
     body: (expression_statement
-      (identifier)
-      (number))))
+      (macro_call
+        name: (identifier)
+        argument: (string)))))
 
 ================================================================
 a blank line and a comment carry no depth
@@ -67,10 +71,10 @@ a blank line and a comment carry no depth
 
 main : ()
 main =
-  print 1
+  println! \-> "#{1}"
 
   -- still inside the block
-  print 2
+  println! \-> "#{2}"
 
 ----------------------------------------------------------------
 
@@ -81,11 +85,13 @@ main =
   (equation
     name: (identifier)
     body: (expression_statement
-      (identifier)
-      (number))
+      (macro_call
+        name: (identifier)
+        argument: (string)))
     body: (expression_statement
-      (identifier)
-      (number))))
+      (macro_call
+        name: (identifier)
+        argument: (string)))))
 
 ================================================================
 a nesting fenced comment
@@ -94,7 +100,7 @@ a nesting fenced comment
 main : ()
 main =
   {- outer {- inner -} still outer -}
-  print 1
+  println! \-> "#{1}"
 
 ----------------------------------------------------------------
 
@@ -105,8 +111,9 @@ main =
   (equation
     name: (identifier)
     body: (expression_statement
-      (identifier)
-      (number))))
+      (macro_call
+        name: (identifier)
+        argument: (string)))))
 
 ================================================================
 an indented block inside parentheses
@@ -114,11 +121,11 @@ an indented block inside parentheses
 
 main : ()
 main =
-  print (if c
+  show (if c
     1
   else
     2)
-  print 3
+  println! \-> "#{3}"
 
 ----------------------------------------------------------------
 
@@ -143,8 +150,9 @@ main =
                 (expression_statement
                   (number))))))))
     body: (expression_statement
-      (identifier)
-      (number))))
+      (macro_call
+        name: (identifier)
+        argument: (string)))))
 
 ================================================================
 an inconsistent dedent is an error
@@ -153,8 +161,8 @@ an inconsistent dedent is an error
 
 main : ()
 main =
-    print 1
-  print 2
+    println! \-> "#{1}"
+  println! \-> "#{2}"
 
 ----------------------------------------------------------------
 

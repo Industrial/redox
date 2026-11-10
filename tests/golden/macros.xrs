@@ -1,0 +1,88 @@
+// A macro of our own, defined in Rust, invoked from Redox below. Macro
+// *definition* stays declined — doc 03 §23 item 3 — and the inline-Rust hatch
+// is the answer, which is what makes this the honest witness: Redox knows
+// nothing about `loud!` and passes its argument through.
+//
+// It is **first in the file** because `macro_rules!` is textually scoped:
+// defining it below `main` earned *"cannot find macro `loud` in this scope"*
+// from rustc, reported against this `.sdx` through plan 06's source map.
+macro_rules! loud {
+    ($e:expr) => {{
+        let __v = $e;
+        __v + 1
+    }};
+}
+
+// Plan 64: macros are callable. `name! \-> e` — `!` marks the name, a nullary
+// lambda opens each argument, and layout closes a multi-line one. No bracket
+// of any kind appears.
+//
+// This closes the largest reachability gap the language had. Plan 48 ported
+// the compiler's own source to Redox and measured what blocked it:
+// `docs/CONFORMANCE.md` carries the figure, and macro invocation was almost
+// all of it. `effect!`, `caps!`, `hlist!`, `vec!`, `json!`, `bail!`, `info!`,
+// `query!` and every proc-macro were unreachable in a language whose premise
+// is "Redox has crates.io".
+//
+// Doc 18 §7 retired `!` as the zero-argument-call suffix and left it meaning
+// negation; this row takes it back for macros, told apart by **adjacency** —
+// `foo!` is a macro head and `! foo` is negation. §6 discloses that this is
+// the rule plan 52 struck from `::`, and that a small token budget is why it
+// comes back.
+fn main() {
+    let a = 1;
+    let b = 2;
+
+    // One argument, and Redox's own interpolation splices it: this reaches Rust
+    // as `println!("{} {}", a, b)`, two arguments where the author wrote one.
+    // That is why the commonest macros take exactly one here — plan 64 §1.3.
+    println!("{} {}", a, b);
+
+    // **A capability the language did not have.** `eprint "x"` used to emit
+    // `eprint("x")`, a call to a function no program defines, so there was no
+    // way to write to stderr at all and a diagnostic-emitting program could not
+    // exist. It needs no special case — it arrives by the general path.
+    eprintln!("to stderr: {}", a);
+
+    // A string literal reaching a macro is a **format string**, so a brace the
+    // author wrote prints as a brace: `{}` is literal and `#{}` is the hole.
+    // Exactly what `print` did, and the reason the two-argument
+    // `println!("{}", e)` is deliberately unspellable.
+    println!("a literal {{}} brace");
+
+    // `assert!` keeps the rewrite the retired keyword had: a comparison becomes
+    // `assert_eq!`, which prints **both values** when they differ where
+    // `assert!` prints only the expression. Plan 64 §11.2 is the finding —
+    // retiring the keyword into the general macro path without this would be a
+    // regression in diagnostic quality.
+    assert_eq!(a + 1, b);
+    assert!(a < b);
+
+    // `format!` is the same call in expression position.
+    let joined = format!("{}-{}", a, b);
+    println!("{}", joined);
+
+    // The panic family, as the macros they always were. Three were emitter
+    // special cases on a bare name until plan 64; `todo!` is now the spelling
+    // and `todo` is `RDX0118`.
+    let guarded = if a > b { unreachable!() } else { a + b };
+    println!("{}", guarded);
+
+    // A multi-line argument, closed by layout. Plan 64 §11.1 owed a probe here
+    // and the probe answered no work: plan 55 leaf 1 made an indented block an
+    // expression, so `\->` over one needs nothing from this row.
+    let sum = loud!({
+        let first = a * 10;
+        let second = b * 10;
+        first + second
+    });
+    println!("{}", sum);
+
+    // The escape hatch, for input that is **not a Redox expression**. A
+    // token-stream DSL's tokens *are* its input, so no value-passing shape can
+    // carry them — plan 64 §1.4. Plan 45 leaf 1 shipped the `"""` string form
+    // as an item; leaf 4 added this expression position and the layout body.
+    let hatched = [1, 2, 3].iter().copied().max().unwrap_or(0);
+    println!("{}", hatched);
+    ();
+}

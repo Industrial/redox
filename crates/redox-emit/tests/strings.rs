@@ -142,7 +142,7 @@ fn several_interpolations_fill_several_holes() {
 #[test]
 fn print_of_an_interpolation_is_println_with_that_template() {
   assert_eq!(
-    body("  print \"hi #{name}\"\n"),
+    body("  println! \\-> \"hi #{name}\"\n"),
     "println!(\"hi {}\", name);"
   );
 }
@@ -151,7 +151,7 @@ fn print_of_an_interpolation_is_println_with_that_template() {
 /// **not** happen.
 #[test]
 fn print_does_not_double_an_interpolations_braces() {
-  let out = body("  print \"hi #{name}\"\n");
+  let out = body("  println! \\-> \"hi #{name}\"\n");
   assert!(!out.contains("#{{"), "{out}");
   assert!(!out.contains("#{name}"), "{out}");
 }
@@ -164,7 +164,7 @@ fn print_does_not_double_an_interpolations_braces() {
 #[test]
 fn a_string_without_interpolation_is_unchanged() {
   assert_eq!(body("  s = \"plain\"\n"), "let s = \"plain\";");
-  assert_eq!(body("  print \"plain\"\n"), "println!(\"plain\");");
+  assert_eq!(body("  println! \\-> \"plain\"\n"), "println!(\"plain\");");
 }
 
 /// And a brace in such a string still doubles only where it is a format
@@ -172,7 +172,7 @@ fn a_string_without_interpolation_is_unchanged() {
 #[test]
 fn a_brace_in_a_plain_string_doubles_only_in_a_template() {
   assert_eq!(body("  s = \"{}\"\n"), "let s = \"{}\";");
-  assert_eq!(body("  print \"{}\"\n"), "println!(\"{{}}\");");
+  assert_eq!(body("  println! \\-> \"{}\"\n"), "println!(\"{{}}\");");
 }
 
 // --- §5.7: the four literal kinds -----------------------------------------
@@ -246,7 +246,8 @@ fn a_triple_quoted_block_interpolates() {
 /// has to reach the closing `"""`.
 #[test]
 fn a_triple_quoted_blocks_span_covers_it() {
-  let src = "main : ()\nmain =\n  s = \"\"\"\n    a\n    b\n    \"\"\"\n  print s\n  ()\n";
+  let src =
+    "main : ()\nmain =\n  s = \"\"\"\n    a\n    b\n    \"\"\"\n  println! \\-> \"#{s}\"\n  ()\n";
   let program = parse_source(src).expect("should parse");
 
   let redox_ast::Item::Fn(main) = &program.items[0] else {

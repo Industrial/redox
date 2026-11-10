@@ -1,6 +1,6 @@
 error[RDX0102]: expected an expression
-  --> double_operator.sdx:3:14
+  --> double_operator.sdx:3:24
   |
-3 |   print (1 + + 2)
-  |              ^
+3 |   println! \-> "#{(1 + + 2)}"
+  |                        ^
 

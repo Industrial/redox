@@ -62,6 +62,6 @@ describe n =
 
 main : ()
 main =
-  print (describe 9)
-  print (describe 1)
+  println! \-> "#{(describe 9)}"
+  println! \-> "#{(describe 1)}"
   ()

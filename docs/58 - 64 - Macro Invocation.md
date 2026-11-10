@@ -480,7 +480,133 @@ largest test of it.
 
 ## 10. Result
 
-*Not yet executed.*
+**Done 2026-11-10.** All seven leaves, every criterion met or amended in
+writing, and the measurement that motivated the milestone changed: `docs/CONFORMANCE.md`
+reads **12 blocking occurrences, down from 964**, all of them `as` casts.
+
+### 10.1 The probe §11.1 owed, run
+
+`\->` over an indented block **works**, so leaf 2 is the argument position and
+nothing else:
+
+```text
+main : ()
+main =
+  f = \->
+    a = 1
+    a + 1
+  print (f ())
+->  fn main() { let f = || { let a = 1; a + 1 }; … }
+```
+
+§11.1 left this *"empirical, after 55 lands"* and §11.1's own addendum called
+the condition met in a stronger form than it anticipated — plan 55 leaf 1
+deleted `StmtKind`, and plan 65 made layout work inside brackets. Both are
+right: `prefix` reads a `Newline` as a block, so a macro argument parsed with
+`parse_expr` gets the multi-line form for free. **Criterion 4 cost zero.**
+
+That is the value of writing the probe down rather than deciding by default.
+The row's sizing rested on this one question, and the answer was one command.
+
+### 10.2 The migration's own finding: an interpolation is one token
+
+**This is the row's sharpest finding, and the gate found it rather than a
+reader.** `print e` became `println! \-> "#{e}"`, and an interpolation is a
+*single* `Str` token — so every expression that used to stand in a `print`'s
+argument moved **inside a string**, where `construct_coverage`'s scan of token
+runs cannot see it.
+
+Three constructs had no witness anywhere else and all three were reported at
+once: precedence (`+ «int» *`), a left section (`( «int» - )`), and indexing a
+call's result (`) [ «int» ]`). `examples/expressions.sdx` is the precedence
+row's whole witness and after the migration it witnessed **nothing**, with all
+three constructs still in plain sight on the page.
+
+The fix is a binding, which puts the tokens back on the line — and reads
+better, which is why `examples/expressions.sdx` is now eight bindings rather
+than eight interpolations. No change to the scanner: a construct buried in a
+string is exactly what plan 51 §1 built this test to catch.
+
+### 10.3 What `print`'s retirement actually cost, in one place
+
+`print` was the only **built-in** that took an arbitrary expression in
+argument position. `println!`'s first argument is a Rust format string, and
+this row brace-doubles a string literal reaching a macro — so
+`println! \-> "{}"` prints braces, exactly as `print "{}"` did, and the
+two-argument `println!("{}", e)` is **deliberately unspellable**. §1.3's
+*"interpolation absorbs the multi-argument format family"* taken to its
+conclusion.
+
+So an expression reaches a macro through a name or through an interpolation,
+and an interpolation is one line. Two corpus sites were multi-line
+`print (if c …)` — plan 65's witness in `examples/control.sdx` and the
+matching tree-sitter corpus case — and neither could be rewritten
+mechanically. Both pass the bracketed `if` to a **function** instead, which is
+still argument position and is what the comment above each one claims.
+
+### 10.4 Two defects found, both older than this row
+
+**A lexical error inside an interpolation reported the wrong line.**
+`lex_fragment` rebases every token's span onto the file and did not rebase its
+**error's**, so `bad_quote.stderr` blessed to *line 1, column 4* for an error
+on line 3. `LexError`'s own doc comment describes the identical failure one
+path over, and `split_parts` applies `offset_by` to `scan_escape` and
+`skip_interpolation` — the fragment path was the one call that did not. Older
+than this row, unwitnessed until the migration moved two `tests/ui/` fixtures'
+bad tokens inside an interpolation.
+
+**Plan 07 §2.1's whole-statement fallback lost its witness, correctly.**
+`check/restructured.sdx` asserted that a line the emitter *restructures*
+underlines the whole statement, with `print (add "x" 2)` as the witness. The
+replacement is **longer** in the `.sdx` than the generated Rust is, so the
+shifted column lands inside the statement's span and `narrow` returns a
+precise caret — right, but then nothing exercised the fallback. A construct
+that still grows under lowering does; the fixture is a comprehension now.
+
+### 10.5 The register's own numbers, corrected a third time
+
+§11.4 found criterion 12's figure wrong in both value and unit — *885 of 897
+occurrences*, not *855 lines* — and said to cite the document. By the time the
+row ran it was **952 of 964**, which is the argument for citing it made
+concrete twice over. The generator no longer counts macro invocation at all:
+the document's own sentence under **Blockers** reads *"each is graded
+`UNREACHABLE` in `docs/GRAMMAR.md`"*, and a `SUGARED` row there would make the
+document wrong about itself.
+
+### 10.6 Six sweeps, one mistake
+
+Leaf 6 touched 110 `.sdx` and corpus files and 38 Rust files, and the Rust
+half was reverted and re-run **five times**. Every failure was the same
+mistake in different clothes — *a segment does not carry its own context* —
+and `.tmp/p64rssweep.py`'s header records all six in order: prose rewritten as
+code, a bare `"` closing a Rust literal, `\->` as an invalid Rust escape, a
+file list whose boundary missed `\n`, a segment carrying the Rust that closes
+its literal, and a statement on the same line as its opening quote.
+
+Two things made that survivable. The sweep **asserted a unique anchor** and
+failed rather than guessing; and the diff was read every time. The one cost
+not caught by reading was that `git checkout` over the sweep's file list took
+the compiler-side edits with it — those files are candidates *because their
+doc comments quote `print`* — which is why they now live in one script,
+`.tmp/p64src.py`, rather than in five.
+
+**No `.stdout` file changed.** Thirty programs, every one printing exactly
+what it printed before, which is the strongest correctness signal this corpus
+offers for a migration of this size.
+
+### 10.7 What the readers cost
+
+All five, and the grammar needed three rounds. `macro_call` is
+`prec.right(1, …)` over `token.immediate("!")` — the adjacency rule, stated in
+the one place tree-sitter can state it — and its argument had to name
+`block_expression` explicitly for the same reason `binding` does: `$._expression`
+excludes a bare block, because including it gives GLR two readings of every
+indented body. `inline_rust` gained the layout body and a `rust_hatch`
+expression rule at `prec(-1)` so the item form wins a tie.
+
+`assert` left `highlights.scm`, the vim syntax and the TextMate grammar, and
+`editors.rs` caught both highlighters in one assertion — the cross-check plan
+66 §10 found the gap in from the operator side.
 
 ---
 

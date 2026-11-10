@@ -63,18 +63,18 @@ rust """
 
 main : ()
 main =
-  print (low_half 65537)
+  println! \-> "#{(low_half 65537)}"
   n = unsafe
     unsafe_double 21
-  print n
-  print (r#type ())
-  print (raw_pattern ())
+  println! \-> "#{n}"
+  println! \-> "#{(r#type ())}"
+  println! \-> "#{(raw_pattern ())}"
   -- `escaped ().len ()` used to read as `escaped(().len())`: the argument of
   -- a parenless call extends as far as it can. Plan 57 §1.1 counts that among
   -- the four defects a receiver-last method deletes — there is no `()` left in
   -- the spelling to be ambiguous about.
-  print (.len (escaped ()))
+  println! \-> "#{(.len (escaped ()))}"
   d = unsafe
     abs (-7)
-  print d
+  println! \-> "#{d}"
   ()

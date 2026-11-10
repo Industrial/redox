@@ -1,6 +1,6 @@
 error[RDX0011]: unexpected character '§'
-  --> unexpected_character.sdx:3:12
+  --> unexpected_character.sdx:3:22
   |
-3 |   print (1 § 2)
-  |            ^
+3 |   println! \-> "#{(1 § 2)}"
+  |                      ^
 

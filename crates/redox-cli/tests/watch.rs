@@ -104,19 +104,32 @@ impl Watching {
   }
 }
 
+/// A whole program with `body` as its one statement.
+///
+/// A helper rather than a literal at each of eight call sites, and plan 64 is
+/// why: `print 1` fitted on one line and `println! \-> "#{1}"` does not, so
+/// rustfmt wrapped three of them onto their own lines followed by a comma —
+/// which is exactly the shape `no_literal_expectations`'s captured-output
+/// heuristic counts. The heuristic was right that the shape appeared and
+/// wrong about what it meant: these are the test's **inputs**, written to
+/// disk as it runs, not an expectation of anything.
+fn program(body: &str) -> String {
+  format!("main : ()\nmain =\n  {body}\n  ()\n")
+}
+
 /// Criterion 1: it builds once at start, then again on a change.
 #[test]
 fn it_builds_at_start_and_on_change() {
   if support::skip_without_rustc("it_builds_at_start_and_on_change") {
     return;
   }
-  let watching = Watching::start("change", "main : ()\nmain =\n  print 1\n  ()\n");
+  let watching = Watching::start("change", &program("println! \\-> \"#{1}\""));
 
   watching
     .wait_for_output("println!(\"{}\", 1)")
     .expect("the initial build should happen before any change");
 
-  watching.write("main : ()\nmain =\n  print 2\n  ()\n");
+  watching.write(&program("println! \\-> \"#{2}\""));
   let after = watching
     .wait_for_output("println!(\"{}\", 2)")
     .expect("a change should trigger a rebuild");
@@ -136,15 +149,15 @@ fn a_compile_error_does_not_end_the_loop() {
   if support::skip_without_rustc("a_compile_error_does_not_end_the_loop") {
     return;
   }
-  let mut watching = Watching::start("survive", "main : ()\nmain =\n  print 1\n  ()\n");
+  let mut watching = Watching::start("survive", &program("println! \\-> \"#{1}\""));
   watching
     .wait_for_output("println!(\"{}\", 1)")
     .expect("the initial build should happen");
 
   // Break it. The watcher must report and continue.
-  watching.write("main : ()\nmain =\n  print (1 +)\n  ()\n");
+  watching.write(&program("println! \\-> \"#{(1 +)}\""));
   // Then fix it, with different content so the output is distinguishable.
-  watching.write("main : ()\nmain =\n  print 3\n  ()\n");
+  watching.write(&program("println! \\-> \"#{3}\""));
 
   watching
     .wait_for_output("println!(\"{}\", 3)")
@@ -171,19 +184,19 @@ fn it_survives_the_file_being_replaced() {
   if support::skip_without_rustc("it_survives_the_file_being_replaced") {
     return;
   }
-  let watching = Watching::start("replaced", "main : ()\nmain =\n  print 1\n  ()\n");
+  let watching = Watching::start("replaced", &program("println! \\-> \"#{1}\""));
   watching
     .wait_for_output("println!(\"{}\", 1)")
     .expect("the initial build should happen");
 
   // Twice, because the failure mode is losing the watch on the *first*
   // replacement: one rename could succeed by luck of event ordering.
-  watching.replace("main : ()\nmain =\n  print 4\n  ()\n");
+  watching.replace(&program("println! \\-> \"#{4}\""));
   watching
     .wait_for_output("println!(\"{}\", 4)")
     .expect("a renamed-over file should still trigger a rebuild");
 
-  watching.replace("main : ()\nmain =\n  print 5\n  ()\n");
+  watching.replace(&program("println! \\-> \"#{5}\""));
   watching
     .wait_for_output("println!(\"{}\", 5)")
     .expect("and so should the next one");

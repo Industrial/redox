@@ -3,8 +3,8 @@
 
 main : ()
 main =
-  print "one"  -- an inline comment
-  print "two"
+  println! \-> "one"  -- an inline comment
+  println! \-> "two"
   ()
 
 -- A comment at end of file.

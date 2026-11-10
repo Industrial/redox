@@ -63,7 +63,7 @@ noop = ()
 announce : async ()
 announce =
   <- noop ()
-  print "announced"
+  println! \-> "announced"
   ()
 
 -- **The case the run catches.** Two awaits whose results are combined, so
@@ -90,9 +90,9 @@ deferred =
 
 main : ()
 main =
-  print (block_on (double 21))
-  print (block_on (quadruple 2))
-  print (block_on (combined ()))
-  print (block_on (deferred ()))
+  println! \-> "#{(block_on (double 21))}"
+  println! \-> "#{(block_on (quadruple 2))}"
+  println! \-> "#{(block_on (combined ()))}"
+  println! \-> "#{(block_on (deferred ()))}"
   block_on (announce ())
   ()

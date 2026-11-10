@@ -27,5 +27,5 @@ tags ps = ps |> .iter |> .map (.tag) |> .collect
 main : ()
 main =
   ps = [] : Vec<Profile>
-  print (.len (tags (&ps)))
+  println! \-> "#{(.len (tags (&ps)))}"
   ()

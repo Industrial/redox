@@ -14,7 +14,7 @@ main =
   raw = Some 7
   -- The trailing form, keyed on the pragma's own line since plan 38.
   port = .unwrap raw  -- redox: allow unwrap
-  print port
+  println! \-> "#{port}"
   -- The **leading** form, which silently suppressed nothing before plan 53:
   -- the key was the trivium's own line, and this one is not the statement's.
   -- It works now because suppression is keyed on the span of the construct
@@ -22,5 +22,5 @@ main =
   -- witnessed here.
   -- redox: allow unwrap
   other = .expect "set by construction" (Some 1)
-  print other
+  println! \-> "#{other}"
   ()

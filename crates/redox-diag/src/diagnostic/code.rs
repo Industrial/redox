@@ -268,6 +268,23 @@ pub enum Code {
   /// it is refused because it used to mean something else.
   OptionalChaining,
 
+  /// `RDX0118` — one of the six spellings plan 64 retires: `assert`, `panic`,
+  /// `print`, `todo`, `unimplemented`, `unreachable`.
+  ///
+  /// Each existed **only because macros were unreachable**, and each names a
+  /// Rust macro that is strictly better now that `name! \-> e` reaches it:
+  /// `println!` has a stderr sibling where the sugar had none, and `assert!`
+  /// belongs to a family where the keyword stood alone.
+  ///
+  /// The retired spelling appears in 29 of the 31 examples, so this message
+  /// *is* the migration guide — the fifth row in this milestone to answer a
+  /// retired spelling with a diagnostic rather than with silence.
+  ///
+  /// `otherwise` is **not** among them and still works: it is a guard-ladder
+  /// catch-all with no macro equivalent, so retiring it would mean writing
+  /// `| true =` (plan 64 §1.5).
+  RetiredSpelling,
+
   // ---- lints: RDX1000+ ----
   /// `unwrap` or `expect` used — doc 03 §12.7, plan 38.
   ///
@@ -377,6 +394,7 @@ impl Code {
       Self::MethodCallSyntax => 115,
       Self::PipelineSection => 116,
       Self::OptionalChaining => 117,
+      Self::RetiredSpelling => 118,
       // Doc 03 §17's published number, and the first in the lint band.
       Self::UnwrapUsed => 1001,
       Self::CommentAllowPragma => 1002,
@@ -424,6 +442,7 @@ impl Code {
       Self::MethodCallSyntax,
       Self::PipelineSection,
       Self::OptionalChaining,
+      Self::RetiredSpelling,
       Self::UnwrapUsed,
       Self::CommentAllowPragma,
       Self::ShadowedBinding,

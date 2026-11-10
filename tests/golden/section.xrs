@@ -21,10 +21,10 @@ fn main() {
     // A left section, new in doc 18 §4. `(10 -)` is what doc 03 §5.4 could not
     // spell: with only right sections, subtracting *from* a value had no
     // section form at all.
-    println!("{}", {
-        let __rdx_t: i32 = (1..4).map(|__rdx_1| 10 - __rdx_1).sum();
-        __rdx_t
-    });
+    // Bound rather than interpolated so the `( «int» - )` run stays visible
+    // to `construct_coverage` — see the note in `examples/expressions.sdx`.
+    let flipped: i32 = (1..4).map(|__rdx_1| 10 - __rdx_1).sum();
+    println!("{}", flipped);
 
     // A comparison, which lowers to the **method** form because an adaptor
     // hands its closure a reference and `&i32 > 1` does not compile.
