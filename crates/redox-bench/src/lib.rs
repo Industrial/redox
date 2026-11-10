@@ -29,7 +29,11 @@ pub mod pair;
 mod throughput;
 
 pub use ir::function_ir::function_ir;
-pub use ir::rustc_path::rustc_path;
+// Plan 50 leaf 1: this crate had its **own** `rustc_path` and its own
+// `build.rs`, the latter identical to `redox-cli`'s but for the doc comments.
+// Both are gone; the driver owns the resolution and this is a re-export so
+// the crate's public surface is unchanged.
 pub use pair::Pair;
 pub use pair::pairs::pairs;
+pub use redox_driver::rustc_path;
 pub use throughput::throughput;

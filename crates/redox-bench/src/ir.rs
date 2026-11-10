@@ -4,4 +4,3 @@
 //! peers with no natural head.
 
 pub(crate) mod function_ir;
-pub(crate) mod rustc_path;

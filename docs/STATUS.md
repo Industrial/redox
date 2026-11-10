@@ -34,17 +34,17 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 | Crate | `src` | `tests` |
 |---|---:|---:|
 | `redox-ast` | 2430 | 0 |
-| `redox-bench` | 634 | 211 |
-| `redox-cli` | 1585 | 5750 |
+| `redox-bench` | 588 | 211 |
+| `redox-cli` | 1372 | 5778 |
 | `redox-diag` | 1291 | 0 |
-| `redox-driver` | 1663 | 0 |
+| `redox-driver` | 1994 | 0 |
 | `redox-emit` | 4163 | 3875 |
 | `redox-fmt` | 2449 | 1188 |
 | `redox-fuzz` | 120 | 268 |
 | `redox-lexer` | 2690 | 874 |
 | `redox-lsp` | 872 | 471 |
 | `redox-parser` | 6330 | 223 |
-| **total** | **24227** | **12860** |
+| **total** | **24299** | **12888** |
 
 ---
 

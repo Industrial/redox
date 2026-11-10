@@ -13,18 +13,32 @@
 //! only caller, and plan 09 gave it a second one that must not depend on the
 //! CLI (plan 09 §2.1).
 //!
+//! **Plan 50** (`mcp-server`) leaf 1 did the same thing for the rustc pass, one
+//! row later and for the same reason with the evidence already in: [`check`]
+//! and [`rustc_path`] were `pub(crate)` inside `redox-cli`, and the copy that
+//! argument predicts had **already been made** — `redox-bench`'s build script
+//! was `redox-cli`'s with different doc comments. A third reader
+//! (`redox-mcp`'s `redox_check`) is where that stops being tolerable, so this
+//! crate now owns the pass, the toolchain resolution, and the `build.rs` that
+//! bakes a verified `REDOX_RUSTC` — which must live beside them, because
+//! `cargo::rustc-env` bakes into whichever crate carries the script.
+//!
 //! Layout follows `docs/06 - Redox Code Architecture.md`: one construct per
 //! file, modules private, public items re-exported from here.
 
 mod cache;
+mod check;
 mod compile_dir;
 mod diagnose;
 mod lint;
 mod remap;
+mod rustc_path;
 
 pub use cache::fingerprint::Fingerprint;
 pub use cache::reporter::CacheReporter;
 pub use cache::reporter::silent::Silent;
+pub use check::check;
+pub use check::outcome::CheckOutcome;
 pub use compile_dir::compile_dir;
 pub use compile_dir::compiled::Compiled;
 pub use compile_dir::with::compile_dir_with;
@@ -32,3 +46,4 @@ pub use diagnose::diagnose;
 pub use lint::lint;
 pub use remap::remap;
 pub use remap::rustc_message::RustcMessage;
+pub use rustc_path::rustc_path;

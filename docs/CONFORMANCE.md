@@ -20,7 +20,7 @@ Plan 48 (`docs/42 - 48 - Conformance and Self-Hosting.md`) built it.
 
 **No — and one construct is almost all of it.**
 
-Macro invocation accounts for **855 of 867** blocking occurrences (99%). Doc 18 §7 retired `!` as a suffix and left no spelling, so `format!`, `write!`, `assert!`, `println!` and `panic!` — how this compiler formats, asserts and reports — cannot be written.
+Macro invocation accounts for **853 of 865** blocking occurrences (99%). Doc 18 §7 retired `!` as a suffix and left no spelling, so `format!`, `write!`, `assert!`, `println!` and `panic!` — how this compiler formats, asserts and reports — cannot be written.
 
 Spell it, and what remains is the `as` casts below. That makes this document a **priority** rather than a verdict: plan 45 §1.5 declined to spell macro invocation because it needs a surface decision in doc 03, and this is the measure of what that decision is worth.
 
@@ -32,7 +32,7 @@ Each is graded `UNREACHABLE` in `docs/GRAMMAR.md`.
 
 | Blocker | Occurrences |
 |---|---:|
-| Macro invocation | 855 |
+| Macro invocation | 853 |
 | `as` cast | 12 |
 | `unsafe trait` | 0 |
 | `unsafe impl` | 0 |
@@ -51,17 +51,17 @@ Each is graded `UNREACHABLE` in `docs/GRAMMAR.md`.
 | Crate | Files | With a blocker | |
 |---|---:|---:|---:|
 | `redox-ast` | 48 | 6 | 12% |
-| `redox-bench` | 14 | 6 | 43% |
-| `redox-cli` | 26 | 22 | 85% |
+| `redox-bench` | 13 | 5 | 38% |
+| `redox-cli` | 24 | 20 | 83% |
 | `redox-diag` | 20 | 15 | 75% |
-| `redox-driver` | 27 | 16 | 59% |
+| `redox-driver` | 32 | 20 | 62% |
 | `redox-emit` | 79 | 58 | 73% |
 | `redox-fmt` | 52 | 33 | 63% |
 | `redox-fuzz` | 6 | 0 | 0% |
 | `redox-lexer` | 32 | 16 | 50% |
 | `redox-lsp` | 22 | 6 | 27% |
 | `redox-parser` | 104 | 31 | 30% |
-| **total** | **430** | **209** | **49%** |
+| **total** | **432** | **210** | **49%** |
 
 ---
 

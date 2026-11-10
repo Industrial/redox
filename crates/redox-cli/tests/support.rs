@@ -8,11 +8,26 @@
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::LazyLock;
 
-/// The toolchain's rustc, resolved at build time by `build.rs`. Resolving it
-/// from `PATH` here is unreliable: under `blaze test` the test process sees
-/// NixOS's `stub-ld` shim instead.
-const RUSTC: &str = env!("REDOX_RUSTC");
+/// The toolchain's rustc, from `redox_driver::rustc_path`.
+///
+/// This was `env!("REDOX_RUSTC")` against `redox-cli`'s own `build.rs` until
+/// plan 50 leaf 1 moved that script to `redox-driver` — `cargo::rustc-env`
+/// bakes into the crate carrying the script, so the value is no longer
+/// readable from here and the driver's resolution is now the only one.
+///
+/// Resolving from `PATH` directly is still unreliable, which is why the
+/// resolution is the driver's and not a `PATH` lookup: under `blaze test` the
+/// test process sees NixOS's `stub-ld` shim instead. `rustc_path` falls
+/// through it because it **verifies** each candidate.
+static RUSTC: LazyLock<String> = LazyLock::new(|| {
+  redox_driver::rustc_path()
+    .map(|path| path.display().to_string())
+    // Name it anyway when nothing resolves, so `skip_without_rustc`'s message
+    // says something rather than nothing.
+    .unwrap_or_else(|| "rustc".to_string())
+});
 
 pub struct Case {
   pub rust: String,
@@ -35,7 +50,7 @@ impl Case {
   /// would point at.
   pub fn run(&self) -> String {
     let bin = self.dir.join("program");
-    let out = Command::new(RUSTC)
+    let out = Command::new(rustc())
       .args(["--edition", "2024", "-o"])
       .arg(&bin)
       .arg(&self.xrs)
@@ -71,7 +86,7 @@ impl Case {
     }
 
     let bin = self.dir.join("tests");
-    let out = Command::new(RUSTC)
+    let out = Command::new(rustc())
       .args(["--edition", "2024", "--test", "-o"])
       .arg(&bin)
       .arg(&self.xrs)
@@ -111,7 +126,7 @@ fn workspace_root() -> PathBuf {
 /// Verified rather than trusted, the same rule `build.rs` applies to rustc —
 /// plan 03's third blaze shim is why that rule exists.
 fn rustfmt_path() -> Option<PathBuf> {
-  let dir = Path::new(RUSTC).parent()?;
+  let dir = Path::new(rustc()).parent()?;
   let candidate = dir.join("rustfmt");
   let works = Command::new(&candidate)
     .arg("--version")
@@ -189,7 +204,7 @@ pub fn transpile_path(source: &Path) -> Case {
 
 /// The verified rustc path, for handing to a child process.
 pub fn rustc() -> &'static str {
-  RUSTC
+  RUSTC.as_str()
 }
 
 /// Whether a rustc that actually runs is available.
@@ -198,7 +213,7 @@ pub fn rustc() -> &'static str {
 /// `stub-ld` shim answering to `rustc` under `blaze test`, which fails only
 /// when invoked.
 pub fn rustc_runs() -> bool {
-  Command::new(RUSTC)
+  Command::new(rustc())
     .arg("--version")
     .output()
     .is_ok_and(|o| o.status.success())
@@ -212,7 +227,7 @@ pub fn skip_without_rustc(test: &str) -> bool {
   if rustc_runs() {
     return false;
   }
-  eprintln!("skipping {test}: no working rustc at {RUSTC}");
+  eprintln!("skipping {test}: no working rustc at {}", rustc());
   true
 }
 

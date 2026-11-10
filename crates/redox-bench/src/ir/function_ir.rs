@@ -6,7 +6,7 @@ pub(crate) mod strip_debug;
 use crate::ir::function_ir::alpha_renamed::alpha_renamed;
 use crate::ir::function_ir::body_of::body_of;
 use crate::ir::function_ir::mark_target::mark_target;
-use crate::ir::rustc_path::rustc_path;
+use redox_driver::rustc_path;
 use std::path::Path;
 
 /// One function's optimised LLVM IR, as emitted for `source`.

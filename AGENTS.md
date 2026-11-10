@@ -319,6 +319,27 @@ result, which is why they are written down rather than rediscovered.
   `--version` like rustc"* while passing under `cargo nextest`, where `PATH` happens to hold
   a real rustc and hid the mistake for as long as nobody ran the blaze path.
 
+- **A single `watch` test failing at exactly 20 seconds is the load-dependent flake, not your
+  change.** `crates/redox-cli/tests/watch.rs` polls the generated `.xrs` for expected content
+  with a 20-second `CEILING`, and under the **full** `redox-cli` suite one of its six tests
+  intermittently exhausts it. Measured 2026-11-10 while doing plan 50 leaf 1:
+
+  - the failing test **passes alone in ~0.1 s**, and fails only in the full run;
+  - it is a **different test each time** — `it_survives_the_file_being_replaced`,
+    `a_compile_error_does_not_end_the_loop`, `it_builds_at_start_and_on_change` — which is
+    what tells it from a real regression in any one of them;
+  - it reproduces **at HEAD with the change stashed**, which is the experiment that settles
+    authorship. Two of three runs pass either way.
+
+  It is **not** inotify exhaustion: `max_user_instances` and `max_user_watches` are both
+  524288 here with effectively none in use, and that was the first hypothesis. An earlier one
+  — that a `PATH` scan for rustc had become expensive — was also measured and false: 264
+  `PATH` entries, 2 of them holding a `rustc`, 7.7 ms to resolve.
+
+  So: **run the failing test alone before believing it.** If it passes in a tenth of a second,
+  you have this, and the diff is not the cause. Distinguish it from the two cases below, which
+  name *every* crate rather than one test.
+
 - **Do not grep compiler output for `^error` — it reads as green when it is not.** `cargo
   clippy` colourises its output, so the line begins with an ANSI escape and the pattern
   never matches. This produced a confident "clippy clean" report while two

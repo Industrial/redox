@@ -52,15 +52,27 @@ fn transpile(example: &str, dir: &Path) -> (String, PathBuf) {
   (rust, xrs)
 }
 
-/// The toolchain's rustc, resolved at build time by `build.rs`. Resolving it
-/// from `PATH` here is unreliable: under `blaze test` the test process sees
-/// NixOS's `stub-ld` shim instead.
-const RUSTC: &str = env!("REDOX_RUSTC");
+/// The toolchain's rustc, from `redox_driver::rustc_path`.
+///
+/// Was `env!("REDOX_RUSTC")` until plan 50 leaf 1 moved the build script to
+/// `redox-driver`; `cargo::rustc-env` bakes into the crate carrying the
+/// script, so there is one resolution now and it is the driver's. A plain
+/// `PATH` lookup is still wrong here — under `blaze test` this process sees
+/// NixOS's `stub-ld` shim — which `rustc_path` survives by verifying each
+/// candidate rather than trusting it.
+fn rustc() -> &'static str {
+  static RUSTC: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+    redox_driver::rustc_path()
+      .map(|path| path.display().to_string())
+      .unwrap_or_else(|| "rustc".to_string())
+  });
+  RUSTC.as_str()
+}
 
 /// Whether the baked rustc can actually be executed in this process's
 /// environment.
 fn rustc_runs() -> bool {
-  Command::new(RUSTC)
+  Command::new(rustc())
     .arg("--version")
     .output()
     .is_ok_and(|o| o.status.success())
@@ -75,9 +87,10 @@ fn skip_without_rustc(test: &str) -> bool {
     return false;
   }
   eprintln!(
-    "SKIP {test}: cannot execute rustc at {RUSTC}.\n\
+    "SKIP {test}: cannot execute rustc at {}.\n\
      The generated-Rust proof is verified by `moon run :cargo-test`; see\n\
-     AGENTS.md's known tooling gotchas for why `blaze test` cannot run it."
+     AGENTS.md's known tooling gotchas for why `blaze test` cannot run it.",
+    rustc()
   );
   true
 }
@@ -85,7 +98,7 @@ fn skip_without_rustc(test: &str) -> bool {
 /// Compile `xrs` with real rustc and run it, returning its stdout.
 fn compile_and_run(xrs: &Path, dir: &Path) -> String {
   let bin = dir.join("program");
-  let out = Command::new(RUSTC)
+  let out = Command::new(rustc())
     .arg("--edition")
     .arg("2024")
     .arg("-o")
