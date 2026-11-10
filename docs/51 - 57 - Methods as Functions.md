@@ -53,17 +53,27 @@ against `y`* rather than something that needs a lambda. Read bare, `.cmp y x` pu
 in a surprising place; read in a pipeline, which is where it will almost always be read, it is
 in the only place it could be.
 
-### 1.3 The parenthesis distinction, and the honest objection to it
+### 1.3 The selector/method distinction, and the honest objection to it
 
 `(.name)` is already doc 18 §4's field selector and `map (.age)` already works. If bare `.name`
-is a method, the two spellings differ by parentheses:
+is a method, the two have to be told apart:
 
 ```
 map (.age) users        -- field selector
 raw |> .trim            -- method call
+map (.cmp y) xs         -- a method, parenthesised
 ```
 
-**This is a one-character semantic difference, which is the hazard class plan 52 removed from
+**The discriminator is a `)` immediately after the name, not a parenthesis.** This row's first
+draft said "the two spellings differ by parentheses", and §11.3 is the correction: criterion 3's
+`map (.cmp y)` is parenthesised *and* a method, so parenthesisation cannot be the test. It is a
+one-token lookahead — `(.age)` closes, `(.cmp y)` does not.
+
+Today `(.cmp 1)` is a hard `RDX0101`, because `section.rs:44` uses `p.expect(...)?` and
+propagates where its siblings at `:83`, `:89` and `:105` rewind. Leaf 2 has to convert that to a
+rewind, which is a smaller change than the rule's first statement implied and a different one.
+
+**It remains a one-token semantic difference, which is the hazard class plan 52 removed from
 `::`.** It is adopted anyway, and the trade should be stated rather than discovered:
 
 - the alternatives were a new sigil for methods (`..trim`), or losing `(.age)` and writing
@@ -80,10 +90,31 @@ code in leaf 5 instead. §6 records this as the row's one internal inconsistency
 
 Doc 18 §8 keeps `?.` among constructs retained *"because deleting **them** would cost
 reachability or ergonomics with nothing to show"*. That reasoning no longer holds: with `|>` as
-reverse application and methods callable as functions, the chain is expressible in the ordinary
-combinator vocabulary — and doc 02 §6.3's lowering is already a `?`-closure that lets **rustc**
-perform the `and_then`/`map` unification, so the chain was always there and `?.` was the
-spelling.
+reverse application and methods callable as functions, the chain is expressible — and doc 02
+§6.3's lowering is already a `?`-closure that lets **rustc** perform the `and_then`/`map`
+unification, so the chain was always there and `?.` was the spelling.
+
+**"In the ordinary combinator vocabulary" is what this said, and §11.4 falsifies it for exactly
+the case criterion 6 names.** A field selector *moves*: `(.name)` lowers to
+`|__rdx_1| __rdx_1.name` with no `&`, so
+
+```text
+ps |> into_iter |> map (.tag)
+->  ps.into_iter().map(|__rdx_1| __rdx_1.tag)
+->  E0507: cannot move out of `__rdx_1.tag` which is behind a shared reference
+```
+
+and `examples/fallible.sdx`'s chain is over a `newtype Tag = Tag String` chosen precisely
+because it is not `Clone`. Two replacements do compile, and **both need an explicit `&` written
+by hand**:
+
+```text
+u.as_ref () |> and_then (\x -> x.profile.as_ref ()) |> map (\p -> &p.tag)
+try / Some (&u.as_ref ()? .profile.as_ref ()? .tag)
+```
+
+Leaf 4 owes a choice between them. The chain is expressible; it is not expressible *without
+thinking about borrows*, which is a different and smaller claim than this paragraph made.
 
 (Amending that paragraph will also fix a count: §8 says *"Four Redox constructs are kept
 unchanged"* and then lists seven. Independent of `?.`, and leaf 7 should not leave it.)
@@ -175,16 +206,31 @@ Six cases:
 `.name` in head position is a function; the receiver is the last argument. Emission is
 `receiver.name(args…)`, which is purely syntactic — no resolution, no types.
 
+**`emit/pipeline.rs` is part of this leaf**, which this list omitted. `x |> .trim` is `RDX0102`
+today, so criterion 2 cannot be met without it, and §11.1 records the trap: that file's
+`other =>` arm appends `()`, so a zero-argument `x |> .name` must be matched **before** it or
+the lowering yields `x.(|__rdx_1| __rdx_1.name())()`. Plan 58 leaf 2 also claims the file, so it
+is edited twice across the two rows.
+
 ### Leaf 2 — `leaf-selector-vs-method`
 
-The parenthesis rule from §1.3: `(.name)` selects a field, bare `.name` calls a method. One
-parser decision, made on whether the dotted form is parenthesised.
+The rule from §1.3: a `)` immediately after the name selects a field, anything else calls a
+method. One parser decision, made on one token of lookahead — and the mechanical part of it is
+converting `section.rs`'s propagating `expect` into a rewind, so `(.cmp y)` stops being
+`RDX0101`.
 
 ### Leaf 3 — `leaf-retire-method-call`
 
 `x.f ()` and `x.f (a)` removed. A diagnostic recognises the old form and names the new one —
 every program written before this row is full of them, and the error message is the migration
 guide.
+
+**There are two AST shapes for a method call and this leaf only retires one**, which §11.2
+measured. `x.f (a)` is `Expr::MethodCall`; `x.f a` is `Expr::Call { callee: Expr::Field }`,
+because `postfix.rs:19-27` deliberately removed the paren-call step. Deleting the `MethodCall`
+branch therefore does **not** retire `x.f (a)` — it re-parses as the second shape and emits the
+same `x.f(a)` silently, and `x.f ()` degrades to `x.f(())` rather than to an error. The
+diagnostic has to recognise *application over a `Field`*, not a branch in `postfix`.
 
 ### Leaf 4 — `leaf-delete-optional-chaining`
 
@@ -273,9 +319,16 @@ fixtures for the retired call form and both misuse directions; `construct_covera
 
 ## 8. Emerald reuse
 
-Plan 34's formatter as the migration tool, for the third time in this milestone — and this is the
-row doc 02 §4.5 was actually describing, down to its *"ship the migration as a tool, not as
-instructions"*. Emerald's plan 71 cutover missed 113 fixtures embedded as string literals in Rust
+Doc 02 §4.5's *"ship the migration as a tool, not as instructions"* is the sentence this row
+most wants, and **it does not get it**: §1 and §9 decision 5 both say hand-migrate, having
+declined a rewriter. §8 claimed the formatter as the migration tool "for the third time in this
+milestone" and §11.6 caught the contradiction; decision 5 wins, because it is the decision.
+
+What the formatter *is* here is the check rather than the tool.
+`crates/redox-fmt/tests/properties.rs`'s `formatting_preserves_meaning` and
+`every_example_is_already_canonical` run over the whole corpus, so a hand-migration that
+changes a program fails before its golden does — which is how plan 51 found that `redox fmt`
+was deleting `$`. Emerald's plan 71 cutover missed 113 fixtures embedded as string literals in Rust
 test modules, and doc 04's fourth ordering commitment plus `no_literal_expectations.rs` are
 Redox's standing answer.
 
