@@ -73,7 +73,7 @@ checked against the host language instead of against this project's history.
 | `use` declarations, groups, globs, aliases | `SUGARED` | `examples/module.sdx` — `import` |
 | `extern` blocks | `SUGARED` | `examples/reachability.sdx` — plan 45 leaf 3; `unsafe extern` is emitted because edition 2024 requires it |
 | Macro definitions | `UNREACHABLE` | `tests/unreachable/macro_def.sdx` — **declined** under doc 03 §23 item 3. Alternative: inline Rust |
-| Attributes, inner and outer | `PASSTHROUGH` | `examples/attributes.sdx` — Rust's own `#[…]`, plan 36 |
+| Attributes, inner and outer | `PASSTHROUGH` | `examples/attributes.sdx` — Rust's own `#[…]`, plan 36. **One exception, and only one:** plan 53's `#[redox::allow(unwrap)]` is *consumed* by the emitter and never reaches the `.xrs`, because an un-consumed `redox::` attribute is rustc's `E0433` — a hard error, not an unknown lint |
 
 ### 1.3 Types
 
@@ -127,7 +127,7 @@ checked against the host language instead of against this project's history.
 | Tuple patterns | `PASSTHROUGH` | `examples/destructuring.sdx` |
 | Slice patterns, with `..` | `PASSTHROUGH` | `examples/destructuring.sdx` |
 | Range patterns | `PASSTHROUGH` | `examples/case.sdx` |
-| `ref` and `ref mut` | `PASSTHROUGH` | `examples/destructuring.sdx` — match ergonomics make these rare, and the spelling is Rust's |
+| `ref` and `ref mut` | `UNREACHABLE` | `tests/unreachable/ref_pattern.sdx` — regraded 2026-11-10. `ref` is **not reserved**, so `ref a` lexes as two identifiers and the pattern parser answers `RDX0101`; the old note claimed `PASSTHROUGH` against `examples/destructuring.sdx`, which contains no `ref`. Nearest: **match ergonomics**, which is what that example actually uses — `case &pair of (a, b) ->` binds by reference with no keyword. What is lost is the case where ergonomics do not apply and a binder must be explicitly `ref mut` |
 | `\|` or-patterns | `UNREACHABLE` | `tests/unreachable/or_pattern.sdx` — doc 18 made `\|` a **guard**, so `1 \| 2 ->` parses and means `1` guarded by `2`. Nearest: **separate arms**, which match the same values; what is lost is one arm body shared across patterns |
 
 ### 1.6 Statements and control flow

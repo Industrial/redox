@@ -284,3 +284,143 @@ positions.
 ## 10. Result
 
 *Not yet executed.*
+
+---
+
+## 11. Corrections from orientation
+
+Written after reading the code and probing it. **Two criteria are already true,
+one contradicts a leaf, one is impossible in Rust, and a live hazard this row
+should own is owned by nobody.** The row is real but much smaller than it reads.
+
+### 11.1 Criterion 4 already works — measured both ways
+
+§1's table row 3, §1.2 and leaf 4 all say an ascribed `try` block is the fix for
+an ambiguity whose *only* current remedy is to give the block its own function:
+*"a real restructuring forced by a missing annotation"*.
+
+Measured. An untyped `try` with two `From`-widening `?`s does reproduce the
+ambiguity:
+
+```text
+E0282  × type annotations needed for `Result<(i32, f64), _>`
+```
+
+And the same block with the ascription at its binding —
+
+```text
+r : Result<(i32, f64), Box<dyn Error>> = try
+  …
+```
+
+— **compiles clean, with no output at all.** The emission is
+`let r: Result<i32, String> = (|| { … })();`. So the remedy ships today, in both
+directions, and what remains of leaf 4 is a test and an example. This does not
+sink the row; it shrinks it.
+
+### 11.2 Criterion 2 contradicts leaf 2
+
+Criterion 2 wants `examples/module.sdx`'s `where` locals — which exist only so
+that `.len ()` is not called on an ascription block — to become unnecessary, and
+§3 says *"the comment explaining the workaround is deleted because the reason is
+gone"*.
+
+Leaf 2 keeps the block for nested positions. **A receiver is a nested
+position.** Measured:
+
+```rust
+let n = ({
+    let __rdx_t: HashMap<String, u32> = HashMap::new();
+    __rdx_t
+}).len();
+```
+
+So the brace stays, the locals stay, and the comment stays true. The only thing
+leaf 1 buys that file is re-spelling its locals as
+`a : HashMap<String, u32> = HashMap::new ()` — **which already works today**.
+Either criterion 2 or leaf 2 has to go, and decision 2's refusal of an
+identity-function trick forecloses the third option.
+
+### 11.3 Criterion 3 is impossible for its own headline example
+
+rustc accepts a type in a pattern in exactly three places: `let PAT: T = e`,
+let-else, and function or closure parameters. **A `match` arm is not one of
+them**:
+
+```text
+error: expected `|`, found `:`
+  |         Err(e): String => …
+  |               ^ ------ specifying the type of a pattern isn't supported
+```
+
+So leaf 3's *"emits Rust's pattern type annotation where one exists"* is vacuous
+for the `case`-arm case the row leads with, and the stated fallback — annotate
+the scrutinee — **cannot express §1.2's example**: `Err e : VersionError` pins
+only the error parameter, and annotating the scrutinee requires naming the `Ok`
+type too. The only workable lowering is a `let` in the arm body:
+`Err(e) => { let e: VersionError = e; … }`. This row never names it.
+
+For the other two positions the ascription is near-redundant: `guard`'s let-else
+annotates the **source** rather than the binder, and an equation row lowers to a
+fn parameter, which the signature line already types.
+
+### 11.4 The `split_format_spec` hazard is unowned, and it is live
+
+`split_format_spec` splits an interpolation at the first depth-zero `:` that is
+not part of `::`. After plan 52 a lone `:` inside `#{…}` can be an ascription,
+and it is taken as a format spec:
+
+```text
+print "#{total : u64}"   ->   println!("{: u64}", total);
+```
+
+`redox build` **exits 0 silently**, and `redox check` then reports rustc
+objecting to a *format string* — *"invalid format string: expected `}`, found
+`u`"* — against a line on which the author wrote a legal ascription.
+
+**Nobody owns it.** Plan 52 §4 assigned it to plan 52's own leaf 3 — *"Leaf 3
+must teach it the difference; `tests/golden/strings.xrs` is the witness"* — and
+plan 52 §10 shipped recording only that it is *"not yet triggered"*. This row
+mentions interpolation nowhere: not §1, not §4, not §5. It belongs here,
+because this row is what makes a `:` inside an expression ordinary.
+
+Note what the fix may **not** be: splitting on whitespace. That would make
+`#{x : T}` and `#{x:.2}` differ by a space, which is the exact hazard class plan
+52 existed to delete.
+
+### 11.5 Criterion 8 has no target
+
+*"`docs/GRAMMAR.md` regraded"* and *"three new positions indexed"*. That
+document is an inventory of **Rust's** grammar — its §1 is headed *"Rust's
+grammar"* — and Rust has no ascription construct, so there is no ascription row
+and no pattern-type-annotation row to regrade. Plan 51's `construct_coverage`
+reads the same rows, so there is nothing for it to index either.
+
+### 11.6 Verified true, and smaller findings
+
+- **The lowering is as §1 says**, confirmed against `emit/expr.rs` and
+  `tests/golden/module.xrs`. Parse is gated at `min == 0`, the loosest binding
+  power, with `$` at 1.
+- **The section is doc 18 §6, not §7.** §6 is *"Four new lowerings, disclosed"*;
+  §7 is *"The simplification dividend"*. This row has it right; a reader coming
+  from plan 52 may not.
+- **Doc 18 §6's own correction is already implemented.** `ascribed_list.rs`
+  takes the head as `ty.text.split('<').next()` and is called *inside* the
+  block, so `[1, 2] : Vec<i64>` keeps its generic argument. The correction is
+  verbatim in the document and restated in the file's doc comment.
+- **Criterion 1 is half already-true.** The `let x: T = e` path exists, keyed on
+  `Binding.ty`, and `x : T = e` already parses —
+  `examples/expressions.sdx:19` emits `let total: i32 = 40 + 2;`, and
+  `mut buffer : String = String::new ()` works. The real content is rewriting
+  `x = e : T` into that existing path.
+- **Criterion 5 is already true.** `xs.iter () |> collect : Vec<&i32>` ascribes
+  the pipeline, not the `collect`, and emits the block around the whole chain.
+- **`::<T>` is safely declined.** `::` is now unconditionally a path separator
+  and every site after it demands a name, so `Vec::<i32>::new ()` is `RDX0103`.
+  Nothing accepts a turbofish by accident. `declined.rs` checks one direction
+  only, so adding the entry is free.
+- **30 examples, not 29.**
+- §1.3's measurement — *"905 code lines, 186 `::` annotations, 84 at a value"* —
+  is from the `id_effect` port corpus and **cannot be settled from this
+  repository**; no `id_effect` fixture exists in the tree, which also makes
+  §1.4's three compiled forms unverifiable here.

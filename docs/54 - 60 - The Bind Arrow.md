@@ -292,3 +292,131 @@ and §6 is where the bills are listed before they arrive.
 ## 10. Result
 
 *Not yet executed.*
+
+---
+
+## 11. Corrections from orientation
+
+Written after reading the code this row targets. The mechanism is sound. One
+criterion **rejects the existing corpus**, one claim about the lexer understates
+a breaking change, and the criterion §2 calls sharpest is the easiest in the
+row.
+
+### 11.1 Criterion 3 would reject five of the corpus's six `<-` uses
+
+*"`<-` in an `async` block awaits; in a `try` block it is `?`; outside both it
+is a diagnostic."* The third clause is the problem, and it is not a wording
+problem.
+
+**`async` is a *signature* marker, not a block.** `is_async` lives on
+`Signature` — a separate item from the equation body, and absent entirely when
+a function has no signature line. In `examples/async.sdx`, **five of six** `<-`
+uses sit in `async fn` bodies with **no `async` block at all** (lines 53, 54,
+65, 72, 73, 87); only line 85 is inside one. So criterion 3 as written makes
+`examples/async.sdx` fail, which criterion 7 then also fails.
+
+It must read *"inside an `async` **function** or an `async` block"*, and §1's
+table — which shows only the block form — misframes it. Measured for free:
+`x <- g n` in a plain non-async function emits `let x = g(n).await;` today with
+no Redox diagnostic, rustc catching it.
+
+**And the nesting rule is unstated.** A `try` block inside an `async fn` has
+both readings available. The row says *"the block says what binding means"* and
+never says innermost-wins, nor that awaiting inside a `try` inside an `async fn`
+becomes unspellable with `<-`. Not in the corpus today; reachable in one line.
+
+### 11.2 This row **re-reserves** `is`, and a test exists to stop it
+
+§2 says *"`is` is not a token and not reserved. Nothing uses it; the lexer arm
+is additive."* True in letter, misleading in substance: `is` was **actively
+removed**. `keyword.rs`'s header records doc 18 §7 retiring eleven words —
+*"`is`, `and`, `use`, `with`, `defer`, `cond`, `into`, `derive`, `mod`,
+`unless`, `switch`"* — and `leaves_ordinary_identifiers_alone` iterates that
+list asserting `Keyword::from_text` is `None`, under the reason *"a retired
+keyword that stayed reserved would reject a program that is now legal, and
+nothing else in the suite would notice"*. `is = 5` compiles today.
+
+So this is a re-reservation and a **breaking change**, and the plan should say
+so and cite the precedent it has: `With` is in the enum today despite being on
+the same list, restored by doc 30 §3.3.
+
+Two artifacts go stale on landing: that test's array, and
+`emit/emit_stmts.rs`'s doc comment, which still says doc 18 §3.1 *"could delete
+`use`, `is`, `defer` and the comprehension's `for` in favour of one token"*.
+
+### 11.3 Criterion 4 is the easiest criterion in the row, not the sharpest
+
+Byte-identity between a `try` block written with `<-` and one written with `?`
+needs **neither lowering to change**. `?` is emitted at exactly one place with
+no try-block awareness — `emit/expr.rs:111`, `format!("{}?", receiver(inner,
+indent))` — and `emit/try_block.rs` only wraps in `(|| { … })()`. Both candidate
+paths funnel through the same `receiver()`, which unparens first, so the
+parenthesising coincides and so does the awkward case (`a = (x ?? y)?` against
+`a <- x ?? y`). `emit_await` gains a branch.
+
+Two residual asymmetries to disclose rather than discover: `Await.pattern` is an
+`Option<Pattern>` with no `is_mut` and no `ty`, so `mut a = (f x)?` and
+`a : T = (f x)?` have **no `<-` spelling**.
+
+### 11.4 `StmtKind::Draw` is not a `<-` site
+
+It reads `Kw(With)` — doc 30 §3.3's `with conn = pool.with_connection` — and
+`emit_stmts`'s callback flattening is `with`'s lowering, with nothing to do with
+`<-`. The name is historical residue. The real `<-` surface is three files:
+`operator_table.rs`'s `("<-", DrawArrow)`, `try_await.rs` producing
+`StmtKind::Await`, and `emit_await.rs`.
+
+**There is no parser context flag anywhere.** `Parser` has three fields —
+`toks`, `pos`, `errors` — and `Expr::TryBlock`/`Expr::AsyncBlock` are ordinary
+prefix expressions the parser never knows it is inside. The *emitter* does have
+the nesting (`try_block` and `emit_do` both recurse into `emit_stmts`), so one
+new parameter threads it; and `check_callback_tails` is the precedent for the
+post-parse alternative.
+
+### 11.5 Counts, positions, and two things that argue *for* the row
+
+- **8 corpus sites, not 13.** `examples/draw_condition.sdx` lines 18, 33, 35,
+  47, 57, 70, 71, 77. §2's 13 is a `grep -c " = "` artifact — 8 tests plus 5
+  equation definitions — and contradicts leaf 6's own "8 sites". §2 also says
+  "five shapes" four paragraphs after saying six.
+- **Seven positions, not six**, and the `=` token is consumed at only **two**
+  sites (`condition_operand.rs:22`, `control_flow.rs:150`) with one scanner,
+  `holds_a_pattern_test`. `condition()` has four callers, which is where the
+  surface positions come from.
+- **`until` is a rejected eighth position.** `control_flow.rs:50-62` raises
+  `RDX0107` when a negated condition has a pattern. Leaf 2 must carry `is` into
+  that detection *and* its message — `code.rs` still documents it as
+  `until Some v <- x`, already stale since doc 30 moved the token to `=`.
+- **An equation-row guard cannot hold a pattern test at all**, because
+  `Guard.condition` is an `Option<Expr>` rather than a `Condition`:
+  `| Some v = o = v` is `RDX0101`. So `is` would make that position
+  **spellable for the first time** — an argument *for* this row that it does
+  not make, and an AST change it does not price.
+- **Doc 03 §5.5 specifies a second lowering this row never mentions.** *"No
+  binders → `matches!`"*: `if status is Active` becomes
+  `if matches!(status, Active)`. This row keeps the `if let` lowering
+  throughout, so §5.5's `matches!` half has to be amended too, not just its
+  operand order.
+
+### 11.6 Unpriced costs
+
+- **Two diagnostic codes** — criterion 2's retired `=`, and criterion 3's
+  unmodified-context `<-`. §5 names none. The syntactic band is at `RDX0111`
+  with plan 55 taking `RDX0112`.
+- **`construct_coverage.rs` hard-codes the token** in two witnesses: the
+  `if let` row looks for `["if", "«id»", "«id»", "="]` and `let chains` for
+  `["if", "«any»", "«any»", "=", "«any»", "&&"]`. Criterion 8's cost is
+  concrete and was unstated.
+- **`docs/GRAMMAR.md`'s `let chains` row is already wrong**, citing *"the draw
+  arrow in a condition (doc 30)"* — doc 30 is what stopped `<-` being the
+  condition token. There is also **no `let`-`else` row at all**, though `guard`
+  lowers to one.
+- `tests/ui/` is at `crates/redox-cli/tests/ui/`.
+
+### 11.7 Citations
+
+All six of criterion 9's targets exist. One is quoted short: §1.1 ellipses doc
+30 §7 decision 3 and drops the half that matters — *"`is` would have reversed
+the operand order and cost a keyword"* — then attributes the remainder to §3.1.
+Doc 03 §5.5 confirms scrutinee-first (`if msg is Move(x, y)`), so the operand
+order this row restores is the one §5.5 always specified.

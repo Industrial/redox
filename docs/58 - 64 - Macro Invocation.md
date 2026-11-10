@@ -365,3 +365,117 @@ largest test of it.
 ## 10. Result
 
 *Not yet executed.*
+
+---
+
+## 11. Corrections from orientation
+
+Written after reading the code and probing it. §2's measured preconditions are
+mostly true — and the **one** the leaf sizing rests on is false for exactly the
+shape the row needs. Two numbers are stale, and criterion 5 has its mechanism
+backwards.
+
+### 11.1 The multi-line `\->` does not work, which is the shape the row needs
+
+Criterion 1 is true for the one-line form: `g = \-> 7` emits `let g = || 7;`.
+
+```text
+f = \->
+  a = 1
+  a + 1
+->  RDX0102: expected an expression
+```
+
+So §2's *"`\->` already works"* and leaf 2's *"the nullary lambda itself already
+works … this leaf is the argument position, not the lambda"* are **false for the
+multi-line form** — which is precisely what §1.3 shows (`r = catch_unwind! \->`
+over an indented block) and what criterion 4 requires.
+
+Leaf 2 therefore either owns a layout-delimited lambda body, or criterion 4 is
+**wholly dependent on plan 55 leaf 1** making an indented block an expression.
+The row declares the dependency on 55 and then prices leaf 2 as if it were free.
+Re-run the probe above once plan 55 lands: if a block is an expression by then,
+leaf 2 really is just the argument position.
+
+### 11.2 Criterion 5 has the stringification backwards, and deleting `assert` costs a feature
+
+**Redox does not stringify the source. Rust stringifies the generated Rust.**
+`assert_call.rs` emits `format!("assert!({})", emit_expr(…))`, so the failure
+message carries the *Rust* rendering: `assert add 1 2 == 4` becomes
+`assert_eq!(add(1, 2), 4)`. Under criterion 5's `assert! \-> a == b`, Rust's
+`assert!` would print `add(1, 2) == 3` — not the text the author wrote, against
+this project's standing rule that diagnostics report against the `.sdx`.
+
+The source *is* reachable — `emit_with_map` takes it and `Sink` holds it — but
+with two obstacles the row does not price: `Sink` exposes no span-to-text
+accessor, and **`emit()` passes `""`**, which every `redox-emit` test uses. A
+source-text feature would be silently empty in unit tests and populated only
+under `redox build`, which is the worst possible failure shape.
+
+**And `assert` is not merely a special case to delete.** `assert_call`'s own
+doc comment argues why it exists: `==` becomes `assert_eq!`, and *"those macros
+print both values when they differ and `assert!` prints only the expression's
+text. A test that fails and says `assertion failed: add(1, 2) == 3` has told the
+author nothing they did not type."* Criterion 5's example is exactly the form
+that comment calls useless. Retiring `assert` into the general macro path is a
+**regression in diagnostic quality** unless the row keeps the `==` → `assert_eq!`
+rewrite, and §4 does not say it does.
+
+### 11.3 Criterion 6's `id_effect` macros may not fit the callback shape at all
+
+§7 correctly discloses that `id_effect` is a dependency of nothing. But a
+probe left in scratch from the exercise that opened this milestone records
+something criterion 6 needs to answer: `caps!(T)` is a **type-position** macro
+— `HCons<T, HNil>` — which `name! \-> e` cannot express in any form; and
+`effect!` is do-notation over a **block**, so criterion 6 collapses onto
+criterion 4, the one thing measured not to work.
+
+Criterion 6 should name *which* `id_effect` macro, in which position, and
+whether it needs the block form. The same probe notes that the macro family is
+largely avoidable in Redox because `|>` *is* the combinator API written left to
+right — which is an argument about how much criterion 6 is worth.
+
+### 11.4 Two numbers, and a verb
+
+- **Criterion 12's figure is wrong in both value and unit.**
+  `docs/CONFORMANCE.md` says *"Macro invocation accounts for **885 of 897**
+  blocking occurrences"*; §1.1 and leaf 7 say *"plan 48's 855-line figure"*. It
+  is **885 of 897 occurrences**, not 855 lines — and it moves again on any
+  commit that adds Rust, so cite the document rather than a number.
+- **Criterion 11's *"deleted"* is the wrong verb.** `construct_coverage`
+  filters `UNREACHABLE` rows out and then requires **bidirectional** agreement
+  between every reachable row and a `WITNESSES` entry. Regrading macro
+  invocation to `SUGARED` needs a new `Covers` entry *and* a corpus witness —
+  real work, not a deletion. **Deleting** the row instead would remove Rust's
+  macro-invocation construct from the graded index entirely, which is the thing
+  `docs/GRAMMAR.md` exists to prevent. Regrade it.
+- *"`print` appears in 28 of the 29 examples"* is 29 of 30; the one without is
+  `examples/lexical.sdx`, which §2 already names as the exception.
+
+### 11.5 Verified true, and two small imprecisions
+
+Verified: `!` is `TokenKind::Bang`, consumed **only** for negation;
+`vec![1, 2, 3]`, `format! "hi"` and `s.len!` are all `RDX0101`; `assert! true`
+emits `assert!(!true)`; `otherwise` is reserved and works; `test "…"` works;
+`eprint "x"` emits `eprint("x")`, a call to a function no program defines, so
+`eprintln!` needs **no** special case and arrives by the general path — though
+it is only useful once leaf 3's splice exists, since `print_call` is what turns
+`#{x}` into a template today.
+
+**Criterion 3 is cheap.** `format_template` already returns exactly
+*(template, args)* and already has two callers — `format!` and `println!` — with
+a doc comment saying it is a pair *"because two callers need it"*. A third
+caller is a parameter, not a second implementation. (`split_format_spec` is in
+the **lexer**, not the emitter.)
+
+Two imprecisions worth fixing in place: `s.len!` reports *"expected a line break
+after the statement"*, not the quoted *"expected `)`"* — that needs a
+parenthesised context. And §1.5's appeal to `leaves_ordinary_identifiers_alone`
+covers `print` only; the other four special cases are true from the enum but not
+from that test.
+
+**§1.4's escape hatch is overstated.** `rust """…"""` works as a **top-level
+item only**: in expression position it is `RDX0102`, and there is no block form
+— `rust` over an indented block is `RDX0101`. §1.4's own sample is an expression
+binding of a block, so leaf 4 adds **two** things, and *"the mechanism exists
+and is tested"* applies only to the item-level string form.

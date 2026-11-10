@@ -419,7 +419,24 @@ Two of those three were written *ahead* of the check, in the past tense, and
 now match the code — which is the hazard of describing an invariant a plan
 intends rather than one the code keeps.
 
-### 10.6 Open
+### 10.6 Criterion 7's second clause had nothing to index
+
+*"`construct_coverage` green with the two new spellings indexed."* The test
+indexes `docs/GRAMMAR.md`'s rows, and that document grades **Rust**
+constructs — which is what plan 46 built it to do. Both of this row's new
+spellings are Redox-only: `#[redox::allow(unwrap)]` has no Rust counterpart,
+and `#[repr(transparent)]` is not a construct a Redox program writes, it is
+something `newtype` emits. So there was no row to add and the clause is
+vacuous as written.
+
+What it *did* surface is a note that had gone stale. The `Attributes, inner and
+outer | PASSTHROUGH` row reads *"Rust's own `#[…]`"*, and after leaf 4 there is
+exactly one attribute that is **not** passed through: `#[redox::allow(unwrap)]`
+is consumed by `emit/trivia.rs` and never reaches the `.xrs`. The grade is
+still correct — one consumed attribute does not make the construct anything
+but passthrough — and the note now says which one and why.
+
+### 10.7 Open
 
 - `docs/GRAMMAR.md:62`'s tuple-struct row wording is now stale about
   `newtype`. `grammar_inventory` only checks the cited file exists, so it will

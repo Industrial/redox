@@ -31,7 +31,7 @@ have a method of that name, `x |> myfn` compiles and calls the method instead of
 Nothing reports it. Adding an import can change what an existing pipeline means.
 
 That is a narrow hazard today because `|>` is nearly always applied to iterator methods, which
-is what the corpus does with all 23 of its pipeline steps. It is a wide hazard the moment anyone
+is what the corpus does with all 24 of its pipeline operators. It is a wide hazard the moment anyone
 writes a free function and reaches for the operator that every other language would let them use.
 
 ### 1.2 Plan 57 is what makes this affordable
@@ -106,7 +106,28 @@ inherits it unchanged.
 `expressions.stdout` asserts `4`, so the precedence is a tested fact and §1.3's refusal to move it
 is protecting a real assertion.
 
-**Corpus scale.** 23 `|>` steps across 29 examples, and **every one is a method call** —
+**Corpus scale, measured.** **24** `|>` operators across **5** examples — not 23 across 29 —
+plus two `(|> name)` method-reference sections, which are a different construct and are counted
+separately. Comments stripped before counting, because several examples discuss the operator in
+prose.
+
+The distribution matters more than the total, and no earlier count reported it:
+
+| File | Operators |
+|---|---:|
+| `examples/section.sdx` | 15 |
+| `examples/application.sdx` | 3 |
+| `examples/generic.sdx` | 3 |
+| `examples/lexical.sdx` | 2 |
+| `examples/comprehension.sdx` | 1 |
+
+**Five files, and 15 of the 24 sites are in the one example that is about sections.** So the
+migration is far narrower than "the corpus" suggests — and its weight sits in the file whose
+whole subject is the construct this row changes the meaning of, which is where a wrong lowering
+is most likely to read as correct. `examples/lexical.sdx` is the exempt non-parsing example, so
+2 of the 24 are never transpiled at all.
+
+**Every one is a method call** —
 `map`×6, `sum`×5, `into_iter`×3, `filter`×3, `count`×2, `len`, `unwrap`, `max`, `name`. Not all
 are *iterator* methods (`unwrap` is `Option`'s, `len` is `str`'s), but none is a free function,
 so plan 57's `.name` marking covers the whole existing corpus and no pipeline step changes
@@ -157,7 +178,14 @@ the gate.
 
 The blast radius is smaller than it looks: three files. `emit/expr.rs`'s `BinaryOp::Pipeline`
 arm, `emit/pipeline.rs` (whose whole lowering is two match arms), and
-`emit/wraps_as_receiver.rs`'s `Pipeline` carve-out. Precedence needs no change —
+`emit/wraps_as_receiver.rs`'s `Pipeline` carve-out.
+
+**`emit/pipeline.rs` is edited by plan 57 as well**, which neither row said. Plan 57's criterion
+2 needs `x |> .name` to work and that file is where it lands, so by the time this leaf runs the
+file has already changed shape once. The two edits do not conflict — plan 57's orientation
+established that both meanings of `|>` emit identical Rust for a `.name args` right operand,
+which is what makes 57-before-58 safe — but the second editor should expect the first's work
+rather than the file this plan measured. Precedence needs no change —
 `BinaryOp::Pipeline` is already power 1, the loosest binary rung, which is correct for reverse
 application. `section.rs`'s `(|> name)` method reference becomes a different construct and is
 plan 57's.
@@ -182,7 +210,8 @@ emitting its own shape — one lowering for everything that produces a closure, 
 
 ### Leaf 4 — `leaf-corpus-migration`
 
-23 pipeline steps across 29 examples. Mechanically this is plan 57's migration already done —
+24 pipeline operators across 5 examples, 15 of them in `examples/section.sdx`. Mechanically
+this is plan 57's migration already done —
 every corpus step is a method and plan 57 marked them — so this leaf is mostly verification that
 nothing was missed, plus the new examples from §3.
 

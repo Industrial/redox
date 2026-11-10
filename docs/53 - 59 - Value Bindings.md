@@ -278,3 +278,136 @@ That is the transfer: not a technique, but a declined technique whose decline sh
 ## 10. Result
 
 *Not yet executed.*
+
+---
+
+## 11. Corrections from orientation
+
+Written after reading the code and probing it. Nine of eleven preconditions hold
+exactly as §2 states them. **Two acceptance criteria cannot both be satisfied,
+and a third rejects a program that compiles today.**
+
+### 11.1 Criteria 1 and 4 leave a cross-file binding with no spelling
+
+Criterion 1 wants the bare name *"at every use site including module-qualified
+ones"*. Criterion 4 makes `name ()` a diagnostic. For a **bodiless** `module`
+those two together leave nothing that works:
+
+- `a::b::c` is `Expr::Path { text: String }` — carried **verbatim**, built in
+  `path_or_ident.rs` and emitted as `text.clone()`. There is no structured name
+  to resolve.
+- A bodiless `module` has `items: None` and `emit_module` writes `;`, so the
+  referent is not in this `Program` at all. Measured: `print inner::probe` emits
+  `println!("{}", inner::probe)` → `E0277: fn() -> u32 {probe} doesn't implement
+  Display`.
+- So Redox cannot know to elide the call — and criterion 4 has just forbidden
+  the author from writing it.
+
+**Plan 56 hit the same wall and withdrew the claim**; §11.8 of that row records
+it. The difference is that plan 56 has a safe fallback — *emit a call exactly as
+today* — and this row does not, because criterion 4 removes the other spelling.
+
+Criterion 1 must narrow to **bare names and inline-module paths in the file
+being compiled**, and criterion 4 to the same set.
+
+**And criterion 4 has a second problem: `()` is erased for every call in the
+language, on one line.**
+
+```rust
+// emit/expr_list.rs
+if matches!(args, [Expr::Unit { .. }]) { return String::new(); }
+```
+
+`HashMap::new ()`, `String::new ()`, `.len ()`, `.is_ok ()` and `sizes ()` all
+travel through it. A diagnostic there must fire for `sizes ()` and stay silent
+for the rest — including for a lambda parameter, an equation binder and a
+`where` local that happens to share a name — which is exactly the undecidability
+plan 56 §11.1 withdrew its leaf 3 over.
+
+### 11.2 Criterion 5 rejects a program that compiles today
+
+*"A keyword on a non-const body is a Redox diagnostic."* Measured:
+
+```text
+square : const u32 -> u32
+const SQ : u32 = square 7     ->  const SQ: u32 = square(7);   exit 0, clean
+```
+
+It contains an application, so §1.3's syntactic test calls it non-const and
+criterion 5 refuses it. `const N : usize = size_of::<u32>()` is the same shape.
+That is a check rustc makes — and makes well: the genuinely non-const case is
+`E0015: cannot call non-const function`, remapped onto the `.sdx` at the right
+column. Criterion 5 as written breaks AGENTS.md's rule and costs working
+programs; the honest version is *leave it to rustc*, which is the status quo.
+
+### 11.3 The classification has a precedent, and one property the precedent lacks
+
+`names_a_constructor` classifies a record head by case alone and drives two
+lowerings, with the rationale this row wants verbatim — *"Decidable from the
+source text alone, which is doc 03 §2's admission test 1 and the reason this
+needs no name resolution."* `ascribed_list` and `expr_list` are two more.
+
+**But all three classify *locally*.** None has to agree with a decision made at
+another site. This row's does: the declaration's classification determines every
+use site's spelling. That is a new property, not an inherited one, and it is
+where the row's risk actually lives.
+
+Placement is already settled by plan 56 §11.3 and should be cited rather than
+re-derived: the check rides `parse()`, the rewrite rides the emitter's entry, and
+not `parse()` alone because `redox_fmt::format` consumes the same `Program`.
+
+### 11.4 The migration is three times the stated size
+
+§2 names four sites — `sizes ()`, `block ()`, `inner::hello ()`,
+`inner::deeper::deep ()`. The real count in `examples/` alone is **at least 13**:
+eight in `examples/strings.sdx` (`nested`, `pattern_text`, `quoted`, `initial`,
+`tag`, `magic`, `ffi_name`, `block`) and five in `examples/module.sdx`.
+
+### 11.5 Criterion 3's fixture does not exist, and cannot live in `examples/`
+
+`id_effect` appears in **documents only** — zero hits under `crates/`,
+`examples/`, or any `Cargo.toml`, which has no `[workspace.dependencies]`
+section at all. `Effect::retry` and `Schedule::recurs` appear nowhere outside
+plan docs. The corpus §2 measures — *"1,501 lines of new Redox … seven driving
+`id_effect 0.13.0`"* — **is not in this repository**.
+
+And `examples/` cannot hold it: `redox check` shells out to bare rustc with
+`--edition 2024 --error-format=short --emit=metadata` and **no `--extern`**. An
+external-crate fixture needs the `examples/cargo-project/` shape — `Cargo.toml`,
+`build.rs`, `include!`, driven by `compile_dir` — and that project has no
+parameterless binding and no `module` today. Criterion 3 is new infrastructure
+plus a nondeterministic upstream that must still produce deterministic stdout
+for the `*.stdout` gate. State that or drop it.
+
+### 11.6 Plan 20 §10.6's quote is true of rustc and false of Redox
+
+§2 says rustc *"rejects today with 'use parentheses to call this function' —
+plan 20 §10.6's finding, re-measured and unchanged"*. Raw rustc does say it.
+**A Redox user never sees that line**: `check.rs` passes
+`--error-format=short` and `RustcMessage::parse` keeps only positioned
+diagnostics, so `redox check` reports `E0277 … doesn't implement Display` and
+nothing else. That matters, because "rustc already tells them" is part of this
+row's motivation.
+
+### 11.7 Smaller corrections
+
+- §1.3's `block : &'static str = """…"""` and `sizes : usize = .len a + .len b`
+  are **one-line forms the language does not have** for a signature-carrying
+  binding; only `const` and `static` take one line. The real spelling is two,
+  as `examples/strings.sdx` and `examples/module.sdx` write it. Minor, and it is
+  the exact confusion this row is about.
+- §6's *"they write it as a lambda (`\->`, plan 64)"* mis-cites: plan 64 is
+  macro invocation, and lambdas already exist. A zero-parameter `\-> e` is plan
+  64's *macro argument* spelling, which is not the same thing.
+- **Verified exactly**, both quoted measurements: `drain ().len ()` emits
+  `drain(().len())`, and a bare name in argument position is already the
+  function item (`consume probe` → `E0308: expected u32, found fn item`).
+- §2 cites commit `194fdf7`, which is 24 commits behind and **predates the type
+  colon entirely**, so every `:` in a §2 code block is retrospective rather than
+  measured.
+- Criterion 7 is near-free: `construct_coverage` keys off `docs/GRAMMAR.md`
+  rows, `const fn` and `const`/`static` are already witnessed by
+  `examples/constants.sdx`, and nothing grades `f ()`. It stops being free if
+  leaf 5 adds a row.
+- `const_decl.rs`'s doc comment and `examples/constants.sdx` both still say the
+  type goes *"after the same `::`"* — plan 52 fallout in files this row touches.

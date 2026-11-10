@@ -304,3 +304,118 @@ closes.
 ## 10. Result
 
 *Not yet executed.*
+
+---
+
+## 11. Corrections from orientation
+
+Written after reading the code and probing it. §1.3's argument holds and the
+resolver is smaller than it looks. **But §4's leaves are missing the problem
+that actually stops an elided signature parsing**, and two criteria cannot both
+be met.
+
+### 11.1 The blocker: an elided member is a *clause of the member above it*
+
+`Parser::function`'s clause loop treats any `Ident` **not** followed by `:` as a
+continuation equation of the member it is already reading, and the name-mismatch
+guard is what fires:
+
+```text
+instance Shape Square
+  area : &Square -> f64
+  area self = self.side
+  tag self = 1
+->  RDX0103: this equation defines `tag`, but the signature above it is for `area`
+```
+
+So §2's *"the parser demands a signature line"* is half the story: omitting one
+collides with doc 18 §2.3's **multi-clause function grammar**, and §4 contains
+no disambiguation rule at all. Probed directly; an omitted signature on the
+*first* member does give `RDX0101`, which is why the simpler reading looked
+complete.
+
+The fix needs no lookup and is one line. Inside a `class` or `instance` body, an
+`Ident` not followed by `:` whose text **differs** from the member currently
+being read starts a **new member**; the same name is the next clause. That is
+`parser.rs`'s name-mismatch guard, and it should be **leaf 0** — costed and
+landed before leaves 1–3, because until it exists there is nothing for the
+resolver to be asked.
+
+### 11.2 Criteria 1 and 7 cannot hold alongside leaf 6
+
+Both say the golden diff is **empty** / byte-identical. The golden carries the
+example's comments — `tests/golden/class.xrs`'s first nine lines are
+`examples/class.sdx`'s verbatim — and leaf 6 amends one of them, twice. So the
+*file* cannot be byte-identical.
+
+Split the criterion: the **Rust code** region is byte-identical and the comment
+region changes deliberately. That is the stronger claim anyway, because it is
+the one a reader can check.
+
+**And byte-identity holds for `examples/class.sdx` rather than in general.**
+Copying the *class's parsed* signature works because `MethodContext::for_class`
+has already substituted `t → Self` and `receiver` has already dropped the
+receiver's type, so `area : &t -> f64` renders `fn area(&self) -> f64` —
+identical to the restated `&Square -> f64`. But a method mentioning the variable
+in a **non-receiver** position, `combine : &t -> t -> t`, renders `Self` where
+the restated form renders `Square`: valid Rust, different bytes. This also
+contradicts §1's advertised mechanism — for `instance Shape Square` the parser
+computes `var = None` and never calls `substitute_var`, so byte-identity wants
+the class's already-`Self` form copied, not §1's `t := Entry`.
+
+### 11.3 The lookup cannot live where §4 implies, and leaf 1's scope claim is wrong
+
+**Order independence is already real**: an `instance` may precede its `class` in
+one file and compiles today, emitting `impl Shape for Square` before
+`trait Shape`. But `receiver`, `substitute_var` and `generalise` all run
+**inside** `Parser::function`, during the single pass. So leaf 2 needs either a
+pre-pass that collects classes before any body is parsed, or a post-parse pass
+that re-runs all three. §4 describes neither, and this is the second-largest
+undisclosed cost after §11.1.
+
+**Leaf 1's *"one file, no scopes to walk"* is false.** `Item::Module` nests
+items and is *"the only item that contains items"*, so a class inside
+`module tests` is not in Rust scope for an instance outside it. Leaf 1 has to
+decide: top-level items only, or walk the tree.
+
+### 11.4 A stronger argument for criterion 6 than §1.3 makes
+
+Criterion 6 asserts the resolver's boundary so a future widening is a deliberate
+change to a failing test. There is a better reason than scope discipline for
+that boundary, and the plan does not use it: **the compile cache is keyed on
+*that file's* source bytes plus the compiler fingerprint.** A cross-file
+resolver would make an instance's output depend on a sibling file that does not
+invalidate its cache entry — so widening the boundary is a **correctness bug**,
+not merely scope creep.
+
+Supporting facts, both verified: a bodiless `module` has `items: None` —
+*"`mod name;` and `mod name {}` are different Rust"* — and `compile_dir` loops
+`compile_file` per file, so there is no structure in which two files' items
+coexist.
+
+### 11.5 Smaller corrections
+
+- **Three stale `§11.5` citations, not two.** §1.1 names two; the third is
+  `crates/redox-emit/src/emit/fn_call_width.rs`. All three point at a section
+  that is *"Three findings from converting rather than designing"* and records
+  none of what they claim. (§1.1's own correction about §11.5 is right.)
+- **§2 is measured against a two-commit-old surface.** It quotes
+  `const SIDES :: u32 = 4` and the message *"expected `::`"*; the corpus is
+  already `:` and the message is *"expected `:` after the name, to begin the
+  signature"*. The **code** is right. And §2 never mentions the *second* site
+  criterion 2 must change, `class_member.rs`'s *"expected `:` after the
+  constant's name"*.
+- **State a count of diagnostic codes, not a number.** This row needs **four**.
+  `RDX0111` is the last taken; plans 56 and 57 both still say *"next free is
+  `RDX0110`"* and both are wrong, and 57 wants three. A number written in a plan
+  doc goes stale the moment a sibling row lands.
+- **Leaf 6's *"`docs/GRAMMAR.md` regraded"* has no row to regrade.** Traits,
+  Impls, and Associated types and constants are all already `SUGARED` and all
+  already cite `examples/class.sdx`. Nothing changes grade.
+- **§1.2's "three lines in 703"**: `examples/*.sdx` is 1,741 lines, 783 of them
+  neither blank nor comment. 703 matches neither; provenance unknown.
+- **§1.2's "6 signature-bearing member lines"** is 9 across the file — 3 in the
+  `class`, 6 in the instances. The table means *instance* lines and the row
+  label does not say so; "4 method signatures" and "3 elidable" are right for
+  instances.
+- **30 examples, 29 goldens.** `examples/lexical.sdx` has none by design.

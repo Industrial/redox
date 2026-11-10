@@ -360,7 +360,7 @@ here so that row has the argument ready rather than reconstructing it.
 
 ## Ordering commitments
 
-Four constraints on reordering, each with a reason that cost somebody something:
+Five constraints on reordering, each with a reason that cost somebody something:
 
 1. **Spans and trivia land in plan 01, not later.** Emerald's plan 22 found `TypeExpr`
    carried no span twenty-one plans after the diagnostics plan, and the full fix was by then
@@ -374,6 +374,27 @@ Four constraints on reordering, each with a reason that cost somebody something:
    Emerald's plan 71 cutover missed 113 fixtures embedded as string literals in Rust test
    modules. Redox's corollary is already a convention: **every `.sdx` fixture is a file, and
    tests reference files.**
+5. **A surface change has four readers, not one**, and every plan that touches the surface must
+   list all four in its leaves. Added 2026-11-10, after plan 52 paid for it four separate times
+   in one push:
+
+   | Reader | What it cost to forget |
+   |---|---|
+   | the lexer and the hand-written parser | — the only one the plan listed |
+   | `redox-fmt`, which **writes** the token | `redox fmt` would have emitted source the parser no longer accepts, from five sites |
+   | `tree-sitter-redox`, a second parser over the same corpus | an `ERROR` node in essentially every example, and `editors.rs` red |
+   | the five editor clients' queries | `"::"` stopped being a node type, so a query named an absent node |
+
+   Two of those four are not caught by reading the plan's own crate list, and the fourth is only
+   partly caught by its gate: `every_grammar_keyword_is_coloured` compares lowercase **word**
+   keywords, so a wrong *operator* colour in three disagreeing highlighters is exactly what that
+   test exists to prevent and exactly what it cannot see.
+
+   There is a fifth reader that is not a parser and bites the same way: **`.sdx` source written
+   as a string literal inside a Rust test**. Commitment 4 names the convention; plan 52 found
+   23 files breaking it, and the symptom was three `watch` tests timing out at their 20-second
+   ceiling and presenting as AGENTS.md's documented load-dependent flake rather than as a
+   syntax break.
 
 ## Code architecture
 

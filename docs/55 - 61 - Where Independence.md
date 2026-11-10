@@ -299,3 +299,167 @@ a reasonable sign it should be in AGENTS.md rather than in four plans' decision 
 ## 10. Result
 
 *Not yet executed.*
+
+---
+
+## 11. Corrections from orientation
+
+Written after reading the code and probing it. Criterion 1's precondition is
+true to the character, and the sort is cheaper than §1 fears. **But §1.3 names
+the wrong blocker, §6 describes `where` as something it is not, and criterion 5
+is unsound in a case that compiles today.**
+
+### 11.1 The blocker is a type spelling, not the pattern row
+
+§1.3 frames leaf 0's difficulty as the pattern row. That is the easy half:
+`go 0 = "even"` fails at `where_locals` → `Parser::stmt`, because
+`looks_like_a_binding` wants `Eq`/`Colon`/`LBrace` at the second token and sees
+`Num(0)`, so `parse_expr` reads `go 0` as a call and the `=` is then unexpected.
+`RDX0101`, *"expected a line break after the statement"*, at the `=`. Verified
+verbatim, including the position.
+
+The hard half is that **a `where` binding has no signature line, and a nested
+Rust `fn` requires parameter and return types.** Redox has no inference and
+AGENTS.md forbids it ever growing one. The multi-equation machinery all exists —
+`FnDecl.clauses` is already a `Vec`, `Parser::function` already loops equations,
+`emit_clauses` already lowers them to a `match` — but every bit of it is
+downstream of a signature line and `parse_spine`'s arrow split.
+
+**And the obvious spelling is already taken.** Probed:
+
+```text
+go : u64 -> &'static str
+->  RDX0101: expected a line break after the statement, at the `->`
+```
+
+`go : u64` is consumed as plan 52's **ascription**. So leaf 0 is: invent a type
+spelling for a local function, in a position where `:` now means something else.
+Doc 03 §8.3 presumes nested `fn`s and never says how their types are written;
+doc 18 §2.2 says nothing about `where` lowering at all.
+
+That is a **surface-design decision this milestone has not budgeted**, not an
+implementation leaf. Either this row depends on one, or decision 1's fallback —
+implement `RDX0047`, whose number is already published in doc 03 §17 and which
+has zero references under `crates/` — is the honest smaller row.
+
+One cost to budget either way: a single pattern row produced **ten**
+diagnostics, as recovery escaped the `where` block and read the remainder as
+module items, including a `const k : T = …` suggestion for a pattern variable.
+Leaf 0's `tests/ui` fixture captures all ten unless recovery improves first.
+
+### 11.2 §6 is wrong about what a `where` group is
+
+§6 says *"`where` is a declaration group and a block is a statement sequence;
+this row is about the former only."* In the AST and the parser they are the
+**same type**: `Clause.wheres` is a `Vec<Stmt>`, and `where_locals` pushes
+`self.stmt()`. The parser says so — *"the inner block is an ordinary statement
+block, so a local may be anything a statement may be."*
+
+Measured consequences, all of which a sort can reorder:
+
+| `where` body | Emits | Why it matters |
+|---|---|---|
+| `print x` then `y = x + 1` | `println!(…);` then `let y = …;` | sorting reorders **side effects** |
+| `(a, b) = (x, x + 1)` | `let (a, b) = …;` | one statement binds **two** names |
+| `mut n = 0` then `n := x + 1` | `let mut n = 0; n = …;` | an assignment binds **no** name, so a sort over bindings may float it anywhere |
+
+So the row must either refuse non-binding statements in a `where` group — a
+diagnostic nobody has budgeted — or accept that the sort can move a `print`.
+Name it in §6 rather than leaving it to the first program that hits it.
+
+### 11.3 Criterion 5 is unsound when a group binding shadows a parameter
+
+§1.2 says the sort *"cannot be wrong about scope, because the group **is** the
+scope."* This falsifies it, and it compiles today:
+
+```text
+h base = scaled            fn h(base: u64) -> u64 {
+  where                        let scaled = base * 2;   // base = the parameter
+    scaled = base * 2          let base = 100;
+    base = 100                 scaled
+                           }
+```
+
+`h 3` is **6** today. Treat `base` as an edge and the sort emits
+`let base = 100; let scaled = base * 2;` — **200**, valid Rust, no diagnostic.
+That is doc 02 §5.2's worst failure mode produced by this row itself, because
+Rust `let`s are sequential: with shadowing the group is *not* the scope, and a
+reference's meaning depends on its position.
+
+Either refuse a group binding that shadows a parameter, or the sort is unsound.
+Add it to §3 as a fifth case.
+
+For contrast, the half criterion 5 gets for free: *"references to module-scope
+names are not edges"* needs no work at all — a name not in the group's bound set
+simply is not an edge, and nothing has to tell a module-scope name from
+anything else. `Expr::Path` is a single string, so `inner::x` is never an
+`Ident` and never an edge either.
+
+### 11.4 Criterion 6 contradicts criterion 8
+
+Criterion 6: *"the four existing `where` clauses are already ordered, so their
+goldens must not move."* Criterion 8 amends `examples/generic.sdx`'s reordering
+comment — and comments reach the `.xrs`. That comment is in the golden, twice.
+
+Restate criterion 6 as **no generated code moves; comment-only golden diffs are
+expected in `generic.xrs`**. Plan 52 paid exactly this tax and its §10.1 is the
+precedent.
+
+**And the corpus proves almost nothing about the sort.** The four clauses are
+`largest` (1 binding), `area` (2, with one edge, in order), `sizes` (2,
+independent) and `retries` (1). Three are vacuously ordered; only `area`
+exercises the sort at all. A stable topological sort with ties broken by source
+order preserves all four byte for byte, so §3's new example is doing all the
+work.
+
+### 11.5 Four copies of the reordering claim, and one wrong citation
+
+§4 leaf 5 names one. There are four, plus the goldens:
+`examples/generic.sdx`'s §1 header sentence *and* its in-body comment,
+`redox-ast`'s `clause.rs` doc comment, and `emit_clauses.rs`'s code comment —
+the last two carrying the same sentence, *"that reordering is the whole of the
+lowering."*
+
+**Criterion 8 cites the wrong document.** Doc 18 §2.2 contains no ordering
+claim; it says only that *"`where` keeps one meaning"*. The section to amend is
+**doc 03 §8.3**, which §1.1 already quotes verbatim and accurately.
+
+### 11.6 Verified, and smaller corrections
+
+- **Rust accepts mutually recursive nested `fn`s**, in either definition order —
+  compiled clean. So leaf 2's sort does not even have to order a mutually
+  recursive component. §2 was right to say leaf 3 must verify this rather than
+  inherit it from plan 55 §1.4, which verified local items with their own
+  generics and not mutual recursion.
+- **Nothing emits an item inside a function body today.** `emit_member` nests
+  `fn` in a `trait`/`impl`, `emit_module` nests items in a `mod`,
+  `emit_tests_module` nests `#[test] fn` — none inside a block. **Plan 55 leaf 5
+  is building the same carrier**, in the same milestone, and says so in its own
+  §4. Coordinate them or it gets written twice.
+- **§6's nested-`where` paragraph describes a construct that does not parse.**
+  `Keyword::Where` is matched in exactly one place in the workspace, and
+  `where_locals` attaches to a `Clause`, never to a `Stmt`. A nested `where` is
+  `RDX0102`. There are no nested groups to sort independently.
+- **§5's criteria are numbered 1, 2, 2, 3, 4, 5, 6, 7, 8** — nine items, two
+  labelled 2, and §7 and §4 then refer to "criterion 6" meaning the sixth label.
+  Renumber.
+- §1 and §2's example writes `area w = scaled` / `base = w * w`; the corpus is
+  `area w h = scaled` / `base = w * h`. Harmless, except that the §2 block is
+  presented as a measurement.
+- **Claim a count, not a number.** `RDX0111` is the last taken and `RDX0112` is
+  free — and **plan 55 claims no code at all**, despite needing at least three.
+  Plans 56 and 57 both still say *"next free is `RDX0110`"*, which plans 52 and
+  53 took while those sentences stood. If decision 1's fallback is taken,
+  `RDX0047` also needs adding to `code.rs`'s `PUBLISHED` list, which
+  `every_reserved_code_is_one_doc_03_published` enforces.
+- Criterion 7 is free: `docs/GRAMMAR.md` grades *"`where` clauses"* as Rust's
+  **bound** clause and notes that *"Redox's own `where` introduces local
+  bindings and is a different construct"*, so Redox's `where` has no graded row.
+  It stops being free if leaf 5 adds one for the multi-equation form — which it
+  should.
+- §2 cites commit `194fdf7`, 24 commits behind and predating the type colon.
+- **Unsettled, and worth a test:** `redox-fmt` emits from the same `Program`, so
+  plan 56 §11.3's warning applies to this row's sort as well — if the sort
+  rewrites the tree rather than ordering at emission, `redox fmt` reorders the
+  author's `where` group. `formatting_preserves_meaning` is the gate that would
+  catch it.
