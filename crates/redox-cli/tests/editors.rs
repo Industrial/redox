@@ -698,6 +698,147 @@ fn every_grammar_keyword_is_coloured() {
   );
 }
 
+/// And every keyword a highlighter colours is one the grammar still defines.
+///
+/// [`every_grammar_keyword_is_coloured`] runs grammar → highlighters. This is
+/// the other direction, and it is the one that has failed twice.
+///
+/// A retirement leaves a dead word behind. Plan 49's cross-check **found four**
+/// when it was written; plan 55 leaf 7 retired `then` and found four more — in
+/// `highlights.scm`, the Zed copy of it, `sdx.vim` and `redox.tmLanguage.json`
+/// — and found them **by grep**, because nothing asserted this direction. A
+/// highlighter that colours a word the compiler rejects tells an author the
+/// word is live, which is the opposite of what a highlighter is for.
+///
+/// # Why only two of the three highlighters
+///
+/// `queries/highlights.scm` needs no check here: a query naming a node type
+/// the grammar does not have is a **hard error** from `tree-sitter`, not a
+/// dead pattern, and `tree_sitter.rs` runs both `query` and — since plan 65 —
+/// `test`. That is how leaf 7 learned `"then"` and then `"do"` had to go from
+/// it. The Vim and TextMate lists are plain text that nothing validates, so
+/// they are what this covers.
+///
+/// # The oracle is the lexer, not `grammar.js`
+///
+/// [`grammar_keywords`] is the right source for the *forward* direction, which
+/// asks whether the grammar's own keywords are coloured. It is the wrong one
+/// here, and the first version of this test used it and produced two false
+/// positives — `type` and `guard`, both live.
+///
+/// It is a **text scan for quoted literals**, so it misses any word the grammar
+/// spells another way. Probed: `type Pair = (u64, u64)` parses with **zero**
+/// `ERROR` nodes under `tree-sitter parse` while `'type'` appears nowhere in
+/// `grammar.js`, because a type alias is reached through a rule rather than a
+/// literal. A scan that under-collects is harmless when it drives a *demand*
+/// and wrong when it drives a *refusal*.
+///
+/// So this asks `Keyword::from_text` — the compiler's own keyword table, and
+/// the thing an author's editor is supposed to agree with. A word it rejects is
+/// a word `redox build` will not accept, which is exactly the claim a
+/// highlighter makes by colouring it.
+#[test]
+fn every_coloured_keyword_is_still_in_the_grammar() {
+  /// Coloured deliberately, and not a `Keyword`.
+  ///
+  /// `export` is a **visibility** rather than a keyword — a regex in
+  /// `grammar.js`, matched by `(visibility)`, and `Keyword::from_text` does not
+  /// know it. Colouring it is right: an author types it where a Rust author
+  /// types `pub`.
+  ///
+  /// `Self` is a type rather than a keyword, coloured by its own
+  /// `variable.language.self` rule; it reaches a list this test reads only in
+  /// Vim, under the separate `sdxSelf` group.
+  ///
+  /// `from` is the interesting one: it is Redox's **only contextual keyword**.
+  /// `error_variant.rs` reads it as `TokenKind::Ident(text) if text == "from"`,
+  /// so the lexer hands it over as an identifier and position is what makes it
+  /// syntax — `examples/errors.sdx` has `from std::num::ParseIntError as
+  /// Parse`. It is in no `Keyword` table and in no `grammar.js` literal, which
+  /// is why neither direction of this cross-check finds it on its own.
+  ///
+  /// Colouring it is right, and it carries one known cost: because it is an
+  /// identifier, `from = 1` is a legal binding and both highlighters will
+  /// colour that `from` as syntax. That is a mis-colouring the compiler cannot
+  /// be asked to prevent, and the alternative — leaving `errors` blocks
+  /// uncoloured — is worse.
+  const COLOURED_BUT_NOT_A_KEYWORD: &[&str] = &["export", "Self", "from"];
+
+  // The oracle's own floor: a `from_text` that stopped matching would
+  // otherwise make every word below look dead.
+  for live in ["if", "else", "case", "guard", "type", "do"] {
+    assert!(
+      redox_lexer::Keyword::from_text(live).is_some(),
+      "`{live}` should still be a Keyword, or this test is not reading the lexer it thinks \
+       it is"
+    );
+  }
+  assert!(
+    redox_lexer::Keyword::from_text("then").is_none(),
+    "`then` was retired at plan 55 leaf 7 and should not be a Keyword — if it is back, this \
+     test's premise has changed"
+  );
+
+  let known = |word: &str| {
+    redox_lexer::Keyword::from_text(word).is_some() || COLOURED_BUT_NOT_A_KEYWORD.contains(&word)
+  };
+
+  let mut dead = Vec::new();
+
+  // Vim: the words on `syn keyword sdxKeyword` lines. The other groups —
+  // `sdxBoolean`, `sdxSelf` — colour constructs that are not keywords.
+  let vim = std::fs::read_to_string(editors_dir().join("vim/syntax/sdx.vim"))
+    .expect("should read the Vim syntax file");
+  for line in vim
+    .lines()
+    .filter(|l| l.trim_start().starts_with("syn keyword sdxKeyword"))
+  {
+    for word in line.split_whitespace().skip(3) {
+      if !known(word) {
+        dead.push(format!("  {word}: editors/vim/syntax/sdx.vim"));
+      }
+    }
+  }
+
+  // TextMate: the alternation of the `keyword.control.redox` pattern.
+  let textmate =
+    std::fs::read_to_string(editors_dir().join("vscode/syntaxes/redox.tmLanguage.json"))
+      .expect("should read the TextMate grammar");
+  let control = textmate
+    .split("\"keyword.control.redox\"")
+    .nth(1)
+    .and_then(|rest| between(rest, "\\\\b(", ")\\\\b"))
+    .expect(
+      "the TextMate grammar should carry a `keyword.control.redox` pattern whose match is a \
+       `\\b(a|b|…)\\b` alternation — if that shape changed, this check needs rewriting rather \
+       than deleting",
+    );
+  let alternation: Vec<&str> = control.split('|').collect();
+  assert!(
+    alternation.len() > 30,
+    "parsed only {} words out of the TextMate alternation, so this check is not reading what \
+     it thinks it is: {control}",
+    alternation.len()
+  );
+  for word in alternation {
+    if !known(word) {
+      dead.push(format!(
+        "  {word}: editors/vscode/syntaxes/redox.tmLanguage.json"
+      ));
+    }
+  }
+
+  assert!(
+    dead.is_empty(),
+    "a highlighter colours {} word(s) the lexer does not accept as a keyword:\n{}\n\nA dead \
+     keyword tells an author the word is live, which is the opposite of what a highlighter is \
+     for. Either remove it, or — if it is deliberately coloured while not being a `Keyword`, \
+     as `export` and `Self` are — add it to COLOURED_BUT_NOT_A_KEYWORD with the reason.",
+    dead.len(),
+    dead.join("\n"),
+  );
+}
+
 /// The grammar's keyword literals: bare lowercase strings in `grammar.js` that
 /// are not `field()` names.
 ///
