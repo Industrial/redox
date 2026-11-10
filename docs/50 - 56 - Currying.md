@@ -601,7 +601,7 @@ positional binders (`signature_from.rs:55-58`), so `|__rdx_a|` would shadow
 
 ### 11.3 The pass has nowhere clean to live, and §4 does not say where
 
-**The rule this is a case of, stated at plan 61:** *a pass that rewrites `Program` has two consumers and will surprise one of them.* `redox-fmt` and `redox-emit` read the same tree, so a lowering that mutates it makes the formatter rewrite the author's source. Whatever this pass turns out to be, it belongs where only generated Rust can see it.
+**The rule this is a case of, stated at plan 61:** *a pass that rewrites `Program` has two consumers and will surprise one of them* — with one structural exemption plan 61 §11.6 now records, signature lines, which `redox-fmt` passes through verbatim and which therefore cannot be surprised. `redox-fmt` and `redox-emit` read the same tree, so a lowering that mutates it makes the formatter rewrite the author's source. Whatever this pass turns out to be, it belongs where only generated Rust can see it.
 
 `parse()` (`crates/redox-parser/src/parse.rs:24-42`) is the declared chokepoint
 and already returns `Result<Program, Vec<ParseError>>`, so a **check** there

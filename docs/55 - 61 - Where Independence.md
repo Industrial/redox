@@ -704,6 +704,36 @@ claim; it says only that *"`where` keeps one meaning"*. The section to amend is
   > them.** Lowering decisions belong in the emitter, where only generated Rust
   > can see them.
 
+  **One structural exemption, which is worth knowing before applying the rule.**
+  A **signature line** is already immune, and not by luck.
+  `crates/redox-fmt/src/item_text/signature_line.rs` prints it as a **verbatim
+  slice of the source**, because `parser::generalise` rewrites a signature's
+  types *in place*: `largest : Ord t => Option<t> -> t` is stored as
+  `Ord T => Option<T> -> T`, and the author's lowercase `t` is gone from the
+  tree.
+
+  The reason it cannot simply be undone is the sharp part — doc 18 §5.3 makes
+  the **case of the first letter** the whole difference between a type variable
+  and a concrete type, and `T` is a legal concrete name. So the information is
+  not recoverable from the AST, printing a signature from the tree would rewrite
+  every generic declaration in the corpus into Rust's convention, and that is a
+  change to the *language's surface* rather than a formatting choice.
+
+  So a parser-side rewrite of a signature does **not** surprise the formatter,
+  which is why `redox fmt examples/class.sdx` is byte-identical today even
+  though `receiver.rs` destroys `sig.params[0]` at parse time. Measured by the
+  session that wrote plan 67, which needed the answer for its marked receiver,
+  and verified here.
+
+  **What would lift the exemption**, per that file's own §10 pointer: the AST
+  keeping the source spelling and the emitter applying `rust_generic` when it
+  writes — moving `generalise`'s third step from parse time to emit time. A row
+  that does that makes every parser-side signature rewrite visible to the
+  formatter at once, and must carry the receiver work with it.
+
+  The rule above still holds for everything that is *not* passed through
+  verbatim, which is every other position a lowering could touch.
+
   So the dependency ordering is applied while emitting the `let`s, and the tree
   keeps the author's order. `formatting_preserves_meaning` is still the gate
   that would catch a regression, and §5 should assert the formatter case
