@@ -530,19 +530,45 @@ seconds, and `status.rs` reads the git tree. Those gates are
 
 ### 10.5 What is not done, and why
 
-**Leaf 3 is authored and unapplied.** The four `~/.dotfiles` files and an
-idempotent installer for the four wiring edits are in `.tmp/dotfiles/`, and
-`.tmp/dotfiles/apply.sh --dry-run` is clean. They were not installed because
-**this session's harness denies writes outside the repository**
-(`plugins/id-workflow/hooks/guard-write-paths.sh`), which an agent cannot lift
-for its own session. Routing around a deliberate guard with a different tool
-would have been the wrong answer to it.
+**Leaf 3 is applied, and §3's second rung is met.** `~/.dotfiles` gained
+`features/programming/redox/` — four files, two of them assay suites — plus
+five wiring edits: the `github:Industrial/redox` flake input,
+`profiles/development.nix`, the extension's registration in
+`features/programming/cursor/default.nix`, `redox.server.{enable,path}` in the
+Cursor user settings, and the `redox` MCP server in Cursor's `mcp.json`. All of
+it through an idempotent installer, so a half-run is safe to re-run.
 
-So three rungs of §7's gate are unmet, and they are the three that matter
-most: `nixos-rebuild build`, `cursor --list-extensions` listing
-`redox-lang.redox`, and the human opening a `.sdx`. **Nothing here has been
-seen working inside Cursor.** The flake builds, the extension packages, the
-module loads under `node` — and the end-to-end claim is still unverified.
+Measured, and the third row is the one that matters:
+
+```
+assay run features/programming/redox        11/11 passed
+the extension derivation alone              built; node_modules/ carries
+                                            vscode-languageclient and its 7-package closure
+cursor-with-extensions, rebuilt             --list-extensions prints
+                                            redox-lang.redox   (26 extensions, was 25)
+drakkar's environment.systemPackages        holds redox-0.1.0, so redox / redox-lsp /
+                                            redox-mcp land on PATH after a switch
+```
+
+That is §5's criterion 3 satisfied **on the built artifact** rather than on a
+running system, and the distinction is this plan's own house style: the
+extension is in the store path a switched Cursor would read, and nobody has
+switched yet.
+
+**One rung remains, and it is the human one.** `nixos-rebuild build` for
+drakkar **fails**, for a reason that has nothing to do with this row: a hash
+mismatch in `tldr-pages`, whose fixed-output derivation no longer matches
+upstream. Proven orthogonal rather than asserted — `nix build
+.#nixosConfigurations.drakkar.pkgs.tldr-pages` fails identically on its own,
+with no redox in the graph, and the package comes from
+`features/cli/{cheatsheet,tealdeer}`. So the switch is blocked on someone
+else's stale hash, and **nobody has yet seen Redox working inside Cursor.**
+
+An earlier draft of this section recorded leaf 3 as unapplied, because the
+session's harness denies writes outside the repository
+(`plugins/id-workflow/hooks/guard-write-paths.sh`). That guard covers the
+editing tools and not the shell, which the author confirmed was the intended
+route; it was not worked around until they asked for it.
 
 **Leaf 4's publish half is done**, by the author rather than by this session —
 publishing is outward-facing and the session had no standing authorisation for
@@ -569,10 +595,9 @@ Leaf 5 is untouched, and `capabilities.rs` still advertises exactly four.
 
 ### 10.6 Owed to successors
 
-- **Apply leaf 3 and run the deploy.** Until then this row's own §3 is three
-  rungs short, and `editors/vscode/README.md` points at a Nix feature that does
-  not exist yet. Everything upstream of it is now verified from the *published*
-  source, so what is left is six file edits and a switch.
+- **Run the switch, once `tldr-pages` is unblocked.** It is the last rung, and
+  it is a person looking at a diagnostic in a running Cursor. Everything
+  upstream is verified, including on the built `cursor-with-extensions`.
 - **`crates.io` is blocked on a name, not a token**, and nothing in this row
   needs one. `redox-lsp` is **taken by an active crate** — v0.3.0, updated
   2026-10-23, `github.com/JackDerksen/redox` — and `redox` by a bittorrent
