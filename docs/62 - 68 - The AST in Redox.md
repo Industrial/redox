@@ -57,7 +57,7 @@ own crates cannot use it, and a row that discovered this halfway through would h
 the wrong thing first.
 
 So the regeneration is a **test**, not a build step: `redox build` over
-`conformance/redox-ast/**/*.sdx` must reproduce what is committed. The gate catches a
+`crates/redox-ast/sdx/**/*.sdx` must reproduce what is committed. The gate catches a
 `.sdx` edited without regenerating, and a hand edit to the generated `.rs`, with the same
 assertion.
 
@@ -173,7 +173,7 @@ a `build.rs` — is the shape a reader will assume and §1.2 is why it cannot be
 
 ### Leaf 0 — `leaf-port-harness`
 
-`conformance/redox-ast/` mirroring `crates/redox-ast/src/` one file for one file, a sweep that
+`crates/redox-ast/sdx/` mirroring `crates/redox-ast/src/` one file for one file, a sweep that
 runs `redox build` over all of it, and the test that the output matches what is committed.
 
 The harness comes first because it is what makes the other leaves reviewable: a port of 53
@@ -226,7 +226,7 @@ one; `docs/STATUS.md` regenerates. Milestone 10 gets its header and this row get
 
 ## 5. Acceptance criteria
 
-1. `crates/redox-ast/src/**/*.rs` is **generated**, and `conformance/redox-ast/**/*.sdx` is
+1. `crates/redox-ast/src/**/*.rs` is **generated**, and `crates/redox-ast/sdx/**/*.sdx` is
    its source, one file for one file.
 2. `cargo check --workspace --all-targets` passes with no change to any other crate.
 3. All 845 tests pass, unchanged.
@@ -245,6 +245,12 @@ one; `docs/STATUS.md` regenerates. Milestone 10 gets its header and this row get
 10. `conformance/clause.sdx` is **retired**, with its `syn`-only tests, because this row
     supersedes it: a module lifted out of a crate was the best available proof and is no
     longer.
+
+    **Not done by this row.** Criteria 9 and 10 were both missed and neither was disclosed
+    in §10 below: `conformance/clause.sdx`, its two `syn`-only tests and the worked-port
+    prose all survived plan 68 *and* plan 69, and this row was marked `done` with them in
+    place. Plan 70 carried them out while moving the `.sdx` into the crates — and found
+    them by reading this criterion.
 
 ---
 

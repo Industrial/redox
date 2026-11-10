@@ -79,11 +79,12 @@ examples/**/*.xrs.map
 benchmarks/pairs/*.xrs
 benchmarks/pairs/*.xrs.map
 
-# Plan 48's conformance port is the other way round: `conformance/*.xrs` is a
-# committed expectation, compared byte for byte by `conformance.rs`, because
-# the point of the port is that its generated Rust can be read. Its source map
-# is still an artifact.
-conformance/*.xrs.map
+# The self-hosted crates keep their `.sdx` beside the `src/` it generates, and
+# `redox build` drops a transient `.xrs` next to each one while the port
+# harness reads it. Those are artifacts; the committed `.rs` under `src/` is
+# the real output and is tracked.
+crates/*/sdx/**/*.xrs
+crates/*/sdx/**/*.xrs.map
 
 # Plan 49. `editors/vscode/` is a VSCode extension, so an `npm install` for
 # `vscode-languageclient` lands here; the VSIX payload is an explicit list
@@ -124,7 +125,3 @@ yarn-error.log*
 tree-sitter-redox/*.so
 tree-sitter-redox/*.dylib
 tree-sitter-redox/*.wasm
-conformance/redox-ast/**/*.xrs
-conformance/redox-ast/**/*.xrs.map
-conformance/redox-fmt/**/*.xrs
-conformance/redox-fmt/**/*.xrs.map

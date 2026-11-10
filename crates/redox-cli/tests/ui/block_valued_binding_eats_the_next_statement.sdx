@@ -1,22 +1,22 @@
 module block_valued_binding_eats_the_next_statement
 
--- | Plan 69's second finding, and a **surface decision** rather than a defect.
--- |
--- | A binding whose value is a block — an `if`, a `case` — swallows a following
--- | statement that opens with `.name`. The value goes through the Pratt loop,
--- | a block ends on a `Dedent` that does not stop it, and `postfix` reads the
--- | `.` as field access on the block: `(if flag … else …).push pick`, which is
--- | method-call syntax, so `RDX0115` refuses it.
--- |
--- | The contrast that pins the rule to the **binding** is a block in
--- | *statement* position, which never reaches `postfix` at all:
--- | `conformance/redox-fmt/expr_text/macro_call_text.sdx` has an `if`/`else`
--- | statement followed by `.push_str (…) out` and parses. Two narrower
--- | statements of this finding were written before that contrast was noticed.
--- |
--- | Three spellings work: push inside the branches, parenthesise the
--- | statement, or `recv |> .name args` — which is what the diagnostic itself
--- | offers, and what `conformance/redox-fmt/format.sdx` uses.
+-- Plan 69's second finding, and a **surface decision** rather than a defect.
+--
+-- A binding whose value is a block — an `if`, a `case` — swallows a following
+-- statement that opens with `.name`. The value goes through the Pratt loop,
+-- a block ends on a `Dedent` that does not stop it, and `postfix` reads the
+-- `.` as field access on the block: `(if flag … else …).push pick`, which is
+-- method-call syntax, so `RDX0115` refuses it.
+--
+-- The contrast that pins the rule to the **binding** is a block in
+-- *statement* position, which never reaches `postfix` at all:
+-- `crates/redox-fmt/sdx/expr_text/macro_call_text.sdx` has an `if`/`else`
+-- statement followed by `.push_str (…) out` and parses. Two narrower
+-- statements of this finding were written before that contrast was noticed.
+--
+-- Three spellings work: push inside the branches, parenthesise the
+-- statement, or `recv |> .name args` — which is what the diagnostic itself
+-- offers, and what `crates/redox-fmt/sdx/format.sdx` uses.
 export probe : () -> String
 probe () =
   mut out = String::new ()

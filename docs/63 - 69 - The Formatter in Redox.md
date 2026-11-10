@@ -151,8 +151,8 @@ Four more:
 ### Leaf 0 — `leaf-two-crate-harness`
 
 `ast_port.rs` becomes a harness over a **list of ported crates** rather than
-one hard-coded path, and `conformance/redox-fmt/` joins
-`conformance/redox-ast/`. The staging guard checks each crate it is given.
+one hard-coded path, and `crates/redox-fmt/sdx/` joins
+`crates/redox-ast/sdx/`. The staging guard checks each crate it is given.
 
 One test file, not two: the four assertions are the same four, and a second
 copy would be the one-predicate-two-positions defect plan 34 §10.31 found five
@@ -182,7 +182,7 @@ it is. `docs/STATUS.md` regenerates.
 ## 5. Acceptance criteria
 
 1. `crates/redox-fmt/src/**/*.rs` is generated from
-   `conformance/redox-fmt/**/*.sdx`, one file for one file.
+   `crates/redox-fmt/sdx/**/*.sdx`, one file for one file.
 2. `cargo check --workspace --all-targets` passes with no change to any other
    crate.
 3. Every test passes, unchanged — **including `redox-fmt`'s own**, which
@@ -292,7 +292,7 @@ rather than a measurement to make.
 ## 10. Result
 
 **Done 2026-11-10.** `crates/redox-fmt` is written in Redox: 57 `.sdx` files
-under `conformance/redox-fmt/`, 2,355 lines of Redox generating **2,907 lines
+under `crates/redox-fmt/sdx/`, 2,355 lines of Redox generating **2,907 lines
 of Rust** committed in `src/`, with the whole workspace compiled against it and
 **851 tests passing**. 1,045 `-- |` in and 1,045 `///` out, 37 `-- !` in and 37
 `//!` out, no escape hatch anywhere, and `redox fmt --check` clean over all 57.
@@ -320,8 +320,8 @@ measurement even when it is zero. It is not zero.
 
 Findings 6 and 7 are what §1.3 was hoping for and did not expect to get: the
 formatter, reading its own ported source, mis-printed it. Both are fixed **in
-Redox** — the edits are to `conformance/redox-fmt/expr_text/lambda_text.sdx`
-and `conformance/redox-fmt/expr_text.sdx`, and the `.rs` is regenerated. They
+Redox** — the edits are to `crates/redox-fmt/sdx/expr_text/lambda_text.sdx`
+and `crates/redox-fmt/sdx/expr_text.sdx`, and the `.rs` is regenerated. They
 are the first defects in this project fixed in Redox source rather than Rust.
 
 ### 10.2 Finding 1 — the survey, not the language
@@ -474,7 +474,7 @@ saying why. `lambda_text` never got the same choice, because until this port no
 corpus file had a lambda with a block body.
 
 **And a nested unary has no fixed point.** Measured over
-`conformance/redox-fmt/expr_text.sdx`:
+`crates/redox-fmt/sdx/expr_text.sdx`:
 
 ```text
 pass 1:  **inner    ->  *(*inner)

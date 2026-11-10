@@ -214,6 +214,30 @@ fn no_target_panics() {
 /// the right division — every semantic error rustc can find is one AGENTS.md
 /// says rustc should find, while a syntax error in generated code is Redox's
 /// own bug and nobody else's.
+///
+/// # One false positive, found at plan 70
+///
+/// That last sentence is true of a **mangled** emission and false of a
+/// faithful emission of a program that is not itself a complete Rust item. The
+/// smallest case is two lines, and needs no mutation:
+///
+/// ```text
+/// -- | A doc comment with no item under it.
+/// -- | Does the emitter write a dangling `///`?
+/// ```
+///
+/// The emitted Rust is a dangling `///`, which is exactly correct, and `syn`
+/// rejects it. `redox check` reports rustc's own *"expected item after doc
+/// comment"* against the **`.sdx`**, at the right line and column, through
+/// plan 07's remapping — so the author sees it on their own source and the
+/// design is working.
+///
+/// This surfaced when plan 70 added three `tests/ui` fixtures whose
+/// explanatory comments were `-- |` rather than `--`: a mutation removed the
+/// item under a twenty-line doc block and left a doc-comment-only program.
+/// The fixtures now use `--`, which is both the convention and the right
+/// comment form, so the sweep no longer reaches it — the oracle's assumption
+/// is unchanged and now written down rather than implied.
 #[test]
 fn the_generated_rust_always_parses() {
   let mut checked = 0;

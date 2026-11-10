@@ -165,8 +165,23 @@ workspace splits along pipeline stages (`docs/02 - Redox Update Blueprint.md` §
 - `crates/redox-parser/` — hand-written recursive descent (see `docs/COMPILER.md` §1)
 - `crates/redox-emit/` — Rust source emitter
 - `crates/redox-cli/` — the `redox` binary, plus the end-to-end and golden test harnesses
-- `crates/redox-diag/`, `redox-driver/`, `redox-fmt/` — declared empty; each crate's module
-  doc names the plan that fills it (plans 05, 10, 34)
+- `crates/redox-diag/`, `redox-driver/`, `redox-fmt/` — diagnostics, the incremental
+  driver and the canonical formatter, filled by plans 05, 10 and 34. This bullet said
+  *"declared empty"* until plan 70; all three have shipped
+- **`crates/redox-ast/sdx/` and `crates/redox-fmt/sdx/` — these two crates are written in
+  Redox.** The `.sdx` under `sdx/` is the source; the `.rs` under the same crate's `src/`
+  is generated from it by `redox build`, committed, and compiled by cargo like any other
+  Rust. Edit the `.sdx`, never the `.rs`, and regenerate with
+  `REDOX_BLESS=1 cargo test -p redox-cli --test port`, which also refuses to write a
+  generation that does not compile. `.gitattributes` marks the `src/` trees generated so
+  a regeneration is one line in a review rather than a thousand.
+
+  **The committed `.rs` is load-bearing and must stay committed.** It is this project's
+  previous-version compiler: `redox-cli` is built from `redox-fmt`, which is built from
+  `redox-ast`, so untracking either crate's `src/` leaves a clean checkout with nothing to
+  build the compiler that would regenerate it. Doc 02 §4.8 chose this; plan 68 proved it by
+  breaking the bootstrap within the hour, and plan 70 §1 is the survey of what every other
+  self-hosting language does instead
 - `examples/*.sdx` — the CI-checked source of truth for what works today
 - `tests/golden/` — `.sdx` beside its expected `.xrs`, compared as exact text
 - `docs/` — numbered: 01 specification, 02 blueprint, 03 surface design, 04 plan of plans,

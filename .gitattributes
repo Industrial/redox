@@ -1,0 +1,22 @@
+# The self-hosted crates' Rust is **generated** from the `.sdx` beside it.
+#
+# `crates/redox-ast/sdx/**` and `crates/redox-fmt/sdx/**` are the source; the
+# `.rs` under each crate's `src/` is written by `redox build` and committed,
+# because the committed output *is* this project's previous-version compiler
+# (doc 02 §4.8) — stored as reviewable Rust rather than as a prebuilt binary,
+# which is the thing rustc, Go, Zig and OCaml all have to download or check in
+# as a blob and cannot read.
+#
+# Committed, but not hand-written. These two attributes say so where it counts:
+#
+# - `linguist-generated` collapses the file in a diff view, keeps it out of
+#   language statistics, and marks it generated in a review.
+# - `-diff` stops git producing a textual diff for it, so a regeneration shows
+#   as one line rather than as a thousand. `git diff --text` still works when
+#   you actually want to read it, and `tests/port.rs` is what grades the
+#   content.
+#
+# Plan 70. Before it the `.sdx` lived in `conformance/<crate>/` and nothing
+# marked the `src/` tree as generated at all.
+crates/redox-ast/src/**/*.rs linguist-generated=true -diff
+crates/redox-fmt/src/**/*.rs linguist-generated=true -diff

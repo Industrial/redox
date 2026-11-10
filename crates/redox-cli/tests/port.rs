@@ -1,6 +1,6 @@
 //! The crates written in Redox — plans 68 and 69.
 //!
-//! `conformance/<crate>/**/*.sdx` is the **source**; the `.rs` under
+//! `crates/<crate>/sdx/**/*.sdx` is the **source**; the `.rs` under
 //! `crates/<crate>/src/` is generated from it and committed, and cargo
 //! compiles that exactly as it compiled the hand-written Rust. So the whole
 //! workspace and all of its tests run against Redox-generated code, which is
@@ -71,11 +71,27 @@ fn pairs() -> Vec<(PathBuf, PathBuf)> {
   PORTED.iter().flat_map(|c| pairs_of(c)).collect()
 }
 
+/// Where one ported crate's Redox source lives.
+///
+/// This and [`src_root`] are the **only** two places that know the layout.
+/// `the_sdx_tree_mirrors_the_rust_tree` used to build the `.sdx` path itself,
+/// which meant plan 70's move to `crates/<crate>/sdx/` changed one of two
+/// copies and the mirror's reverse direction searched a deleted directory —
+/// the one-predicate-two-positions defect plan 34 §10.31 found five times and
+/// leaf 0 of plan 69 had just removed from this file's crate name.
+fn sdx_root(crate_name: &str) -> PathBuf {
+  workspace_root().join("crates").join(crate_name).join("sdx")
+}
+
+/// Where the Rust generated from [`sdx_root`] is committed.
+fn src_root(crate_name: &str) -> PathBuf {
+  workspace_root().join("crates").join(crate_name).join("src")
+}
+
 /// One ported crate's `.sdx` sources, each with the `.rs` it generates.
 fn pairs_of(crate_name: &str) -> Vec<(PathBuf, PathBuf)> {
-  let root = workspace_root();
-  let from = root.join("conformance").join(crate_name);
-  let into = root.join("crates").join(crate_name).join("src");
+  let from = sdx_root(crate_name);
+  let into = src_root(crate_name);
   let mut found = Vec::new();
   collect(&from, &mut found);
   found.sort();
@@ -84,7 +100,7 @@ fn pairs_of(crate_name: &str) -> Vec<(PathBuf, PathBuf)> {
     .map(|sdx| {
       let rel = sdx
         .strip_prefix(&from)
-        .expect("under conformance/")
+        .expect("under the crate's sdx/")
         .with_extension("rs");
       (sdx.clone(), into.join(rel))
     })
@@ -160,11 +176,10 @@ fn staged_crate_compiles(root: &Path, crate_name: &str, staging: &Path) -> bool 
 /// not be.
 #[test]
 fn the_sdx_tree_mirrors_the_rust_tree() {
-  let root = workspace_root();
   let pairs = pairs();
   assert!(
     !pairs.is_empty(),
-    "conformance/ should hold the ports' source"
+    "each ported crate's sdx/ should hold its source"
   );
 
   let mut missing = Vec::new();
@@ -180,7 +195,7 @@ fn the_sdx_tree_mirrors_the_rust_tree() {
 
   let mut unported = Vec::new();
   for crate_name in PORTED {
-    let src = root.join("crates").join(crate_name).join("src");
+    let src = src_root(crate_name);
     let mut rust = Vec::new();
     collect_rs(&src, &mut rust);
     for path in rust {
@@ -188,12 +203,7 @@ fn the_sdx_tree_mirrors_the_rust_tree() {
         .strip_prefix(&src)
         .expect("under src")
         .with_extension("sdx");
-      if !root
-        .join("conformance")
-        .join(crate_name)
-        .join(&rel)
-        .exists()
-      {
+      if !sdx_root(crate_name).join(&rel).exists() {
         unported.push(format!("  {} has no .sdx source", path.display()));
       }
     }

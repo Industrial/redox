@@ -44,10 +44,3 @@ toml = "1.2.1"
 # small, and `deflate` pulls flate2, zlib-rs and a wasm-bindgen tree into the
 # dev graph to save a few kilobytes nobody transfers.
 zip = { version = "9.5.0", default-features = false }
-# Plan 48 leaf 2's oracle. The conformance port is one module lifted out of a
-# crate, so `crate::Stmt` cannot resolve and **rustc cannot type-check it** —
-# a property of the extraction, not of Redox. `syn` answers the question that
-# is actually askable about an isolated module: is this valid Rust *syntax*.
-# Plan 42 §1.3 chose it as an oracle for the same reason and it is already in
-# `Cargo.lock`.
-syn = { version = "2", features = ["full", "parsing"] }

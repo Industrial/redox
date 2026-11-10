@@ -473,3 +473,24 @@ containing a macro invocation**, so a single `matches!` added anywhere in
 `conformance_is_current` for that reason alone; it now uses the three `check`
 calls `at_statement_end` already uses, which is the better match for the file's
 style regardless.
+
+
+---
+
+## The witness moved, at plan 70
+
+This row cites `conformance/clause.sdx` seven times — the 15-line multi-line
+`data … = … { … }` record declaration was its evidence that a bracket opens a
+layout context, and criterion 5 asserts the file compiles with an unchanged
+`.xrs`.
+
+That file is **gone**, retired with plan 48's probe when plan 70 removed the
+`conformance/` directory. The witness is not: the same module, ported for real,
+is `crates/redox-ast/sdx/program/item/clause.sdx`, and its record declaration
+is the same shape. It is now graded better than it was — `tests/port.rs`
+compares it byte for byte against the committed Rust, and rustc compiles that
+Rust as part of the workspace, where the retired fixture was only checked by
+`syn::parse_file`.
+
+So read criterion 5 as naming the ported file. Nothing about the behaviour this
+row landed has changed.

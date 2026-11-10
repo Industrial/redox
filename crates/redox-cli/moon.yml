@@ -38,6 +38,12 @@ tasks:
       - '@group(tests)'
       - '@group(dependency_sources)'
       - '/crates/**/*.rs'
+      # The self-hosted crates' Redox source. `/crates/**/*.rs` does not match
+      # a `.sdx`, so without this line `tests/port.rs` — which grades the
+      # `.sdx` against the committed `.rs` — stays cached green when a `.sdx`
+      # is edited and not regenerated, which is the exact failure it exists to
+      # catch. Measured: the same task hash before and after the edit.
+      - '/crates/*/sdx/**/*'
       - '/examples/**/*'
       - '/tests/**/*'
       - '/docs/**/*.md'

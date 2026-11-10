@@ -19,7 +19,6 @@
 
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 fn workspace_root() -> PathBuf {
   PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -255,24 +254,35 @@ fn render(root: &Path) -> String {
   );
 
   out.push_str(
-    "\n---\n\n## The worked port\n\n\
-     `conformance/clause.sdx` is `crates/redox-ast/src/program/item/clause.rs` expressed in \
-     Redox, with no escape hatch in it. The generated `conformance/clause.xrs` is committed, \
-     per doc 02 §4.8 — *\"commit the generated `.xrs` so the bootstrap never breaks\"*.\n\n\
-     It proves a real compiler data type is expressible: declaration, named fields, \
-     per-field visibility, derives, doc comments and verbatim types all survive. It does \
-     **not** prove the compiler is expressible — 45 lines is 0.2% of it, and the counts above \
-     speak to the rest.\n\n\
-     Writing it found a defect the count could not see. Every field doc comment was silently \
-     discarded, and `redox fmt` deleted them from the source, because the lexer classified a \
-     comment opening a continuation line as *trailing* the previous line and then held it for \
-     a `Newline` a continuation never produces. AGENTS.md calls comment preservation \
-     load-bearing (doc 02 §10.1). Fixed in `redox-lexer`'s `at_line_start` — and that is the \
-     *\"hard way\"* doc 02 §4.8 said a port would find things.\n\n\
+    "\n---\n\n## Two crates are no longer a count\n\n\
+     The table above measures what *could* be ported. Two crates **have** been, and for them \
+     the question is settled by rustc rather than by a blocker count: `redox-ast` (plan 68) \
+     and `redox-fmt` (plan 69) are written in Redox, their `.sdx` living in \
+     `crates/<crate>/sdx/` beside the `src/` it generates, and the generated Rust is \
+     committed and compiled as part of the workspace.\n\n\
+     So **the compiler is now partly compiled from Redox** — 110 files of it. That corrects \
+     what this document said until plan 70: *\"nothing in the build depends on \
+     `conformance/`, and the compiler is not compiled from it\"*, which was true when plan \
+     48 lifted one 45-line module out of a crate and checked it with `syn`, and stopped \
+     being true the moment a whole crate's `src/` was generated.\n\n\
+     Plan 48's probe is retired with that sentence. `conformance/clause.sdx` was \
+     `clause.rs` expressed in Redox and checked by `syn::parse_file`, because one module \
+     lifted out of a crate cannot resolve `crate::Stmt`; the real port has no extraction to \
+     concede to, so the weaker oracle expired. Its no-escape-hatch assertion now runs over \
+     all 110 files in `port.rs`.\n\n\
+     What it found still stands, and is the reason doc 02 §4.8 expected a port to be worth \
+     doing: every field doc comment was silently discarded, and `redox fmt` deleted them \
+     from the source, because the lexer classified a comment opening a continuation line as \
+     *trailing* the previous line and then held it for a `Newline` a continuation never \
+     produces. Plans 68 and 69 found three more of that class and two formatter defects.\n\n\
      ---\n\n## The Rust implementation is permanent\n\n\
      Doc 02 §4.8 corrects doc 01 §34's own wording: keep the Rust implementation *\"permanently \
-     rather than as a 'fallback'\"*. Nothing in the build depends on `conformance/`, and the \
-     compiler is not compiled from it.\n",
+     rather than as a 'fallback'\"*. The nine crates that are not ported are hand-written \
+     Rust and stay that way until a row says otherwise; the two that are ported keep their \
+     generated Rust **committed**, which is what doc 02 §4.8 means by *\"commit the generated \
+     `.xrs` so the bootstrap never breaks\"* — the committed output is the previous-version \
+     compiler every self-hosting language needs, stored as reviewable source rather than as \
+     a binary.\n",
   );
   out
 }
@@ -294,45 +304,4 @@ fn conformance_is_current() {
     "docs/CONFORMANCE.md is out of date. If a blocker count fell, that is good news and this \
      is still a failure: REDOX_BLESS=1 cargo test -p redox-cli --test conformance"
   );
-}
-
-#[test]
-fn the_port_transpiles_to_its_committed_output() {
-  let root = workspace_root();
-  let sdx = root.join("conformance/clause.sdx");
-  let xrs = root.join("conformance/clause.xrs");
-
-  let out = Command::new(env!("CARGO_BIN_EXE_redox"))
-    .arg("build")
-    .arg(&sdx)
-    .output()
-    .expect("should run redox build");
-  assert!(
-    out.status.success(),
-    "conformance/clause.sdx should transpile:\n{}",
-    String::from_utf8_lossy(&out.stdout)
-  );
-
-  let generated = std::fs::read_to_string(&xrs).expect("should read clause.xrs");
-  assert!(
-    !generated.contains("rust("),
-    "the port must not reach for the escape hatch — doc 02 §4.8's criterion is that the \
-     source is expressible *without* it"
-  );
-}
-
-#[test]
-fn the_ported_output_is_valid_rust() {
-  let root = workspace_root();
-  let generated =
-    std::fs::read_to_string(root.join("conformance/clause.xrs")).expect("should read clause.xrs");
-
-  // `syn`, not rustc: the port is one module lifted out of a crate, so
-  // `crate::Stmt` cannot resolve and rustc would reject it for a reason that
-  // is about the extraction rather than about Redox. Plan 42 §1.3 chose this
-  // oracle for the same reason, and plan 48 §10 records the correction to
-  // that plan's own criterion 3.
-  if let Err(e) = syn::parse_file(&generated) {
-    panic!("the ported module is not valid Rust syntax: {e}");
-  }
 }
