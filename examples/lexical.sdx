@@ -27,9 +27,15 @@ main =
   closed = 1..=10
   label = 'outer
   ascribed = total :: u64
-  -- `\` lambdas and `$` are doc 18 §11.2's work, not §11.1's: they are
-  -- specified and not yet lexed, so they are absent here rather than
-  -- commented-out code pretending otherwise.
+  -- Corrected by plan 51. These three lines previously said `\` lambdas and
+  -- `$` were "specified and not yet lexed" and left them out on that basis.
+  -- Both ship — doc 18 §11.1 names the commit, `0abcdf0` — so the claim was
+  -- false and this file was the only thing asserting it. A construct that is
+  -- implemented and unexampled is undiscoverable, which is the whole reason
+  -- `construct_coverage` exists; `examples/application.sdx` exercises both
+  -- for real, and they are lexed here.
+  lambda = \n -> n + 1
+  applied = twice $ show 7
   field = self.name
   static_call = Self::create
   method_ref = (|> name)

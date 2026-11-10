@@ -53,13 +53,13 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 
 | Corpus | Files | What it asserts |
 |---|---:|---|
-| `examples/*.sdx` | 29 | the CI-checked source of truth for what works |
-| `tests/golden/*.xrs` | 28 | the generated Rust, as exact text |
+| `examples/*.sdx` | 30 | the CI-checked source of truth for what works |
+| `tests/golden/*.xrs` | 29 | the generated Rust, as exact text |
 | `crates/redox-cli/tests/ui/*.sdx` | 28 | the diagnostic a bad program gets |
 | `tests/unreachable/*.sdx` | 6 | the gaps below, asserted to **still fail** |
 | `benchmarks/pairs/*.sdx` | 9 | generated and hand-written Rust, as identical IR |
 
-**29 examples and 28 goldens is not an error.** `examples/lexical.sdx` deliberately does not parse — it is the error-path example, and `benchmarks/REPORT.md` excludes it from the throughput sweep for the same reason. Reporting "29 examples, all green" would be rounding up by exactly one file.
+**30 examples and 29 goldens is not an error.** `examples/lexical.sdx` deliberately does not parse — it is the error-path example, and `benchmarks/REPORT.md` excludes it from the throughput sweep for the same reason. Reporting "30 examples, all green" would be rounding up by exactly one file.
 
 ---
 

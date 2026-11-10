@@ -1,0 +1,68 @@
+-- Doc 18 §2.1's `$` and the multi-line pipeline — plan 51.
+--
+-- Both of these work today and neither had an example, which is the whole
+-- reason plan 51 exists. `$` shipped in doc 18 §11.1's commit `0abcdf0` and
+-- `examples/lexical.sdx` nevertheless explained its absence by calling it
+-- unlexed. A construct that is specified, implemented and unexampled is an
+-- undiscoverable one, and `construct_coverage` now fails when one appears.
+--
+-- Checked by compiling and **running** with zero rustc output, because the
+-- precedence cases are the ones a golden alone cannot settle: `$` applied to
+-- the wrong operand still compiles and prints a different number.
+
+show :: i32 -> String
+show n = "#{n}"
+
+twice :: String -> String
+twice s = "#{s}#{s}"
+
+-- `$` is **lower** than every operator, so the sum is the argument and not
+-- just the `1`. Written with parentheses this is `print (1 + 2)`; the point
+-- of `$` is that it does not need them.
+sum_of :: i32 -> i32 -> String
+sum_of a b = "#{a} + #{b}"
+
+-- `$` is **right**-associative, so this is `twice (show 7)` and never
+-- `(twice show) 7` — which would not compile, and so is the one case here
+-- that a wrong lowering cannot hide.
+nested :: String
+nested = twice $ show 7
+
+-- And it does not swallow a method chain: the receiver of `.len ()` is
+-- `show 3`, not the whole application.
+chained :: usize
+chained = (show 3).len ()
+
+-- The multi-line pipeline. The receiver sits on the `=` line and every
+-- continuation indents beneath it — which is the one layout that parses, and
+-- nothing in doc 18 §4 says so. The alternative, with the receiver on its own
+-- line after `=`, is `RDX0102`.
+--
+-- Four stages, because the argument for `|>` is that a chain reads top to
+-- bottom in the order the data moves. The emitted Rust is **one line**, which
+-- is the lowering working — and is also where this example found a defect
+-- larger than itself.
+--
+-- `generated_rust_is_rustfmt_clean` failed on the first draft of this
+-- function. The emitter joins a chain onto one line whatever its width, and
+-- rustfmt breaks a chain wider than `chain_width` (60 by default) across
+-- lines. No golden had ever caught it: the longest chain in the corpus before
+-- this file was `a.len() + b.len()`, 21 characters. A fifth stage here takes
+-- the chain to 73 and the gate goes red.
+--
+-- So this function stays inside 60 deliberately, and the defect is recorded
+-- rather than worked around in silence — plan 58 makes long chains the normal
+-- case and is where the emitter learns to break them.
+evens_doubled :: Vec<i32> -> usize
+evens_doubled xs = xs.iter ()
+  |> filter (\n -> *n % 2 == 0)
+  |> map (\n -> n * 2)
+  |> count
+
+main :: ()
+main =
+  print $ 1 + 2
+  print $ sum_of 2 3
+  print (nested ())
+  print (chained ())
+  print (evens_doubled ([1, 2, 3, 4, 5, 6].to_vec ()))
