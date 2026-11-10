@@ -10,6 +10,6 @@
 main : ()
 main =
   raw = Some 7
-  port = raw.unwrap ()
+  port = .unwrap raw
   print port
   ()

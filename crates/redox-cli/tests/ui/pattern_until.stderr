@@ -1,6 +1,6 @@
 error[RDX0107]: `until` cannot take a pattern test: it lowers to `while !(…)`, and a pattern test cannot be negated. Write `while` with the opposite pattern, or a `loop` with a `break`
   --> pattern_until.sdx:8:3
   |
-8 |   until Some v = queue.pop ()
+8 |   until Some v = .pop queue
   |   ^^^^^
 

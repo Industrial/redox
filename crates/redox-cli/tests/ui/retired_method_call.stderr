@@ -1,0 +1,21 @@
+error[RDX0115]: method-call syntax is retired
+  --> retired_method_call.sdx:13:7
+   |
+13 |   a = s.len (1)
+   |       ^^^^^
+  = help: a method is a function whose last argument is its receiver, so write `.len args recv` or `recv |> .len args`. `.` is field access and nothing else (plan 57 §1.1)
+
+error[RDX0115]: method-call syntax is retired
+  --> retired_method_call.sdx:14:7
+   |
+14 |   b = s.len ()
+   |       ^^^^^
+  = help: a method is a function whose last argument is its receiver, so write `.len args recv` or `recv |> .len args`. `.` is field access and nothing else (plan 57 §1.1)
+
+error[RDX0115]: method-call syntax is retired
+  --> retired_method_call.sdx:15:7
+   |
+15 |   c = s.find "h"
+   |       ^^^^^^
+  = help: a method is a function whose last argument is its receiver, so write `.find args recv` or `recv |> .find args`. `.` is field access and nothing else (plan 57 §1.1)
+

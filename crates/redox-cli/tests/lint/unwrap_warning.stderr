@@ -1,6 +1,6 @@
 warning[RDX1001]: `unwrap` and `expect` panic — the ergonomic path is `?`, `??` or `catch` (doc 03 §12.7)
-  --> unwrap_warning.sdx:13:14
+  --> unwrap_warning.sdx:13:11
    |
-13 |   port = raw.unwrap ()
-   |              ^^^^^^
+13 |   port = .unwrap raw
+   |           ^^^^^^
   = help: if a panic is intended here, say so on the line above: `#[redox::allow(unwrap)]`

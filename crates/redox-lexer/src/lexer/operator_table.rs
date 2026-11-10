@@ -22,7 +22,6 @@ pub(crate) const OPERATOR_TABLE: &[(&str, TokenKind)] = &[
   ("./", TokenKind::DotSlash),
   (".%", TokenKind::DotPercent),
   ("??", TokenKind::Coalesce),
-  ("?.", TokenKind::QuestionDot),
   ("|>", TokenKind::Pipe),
   ("&:", TokenKind::AmpColon),
   ("@@", TokenKind::AtAt),

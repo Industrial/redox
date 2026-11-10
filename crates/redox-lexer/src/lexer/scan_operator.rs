@@ -67,7 +67,8 @@ mod tests {
   #[test]
   fn distinguishes_the_question_family() {
     assert_eq!(scan("??"), (Some(TokenKind::Coalesce), 2));
-    assert_eq!(scan("?."), (Some(TokenKind::QuestionDot), 2));
+    // `?.` is **two** tokens since plan 57 deleted optional chaining.
+    assert_eq!(scan("?."), (Some(TokenKind::Question), 1));
     assert_eq!(scan("?"), (Some(TokenKind::Question), 1));
   }
 

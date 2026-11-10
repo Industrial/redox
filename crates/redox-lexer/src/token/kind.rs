@@ -81,9 +81,12 @@ pub enum TokenKind {
   /// `??` and `??=` (doc 03 §12.1).
   Coalesce,
   CoalesceEq,
-  /// `?.` — optional chaining (doc 03 §12.3).
-  QuestionDot,
   /// `?` — error propagation.
+  ///
+  /// `?.` was a token of its own until plan 57 deleted optional chaining, and
+  /// its absence is what makes `x?.name` two postfix steps: the propagation
+  /// and then the field. `postfix` refuses the glued spelling so the change
+  /// of meaning is a diagnostic rather than a surprise.
   Question,
   /// `...` — spread, rest pattern, or argument forwarding (doc 03 §4.2).
   DotDotDot,

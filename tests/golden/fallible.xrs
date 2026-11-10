@@ -1,21 +1,25 @@
-// Doc 03 §12's three remaining constructs — `catch`, `?.` and `try` blocks.
-// Plan 28.
+// Doc 03 §12's constructs — `catch` and `try` blocks. Plan 28, and plan 57
+// for the third: `?.` is **retired**.
 //
-// All three lower by handing the work to rustc, and two by the same
-// mechanism: `?` inside a closure that returns from itself rather than from
-// the enclosing function. Doc 18 §8 keeps all three despite having no Haskell
-// analogue, "because deleting them would cost reachability or ergonomics with
-// nothing to show".
+// Both lower by handing the work to rustc, and by the same mechanism: `?`
+// inside a closure that returns from itself rather than from the enclosing
+// function. Doc 18 §8 kept all three despite having no Haskell analogue,
+// "because deleting them would cost reachability or ergonomics with nothing
+// to show" — and plan 57 §1.4 struck that for `?.`, because doc 02 §6.3's
+// lowering *was already* a `?` run, so the replacement is the lowering and
+// costs nothing but an explicit `&`.
 //
 // Checked by compiling and **running** with zero rustc output. The `try`
 // block is the case only a run can catch: lowered to a bare block it still
 // compiles, and its `?` then returns from `main`.
 
-// A type that is **not** `Clone`, so the `?.` chain below cannot be cloning.
+// A type that is **not** `Clone`, so the chains below cannot be cloning.
 // Doc 03 §12.3 resolves doc 02 §13's question 7 — "the chain borrows and
 // never clones" — and this is what makes that a tested fact rather than a
 // claim: a lowering that cloned would print exactly the same thing and fail
-// to compile here.
+// to compile here. Plan 57 §11.4 re-sites the claim onto the new spelling
+// without weakening it: every `&` below is load-bearing, and dropping one is
+// `E0507`.
 #[repr(transparent)]
 struct Tag(String);
 
@@ -67,25 +71,45 @@ fn reason(s: &str) -> String {
     }
 }
 
-// `?.` chains field accesses through `Option`s, lowering to doc 02 §6.3's
-// closure. The whole `and_then`/`map` unification is rustc's: hand-written
-// combinators would need `and_then` for a link that yields an `Option` and
-// `map` for one that does not, which only a type checker can tell apart.
+// What `u?.profile?.name` used to spell, written out. The construct is gone
+// and the lowering is not: doc 02 §6.3 always handed the whole
+// `and_then`/`map` unification to rustc through a `?` run inside a closure
+// returning `Option`, because hand-written combinators would need `and_then`
+// for a link that yields an `Option` and `map` for one that does not, which
+// only a type checker can tell apart. `try` *is* that closure.
+//
+// The two `&`s are the whole cost of the deletion, and plan 57 §11.4 is why
+// they cannot be dropped: a field access **moves**, so `&u.as_ref ()?
+// .profile` is what keeps `Profile` behind its reference. Written with the
+// `&` at the front, where a reader sees it.
+//
+// `? .profile` has a space, and it is not optional: `?.` glued is `RDX0117`,
+// so the retirement cannot be escaped by writing the old spelling.
 fn first_name(u: &Option<User>) -> Option<&String> {
-    (|| Some(&u.as_ref()?.profile.as_ref()?.name))()
+    (|| {
+        let profile = &u.as_ref()?.profile;
+        Some(&profile.as_ref()?.name)
+    })()
 }
 
 // The same chain ending on the non-`Clone` field. If this compiles, the chain
 // borrows.
 fn first_tag(u: &Option<User>) -> Option<&Tag> {
-    (|| Some(&u.as_ref()?.profile.as_ref()?.tag))()
+    (|| {
+        let profile = &u.as_ref()?.profile;
+        Some(&profile.as_ref()?.tag)
+    })()
 }
 
 // Nested options are **not** flattened — doc 01 §13.1 — and that costs
 // nothing to honour, because `?` does not flatten. A final field of type
-// `Option<String>` yields `Option<&Option<String>>`, nested exactly once.
+// `Option<String>` yields `Option<&Option<String>>`, nested exactly once, and
+// the property survives the respelling because it was always `?`'s.
 fn nickname_of(u: &Option<User>) -> Option<&Option<String>> {
-    (|| Some(&u.as_ref()?.profile.as_ref()?.nickname))()
+    (|| {
+        let profile = &u.as_ref()?.profile;
+        Some(&profile.as_ref()?.nickname)
+    })()
 }
 
 // `try` is a block in which `?` returns from the **block**. Rust has wanted

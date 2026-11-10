@@ -22,11 +22,12 @@ pub(crate) fn takes_a_postfix(expr: &Expr) -> bool {
     | Expr::SelfField { .. }
     | Expr::SelfType { .. } => true,
     // A postfix chain is itself a receiver — that is what a chain is.
-    Expr::Field { .. }
-    | Expr::MethodCall { .. }
-    | Expr::Index { .. }
-    | Expr::Try { .. }
-    | Expr::OptionalChain { .. } => true,
+    Expr::Field { .. } | Expr::Index { .. } | Expr::Try { .. } => true,
+    // Plan 57's `.name`. Unreachable through today's grammar — nothing
+    // postfixes a bare method reference — and `true` is the round-trip-safe
+    // answer if it ever is: `(.name)` is the field *selector*, so wrapping it
+    // would change the program.
+    Expr::MethodRef { .. } => true,
     // The author's parenthesis is kept or dropped by what it holds.
     Expr::Paren { inner, .. } => takes_a_postfix(inner),
     // An application needs its own parentheses: `(f x).a`, because postfix is

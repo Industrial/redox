@@ -86,15 +86,20 @@ fn each_width_reaches_its_canonical_form() {
 
 /// The two wide pipelines break, and nothing else does.
 ///
-/// Seven continuation lines: three stages each for the two wide pipelines in
-/// `main`, plus three for the clause-level one, and none for either short
+/// Twelve continuation lines: four stages each for the two wide pipelines in
+/// `main` and four for the clause-level one, and none for either short
 /// pipeline — the one written on a line and the one the author broke anyway.
+///
+/// Nine until plan 57, when `numbers.iter ()` became `numbers |> .iter` and
+/// each wide pipeline gained a stage. The receiver is a bare name now, so the
+/// `.iter` that used to be part of it is a stage like the three after it —
+/// which is the shape the row exists to produce.
 #[test]
 fn only_a_pipeline_too_wide_for_its_line_is_broken() {
   let (_, printed) = formatted("pipeline");
   assert_eq!(
     continuations(&printed).len(),
-    9,
+    12,
     "the wide pipelines should break at every stage and the short ones not at \
      all:\n{printed}"
   );

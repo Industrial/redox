@@ -458,16 +458,31 @@ tighter: `1..3.into_iter()` is `1..(3.into_iter())`.
 | `(> 0)` | `\|__rdx_1\| __rdx_1.gt(&0)` | method form, for auto-ref §1.1 |
 | `(0 <)` | `\|__rdx_1\| __rdx_1.gt(&0)` | flipped, same lowering |
 | `(.name)` | `\|__rdx_1\| __rdx_1.name` | field selector, as in GHC's record dot |
-| `(\|> name)` | `\|__rdx_1\| __rdx_1.name()` | method reference — a section of `\|>` |
 | `(- 1)` | `-1` | always negation; no subtraction section |
-| `add 1` | `\|__rdx_1\| add(1, __rdx_1)` | partial application — **plan 56**, the seventh row of the same mechanism |
+| `add 1` | `\|__rdx_1\| add(1, __rdx_1)` | partial application — **plan 56**, the sixth row of the same mechanism |
+| `.name` | `\|__rdx_1\| __rdx_1.name()` | method reference — **plan 57**, and the row `(\|> name)` used to hold |
 
-The `(|> name)` and `(- 1)` rows each delete something — *"the last two"* until plan 56 added a
-seventh below them. A section of `|>` is a method reference, derived from
-the rule rather than added to it, so doc 03 §8.5's `&:name` sigil goes — and unlike `&:` it can
-distinguish a field from a method, since `(.name)` selects and `(|> name)` calls. And following
-Haskell in having no subtraction section retires the `(-1)`-versus-`(- 1)` adjacency rule
-(decision 50): write `\x -> x - 1`.
+The `(.name)` and `(- 1)` rows each delete something — *"the last two"* until plan 56 added a
+row below them and plan 57 another. `(.name)` retires doc 03 §8.5's `&:name` sigil. And
+following Haskell in having no subtraction section retires the `(-1)`-versus-`(- 1)` adjacency
+rule (decision 50): write `\x -> x - 1`.
+
+**`(|> name)` was a row here and plan 57 removed it**, which is that row's own §1.3: a
+**method is a function** whose last argument is its receiver, so a bare `.name` is a method
+awaiting that argument and lowers to the same `|__rdx_1| __rdx_1.name()`. Two surfaces for one
+construct is the redundancy this milestone exists to remove, and plan 65's rule decides which
+row removes it — whoever builds the replacement. Writing it is `RDX0116`.
+
+`(.name)` stays, and the discriminator is **a `)` immediately after the name**: `(.age)` closes
+and `(.cmp y)` does not. That is one token of lookahead, and §6's honest note about it is that
+a parenthesis now carries a semantic difference — worse than the rest of this milestone
+produces, and adopted because Redox has no types and *something* must carry it. Outside
+parentheses it is **position**: a `.` in head position calls a method, a `.` after an
+expression selects a field, and `.` has exactly one job in each place.
+
+One thing the replacement does not reach: a bare `.name` is only spellable in **head**
+position, because a `.` after an expression is field access. So a zero-argument method used as
+an *argument* — `map (|> len)` — is a lambda now: `map (\t -> .len t)`.
 
 ```haskell
 result = numbers
@@ -477,7 +492,7 @@ result = numbers
   |> sum
 
 labels  = &users |> iter |> map (.name)
-lengths = &users |> iter |> map (|> len)
+lengths = &users |> iter |> map (\t -> .len t)
 f = move \x : i32 -> x + captured
 ```
 
@@ -693,7 +708,10 @@ runtime scaffolding at all, and doc 01 §36 needs no exception.
 | Primary constructors | 9.3 | `data` constructors; `RDX0053` goes |
 | Labelled arguments | 8.2 | Nothing — deleted with its best-effort `RDX0051` |
 | `...` forwarding | 8.4 | Nothing — `RDX0048` goes; `...` leaves the language |
-| `&:name` | 8.5 | `(\|> name)`, a section of the pipeline |
+| `&:name` | 8.5 | `(\|> name)` — and that in turn by a bare `.name` (plan 57) |
+| `(\|> name)` | §4 | A bare `.name`: a method is a function, receiver last (plan 57) |
+| `?.` optional chaining | 13.1, 12.3 | `try` over a `?` run, with an explicit `&` (plan 57) |
+| `x.f ()` method-call syntax | 5.1 | `.f x`, `x \|> .f` — `.` is field access only (plan 57) |
 | `!` zero-argument suffix | 5.2 | `f ()` |
 | Chained comparison `0 < x < 9` | 5.6 | `&&` |
 | `??=`, postfix `if`/`unless`/`until` | 12.1, 7.7 | Their expanded forms |
@@ -751,11 +769,24 @@ and the reason doc 03's first decision was to adopt Rust's range spelling.
 | Custom operator declaration | Already declined by doc 03 §22 for the only reason that matters: Rust has no lowering target. |
 | Purity and IO | Redox is Rust with a different surface. `mut`, `&mut` and side effects stay exactly as doc 03 has them — test 3 again. |
 
-Four Redox constructs are **kept unchanged** despite having no Haskell analogue, because
+**Six** Redox constructs are **kept unchanged** despite having no Haskell analogue, because
 deleting them would cost reachability or ergonomics with nothing to show: `??` and `catch` (doc
-03 §12 keeps `Option` and `Result` visually distinct, and both still lower to a `match`), `?.`,
+03 §12 keeps `Option` and `Result` visually distinct, and both still lower to a `match`),
 `try` blocks, string interpolation with Rust's format specs, the `errors` declaration, and
 `test` blocks.
+
+This said *"Four"* and listed seven, and `?.` was one of the seven. **Plan 57 deleted it**, and
+the reason is that the justification above was false for it rather than merely weak: doc 02
+§6.3's lowering was *already* a `?` run inside a closure returning `Option`, so with a method
+callable as a function the chain is writable as what it lowered to, and deleting the construct
+cost reachability nothing. Against keeping it, `?.` was **one token**, so `(e)?.m ()` silently
+meant optional chaining rather than `?` followed by a call — one of the five cases in this
+milestone's opening survey that reached no Redox diagnostic at the point of the mistake.
+
+The cost it did carry is disclosed rather than denied: a field access **moves**, so the
+replacement needs an explicit `&` the lowering used to insert. `examples/fallible.sdx` writes
+it, and `benchmarks/pairs/borrowed_chain.sdx` is the IR-equality pair that moved with the
+construct, so the zero-cost claim is still measured and not merely asserted.
 
 ---
 

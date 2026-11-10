@@ -28,16 +28,16 @@ errors ConfigError
 retries : &str -> Result<u32, ConfigError>
 retries raw = Ok n
   where
-    n = raw.parse ()?
+    n = (.parse raw)?
 
 describe : &ConfigError -> String
-describe e = e.to_string ()
+describe e = .to_string e
 
 main : ()
 main =
   print (describe (&Missing (String::from "retries")))
   print (describe (&ConfigError::Invalid (String::from "x") 7))
   print (describe (&ConfigError::Closed))
-  print ((retries "12").is_ok ())
-  print ((retries "nope").is_err ())
+  print (.is_ok (retries "12"))
+  print (.is_err (retries "nope"))
   ()

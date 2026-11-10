@@ -265,13 +265,26 @@ fn lexes_the_operator_surface() {
     line_of(&src, "static_call").contains(&TokenKind::ColonColon),
     "an associated item is a path now, not a sigil"
   );
-  // Doc 18 §4 retires `&:name` for `(|> name)`, a *section* of the pipeline
-  // rather than a sigil of its own — derived from the section rule instead of
-  // added to it, and unlike `&:` it can tell a field from a method, since
-  // `(.name)` selects and `(|> name)` calls.
+  // Doc 18 §4 retired `&:name` for `(|> name)`, a *section* of the pipeline,
+  // and plan 57 retired that in turn: a **method is a function** whose last
+  // argument is its receiver, so a bare `.name` is a method awaiting it and
+  // lowers to the closure the section spelled. Two surfaces for one
+  // construct, and the row that built the replacement removed the other.
+  //
+  // So the token is a `Dot` and the assertion is about *position*: the `.`
+  // opens the line rather than following a receiver, which is the whole
+  // method-versus-field rule and the only thing a lexer can see of it.
+  let method_ref = line_of(&src, "method_ref");
   assert!(
-    line_of(&src, "method_ref").contains(&TokenKind::Pipe),
-    "a method reference is a section of `|>` now, not a sigil"
+    method_ref
+      .windows(2)
+      .any(|pair| pair == [TokenKind::Eq, TokenKind::Dot]),
+    "a method reference is a `.` opening the value now, not a `|>` section or \
+     a sigil: {method_ref:?}"
+  );
+  assert!(
+    !method_ref.contains(&TokenKind::Pipe),
+    "`(|> name)` is retired — plan 57"
   );
 }
 

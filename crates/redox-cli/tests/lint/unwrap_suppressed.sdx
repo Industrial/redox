@@ -21,7 +21,7 @@
 main : ()
 main =
   #[redox::allow(unwrap)]
-  port = (Some 7).unwrap ()
+  port = .unwrap (Some 7)
   print port
   print (port_of (Some 9))
   ()
@@ -29,6 +29,6 @@ main =
 #[redox::allow(unwrap)]
 port_of : Option<u64> -> u64
 port_of raw =
-  first = raw.unwrap ()
-  second = (Some 1).expect ("set by construction")
+  first = .unwrap raw
+  second = .expect "set by construction" (Some 1)
   first + second

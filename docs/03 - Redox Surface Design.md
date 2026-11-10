@@ -1331,13 +1331,48 @@ let n = match parse(s) {
 
 Doc 01 §13.3's `?` is unchanged and remains the propagation mechanism.
 
-### 12.3 Optional chaining
+### 12.3 Optional chaining — **retired by plan 57**
 
-Doc 01 §13.1's `?.` is retained with doc 02 §6.3's lowering, which delegates the entire
+Doc 01 §13.1's `?.` was retained with doc 02 §6.3's lowering, which delegates the entire
 `and_then`/`map` unification to rustc via `?` inside a closure returning `Option`. Nested
 options are not flattened, satisfying doc 01 §13.1, because `?` does not flatten.
 
-**Doc 02 §13 question 7 is resolved: the chain borrows and never clones.**
+**Doc 02 §13 question 7 is resolved: the chain borrows and never clones.** That claim
+survives the retirement; what changed is which spelling makes it.
+
+> **Retired 2026-11-10 by plan 57 (§1.4), and the construct is `RDX0117`.** The lowering
+> above *is* a `?` run inside a closure, and plan 57 made a method callable as a function,
+> so the chain is writable as what it lowered to — a `try` block, which is that same
+> closure. Deleting the construct therefore cost reachability nothing, which is the
+> justification doc 18 §8 had given for keeping it. What it cost is the **`&`**: a field
+> access moves, so the borrow the lowering inserted must now be written.
+>
+> The claim is re-sited onto the new spelling rather than weakened:
+>
+> ```
+> n = try
+>   profile = &(.as_ref user)? .profile
+>   Some (&(.as_ref profile)? .name)
+> ```
+> ```rust
+> let n = (|| {
+>     let profile = &user.as_ref()?.profile;
+>     Some(&profile.as_ref()?.name)
+> })();
+> ```
+>
+> Dropping either `&` is `E0507`, which is what makes "borrows and never clones" a tested
+> fact here rather than a property of a lowering nobody can see.
+> `benchmarks/pairs/borrowed_chain.sdx` is the IR-equality pair, replacing
+> `optional_chain.sdx`, so the zero-cost claim moved with the construct.
+>
+> `?.` is not a token at all now, and the glued spelling is refused for one reason: without
+> the refusal, `x?.name` would silently become `x?` followed by `.name` — valid Rust meaning
+> something else, which doc 02 §5.2 calls the worst available failure mode. `x? .name`, with
+> a space, is exactly that and is legal.
+
+The published form of the lowering is below, kept because the correction it carries is
+about `.as_ref()` and is independent of the spelling.
 
 ```
 n = user?.profile?.name

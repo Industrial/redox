@@ -296,7 +296,25 @@ borrow claim re-sited onto the new spelling. `docs/GRAMMAR.md` and `docs/STATUS.
 
 1. `.name args receiver` emits `receiver.name(args)`, for zero, one and two arguments.
 2. `x |> .name args` works, and reads left to right across lines.
-3. `map (.cmp y) xs` works — a method partially applied, which requires plan 56.
+3. *Withdrawn.* It read *"`map (.cmp y) xs` works — a method partially applied, which
+   requires plan 56"*, and it **contradicts criterion 1** on the same tree.
+
+   `.trim raw` and `(.cmp y)` are both `Call { callee: MethodRef, args: [one] }`. Criterion 1
+   wants that one argument read as the **receiver**; criterion 3 wants it read as an
+   **argument** with the receiver still missing. No rule can do both, and telling them apart
+   needs a method's **arity** — which Redox cannot have, because a method's arity depends on
+   the receiver's type and AGENTS.md forbids the checker that would know it. Plan 56's
+   `arity_table` is explicit that class and instance members are absent from it precisely
+   because *"they are reached through a receiver or a path"*.
+
+   §11.6's *"receiver-last makes the missing-argument count always exactly one"* is where the
+   contradiction hid: true of the receiver, and silent about how many arguments precede it.
+
+   **The rule kept is criterion 1's — the last argument is always the receiver** — and the
+   trade is measured rather than asserted. The alternative, letting a parenthesis carry the
+   distinction, fails on `print (.len x)`: roughly **40 sites**, against the handful that
+   want `map (.cmp y)`. §10.1 has the count. A partially applied method is still writable
+   the long way, `map (\t -> t.cmp y)`, which is what the corpus now does.
 4. `(.name)` still selects a field; bare `.name` calls a method; both in one running example.
 5. `x.f ()` is a named Redox diagnostic naming the replacement.
 6. `?.` is not a token; `examples/fallible.sdx` keeps its non-`Clone` assertion and still
@@ -446,7 +464,159 @@ reasoning about equivalence is the compensation.
 
 ## 10. Result
 
-*Not yet executed.*
+Executed 2026-11-10. Nine of the ten acceptance criteria are met; **criterion 3 is not, and
+cannot be as spelled**, for a reason that is a finding rather than a shortfall.
+
+### 10.1 Criteria 1 and 3 are mutually contradictory, and that is the row's one real defect
+
+`.name args recv` and `map (.cmp y) xs` are **the same tree**, and Redox has no way to tell
+them apart.
+
+| Written | Tree | Criterion 1 wants | Criterion 3 wants |
+|---|---|---|---|
+| `.trim raw` | `Call { callee: MethodRef(trim), args: [raw] }` | `raw.trim()` | — |
+| `(.cmp y)` | `Call { callee: MethodRef(cmp), args: [y] }` | — | `\|r\| r.cmp(y)` |
+
+One argument, one node, two meanings. Telling them apart needs the method's **arity**, and
+plan 56's `arity_table` is explicit that it has arity for *bare identifiers with a signature
+in this file* and for nothing else — *"class and instance members are absent for a sharper
+version of the same reason: they are reached through a receiver or a path"*. §11.6's claim
+that *"receiver-last makes the missing-argument count always exactly one"* is where the
+contradiction hides: it is true of the **receiver** and says nothing about how many arguments
+precede it.
+
+Three ways out were considered and two rejected:
+
+| | Rule | Cost |
+|---|---|---|
+| **A** | a parenthesised `(.name args)` is a section awaiting its receiver | `print (.len x)` silently becomes a closure, and that shape is ~40 of the 67 migration sites |
+| B | retain `(\|> name args)`, generalised, as the partial form | contradicts §1.3's decision block, which this row is told not to re-derive |
+| **chosen** | the last argument is **always** the receiver | criterion 3 has no spelling; partial method application is a lambda |
+
+A was rejected because its failure mode lands on the *common* shape rather than the rare one,
+and because §11.6's own argument for it is false: `power_of` gives `Expr::Section` **`u8::MAX`**
+and not a decline (the doc comment says sections decline; the code has given them `u8::MAX`
+since the bracket-terminated group was split out), so the formatter would have dropped the
+parenthesis that carried the meaning. The brief's settled items 1 and 3 — *leaf 2 converts the
+`expect` to a rewind* and *`.name args recv` lowers to an application* — both point at the
+chosen rule, so it is what shipped.
+
+**The consequence is stated rather than hidden**: a method can be partially applied only with
+a lambda. `examples/section.sdx` writes `map (\t -> .len t)` where it wrote `map (|> len)`,
+and doc 18 §4 says so.
+
+### 10.2 What else turned out to be wrong
+
+- **Retiring `(|> name)` costs a capability the decision block did not account for.** A bare
+  `.name` is reachable only in **head** position, because a `.` after an expression is field
+  access and `map .len` reads as `map.len`. So the claim that the two spellings are
+  interchangeable holds for a binding's value (`method_ref = .name`) and fails for an
+  *argument* (`map (|> len)`), which is one of the two live corpus sites. Fixing it would need
+  whitespace adjacency in `postfix` — the hazard class plan 52 removed — so the site took a
+  lambda and doc 18 §4 records the loss.
+- **§11.6's formatter claim is half right.** Choosing the application shape did cost **no**
+  work in `power_of` or `can_drop_paren`, exactly as predicted. It cost work elsewhere:
+  `stands_alone` had to say **true** for `MethodRef` against its own stated rule — a `Dot`
+  cannot begin a parenless argument — because `argument` prints a *callee* through it, and
+  `(.len) xs` is the field selector applied to `xs`, a different program.
+- **A formatter defect the row created and the row fixed.** `redox fmt` printed
+  `Expr::Field { recv: Try }` as `x?.name`, glued — which after leaf 4 does not parse. The
+  formatter turned a program it had just parsed into one it could not, which is the single
+  thing §3 row 3's conservatism exists to prevent. Found by
+  `every_example_is_already_canonical` on `examples/fallible.sdx`, and the separator is now
+  decided by the **printed text** (`ends_with('?')`) rather than by the node, because a
+  `Paren` around the `?` is dropped before the question is asked.
+- **The `?.` radius is nine source files, not eleven.** §11.4 counted `QuestionDot` and
+  `OptionalChain` references; four of the eleven were prose. What the deletion actually
+  touched: `operator_table.rs`, `token/kind.rs`, `scan_operator.rs`, `postfix.rs`,
+  `ast/expr.rs`, `emit/expr.rs`, and four `redox-fmt` files (`expr_text.rs`, `power_of.rs`,
+  `stands_alone.rs`, `takes_a_postfix.rs`) — plus two whole files **deleted**
+  (`parser/optional_chain.rs`, `emit/optional_chain.rs`) and one more that fell out with the
+  retired call form (`parser/arguments.rs`, whose only caller was the `MethodCall` branch).
+- **`.` in `tree-sitter-redox` was a *token* problem, not a grammar gap.** The `section` rule
+  spelled its arm `seq(".", $.identifier)`, and an anonymous string token beats
+  `operator`'s `token(choice(…))` at the same position — so every `(.len xs)` committed to a
+  section and found no `)`, giving fourteen examples an `ERROR` node. The fix is a **deletion**:
+  `.` and `|>` are already in `operator` and an identifier is already an `_expression_part`, so
+  both retired arms were redundant. A `method_reference` rule was tried first and was worse —
+  it took the `.` of `m.0` and reported a MISSING identifier.
+- **`.sdx` fixtures live in Rust string literals after all**, in `crates/redox-emit/tests/`.
+  `no_literal_expectations.rs` forbids literal *expectations*, not literal inputs, and
+  fourteen emitter tests had to be hand-migrated. That is the Emerald cost AGENTS.md says is
+  paid once per syntax change, and this row paid a share of it.
+- **§11.2's `postfix.rs:93` discriminator was right and its consequence was understated.**
+  Retiring `Expr::MethodCall` removes the **comma-separated argument list** with it:
+  `x.m (a, b)` was two arguments and `.m (a, b) x` is one *tuple*. Multi-argument methods are
+  juxtaposed now — `.fold 0 add xs` — which `crates/redox-fmt/tests/fmt/expressions.sdx`
+  records as §3 row 6's new form.
+- **A fixture satisfied the witness for the construct it refuses.** The first
+  `tests/ui/retired_optional_chain.sdx` contained `(.as_ref u)`, which matches the new
+  method-call witness `( . «id» «id» )` — the exact hollowness the brief warned about, caught
+  by grepping the fixture directories rather than by trusting the green. The fixture binds
+  `inner` on a line of its own and says why.
+
+### 10.3 What the criteria cost, measured
+
+| Criterion | Met | Evidence |
+|---|---|---|
+| 1 `.name args recv`, 0/1/2 arguments | yes | `emit/method_ref.rs`, `tests/section.rs::a_method_takes_its_receiver_last` |
+| 2 `x \|> .name args` across lines | yes | `examples/application.sdx`'s four-stage chain; `tests/section.rs` |
+| 3 `map (.cmp y) xs` | **no** | §10.1 — contradicts criterion 1 and needs method arity |
+| 4 `(.name)` selects, `.name` calls, one example | yes | `examples/section.sdx` |
+| 5 `x.f ()` named | yes | `RDX0115`, both AST shapes, `tests/ui/retired_method_call.sdx` |
+| 6 `?.` gone, `fallible.sdx` still borrows | yes | `RDX0117`; three `try` chains, every `&` load-bearing — and `tests/check/moved_selector.sdx` makes §11.4's `E0507` a gate rather than a claim |
+| 7 misuse diagnosed both ways | **partly** | the two *retirements* are `RDX0115`/`RDX0116`; selector-versus-method misuse is undetectable without types, so it stays rustc's |
+| 8 all examples transpile, compile, run, stdout unchanged | yes | 32 examples; `examples`, `ui`, `run` green; no `.stdout` changed |
+| 9 `construct_coverage` green with `.name` indexed | yes | witness rebuilt per §11.6; probed by breaking each half |
+| 10 doc 18 §8 amended | yes | and its *"Four"*-lists-seven miscount with it |
+
+Criterion 7's second half is the honest gap. A parenthesised `(.name)` where a method is wanted
+is a field selector over a type with no such field, and a bare `.name` where a selector is
+wanted is a method call — both are **type** errors, and §1.3's mitigation ("gets a named Redox
+code in leaf 5") asks for a decision Redox cannot make. What leaf 5 delivered instead is a
+named code for each **retired spelling**, which is the part that is decidable.
+
+### 10.4 The zero-cost pair moved with the construct
+
+§6's disclosure is honoured: `benchmarks/pairs/optional_chain.sdx` is replaced by
+`borrowed_chain.sdx` + `.rs`, and `the_lowerings_are_free` passes over it. The generated Rust
+is byte-identical to what `?.` produced — a `try` block over a `?` run *is* doc 02 §6.3's
+lowering — so the pair asserts the same IR equality against the same hand-written
+`p.as_ref().map(|inner| &inner.x)`. Nine pairs before, nine after.
+
+### 10.5 Migration, counted
+
+**51 sites across 29 files**, against §11.5's 67-across-23. The difference is not a
+re-measurement of the same thing: §11.5 counted regex matches, and several lines hold two or
+three method calls that collapse into one rewritten expression (`examples/control.sdx:273` was
+three). The file count is *higher* because §11.5 missed six: `examples/cargo-project/`'s own
+`.sdx`, `crates/redox-lsp/tests/session.rs`, `crates/redox-cli/tests/phase1.rs`,
+`crates/redox-cli/tests/check/`, and two more benchmark pairs (`catch`, `unequal`).
+
+Three shapes needed care, and each is a grammar fact rather than a style choice:
+
+- **A list literal cannot be a parenless argument.** `.to_vec [1, 2, 3]` indexes the method
+  reference; it must be `.to_vec ([1, 2, 3])`.
+- **Postfix binds to the argument, not to the application.** `.parse raw?` is
+  `.parse (raw?)`, so `errors.sdx` writes `(.parse raw)?`.
+- **`|>` is not legal in a draw condition's operand.** `examples/async.sdx` writes
+  `.poll (&mut cx) (.as_mut boxed)` rather than a pipeline.
+
+### 10.6 Gate
+
+`moon :check`, `:lint`, `:format`, `examples`, `ui`, `run`, `declined`, `grammar_inventory`,
+`plan_orientation`, `one_construct_per_file`, `directory_structure`, `line_cap`,
+`construct_coverage`, `code_coverage`, `editors`, `tree_sitter`, `check` and all of
+`redox-fmt` and `redox-bench`: green. `cargo test --workspace --no-fail-fast` reports exactly
+two failures, both named below.
+
+**§11.4's `E0507` is now a test**, in `tests/check/` and not `tests/ui/` — the third plan in a
+row to need that distinction, because `ui.rs` runs `redox build` and `redox build` never
+invokes rustc, so a program whose only fault is a borrow error builds clean and the fixture's
+own `assert!(!status.success())` fails.
+
+`docs/STATUS.md` and `docs/CONFORMANCE.md` are **generated and stale**, which is the expected
+end state: the row moved 112 source lines and three corpus counts. Neither was blessed here.
 
 ---
 
@@ -637,7 +807,23 @@ lint fixtures still change.
   | `.name a` lowers to | `power_of` | Formatter prints |
   |---|---|---|
   | `Expr::Call` / `Expr::MethodCall` | `u8::MAX` | `.name a b` — paren dropped |
-  | a `Section` | **declines** | `(.name a) b` — paren kept |
+  | a `Section` | **also `u8::MAX`** | `.name a b` — paren dropped **too** |
+
+  **Corrected 2026-11-10, and the error was mine.** This table first said a `Section`
+  *declines*, which is what `power_of`'s own **doc comment** says — *"lambdas, `if`/`case`/`do`
+  as expressions, comprehensions, ascriptions and sections"*. The code says otherwise:
+  `power_of.rs:72` gives `Expr::Record`, `Expr::Comprehension` **and `Expr::Section`**
+  `Some(u8::MAX)`. I quoted the comment as the behaviour without reading past the arms the
+  listing had cut off.
+
+  The decision does not change; its argument gets stronger. If a `Section` also drops the
+  parenthesis, then the section shape does not merely print differently — it **drops the very
+  parenthesis that would have carried the meaning**, which is a defect rather than a
+  preference. So the application shape is right for a second, firmer reason.
+
+  Noted for whoever reads `power_of` next: its doc comment and its line 72 disagree about
+  sections, and one of them is wrong. That is not this row's to fix, but it is this row's to
+  have found.
 
   So the canonical form is a *consequence* of §11.2's choice, not a separate
   call, and the two must be made together or the formatter will contradict the

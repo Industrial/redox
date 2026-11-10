@@ -7,9 +7,9 @@ x
 (1 + 2) * 3
 1 - (2 - 3)
 1 - 2 - 3
-xs.len ()
-xs.len ()
-xs.fold (0, add)
+.len xs
+.len xs
+.fold 0 add xs
 count : u64
 [1, 2, 3]
 (1, 2)

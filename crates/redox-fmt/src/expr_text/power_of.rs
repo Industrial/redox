@@ -20,11 +20,25 @@ use redox_ast::Expr;
 ///
 /// # Which forms decline
 ///
-/// Lambdas, `if`/`case`/`do` as expressions, comprehensions, ascriptions and
-/// sections. Each of those *ends* at a place that depends on what follows it —
-/// a lambda body extends as far right as it can, an ascription's type swallows
-/// what comes next — so a surrounding parenthesis is doing real work even when
-/// a precedence table would say otherwise.
+/// Lambdas, `if` and `case` as expressions, and ascriptions. Each of those
+/// *ends* at a place that depends on what follows it — a lambda body extends as
+/// far right as it can, an ascription's type swallows what comes next — so a
+/// surrounding parenthesis is doing real work even when a precedence table
+/// would say otherwise.
+///
+/// # Sections, records and comprehensions are **not** in that list
+///
+/// This comment used to say sections decline, and it was wrong for long enough
+/// to mislead a reader: plan 57's orientation quoted it as the behaviour and
+/// had to be corrected against line 72 below, which gives all three
+/// `Some(u8::MAX)`.
+///
+/// They are self-delimiting. A section's parentheses are part of **its own**
+/// syntax — `(+ 1)` parses straight to `Expr::Section` with no `Paren` node
+/// around it — so `can_drop_paren` is never asked whether a bare section's
+/// brackets may go, and `u8::MAX` only ever answers for one nested inside
+/// *another* parenthesis, where dropping the outer pair is right. The same
+/// holds for `{…}` and a comprehension's `[…]`.
 pub(crate) fn power_of(expr: &Expr) -> Option<u8> {
   match expr {
     Expr::Binary { op, .. } => Some(op.power()),
@@ -41,12 +55,11 @@ pub(crate) fn power_of(expr: &Expr) -> Option<u8> {
     // primary and the parser consumes postfix inside it, so these are a single
     // group rather than a ladder.
     Expr::Call { .. }
-    | Expr::MethodCall { .. }
     | Expr::Field { .. }
     | Expr::Index { .. }
     | Expr::Unary { .. }
     | Expr::Try { .. }
-    | Expr::OptionalChain { .. }
+    | Expr::MethodRef { .. }
     | Expr::Path { .. }
     | Expr::StrLit { .. }
     | Expr::StrInterp { .. }

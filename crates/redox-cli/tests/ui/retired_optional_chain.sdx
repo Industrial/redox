@@ -1,0 +1,31 @@
+-- `RDX0117` — `?.`, optional chaining, retired by plan 57 leaf 4.
+--
+-- The token is gone from the lexer, so this is an **adjacency** check and not
+-- a branch: without it, `u?.tag` would silently become `u?` followed by
+-- `.tag`, which is valid Rust meaning something else — doc 02 §5.2's worst
+-- available failure mode.
+--
+-- The `spaced` line is the counterweight, and the reason this fixture is not
+-- hollow: `?` and a field *are* two postfix steps, so a check that refused
+-- the spaced form too would pass a refusal test while deleting a construct
+-- nobody asked to delete. Only `glued` is `RDX0117`.
+--
+-- `inner` is bound on a line of its own rather than inlined as
+-- `(.as_ref u)? .tag`, and deliberately: `construct_coverage` reads
+-- `tests/ui/` too, and its method-call witness is the token run
+-- `( . «id» «id» )`. A refusal fixture that satisfied the witness for the
+-- construct it refuses is the hollowness this milestone keeps catching.
+
+data Holder = Holder { tag : String }
+
+first : &Option<Holder> -> Option<usize>
+first u = try
+  inner = .as_ref u
+  spaced = .len (&inner? .tag)
+  glued = &u?.tag
+  Some spaced
+
+main : ()
+main =
+  print (first (&None))
+  ()

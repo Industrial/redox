@@ -76,6 +76,11 @@
 
 (operator) @operator
 (ascription) @operator
+; `.` is in the `operator` token above, so plan 57's `.name` needs no pattern
+; of its own — the sigil colours as an operator and the name as a name. A rule
+; that coloured a *method* differently would have to tell `.len xs` from
+; `xs.len`, which is a question about position, and §1.2's flat expression rule
+; cannot see position. Both colour the same, deliberately.
 (attribute) @attribute
 
 [ "(" ")" "[" "]" "{" "}" ] @punctuation.bracket

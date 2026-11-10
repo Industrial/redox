@@ -42,6 +42,6 @@ main =
   -- author's brackets, which is what `power_of` reports power 0 for.
   compared = (twice $ show 7) == "77"
   -- And in receiver position, for the same reason.
-  measured = (twice $ show 7).len ()
+  measured = .len (twice $ show 7)
   print $ add 1 2
   ()

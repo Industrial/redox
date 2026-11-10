@@ -38,4 +38,4 @@ main =
   applied = twice $ show 7
   field = self.name
   static_call = Self::create
-  method_ref = (|> name)
+  method_ref = .name

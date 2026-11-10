@@ -1,0 +1,21 @@
+-- A `try` block over a `?` run, borrowing — the spelling plan 57 put in
+-- `?.`'s place, and this pair is the **zero-cost claim moving with it**.
+-- `optional_chain.sdx` was one of nine IR-equality pairs; deleting the
+-- construct without pairing the replacement would have traded a measured
+-- claim for an unmeasured one, which §6 declines.
+--
+-- Two things a pair here has to get right, and `optional_chain`'s first
+-- attempt got both wrong. A chain is **field** access and not a method call,
+-- so the pair needs a struct. And it yields `Option<&T>`, not `Option<T>` —
+-- the reference is the lowering's contract, and `examples/fallible.sdx`
+-- declares it the same way: `first_name : &Option<User> -> Option<&String>`.
+--
+-- The `&` is written now rather than inserted by a lowering, which §11.4 is
+-- the finding for: a field access moves, so this is the one place the
+-- deletion costs the author anything.
+
+data Point = Point { x : i32, y : i32 }
+
+borrowed_chain : &Option<Point> -> Option<&i32>
+borrowed_chain p = try
+  Some (&(.as_ref p)? .x)

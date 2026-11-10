@@ -62,7 +62,7 @@ applied = op 7 8
 -- works because a path in value position is already a `fn` item, which `map`
 -- accepts (plan 56 §1.5).
 joined : String
-joined = ["a", "b"].into_iter () |> map String::from |> collect
+joined = .into_iter (["a", "b"]) |> map String::from |> collect
 
 -- Criterion 6. An operator section and a one-of-two partial application share
 -- one lowering, so the closure they write has the same shape and **neither
@@ -70,10 +70,10 @@ joined = ["a", "b"].into_iter () |> map String::from |> collect
 -- borrow error into a move error, which is a worse message about the same
 -- mistake.
 sectioned : i32
-sectioned = [1, 2].into_iter () |> map (+ 1) |> sum
+sectioned = .into_iter ([1, 2]) |> map (+ 1) |> sum
 
 partial : i32
-partial = [1, 2].into_iter () |> map (add 1) |> sum
+partial = .into_iter ([1, 2]) |> map (add 1) |> sum
 
 main : ()
 main =

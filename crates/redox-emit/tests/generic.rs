@@ -23,7 +23,7 @@ fn a_lowercase_type_becomes_a_generic_parameter() {
 /// which left `&[t]` alone and so left a `t` rustc could not resolve.
 #[test]
 fn a_nested_variable_is_rewritten() {
-  let out = xrs("len_of : &Vec<t> -> usize\nlen_of xs = xs.len ()\n");
+  let out = xrs("len_of : &Vec<t> -> usize\nlen_of xs = .len xs\n");
   assert!(
     out.contains("fn len_of<T>(xs: &Vec<T>) -> usize {"),
     "{out}"

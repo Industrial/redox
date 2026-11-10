@@ -10,7 +10,7 @@
 -- something to declare.
 export greet : &str -> String
 greet name =
-  "hello, ".to_string () + name
+  .to_string "hello, " + name
 
 export twice : i32 -> i32
 twice n =

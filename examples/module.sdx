@@ -34,16 +34,16 @@ module inner
     assert hello () == "hi"
 
 -- The imports are used, so rustc has nothing to say about them. Each map is
--- bound by a `where` local first: `.len ()` on an ascription block would put
--- a brace in a method chain's receiver, which rustfmt reformats.
+-- bound by a `where` local first: `.len` over an ascription block would put a
+-- brace in a method chain's receiver, which rustfmt reformats.
 sizes : usize
-sizes = a.len () + b.len ()
+sizes = .len a + .len b
   where
     a = HashMap::new () : HashMap<String, u32>
     b = Sorted::new () : Sorted<String, u32>
 
 write_ok : &mut String -> fmt::Result
-write_ok s = s.write_str "ok"
+write_ok s = .write_str "ok" s
 
 main : ()
 main =
@@ -53,7 +53,7 @@ main =
   -- The `fmt` import is used by `write_ok`'s return type, and `write_ok` is
   -- called here so rustc has nothing to say about either.
   mut buffer = String::new () : String
-  print ((write_ok (&mut buffer)).is_ok ())
+  print (.is_ok (write_ok (&mut buffer)))
   ()
 
 test "the file has its own test module"

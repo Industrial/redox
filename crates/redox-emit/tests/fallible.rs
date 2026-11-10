@@ -82,47 +82,60 @@ fn catch_sits_at_coalesces_precedence() {
   assert!(out.starts_with("let n = match match a {"), "{out}");
 }
 
-// --- §5.5 to §5.7: the `?.` chain -----------------------------------------
+// --- §5.5 to §5.7: the `?.` chain, retired by plan 57 ---------------------
 
-/// Doc 02 §6.3's closure — `?` inside a closure returning `Option` — which
-/// hands the whole `and_then`/`map` unification to rustc.
+/// `?.` is **retired** — `RDX0117`, plan 57 leaf 4.
+///
+/// The token is gone from the lexer, so refusing it is an *adjacency* check
+/// and not a branch. That is the only thing standing between the deletion and
+/// a silent reinterpretation: without it, `user?.profile` becomes `user?`
+/// followed by `.profile`, which is valid Rust meaning something else.
 #[test]
-fn an_optional_chain_emits_a_closure() {
-  assert_eq!(
-    body("  n = user?.profile?.name\n"),
-    "let n = (|| Some(&user.as_ref()?.profile.as_ref()?.name))();"
+fn an_optional_chain_is_retired() {
+  let refused = parse_source("main : ()\nmain =\n  n = user?.profile?.name\n  ()\n")
+    .expect_err("`?.` is retired");
+  assert!(
+    format!("{refused:?}").contains("OptionalChaining"),
+    "{refused:?}"
   );
 }
 
-/// One link is still a chain, and still a closure: there is no special case
-/// for the shortest form.
+/// The replacement, and it is the **lowering** rather than a workaround: doc
+/// 02 §6.3 always put a `?` run inside a closure returning `Option`, and a
+/// `try` block *is* that closure. §5 criterion 6.
+///
+/// The `&`s are the whole cost of the deletion, and §11.4 is why they cannot
+/// be dropped: a field access **moves**, so `map (.tag)` over a borrow is
+/// `E0507`. Written at the front, where a reader sees them — which is the
+/// property that chose this spelling over two lambdas and an `and_then`.
 #[test]
-fn a_one_link_chain_is_still_a_closure() {
+fn a_try_over_a_question_run_is_the_replacement() {
   assert_eq!(
-    body("  n = user?.name\n"),
-    "let n = (|| Some(&user.as_ref()?.name))();"
+    body("  n = try\n    p = &(.as_ref user)? .profile\n    Some (&(.as_ref p)? .name)\n"),
+    "let n = (|| {\n    let p = &user.as_ref()?.profile;\n    Some(&p.as_ref()?.name)\n})();"
   );
 }
 
-/// **The correction to doc 03 §12.3's published lowering.** §12.3 writes
-/// `.as_ref()` on every link including the last, which does not compile when
-/// the final field is not an `Option` — and is *type-dependent*, meaning
-/// `Option::as_ref` on one and `AsRef::as_ref` on the other. The final link
-/// takes no method and the whole path takes a `&`, which borrows whatever is
-/// there. Plan 28 §10.
+/// **The correction to doc 03 §12.3's published lowering, re-sited.** §12.3
+/// writes `.as_ref()` on every link including the last, which does not
+/// compile when the final field is not an `Option` — and is *type-dependent*,
+/// meaning `Option::as_ref` on one and `AsRef::as_ref` on the other. Plan 28
+/// §10 made the final link take no method and the whole path a leading `&`;
+/// plan 57 makes both the author's, so the property is now that the emitter
+/// adds **neither**.
 #[test]
 fn the_final_link_takes_no_method() {
-  let out = body("  n = user?.profile?.name\n");
+  let out = body("  n = try\n    Some (&(.as_ref user)? .name)\n");
   assert!(!out.contains("name.as_ref()"), "{out}");
-  assert!(out.contains("Some(&user"), "{out}");
+  assert!(out.contains("Some(&user.as_ref()?.name)"), "{out}");
 }
 
 /// The head is parenthesised exactly where `.` would bind tighter, by the
 /// same receiver rule every other postfix chain uses.
 #[test]
 fn a_chains_head_is_parenthesised_when_it_must_be() {
-  let out = body("  n = (f x)?.name\n");
-  assert!(out.contains("(|| Some(&f(x).as_ref()?.name))()"), "{out}");
+  let out = body("  n = try\n    Some (&(.as_ref (f x))? .name)\n");
+  assert!(out.contains("Some(&f(x).as_ref()?.name)"), "{out}");
 }
 
 // --- §5.8: `try` -----------------------------------------------------------
@@ -150,20 +163,21 @@ fn a_one_statement_try_works() {
 
 // --- §5.9: plan 15's token is untouched -----------------------------------
 
-/// `?.` is **one token**, which plan 15 §10.1 records. This plan is the one
-/// that could have broken it, so it is asserted here too.
+/// `?.` was **one token**, which plan 15 §10.1 records; plan 57 deleted it,
+/// and this is the test that the deletion did not quietly reinterpret the
+/// spelling instead.
 ///
-/// It no longer reaches for `.await` to show it: doc 30 deleted postfix
-/// `.await`, which is also why doc 30 §2.4 says the collision matters *more*
-/// now rather than less — `?` sits beside an awaited value far more often, and
-/// the shape that avoids it is a second binding.
+/// The two halves are the whole rule, and the second is what keeps the first
+/// from being a hollow refusal: `?` and a field *are* two postfix steps, so a
+/// check that refused the spaced form too would have deleted a construct
+/// nobody asked to delete.
 #[test]
-fn question_dot_is_still_one_token() {
-  // One token, so this is a chain and not `?` then a field.
-  let out = body("  n = user?.profile\n");
+fn question_dot_is_refused_and_a_spaced_one_is_not() {
+  let refused = parse_source("main : ()\nmain =\n  n = user?.profile\n  ()\n")
+    .expect_err("the glued spelling is `RDX0117`");
   assert!(
-    out.contains("(|| Some(&user.as_ref()?.profile))()"),
-    "{out}"
+    format!("{refused:?}").contains("OptionalChaining"),
+    "{refused:?}"
   );
   // Separated by a space, so these are two postfixes: `?` then a field.
   assert_eq!(

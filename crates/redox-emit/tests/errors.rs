@@ -108,7 +108,7 @@ fn a_plain_row_generates_no_from_impl() {
 #[test]
 fn the_try_operator_passes_through() {
   let out =
-    xrs("parse_it : &str -> Result<u32, E>\nparse_it s = Ok n\n  where\n    n = s.parse ()?\n");
+    xrs("parse_it : &str -> Result<u32, E>\nparse_it s = Ok n\n  where\n    n = (.parse s)?\n");
   assert!(out.contains("let n = s.parse()?;"), "{out}");
 }
 

@@ -31,6 +31,17 @@ pub(crate) fn pipeline(lhs: &Expr, rhs: &Expr, indent: usize) -> String {
   let left = receiver(lhs, indent);
 
   match unparen(rhs) {
+    // `a |> .name args` and `a |> .name` — plan 57's method-as-function,
+    // matched **before** the two arms below. §11.1 is the trap: the `other =>`
+    // arm appends `()`, so a zero-argument `x |> .name` falling through to it
+    // lowers to `x.(|__rdx_1| __rdx_1.name())()`. The two readings agree on
+    // the text — the pipeline inserts the receiver, and under plan 58's
+    // reverse application `.name args` awaits its last argument — which is
+    // why 57 need not assume either meaning of `|>`.
+    Expr::MethodRef { name, .. } => format!("{left}.{}()", name.text),
+    Expr::Call { callee, args, .. } if let Expr::MethodRef { name, .. } = unparen(callee) => {
+      format!("{left}.{}({})", name.text, expr_list(args, indent))
+    }
     // `a |> f x y` — the head names the method, the arguments come after.
     Expr::Call { callee, args, .. } => {
       format!(

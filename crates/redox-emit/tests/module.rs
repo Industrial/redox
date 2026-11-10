@@ -112,7 +112,7 @@ fn items_keep_source_order() {
 /// `fn write_ok<FMT>(…) -> FMT::Result`, which rustc rejects.
 #[test]
 fn a_lowercase_path_segment_is_not_a_type_variable() {
-  let out = xrs("write_ok : &mut String -> fmt::Result\nwrite_ok s = s.write_str \"ok\"\n");
+  let out = xrs("write_ok : &mut String -> fmt::Result\nwrite_ok s = .write_str \"ok\" s\n");
   assert!(
     out.contains("fn write_ok(s: &mut String) -> fmt::Result {"),
     "{out}"

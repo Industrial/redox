@@ -31,17 +31,10 @@ pub(crate) fn section_text(section: &Section, indent: usize, source: &str) -> St
         op.redox_text()
       )
     }
+    // `(.age)`, and the parenthesis is the construct. Plan 57 retired the
+    // `(|> name)` arm that stood beside this one — a bare `.name` is the
+    // method reference now, and `expr_text` prints it without parentheses,
+    // because `(.name)` *is* this and means something else.
     Section::Field(name) => format!("(.{})", name.text),
-    // `(|> len)`, not `(.len ())`. `examples/section.sdx` says it in a comment
-    // two lines above the code — *"method: `(.name)` selects and `(|> name)`
-    // calls"* — and `(.len ())` does not parse at all: the section grammar
-    // wants `)` after the name.
-    //
-    // Guessing it from `Field`'s spelling cost a corpus round-trip failure
-    // reported as *"did not re-parse"* on a line whose section was the only
-    // thing wrong with it. The `|>` is the clue: a method section is a
-    // pipeline stage with its receiver left out, which is exactly what it
-    // lowers to.
-    Section::Method(name) => format!("(|> {})", name.text),
   }
 }

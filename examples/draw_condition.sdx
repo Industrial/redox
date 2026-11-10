@@ -47,7 +47,7 @@ total : Vec<i32> -> i32
 total xs =
   mut stack = xs
   mut sum = 0
-  while Some v = stack.pop ()
+  while Some v = .pop stack
     sum += v
   sum
 
@@ -102,7 +102,7 @@ main =
   print (describe (Some 9))
   print (describe (Some 1))
   print (describe None)
-  print (total ([1, 2, 3].to_vec ()))
+  print (total (.to_vec ([1, 2, 3])))
   print (halve (Some 10))
   print (halve None)
   print (unwrap_nested (Some (Some 4)))

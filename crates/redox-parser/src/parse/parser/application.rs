@@ -1,6 +1,7 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
 use crate::parse::parser::atom::atom;
+use crate::parse::parser::method_call_syntax::method_call_syntax;
 use crate::parse::parser::starts_argument::starts_argument;
 use redox_ast::Expr;
 
@@ -45,6 +46,15 @@ pub(crate) fn application(p: &mut Parser) -> Result<Expr, ParseError> {
   // dedent looks like any other.
   if p.just_dedented() || !starts_argument(&p.peek().kind) {
     return Ok(head);
+  }
+
+  // The parenless half of plan 57 leaf 3's retirement — `RDX0115`. §11.2:
+  // `x.f a` is an application over an `Expr::Field`, because there is no
+  // paren-call step above, so `postfix`'s refusal of `x.f (a)` would
+  // otherwise be escaped by dropping the parentheses. A `.` is field access
+  // and a field is not applied; the call is `.f a x`.
+  if let Expr::Field { name, .. } = &head {
+    return Err(method_call_syntax(&name.text, head.span()));
   }
 
   let mut args = Vec::new();

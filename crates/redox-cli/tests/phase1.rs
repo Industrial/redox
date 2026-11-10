@@ -27,7 +27,7 @@ mod support;
 fn a_nested_generic_type_round_trips() {
   let rust = support::transpile_source(
     "nested_generic",
-    "f : Vec<HashMap<String, u8>> -> usize\nf m =\n  m.len ()\n",
+    "f : Vec<HashMap<String, u8>> -> usize\nf m =\n  .len m\n",
   );
   assert!(
     rust.contains("m: Vec<HashMap<String, u8>>"),

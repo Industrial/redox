@@ -3128,32 +3128,6 @@
 							"type": "SEQ",
 							"members": [
 								{
-									"type": "STRING",
-									"value": "."
-								},
-								{
-									"type": "SYMBOL",
-									"name": "identifier"
-								}
-							]
-						},
-						{
-							"type": "SEQ",
-							"members": [
-								{
-									"type": "STRING",
-									"value": "|>"
-								},
-								{
-									"type": "SYMBOL",
-									"name": "identifier"
-								}
-							]
-						},
-						{
-							"type": "SEQ",
-							"members": [
-								{
 									"type": "SYMBOL",
 									"name": "operator"
 								},
@@ -3762,10 +3736,6 @@
 					{
 						"type": "STRING",
 						"value": "?"
-					},
-					{
-						"type": "STRING",
-						"value": "?."
 					},
 					{
 						"type": "STRING",

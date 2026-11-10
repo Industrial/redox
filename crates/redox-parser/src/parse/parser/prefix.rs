@@ -256,6 +256,23 @@ pub(crate) fn prefix(p: &mut Parser) -> Result<Expr, ParseError> {
         span,
       }))
     }
+    // `.name` — a method as a function, plan 57. The receiver is the **last**
+    // argument, so this node is the function and `application` supplies the
+    // rest: `.cmp y x` is `x.cmp(y)` and `.trim raw` is `raw.trim()`. Applied
+    // to nothing it is a value awaiting its receiver, which is what retires
+    // `(|> name)`.
+    //
+    // Reachable only in **prefix** position, and that is the whole
+    // selector-versus-method rule: a `.` *after* an expression is consumed by
+    // `postfix` as a field access, which is `.`'s one remaining job, so this
+    // row needs no adjacency rule and §6's hazard is a parenthesis rather
+    // than a space.
+    TokenKind::Dot => {
+      p.advance();
+      let name = p.ident("expected a method name after `.`")?;
+      let span = (start, name.span.1);
+      Ok(Expr::MethodRef { name, span })
+    }
     TokenKind::Ident(_) => path_or_ident(p),
     _ => Err(ParseError::with(
       Code::ExpectedExpression,

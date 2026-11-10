@@ -98,7 +98,7 @@ checked against the host language instead of against this project's history.
 | Area | Grade | Evidence and note |
 |---|---|---|
 | Operators and precedence | `PASSTHROUGH` | `examples/expressions.sdx` |
-| Method calls, field access | `SUGARED` | `examples/section.sdx` — adjacency decides a call from a section. A method whose name is a Redox keyword is **unspellable**, which is what plan 55 leaf 7 bought back for one: `Ordering::then` was `RDX0103` while `then` was reserved, and `examples/control.sdx`'s `ordered` now writes it |
+| Method calls, field access | `SUGARED` | `examples/comprehension.sdx`, `examples/application.sdx` — a method is a **function** since plan 57 and its receiver is the last argument, so `.len xs`, `xs \|> .len` and `.insert k v m`. **Position** decides, not adjacency: a `.` in head position calls, a `.` after an expression selects a field, and `(.age)` is the selector because a `)` follows the name. A method whose name is a Redox keyword is **unspellable**, which is what plan 55 leaf 7 bought back for one: `Ordering::then` was `RDX0103` while `then` was reserved, and `examples/control.sdx`'s `ordered` now writes it |
 | Function calls | `SUGARED` | `examples/hello.sdx` — parenless application, Haskell's rule (doc 18 §2.1) |
 | Indexing | `PASSTHROUGH` | `examples/arrays.sdx` |
 | Tuple indexing `.0` | `PASSTHROUGH` | `examples/destructuring.sdx` |

@@ -1,21 +1,25 @@
--- Doc 03 §12's three remaining constructs — `catch`, `?.` and `try` blocks.
--- Plan 28.
+-- Doc 03 §12's constructs — `catch` and `try` blocks. Plan 28, and plan 57
+-- for the third: `?.` is **retired**.
 --
--- All three lower by handing the work to rustc, and two by the same
--- mechanism: `?` inside a closure that returns from itself rather than from
--- the enclosing function. Doc 18 §8 keeps all three despite having no Haskell
--- analogue, "because deleting them would cost reachability or ergonomics with
--- nothing to show".
+-- Both lower by handing the work to rustc, and by the same mechanism: `?`
+-- inside a closure that returns from itself rather than from the enclosing
+-- function. Doc 18 §8 kept all three despite having no Haskell analogue,
+-- "because deleting them would cost reachability or ergonomics with nothing
+-- to show" — and plan 57 §1.4 struck that for `?.`, because doc 02 §6.3's
+-- lowering *was already* a `?` run, so the replacement is the lowering and
+-- costs nothing but an explicit `&`.
 --
 -- Checked by compiling and **running** with zero rustc output. The `try`
 -- block is the case only a run can catch: lowered to a bare block it still
 -- compiles, and its `?` then returns from `main`.
 
--- A type that is **not** `Clone`, so the `?.` chain below cannot be cloning.
+-- A type that is **not** `Clone`, so the chains below cannot be cloning.
 -- Doc 03 §12.3 resolves doc 02 §13's question 7 — "the chain borrows and
 -- never clones" — and this is what makes that a tested fact rather than a
 -- claim: a lowering that cloned would print exactly the same thing and fail
--- to compile here.
+-- to compile here. Plan 57 §11.4 re-sites the claim onto the new spelling
+-- without weakening it: every `&` below is load-bearing, and dropping one is
+-- `E0507`.
 newtype Tag = Tag String
 
 data Profile
@@ -29,8 +33,8 @@ data User
 -- which one.
 parse_it : &str -> Result<i32, String>
 parse_it s =
-  n = s.parse () : Result<i32, core::num::ParseIntError>
-  n.map_err (\e -> e.to_string ())
+  n = .parse s : Result<i32, core::num::ParseIntError>
+  n |> .map_err (\e -> .to_string e)
 
 -- `catch` takes the `Ok` value when there is one and the fallback when there
 -- is not — doc 03 §12.2. A `match`, not `unwrap_or_else`, for §12.1's
@@ -49,25 +53,42 @@ fallback s = parse_it s catch 0
 -- lambda, so its parameter becomes the `Err` arm's pattern — no second syntax
 -- for a shape the language already has.
 reason : &str -> String
-reason s = (parse_it s).map (\n -> n.to_string ()) catch (\e -> e)
+reason s = .map (\n -> .to_string n) (parse_it s) catch (\e -> e)
 
--- `?.` chains field accesses through `Option`s, lowering to doc 02 §6.3's
--- closure. The whole `and_then`/`map` unification is rustc's: hand-written
--- combinators would need `and_then` for a link that yields an `Option` and
--- `map` for one that does not, which only a type checker can tell apart.
+-- What `u?.profile?.name` used to spell, written out. The construct is gone
+-- and the lowering is not: doc 02 §6.3 always handed the whole
+-- `and_then`/`map` unification to rustc through a `?` run inside a closure
+-- returning `Option`, because hand-written combinators would need `and_then`
+-- for a link that yields an `Option` and `map` for one that does not, which
+-- only a type checker can tell apart. `try` *is* that closure.
+--
+-- The two `&`s are the whole cost of the deletion, and plan 57 §11.4 is why
+-- they cannot be dropped: a field access **moves**, so `&u.as_ref ()?
+-- .profile` is what keeps `Profile` behind its reference. Written with the
+-- `&` at the front, where a reader sees it.
+--
+-- `? .profile` has a space, and it is not optional: `?.` glued is `RDX0117`,
+-- so the retirement cannot be escaped by writing the old spelling.
 first_name : &Option<User> -> Option<&String>
-first_name u = u?.profile?.name
+first_name u = try
+  profile = &(.as_ref u)? .profile
+  Some (&(.as_ref profile)? .name)
 
 -- The same chain ending on the non-`Clone` field. If this compiles, the chain
 -- borrows.
 first_tag : &Option<User> -> Option<&Tag>
-first_tag u = u?.profile?.tag
+first_tag u = try
+  profile = &(.as_ref u)? .profile
+  Some (&(.as_ref profile)? .tag)
 
 -- Nested options are **not** flattened — doc 01 §13.1 — and that costs
 -- nothing to honour, because `?` does not flatten. A final field of type
--- `Option<String>` yields `Option<&Option<String>>`, nested exactly once.
+-- `Option<String>` yields `Option<&Option<String>>`, nested exactly once, and
+-- the property survives the respelling because it was always `?`'s.
 nickname_of : &Option<User> -> Option<&Option<String>>
-nickname_of u = u?.profile?.nickname
+nickname_of u = try
+  profile = &(.as_ref u)? .profile
+  Some (&(.as_ref profile)? .nickname)
 
 -- `try` is a block in which `?` returns from the **block**. Rust has wanted
 -- this for years and has it only unstably; the immediately-invoked closure
@@ -83,7 +104,7 @@ attempt x y = try
 -- below: the closure's return type is inferred from its tail and its `?`s, so
 -- nothing annotates it and a caller's signature is enough.
 print_outcome : Result<i32, String> -> ()
-print_outcome r = print (r.is_ok ())
+print_outcome r = print (.is_ok r)
 
 -- **The case the whole plan exists for, and it is doubly caught.**
 --
@@ -113,23 +134,23 @@ main =
   print (reason "7")
   print (reason "no")
 
-  u = Some (User { profile = Some (Profile { name = "ada".to_string (), tag = Tag ("t1".to_string ()), nickname = None }) })
+  u = Some (User { profile = Some (Profile { name = .to_string "ada", tag = Tag (.to_string "t1"), nickname = None }) })
   empty = None : Option<User>
 
-  print ((first_name (&u)).is_some ())
-  print ((first_name (&empty)).is_some ())
+  print (.is_some (first_name (&u)))
+  print (.is_some (first_name (&empty)))
   -- `u` is `Some` by construction, so these three unwraps cannot panic. Doc
   -- 03 §12.7's lint fires on the name alone — it has no types and so cannot
   -- know that — and the attribute is how an author says they do. It is
   -- consumed rather than emitted, so the generated Rust carries no trace of
   -- it and rustc never sees a `redox` it cannot resolve.
   #[redox::allow(unwrap)]
-  print (describe_tag ((first_tag (&u)).unwrap ()))
+  print (describe_tag (.unwrap (first_tag (&u))))
   #[redox::allow(unwrap)]
-  print ((nickname_of (&u)).unwrap ().is_none ())
+  print (.is_none (.unwrap (nickname_of (&u))))
 
   #[redox::allow(unwrap)]
-  print ((attempt "1" "2").unwrap ())
-  print ((attempt "1" "no").is_err ())
+  print (.unwrap (attempt "1" "2"))
+  print (.is_err (attempt "1" "no"))
   print (after_a_failed_try ())
   ()

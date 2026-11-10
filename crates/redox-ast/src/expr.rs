@@ -49,13 +49,6 @@ pub enum Expr {
     is_dollar: bool,
     span: Span,
   },
-  /// `recv.name(args)`
-  MethodCall {
-    recv: Box<Expr>,
-    name: Ident,
-    args: Vec<Expr>,
-    span: Span,
-  },
   /// `recv.name`
   Field {
     recv: Box<Expr>,
@@ -102,19 +95,18 @@ pub enum Expr {
     is_move: bool,
     span: Span,
   },
-  /// `user?.profile?.name` — doc 01 §13.1's optional chain, plan 28.
+  /// `.name` — a method as a function, plan 57.
   ///
-  /// The head and a run of `?.`-joined **field names**. Doc 03 §12.3's
-  /// grammar chains field accesses; a method on the end of a chain is an
-  /// ordinary postfix on the chain's result, so it is not here.
+  /// The receiver is the **last** argument (§1.2), so this node is the
+  /// function and `Expr::Call` over it is the call: `.cmp y x` is one
+  /// `Call` with two arguments, of which `x` is the receiver, and lowers to
+  /// `x.cmp(y)`.
   ///
-  /// Lowered via doc 02 §6.3's closure — `?` inside a closure returning
-  /// `Option` — which hands the whole `and_then`/`map` unification to rustc.
-  /// Every link takes `as_ref()`, because §12.3 resolves doc 02 §13's
-  /// question 7 outright: **the chain borrows and never clones.**
-  OptionalChain {
-    head: Box<Expr>,
-    segments: Vec<String>,
+  /// Alone — applied to nothing — it is a value awaiting its receiver and
+  /// lowers to `|__rdx_1| __rdx_1.name()`, which is the text `(|> name)`
+  /// emitted before plan 57 retired that spelling.
+  MethodRef {
+    name: Ident,
     span: Span,
   },
   /// `async` with an indented block — doc 03 §14.3, plan 39.
@@ -634,7 +626,6 @@ impl Expr {
   pub fn span(&self) -> Span {
     match self {
       Expr::Call { span, .. }
-      | Expr::MethodCall { span, .. }
       | Expr::Field { span, .. }
       | Expr::Index { span, .. }
       | Expr::Binary { span, .. }
@@ -642,7 +633,7 @@ impl Expr {
       | Expr::Paren { span, .. }
       | Expr::Path { span, .. }
       | Expr::Lambda { span, .. }
-      | Expr::OptionalChain { span, .. }
+      | Expr::MethodRef { span, .. }
       | Expr::AsyncBlock { span, .. }
       | Expr::UnsafeBlock { span, .. }
       | Expr::TryBlock { span, .. }
@@ -773,7 +764,6 @@ impl Expr {
       // note above.
       Expr::Item { .. }
       | Expr::Call { .. }
-      | Expr::MethodCall { .. }
       | Expr::Field { .. }
       | Expr::Index { .. }
       | Expr::Binary { .. }
@@ -781,7 +771,7 @@ impl Expr {
       | Expr::Paren { .. }
       | Expr::Path { .. }
       | Expr::Lambda { .. }
-      | Expr::OptionalChain { .. }
+      | Expr::MethodRef { .. }
       | Expr::AsyncBlock { .. }
       | Expr::UnsafeBlock { .. }
       | Expr::TryBlock { .. }

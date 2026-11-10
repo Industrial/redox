@@ -223,6 +223,51 @@ pub enum Code {
   /// problem.
   ReservedWord,
 
+  /// `RDX0115` — Rust's method-call syntax, `x.f (a)`, retired by plan 57.
+  ///
+  /// A method is a function whose **last** argument is its receiver, so the
+  /// call is `.f a x` or `x |> .f a` and `.` keeps exactly one job: field
+  /// access. §1.1 measured four separate defects in generated Rust that all
+  /// came from a receiver-bearing call form colliding with juxtaposition —
+  /// `m.insert (k) (v)` curried, `drain ().len ()` nested, `succeed ()`
+  /// emptied, `(xs.get i)?.clone ()` chained.
+  ///
+  /// **Two AST shapes spell the retired form and both reach this code**,
+  /// which §11.2 is the finding for: `x.f (a)` was `Expr::MethodCall` and
+  /// `x.f a` is an application over an `Expr::Field`, because `postfix` has
+  /// no paren-call step. Refusing only the first would leave the second
+  /// emitting the identical `x.f(a)` silently, so the parenthesised form is
+  /// refused in `postfix` and the parenless one where `application` reads its
+  /// head.
+  MethodCallSyntax,
+
+  /// `RDX0116` — the `(|> name)` method reference, retired by plan 57.
+  ///
+  /// A bare `.name` *is* a method awaiting its receiver and lowers to the
+  /// same `|__rdx_1| __rdx_1.name()`, so the two spellings were one
+  /// construct. Plan 65's rule decides which row removes it: **whoever builds
+  /// the replacement retires what it replaces**, so there is never a window
+  /// in which neither spelling works.
+  ///
+  /// `(.name)` is **not** this code — it is the field selector, and a `)`
+  /// immediately after the name is what tells the two apart.
+  PipelineSection,
+
+  /// `RDX0117` — `?.`, optional chaining, retired by plan 57.
+  ///
+  /// Doc 18 §8 kept `?.` because deleting it *"would cost reachability or
+  /// ergonomics with nothing to show"*; with a method callable as a function
+  /// the chain is writable as the `?` run its own lowering always was, so the
+  /// cost is gone and the one-token ambiguity is not worth keeping — `(e)?.m
+  /// ()` meant optional chaining rather than `?` then a call, and rustc
+  /// caught it two types away.
+  ///
+  /// **The token is gone, so this is an adjacency check rather than a
+  /// branch.** `?` and `.` are separate tokens now, and `x? .name` is two
+  /// perfectly good postfix steps; only the *glued* `x?.name` is refused, and
+  /// it is refused because it used to mean something else.
+  OptionalChaining,
+
   // ---- lints: RDX1000+ ----
   /// `unwrap` or `expect` used — doc 03 §12.7, plan 38.
   ///
@@ -329,6 +374,9 @@ impl Code {
       Self::LocalTest => 112,
       Self::UnitTail => 113,
       Self::ReservedWord => 114,
+      Self::MethodCallSyntax => 115,
+      Self::PipelineSection => 116,
+      Self::OptionalChaining => 117,
       // Doc 03 §17's published number, and the first in the lint band.
       Self::UnwrapUsed => 1001,
       Self::CommentAllowPragma => 1002,
@@ -373,6 +421,9 @@ impl Code {
       Self::LocalTest,
       Self::UnitTail,
       Self::ReservedWord,
+      Self::MethodCallSyntax,
+      Self::PipelineSection,
+      Self::OptionalChaining,
       Self::UnwrapUsed,
       Self::CommentAllowPragma,
       Self::ShadowedBinding,

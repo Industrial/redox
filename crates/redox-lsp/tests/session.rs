@@ -225,7 +225,7 @@ fn the_unwrap_lint_is_a_warning_and_the_pragma_silences_it() {
   let session = Session::start();
   session.open(
     &uri(),
-    "main : ()\nmain =\n  x = (Some 1).unwrap ()\n  print x\n  ()\n",
+    "main : ()\nmain =\n  x = .unwrap (Some 1)\n  print x\n  ()\n",
   );
   let published = session.diagnostics();
   let warnings: Vec<_> = published
@@ -243,7 +243,7 @@ fn the_unwrap_lint_is_a_warning_and_the_pragma_silences_it() {
   let pragma = Session::start();
   pragma.open(
     &uri(),
-    "main : ()\nmain =\n  #[redox::allow(unwrap)]\n  x = (Some 1).unwrap ()\n  print x\n  ()\n",
+    "main : ()\nmain =\n  #[redox::allow(unwrap)]\n  x = .unwrap (Some 1)\n  print x\n  ()\n",
   );
   assert!(
     pragma.diagnostics().diagnostics.is_empty(),
@@ -253,7 +253,7 @@ fn the_unwrap_lint_is_a_warning_and_the_pragma_silences_it() {
   let deprecated = Session::start();
   deprecated.open(
     &uri(),
-    "main : ()\nmain =\n  x = (Some 1).unwrap ()  -- redox: allow unwrap\n  print x\n  ()\n",
+    "main : ()\nmain =\n  x = .unwrap (Some 1)  -- redox: allow unwrap\n  print x\n  ()\n",
   );
   let published = deprecated.diagnostics();
   let codes: Vec<String> = published

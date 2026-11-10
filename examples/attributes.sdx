@@ -64,7 +64,7 @@ const threshold : f64 = 2.0
 -- the wrong item is still valid Rust, so a *use* is the only thing that
 -- distinguishes the two — the same argument this file opens with.
 counted : u32 -> String
-counted n = "#{Tally n == Tally 7} #{(Tally n).clone ():?}"
+counted n = "#{Tally n == Tally 7} #{.clone (Tally n):?}"
 
 -- An attribute with a string and an `=` inside it, which is the form §13.2's
 -- own `#[serde(rename = "id")]` example uses. `must_use` is in `core`, so

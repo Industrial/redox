@@ -9,7 +9,7 @@ use crate::emit::control_text::control_text;
 use crate::emit::emit_block::emit_block;
 use crate::emit::expr_list::expr_list;
 use crate::emit::format_template::format_template;
-use crate::emit::optional_chain::optional_chain;
+use crate::emit::method_ref::method_ref;
 use crate::emit::panic_macro::panic_macro;
 use crate::emit::pipeline::pipeline;
 use crate::emit::print_call::print_call;
@@ -117,8 +117,11 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
         format!("format!(\"{template}\", {})", args.join(", "))
       }
     }
-    // Doc 01 §13.1's optional chain and doc 03 §12.4's `try` block — plan 28.
-    Expr::OptionalChain { head, segments, .. } => optional_chain(head, segments, indent),
+    // Plan 57's method-as-function, applied to nothing: a value awaiting its
+    // receiver. `emit_application` is where it is applied.
+    Expr::MethodRef { name, .. } => method_ref(name, &[], indent),
+    // Doc 03 §12.4's `try` block — plan 28, and a block *modifier* since plan
+    // 55 leaf 7.
     Expr::TryBlock { body, .. } => try_block(body, indent),
     // Doc 03 §14.3's `async` block — plan 39. `emit_block` already writes a
     // block expression, so this is that block with one word in front, which
@@ -217,14 +220,6 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
     Expr::Index { recv, index, .. } => {
       format!("{}[{}]", receiver(recv, indent), emit_expr(index, indent))
     }
-    Expr::MethodCall {
-      recv, name, args, ..
-    } => format!(
-      "{}.{}({})",
-      receiver(recv, indent),
-      name.text,
-      expr_list(args, indent)
-    ),
     Expr::Call { callee, args, .. } => {
       if let Expr::Ident(name) = callee.as_ref()
         && name.text == "print"

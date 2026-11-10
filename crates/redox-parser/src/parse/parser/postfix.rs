@@ -1,13 +1,13 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
-use crate::parse::parser::arguments::arguments;
-use crate::parse::parser::optional_chain::optional_chain;
+use crate::parse::parser::method_call_syntax::method_call_syntax;
+use crate::parse::parser::optional_chaining::optional_chaining;
 use crate::parse::parser::parse_expr::parse_expr;
 use crate::parse::parser::record_literal::record_literal;
 use redox_ast::{Expr, Ident};
 use redox_lexer::TokenKind;
 
-/// One postfix step: a call, an index, a field, or a method call.
+/// One postfix step: an index, a record literal, a field, or `?`.
 ///
 /// `Ok` means the expression grew; `Err` hands it back unchanged so the Pratt
 /// loop can move on to infix operators. The nested `Result` is the price of
@@ -23,22 +23,24 @@ pub(crate) fn postfix(p: &mut Parser, lhs: Expr) -> Result<Result<Expr, Expr>, P
   // to form a *second* call — `map (\n -> n * n) xs` emitted
   // `map(|n| n * n)(xs)` until this was removed.
   //
-  // A method call keeps its parentheses, because `.name(args)` is a postfix
-  // step on a *receiver* and has no juxtaposition reading to collide with.
-
-  // Doc 01 §13.1's `?.` chain — plan 28. Read **before** `?`, because `?.`
-  // is one token and would never match `Question` anyway; the order is kept
-  // explicit so a future reader does not reorder them into a collision.
-  //
-  // The whole run is consumed here rather than one link per postfix step,
-  // because the lowering is one closure over the run.
-  if p.check(&TokenKind::QuestionDot) {
-    return Ok(Ok(optional_chain(p, lhs)?));
-  }
+  // And a method call is not a postfix step at all since plan 57: a method is
+  // a function whose last argument is its receiver, so `.name` is read in
+  // *prefix* position and the receiver arrives through `application`.
 
   // `e?` — Rust's try operator. A postfix step like any other, and the
   // reason doc 03 §12.5's generated `From` impl has a caller.
   if p.check(&TokenKind::Question) {
+    // `?.` is retired — plan 57 leaf 4, `RDX0117`. The token is gone, so this
+    // is an **adjacency** check rather than a branch: `x? .name` is two
+    // ordinary postfix steps and stays legal, and only the glued spelling is
+    // refused, because it used to mean something else and would otherwise
+    // silently become a different program that compiles.
+    if p
+      .peek_at(1)
+      .is_some_and(|t| t.kind == TokenKind::Dot && !t.ws_before)
+    {
+      return Err(optional_chaining((p.peek_span().0, p.peek_span().1 + 1)));
+    }
     p.advance();
     return Ok(Ok(Expr::Try {
       inner: Box::new(lhs),
@@ -88,24 +90,16 @@ pub(crate) fn postfix(p: &mut Parser, lhs: Expr) -> Result<Result<Expr, Expr>, P
       }));
     }
 
-    let name = p.ident("expected a field name, a tuple index, or a method name after `.`")?;
-    // A `(` immediately after the name makes it a method call; otherwise it is
-    // a field. Doc 03 §5.2 keeps the parenless zero-argument form on the `!`
-    // sigil, and plan 19 decides the general case.
+    let name = p.ident("expected a field name or a tuple index after `.`")?;
+    // A `(` after the name was Rust's method-call syntax, which plan 57 leaf 3
+    // retires — `RDX0115`. Half of the retirement is here and half is in
+    // `application`, because §11.2 measured **two** AST shapes for one form:
+    // this built `Expr::MethodCall`, and the parenless `x.f a` is an
+    // application over the `Expr::Field` built below. Refusing only this one
+    // would leave `x.f (a)` re-parsing as the other and emitting the
+    // identical `x.f(a)` silently.
     if p.check(&TokenKind::LParen) {
-      p.advance();
-      let args = arguments(p, &TokenKind::RParen)?;
-      p.skip_layout();
-      p.expect(
-        &TokenKind::RParen,
-        "expected `)` to close the argument list",
-      )?;
-      return Ok(Ok(Expr::MethodCall {
-        recv: Box::new(lhs),
-        name,
-        args,
-        span: (start, p.prev_span().1),
-      }));
+      return Err(method_call_syntax(&name.text, (start, name.span.1)));
     }
     return Ok(Ok(Expr::Field {
       recv: Box::new(lhs),

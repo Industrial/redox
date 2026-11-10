@@ -68,14 +68,57 @@ fn a_field_section_selects() {
   assert!(out.contains("let f = |__rdx_1| __rdx_1.name;"), "{out}");
 }
 
-/// A section of `|>` is a method reference **derived from the rule** rather
-/// than added to it, which retires doc 03 §8.5's `&:name` sigil — and unlike
-/// `&:` it tells a field from a method.
+/// A **bare** `.name` is the method reference — plan 57, which retired the
+/// `(|> name)` section that spelled it: a method is a function whose last
+/// argument is its receiver, so applied to nothing it is a value awaiting
+/// that argument and lowers to the closure the section lowered to, byte for
+/// byte.
+///
+/// The second assertion is the one that keeps the distinction honest. A `)`
+/// immediately after the name selects a **field**, so `(.len)` and `.len` are
+/// different programs, and the retired spelling is a named diagnostic rather
+/// than a parse failure.
 #[test]
-fn a_pipeline_section_calls() {
-  let out = body("f = (|> len)");
+fn a_bare_dot_name_is_a_method_reference() {
+  let out = body("f = .len");
   assert!(out.contains("let f = |__rdx_1| __rdx_1.len();"), "{out}");
   assert_ne!(body("f = (.len)"), out, "a field is not a method");
+  let refused =
+    parse_source("main : ()\nmain =\n  f = (|> len)\n  ()\n").expect_err("`(|> name)` is retired");
+  assert!(
+    format!("{refused:?}").contains("PipelineSection"),
+    "{refused:?}"
+  );
+}
+
+/// `.name args recv` — the receiver is the **last** argument, for zero, one
+/// and two arguments. §5 criterion 1.
+#[test]
+fn a_method_takes_its_receiver_last() {
+  assert!(
+    body("f = .trim raw").contains("let f = raw.trim();"),
+    "zero"
+  );
+  assert!(
+    body("f = .cmp y x").contains("let f = x.cmp(y);"),
+    "one argument"
+  );
+  assert!(
+    body("f = .insert k v m").contains("let f = m.insert(k, v);"),
+    "two arguments"
+  );
+}
+
+/// `x |> .name args`, which §11.1 is the trap for: `emit/pipeline.rs`'s
+/// `other =>` arm appends `()`, so a zero-argument `x |> .name` reaching it
+/// lowers to `x.(|__rdx_1| __rdx_1.name())()`.
+#[test]
+fn a_pipeline_feeds_a_method_its_receiver() {
+  assert!(body("f = x |> .trim").contains("let f = x.trim();"), "zero");
+  assert!(
+    body("f = x |> .cmp y").contains("let f = x.cmp(y);"),
+    "one argument"
+  );
 }
 
 /// `(- 1)` is negation, always. Doc 18 §4 declines the subtraction section,

@@ -47,13 +47,19 @@ fn main() {
         __rdx_t
     });
 
-    // A method reference — a section of the pipeline, which is what retires
-    // doc 03 §8.5's `&:name` sigil. Unlike `&:` it tells a field from a
-    // method: `(.name)` selects and `(|> name)` calls.
+    // A field selector beside a method, in one expression — plan 57 §3 case 3,
+    // and the distinction `(.name)` carries now that a bare `.name` is a
+    // *method*: a `)` immediately after the name selects a field.
+    //
+    // `map (|> len)` wrote the second stage until plan 57 retired `(|> name)`,
+    // because a bare `.len` lowers to the same closure. The lambda is what an
+    // *argument* position wants, since `.` after an expression is field access
+    // and `map .len` would read as `map.len` — so the replacement costs one
+    // construct here, which §10 records.
     let v = User { name: "bb", age: 2 };
     let names = Some(v).into_iter().map(|__rdx_1| __rdx_1.name);
     println!("{}", {
-        let __rdx_t: usize = names.map(|__rdx_1| __rdx_1.len()).sum();
+        let __rdx_t: usize = names.map(|t| t.len()).sum();
         __rdx_t
     });
 

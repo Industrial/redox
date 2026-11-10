@@ -32,8 +32,9 @@ fn nested() -> String {
     twice(show(7))
 }
 
-// And it does not swallow a method chain: the receiver of `.len ()` is
-// `show 3`, not the whole application.
+// And it does not swallow a method: the receiver of `.len` is `show 3`, not
+// the whole application. Plan 57 made the receiver the **last** argument, so
+// the grouping that used to be the receiver's is now an argument's.
 fn chained() -> usize {
     show(3).len()
 }

@@ -47,8 +47,8 @@ mod inner {
 }
 
 // The imports are used, so rustc has nothing to say about them. Each map is
-// bound by a `where` local first: `.len ()` on an ascription block would put
-// a brace in a method chain's receiver, which rustfmt reformats.
+// bound by a `where` local first: `.len` over an ascription block would put a
+// brace in a method chain's receiver, which rustfmt reformats.
 fn sizes() -> usize {
     let a = {
         let __rdx_t: HashMap<String, u32> = HashMap::new();

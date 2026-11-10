@@ -45,11 +45,11 @@ main : ()
 main =
   s = Square { side = 2.0 }
   c = Circle { radius = 1.0 }
-  print (s.area ())
-  print (s.describe ())
-  print (s.perimeter ())
-  print (c.area ())
-  print (c.describe ())
+  print (.area s)
+  print (.describe s)
+  print (.perimeter s)
+  print (.area c)
+  print (.describe c)
   -- An associated constant, reached through the type. A tight `::` is a path
   -- (doc 18 §5.2), so this needs nothing new.
   print Square::SIDES

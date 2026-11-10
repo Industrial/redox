@@ -1,0 +1,45 @@
+use crate::ParseError;
+use redox_diag::Code;
+use redox_lexer::Span;
+
+/// Refuse `?.` — `RDX0117`, plan 57 leaf 4.
+///
+/// Doc 18 §8 kept optional chaining because deleting it *"would cost
+/// reachability or ergonomics with nothing to show"*. Doc 02 §6.3's lowering
+/// was already a `?` run inside a closure returning `Option`, so with a
+/// method callable as a function the chain is writable exactly as it was
+/// lowered and the cost is gone — while the ambiguity is not worth keeping:
+/// `(e)?.m ()` meant optional chaining rather than `?` then a call, and rustc
+/// caught it two types away.
+///
+/// # An adjacency check, not a branch
+///
+/// `QuestionDot` is gone from the lexer, so `?` and `.` are separate tokens
+/// and `x? .name` is two perfectly ordinary postfix steps. Only the **glued**
+/// spelling is refused, and only because it used to mean something else:
+/// without this, deleting the token would turn every existing chain into a
+/// different program that still compiles.
+///
+/// The replacement keeps the construct's shape, which is what §5 chose it
+/// for — a `try` block over a `?` run, with the `&` where a reader sees it:
+///
+/// ```text
+/// first_name u = u?.profile?.name
+///
+/// first_name u = try
+///   Some (&u.as_ref ()? .profile.as_ref ()? .name)
+/// ```
+///
+/// §11.4 is why the `&` is not optional. A field selector **moves**, so
+/// `map (.tag)` over a borrow is `E0507`; the chain is expressible without
+/// `?.`, but not without thinking about borrows.
+pub(crate) fn optional_chaining(span: Span) -> ParseError {
+  ParseError::with_help(
+    Code::OptionalChaining,
+    "`?.` is retired",
+    "write the `?` run its own lowering always was — `try` with \
+     `Some (&u.as_ref ()? .profile.as_ref ()? .name)` — and keep the `&`, because a field \
+     selector moves (plan 57 §11.4). `x? .name`, with a space, is `?` and then a field",
+    span,
+  )
+}

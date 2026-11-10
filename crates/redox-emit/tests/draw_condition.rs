@@ -100,7 +100,7 @@ fn a_two_operand_chain_with_the_let_last_stays_on_one_line() {
 #[test]
 fn a_pattern_test_in_a_while_emits_while_let() {
   assert_eq!(
-    body("  while Some v = stack.pop ()\n    print v\n"),
+    body("  while Some v = .pop stack\n    print v\n"),
     "while let Some(v) = stack.pop() {\n    println!(\"{}\", v);\n}"
   );
 }
@@ -243,7 +243,7 @@ fn a_pattern_free_condition_is_unchanged() {
 /// and must stay one. This is why the lookahead counts brackets.
 #[test]
 fn a_comprehension_in_a_condition_is_not_a_pattern_test() {
-  let out = body("  if [ c | c in cs ].len () > 0\n    print 1\n");
+  let out = body("  if .len ([ c | c in cs ]) > 0\n    print 1\n");
   assert!(out.starts_with("if "), "{out}");
   assert!(!out.contains("if let"), "{out}");
 }

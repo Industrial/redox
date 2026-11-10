@@ -17,7 +17,7 @@ prefix : &str -> &str -> String
 prefix a b = "#{a}#{b}"
 
 make_prefixer : Box<dyn Fn(&str) -> String>
-make_prefixer = Box::new (prefix (s.as_str ()))
+make_prefixer = Box::new (prefix (.as_str s))
   where
     s = String::from "hi "
 

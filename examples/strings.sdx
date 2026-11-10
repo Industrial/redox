@@ -96,8 +96,8 @@ main =
   print (quoted ())
   print (initial ())
   print (tag ())
-  print ((magic ()).len ())
-  print ((ffi_name ()).count_bytes ())
+  print (.len (magic ()))
+  print (.count_bytes (ffi_name ()))
   print (block ())
   -- A string with no interpolation takes the path it always took.
   print "plain, unchanged"

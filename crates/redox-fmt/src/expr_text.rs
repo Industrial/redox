@@ -89,18 +89,31 @@ pub fn expr_text(expr: &Expr, required: u8, indent: usize, source: &str) -> Stri
       }
       out
     }
-    // A method is **not** juxtaposition — `y.m (a, b)` parses as a
-    // two-argument method call where `f (a, b)` parses as application to a
-    // tuple. §3 row 6's one space, and the arguments comma-separated.
-    Expr::MethodCall {
-      recv, name, args, ..
-    } => format!(
-      "{}.{} ({})",
-      receiver(recv, indent, source),
-      name.text,
-      comma_list(args, indent, source)
-    ),
-    Expr::Field { recv, name, .. } => format!("{}.{}", receiver(recv, indent, source), name.text),
+    // Plan 57's method-as-function. A leaf, like an identifier: the arguments
+    // and the receiver are the surrounding `Call`'s, printed by the
+    // application arm above, which is §11.6's *"it should be an
+    // application"* — `.name a b` canonical, with the redundant parenthesis of
+    // `(.name a) b` dropped by associativity.
+    //
+    // `(.name)` is **not** this node — it is `Section::Field`, printed with
+    // its parentheses by `section_text`, and that is the whole
+    // selector-versus-method distinction in the printer.
+    Expr::MethodRef { name, .. } => format!(".{}", name.text),
+    // A field on a `?`, written `x? .name` with the space. `?.` was one token
+    // until plan 57 deleted optional chaining, and the glued spelling is now
+    // `RDX0117` — so printing it would turn a program this formatter parsed
+    // into one it cannot, which is the one thing §3 row 3's conservatism is
+    // there to prevent. Tested by `formatting_preserves_meaning` over
+    // `examples/fallible.sdx`, which is where it was found.
+    //
+    // The question is about the **printed text** and not the tree: a `Paren`
+    // around the `?` is dropped by `can_drop_paren`, so asking the node would
+    // miss `(x?).name`.
+    Expr::Field { recv, name, .. } => {
+      let head = receiver(recv, indent, source);
+      let gap = if head.ends_with('?') { " " } else { "" };
+      format!("{head}{gap}.{}", name.text)
+    }
     Expr::Index { recv, index, .. } => format!(
       "{}[{}]",
       receiver(recv, indent, source),
@@ -168,14 +181,6 @@ pub fn expr_text(expr: &Expr, required: u8, indent: usize, source: &str) -> Stri
       is_move,
       ..
     } => lambda_text(params, body, *is_move, indent, source),
-    Expr::OptionalChain { head, segments, .. } => {
-      let mut out = receiver(head, indent, source);
-      for segment in segments {
-        out.push_str("?.");
-        out.push_str(segment);
-      }
-      out
-    }
     // Doc 18 §5.2 made a spaced `::` ascribe and a tight one a path; plan 52
     // retired that rule and `:` is the marker, so the
     // spaces here are load-bearing rather than cosmetic — §3 row 8 exists to

@@ -12,8 +12,12 @@ use redox_ast::Section;
 /// (> 0)       |__rdx_1| __rdx_1.gt(&0)
 /// (0 <)       |__rdx_1| __rdx_1.gt(&0)
 /// (.name)     |__rdx_1| __rdx_1.name
-/// (|> name)   |__rdx_1| __rdx_1.name()
 /// ```
+///
+/// `(|> name)` was a fifth row, emitting `|__rdx_1| __rdx_1.name()`. Plan 57
+/// retires it: a bare `.name` is a method awaiting its receiver and lowers to
+/// that same text, so `emit/method_ref.rs` holds the lowering and this holds
+/// one row fewer.
 ///
 /// **A comparison uses the method form**, which is doc 18 §4's own table and
 /// §1.1's reason: an iterator adaptor hands its closure a *reference*, so
@@ -33,7 +37,6 @@ pub(crate) fn emit_section(section: &Section, indent: usize) -> String {
   let param = closure_param(0);
   let body = match section {
     Section::Field(name) => format!("{param}.{}", name.text),
-    Section::Method(name) => format!("{param}.{}()", name.text),
 
     Section::Right { op, operand } => {
       let value = emit_expr(unparen(operand), indent);

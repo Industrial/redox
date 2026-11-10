@@ -51,7 +51,7 @@ fn the_marker_does_not_leak_into_the_first_type() {
 /// consumed before the spine is read and touches nothing after.
 #[test]
 fn the_marker_composes_with_the_rest_of_a_signature() {
-  let out = xrs("export f : Ord t => async Option<t> -> t\nf xs = xs.unwrap ()\n");
+  let out = xrs("export f : Ord t => async Option<t> -> t\nf xs = .unwrap xs\n");
   assert!(out.contains("pub async fn f"), "{out}");
   // Doc 18 §5.3 uppercases a lowercase type variable, so the bound reads
   // `T: Ord` — and the marker survives in front of `fn` rather than being

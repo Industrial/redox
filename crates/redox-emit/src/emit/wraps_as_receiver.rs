@@ -50,6 +50,11 @@ pub(crate) fn wraps_as_receiver(e: &Expr) -> bool {
       | Expr::Case { .. }
       | Expr::Record { .. }
       | Expr::Section { .. }
+      // Plan 57. A method applied to nothing is a closure awaiting its
+      // receiver, so it needs its parentheses in front of a `.` or a `(`
+      // exactly as a section does — the same entry `Section` has, for the
+      // same reason, on the node that replaced `(|> name)`.
+      | Expr::MethodRef { .. }
       | Expr::Comprehension { .. }
   )
 }

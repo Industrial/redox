@@ -4,4 +4,4 @@
 -- method lowering would be type-dependent and Redox has no types.
 
 parse_or : &str -> i32
-parse_or raw = (raw.parse () : Result<i32, core::num::ParseIntError>) catch 0
+parse_or raw = (.parse raw : Result<i32, core::num::ParseIntError>) catch 0

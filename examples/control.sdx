@@ -203,7 +203,7 @@ label n =
 -- row half-way in exactly the manner plan 20 §10.1 describes.
 places : i32
 places =
-  mut v = [1, 2, 3].to_vec ()
+  mut v = .to_vec ([1, 2, 3])
   v[0] := 9
   mut n = 0
   r = &mut n
@@ -270,7 +270,8 @@ shadowed =
 ordered : String
 ordered =
   mut rows = [(3, 2), (1, 2), (2, 9)] : Vec<(i32, i32)>
-  rows.sort_by (\a b -> b.1.cmp (&a.1).then (a.0.cmp (&b.0)))
+  rows
+    |> .sort_by (\a b -> b.1 |> .cmp (&a.1) |> .then (a.0 |> .cmp (&b.0)))
   "#{rows[1].0}#{rows[2].0}"
 
 main : ()

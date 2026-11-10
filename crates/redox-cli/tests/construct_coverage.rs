@@ -1060,13 +1060,19 @@ const WITNESSES: &[Covers] = &[
   },
   Covers {
     row: "Method calls, field access",
-    // This row is graded against `examples/section.sdx` because adjacency is
-    // what decides a call from a section, so the section is the half worth
-    // asserting: `(+ 1)` is a right section and `(1 <)` a left one, and the
-    // left form is newer and rarer.
-    spelling: "`p.x`, and a left section like `(1 <)` or `(10 -)`",
+    // **§11.6's finding, fixed.** Until plan 57 this witness was `«id» . «id»`
+    // plus a left section — *field access only* — so it would have stayed
+    // green through the whole method-as-function migration without once
+    // witnessing a method call. So the call is witnessed by what makes it
+    // **different**, which is *position*: a `.` in head position calls and a
+    // `.` after an expression selects. Neither new run can be met by a field
+    // access, a selector, or by `tests/ui/retired_method_call.sdx`, which
+    // this corpus reads and which contains `s.len (1)`.
+    spelling: "`p.x`, `.len xs`, `xs |> .len`, and a left section like `(1 <)`",
     witness: Witness::All(&[
       Witness::Toks(&["«id»", ".", "«id»"]),
+      Witness::Toks(&["(", ".", "«id»", "«id»", ")"]),
+      Witness::Toks(&["|>", ".", "«id»"]),
       Witness::Any(&[
         Witness::Toks(&["(", "«int»", "<", ")"]),
         Witness::Toks(&["(", "«int»", "-", ")"]),

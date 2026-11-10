@@ -23,10 +23,13 @@ main =
   i = 1 - (2 - 3)
   -- Left-associativity: the same shape on the left is redundant.
   j = (1 - 2) - 3
-  -- §3 row 6: one space before a method's arguments.
-  k = xs.len()
-  l = xs.len  ()
-  m = xs.fold(0, add)
+  -- §3 row 6 since plan 57: a method is a function whose **last** argument is
+  -- its receiver, so its arguments are juxtaposed like any other call's and
+  -- row 1 is what drops the parenthesis. A comma-separated method argument
+  -- list no longer exists — `.fold (0, add)` would be a *tuple*.
+  k = .len(xs)
+  l = .len  xs
+  m = .fold 0 add xs
   -- §3 row 8: a spaced `::` ascribes, and must never be tightened.
   n = count : u64
   -- §3 row 12: no trailing comma, except the one that makes a tuple.

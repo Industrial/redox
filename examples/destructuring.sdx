@@ -43,7 +43,7 @@ ends row =
 tail_len : [i32; 5] -> usize
 tail_len row =
   [_head, rest @ ..] = row
-  rest.len ()
+  .len rest
 
 -- §6.3's record pattern, with `=` rather than §6.3's published `:` — doc 18
 -- §2.4 made the literal `=` and §5.2 left `:` no job inside braces. The
@@ -100,7 +100,7 @@ main =
   print (inner_sum (1, (2, 3)))
   print (ends ([1, 2, 3, 4, 5]))
   print (tail_len ([9, 2, 3, 4, 5]))
-  p = Point { x = 0, y = 7, label = "o".to_string () }
+  p = Point { x = 0, y = 7, label = .to_string "o" }
   print (origin_label (&p))
   print (label_of (&p))
   print (area (&Circle { radius = 2 }))

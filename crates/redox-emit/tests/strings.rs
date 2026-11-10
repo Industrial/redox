@@ -57,7 +57,7 @@ fn an_interpolation_holds_an_expression() {
     ("#{a + b}", "format!(\"{}\", a + b)"),
     ("#{user.name}", "format!(\"{}\", user.name)"),
     ("#{f x}", "format!(\"{}\", f(x))"),
-    ("#{xs.len ()}", "format!(\"{}\", xs.len())"),
+    ("#{.len xs}", "format!(\"{}\", xs.len())"),
     ("#{tier n}", "format!(\"{}\", tier(n))"),
   ] {
     assert_eq!(

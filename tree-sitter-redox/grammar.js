@@ -864,15 +864,33 @@ module.exports = grammar({
 		generator: ($) =>
 			seq(field("binder", $.identifier), "in", field("source", $._expression)),
 
-		// `(> 0)`, `(0 <)`, `(.name)`, `(|> len)`. A real rule because
-		// `highlights.scm` wants the operator coloured as one, and because the
-		// parentheses are part of the form rather than grouping around it.
+		// `(> 0)`, `(0 <)`, `(.name)`. A real rule because `highlights.scm`
+		// wants the operator coloured as one, and because the parentheses are
+		// part of the form rather than grouping around it.
+		//
+		// **Two arms left with plan 57 and neither was replaced**, because the
+		// right-section arm already covers what they spelled: `.` and `|>` are
+		// both in the `operator` token and an identifier is an
+		// `_expression_part`, so `(.age)` matches `seq($.operator,
+		// $._expression_part)` without a rule of its own.
+		//
+		// Keeping the explicit `seq(".", $.identifier)` is what **broke** the
+		// grammar on the row's own corpus: an anonymous string token beats
+		// `operator`'s `token(choice(…))` at the same position, so every
+		// `(.len xs)` committed to a section and then found no `)` — fourteen
+		// examples with an `ERROR` node. One token for `.` is what lets GLR pick
+		// the reading that closes.
+		//
+		// A bare `.name` outside parentheses needs nothing here either: §1.2's
+		// flat expression rule is a run of parts, and `.` is a part. The
+		// method-versus-field distinction is **positional** — prefix calls,
+		// postfix selects — and a flat rule cannot see position, so both colour
+		// the same. A rule that tried gave `m.0` a MISSING identifier, because
+		// a tuple index is a `.` and a number.
 		section: ($) =>
 			seq(
 				"(",
 				choice(
-					seq(".", $.identifier),
-					seq("|>", $.identifier),
 					seq($.operator, $._expression_part),
 					seq($._expression_part, $.operator),
 				),
@@ -988,7 +1006,8 @@ module.exports = grammar({
 					"|>",
 					"$",
 					"?",
-					"?.",
+					// `?.` left with optional chaining — plan 57 leaf 4. `?` and `.`
+					// are two tokens now, and the glued spelling is `RDX0117`.
 					"@",
 					"@@",
 					".",

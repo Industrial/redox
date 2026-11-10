@@ -43,14 +43,14 @@ lists = [[0u8; 2], [1u8; 2]] : Vec<[u8; 2]>
 -- already reaches it through the ascribed-literal form, since `Vec::from`
 -- takes an array.
 total : usize
-total = (zeros ()).len () + (row ()).len () + (growable ()).len ()
+total = .len (zeros ()) + .len (row ()) + .len (growable ())
 
 main : ()
 main =
-  print ((zeros ()).len ())
+  print (.len (zeros ()))
   print (row ())[0]
-  print ((growable ()).len ())
+  print (.len (growable ()))
   print (grid ())[1][0]
-  print ((lists ()).len ())
+  print (.len (lists ()))
   print (total ())
   ()

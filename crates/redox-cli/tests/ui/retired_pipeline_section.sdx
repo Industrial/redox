@@ -1,0 +1,18 @@
+-- `RDX0116` — doc 18 §4's `(|> name)` method reference, retired by plan 57.
+--
+-- The replacement is a bare `.name`, which lowers to the same
+-- `|__rdx_1| __rdx_1.name()`, so the construct survives and only the spelling
+-- goes. Plan 65's rule says which row removes it: whoever builds the
+-- replacement.
+--
+-- `(.name)` is **not** refused, and the second line is the fixture for that:
+-- it is the field selector, and a `)` immediately after the name is the whole
+-- discriminator. A fixture asserting only the refusal would stay green if the
+-- selector were refused too.
+
+main : ()
+main =
+  method_ref = (|> len)
+  selector = (.name)
+  print 1
+  ()

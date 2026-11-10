@@ -28,10 +28,11 @@ sum_of a b = "#{a} + #{b}"
 nested : String
 nested = twice $ show 7
 
--- And it does not swallow a method chain: the receiver of `.len ()` is
--- `show 3`, not the whole application.
+-- And it does not swallow a method: the receiver of `.len` is `show 3`, not
+-- the whole application. Plan 57 made the receiver the **last** argument, so
+-- the grouping that used to be the receiver's is now an argument's.
 chained : usize
-chained = (show 3).len ()
+chained = .len (show 3)
 
 -- The multi-line pipeline. The receiver sits on the `=` line and every
 -- continuation indents beneath it — which is the one layout that parses, and
@@ -54,7 +55,8 @@ chained = (show 3).len ()
 -- rather than worked around in silence — plan 58 makes long chains the normal
 -- case and is where the emitter learns to break them.
 evens_doubled : Vec<i32> -> usize
-evens_doubled xs = xs.iter ()
+evens_doubled xs = xs
+  |> .iter
   |> filter (\n -> *n % 2 == 0)
   |> map (\n -> n * 2)
   |> count
@@ -65,5 +67,5 @@ main =
   print $ sum_of 2 3
   print (nested ())
   print (chained ())
-  print (evens_doubled ([1, 2, 3, 4, 5, 6].to_vec ()))
+  print (evens_doubled (.to_vec ([1, 2, 3, 4, 5, 6])))
   ()

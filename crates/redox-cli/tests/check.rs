@@ -325,6 +325,53 @@ fn a_borrowed_capture_is_rustcs_error_at_the_generated_closure() {
   );
 }
 
+/// Plan 57 §11.4, as rustc's error rather than as a claim: **a field selector
+/// moves.**
+///
+/// `?.` was deleted on §1.4's argument that the chain *"is expressible in the
+/// ordinary combinator vocabulary"*. Probed, it is not — `(.tag)` lowers to
+/// `|__rdx_1| __rdx_1.tag` with no `&`, so `map (.tag)` over a shared
+/// reference is `E0507`, and the replacement in `examples/fallible.sdx`
+/// therefore writes every `&` by hand. This is the test that says so, and the
+/// third plan in a row to need `tests/check/` rather than `tests/ui/` for a
+/// rustc error — `ui.rs` runs `redox build`, which never invokes rustc.
+///
+/// `Tag` is deliberately not `Clone`, exactly as `examples/fallible.sdx`
+/// makes it, so a lowering that cloned would compile here instead.
+#[test]
+fn a_field_selector_moves_and_rustc_says_so() {
+  if support::skip_without_rustc("a_field_selector_moves_and_rustc_says_so") {
+    return;
+  }
+  let checked = check("moved_selector");
+  assert!(
+    !checked.success,
+    "selecting a non-`Clone` field out of a borrow must fail"
+  );
+  assert!(
+    checked.stderr.contains("error[E0507]"),
+    "rustc's move-out-of-borrow error:\n{}",
+    checked.stderr
+  );
+  // The generated closure's parameter, which is what names the lowering in
+  // rustc's own words — and the reason the `&` cannot be left to the emitter.
+  assert!(
+    checked.stderr.contains("`__rdx_1.tag`"),
+    "rustc should name the selector's own binding:\n{}",
+    checked.stderr
+  );
+  assert!(
+    checked.stderr.contains("moved_selector.sdx:25:35"),
+    "reported against the section on line 25 of the .sdx:\n{}",
+    checked.stderr
+  );
+  assert!(
+    !checked.stderr.contains(".xrs"),
+    "never against the generated Rust:\n{}",
+    checked.stderr
+  );
+}
+
 /// Criterion 6: a program rustc accepts produces nothing and exits zero.
 #[test]
 fn a_clean_program_passes_silently() {

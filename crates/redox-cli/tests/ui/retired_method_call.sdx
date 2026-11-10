@@ -1,0 +1,17 @@
+-- `RDX0115` — Rust's method-call syntax, retired by plan 57 leaf 3.
+--
+-- **Both AST shapes**, which is the whole point of the fixture. §11.2
+-- measured that `x.f (a)` was `Expr::MethodCall` and `x.f a` is an
+-- application over an `Expr::Field`, so a refusal in one place retires one
+-- spelling and leaves the other emitting the identical `x.f(a)` silently.
+-- Three lines, three shapes: parenthesised with an argument, parenthesised
+-- with none, and parenless.
+
+main : ()
+main =
+  s = String::new ()
+  a = s.len (1)
+  b = s.len ()
+  c = s.find "h"
+  print a
+  ()

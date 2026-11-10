@@ -59,22 +59,18 @@ pub(crate) fn stands_alone(expr: &Expr) -> bool {
     //
     // The lesson generalises: this predicate is a question about the text the
     // printer **emits**, not about the tree it was handed.
-    Expr::Field { .. } | Expr::Index { .. } | Expr::Try { .. } | Expr::OptionalChain { .. } => true,
-    // ...with one exception, and it is about the **end** rather than the
-    // start. A method call finishes with ` (…)`, and a space before a
-    // parenthesis is exactly how juxtaposition spells the next argument:
-    // `print xs.len ()` is `print` applied to `xs.len` and `()`, not to
-    // `xs.len ()`.
+    Expr::Field { .. } | Expr::Index { .. } | Expr::Try { .. } => true,
+    // Plan 57's `.name`, and the one entry here that is **not** a mirror of
+    // `starts_argument`: a `Dot` cannot begin a parenless argument, because
+    // `postfix` would have consumed it as a field access on the callee.
     //
-    // The corpus writes `print (xs.len ())` everywhere, which is the evidence.
-    // Dropping those parentheses changed a program in
-    // `examples/draw_condition.sdx`: `print (total ([1, 2, 3].to_vec ()))`
-    // became `print (total ([1, 2, 3]).to_vec ())`, moving the receiver.
-    //
-    // So the predicate is two questions after all — does the text open safely,
-    // and does it end without inviting more — and a method call is the one
-    // form that passes the first and fails the second.
-    Expr::MethodCall { .. } => false,
+    // It is `true` anyway, because the only caller that reaches a `MethodRef`
+    // is [`argument`] printing a **callee** — the parser produces no
+    // `MethodRef` in argument position — and a callee must print bare:
+    // `(.len) xs` is the field *selector* applied to `xs`, a different
+    // program. Parenthesising here would be the one normalisation §3 row 3
+    // forbids.
+    Expr::MethodRef { .. } => true,
     // Opens with `[`, which is indexing after a name.
     Expr::List { .. } | Expr::ArrayRepeat { .. } => false,
     _ => false,

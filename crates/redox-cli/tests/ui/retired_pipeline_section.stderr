@@ -1,0 +1,7 @@
+error[RDX0116]: the `(|> name)` method reference is retired
+  --> retired_pipeline_section.sdx:15:16
+   |
+15 |   method_ref = (|> len)
+   |                ^^^^^^^
+  = help: write `.len` — a method is a function awaiting its receiver, and it lowers to the closure this spelled. `(.len)` still selects a *field* (plan 57 §1.3)
+

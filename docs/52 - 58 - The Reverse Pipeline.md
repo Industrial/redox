@@ -467,3 +467,25 @@ What that means here is that **this row inherits nothing**. By the time `\|>`
 becomes reverse application there is no `(\|> name)` left to reinterpret —
 which matters, because under reverse application `(\|> f)` would mean
 `\|x\| f x`, and that is just `f`: a section that sections nothing.
+
+### 11.9 A new infix operator does not lex in the house style, and that is this row's
+
+Found while implementing plan 57 and verified independently, because it is a
+cost of **leaf 1** rather than of any particular spelling.
+
+`Lexer::next_line_continues` is a raw text test for the literal `"|>"` and
+nothing else — its doc comment explains why only `|>` qualifies, since a
+leading `.` is ambiguous against doc 03 §7.5's `with` block. Measured: the
+corpus writes **every** multi-line pipeline with the operator *leading* the
+continuation line — five such lines in `examples/application.sdx` and
+`examples/control.sdx` — and there is **no trailing `|>` anywhere** in
+`examples/`.
+
+So `>|` and `|<` will not lex in the shape the corpus already uses until
+`next_line_continues` learns more than one string. Leaf 1 is *"two token
+arms"* in §4 and §11.1; it is two token arms **and** a continuation rule.
+
+Note the asymmetry this exposes: a *trailing* operator continues a line
+through `continues_line` on the token, which any new operator gets for free,
+while a *leading* one needs this function to recognise its text. The house
+style uses the half that is not free.

@@ -1,6 +1,7 @@
 use crate::emit::closure::closure;
 use crate::emit::closure_param::closure_param;
 use crate::emit::expr_list::expr_list;
+use crate::emit::method_ref::method_ref;
 use crate::emit::missing_arity::missing_arity;
 use crate::emit::receiver::receiver;
 use crate::emit::unparen::unparen;
@@ -54,11 +55,25 @@ pub(crate) fn emit_application(callee: &Expr, args: &[Expr], indent: usize) -> S
     args: inner_args,
     ..
   } = unparen(callee)
-    && missing_arity(inner, inner_args).is_some()
+    && (missing_arity(inner, inner_args).is_some()
+      || matches!(unparen(inner), Expr::MethodRef { .. }))
   {
     let mut flattened = inner_args.clone();
     flattened.extend(args.iter().cloned());
     return emit_application(inner, &flattened, indent);
+  }
+
+  // Plan 57's method-as-function. Not a call of a callee at all: the **last**
+  // argument is the receiver, so `.cmp y x` is `x.cmp(y)`. It is reached from
+  // here rather than from `emit_expr`'s `MethodRef` arm because that arm sees
+  // the method applied to *nothing* — the value awaiting its receiver — and
+  // this one sees the application.
+  //
+  // The flatten above covers it too: `(.insert k) v m` is `.insert k v m` by
+  // associativity, which §11.6 is the note for, and `$` reaches the same
+  // shape.
+  if let Expr::MethodRef { name, .. } = unparen(callee) {
+    return method_ref(name, args, indent);
   }
 
   let head = receiver(callee, indent);

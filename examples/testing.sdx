@@ -16,7 +16,7 @@ halve n
 main : ()
 main =
   print (add 1 2)
-  print ((halve 4).is_some ())
+  print (.is_some (halve 4))
   ()
 
 -- `==` becomes `assert_eq!`, which prints both values when they differ.
@@ -26,7 +26,7 @@ test "adds two numbers"
   assert add 1 2 == 3
 
 test "rejects an odd input"
-  assert (halve 3).is_none ()
+  assert .is_none (halve 3)
 
 -- Two descriptions that differ only in punctuation slug to the same name, so
 -- the second takes an index — doc 03 §15's collision rule.

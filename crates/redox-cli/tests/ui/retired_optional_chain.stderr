@@ -1,0 +1,7 @@
+error[RDX0117]: `?.` is retired
+  --> retired_optional_chain.sdx:25:13
+   |
+25 |   glued = &u?.tag
+   |             ^^
+  = help: write the `?` run its own lowering always was — `try` with `Some (&u.as_ref ()? .profile.as_ref ()? .name)` — and keep the `&`, because a field selector moves (plan 57 §11.4). `x? .name`, with a space, is `?` and then a field
+

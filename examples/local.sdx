@@ -58,7 +58,7 @@ describe n =
   else
     Pale
 
-  "#{shade.name ()} #{LIMIT} #{Negative 2} #{shade:?}"
+  "#{.name shade} #{LIMIT} #{Negative 2} #{shade:?}"
 
 main : ()
 main =

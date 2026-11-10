@@ -8,7 +8,7 @@
 -- that parses.
 
 doubled : Vec<i32> -> usize
-doubled numbers = numbers.iter () |> filter (\n -> *n % 2 == 0) |> map (\n -> n * 2) |> count
+doubled numbers = numbers |> .iter |> filter (\n -> *n % 2 == 0) |> map (\n -> n * 2) |> count
 
 main : ()
 main =
@@ -22,10 +22,10 @@ main =
     |> map (+1)
   -- Wider than `PIPELINE_WIDTH`, so every stage takes a continuation line one
   -- level in from the statement.
-  long = numbers.iter () |> filter (\n -> *n % 2 == 0) |> map (\n -> n * 2) |> count
+  long = numbers |> .iter |> filter (\n -> *n % 2 == 0) |> map (\n -> n * 2) |> count
   -- Already broken, and wide enough to stay broken — which is the idempotence
   -- half of the rule.
-  kept = numbers.iter ()
+  kept = numbers |> .iter
     |> filter (\n -> *n % 2 == 0)
     |> map (\n -> n * 2)
     |> count

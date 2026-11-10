@@ -69,9 +69,10 @@ fn main() {
     println!("{}", n);
     println!("{}", r#type());
     println!("{}", raw_pattern());
-    // `escaped ().len ()` would read as `escaped(().len())`: the argument of a
-    // parenless call extends as far as it can, so the receiver needs its own
-    // parentheses.
+    // `escaped ().len ()` used to read as `escaped(().len())`: the argument of
+    // a parenless call extends as far as it can. Plan 57 §1.1 counts that among
+    // the four defects a receiver-last method deletes — there is no `()` left in
+    // the spelling to be ambiguous about.
     println!("{}", escaped().len());
     let d = unsafe { abs(-7) };
     println!("{}", d);
