@@ -176,7 +176,11 @@ exists.
 
 ### 2.4 Depth
 
-**At most three levels below `src/`.** `block/stmt/kind.rs` is the limit.
+**At most three levels below `src/`.** `block/stmt/binding.rs` is the limit.
+
+This read `block/stmt/kind.rs` until plan 55 leaf 8: plan 55 leaf 1 deleted
+`StmtKind`, so the path this rule illustrated itself with was no longer in the
+tree. Its sibling is, and §2.6's worked example already named it.
 
 Depth mirrors containment, so a fourth level means the crate is modelling something the
 crate boundary should have split. Reach for a new crate (§3), not a fourth directory.

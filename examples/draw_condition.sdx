@@ -24,18 +24,21 @@ first_or o fallback =
 -- exist, and the one case two statements cannot express, because the `else`
 -- here belongs to the whole chain and not to the pattern test alone.
 --
--- Each branch `return`s rather than evaluating to its value: plan 20's
--- indented `if` is a **statement**, so it is not a tail expression, and a
--- branch written as a bare value emits `"big";` instead. Recorded in plan 22
--- §10 as a gap belonging to plan 20, not worked around silently.
+-- Each branch was written `return "big"` until plan 55 leaf 8: plan 20's
+-- indented `if` was a **statement**, so it was never a tail expression, and a
+-- branch written as a bare value emitted `"big";` and earned `E0308`. Plan 22
+-- §10.7 recorded that as a gap belonging to plan 20 rather than working
+-- around it silently; plan 55 leaf 0 threaded `tail` through `emit_control`
+-- and closed it, so the branches now evaluate to their values and the `else`
+-- rung is the function's tail.
 describe : Option<i32> -> &'static str
 describe o =
   if Some v = o && v > 2
-    return "big"
+    "big"
   else if Some _ = o
-    return "small"
+    "small"
   else
-    return "nothing"
+    "nothing"
 
 -- `while P <- e` drains, and the collection is mutated by a **method** — not
 -- by rebinding `stack`, which plan 20 §10.2 records as unspelled. A wrong

@@ -614,6 +614,17 @@ implement and is the posture Gleam and Elm treat as central; here it follows dir
 
 ## 7. Bindings and control flow
 
+> **Every form in this section is an expression — plan 55** (2026-11-10). This
+> section and doc 01 §8 both read as *statements*, and the parser had a
+> statement/expression fork to match: an indented `if` could not be a value, a
+> `case` arm needed a marker before a block, and a branch that produced one had
+> to `return` it. Plan 55 deleted the fork — a block's value is its last
+> element wherever the block appears, and a `()`-returning function ends in a
+> written `()` (`RDX0113`). Two consequences are spelled out below: §7.2's `do`
+> is retired as a construct and reserved as a token, and `then` is retired with
+> it, so an `if` has one spelling. `return` stays, as Rust's early exit, and
+> §7.1's else branch still requires one.
+
 ### 7.1 `guard`
 
 Early-exit binding, built on `is` so that one pattern vocabulary serves `switch`, `if` and
@@ -639,14 +650,24 @@ fn load(p: &str) -> Result<Config, Error> {
 The else branch may be any diverging expression — `return`, `break`, `continue`, or a
 panic form (§12.6). A non-diverging else is reported by rustc against the `guard` line.
 
-### 7.2 `do` blocks and labels
+### 7.2 Block expressions and labels
 
-Doc 01 §19's `do` is retained, and gains an optional label permitting early exit with a
-value. Both forms are native Rust: block expressions, and labelled block expressions
+An indented block is an expression, and gains an optional label permitting early exit with
+a value. Both forms are native Rust: block expressions, and labelled block expressions
 (Rust 1.65).
 
+> **`do` is retired as a construct and reserved as a token — plan 55 leaf 7**
+> (2026-11-10). This section read *"doc 01 §19's `do` is retained"*, and the
+> snippet below opened `found = do 'search`. Since the fork above went, a
+> block **is** an expression in every position, so no keyword announces one and
+> the word earned nothing. It stays **reserved** — plan 60 claims `<-` as
+> monadic bind and the Haskell meaning of `do` is the one still unclaimed, so
+> spending it on an identifier would cost a breaking change later. Writing one
+> is `RDX0114`. The label is the single capability `do` carried that nothing
+> else provides, and it outlived the keyword.
+
 ```
-found = do 'search
+found = 'search
   for c in candidates
     if c.matches q
       break 'search Some(c)
@@ -1800,7 +1821,7 @@ table.
 | Feature | Required by | Approximate stabilization |
 |---|---|---|
 | `let`-else | `guard` (§7.1) | 1.65 |
-| Labelled block expressions | `do 'label` (§7.2) | 1.65 |
+| Labelled block expressions | `'label` on a block (§7.2) | 1.65 |
 | `let`-chains (edition 2024) | `is` with `&&` (§5.5) | 1.88 |
 | `c"..."` literals | §11.2 | 1.77 |
 | `matches!` | `is` (§5.5) | 1.42 |
@@ -1898,6 +1919,7 @@ mean something different from the Rust it resembles.
 | §6.1, §6.2 | Parenless calls are canonical in **every** position; parentheses become grouping, and §6.2's "encouraged for ambiguous nested expressions" is replaced by §5.1.2's six enumerated cases | 5.1 |
 | §6.3 | `!` disambiguation rule stated; `f!` canonical for zero-argument calls | 5.2 |
 | §6.4 | Its nested-call rule generalized; the unparenthesized form is `RDX0055` | 5.1.2 |
+| §8 | **Control flow is expression-oriented** — plan 55. §8.1's `if`/`else` reads as a statement and was one; every body position is now an expression, so a branch evaluates to its value and no `return` is needed to carry one out. §8.2's `unless` and §8.3/§8.6's postfix forms were already retired by doc 18 §7 | 7, 7.2 |
 | §9 | Comprehension lowering unified; `into` added | 10.1, 10.3 |
 | §10 | "unless a type context specifies another map" deleted | 10.3 |
 | §13.1 | `?.` borrows; no implicit clone | 12.3 |
@@ -1905,6 +1927,7 @@ mean something different from the Rust it resembles.
 | §15 | Pipeline is a receiver pipeline; the worked example is corrected | 5.3 |
 | §17 | Primary constructors, puns, enum forms, `derive`, visibility, aliases | 9 |
 | §18 | Relational, logical and anonymous record patterns | 6.2, 6.3 |
+| §19 | **`do` is retired as a construct and reserved as a token** — plan 55 leaf 7. An indented block is an expression, so nothing announces one; the label survives as `'name` on a block, and writing `do` is `RDX0114`. §7.2 kept it until then | 7.2 |
 | §20 | `with` replaced by the dot-shorthand mutation block | 7.5 |
 | §21 | **Ranges adopt Rust's spelling** — `..` exclusive, `..=` inclusive | 4.2 |
 | §22 | `::` everywhere; granular visibility; glob, nested and re-export forms | 13.1, 9.6, 13.5 |

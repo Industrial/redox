@@ -107,10 +107,10 @@ checked against the host language instead of against this project's history.
 | Array literals and repeats | `SUGARED` | `examples/arrays.sdx` — `[v; n]`, and `:: Vec<T>` for the growable form (plan 29) |
 | Closures | `SUGARED` | `examples/expressions.sdx` — `\x -> e` |
 | `move` closures | `SUGARED` | `examples/async.sdx` |
-| Blocks as expressions | `SUGARED` | `examples/control.sdx` — an **indented block**, with an optional `'label`. Spelled `do` and `do 'label` until plan 55 leaf 7 retired the keyword: a block is an expression, so nothing announces one. `do` stays reserved and is `RDX0114` |
-| `async` blocks | `SUGARED` | `examples/async.sdx` — plan 39 |
-| `unsafe` blocks | `SUGARED` | `examples/reachability.sdx` — plan 45 leaf 2 |
-| `try` blocks | `SUGARED` | `examples/fallible.sdx` — an immediately-invoked closure, because Rust has try blocks only unstably |
+| Blocks as expressions | `SUGARED` | `examples/control.sdx` — an **indented block**, with an optional `'label`. Spelled `do` and `do 'label` until plan 55 leaf 7 retired the keyword: a block is an expression, so nothing announces one. `do` stays reserved and is `RDX0114`. The three rows below are **modifiers on this one block**, not constructs of their own |
+| `async` blocks | `SUGARED` | `examples/async.sdx` — plan 39; `work = async` and the block indented under it. Regraded at plan 55 leaf 7: `async`, `unsafe` and `try` were three `prefix` arms of one shape and are now one arm reading an adjective and then the block above |
+| `unsafe` blocks | `SUGARED` | `examples/reachability.sdx` — plan 45 leaf 2; `n = unsafe` and the block indented under it. A modifier on the block above, since plan 55 leaf 7 |
+| `try` blocks | `SUGARED` | `examples/fallible.sdx` — an immediately-invoked closure, because Rust has try blocks only unstably. `r = try` and the block indented under it; a modifier on the block above, since plan 55 leaf 7 |
 | `?` operator | `PASSTHROUGH` | `examples/fallible.sdx` |
 | `.await` | `SUGARED` | `examples/async.sdx` — the draw arrow `<-` (doc 30) |
 | `as` casts | `UNREACHABLE` | `tests/unreachable/as_cast.sdx` — `as` is reserved for `import … as`. Nearest: `u8::try_from n`, which is **not** a cast — `as` truncates, `try_from` is fallible |
@@ -149,7 +149,7 @@ checked against the host language instead of against this project's history.
 | Labelled loops and blocks | `SUGARED` | `examples/control.sdx` — `'outer loop`, `'label` on a bare block, `break 'label v`. The label is the one capability `do` carried that nothing else provides (plan 55 §1.7), so it outlived the keyword |
 | `match` | `SUGARED` | `examples/case.sdx` — `case … of`, with guards |
 | Guards | `SUGARED` | `examples/guards.sdx` — `\|` in an arm, which is what shadows Rust's or-pattern |
-| `return` | `PASSTHROUGH` | `examples/control.sdx` |
+| `return` | `PASSTHROUGH` | `examples/control.sdx` — `first_divisor`, returning out of a `for`. Regraded at plan 55 leaf 8: `return` is an **early exit** and nothing else. It used to be the only way a branch could produce a value, which plan 55 §1.2 measured at fourteen non-tail uses against two conditional expressions in the same corpus; every body position is an expression now, so `examples/draw_condition.sdx`'s `describe` dropped its three |
 
 ### 1.7 Beyond the grammar
 

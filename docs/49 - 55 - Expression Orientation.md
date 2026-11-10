@@ -3,7 +3,7 @@
 Plan ID: `expression-orientation`
 Depends on: 52 (`type-colon`), 54 (`assignment`); leaf 7 also on 65 (`bracket-layout`)
 Milestone: 9 — *surface coherence*
-Status: `partial` — leaves 0 and 1 done
+Status: `done` — all nine leaves shipped 2026-11-10
 
 ---
 
@@ -408,6 +408,37 @@ If `unnameable_test_items` ever becomes collectable, the carve-out can go.
 **`then` is freed but no construct claims it.** A future row wanting it for something is
 unobstructed; this row only stops it being reserved for a job that no longer exists.
 
+**One spelling is gone, and it is not coming back from a binding.** Retiring `then` leaves
+conditionals **multi-line only**: `print (if c 1 else 2)` is `RDX0101`, because the one-line
+form never existed without `then` — that is what `then` was *for*. Plan 65 made the multi-line
+form writable wherever a line break can go, which is everywhere a bracket reaches.
+
+It does not reach inside `#{…}`. An interpolation's expression is read from a **layout-free
+token stream** — `lex_fragment` strips `Newline`, `Indent` and `Dedent` before the fragment is
+parsed — so there is no line for an indented branch to sit on, at any bracket depth. Measured
+at leaf 8: `lex_fragment` has **exactly one caller**, `scan_string`'s `split_parts`, so this is
+the *only* such position, and `"…"` and `"""…"""` share it rather than being two.
+
+So `"#{if n > 9 then "big" else "small"}"` worked before leaf 7 and has no spelling after it.
+`examples/control.sdx`'s `bracketed` carried it and now calls a function instead; one arm of
+`redox-emit/tests/strings.rs` lost its case. The workaround is to bind first and interpolate the
+name, which is better style inside a string anyway — but it is a workaround, and the honest
+statement is that this row removed an expressible program rather than relocating it.
+
+**Priced too late.** Plan 65 §10.8 priced parenthesised argument position and stopped; the leaf
+7 brief repeated that omission; and leaf 8 found the one-caller proof only because it was asked
+for a *second* such position. The loss is accepted — an interpolated conditional is a line of
+string that would read better as a binding — but it was accepted after the fact, which is the
+part worth recording.
+
+**What plan 65 bought back, unpredicted.** §10.14 argued a guard row could not hold an `if`
+because *"there is nowhere to put a second expression, so it would force `| c = do` plus an
+indented block"* — and both `do` and `then` are now gone, so that sentence's remedy went with
+them. Leaf 8 measured the replacement rather than assuming one: a **parenthesised** indented
+`if` parses in a guard body, `redox check` exits 0, and it emits the ordinary Rust `if`, because
+a bracket is a layout context of its own. Unparenthesised it is `RDX0002` — correctly, since an
+`else` that did not begin a line has no enclosing level to match. §10.19 has the measurement.
+
 ---
 
 ## 7. Gate
@@ -467,7 +498,7 @@ string-literal fixtures to miss, because `no_literal_expectations.rs` forbids th
 
 ## 10. Result
 
-**Leaves 0-7 done; criterion 7 withdrawn; leaves 8 and 9 outstanding.**
+**Leaves 0-8 done; criterion 7 withdrawn; leaf 9 outstanding.**
 Criterion 1 is green. The
 statement/expression fork is gone: `StmtKind` is deleted, `Expr` has 46
 variants, and leaf 1 moved no golden at all — `git status tests/ examples/`
@@ -1034,21 +1065,121 @@ chooses its separator from the value's form, or leaves a trailing space on the
 `=` line. That is the only place in that printer where the separator is not a
 constant.
 
+### 10.18 Leaf 8 — eleven `return`s, three of them meant a value
+
+Criteria 10 and 11 are green, and 12 is the register's. The corpus half came
+out an order of magnitude smaller than §1.2's figure, for a reason worth
+stating plainly: **§1.2's fourteen were never in the tree.** They are in the
+five standalone programs written for this milestone, which live untracked and
+ungated outside the repository, so the rewrite this leaf owns is over the
+**tracked** corpus — 32 examples, the `tests/`, `benchmarks/` and
+`crates/*/tests/` fixtures — and that holds exactly **eleven** `return`s.
+
+**Three were rewritten, eight stay, and one rule separates them**: a `return`
+in **tail position of the whole function**, whose value is the function's
+value with nothing after it on any path, is a branch that meant a value and
+becomes one. A `return` that *diverges from the middle* is a different
+construct and keeps its keyword. All three rewrites are one function —
+`examples/draw_condition.sdx`'s `describe`, which is the function plan 22
+§10.7 recorded the gap against, so the gap and its witness closed together.
+
+The eight that stay, each for a named reason rather than by omission:
+
+| Site | Why it stays |
+|---|---|
+| `draw_condition.sdx`'s `halve`, `benchmarks/pairs/guard.sdx`, `redox-fmt`'s `statements.sdx` and `statements.canonical.sdx` | a `guard`'s else branch **must** diverge — rustc's requirement, not a spelling (doc 03 §7.1) |
+| `control.sdx`'s `first_divisor` | returns out of a `for`; §10.14 already exempts it from the unit rule for being type `!` |
+| `draw_condition.sdx`'s `first_or`, `destructuring.sdx`'s `has_origin` | an `else`-less `if` with a fall-through default. Making it an `if`/`else` is a restructure, not a rewrite, and `else`-less is the one `if` §10.7 keeps as a statement-shaped form |
+| `tests/ui/return_in_callback_tail.sdx` | the `return` **is** the subject — `RDX0044`, doc 03 §7.6 |
+
+`has_origin` is the one worth arguing about, because its two branches are
+`true` and `false` and the expression form is spellable. It would be
+`if P = o` / `true` / `else` / `false`, which is clippy's `needless_bool` and
+reads worse than the early exit — the honest expression form is the condition
+itself, and a pattern test is not one.
+
+**Nothing in behaviour moved, and that is asserted rather than hoped.** Every
+`.stdout` is byte-identical — `git status` names only the `.sdx`, the golden
+and the documents. The golden diff is three `return x;` lines becoming `x`
+plus the amended comment, and the `if` chain is now the function's tail.
+`redox fmt` leaves the rewritten source **byte-identical on the first pass**
+and idempotent on the second, so the formatter already preferred the shape the
+`return`s were standing in for.
+
+**`docs/GRAMMAR.md` needed less than the leaf was scoped for, because leaf 7
+regraded as it went.** The `if`/`else`, *Blocks as expressions*, *Labelled
+loops and blocks*, *Method calls* and MoonScript `do` rows already cite leaf 7.
+What was left is the half leaf 7 changed without saying: `async`, `unsafe` and
+`try` blocks are **modifiers on the one block** — one `prefix` arm reading an
+adjective — and were graded as three independent constructs, which is the
+pre-leaf-7 shape. The `return` row was a bare citation with no note at all and
+now records that `return` is an early exit and nothing else.
+
+### 10.19 A second line-break-free position was looked for and does not exist
+
+§6 discloses that retiring `then` left `#{…}` unable to hold a conditional,
+because an interpolation is scanned inside one string token. The obvious
+question is whether there is a second such position, and the answer is
+**no — and it is a one-line proof rather than a survey.**
+
+`lex_fragment` is what drops `Newline`, `Indent` and `Dedent` from a fragment,
+and it has **exactly one caller**: `scan_string`'s `split_parts`. So
+interpolation is the only place in the language where an expression is read
+from a token stream with no layout in it, and `"…"` and `"""…"""` share it
+rather than being two positions. `rust """…"""` is not a candidate at all — its
+body is Rust, carried verbatim, and holds no Redox construct to lose.
+
+**The near-miss is the guard row body, and plan 65 had already paid for it.**
+`guards` reads its body through `inline_body`, one `parse_expr` closed by a
+required line break, which is the property §10.14 relied on when it exempted
+guard rows from the unit rule — *"one expression with nowhere to put a second,
+so it would force `| c = do` plus an indented block"*. Both halves of that
+sentence were retired by leaf 7. Measured rather than assumed:
+
+```text
+classify n
+  | n > 0 = (if n > 9
+    "big"
+  else
+    "small")
+  | otherwise = "neg"
+```
+
+parses, compiles and runs, because a bracket is a layout context of its own
+since plan 65 — and emits `if n > 9 { "big" } else { "small" }`. The
+unparenthesised spelling is `RDX0002`, an inconsistent dedent, which is the
+right diagnostic: the `else` has no enclosing level to match when the `if` did
+not begin a line. So the guard row kept its capability and only changed
+spelling, and `#{…}` remains the one position where this row took something
+away.
+
 ### 10.16 Open
 
-- **Leaves 8 and 9.** The corpus rewrite of `return`-heavy shapes, and the doc
-  amendments — docs 01 §8, 03 §7, 18 §1.1, plan 20 §1.2, plan 22's disclosed
-  gap. Criteria 10-12 are theirs.
+- **Leaf 9.** Criterion 12 — plan 22's gap and plan 20 §1.2's rationale marked
+  resolved in doc 04 — is the register's and is the last thing this row owes.
+  Leaf 8's half of criteria 10-12 is done: §10.18 and §10.19.
 - **`docs/STATUS.md` and `docs/CONFORMANCE.md` are stale after leaf 7** and are
   blessed once at the end of the row rather than per leaf: `RDX0114`, the new
-  `tests/ui/` fixture and the moved line counts are all in them.
+  `tests/ui/` fixture and the moved line counts are all in them. This is now a
+  **red gate**, not a pending chore — `status_is_current` fails at `f31d1e6`
+  measuring `crates/redox-cli/tests` at 7,765 lines against the document's
+  7,624, and it is the only failure in the 159-test `redox-cli` suite. Leaf 8
+  changed nothing under `crates/`, so the gate was red before it and is red
+  after it by the same one test.
 - **`construct_coverage.rs` is 1,494 lines against a 1,500-line cap.** Leaf 7
   crossed it at 1,512 and paid for the room by sharing the walk; the next
   addition to that file has to split it.
-- **`StmtKind` is named in documents that no longer describe the code**:
-  `docs/06 - Redox Code Architecture.md`'s two rows for `block/stmt/kind.rs`,
-  plan 20 §§6-7, plan 30 §4, plan 34 §§10.15/11, plan 54 §§10/11.3, plan 60
-  §11.4, and this row's own §4. None is machine-checked. Leaf 8 owns them.
+- ~~**`StmtKind` is named in documents that no longer describe the code.**~~
+  Discharged, in two commits and with one correction to this bullet. `59706fe`
+  gave plans 20, 34, 54 and doc 30 a dated note each and corrected plan 60
+  §11.4 in place, on the rule that a *finished* plan was correct when written
+  and a *planned* one sends an implementer after a type that is not there.
+  Leaf 8 took `docs/06 - Redox Code Architecture.md`, where this bullet said
+  **two** rows and there is **one**: §2.4's depth rule illustrated itself with
+  `block/stmt/kind.rs`, which is gone, and §2.6's worked example names
+  `block/stmt/binding.rs`, which is not. The depth rule now names the sibling
+  that exists. This row's own §4 stays as written — it describes what leaf 1
+  did, and `StmtKind` is the type leaf 1 deleted.
 - `crates/redox-fmt/tests/fmt/statements.sdx` line 1 still says *"every
   `StmtKind`"*. It is a fixture whose formatted output is compared, so editing
   the comment means editing an expectation pair for a historical note.

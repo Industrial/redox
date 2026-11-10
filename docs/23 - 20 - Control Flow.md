@@ -85,6 +85,22 @@ reason is that `then` is otherwise a keyword with no use, which would be worse.
 > suppressed inside brackets, so `print (if c then a else b)` is the only way
 > to write a conditional in argument position.
 
+> **And leaf 7 carried it out — there is now one `if`** (2026-11-10). `then`
+> is retired and the keyword is **free**, which bought back `Ordering::then`
+> as a method name; `is_inline` went with it, because a single spelling has
+> nothing to record, and `Expr::If` carries no flag. So the two forms this
+> section opened by calling *"grammatically disjoint"* are one form.
+>
+> The cost the paragraph above priced was paid by **plan 65**, which gave a
+> bracket a layout context of its own: `print (if c` with indented branches is
+> writable, so argument position lost nothing. One position was not reached —
+> `#{…}` is scanned inside a single string token, so a conditional in an
+> interpolation has no spelling at all now. Plan 55 §6 discloses it.
+>
+> §1.5's `do` went the same way in the same leaf: a block is an expression, so
+> nothing announces one, and `'name` on a bare block is what carries a value
+> out. The word stays **reserved** for plan 60 — `RDX0114`.
+
 ### 1.3 `until` is `while` with a negation, and `not` is why it reads
 
 `until c` is `while !(c)`. Doc 03 §7.7 keeps it from doc 01 §8, and doc 18 §2.3 freed `not`

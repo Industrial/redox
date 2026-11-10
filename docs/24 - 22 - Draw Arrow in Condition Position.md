@@ -375,6 +375,16 @@ rustfmt would reflow.
 
 ### 10.7 A gap in plan 20, found by using it
 
+> **Resolved by plan 55** (2026-11-10). Leaf 0 gave `emit_control` the `tail`
+> parameter this section said the fix needed, replacing eight hardcoded
+> `false`s; leaf 2 then made the indented `if` reachable as a value anywhere,
+> and leaf 8 rewrote `describe` into the shape quoted below — the `return`s
+> are gone and each branch evaluates to its value. The diagnosis was right
+> about the cause and right about the venue; `emit_stmts` already carried the
+> flag and `emit_control` was the one path it never reached. Plan 55 §1.1
+> counts the eight literals, and plan 20 §1.2 records the other half of what
+> this section guessed about that plan.
+
 The example's `describe` first read:
 
 ```text

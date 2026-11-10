@@ -51,6 +51,20 @@ ground: guards subsume `cond`, relational patterns and `when`; `<-` subsumes `us
 `defer` and the comprehension's `for`; the section rule subsumes `&:`. **Every deletion in §7
 is a construct whose work another construct already does.**
 
+**And the dividend was paid once more, by plan 55** (2026-11-10). This section
+counted the deletions doc 18 could see; it could not see the largest one,
+because the mechanism it needed was Rust's rather than Haskell's. Making every
+body position an **expression** subsumes three more: an indented block subsumes
+`do`, so no keyword announces a block; an expression branch subsumes `then`,
+so an `if` has one spelling rather than two; and `try`, `async` and `unsafe`
+become *adjectives on that one block* rather than three constructs of one
+shape. `then` — one of the nine keywords §7 counts this document as *adding* —
+is retired and free again, `do` stays reserved with no construct behind it for
+plan 60, and `RDX0101`/`RDX0102` stopped firing at arm and tail positions.
+The measurement is plan 55 §1.2's: the fork was pushing `return` into a
+declarative surface at seven times the rate the expression form was used,
+because `return` was the only way a branch could produce a value.
+
 ---
 
 ## 2. Five moves make the language Haskell
