@@ -1,6 +1,8 @@
 pub(crate) mod above_and_and;
 pub(crate) mod application;
 pub(crate) mod arguments;
+pub(crate) mod arm_body;
+pub(crate) mod assign_tail;
 pub(crate) mod atom;
 pub(crate) mod binary_op;
 pub(crate) mod bracketed;
@@ -42,6 +44,7 @@ pub(crate) mod instance_decl;
 pub(crate) mod interpolated_string;
 pub(crate) mod is_word;
 pub(crate) mod lambda;
+pub(crate) mod local_test;
 pub(crate) mod method_context;
 pub(crate) mod module_decl;
 pub(crate) mod newtype_shape;
@@ -90,10 +93,10 @@ pub(crate) mod walk_item_for_tails;
 pub(crate) mod walk_member_for_tails;
 
 use crate::ParseError;
+use crate::parse::parser::assign_tail::assign_tail;
 use crate::parse::parser::capture_type::capture_type;
 use crate::parse::parser::check_callback_tails::check_callback_tails;
 use crate::parse::parser::class_decl::class_decl;
-use crate::parse::parser::compound_assign::compound_assign;
 use crate::parse::parser::condition::condition;
 use crate::parse::parser::const_decl::const_decl;
 use crate::parse::parser::constraints::constraints;
@@ -105,6 +108,7 @@ use crate::parse::parser::generalise::generalise;
 use crate::parse::parser::import_decl::import_decl;
 use crate::parse::parser::inline_rust::inline_rust;
 use crate::parse::parser::instance_decl::instance_decl;
+use crate::parse::parser::local_test::local_test;
 use crate::parse::parser::module_decl::module_decl;
 use crate::parse::parser::parse_expr::parse_expr;
 use crate::parse::parser::parse_spine::parse_spine;
@@ -604,6 +608,46 @@ impl<'a> Parser<'a> {
     self.check(&TokenKind::Newline) || self.check(&TokenKind::Dedent) || self.at_eof()
   }
 
+  /// Whether the `if` at the cursor is the one-line `if c then a else b`.
+  ///
+  /// Plan 55 leaf 2. Both spellings are one `Expr::If` since leaf 1, and in
+  /// *statement* position `stmt` asks `control_flow` first so the question
+  /// never arises — the indented form wins by reaching the cursor first. In
+  /// **expression** position both are legal, and something has to choose.
+  ///
+  /// `then` at depth zero before the line ends is the whole test. A nested
+  /// conditional cannot confuse it: `if (if a then b else c) then d else e`
+  /// has its inner `then` inside parentheses, so the first one this sees at
+  /// depth zero is the outer one.
+  ///
+  /// The same shape as [`Self::reaches_a_binding_eq`] and
+  /// `holds_a_pattern_test`, deliberately: a depth-tracking forward scan that
+  /// stops at the line break is how this parser answers every
+  /// which-production-is-this question, and inventing a second mechanism for
+  /// the third one would be worse than the duplication.
+  pub(crate) fn reaches_a_then(&self) -> bool {
+    let mut depth = 0i32;
+    let mut i = 0;
+    while let Some(tok) = self.peek_at(i) {
+      match &tok.kind {
+        TokenKind::Kw(Keyword::Then) if depth == 0 => return true,
+        TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => depth += 1,
+        TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
+          depth -= 1;
+          if depth < 0 {
+            return false;
+          }
+        }
+        TokenKind::Newline | TokenKind::Indent | TokenKind::Dedent | TokenKind::Eof => {
+          return false;
+        }
+        _ => {}
+      }
+      i += 1;
+    }
+    false
+  }
+
   /// `if c` with an indented block, and its `else` — doc 01 §8, plan 20.
   ///
   /// `else if` is read by recursion: the `else` branch is a block holding one
@@ -797,6 +841,12 @@ impl<'a> Parser<'a> {
     let leading = self.peek_leading();
     let start = self.peek_span().0;
 
+    // Plan 55 §1.5's carve-out, asked before anything is read: `test` is the
+    // one declaration a body may not hold, because rustc does not collect a
+    // nested `#[test]`. `RDX0112` rather than a lowering — see
+    // [`local_test`](local_test::local_test).
+    local_test(self)?;
+
     // Plan 20's control flow comes first: every one of its forms begins with
     // a keyword or a label, none of which can begin an expression, so asking
     // here costs one comparison and no backtracking.
@@ -842,36 +892,9 @@ impl<'a> Parser<'a> {
     } else {
       let value = parse_expr(self, 0)?;
       // Assignment, read after the place expression because every one of its
-      // six tokens can only follow one. A plain `=` here is a *binding*,
-      // which `try_binding` already took — and `:=` reaches this arm rather
-      // than that one because `looks_like_a_binding` tests for `Eq`, `Colon`
-      // or `LBrace` at the second token and `reaches_a_binding_eq` scans for
-      // a depth-zero `Eq`. A `ColonEq` answers no to both, so if this arm
-      // were ever missed the failure would be a loud *"expected a line break
-      // after the statement"* rather than a silent misparse.
-      if self.check(&TokenKind::ColonEq) {
-        self.advance();
-        let rhs = Box::new(parse_expr(self, 0)?);
-        Expr::Assign {
-          target: Box::new(value),
-          op: None,
-          value: rhs,
-          span: (start, self.prev_span().1),
-        }
-      } else {
-        match compound_assign(self) {
-          Some(op) => {
-            let rhs = Box::new(parse_expr(self, 0)?);
-            Expr::Assign {
-              target: Box::new(value),
-              op: Some(op),
-              value: rhs,
-              span: (start, self.prev_span().1),
-            }
-          }
-          None => value,
-        }
-      }
+      // six tokens can only follow one. `assign_tail` has the detail, and a
+      // `case` arm body asks it too since plan 55 leaf 3.
+      assign_tail(self, value, start)?
     };
 
     let end = self.prev_span().1;

@@ -1,0 +1,36 @@
+-- Plan 55 criterion 7's witness: a discarded `Result` is reported against the
+-- `.sdx`, and it is rustc's warning carried back rather than a Redox lint.
+--
+-- The criterion asked for *"a Redox lint, not only a rustc warning"*, and leaf
+-- 4 worded the value as position — *"the discard lints at the Redox line
+-- rather than rustc's"*. The position is already here, which is what this
+-- fixture records: plan 07's remapping puts `unused_must_use` on the author's
+-- own line and column, the generated file is never named, and the build still
+-- succeeds because a discard is legal.
+--
+-- No `RDX1004` was added, and the two statements below are why.
+--
+-- `save 1` is the **only** shape a lexical lint could see: `save`'s return
+-- type is written in this file, so "a call to a Result-returning function,
+-- discarded" is decidable from the source with no types — doc 03 §2's
+-- admission test. `u8::try_from 300` is the shape that actually bites, and
+-- nothing in this file says it returns anything at all. Knowing that needs
+-- the standard library's signatures, which is the type checker AGENTS.md
+-- forbids Redox growing.
+--
+-- So a Redox lint would fire only where rustc already fires, and stay silent
+-- on the case the criterion exists for — a lint whose coverage is a strict
+-- subset of the warning it was meant to improve on. Plan 56 leaf 3 and plan
+-- 59 criterion 5 were both withdrawn on that reasoning; this is the third.
+--
+-- And the suppression story is already complete: `#[allow(unused_must_use)]`
+-- on the line above silences it, because the emitter passes an attribute that
+-- is not Redox's own straight through. Measured 2026-11-10.
+save : i32 -> Result<i32, String>
+save n = Ok n
+
+main : ()
+main =
+  save 1
+  u8::try_from 300
+  print "done"

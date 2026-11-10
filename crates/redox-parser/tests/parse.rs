@@ -273,3 +273,53 @@ fn a_tight_colon_colon_is_still_a_path() {
   );
   assert!(b.ty.is_none(), "and ascribes nothing");
 }
+
+// ---------------------------------------------------------------------------
+// Plan 55 leaf 2 — the indented `if` is reachable in expression position.
+// ---------------------------------------------------------------------------
+
+/// Both `if` spellings parse where a value is wanted.
+///
+/// Before this leaf, `prefix` reached only the one-line production, so an
+/// indented `if` was available as a function's tail — where `stmt` sends it to
+/// `control_flow` — and was `RDX0101` anywhere a value was read. The two forms
+/// are one `Expr::If` since leaf 1; what differs is `is_inline`.
+#[test]
+fn both_if_spellings_parse_as_a_value() {
+  for src in [
+    // The one-line form.
+    "main : ()\nmain =\n  x = if 1 > 0 then \"b\" else \"s\"\n  print x\n",
+    // The indented form — `RDX0101` until leaf 2.
+    "main : ()\nmain =\n  x = if 1 > 0\n    \"b\"\n  else\n    \"s\"\n  print x\n",
+    // And the indented form with an `else if` rung, which is the case that
+    // proves the chain survives being read as a value.
+    "main : ()\nmain =\n  x = if 1 > 0\n    \"b\"\n  else if 1 > 2\n    \"m\"\n  else\n    \"s\"\n  print x\n",
+  ] {
+    let _ = prog(src);
+  }
+}
+
+/// `then` at depth zero is the test, and a nested conditional does not confuse
+/// it.
+///
+/// `if (if a then b else c) then d else e` has its inner `then` inside
+/// parentheses, so the first one the scan sees at depth zero is the outer one.
+/// Were the scan depth-blind, this would read the *inner* `then` and take the
+/// one-line production for a condition that has not finished.
+#[test]
+fn a_nested_conditional_does_not_confuse_the_spelling_scan() {
+  let p = prog(
+    "main : ()\nmain =\n  x = if (if 1 > 0 then 2 else 3) > 1 then \"b\" else \"s\"\n  print x\n",
+  );
+  assert_eq!(p.items.len(), 1);
+}
+
+/// A statement-position `if` is still the indented form, by arrival.
+///
+/// `stmt` asks `control_flow` before it reads an expression at all, so this
+/// needs no lookahead and leaf 2 did not give it one. The assertion is that an
+/// `else`-less `if` — which only the statement form permits — still parses.
+#[test]
+fn a_statement_if_needs_no_else() {
+  let _ = prog("main : ()\nmain =\n  if 1 > 0\n    print \"y\"\n");
+}

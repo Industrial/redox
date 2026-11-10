@@ -1,7 +1,7 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
+use crate::parse::parser::arm_body::arm_body;
 use crate::parse::parser::condition::condition;
-use crate::parse::parser::parse_expr::parse_expr;
 use crate::parse::parser::pattern_alt::pattern_alt;
 use redox_ast::CaseArm;
 use redox_lexer::TokenKind;
@@ -33,7 +33,10 @@ pub(crate) fn case_arm(p: &mut Parser) -> Result<CaseArm, ParseError> {
   };
 
   p.expect(&TokenKind::Arrow, "expected `->` after a `case` pattern")?;
-  let body = parse_expr(p, 0)?;
+  // One expression, or — since plan 55 leaf 3 — an indented block, which is
+  // also one. `arm_body` owns the choice; a block body ends on a `Dedent`,
+  // which `just_dedented` lets stand for the line break below.
+  let body = arm_body(p)?;
   p.newline_with_trailing("expected a line break after a `case` arm")?;
 
   Ok(CaseArm {

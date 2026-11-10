@@ -1,0 +1,28 @@
+-- Plan 55 §3 case 5: a local `test`, refused.
+--
+-- This fixture exists because **the thing being prevented is silent**. A
+-- nested `#[test]` is not collected: plan 55 §1.5 measured rustc warning
+-- `cannot test inner items`, the harness running one test where two were
+-- written, and the build exiting 0 regardless. Lowering this would ship a
+-- test that compiles, reads as covering `add`, and never runs — so the only
+-- durable record of the carve-out is a corpus entry that asserts the refusal.
+--
+-- `RDX0102` *"expected an expression"* was what this printed before leaf 6,
+-- twice over: once on the `test` keyword from `prefix`'s default arm and
+-- again on the indented body line. A refusal that does not say why is not
+-- much better than no refusal, which is what `RDX0112` fixes.
+--
+-- The remedy is the left margin. Plan 55 §9 decision 2 declined the other
+-- option, hoisting to module scope at emission, because AGENTS.md already
+-- puts public-API tests in `crates/<crate>/tests/` and reserves inline tests
+-- for private constructs — so co-location inside a body is a shape the
+-- conventions discourage, and building hoisting for it would be cost against
+-- a convention.
+add : i32 -> i32 -> i32
+add a b = a + b
+
+main : ()
+main =
+  test "adds two numbers"
+    assert add 1 2 == 3
+  print "{add 1 2}"

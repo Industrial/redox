@@ -36,6 +36,7 @@ pub fn parse(toks: &[Token], src_len: usize) -> Result<Program, Vec<ParseError>>
          deeper than that overflows the parser's stack"
       ),
       span: (0, 0),
+      help: None,
     }]);
   }
   Parser::new(toks).run(src_len)

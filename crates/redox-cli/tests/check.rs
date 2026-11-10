@@ -200,6 +200,72 @@ fn assigning_to_an_immutable_binding_is_rustcs_error() {
   );
 }
 
+/// Plan 55 criterion 7: a discarded `Result` is reported against the `.sdx`,
+/// and the program still builds.
+///
+/// # Why this is the criterion's witness and not a `tests/lint/` case
+///
+/// Criterion 7 asks for *"a Redox lint, not only a rustc warning"*, and leaf 4
+/// worded the value as **position** — the discard lint *"at the Redox line
+/// rather than rustc's"*. The position is already here, by plan 07's
+/// remapping, so there is no `RDX1004`: the fixture's own header argues it at
+/// length, and the two statements are the argument.
+///
+/// `save 1` calls a function **this file declares** as returning
+/// `Result<i32, String>`, which is the only discard a lexical lint could
+/// recognise — the return type is in the source, so no types are needed.
+/// `u8::try_from 300` is the shape that actually bites, and nothing in the
+/// `.sdx` says it returns anything; recognising it needs the standard
+/// library's signatures, which is the type checker AGENTS.md forbids Redox
+/// growing. A lint restricted to the first would fire only where rustc
+/// already fires and stay silent on the second, so its coverage would be a
+/// strict subset of the warning it was meant to improve on.
+///
+/// `tests/lint/` could not hold this either way: its harness runs `redox
+/// build`, which never invokes rustc, so the warning does not exist there.
+/// `tests/check/` is the corpus that runs real rustc and remaps its spans.
+///
+/// `tests/check/discarded_result.sdx` discards on **lines 34 and 35**, both at
+/// column 3.
+#[test]
+fn a_discarded_result_is_reported_against_the_sdx() {
+  if support::skip_without_rustc("a_discarded_result_is_reported_against_the_sdx") {
+    return;
+  }
+  let checked = check("discarded_result");
+  assert!(
+    checked.success,
+    "a discard is legal, so the check must still pass:\n{}",
+    checked.stderr
+  );
+
+  // rustc's own wording, which is the half plan 07 passes through verbatim.
+  assert_eq!(
+    checked
+      .stderr
+      .matches("unused `Result` that must be used")
+      .count(),
+    2,
+    "one warning per discard:\n{}",
+    checked.stderr
+  );
+  assert!(
+    checked.stderr.contains("discarded_result.sdx:34:3"),
+    "the locally-declared `Result`, on line 34:\n{}",
+    checked.stderr
+  );
+  assert!(
+    checked.stderr.contains("discarded_result.sdx:35:3"),
+    "the `std` one a lexical lint could not see, on line 35:\n{}",
+    checked.stderr
+  );
+  assert!(
+    !checked.stderr.contains(".xrs"),
+    "never against the generated Rust:\n{}",
+    checked.stderr
+  );
+}
+
 /// Criterion 6: a program rustc accepts produces nothing and exits zero.
 #[test]
 fn a_clean_program_passes_silently() {

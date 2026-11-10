@@ -316,6 +316,14 @@ from §3 case 5.
 modifiers; `'name` labels a bare block; `then` removed and freed. The one corpus `do` and the
 `-> do` sites migrate here.
 
+**Retiring `then` has a cost leaf 2 measured, and this leaf must price it.**
+Layout is suppressed inside brackets — the lexer returns early while bracket depth is above
+zero, which is what lets a record literal and a call span lines — so an indented `if` cannot be
+a parenthesised argument and `print (if c then a else b)` is the only spelling there. Without
+`then`, a conditional in argument position has to be hoisted to a binding first. That is an
+ergonomic cost on a one-line construct, and §6 should disclose it whichever way this leaf
+decides. §10.8 has the measurement; `examples/control.sdx`'s `bracketed` is the witness.
+
 ### Leaf 8 — `leaf-corpus-and-docs`
 
 29 examples; the `return`-heavy shapes rewritten as expressions where that is what they meant.
@@ -429,10 +437,12 @@ string-literal fixtures to miss, because `no_literal_expectations.rs` forbids th
 
 ## 10. Result
 
-**Leaves 0 and 1 done; leaves 2-9 outstanding.** Criterion 1 is green. The
+**Leaves 0, 1, 2, 3 and 6 done; criterion 7 withdrawn; leaves 4, 5, 7, 8, 9
+outstanding.** Criterion 1 is green. The
 statement/expression fork is gone: `StmtKind` is deleted, `Expr` has 46
-variants, and no golden moved — `git status tests/ examples/` is empty, which
-is the strongest check available on a refactor across 62 files.
+variants, and leaf 1 moved no golden at all — `git status tests/ examples/`
+empty, which is the strongest check available on a refactor across 62 files.
+Leaf 2 then made the indented `if` reachable as a value.
 
 ### 10.1 Position alone cannot decide the `if` spelling, and a golden caught it
 
@@ -535,7 +545,193 @@ to the AST: `Expr::statement_blocks()` is where a new block-owning form must be
 declared, and the three `redox-fmt` walks plus this one all read it. That is
 four duplicated walks collapsed into one accessor.
 
-### 10.7 Open
+### 10.7 Leaf 2 was one decision, and it exposed two things
+
+Measured before writing anything, which turned out to be the whole of the
+design. The one-line `then` form worked in all three positions. The **indented**
+form worked in *tail position only* — `RDX0101` bound to a name or passed as an
+argument — because `prefix`'s `If` arm reached only `if_expression`, which makes
+`then` a hard `expect`. Since leaf 1 made `if_statement` return an `Expr`,
+nothing had to move but the choice.
+
+The choice is `reaches_a_then`: `then` at depth zero before the line break. The
+same shape as `reaches_a_binding_eq` and `holds_a_pattern_test`, deliberately —
+a depth-tracking forward scan that stops at the line break is how this parser
+answers every which-production-is-this question, and a third mechanism would be
+worse than the duplication. A nested conditional cannot confuse it:
+`if (if a then b else c) then d else e` has its inner `then` inside
+parentheses.
+
+In *statement* position there is no choice to make and leaf 2 added none:
+`stmt` asks `control_flow` before it reads an expression at all, so the
+indented form wins by arriving first. That is what keeps an `else`-less `if` a
+statement.
+
+**`control_text` discarded `tail`, and leaf 2 made that observable.** Leaf 1
+wrote `control_text` for a position the grammar could not yet produce — its doc
+comment said so — and passed `false`, because nothing could see the choice.
+Leaf 2 produced the position, and
+
+```text
+out = if n > 9
+  "big"
+else
+  "small"
+```
+
+emitted `"big";` and earned `E0308`. The same defect leaf 0 fixed for tail
+position, in the one path leaf 0 could not reach. `true` is safe for the other
+three forms `control_text` serves, because `emit_control` forwards `tail` only
+to an `if`'s branches and only when there is an `else` — a `while`, a `for`, a
+`loop` and an `else`-less `if` all ignore it, which is right, since every one is
+`()` in Rust.
+
+### 10.8 Layout is suppressed inside brackets, which is an argument against leaf 7
+
+An indented `if` **cannot** be a parenthesised argument:
+`print (if c` + indented branches is `RDX0101`, and not because of anything
+leaf 2 did. The lexer suppresses `Indent` and `Newline` while bracket depth is
+above zero — the same mechanism that lets a record literal and a call span
+lines — so there is no layout inside brackets for the off-side rule to read.
+
+The spelling there is `print (if c then a else b)`, and that is the strongest
+argument for keeping `then` that this row has found. **Leaf 7 proposes retiring
+it.** After leaf 7, a conditional in argument position would have to be hoisted
+to a binding first:
+
+```text
+v = if c
+  a
+else
+  b
+print v
+```
+
+That is not unspellable, and it is a real ergonomic cost on a construct that is
+one line today. Leaf 7 should price it, and §6 should disclose it either way.
+`examples/control.sdx`'s `bracketed` is the witness, written in the interpolated
+form so the example also proves `#{…}` carries a conditional.
+
+### 10.9 The second parser, again
+
+`tree_sitter.rs` and `editors.rs` both went red the moment the Rust parser
+accepted the new position — doc 04's fifth ordering commitment, earned by plan
+52 and paid again here. `conditional_expression` reached only the `then` form,
+so the grammar needed `if_statement` as an alternative, and reusing that rule
+rather than copying it is the point: the two spellings are one AST node since
+leaf 1, and two grammar rules for one node is how a highlighter drifts from its
+compiler.
+
+GLR then produced two conflicts the Rust parser does not have, both resolved by
+saying out loud what the Rust parser gets for free:
+
+- **`prec(-1, $.if_statement)`** inside `conditional_expression`, so the
+  *statement* reading wins where both are possible. The Rust parser gets that
+  by asking `control_flow` first.
+- **`prec.right` on `if_statement`**, for the dangling `else`:
+  `x = if c then if d …block… else …` became ambiguous about which `if` owns
+  the `else`. Right-associative binds it to the nearest one, which is what the
+  Rust parser does by greedy recursion — `if_statement` consumes its own `else`
+  before returning, so the outer `if_expression` then has none and says so.
+
+### 10.10 Leaf 3 — compound assignment was not free, and `-> do` needs no diagnostic
+
+The expectation going in was that `n += 1` as a bare arm body would already
+work, `Assign` being an `Expr` variant since leaf 1. **It did not**, and the
+reason is worth keeping: `parse_expr` never reads an assignment operator —
+`Parser::stmt` read it *after* calling `parse_expr`. So
+`Exit::Success _ -> enriched += 1` stopped at the `+=` and died on `RDX0101`,
+exactly as §2 recorded. Leaf 1 changed where an assignment can be **stored**,
+not where it can be **parsed**.
+
+The fix is `assign_tail`, extracted from `stmt` so the arm body and the block
+element read the same six operators from one place rather than two.
+
+**An arm body's shape is unchanged: still `body: Expr`.** An indented block
+becomes `Expr::Do { label: None }`, which §10.4 establishes as Redox's only
+spelling of a block expression. Three things fall out of that, all of them
+good: `-> do` keeps working with nothing written for it, both spellings emit
+byte-identical Rust, and **leaf 7 removes a keyword rather than a form** — once
+`prefix` parses a bare indented block, `arm_body`'s special case simply goes.
+
+**`-> do` gets no deprecation diagnostic, and should not.** A diagnostic needs
+something to distinguish, and after this leaf there is nothing: the two
+spellings produce the same node, so a warning would have to fire on a token the
+AST no longer records. Recovering it would mean an `is_marked: bool` beside
+`is_inline` — a spelling flag kept alive solely to complain about itself, one
+milestone before the keyword goes.
+
+The deprecation is carried where it costs nothing instead: **`redox fmt`
+rewrites `-> do` into the marker-free form.** That is doc 02 §4.5's migration
+tool doing the migration, it needs no new code, and it avoids a second
+deprecation code beside plan 53's `RDX1002`.
+
+Two emitter decisions, both driven by rustfmt rather than by taste: a block
+body whose block is one plain expression with no trivia collapses to
+`pat => expr,`, and a block body takes **no trailing comma**, matching
+rustfmt's `arm_comma`. The second closed a latent bug — `emit_case` wrote
+`},` after a `-> do` body, which rustfmt rewrites, and **no corpus site used
+`-> do`**, so it had never been exercised. Leaf 3 would have hit it on its
+first block arm.
+
+### 10.11 Leaf 6 — and the `help` field the parser did not have
+
+`RDX0112` refuses a `test` in a body position. The carve-out is §1.5's: a
+nested `#[test]` is **not collected**, so rustc warns `cannot test inner
+items` and the test silently never runs. A construct that compiles and then
+does nothing is worse than one that is refused.
+
+The check lives in `Parser::stmt` rather than in `prefix`, because `stmt` is
+where a body position begins — one comparison covers clause bodies, guard-row
+bodies, `where` lists and every statement-owned block. It **consumes** the
+declaration before raising, and that is not tidiness: a local `test` used to
+produce **two** `RDX0102`s, the second from recovery landing inside a construct
+that was never read.
+
+`ParseError` gained `help: Option<String>` to carry the help line. It had none,
+while `LexError` has carried one since plan 05, and `diagnose` hard-coded
+`help: None` for the whole syntactic half — so this is the matching half rather
+than a new idea. `expected` and `with` set `None`, so no existing diagnostic
+moved.
+
+### 10.12 Criterion 7 is withdrawn, and the position it wanted is already there
+
+*"A discarded `Result` is a Redox lint, not only a rustc warning."* Measured
+before building anything, which is what retired it.
+
+**The position is already correct.** Plan 07's remapping puts
+`unused_must_use` on the author's own line and column, for a `std` call and a
+locally-declared one alike, one warning per site, exit 0 — under `redox check`,
+which is where rustc runs at all. Leaf 4 worded this criterion's value *as*
+position; there was nothing to move.
+
+**And the breadth it asks for needs a type checker.** Exactly one discard shape
+is decidable from the source: a call to a function whose return type is written
+in the same file. `u8::try_from 300` discards a `Result` and **nothing in the
+`.sdx` says so** — knowing it means reading the standard library's signatures,
+which is the checker AGENTS.md forbids. Since the decidable shape is a strict
+subset of where rustc already fires, a lint would have had *worse* coverage than
+the warning it was meant to improve on, plus a false positive rustc does not
+have: a `where` local shadowing a module-level `Result`-returning name, which
+only name resolution could tell apart.
+
+A hole was looked for and not found: a `Result` in the tail of a `()` function
+is `E0308`, in a `case` arm against `()` arms is `E0308`, and everywhere else is
+`unused_must_use`.
+
+So criterion 7 joins plan 56 leaf 3 and plan 59 criterion 5 — withdrawn on
+measurement rather than built on a heuristic. The argument lives in
+`crates/redox-cli/tests/check/discarded_result.sdx` and its test, so it is in
+the tree rather than only in a plan.
+
+**One real gap surfaced, and it is plan 07's.** `remap` keeps only positioned
+`level: message` lines, so rustc's `note: this Result may be an Err variant,
+which should be handled` and `help: use let _ = … to ignore the resulting
+value` are **dropped**. The author gets the position and never the remedy. That
+is true of every remapped rustc diagnostic, not just this one, and fixing it
+would move `tests/check/` expectations across the board.
+
+### 10.13 Open
 
 - **Leaves 2-9.** Criterion 1 is green from leaf 0 and the fork is gone; the
   remaining criteria — `.then` as a method, a `case` arm's indented block, local

@@ -1807,41 +1807,45 @@
 			}
 		},
 		"if_statement": {
-			"type": "SEQ",
-			"members": [
-				{
-					"type": "STRING",
-					"value": "if"
-				},
-				{
-					"type": "FIELD",
-					"name": "condition",
-					"content": {
-						"type": "SYMBOL",
-						"name": "condition"
-					}
-				},
-				{
-					"type": "FIELD",
-					"name": "consequence",
-					"content": {
-						"type": "SYMBOL",
-						"name": "statement_block"
-					}
-				},
-				{
-					"type": "CHOICE",
-					"members": [
-						{
+			"type": "PREC_RIGHT",
+			"value": 0,
+			"content": {
+				"type": "SEQ",
+				"members": [
+					{
+						"type": "STRING",
+						"value": "if"
+					},
+					{
+						"type": "FIELD",
+						"name": "condition",
+						"content": {
 							"type": "SYMBOL",
-							"name": "else_clause"
-						},
-						{
-							"type": "BLANK"
+							"name": "condition"
 						}
-					]
-				}
-			]
+					},
+					{
+						"type": "FIELD",
+						"name": "consequence",
+						"content": {
+							"type": "SYMBOL",
+							"name": "statement_block"
+						}
+					},
+					{
+						"type": "CHOICE",
+						"members": [
+							{
+								"type": "SYMBOL",
+								"name": "else_clause"
+							},
+							{
+								"type": "BLANK"
+							}
+						]
+					}
+				]
+			}
 		},
 		"else_clause": {
 			"type": "SEQ",
@@ -2817,16 +2821,42 @@
 					"value": "->"
 				},
 				{
-					"type": "FIELD",
-					"name": "body",
-					"content": {
-						"type": "SYMBOL",
-						"name": "_expression"
-					}
-				},
-				{
-					"type": "SYMBOL",
-					"name": "_newline"
+					"type": "CHOICE",
+					"members": [
+						{
+							"type": "SEQ",
+							"members": [
+								{
+									"type": "FIELD",
+									"name": "body",
+									"content": {
+										"type": "SYMBOL",
+										"name": "_expression"
+									}
+								},
+								{
+									"type": "SYMBOL",
+									"name": "_newline"
+								}
+							]
+						},
+						{
+							"type": "FIELD",
+							"name": "body",
+							"content": {
+								"type": "SYMBOL",
+								"name": "assignment"
+							}
+						},
+						{
+							"type": "FIELD",
+							"name": "body",
+							"content": {
+								"type": "SYMBOL",
+								"name": "statement_block"
+							}
+						}
+					]
 				}
 			]
 		},
@@ -2895,49 +2925,62 @@
 			]
 		},
 		"conditional_expression": {
-			"type": "PREC_LEFT",
-			"value": 0,
-			"content": {
-				"type": "SEQ",
-				"members": [
-					{
-						"type": "STRING",
-						"value": "if"
-					},
-					{
-						"type": "FIELD",
-						"name": "condition",
-						"content": {
-							"type": "SYMBOL",
-							"name": "condition"
-						}
-					},
-					{
-						"type": "STRING",
-						"value": "then"
-					},
-					{
-						"type": "FIELD",
-						"name": "consequence",
-						"content": {
-							"type": "SYMBOL",
-							"name": "_expression"
-						}
-					},
-					{
-						"type": "STRING",
-						"value": "else"
-					},
-					{
-						"type": "FIELD",
-						"name": "alternative",
-						"content": {
-							"type": "SYMBOL",
-							"name": "_expression"
-						}
+			"type": "CHOICE",
+			"members": [
+				{
+					"type": "PREC_LEFT",
+					"value": 0,
+					"content": {
+						"type": "SEQ",
+						"members": [
+							{
+								"type": "STRING",
+								"value": "if"
+							},
+							{
+								"type": "FIELD",
+								"name": "condition",
+								"content": {
+									"type": "SYMBOL",
+									"name": "condition"
+								}
+							},
+							{
+								"type": "STRING",
+								"value": "then"
+							},
+							{
+								"type": "FIELD",
+								"name": "consequence",
+								"content": {
+									"type": "SYMBOL",
+									"name": "_expression"
+								}
+							},
+							{
+								"type": "STRING",
+								"value": "else"
+							},
+							{
+								"type": "FIELD",
+								"name": "alternative",
+								"content": {
+									"type": "SYMBOL",
+									"name": "_expression"
+								}
+							}
+						]
 					}
-				]
-			}
+				},
+				{
+					"type": "PREC",
+					"value": -1,
+					"content": {
+						"type": "SYMBOL",
+						"name": "if_statement"
+					}
+				}
+			]
 		},
 		"lambda": {
 			"type": "PREC_LEFT",

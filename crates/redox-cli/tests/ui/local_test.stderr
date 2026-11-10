@@ -1,0 +1,7 @@
+error[RDX0112]: a `test` declaration belongs at module scope, and this one is inside a body
+  --> local_test.sdx:26:3
+   |
+26 |   test "adds two numbers"
+   |   ^^^^
+  = help: move it out to the left margin: rustc does not collect a nested `#[test]` — it warns `cannot test inner items` and the test silently never runs (plan 55 §1.5)
+

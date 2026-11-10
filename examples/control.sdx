@@ -23,10 +23,46 @@ classify n =
   else
     print "zero"
 
--- `if c then a else b` is an *expression*, told apart from the statement by
--- `then`. One keyword decides which of the two nodes the parser builds.
+-- `if c then a else b` is an expression. Plan 55 leaf 1 made it the **same
+-- node** as the indented form, so this comment's previous claim — *"one
+-- keyword decides which of the two nodes the parser builds"* — is wrong twice
+-- over: there is one node, and the keyword decides a spelling.
+--
+-- What decides is **position**. `Parser::stmt` asks `control_flow` before it
+-- reads an expression at all, so an `if` beginning a statement is the indented
+-- form by arrival. An `if` reached as a *value* could be either, and there
+-- `then` at depth zero before the line break is the test — the same shape as
+-- the scans that tell a binding from an expression and a pattern test from a
+-- comparison.
 tier : i32 -> &'static str
 tier n = if n > 9 then "big" else "small"
+
+-- And the indented form used as a value — plan 55 leaf 2. Until it, this was
+-- `RDX0101`: `prefix` reached only the one-line production, so an indented
+-- `if` was available as a function's tail and nowhere else.
+--
+-- The `else if` rung is here because it is the case that proves the chain
+-- survives the change. Each branch is a tail position, which is leaf 0's
+-- `tail` parameter arriving through `control_text` — and `control_text` passed
+-- `false` until this leaf made the position reachable, so these three branches
+-- emitted `"big";` and earned `E0308`.
+labelled : i32 -> &'static str
+labelled n =
+  out = if n > 9
+    "big"
+  else if n > 4
+    "middling"
+  else
+    "small"
+  out
+
+-- Inside brackets there is no layout, so an indented `if` cannot be a
+-- parenthesised argument: the lexer suppresses `Indent` and `Newline` while
+-- bracket depth is above zero, which is what lets a record literal and a call
+-- span lines. `print (if c then a else b)` is the spelling there, and that is
+-- the strongest argument for keeping `then` — leaf 7 proposes retiring it.
+bracketed : i32 -> String
+bracketed n = "#{if n > 9 then "big" else "small"}"
 
 -- `until c` is `while !(c)`, **parenthesised**. This is the case the run
 -- catches and the text cannot: stop once `n` is over 5 *and* even.
@@ -187,6 +223,10 @@ main =
   classify 0
   print (tier 4)
   print (tier 40)
+  print (labelled 20)
+  print (labelled 7)
+  print (labelled 1)
+  print (bracketed 20)
   print (settle ())
   count_up ()
   print (nested ())

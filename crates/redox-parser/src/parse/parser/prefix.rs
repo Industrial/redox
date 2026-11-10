@@ -221,7 +221,19 @@ pub(crate) fn prefix(p: &mut Parser) -> Result<Expr, ParseError> {
     // both plan 20. `if` here is always the `then` form: the statement form
     // is read by `control_flow`, which `stmt` asks before it ever reaches an
     // expression.
-    TokenKind::Kw(Keyword::If) => if_expression(p),
+    // Plan 55 leaf 2: both `if` spellings are expressions, and in this
+    // position both are legal — `stmt` asks `control_flow` first, so an `if`
+    // only reaches here when it is being *used* as a value. `then` at depth
+    // zero before the line ends picks the one-line form; anything else is the
+    // indented one, which until this leaf was `RDX0101` here and reachable
+    // only as a function's tail.
+    TokenKind::Kw(Keyword::If) => {
+      if p.reaches_a_then() {
+        if_expression(p)
+      } else {
+        p.if_statement()
+      }
+    }
     TokenKind::Kw(Keyword::Do) => do_block(p),
     // Doc 18 §2.3's `case e of`. An expression, not a statement: its value is
     // the matching arm's, which is what lets it be a clause body, an argument

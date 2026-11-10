@@ -830,6 +830,10 @@
 						"named": true
 					},
 					{
+						"type": "assignment",
+						"named": true
+					},
+					{
 						"type": "boolean",
 						"named": true
 					},
@@ -895,6 +899,10 @@
 					},
 					{
 						"type": "self_expression",
+						"named": true
+					},
+					{
+						"type": "statement_block",
 						"named": true
 					},
 					{
@@ -1364,7 +1372,7 @@
 		"fields": {
 			"alternative": {
 				"multiple": true,
-				"required": true,
+				"required": false,
 				"types": [
 					{
 						"type": "as",
@@ -1454,7 +1462,7 @@
 			},
 			"condition": {
 				"multiple": false,
-				"required": true,
+				"required": false,
 				"types": [
 					{
 						"type": "condition",
@@ -1464,7 +1472,7 @@
 			},
 			"consequence": {
 				"multiple": true,
-				"required": true,
+				"required": false,
 				"types": [
 					{
 						"type": "as",
@@ -1552,6 +1560,16 @@
 					}
 				]
 			}
+		},
+		"children": {
+			"multiple": false,
+			"required": false,
+			"types": [
+				{
+					"type": "if_statement",
+					"named": true
+				}
+			]
 		}
 	},
 	{

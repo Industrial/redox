@@ -20,7 +20,7 @@ Plan 48 (`docs/42 - 48 - Conformance and Self-Hosting.md`) built it.
 
 **No — and one construct is almost all of it.**
 
-Macro invocation accounts for **912 of 924** blocking occurrences (99%). Doc 18 §7 retired `!` as a suffix and left no spelling, so `format!`, `write!`, `assert!`, `println!` and `panic!` — how this compiler formats, asserts and reports — cannot be written.
+Macro invocation accounts for **915 of 927** blocking occurrences (99%). Doc 18 §7 retired `!` as a suffix and left no spelling, so `format!`, `write!`, `assert!`, `println!` and `panic!` — how this compiler formats, asserts and reports — cannot be written.
 
 Spell it, and what remains is the `as` casts below. That makes this document a **priority** rather than a verdict: plan 45 §1.5 declined to spell macro invocation because it needs a surface decision in doc 03, and this is the measure of what that decision is worth.
 
@@ -32,7 +32,7 @@ Each is graded `UNREACHABLE` in `docs/GRAMMAR.md`.
 
 | Blocker | Occurrences |
 |---|---:|
-| Macro invocation | 912 |
+| Macro invocation | 915 |
 | `as` cast | 12 |
 | `unsafe trait` | 0 |
 | `unsafe impl` | 0 |
@@ -61,8 +61,8 @@ Each is graded `UNREACHABLE` in `docs/GRAMMAR.md`.
 | `redox-lexer` | 32 | 16 | 50% |
 | `redox-lsp` | 22 | 6 | 27% |
 | `redox-mcp` | 19 | 7 | 37% |
-| `redox-parser` | 102 | 31 | 30% |
-| **total** | **470** | **225** | **48%** |
+| `redox-parser` | 105 | 31 | 30% |
+| **total** | **473** | **225** | **48%** |
 
 ---
 

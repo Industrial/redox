@@ -39,7 +39,7 @@ pub fn diagnose(path: &Path, source: &str, failure: &ParseFailure) -> Vec<Diagno
         severity: redox_diag::Severity::Error,
         message: e.message.clone(),
         span: e.span,
-        help: None,
+        help: e.help.clone(),
         path: path.clone(),
         source: source.to_string(),
       })

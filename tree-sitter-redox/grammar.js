@@ -485,12 +485,20 @@ module.exports = grammar({
 		assignment_operator: (_) =>
 			token(choice(":=", "+=", "-=", "*=", "/=", "%=", "??=")),
 
+		// `prec.right` for the dangling `else`: once leaf 2 let an indented `if`
+		// stand where a value is read, `x = if c then if d <block> else <block>`
+		// became ambiguous about which `if` owns the `else`. Right-associative
+		// binds it to the nearest one, which is what the Rust parser does by
+		// greedy recursion — `if_statement` consumes its own `else` before
+		// returning, so the outer `if_expression` then has none and says so.
 		if_statement: ($) =>
-			seq(
-				"if",
-				field("condition", $.condition),
-				field("consequence", $.statement_block),
-				optional($.else_clause),
+			prec.right(
+				seq(
+					"if",
+					field("condition", $.condition),
+					field("consequence", $.statement_block),
+					optional($.else_clause),
+				),
 			),
 
 		else_clause: ($) =>
@@ -699,13 +707,29 @@ module.exports = grammar({
 				$._dedent,
 			),
 
+		// Plan 55 leaf 3: an arm body is an expression, and an indented block is
+		// one — so `->` takes either, with no marker in front of the block.
+		//
+		// The terminator moves inside the choice because the two shapes end
+		// differently: an inline body ends on a `_newline`, and a
+		// `statement_block` ends on its own `_dedent`, which has already ended
+		// the line. That is the same pairing `expression_statement` makes, and
+		// the same reason `Parser::just_dedented` exists on the Rust side.
 		case_arm: ($) =>
 			seq(
 				field("pattern", $.pattern_run),
 				optional(seq("|", field("guard", $.condition))),
 				"->",
-				field("body", $._expression),
-				$._newline,
+				choice(
+					seq(field("body", $._expression), $._newline),
+					// Criterion 3's other half: a compound assignment is a legal
+					// arm body, and plan 54's `:=` with it. `assignment` is reused
+					// rather than copied, and it carries the `_newline` that ends
+					// the arm — `_expression` holds no `assignment_operator`, so
+					// the two readings cannot compete.
+					field("body", $.assignment),
+					field("body", $.statement_block),
+				),
 			),
 
 		do_expression: ($) => seq("do", optional($.label), $.statement_block),
@@ -714,16 +738,31 @@ module.exports = grammar({
 		unsafe_block: ($) => seq("unsafe", $.statement_block),
 		try_block: ($) => seq("try", $.statement_block),
 
+		// Plan 55 leaf 2 made both `if` spellings usable as a value, so this
+		// position takes either. The Rust parser tells them apart with a
+		// depth-zero scan for `then` before the line break; GLR needs no such
+		// test — it explores both and the `then` or the indent settles it.
+		//
+		// `if_statement` is reused rather than copied: since plan 55 leaf 1
+		// the two spellings are one AST node, and giving the grammar two rules
+		// for one node is how the highlighter and the compiler drift.
 		conditional_expression: ($) =>
-			prec.left(
-				seq(
-					"if",
-					field("condition", $.condition),
-					"then",
-					field("consequence", $._expression),
-					"else",
-					field("alternative", $._expression),
+			choice(
+				prec.left(
+					seq(
+						"if",
+						field("condition", $.condition),
+						"then",
+						field("consequence", $._expression),
+						"else",
+						field("alternative", $._expression),
+					),
 				),
+				// Negative, so the *statement* reading wins where both are
+				// possible. That is the same preference the Rust parser has, and
+				// it gets it for free by asking `control_flow` before it reads an
+				// expression at all; GLR has to be told.
+				prec(-1, $.if_statement),
 			),
 
 		lambda: ($) =>

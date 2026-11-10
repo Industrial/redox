@@ -144,6 +144,30 @@ pub enum Code {
   /// a keyword that quietly meant nothing.
   NewtypeShape,
 
+  /// `RDX0112` — a `test` declaration inside a body.
+  ///
+  /// Plan 55 leaf 6, and the one carve-out from §1.4's *everything in a body
+  /// is an expression*. It is refused because **rustc does not collect a
+  /// nested `#[test]`**: the `unnameable_test_items` lint warns
+  /// `cannot test inner items`, the harness runs one test where two were
+  /// written, and the build exits 0 either way (§1.5, measured).
+  ///
+  /// So lowering a local `test` would ship a construct that compiles and
+  /// then silently does nothing — worse than one that is refused, because a
+  /// refusal costs a minute and a test that never runs costs whatever it was
+  /// guarding. §9 decision 2 declined the alternative, hoisting to module
+  /// scope, on the ground that AGENTS.md already puts tests elsewhere.
+  ///
+  /// **Not a widening of the ground.** A declaration keyword in a body
+  /// already failed, as `RDX0102` *"expected an expression"* from `prefix`'s
+  /// default arm — twice over, because the indented body line raised a second
+  /// one. This names the rule instead of the token, which is the same reason
+  /// [`Self::ModuleScopeBinding`] and [`Self::EllipsisRestPattern`] exist.
+  ///
+  /// The number is the one plan 55 leaf 1 was briefed to take and did not:
+  /// §10.2 found the position rule it was meant for had no trigger.
+  LocalTest,
+
   // ---- lints: RDX1000+ ----
   /// `unwrap` or `expect` used — doc 03 §12.7, plan 38.
   ///
@@ -247,6 +271,7 @@ impl Code {
       Self::NestingTooDeep => 109,
       Self::SpacedPathSeparator => 110,
       Self::NewtypeShape => 111,
+      Self::LocalTest => 112,
       // Doc 03 §17's published number, and the first in the lint band.
       Self::UnwrapUsed => 1001,
       Self::CommentAllowPragma => 1002,
@@ -288,6 +313,7 @@ impl Code {
       Self::NestingTooDeep,
       Self::SpacedPathSeparator,
       Self::NewtypeShape,
+      Self::LocalTest,
       Self::UnwrapUsed,
       Self::CommentAllowPragma,
       Self::ShadowedBinding,

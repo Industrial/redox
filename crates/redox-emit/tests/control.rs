@@ -267,3 +267,32 @@ fn assignment_targets_every_place_form() {
     assert_eq!(body(&format!("  {sdx}\n")), want, "{sdx}");
   }
 }
+
+/// Plan 55 leaf 2: the branches of an `if` **used as a value** are tail
+/// positions.
+///
+/// `control_text` passed `tail: false` for one leaf, because leaf 1 wrote it
+/// for a position the grammar could not yet produce. Leaf 2 produced it, and
+/// the branches emitted `"big";` — the same defect leaf 0 fixed for tail
+/// position, in the one path leaf 0 could not reach. rustc answered `E0308`.
+#[test]
+fn an_if_used_as_a_value_has_tail_branches() {
+  let out = body("  x = if 1 > 0\n    \"b\"\n  else\n    \"s\"\n");
+  assert!(
+    !out.contains("\"b\";"),
+    "the branch is the value, so it carries no semicolon:\n{out}"
+  );
+  assert!(out.contains("\"b\""), "{out}");
+}
+
+/// And an `else`-less `if` in statement position still is not one.
+///
+/// `if c {{ v }}` as a function's tail is `()` by Rust's own rule, so
+/// `emit_control` forwards `tail` only when there is an `else`. This is the
+/// assertion that keeps that carve-out — without it, a one-armed `if` would
+/// start claiming to be its block's value.
+#[test]
+fn an_else_less_if_keeps_its_semicolons() {
+  let out = body("  if 1 > 0\n    print \"y\"\n");
+  assert!(out.contains(");"), "{out}");
+}

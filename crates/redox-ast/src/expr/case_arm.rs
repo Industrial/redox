@@ -27,6 +27,14 @@ pub struct CaseArm {
   /// already — the `match` arm guard — and doc 18 §1 holds the lowerings
   /// fixed wherever Rust already has the shape.
   pub guard: Option<crate::Condition>,
+  /// The arm's value, after the `->`.
+  ///
+  /// An **expression**, and since plan 55 leaf 3 an indented block is one:
+  /// a block body is `Expr::Do` with no label, which §10.4 records as
+  /// Redox's only spelling of a block expression. So `-> do` and the
+  /// marker-free block are the same node, which is what makes the marker
+  /// deprecated rather than special-cased — and leaf 7 removes a keyword,
+  /// not a form.
   pub body: Expr,
   pub span: Span,
 }

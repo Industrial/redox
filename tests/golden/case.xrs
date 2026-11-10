@@ -24,6 +24,39 @@ fn describe(c: char) -> &'static str {
     kind
 }
 
+// Plan 55 leaf 3: an arm body is an expression, and an **indented block** is
+// one — so an arm with statements in it needs no marker. The one-expression
+// arms below it stay on one line, because that is what rustfmt does to each,
+// and a block arm takes no trailing comma for the same reason.
+fn grade(score: u32) -> &'static str {
+    match score {
+        0 => {
+            // A comment inside an arm body, which a
+            // collapsed arm would have nowhere to put.
+            let base = "none";
+            base
+        }
+        1..=59 => "fail",
+        _ => "pass",
+    }
+}
+
+// An arm body is an expression, and plan 54's assignment is one, so a
+// compound assignment is a legal arm body — `RDX0101` before leaf 3, because
+// `parse_expr` stops at the `+=` and only a statement read what followed.
+// Every arm here is `()`, which is rustc's requirement on a `match` and not
+// Redox's.
+fn evens(limit: u32) -> u32 {
+    let mut count = 0;
+    for n in 1..limit {
+        match n % 2 {
+            0 => count += 1,
+            _ => (),
+        };
+    }
+    count
+}
+
 fn main() {
     println!("{}", label(80));
     println!("{}", label(30));
@@ -32,4 +65,8 @@ fn main() {
     println!("{}", label(17));
     println!("{}", describe('e'));
     println!("{}", describe('z'));
+    println!("{}", grade(0));
+    println!("{}", grade(10));
+    println!("{}", grade(90));
+    println!("{}", evens(10));
 }
