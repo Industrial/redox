@@ -77,6 +77,7 @@ pub(crate) mod rust_string_body;
 pub(crate) mod scan_run;
 pub(crate) mod section;
 pub(crate) mod signature_from;
+pub(crate) mod signature_head;
 pub(crate) mod signature_only;
 pub(crate) mod starts_a_declaration;
 pub(crate) mod starts_a_field_type;
@@ -119,6 +120,7 @@ use crate::parse::parser::parse_spine::parse_spine;
 use crate::parse::parser::pattern_alt::pattern_alt;
 use crate::parse::parser::patterns::patterns;
 use crate::parse::parser::signature_from::signature_from;
+use crate::parse::parser::signature_head::SignatureHead;
 use crate::parse::parser::signature_only::signature_only;
 use crate::parse::parser::starts_a_declaration::starts_a_declaration;
 use crate::parse::parser::test_decl::test_decl;
@@ -148,6 +150,19 @@ pub(crate) struct Parser<'a> {
   toks: &'a [Token],
   pos: usize,
   errors: Vec<ParseError>,
+  /// Plan 63 leaf 1: every `class` member's signature head, by class and
+  /// member name, so an `instance` may omit a signature the class already
+  /// states.
+  ///
+  /// **Collect and never transform**, which is plan 61's rule about a pass
+  /// with two consumers: this is written while a `class` body is parsed and
+  /// read while an `instance` body is, and it changes no node either time.
+  ///
+  /// Populated in declaration order, which is the row's one narrowing: a
+  /// class must appear **before** the instance that elides against it.
+  /// Restating a signature still works in any order, so no program that
+  /// compiled before this row stops — see §10.
+  class_heads: std::collections::BTreeMap<(String, String), SignatureHead>,
 }
 
 impl<'a> Parser<'a> {
@@ -156,6 +171,7 @@ impl<'a> Parser<'a> {
       toks,
       pos: 0,
       errors: Vec::new(),
+      class_heads: std::collections::BTreeMap::new(),
     }
   }
 
@@ -356,6 +372,18 @@ impl<'a> Parser<'a> {
     let start = self.peek_span().0;
 
     let name = self.ident("expected a name to begin a declaration")?;
+    let head = self.signature_head(&name)?;
+    return self.equations(name, leading, start, &head, reserved, false);
+  }
+
+  /// A signature line, from the `:` to the line break.
+  ///
+  /// Plan 63 (`docs/57 - 63 - Instance Inference.md`) leaf 0. Extracted from
+  /// [`Self::function`] so that an `instance` member which **omits** its
+  /// signature can skip this and borrow a class's head instead — without a
+  /// second copy of the markers, the constraint clause and the spine, each of
+  /// which has an ordering rule that took a plan to get right.
+  pub(crate) fn signature_head(&mut self, name: &Ident) -> Result<SignatureHead, ParseError> {
     // Doc 01 §4.3's `PI = 3.14159`, which doc 03 §13.4 corrected out of
     // existence. The generic "expected `:`" is true and unhelpful: the
     // author followed a published specification, so the message names the
@@ -404,6 +432,57 @@ impl<'a> Parser<'a> {
     let spine = parse_spine(self)?;
     self.newline_with_trailing("expected a line break after the signature")?;
 
+    Ok(SignatureHead {
+      types: spine,
+      bounds,
+      is_const,
+      is_async,
+      is_unsafe,
+    })
+  }
+
+  /// Record a `class` member's head, so an `instance` may elide it.
+  ///
+  /// Plan 63 leaf 1, and the narrowest resolver the row could have: one name,
+  /// one kind of declaration, one file, **top-level items only** — §11.3's
+  /// decision. A class the lookup does not find degrades to today's
+  /// behaviour, which is a program that still compiles, so the narrow version
+  /// cannot regress anything.
+  pub(crate) fn record_head(&mut self, class: &str, member: &str, head: &SignatureHead) {
+    self
+      .class_heads
+      .insert((class.to_string(), member.to_string()), head.clone());
+  }
+
+  /// The head a `class` states for `member`, if this file has declared it.
+  pub(crate) fn borrowed_head(&self, class: &str, member: &str) -> Option<SignatureHead> {
+    self
+      .class_heads
+      .get(&(class.to_string(), member.to_string()))
+      .cloned()
+  }
+
+  /// A declaration's equations, under a signature head that is **already
+  /// read** — from this declaration's own signature line, or borrowed from a
+  /// class.
+  ///
+  /// Plan 63 (`docs/57 - 63 - Instance Inference.md`) leaf 0. Extracted from
+  /// [`Self::function`] rather than copied, because an `instance` member that
+  /// omits its signature needs exactly this loop and nothing else — and two
+  /// copies of the clause grammar is how doc 18 §2.3's multi-equation rule
+  /// would start disagreeing with itself.
+  pub(crate) fn equations(
+    &mut self,
+    name: Ident,
+    leading: Vec<Trivia>,
+    start: usize,
+    head: &SignatureHead,
+    reserved: &[String],
+    ends_on_a_new_name: bool,
+  ) -> Result<FnDecl, ParseError> {
+    let spine = &head.types;
+    let bounds = &head.bounds;
+
     // The equations. Each repeats the name — doc 18 §2.3.
     let mut clauses = Vec::new();
     let mut sig = None;
@@ -416,6 +495,21 @@ impl<'a> Parser<'a> {
       let is_equation = matches!(&self.peek().kind, TokenKind::Ident(_))
         && !self.peek_at(1).is_some_and(|t| t.kind == TokenKind::Colon);
       if !is_equation {
+        break;
+      }
+
+      // Plan 63 leaf 0. Inside a `class` or `instance` body a differing name
+      // starts the **next member**, where at top level it is a mistyped
+      // equation. One test, two readings, and the body is the only caller
+      // that can tell them apart — so the caller says which it is.
+      //
+      // Without this, two consecutive members that both elide their
+      // signatures collide: `area self = …` then `describe self = …` reads
+      // the second as a continuation of the first and the guard below fires
+      // `RDX0103`. `examples/class.sdx` is the file that proved it.
+      if ends_on_a_new_name
+        && !matches!(&self.peek().kind, TokenKind::Ident(text) if *text == name.text)
+      {
         break;
       }
 
@@ -440,7 +534,7 @@ impl<'a> Parser<'a> {
       let row = patterns(self)?;
       // Every clause is checked against the same spine, so a row of the wrong
       // length is reported per clause rather than once for the function.
-      let built = signature_from(&spine, &row, (again.span.0, self.prev_span().1))?;
+      let built = signature_from(spine, &row, (again.span.0, self.prev_span().1))?;
       // Plan 55 §1.6's unit rule needs the declared return type, which only
       // this knows, and the body's *shape*, which only `clause` knows — so
       // the bit travels down rather than the block coming back up.
@@ -458,14 +552,14 @@ impl<'a> Parser<'a> {
     // `signature_from` with an empty row: that reports an arity error, which
     // is the right answer for `area = …` under `area : &t -> f64` and the
     // wrong one for a required method with no equation at all.
-    let mut sig = sig.unwrap_or_else(|| signature_only(&spine, (name.span.0, self.prev_span().1)));
+    let mut sig = sig.unwrap_or_else(|| signature_only(spine, (name.span.0, self.prev_span().1)));
     // The generic list is synthesised from the types, not written — doc 18
     // §5.3. Done here rather than in the two signature builders because it
     // needs the constraint clause, which only this knows about.
-    generalise(&mut sig, &bounds, reserved);
-    sig.is_const = is_const;
-    sig.is_async = is_async;
-    sig.is_unsafe = is_unsafe;
+    generalise(&mut sig, bounds, reserved);
+    sig.is_const = head.is_const;
+    sig.is_async = head.is_async;
+    sig.is_unsafe = head.is_unsafe;
 
     let end = self.prev_span().1;
     let trailing = clauses.last().and_then(|c| c.trailing.clone());

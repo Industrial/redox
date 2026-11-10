@@ -416,7 +416,78 @@ closes.
 
 ## 10. Result
 
-*Not yet executed.*
+**Done 2026-11-10.** An `instance` method omits its signature and the class supplies it, for one
+name in one file. `examples/class.sdx` loses three restatements, and **`tests/golden/class.xrs`
+does not move at all** — the elided form emits byte-identical Rust to the restated one, which is
+criterion 2 met exactly rather than approximately.
+
+Plan 67 is why that identity is now structural. §11.2 recorded that before it the two forms
+agreed *by coincidence* — the class's `&t` was substituted to `&Self` and the instance's
+`&Square` was dropped as a receiver, and they met in the middle. Both now spell the receiver
+`&self`, so they agree by construction.
+
+### 10.1 One deviation from §11.3, and it is a narrowing stated rather than hidden
+
+§11.3 decided a **collecting pre-pass**. What shipped collects during the parse instead: a
+`class` records each member's signature head as it reads it, and an `instance` borrows from that
+table. The table is read-only to every consumer, so §11.3's actual requirement — *collect and
+never transform*, keeping clear of plan 61's two-consumers rule — holds.
+
+What a pre-pass would have bought is **order independence**, and without it the row has a
+narrowing: **a class must appear before the instance that elides against it.** Restating a
+signature still works in any order, so no program that compiled before this row stops
+compiling, and the diagnostic names what it looked for so the ordering case is distinguishable
+from a missing class.
+
+The reason the pre-pass was not built is §11.2's: the head must be captured **before**
+`receiver` runs, because `receiver` drops the marked parameter's type and the spine is
+unrecoverable afterwards. A pre-pass would therefore have to re-parse signature lines, which is
+a second copy of the spine grammar — the drift hazard §11.3 itself cites plan 34 leaf 3 about.
+Order independence is recoverable later by a pre-pass that stores heads rather than one that
+re-derives them.
+
+### 10.2 Leaf 0 was real, and it needed two members to show itself
+
+§11.1 was right that the clause loop is the blocker, and wrong about how quickly it appears. A
+**single** elided member parses without leaf 0 at all, because there is no following member for
+the loop to swallow. The failure needs **two consecutive** elided members:
+
+```text
+area self = self.side * self.side
+describe self = "a square"
+
+  RDX0103: this equation defines `describe`, but the signature above it is for `area`
+```
+
+A one-member probe looked complete and was not. `examples/class.sdx` — the corpus file this row
+exists to simplify — is what proved it, which is the argument for migrating the corpus inside
+the row rather than after it.
+
+### 10.3 The name is peeked, not consumed, and the plan does not mention it
+
+`Parser::equations` reads the member's name **once per equation**, because doc 18 §2.3 makes
+every equation repeat it. A member with a signature line spells its name twice; an elided one
+spells it once. So consuming the name to decide the branch leaves the loop looking at `self`
+where it expects `cents_of` — the first attempt earned exactly that, `RDX0103: expected a
+member's name`, pointing one token past the name.
+
+### 10.4 `Parser::function` is three methods now, rather than one plus a copy
+
+`function`, `signature_head` and `equations`. The split is what lets an elided member reach the
+clause loop without a second copy of the markers, the constraint clause and the spine — each of
+which has an ordering rule that took a plan to establish. Two copies of doc 18 §2.3's clause
+grammar is how that grammar would start disagreeing with itself.
+
+### 10.5 Disclosed
+
+**The diagnostic cascades.** An elided member with nothing to borrow reports its own error and
+then the body's recovery retries and reports `expected ':' after the name`. The first message is
+the useful one and the second is noise; `tests/ui/elided_without_a_class.stderr` records both
+rather than pretending otherwise.
+
+**Criterion 6's boundary is a property of the construct, not of the resolver.** An inherent
+`instance` names no class, so widening the lookup — to walk `Item::Module`, say — would not help
+it. The fixture says so.
 
 ---
 

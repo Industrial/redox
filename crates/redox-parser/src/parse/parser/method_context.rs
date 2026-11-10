@@ -21,6 +21,13 @@ pub(crate) struct MethodContext {
   /// Each inherited variable as the source spells it, with its Rust
   /// spelling.
   pub vars: Vec<(String, String)>,
+  /// The `class` being **declared**, whose member heads are recorded as they
+  /// are read — plan 63 leaf 1.
+  pub recording: Option<String>,
+  /// The `class` being **implemented**, whose member heads an elided
+  /// signature borrows. `None` for an inherent `instance`, which has no class
+  /// to borrow from and so cannot elide.
+  pub implementing: Option<String>,
 }
 
 impl MethodContext {
@@ -38,6 +45,8 @@ impl MethodContext {
         .iter()
         .map(|p| (p.text.clone(), rust_generic(&p.text)))
         .collect(),
+      recording: None,
+      implementing: None,
     }
   }
 
@@ -50,6 +59,8 @@ impl MethodContext {
         .map(|var| (var.to_string(), subject.to_string()))
         .into_iter()
         .collect(),
+      recording: None,
+      implementing: None,
     }
   }
 

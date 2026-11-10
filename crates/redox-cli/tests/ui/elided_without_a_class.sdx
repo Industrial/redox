@@ -1,0 +1,16 @@
+-- Plan 63 criterion 6: the resolver's boundary, asserted rather than
+-- described.
+--
+-- An **inherent** `instance` has no class, so there is nothing for an elided
+-- signature to be taken from. That is a property of the construct and not a
+-- limit of the lookup — widening the resolver would not help, because no
+-- class is named.
+--
+-- The other two ways to reach this diagnostic are a class this file does not
+-- declare, and a class declared *after* the instance. The message names what
+-- it looked for so a reader can tell which of the three they hit.
+
+data Counter = Counter { value : u32 }
+
+instance Counter
+  current self = self.value

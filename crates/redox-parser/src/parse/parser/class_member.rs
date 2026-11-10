@@ -7,7 +7,8 @@ use crate::parse::parser::receiver::receiver;
 use crate::parse::parser::substitute_var::substitute_var;
 use crate::parse::parser::type_stop::TypeStop;
 use crate::parse::parser::visibility::visibility;
-use redox_ast::ClassMember;
+use redox_ast::{ClassMember, Ident};
+use redox_diag::Code;
 use redox_lexer::{Keyword, TokenKind};
 
 /// One member of a `class` or `instance` body — doc 18 §2.5.
@@ -61,7 +62,79 @@ pub(crate) fn class_member(p: &mut Parser, ctx: &MethodContext) -> Result<ClassM
   // The head's variables belong to the enclosing declaration, not to this
   // method, so they are kept out of the method's generic list.
   let reserved = ctx.reserved();
-  let mut decl = p.function(&reserved)?;
+
+  // Plan 63. An `instance` member may omit its signature, and the class
+  // supplies it. The discriminator is the one doc 18 §2.3 already uses: a
+  // name followed by `:` opens a signature line, and a name not followed by
+  // one opens an equation.
+  //
+  // Leaf 0's blocker is why this is read here rather than inside
+  // `Parser::function`: that function's clause loop treats any `Ident` not
+  // followed by `:` as a *continuation equation of the member it is already
+  // reading*, so an elided member collides with the multi-clause grammar and
+  // the name-mismatch guard fires — `RDX0103: this equation defines `x`, but
+  // the signature above it is for `y``. Reading the name here, and branching
+  // before the loop starts, is what keeps the two apart.
+  let leading = p.peek_leading();
+  let start = p.peek_span().0;
+  // The name is **peeked**, not consumed, and that is load-bearing rather
+  // than fussy: `Parser::equations`'s loop reads the name once per equation,
+  // because doc 18 §2.3 makes every equation repeat it. A member with a
+  // signature line spells its name twice — once on the line, once on the
+  // equation — and an elided one spells it once. So consuming it here would
+  // leave the loop looking at `self` where it expects `cents_of`, which is
+  // exactly the `RDX0103: expected a member's name` the first attempt earned.
+  let TokenKind::Ident(peeked) = &p.peek().kind else {
+    return Err(ParseError::with(
+      Code::ExpectedName,
+      "expected a member's name".to_string(),
+      p.peek_span(),
+    ));
+  };
+  let name = Ident {
+    text: peeked.clone(),
+    span: p.peek_span(),
+  };
+  let has_signature = p.peek_at(1).is_some_and(|t| t.kind == TokenKind::Colon);
+  let head = if has_signature {
+    let name = p.ident("expected a member's name")?;
+    let head = p.signature_head(&name)?;
+    // Collect and never transform — plan 61's rule. A `class` records what it
+    // states so an `instance` can borrow it; nothing is rewritten either way.
+    if let Some(class) = &ctx.recording {
+      p.record_head(class, &name.text, &head);
+    }
+    head
+  } else {
+    let borrowed = ctx
+      .implementing
+      .as_deref()
+      .and_then(|class| p.borrowed_head(class, &name.text));
+    match borrowed {
+      Some(head) => head,
+      // Nothing to borrow: no class, a class this file has not declared, or a
+      // class declared *after* this instance. §10 states that last one as the
+      // row's narrowing rather than hiding it, and the diagnostic says which
+      // of the three it was by naming what it looked for.
+      None => {
+        return Err(ParseError::with(
+          Code::ExpectedToken,
+          match ctx.implementing.as_deref() {
+            Some(class) => format!(
+              "`{}` has no signature here, and `{class}` declares none for it earlier in this file — write the signature, or declare the class above the instance",
+              name.text
+            ),
+            None => format!(
+              "`{}` needs a signature: an inherent `instance` has no class to take one from",
+              name.text
+            ),
+          },
+          name.span,
+        ));
+      }
+    }
+  };
+  let mut decl = p.equations(name, leading, start, &head, &reserved, true)?;
   decl.visibility = member_visibility;
   receiver(&mut decl.sig);
   for (var, subject) in &ctx.vars {

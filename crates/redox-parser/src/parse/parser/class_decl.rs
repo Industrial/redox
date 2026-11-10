@@ -50,7 +50,11 @@ pub(crate) fn class_decl(
     params.push(param);
   }
 
-  let members = class_body(p, &MethodContext::for_class(&params))?;
+  let mut ctx = MethodContext::for_class(&params);
+  // Plan 63 leaf 1: members are recorded under this class's name as they are
+  // read, which is what an `instance` later borrows from.
+  ctx.recording = Some(name.text.clone());
+  let members = class_body(p, &ctx)?;
 
   Ok(ClassDecl {
     name,

@@ -25,15 +25,12 @@ class Shape
 
 instance Shape Square
   const SIDES : u32 = 4
-  area : &self -> f64
   area self = self.side * self.side
-  describe : &self -> &'static str
   describe self = "a square"
 
 -- No `describe`, so the class's default is used.
 instance Shape Circle
   const SIDES : u32 = 0
-  area : &self -> f64
   area self = 3.0 * self.radius * self.radius
 
 -- An inherent `instance`: no class name, so no `for`. The receiver is marked

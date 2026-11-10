@@ -91,7 +91,12 @@ pub(crate) fn instance_decl(
   // Inside an `instance` a target's type variable is the impl's generic
   // parameter, so it is that parameter's uppercase name — doc 18 §5.3.
   let subject = var.as_deref().map_or_else(String::new, TypeApp::rust_name);
-  let ctx = MethodContext::for_instance(var.as_deref(), &subject);
+  let mut ctx = MethodContext::for_instance(var.as_deref(), &subject);
+  // Plan 63 leaf 1: the class this instance implements is where an elided
+  // member's signature comes from. `None` for an inherent `instance`, which
+  // has no class and so cannot elide — the diagnostic in `class_member` says
+  // exactly that.
+  ctx.implementing = class.as_ref().map(|c| c.head.text.clone());
   let members = class_body(p, &ctx)?;
 
   Ok(InstanceDecl {

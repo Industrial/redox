@@ -1,0 +1,18 @@
+error[RDX0101]: `current` needs a signature: an inherent `instance` has no class to take one from
+  --> elided_without_a_class.sdx:16:3
+   |
+16 |   current self = self.value
+   |   ^^^^^^^
+
+error[RDX0101]: expected `:` after the name, to begin the signature
+  --> elided_without_a_class.sdx:16:11
+   |
+16 |   current self = self.value
+   |           ^^^^
+
+error[RDX0101]: expected `:` after the name, to begin the signature
+  --> elided_without_a_class.sdx:17:1
+   |
+16 |   current self = self.value
+   |                            ^
+
