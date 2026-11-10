@@ -273,6 +273,8 @@ formatter is a solved problem *in this repository* because the emitter had to so
 
 ## 10. Result
 
+> **`StmtKind` was deleted at plan 55 leaf 1** (2026-11-10), and the variants this section names are now `Expr::*`. `Stmt` survives as the trivia carrier — a comment attaches to a line, and `Expr` carries no trivia — so a block is still `Vec<Stmt>`. This document is left as written: it was correct when written, and the register's row 55 is the authority on what changed.
+
 **Leaf 1 and leaf 5 shipped; the row is `partial`.** 671 tests pass; `fmt`, `clippy -D
 warnings` and the gate are green. `redox fmt` and `redox fmt --check` work, the four
 properties of §1.4 hold over every `.sdx` in the repository, and §1.5's inversion is a test

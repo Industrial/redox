@@ -358,13 +358,20 @@ Two residual asymmetries to disclose rather than discover: `Await.pattern` is an
 `Option<Pattern>` with no `is_mut` and no `ty`, so `mut a = (f x)?` and
 `a : T = (f x)?` have **no `<-` spelling**.
 
-### 11.4 `StmtKind::Draw` is not a `<-` site
+### 11.4 `Expr::Draw` is not a `<-` site
 
 It reads `Kw(With)` — doc 30 §3.3's `with conn = pool.with_connection` — and
 `emit_stmts`'s callback flattening is `with`'s lowering, with nothing to do with
 `<-`. The name is historical residue. The real `<-` surface is three files:
 `operator_table.rs`'s `("<-", DrawArrow)`, `try_await.rs` producing
-`StmtKind::Await`, and `emit_await.rs`.
+`Expr::Await`, and `emit_await.rs`.
+
+**Both names re-verified 2026-11-10, after plan 55 leaf 1 deleted
+`StmtKind`.** This section originally wrote `StmtKind::Draw` and
+`StmtKind::Await`; both variants moved to `Expr` and are at
+`crates/redox-ast/src/expr.rs` lines 470 and 503. The substantive claim
+below survived the move unchanged, which is the half worth re-checking:
+`Parser` still has exactly three fields.
 
 **There is no parser context flag anywhere.** `Parser` has three fields —
 `toks`, `pos`, `errors` — and `Expr::TryBlock`/`Expr::AsyncBlock` are ordinary

@@ -269,6 +269,8 @@ moon run :check :lint :test :cargo-check :cargo-test :ci-format :audit
 
 ## 10. Result
 
+> **`StmtKind` was deleted at plan 55 leaf 1** (2026-11-10), and the variants this section names are now `Expr::*`. `Stmt` survives as the trivia carrier — a comment attaches to a line, and `Expr` carries no trivia — so a block is still `Vec<Stmt>`. This document is left as written: it was correct when written, and the register's row 55 is the authority on what changed.
+
 Shipped. 563 tests pass; `fmt`, `clippy -D warnings` and
 `moon run :check :lint :cargo-check` are green. Every criterion is met as written, and the
 plan grew one leaf it did not have.

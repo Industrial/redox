@@ -321,7 +321,7 @@ else.**
 | 1 | `for x in xs`, and the comprehension's generator | Two parse sites, 28 corpus lines, no lowering |
 | 2 | The callback bind is `with x = f` | One keyword back, `try_draw` reads a keyword instead of scanning |
 | 3 | A condition and a `guard` take `=` | Three `expect` calls and one scan |
-| 4 | `<-` becomes await; postfix `.await` is deleted | `StmtKind::Await` in, `Expr::Await` out |
+| 4 | `<-` becomes await; postfix `.await` is deleted | `StmtKind::Await` in, `Expr::Await` out — and plan 55 leaf 1 later deleted `StmtKind` outright, so both halves of that trade are `Expr` now |
 
 ### 8.1 The conversion cost what §4.1 measured, and less
 

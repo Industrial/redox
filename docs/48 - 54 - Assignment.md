@@ -461,6 +461,8 @@ string*. Match `warning[RDX1003]`.
 
 ## 11. Corrections from orientation
 
+> **`StmtKind` was deleted at plan 55 leaf 1** (2026-11-10), one row after this one. §11.3's finding stands as a finding — `Assign` really was already taken, and really did take an `Option<BinaryOp>` rather than a new variant — but the blast radius it measured has moved: the four exhaustive matches it counted now match `Expr`, which has 46 variants rather than 14. The measurement is kept as written because the lesson is about *budgeting* a variant, and that lesson did not change with the type's name.
+
 Written after reading the code this row targets. The additive premise holds:
 `:=` appears nowhere in the lexer, the AST, the parser, the tree-sitter grammar
 or the corpus — the only `:=` in the repository is BNF notation in three doc
