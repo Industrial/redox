@@ -1,7 +1,7 @@
 # Plan 55 — Expression Orientation
 
 Plan ID: `expression-orientation`
-Depends on: 52 (`type-colon`), 54 (`assignment`)
+Depends on: 52 (`type-colon`), 54 (`assignment`); leaf 7 also on 65 (`bracket-layout`)
 Milestone: 9 — *surface coherence*
 Status: `partial` — leaves 0 and 1 done
 
@@ -335,13 +335,24 @@ from §3 case 5.
 modifiers; `'name` labels a bare block; `then` removed and freed. The one corpus `do` and the
 `-> do` sites migrate here.
 
-**Retiring `then` has a cost leaf 2 measured, and this leaf must price it.**
+**Retiring `then` has a cost leaf 2 measured, and it is paid by a new row.**
 Layout is suppressed inside brackets — the lexer returns early while bracket depth is above
 zero, which is what lets a record literal and a call span lines — so an indented `if` cannot be
 a parenthesised argument and `print (if c then a else b)` is the only spelling there. Without
-`then`, a conditional in argument position has to be hoisted to a binding first. That is an
-ergonomic cost on a one-line construct, and §6 should disclose it whichever way this leaf
-decides. §10.8 has the measurement; `examples/control.sdx`'s `bracketed` is the witness.
+`then`, a conditional in argument position would have to be hoisted to a binding first. §10.8
+has the measurement; `examples/control.sdx`'s `bracketed` is the witness.
+
+**Decided: retire `then`, and lift the suppression.** Rather than accept the hoisting or keep
+the keyword, **plan 65** gives a bracket a layout context of its own, so
+`print (if c` with indented branches becomes writable. This leaf therefore
+**depends on plan 65** and must not land before it — retiring `then` first
+would make a conditional-as-argument unspellable for however long the gap
+lasted.
+
+The measurement that made the decision affordable is in plan 65 §1.3: of the 24
+corpus lines that end inside brackets, 20 are deliberately-unterminated error
+fixtures or `rust` verbatim blocks, so **one** real construct is
+affected.
 
 ### Leaf 8 — `leaf-corpus-and-docs`
 

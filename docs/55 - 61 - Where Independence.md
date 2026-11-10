@@ -337,10 +337,57 @@ spelling for a local function, in a position where `:` now means something else.
 Doc 03 §8.3 presumes nested `fn`s and never says how their types are written;
 doc 18 §2.2 says nothing about `where` lowering at all.
 
-That is a **surface-design decision this milestone has not budgeted**, not an
-implementation leaf. Either this row depends on one, or decision 1's fallback —
-implement `RDX0047`, whose number is already published in doc 03 §17 and which
-has zero references under `crates/` — is the honest smaller row.
+That looked like a **surface-design decision**, and it is not one. There is no
+spelling to invent, because the spelling a Redox author already knows works and
+the parser already owns both halves of the test.
+
+### 11.1a Decided: a `where` entry may be a function, spelled as at module scope
+
+```text
+f n = go n
+  where
+    go : u64 -> u64
+    go 0 = 0
+    go k = k * 2
+```
+
+Identical to a module-scope declaration, which is the whole argument for it: a
+reader needs no second shape, and `Parser::function` is reused wholesale so
+multi-equation bodies, guard ladders, `where`-within-`where` and generics all
+arrive without being re-implemented.
+
+**Both discriminators exist already.**
+
+A **signature line** is `Ident` then `:` with **no depth-zero `=` before the
+line break**. That is exactly `reaches_a_binding_eq`, which plan 52 built and
+asserted in both directions — `a_signature_line_is_not_read_as_a_typed_binding`
+and `a_typed_binding_still_parses_as_a_binding`. The collision §11.1 found is
+narrower than it read: `go : u64` is consumed as an *ascription* only because
+`looks_like_a_binding` tests `peek_at(1) ∈ {Eq, Colon, LBrace}` and stops
+there. It never asks the question it already has an answer for.
+
+An **equation** is `Ident` then a pattern then `=`. That is
+`Parser::function`'s own `is_equation`, which tests for an `Ident` *not*
+followed by `:`.
+
+**A signature is required, and that is consistent rather than an exception.**
+Probed: a module-scope `f n = n * 2` with no signature line is already
+`RDX0101`, *"expected `:` after the name, to begin the signature"*. So a local
+function needs no new diagnostic and gets the same message — and that
+requirement is precisely what makes a nested `fn`'s parameter and return types
+available without the inference AGENTS.md forbids.
+
+**What this does not settle** is §11.3's sort hazard: once a `where` entry can
+be a function, the group holds two kinds of thing, and only the *bindings* are
+`let`s whose order matters. Nested `fn` items are order-independent in Rust —
+§11.6 verified it — so the sort should order bindings among themselves and
+leave functions where they are. Leaf 2 owns that, and it is simpler than
+sorting a mixed group.
+
+Decision 1's fallback — implement `RDX0047` and stop there — is therefore no
+longer the honest smaller row. It is a strictly smaller row that this one
+contains: `RDX0047` is still what a forward reference between two *bindings*
+should raise.
 
 One cost to budget either way: a single pattern row produced **ten**
 diagnostics, as recovery escaped the `where` block and read the remainder as

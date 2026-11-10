@@ -22,8 +22,8 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 |---|---:|
 | `done` | 50 |
 | `superseded` | 4 |
-| outstanding | 10 |
-| **total** | **64** |
+| outstanding | 11 |
+| **total** | **65** |
 
 `docs/04 - Redox Plan of Plans.md` is the register and the authority. **`done` is a register status, not a guarantee**: several rows record a later plan finding something they got wrong, which is why the register carries the correction and this table only counts.
 
