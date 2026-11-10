@@ -33,10 +33,19 @@ pub(crate) fn case_arm_text(arm: &CaseArm, indent: usize, source: &str) -> Strin
     Some(condition) => format!(" | {}", condition_text(condition, indent, source)),
     None => String::new(),
   };
+  // Plan 62 leaf 3's pattern ascription. The formatter prints it back because
+  // it reads the same tree the emitter does, and a field it ignored would be a
+  // field `redox fmt` **deleted** — plan 61 §11.6's rule about two consumers,
+  // in the direction that loses source rather than the one that rewrites it.
+  let ty = match &arm.ty {
+    Some(ty) => format!(" : {}", ty.text),
+    None => String::new(),
+  };
   let head = format!(
-    "{}{}{} ->",
+    "{}{}{}{} ->",
     indent_text(indent),
     pattern_text(&arm.pattern),
+    ty,
     guard
   );
   match &arm.body {

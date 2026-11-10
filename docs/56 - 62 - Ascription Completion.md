@@ -409,7 +409,7 @@ positions.
 
 ## 10. Result
 
-**Leaf 1 done 2026-11-10; leaves 3, 4 and 5 outstanding.** Binding-position ascription emits
+**Done 2026-11-10.** Binding-position ascription emits
 `let x: T = e`, which §1.3 measured as the overwhelming majority of the construct's 84 uses.
 Five goldens moved and the direction is the whole point: **66 lines deleted against 24 added.**
 
@@ -443,15 +443,45 @@ the first kind is an annotation at all. A comprehension is deliberately on the f
 its container also comes from the ascription, but it arrives through `collect`, which a `let`
 annotation pins just as well.
 
-### 10.3 What is left
+### 10.3 Leaf 3 shipped, and it is an **arm** position and nothing else
 
-- **Leaf 3**, pattern ascription, is real parser work and untouched. §11.3's finding stands: the
-  only workable lowering for a `case` arm is a `let` in the arm body, because rustc accepts a
-  type in a pattern in exactly three places and a `match` arm is not one of them.
-- **Leaf 4** is an assertion rather than an implementation — §11.1 measured that the remedy
-  already ships — and the example is owed.
-- **Leaf 5**'s `docs/DECLINED.md` entry for the turbofish decline is owed, with §1.4's
-  measurement as its reason.
+The lowering is §11.3's, unchanged: `Err e : Oops ->` becomes
+`Err(e) => { let e: Oops = e; … }`.
+
+What §11.3 did not find, and implementing it did, is a **parse constraint that decides the
+leaf's scope**. A pattern cannot take `: T` in general, because a typed binding reads its
+pattern through the same path: `total : u64 = 1 + 2` would lose its type to the pattern. So the
+ascription is read in `case_arm` and nowhere else, where `->` makes the end of the type
+unambiguous.
+
+That retires the leaf's other two positions on a better reason than §11.3's. §11.3 called the
+`guard` and equation-row positions *near-redundant*; they are in fact **unspellable** without
+making a typed binding ambiguous, which is a reason to decline rather than to defer.
+
+The type needs a binder to attach to, so an arm binding nothing — or several names — drops the
+ascription rather than guessing. A wrong binder would compile and annotate something else.
+
+### 10.4 Two readers the plan did not name, and one grammar conflict
+
+`redox-fmt` prints the ascription back. It was not in the plan and it is not optional: the
+formatter reads the same tree, so a field it ignored would be a field `redox fmt` **deleted** —
+plan 61 §11.6's two-consumers rule in the direction that loses source rather than rewrites it.
+
+And the grammar needed the position too, where `signature_type` could not be reused: it is a
+flat `repeat1` that includes `->`, so it ate the arm's arrow and `tree-sitter generate` refused
+with an unresolved conflict. `type_expression` is the narrower rule and the one `binding`
+already uses. That is the flat-run hazard plan 66 §7 and `AGENTS.md` both record, met in the
+direction that fails loudly.
+
+### 10.5 Leaves 4 and 5
+
+Leaf 4 is asserted rather than implemented, as §11.1 predicted: an ascribed `try` whose `?`s
+widen through `From` compiles clean, and `examples/ascription.sdx` now carries one. It is
+**statement-level**, because a typed binding is a statement — module scope takes a signature and
+an equation, so `name : T = value` is not something an item can be.
+
+Leaf 5's turbofish entry is in `docs/DECLINED.md`, under a heading that document did not have:
+*declined on a compiled measurement*. It is the only entry whose reason was built and run.
 
 ---
 

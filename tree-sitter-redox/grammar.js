@@ -867,6 +867,11 @@ module.exports = grammar({
 		case_arm: ($) =>
 			seq(
 				field("pattern", $.pattern_run),
+				// Plan 62 leaf 3's pattern ascription — `Err e : VersionError ->`.
+				// Only an arm carries one, and `->` is what makes the end of the
+				// type unambiguous: a pattern cannot take `: T` in general without
+				// a typed binding losing its own type to it.
+				optional(seq(":", field("type", $.type_expression))),
 				optional(seq("|", field("guard", $.condition))),
 				"->",
 				choice(

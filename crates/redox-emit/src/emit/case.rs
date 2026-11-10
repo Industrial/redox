@@ -1,3 +1,4 @@
+use crate::emit::ascribed_arm::ascribed_arm;
 use crate::emit::emit_condition::emit_condition;
 use crate::emit::expr::emit_expr;
 use crate::emit::rust_indent::RUST_INDENT;
@@ -68,12 +69,36 @@ pub(crate) fn emit_case(scrutinee: &Expr, arms: &[CaseArm], indent: usize) -> St
       }
       other => other,
     };
-    out.push_str(&emit_expr(unparen(body), indent + RUST_INDENT));
+    // Plan 62 leaf 3. An ascription on the pattern becomes a `let` at the top
+    // of the arm body, because rustc takes no type in a `match` pattern — so
+    // the body must become a block even when it was one expression.
+    match arm
+      .ty
+      .as_ref()
+      .and_then(|ty| ascribed_arm(&arm.pattern, &ty.text))
+    {
+      Some(binding) => {
+        let inner_pad = " ".repeat(indent + RUST_INDENT + RUST_INDENT);
+        out.push_str("{\n");
+        out.push_str(&inner_pad);
+        out.push_str(&binding);
+        out.push('\n');
+        out.push_str(&inner_pad);
+        out.push_str(&emit_expr(
+          unparen(body),
+          indent + RUST_INDENT + RUST_INDENT,
+        ));
+        out.push('\n');
+        out.push_str(&arm_pad);
+        out.push('}');
+      }
+      None => out.push_str(&emit_expr(unparen(body), indent + RUST_INDENT)),
+    }
     // rustfmt writes **no** trailing comma after an arm whose body is a plain
     // block, and one after every other body — `arm_comma`, and it reads the
     // body's node kind rather than its width. A block body is what leaf 3
     // added, so the comma became a question with it.
-    if !matches!(body, Expr::Block { .. }) {
+    if !matches!(body, Expr::Block { .. }) && arm.ty.is_none() {
       out.push(',');
     }
     out.push('\n');

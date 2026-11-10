@@ -1,8 +1,10 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
 use crate::parse::parser::arm_body::arm_body;
+use crate::parse::parser::capture_type::capture_type;
 use crate::parse::parser::condition::condition;
 use crate::parse::parser::pattern_alt::pattern_alt;
+use crate::parse::parser::type_stop::TypeStop;
 use redox_ast::CaseArm;
 use redox_lexer::TokenKind;
 
@@ -19,6 +21,22 @@ use redox_lexer::TokenKind;
 pub(crate) fn case_arm(p: &mut Parser) -> Result<CaseArm, ParseError> {
   let start = p.peek_span().0;
   let pattern = pattern_alt(p)?;
+
+  // Plan 62 leaf 3. `Err e : VersionError ->` pins the error type at the arm
+  // that handles it. Read **here** and nowhere else: `pattern` cannot take a
+  // type in general, because a typed binding reads its pattern through the
+  // same path, and an arm is the one position where `->` makes the end of the
+  // type unambiguous.
+  let ty = if p.check(&TokenKind::Colon) {
+    p.advance();
+    Some(capture_type(
+      p,
+      "expected a type after `:` in a `case` pattern",
+      TypeStop::Greedy,
+    )?)
+  } else {
+    None
+  };
 
   // An arm guard may be a pattern test as of plan 22 — doc 18 §3's fourth
   // position, *"in a condition or guard"*. It lowers to `if let` inside the
@@ -41,6 +59,7 @@ pub(crate) fn case_arm(p: &mut Parser) -> Result<CaseArm, ParseError> {
 
   Ok(CaseArm {
     pattern,
+    ty,
     guard,
     body,
     span: (start, p.prev_span().1),

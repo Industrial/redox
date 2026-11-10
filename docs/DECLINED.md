@@ -94,6 +94,44 @@ Two entries carry a venue rather than a permanent decline, and doc 03 §22 names
 
 ## Not declined — merely absent
 
+## Declined on a compiled measurement
+
+One entry, and it is the only decline in this document whose reason is a thing that was built
+and run rather than a thing that was argued.
+
+### Turbofish — `name::<T> (args)`
+
+Plan 62 (`docs/56 - 62 - Ascription Completion.md`) §1.4. Plan 52 made `::<T>` *spellable* by
+giving `::` a single meaning, and this row declined to spell it, because the case that motivated
+wanting it turns out not to need it.
+
+The hard case was reading an `id_effect` capability, where the type appears nowhere in the
+expression:
+
+```
+limits : Effect<Arc<Thresholds>, Never, GateEnv>
+limits = need () |> .effect
+```
+
+`need::<Thresholds> ()` is `RDX0103`, so the working spelling was a lambda parameter annotation.
+Verified by compiling the hand-written Rust against `id_effect 0.13.0`: **inference reaches it
+from the signature alone.** `need().effect()` resolves `T = Thresholds` from the declared return
+type, and so do `need().map(|t: Arc<Thresholds>| …)` and a fully unannotated variant. All three
+compiled and ran.
+
+So the declared type is sufficient wherever it is written down, and plan 62's job was to make it
+writable everywhere rather than to add a second mechanism. **One way to pin a type is better
+than two**, and the one that composes with the signature line is the one the language already
+has.
+
+**Venue if it is ever wanted:** a position where neither a signature nor an ascription can
+reach. Plan 62 §6 disclosed that such a position would overturn this, and none had been found
+when the row shipped. One candidate has since been named — a builder method whose only argument
+is a type, such as a schema-typed tool registration — and it is a candidate rather than a
+counterexample until someone measures whether an ascription on the builder reaches it.
+
+---
+
 Worth stating, because the difference is the whole point of this document being separate from
 `docs/GRAMMAR.md`:
 

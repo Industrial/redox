@@ -4,6 +4,67 @@
 // lines, and until this file existed nothing checked that it spanned them at
 // the right column.
 
+#[derive(Debug)]
+enum Oops {
+    Bad(u32),
+}
+
+use Oops::*;
+
+impl std::fmt::Display for Oops {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Oops::Bad(_0) => write!(f, "bad {}", _0),
+        }
+    }
+}
+
+impl std::error::Error for Oops {}
+
+// Plan 62 leaf 3's **pattern ascription**: the error type is pinned at the arm
+// that handles it, which is where an author knows it.
+//
+// rustc takes a type in a pattern in exactly three places — `let PAT: T = e`,
+// let-else, and a function or closure parameter — and a `match` arm is not one
+// of them. So this lowers to a `let` at the top of the arm body, which
+// annotates the binder the pattern introduced. Plan 62 §11.3 measured both
+// halves of the alternative and refuted them: annotating the **scrutinee**
+// cannot express this at all, because it would need the `Ok` type named too.
+//
+// Read **only** in an arm, and that is a parse constraint rather than a
+// preference: a pattern cannot take `: T` in general, because a typed binding
+// — `total : u64 = 1 + 2` — reads its pattern through the same path and would
+// lose its type to it. An arm is unambiguous because `->` ends the type.
+fn explain(parsed: Result<i32, Oops>) -> String {
+    match parsed {
+        Ok(v) => format!("ok {}", v),
+        Err(e) => {
+            let e: Oops = e;
+            format!("error: {}", e)
+        }
+    }
+}
+
+fn parse_one(raw: &str) -> Result<usize, Oops> {
+    Ok(raw.len())
+}
+
+// Plan 62 leaf 4. A `try` whose `?`s widen through `From` has an ambiguous
+// error type and rustc says so — `E0282: type annotations needed`. The
+// ascription **at the binding** is what pins it, and §11.1 measured that the
+// remedy already shipped: what this adds is the assertion that it does.
+//
+// Statement-level, because that is where a typed binding lives: module scope
+// takes a signature and an equation, so `name : T = value` is not a thing an
+// item can be.
+fn widened() -> bool {
+    let outcome: Result<usize, Oops> = (|| {
+        let n = parse_one("ok")?;
+        Ok(n + 1)
+    })();
+    (&outcome).is_ok()
+}
+
 fn main() {
     // `e : T` states a type without naming a path.
     let n: u64 = 1;
@@ -28,5 +89,9 @@ fn main() {
         let __rdx_t: u64 = 1 + 1;
         __rdx_t
     });
+    // Leaf 3's arm, and leaf 4's ascribed `try` block.
+    println!("{}", explain(Ok(1)));
+    println!("{}", explain(Err(Bad(2))));
+    println!("{}", widened());
     ();
 }

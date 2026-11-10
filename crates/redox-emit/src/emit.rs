@@ -3,6 +3,7 @@ pub(crate) mod application;
 pub(crate) mod arity_scope;
 pub(crate) mod arity_table;
 pub(crate) mod arm;
+pub(crate) mod ascribed_arm;
 pub(crate) mod ascribed_list;
 pub(crate) mod assert_call;
 pub(crate) mod binding_kind;

@@ -4,6 +4,46 @@
 -- lines, and until this file existed nothing checked that it spanned them at
 -- the right column.
 
+errors Oops
+  Bad u32  "bad #{0}"
+
+-- Plan 62 leaf 3's **pattern ascription**: the error type is pinned at the arm
+-- that handles it, which is where an author knows it.
+--
+-- rustc takes a type in a pattern in exactly three places — `let PAT: T = e`,
+-- let-else, and a function or closure parameter — and a `match` arm is not one
+-- of them. So this lowers to a `let` at the top of the arm body, which
+-- annotates the binder the pattern introduced. Plan 62 §11.3 measured both
+-- halves of the alternative and refuted them: annotating the **scrutinee**
+-- cannot express this at all, because it would need the `Ok` type named too.
+--
+-- Read **only** in an arm, and that is a parse constraint rather than a
+-- preference: a pattern cannot take `: T` in general, because a typed binding
+-- — `total : u64 = 1 + 2` — reads its pattern through the same path and would
+-- lose its type to it. An arm is unambiguous because `->` ends the type.
+explain : Result<i32, Oops> -> String
+explain parsed = case parsed of
+  Ok v          -> "ok #{v}"
+  Err e : Oops  -> "error: #{e}"
+
+parse_one : &str -> Result<usize, Oops>
+parse_one raw = Ok (.len raw)
+
+-- Plan 62 leaf 4. A `try` whose `?`s widen through `From` has an ambiguous
+-- error type and rustc says so — `E0282: type annotations needed`. The
+-- ascription **at the binding** is what pins it, and §11.1 measured that the
+-- remedy already shipped: what this adds is the assertion that it does.
+--
+-- Statement-level, because that is where a typed binding lives: module scope
+-- takes a signature and an equation, so `name : T = value` is not a thing an
+-- item can be.
+widened : bool
+widened = .is_ok (&outcome)
+  where
+    outcome : Result<usize, Oops> = try
+      n = (parse_one "ok")?
+      Ok (n + 1)
+
 main : ()
 main =
   -- `e : T` states a type without naming a path.
@@ -27,4 +67,8 @@ main =
   -- A multi-line lowering as a macro argument: `println!` keeps the call on
   -- one line and lets the block hang, which is the form rustfmt writes.
   print (1 + 1 : u64)
+  -- Leaf 3's arm, and leaf 4's ascribed `try` block.
+  print (explain (Ok 1))
+  print (explain (Err (Bad 2)))
+  print widened
   ()

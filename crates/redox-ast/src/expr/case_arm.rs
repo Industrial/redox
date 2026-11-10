@@ -18,6 +18,22 @@ use redox_lexer::Span;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CaseArm {
   pub pattern: Pattern,
+  /// Plan 62 leaf 3's pattern ascription — `Err e : VersionError ->`.
+  ///
+  /// The type annotates the pattern's **sole binder**, not the pattern, and
+  /// §11.3 is why it cannot be anything else: rustc accepts a type in a
+  /// pattern in exactly three places — `let PAT: T = e`, let-else, and a
+  /// function or closure parameter — and a `match` arm is not one of them.
+  /// *"Specifying the type of a pattern isn't supported"* is the error. So
+  /// this lowers to a `let` at the top of the arm body, which annotates the
+  /// binder the pattern introduced.
+  ///
+  /// Only an **arm** carries this, and that is a parse constraint rather than
+  /// a choice. A pattern cannot take `: T` in general, because a typed binding
+  /// — `total : i32 = 40 + 2`, `examples/expressions.sdx:19` — reads its
+  /// pattern through the same path and would lose its type to the pattern. An
+  /// arm is unambiguous because `->` terminates it.
+  pub ty: Option<crate::TypeExpr>,
   /// `n | n > 65` — the guard, lowered to Rust's own `if` arm guard.
   ///
   /// Doc 18 §5.4: **the first `|` after a `case` pattern opens the guard**,
