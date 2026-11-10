@@ -227,17 +227,21 @@ which is the reading the corpus will want.
 
 ## 5. Acceptance criteria
 
-1. `>>>` and `<<<` lex as single tokens, **and the prefix-ordering test is built here**,
-   because it does not exist yet.
+1. `>>>` and `<<<` lex as single tokens, with the prefix-ordering test green — it checks
+   every pair mechanically, so a table entry in the wrong block fails rather than
+   truncating silently.
 
-   Corrected 2026-11-10: this criterion read *"with the prefix-ordering test green — it
-   checks every pair mechanically"*, which implied one. `operator_table.rs` states
-   *"Every operator and punctuation token, **longest match first**"* in a **doc comment**,
-   and nothing enforces it. So the ordering is a convention, and this row is exactly the
-   case where a convention is not enough: a three-character token placed after `>>` lexes
-   as `>>` then `>` and **truncates silently**, which is the failure the criterion was
-   written to rule out. Build the check — no entry is a prefix of an earlier one — so the
-   table's own claim is asserted rather than trusted.
+   This criterion was briefly amended to say the check had to be *built*, on the finding that
+   `operator_table.rs` states *"longest match first"* in a doc comment with nothing enforcing
+   it. **That amendment was wrong and is withdrawn.** The test exists:
+   `longer_operators_are_tried_before_their_prefixes`, an inline `#[test]` at
+   `crates/redox-lexer/src/lexer/scan_operator.rs:35`, walking every pair of entries and
+   asserting a longer token precedes any prefix of it.
+
+   It is **inline rather than under `tests/`** because `OPERATOR_TABLE` is private, which is
+   what AGENTS.md's rule requires — *"inline tests are for private constructs only"* — and
+   that is precisely why a search of `operator_table.rs` and `crates/redox-lexer/tests/`
+   does not find it. Recorded here so the next reader looks in the right place.
 2. A running example witnesses forward composition with asserted stdout.
 3. A multi-line chain with the operator leading the continuation line parses, asserted in
    `redox-lexer`'s continuation tests.
