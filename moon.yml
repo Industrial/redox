@@ -105,6 +105,35 @@ tasks:
     options:
       cache: false
       outputStyle: buffer-only-failure
+  # Plan 72 (`docs/66 - 72 - The Seed Compiler.md`) leaf 3. Rebuild the
+  # checked-in bootstrap seed. `seed/SEED.md` records when this should be run
+  # and when it is churn: whenever the seed can no longer parse this
+  # repository's own `.sdx`, and not on a cadence — a new blob is ~900 KB of
+  # history that does not delta-compress.
+  #
+  # `cache: false` because the output is a tracked file, not a build artifact
+  # under `target/`: a cached no-op would leave a stale blob committed and
+  # report success.
+  seed-refresh:
+    description: 'Rebuild seed/redox1.wasm from crates/redox-seed'
+    command: 'bash'
+    args:
+      - '-c'
+      - |
+        set -e
+        cargo build --release -p redox-seed --target wasm32-wasip1
+        wasm-opt -Oz --enable-bulk-memory \
+          -o seed/redox1.wasm \
+          target/wasm32-wasip1/release/redox-seed.wasm
+        echo "seed/redox1.wasm is $(stat -c %s seed/redox1.wasm) bytes"
+        echo "now: REDOX_BLESS=1 cargo test -p redox-seed --test blob"
+    inputs:
+      - 'crates/redox-seed/src/**/*'
+      - 'crates/redox-seed/Cargo.toml'
+    options:
+      cache: false
+      outputStyle: buffer-only-failure
+
   bench:
     description: 'Run benchmarks (no-op if no benches)'
     command: 'bash'

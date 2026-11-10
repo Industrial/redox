@@ -19,6 +19,13 @@ redox-driver = { path = "../redox-driver" }
 # feature possible at all. Plan 72 leaf 1.
 redox-diag = { path = "../redox-diag" }
 
+[dev-dependencies]
+# `tests/blob.rs` hashes the committed seed against what `seed/SEED.md`
+# records. blake3 rather than a sha: it is already in `Cargo.lock` because
+# `redox-driver`'s cache fingerprint uses it, so this adds nothing to the
+# dependency graph.
+blake3 = "1"
+
 # **No `clap`, and no `notify`.** Plan 72 §2: `notify` is inotify / kqueue /
 # FSEvents and is the `redox watch` watcher, which is why the seed cannot be a
 # wasm build of `redox-cli`. Argument parsing is twenty lines of

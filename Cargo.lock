@@ -993,6 +993,7 @@ dependencies = [
 name = "redox-seed"
 version = "0.1.0"
 dependencies = [
+ "blake3",
  "redox-diag",
  "redox-driver",
 ]

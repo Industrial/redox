@@ -29,9 +29,13 @@ pub(crate) fn run() -> i32 {
   // one's.
   let mut diagnostics = Vec::new();
   let mut failed = false;
+  let mut written = 0usize;
   for (from, into) in walk(&src, &out) {
     match compile_dir_with(&from, &into, &Silent) {
-      Ok(compiled) => report(&compiled),
+      Ok(compiled) => {
+        written += compiled.outputs.len();
+        report(&compiled);
+      }
       // **Collected, not returned.** A seed reporting the first directory's
       // errors and stopping would make a clean clone take as many runs to
       // diagnose as it has broken directories. Everything that compiles is
@@ -54,6 +58,25 @@ pub(crate) fn run() -> i32 {
     // reason for existing is to be the smallest binary that transpiles — see
     // this crate's module doc.
     eprintln!("{}", render(&diagnostics, true));
+    return 1;
+  }
+
+  // **Writing nothing is a failure.** `compile_dir_with` returns `Ok` with an
+  // empty output list for a directory holding no `.sdx` — including one it
+  // could not read at all — so without this the seed exits 0 having produced
+  // an empty tree. Found by plan 72 leaf 4's first run, which handed a WASI
+  // binary an absolute path: `wasmtime` exited 0, the seed exited 0, and the
+  // output directory was empty.
+  //
+  // For a bootstrap tool that is the worst available failure mode. On a clean
+  // clone the consequence is an empty `src/`, a green exit, and a cargo error
+  // minutes later naming a missing crate rather than a missing argument.
+  if written == 0 {
+    eprintln!(
+      "error: no .sdx found under {}, so nothing was written. If this is a WASI \
+       run, the path must be relative to the directory preopened with --dir.",
+      src.display()
+    );
     return 1;
   }
   0
