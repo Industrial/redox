@@ -93,8 +93,13 @@ fn the_brace_follows_a_where_clause_on_its_own_line() {
   assert!(!out.contains(" {\n    x"), "{out}");
 }
 
-/// Haskell writes `where` locals *after* the expression that uses them; Rust
-/// needs them before it, and that reordering is the whole of the lowering.
+/// Haskell writes `where` locals *after* the expression that uses them and
+/// Rust needs them before it, so moving them up is half of doc 03 §8.3's
+/// lowering — plan 61 added the other half, the dependency sort.
+///
+/// **The fifth copy of that sentence**, and the one plan 61 §11.5 missed when
+/// it counted four. Amended rather than deleted: the claim it makes about
+/// *position* is still true and still worth asserting.
 #[test]
 fn where_locals_come_before_the_body() {
   let out = xrs("area : f64 -> f64\narea w = scaled\n  where\n    scaled = w * 2.0\n");

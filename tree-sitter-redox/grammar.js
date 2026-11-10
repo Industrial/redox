@@ -547,12 +547,22 @@ module.exports = grammar({
 				$._newline,
 			),
 
+		// Plan 61 leaf 0: an entry is a binding, a **function declaration** or a
+		// statement, and the first two are what doc 03 §8.3 always specified.
+		//
+		// `$.signature` and `$.equation` are the module-scope productions,
+		// reused — the same reuse the Rust parser makes of `Parser::function`.
+		// Before them this rule was `repeat1($._statement)`, which produced no
+		// `ERROR` on `even : u64 -> bool` and modelled it as an
+		// `expression_statement` holding an `ascription` and two bare
+		// `operator`s. A hollow reading is what plan 51 exists to catch and
+		// what an ERROR-only check cannot see.
 		where_clause: ($) =>
 			seq(
 				$._indent,
 				"where",
 				$._indent,
-				repeat1($._statement),
+				repeat1(choice($.signature, $.equation, $._statement)),
 				$._dedent,
 				$._dedent,
 			),

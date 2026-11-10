@@ -285,6 +285,28 @@ pub enum Code {
   /// `| true =` (plan 64 §1.5).
   RetiredSpelling,
 
+  /// `RDX0119` — a `where` group that is not a set of definitions, plan 61.
+  ///
+  /// One code for three refusals, because they are one statement about the
+  /// construct rather than three restrictions on it. A `where` group is
+  /// emitted in **dependency order**, which is only meaningful for a set of
+  /// definitions:
+  ///
+  /// - an entry that is neither a binding nor a function declaration has an
+  ///   **effect**, and an effect has no defined position in a set (§11.2);
+  /// - an entry that **shadows a parameter** makes a reference's meaning
+  ///   depend on where the sort put it — `h base = scaled where scaled =
+  ///   base * 2; base = 100` is `6` today and would be `200` sorted, valid
+  ///   Rust either way (§11.3);
+  /// - a **cycle** among bindings has no order to emit at all. Haskell
+  ///   accepts it and diverges; §1.4 refuses it, and says so in §6 because a
+  ///   reader porting Haskell will meet it.
+  ///
+  /// A binding in a cycle is parameterless **by construction** since leaf 0 —
+  /// anything taking a parameter is a function entry, and nested `fn` items
+  /// are order-independent in Rust — which is what made leaf 3 free.
+  WhereGroupShape,
+
   // ---- lints: RDX1000+ ----
   /// `unwrap` or `expect` used — doc 03 §12.7, plan 38.
   ///
@@ -395,6 +417,7 @@ impl Code {
       Self::PipelineSection => 116,
       Self::OptionalChaining => 117,
       Self::RetiredSpelling => 118,
+      Self::WhereGroupShape => 119,
       // Doc 03 §17's published number, and the first in the lint band.
       Self::UnwrapUsed => 1001,
       Self::CommentAllowPragma => 1002,
@@ -443,6 +466,7 @@ impl Code {
       Self::PipelineSection,
       Self::OptionalChaining,
       Self::RetiredSpelling,
+      Self::WhereGroupShape,
       Self::UnwrapUsed,
       Self::CommentAllowPragma,
       Self::ShadowedBinding,

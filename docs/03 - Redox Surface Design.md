@@ -893,11 +893,29 @@ where
 Lowering rules:
 
 - A `where` definition that is a **function** becomes a nested `fn`, hoisted above the
-  body — so mutual recursion among them is permitted, as in Haskell.
+  body — so mutual recursion among them is permitted, as in Haskell. **Plan 61 leaf 0
+  made it writable**, nineteen rows after this line: a `where` entry may be declared
+  exactly as at module scope, a signature line and one or more equation rows, and the
+  signature is required for the reason a nested `fn` needs one — Redox has no inference.
 - A `where` definition that is a **value** becomes a `let` emitted before the body
-  expression, in written order. A forward reference between value definitions is
-  `RDX0047`, because Rust `let` bindings are ordered and synthesising a correct order
-  would require dependency analysis this surface does not admit.
+  expression, in **dependency order** — plan 61. This bullet used to end *"in written
+  order. A forward reference between value definitions is `RDX0047`, because Rust `let`
+  bindings are ordered and synthesising a correct order would require dependency analysis
+  this surface does not admit"*, and that is the one published rule this milestone
+  **supersedes** rather than refines.
+
+  Plan 61 §1.2 is the argument. The analysis this section declines is the one that asks
+  *what does this name mean* — scope, shadowing, types. The sort asks only *which of these
+  names appears in that body*, over a name set known in advance. §8.3 was right that the
+  first is out of reach and wrong that the second is the same thing.
+
+  Three refusals come with it, all `RDX0119`, and each is a statement of what a `where`
+  group **is** rather than a restriction on it. A group is a *set of definitions*: an
+  entry that defines no name — a `print`, an assignment — has no position to be emitted
+  at; an entry that **shadows a parameter** would make a reference's meaning depend on
+  where the sort put it, which is a wrong answer that compiles; and a **cycle** among
+  values has no order at all. Haskell accepts `a = b + 1; b = a + 1` and diverges, and
+  Redox refuses it — the one place this language is deliberately the stricter of the two.
 
 ### 8.4 Argument forwarding
 

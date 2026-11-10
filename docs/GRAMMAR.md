@@ -76,6 +76,7 @@ checked against the host language instead of against this project's history.
 | Items in a function body | `SUGARED` | `examples/local.sdx` — plan 55 leaf 5. A `data`, `errors`, `class`, `instance`, `import`, `const` or `type` is a block element and lowers to the nested Rust item. `test` is refused (`RDX0112`: rustc does not collect a nested `#[test]`) and `module` is out of scope, a bodiless one loading a file |
 | `use` declarations, groups, globs, aliases | `SUGARED` | `examples/module.sdx` — `import` |
 | `extern` blocks | `SUGARED` | `examples/reachability.sdx` — plan 45 leaf 3; `unsafe extern` is emitted because edition 2024 requires it |
+| Nested `fn` items | `SUGARED` | `examples/wheres.sdx` — plan 61 leaf 0. A `where` entry may be a **function**, declared exactly as at module scope: a signature line and one or more equation rows, which emit as a nested `fn`. Mutual recursion among them needs no ordering, because Rust items are order-independent inside a block. Redox's `where` had no graded row at all until this one — which is why plan 61's criterion 8 was free, and why it should not have been |
 | Macro definitions | `UNREACHABLE` | `tests/unreachable/macro_def.sdx` — **declined** under doc 03 §23 item 3. Alternative: inline Rust, which plan 45 leaf 1 shipped and plan 64 leaf 4 gave an expression position and a layout-delimited form. Invocation is `SUGARED` since plan 64; this row is the half that stays declined, which is plan 46's rule working in both directions at once |
 | Attributes, inner and outer | `PASSTHROUGH` | `examples/attributes.sdx` — Rust's own `#[…]`, plan 36. **One exception, and only one:** plan 53's `#[redox::allow(unwrap)]` is *consumed* by the emitter and never reaches the `.xrs`, because an un-consumed `redox::` attribute is rustc's `E0433` — a hard error, not an unknown lint |
 
@@ -94,7 +95,7 @@ checked against the host language instead of against this project's history.
 | Function pointers and `Fn` bounds | `PASSTHROUGH` | `examples/generic.sdx` |
 | Lifetimes | `PASSTHROUGH` | `examples/strings.sdx` — `&'static str`; carried verbatim, so there is no separate construct |
 | Generic parameters and bounds | `SUGARED` | `examples/generic.sdx` — a **bound clause** read off `=>` (doc 18 §2.2), not `where` |
-| `where` clauses | `SUGARED` | `examples/generic.sdx` — the same bound clause. Redox's own `where` introduces **local bindings** and is a different construct |
+| `where` clauses | `SUGARED` | `examples/generic.sdx` — the same bound clause. Redox's own `where` introduces **local bindings** and is a different construct, graded on the row below |
 | Associated types and constants | `SUGARED` | `examples/class.sdx` |
 | Associated functions | `SUGARED` | `examples/receiver.sdx` — a member with no `self` in any of its types has no receiver, which is how Rust spells one too: `start : u32 -> Self` is `fn start(__rdx_a0: u32) -> Self`, called `Counter::start 3`. Plan 67 leaf 4; the construct existed before the row and had no witness |
 

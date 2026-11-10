@@ -1,5 +1,5 @@
 use crate::emit::emit_body::emit_body;
-use crate::emit::emit_stmts::emit_stmts;
+use crate::emit::emit_where_locals::emit_where_locals;
 use crate::emit::expr::emit_expr;
 use crate::emit::inline_comment::emit_inline_comment;
 use crate::emit::one_tail_expression::one_tail_expression;
@@ -41,7 +41,7 @@ pub(crate) fn emit_arm(out: &mut Sink<'_>, clause: &Clause, arm: &str, indent: u
   pad(out, indent);
   out.push_str(arm);
   out.push_str(" => {\n");
-  emit_stmts(out, &clause.wheres, indent + RUST_INDENT, false);
+  emit_where_locals(out, &clause.wheres, indent + RUST_INDENT);
   // Every arm is a tail position: a `match` arm's value is the arm's value,
   // whether or not the function returns anything.
   // A `match` arm's body, where rustfmt expands a two-armed `if`/`else` that

@@ -1,0 +1,7 @@
+error[RDX0119]: a `where` entry defines a name, so it is a binding or a function declaration and nothing else
+  --> where_entry_is_not_a_definition.sdx:18:5
+   |
+18 |     println! \-> "#{n}"
+   |     ^^^^^^^^^^^^^^^^^^^
+  = help: an expression evaluated for its effect belongs in the body: a `where` group is a set of definitions and is emitted in dependency order, so an entry with an effect has no position to be emitted at
+

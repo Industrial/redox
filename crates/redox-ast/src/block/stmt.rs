@@ -26,3 +26,40 @@ pub struct Stmt {
   pub leading: Vec<Trivia>,
   pub trailing: Option<Trivia>,
 }
+
+impl Stmt {
+  /// The single name a `where` entry defines, when it defines exactly one —
+  /// plan 61 leaf 1.
+  ///
+  /// ```text
+  /// scaled = base * 2      Some("scaled")
+  /// go : u64 -> u64        Some("go")       — a function entry
+  /// (a, b) = p             None             — two names, no single vertex
+  /// print x                None             — defines nothing
+  /// ```
+  ///
+  /// A binding may define **several** names — `(a, b) = p` is one statement
+  /// binding two, which plan 61 §11.2 measured — and a multi-name binding is
+  /// not a vertex the graph can represent, so it is neither a source nor a
+  /// target of an edge. The sort then leaves it where it was written, which is
+  /// the conservative answer and where it already worked.
+  ///
+  /// A **function** entry has a name and deliberately returns it: the cycle
+  /// search needs it to *report* a cycle, and [`crate::where_edges`] excludes
+  /// functions by asking what kind of entry each is rather than by having no
+  /// name for them. A mutually recursive pair of nested `fn`s is
+  /// order-independent in Rust and must not be reported.
+  pub fn where_entry_name(&self) -> Option<String> {
+    match &self.expr {
+      Expr::Binding(b) => match b.pattern.binders().as_slice() {
+        [one] => Some(one.clone()),
+        _ => None,
+      },
+      Expr::Item { item, .. } => match item.as_ref() {
+        crate::Item::Fn(decl) => Some(decl.name.text.clone()),
+        _ => None,
+      },
+      _ => None,
+    }
+  }
+}

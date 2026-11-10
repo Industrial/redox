@@ -1,0 +1,18 @@
+-- Plan 61 leaf 4: a cycle among `where` bindings, which has no order to emit.
+--
+-- The one place Redox is deliberately **stricter than Haskell**, and §6 says
+-- so because a reader porting Haskell will meet it: `a = b + 1; b = a + 1` is
+-- accepted there and diverges. Refusing it at compile time is a better
+-- outcome and it is still a divergence.
+--
+-- A binding in a cycle is parameterless **by construction** since leaf 0 —
+-- anything taking a parameter is a function entry, which emits as a nested
+-- `fn` and is order-independent in Rust — so this needs no arity test, which
+-- is what made leaf 3 free. The help says what to do about it: give one of
+-- them a parameter and the cycle becomes recursion.
+
+f : u64 -> u64
+f n = a
+  where
+    a = b + n
+    b = a + 1

@@ -1,6 +1,6 @@
 use crate::emit::arm::emit_arm;
 use crate::emit::emit_body::emit_body;
-use crate::emit::emit_stmts::emit_stmts;
+use crate::emit::emit_where_locals::emit_where_locals;
 use crate::emit::pad::pad;
 use crate::emit::rust_indent::RUST_INDENT;
 use crate::emit::sink::Sink;
@@ -54,9 +54,13 @@ pub(crate) fn emit_clauses(out: &mut Sink<'_>, f: &FnDecl, base: usize) {
   if simple {
     // `where` locals come **first**, which is the only order Rust allows: a
     // `let` has to precede its use. Haskell writes them after the expression
-    // that uses them, and that reordering is the whole of doc 18 §2.2's
-    // lowering.
-    emit_stmts(out, &f.clauses[0].wheres, base + RUST_INDENT, false);
+    // that uses them, and moving them up is half of doc 03 §8.3's lowering.
+    //
+    // The other half is plan 61: they are also emitted in **dependency
+    // order**, so the author's order does not have to be Rust's. The sentence
+    // this comment used to end with — *"that reordering is the whole of the
+    // lowering"* — was true and is one of four copies the row amends.
+    emit_where_locals(out, &f.clauses[0].wheres, base + RUST_INDENT);
     // The body is the function's own, so a narrow two-armed guard ladder may
     // go on one line — unless a `where` local precedes it, which is a
     // position rustfmt's behaviour has not been measured at and so is not

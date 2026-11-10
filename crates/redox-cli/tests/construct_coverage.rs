@@ -711,6 +711,30 @@ const WITNESSES: &[Covers] = &[
     witness: Witness::Toks(&["«id»", "!", "\\", "->"]),
   },
   Covers {
+    row: "Nested fn items",
+    // A **signature line inside a `where` block**: `where`, the off-side
+    // rule's own `Newline` and `Indent`, then a name followed by `:`. No
+    // other construct in the language produces that run.
+    //
+    // The layout tokens are spelled out because the scanner compares
+    // *consecutive* tokens and skips nothing — `["where", "«any»", ":"]`
+    // matched nowhere, which is worth knowing before writing the next
+    // multi-line witness.
+    //
+    // Witnessing the **equation** row instead would be hollow: `go 0 = 0` is
+    // token-for-token a destructuring binding, and plan 61 found the
+    // *grammar* making exactly that mistake — modelling the whole entry as an
+    // ascription plus two operators, with no `ERROR` node to show for it.
+    spelling: "`where` then `go : u64 -> u64` and its equation rows",
+    witness: Witness::Toks(&[
+      "where",
+      "\u{ab}nl\u{bb}",
+      "\u{ab}indent\u{bb}",
+      "\u{ab}id\u{bb}",
+      ":",
+    ]),
+  },
+  Covers {
     row: "Inline Rust",
     spelling: "`rust \"\"\"…\"\"\"`",
     witness: Witness::Toks(&["rust"]),

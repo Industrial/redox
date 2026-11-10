@@ -1,0 +1,18 @@
+-- Plan 61 §11.3: a `where` binding that shadows a parameter, refused.
+--
+-- **This program compiles today and prints 6.** `scaled` reads the parameter
+-- `base`, because Rust `let`s are sequential and the local `base` is declared
+-- after it. Treat that reference as a dependency edge and the sort emits
+-- `let base = 100; let scaled = base * 2;` — **200**, valid Rust, with no
+-- diagnostic anywhere.
+--
+-- That is doc 02 §5.2's worst available failure mode produced by this row
+-- itself, so §1.2's claim that the sort "cannot be wrong about scope, because
+-- the group **is** the scope" does not survive shadowing. Refusing the shadow
+-- is the alternative to an unsound sort.
+
+h : u64 -> u64
+h base = scaled
+  where
+    scaled = base * 2
+    base = 100

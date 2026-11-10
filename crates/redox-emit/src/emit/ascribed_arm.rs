@@ -1,7 +1,6 @@
 use crate::emit::ascribed_arm::sole_binder::sole_binder;
 use redox_ast::Pattern;
 
-pub(crate) mod collect;
 pub(crate) mod sole_binder;
 
 /// The `let` that gives an arm's ascription somewhere to live, or `None`.

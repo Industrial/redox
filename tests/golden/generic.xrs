@@ -4,7 +4,11 @@
 // other half.
 //
 // Checked by compiling and running: a generic list in the wrong order is a
-// rustc error, and a `where` local emitted after its use is too.
+// rustc error, and a `where` local emitted after its use **was** too, until
+// plan 61: a `where` group is now emitted in dependency order, so the author
+// writes them in whatever order reads best. `examples/wheres.sdx` is that
+// row's witness; the locals here are left in dependency order deliberately,
+// because a group that was already ordered must emit byte for byte the same.
 
 // `t` is a type variable because it is lowercase (§5.3), and it is declared
 // nowhere. `i32` is lowercase too and is *not* a variable — doc 18 §5.3 taken
@@ -45,9 +49,11 @@ fn add(a: i32, b: i32) -> i32 {
     a + b
 }
 
-// Several `where` locals, in order. Haskell writes them after the expression
-// that uses them; Rust needs them before it, and that reordering is the whole
-// of the lowering.
+// Several `where` locals. Haskell writes them after the expression that uses
+// them and Rust needs them before it, so moving them up is half of doc 03
+// §8.3's lowering; plan 61 added the other half, which is sorting them into
+// dependency order. This comment used to say that moving them was *the whole*
+// of it — one of five copies of a sentence that was true when it was written.
 fn area(w: f64, h: f64) -> f64 {
     let base = w * h;
     let scaled = base * 2.0;

@@ -1,0 +1,7 @@
+error[RDX0119]: these `where` bindings depend on each other in a cycle: a, b
+  --> where_cycle.sdx:17:5
+   |
+17 |     a = b + n
+   |     ^^^^^^^^^
+  = help: Rust `let` bindings are evaluated in order, so a cycle among values has no order to emit. Haskell accepts this and diverges; give one of them a parameter, which makes it a nested function and lets the cycle be recursion
+

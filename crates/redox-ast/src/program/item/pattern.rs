@@ -234,3 +234,60 @@ impl Pattern {
     }
   }
 }
+
+impl Pattern {
+  /// Every name this pattern binds, in source order.
+  ///
+  /// Written by plan 62 leaf 3 as `emit::ascribed_arm::collect` and moved here
+  /// by plan 61, which needs the same answer in the parser — for the
+  /// parameter-shadow refusal and for the `where` dependency graph. A
+  /// recursive walk over eleven forms is not a thing to keep two copies of,
+  /// and unlike the five cases plan 34 §10.31 describes this really is **one
+  /// question with one answer in every position**: a pattern's binders do not
+  /// depend on where it stands.
+  ///
+  /// A *testing* pattern — a literal, a range, a wildcard, a rest — binds
+  /// nothing and contributes nothing, which is why the catch-all arm is
+  /// correct rather than lazy: those are the variants that have no name to
+  /// give.
+  pub fn binders(&self) -> Vec<String> {
+    let mut names = Vec::new();
+    self.collect_binders(&mut names);
+    names
+  }
+
+  fn collect_binders(&self, into: &mut Vec<String>) {
+    match self {
+      Pattern::Binding(name) | Pattern::NamedRest { name, .. } => into.push(name.text.clone()),
+      Pattern::As { name, inner, .. } => {
+        into.push(name.text.clone());
+        inner.collect_binders(into);
+      }
+      Pattern::Apply { args, .. } => {
+        for arg in args {
+          arg.collect_binders(into);
+        }
+      }
+      Pattern::Tuple { items, .. } | Pattern::Slice { items, .. } => {
+        for item in items {
+          item.collect_binders(into);
+        }
+      }
+      Pattern::Or(items) => {
+        for item in items {
+          item.collect_binders(into);
+        }
+      }
+      Pattern::Record { fields, .. } => {
+        for field in fields {
+          match &field.pattern {
+            Some(pattern) => pattern.collect_binders(into),
+            None => into.push(field.name.text.clone()),
+          }
+        }
+      }
+      Pattern::Literal { .. } | Pattern::Wildcard(_) | Pattern::Range { .. } | Pattern::Rest(_) => {
+      }
+    }
+  }
+}

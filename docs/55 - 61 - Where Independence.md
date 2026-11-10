@@ -3,7 +3,7 @@
 Plan ID: `where-independence`
 Depends on: 55 (`expression-orientation`)
 Milestone: 9 — *surface coherence*
-Status: `planned`
+Status: `done`
 
 ---
 
@@ -458,7 +458,127 @@ a reasonable sign it should be in AGENTS.md rather than in four plans' decision 
 
 ## 10. Result
 
-*Not yet executed.*
+**Done 2026-11-10.** All six leaves, and `where` now means what Haskell means
+by it: an order-independent, mutually recursive binding group.
+`examples/wheres.sdx` writes two bindings backwards, a three-link chain
+backwards, a mutually recursive pair, a group mixing a function with
+out-of-order bindings, and a group referring to a parameter and a module-scope
+`const` — and prints `18 / 12 / true / false / 30 / 21`.
+
+### 10.1 Leaf 3 was free, and leaf 0 is why
+
+§2 said leaf 3 *"must verify the claim rather than inherit it"*, and leaf 2
+said nested `fn` items are order-independent. Both are right, and together
+they make mutual recursion need **no code at all**: since leaf 0, anything in
+a `where` group that takes a parameter *is* a function entry, so a cycle among
+them is a cycle among nested `fn`s, which Rust accepts in either definition
+order. The sort orders bindings among themselves and leaves functions where
+they were written.
+
+The same fact makes leaf 4 need no arity test. §1.4 framed the refusal as
+*"parameterless bindings in a cycle"*; a binding in a cycle is parameterless
+**by construction**, so the diagnostic asks nothing about arity.
+
+### 10.2 The grammar found no `ERROR` and was wrong anyway
+
+**This is the row's sharpest finding.** `where_clause` was
+`repeat1($._statement)`, and on a function entry it produced a perfectly
+clean parse of the wrong construct: `even : u64 -> bool` came out as an
+`expression_statement` holding an `ascription` and two bare `operator`s, and
+`even 0 = true` as a `binding` whose pattern is a `pattern_run`.
+
+`tree_sitter.rs` and `editors.rs`'s neovim run both passed, because both
+assert the **absence of an `ERROR` node** — which is exactly what a hollow
+reading does not produce. The highlighters would have coloured a local
+function's signature as an ascription and nothing in the gate would have said
+so. Plan 51 exists to catch grammar drift and cannot catch this shape; the row
+found it by reading the tree rather than the exit code, and `$.signature` and
+`$.equation` — the module-scope productions — are the fix.
+
+A successor worth having: an assertion that a construct's **node kind** is
+what the grammar claims, not merely that something parsed.
+
+### 10.3 Two copies of one walk, written down as a rationalisation
+
+The first draft put the dependency graph in `redox-parser` for the diagnostic
+and a second copy in `redox-emit` for the sort, and the doc comment on the
+second said they *"must agree with it exactly or the two disagree about
+whether a program has a cycle"*. That is plan 34 §10.31's defect — one
+predicate serving two positions — recorded as an argument for itself.
+
+It is now `redox_ast::where_edges`, with `where_cycle` beside it, so the
+refusal and the sort read the **same** graph and cannot disagree by
+construction. The reason it can live there is that it is a *structural query
+over the tree*, the same category as `Expr::blocks`: what the edges **mean**
+is each consumer's, and what they **are** is a property of the tree.
+
+`Pattern::binders` moved the same way, out of plan 62's
+`emit::ascribed_arm::collect` — and unlike the five cases plan 34 describes,
+that one really is one question with one answer in every position.
+
+### 10.4 The depth cap decided where "together" is
+
+`crates/redox-parser/src/parse/parser/where_group.rs` is already at
+`directory_structure.rs`'s three-component maximum, so it can have **no
+children** — and a recursive search needs a file for its helper.
+
+That is what settled the design above as much as the argument did, and it is
+worth saying plainly rather than claiming the architecture rule was
+incidental: a one-construct-per-file rule with a depth cap pushes shared
+recursive walks **up** towards the crate they are shared from, which is where
+they belong anyway.
+
+`where_entry_name` became `Stmt::where_entry_name` for the matching reason — a
+root-level file must be a module head, and it had no children to head. It is a
+property of a `Stmt`, so the impl travels with the type.
+
+### 10.5 Plan 63's flag was needed again, one construct over
+
+`examples/wheres.sdx`'s mixed group found it: after `half k = k / 2`,
+`equations` read `trebled = doubled * 3` as another equation of `half` and
+reported `RDX0103` *"this equation defines `trebled`, but the signature above
+it is for `half`"*. At module scope and at the top of a `class` body a new
+name is a new declaration and the caller reads it; inside a `where` group it is
+a **binding**.
+
+Plan 63 leaf 0 added `ends_on_a_new_name` for exactly this shape — two
+consecutive elided class members colliding — and `Parser::where_function` is
+`Parser::function` with the flag set. Four lines, twice, for the same reason.
+
+### 10.6 §11.5 counted four copies and there are five
+
+`crates/redox-emit/tests/generic.rs`'s `where_locals_come_before_the_body`
+carries *"that reordering is the whole of the lowering"* verbatim, and §11.5's
+census missed it. The count being wrong is the finding rather than an
+embarrassment: it is the fifth copy of a sentence that was true until this row,
+which is the kind of statement §4 says the corpus exists to keep honest. All
+five are amended, along with **doc 03 §8.3** — the one published rule this
+milestone supersedes rather than refines.
+
+### 10.7 Criterion 7 held exactly
+
+**No generated code moved** for the four `where` clauses that were already in
+the corpus. §11.4 predicted it and said why the sort proves almost nothing
+there — `largest` (one binding), `area` (two, one edge, in order), `sizes`
+(two, independent) and `retries` (one) — three vacuously ordered and one
+exercising the sort at all. A stable topological sort with ties broken by
+source order preserves all four, and `examples/wheres.sdx` is doing the work.
+
+The golden diff is comment-only in `generic.xrs`, which §11.4 also predicted:
+comments are trivia and reach the `.xrs`, and leaf 5 amends two comments in
+that file.
+
+### 10.8 The two open questions, both closed before the code
+
+§11.2 and §11.3 were decided in writing on 2026-11-10 and implemented as
+decided: a non-binding entry is refused, and a shadowing one is too. One code,
+`RDX0119`, for all three refusals — because they are one statement about the
+construct rather than three restrictions on it, and three codes would invite a
+reader to think the shapes are unrelated.
+
+§11.6 asked for a **count, not a number**, and was right to: `RDX0111` was the
+last taken when that was written, and plan 64 took `RDX0118` in the hour
+before this row ran.
 
 ---
 

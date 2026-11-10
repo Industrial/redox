@@ -33,8 +33,20 @@ pub struct Clause {
   ///
   /// Emitted **before** the body, which is the only order Rust allows: a
   /// `let` has to precede its use. Haskell's `where` reads the other way
-  /// round — the definition follows the expression that uses it — and that
-  /// reordering is the whole of the lowering.
+  /// round — the definition follows the expression that uses it — and moving
+  /// them up is half of doc 03 §8.3's lowering.
+  ///
+  /// Plan 61 added the other half: the group is emitted in **dependency
+  /// order**, so the author's order need not be Rust's. Held here in **source
+  /// order** and sorted at emission, which is leaf 2's rule — `redox-fmt` and
+  /// `redox-emit` are two readers of one tree, and a formatter reordering
+  /// lines its author wrote is an edit rather than a formatting change.
+  ///
+  /// An entry is a binding **or a function declaration**, which is why the
+  /// type is `Vec<Stmt>` and not a list of bindings: a function arrives as
+  /// `Expr::Item`, the carrier plan 55 leaf 5 built. A statement that defines
+  /// no name is refused — `RDX0119`, plan 61 §11.2 — because a group is a set
+  /// of definitions and an entry with an effect has no position in a set.
   ///
   /// Doc 18 §2.2 retires doc 03 §14.2's two roles for `where`: the bound
   /// clause moved to `=>`, so `where` keeps one meaning and the

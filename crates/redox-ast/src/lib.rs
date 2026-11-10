@@ -29,6 +29,8 @@ mod block;
 mod condition;
 mod expr;
 mod program;
+mod where_cycle;
+mod where_edges;
 
 pub use block::Block;
 pub use block::stmt::Stmt;
@@ -80,4 +82,6 @@ pub use program::item::visibility::Visibility;
 
 // Re-exported so downstream crates naming a span or a trivium need not add a
 // second dependency edge onto `redox-lexer` (doc 06 §5).
+pub use crate::where_cycle::where_cycle;
+pub use crate::where_edges::where_edges;
 pub use redox_lexer::{Span, Trivia, TriviaKind};

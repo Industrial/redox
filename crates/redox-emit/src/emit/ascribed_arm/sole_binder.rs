@@ -1,4 +1,3 @@
-use crate::emit::ascribed_arm::collect::collect;
 use redox_ast::Pattern;
 
 /// The one name `pattern` binds, when it binds exactly one.
@@ -11,10 +10,12 @@ use redox_ast::Pattern;
 /// limit: a wrong binder would compile and annotate the wrong thing, which is
 /// worse than declining, and there is no syntax saying which of several the
 /// author meant.
+///
+/// The walk itself is `Pattern::binders`, in `redox-ast`. Plan 62 wrote it
+/// here as `collect`; plan 61 needs the same answer in the **parser**, so it
+/// moved to the crate both can see rather than being copied.
 pub(crate) fn sole_binder(pattern: &Pattern) -> Option<String> {
-  let mut found = Vec::new();
-  collect(pattern, &mut found);
-  match found.as_slice() {
+  match pattern.binders().as_slice() {
     [one] => Some(one.clone()),
     _ => None,
   }

@@ -1,0 +1,19 @@
+-- Plan 61 §11.2: a `where` entry that defines no name, refused.
+--
+-- §6 of the plan said "`where` is a declaration group and a block is a
+-- statement sequence; this row is about the former only", and §11.2 found
+-- that the parser said otherwise in its own words: `Clause.wheres` is a
+-- `Vec<Stmt>` and `where_locals` pushed `self.stmt()`, so a group could hold
+-- a print, an assignment binding no name, or anything else a statement can
+-- be — all of which a sort can move.
+--
+-- The refusal is categorical rather than a restriction added to the
+-- construct. A `where` group is a **set of definitions**, which is the whole
+-- reason it can be sorted; an entry with an effect has no defined position in
+-- a set.
+
+g : u64 -> u64
+g n = y
+  where
+    println! \-> "#{n}"
+    y = n + 1

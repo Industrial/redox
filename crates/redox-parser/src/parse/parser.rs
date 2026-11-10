@@ -99,6 +99,8 @@ pub(crate) mod unit_tail;
 pub(crate) mod visibility;
 pub(crate) mod walk_item_for_tails;
 pub(crate) mod walk_member_for_tails;
+pub(crate) mod where_entry_is_a_function;
+pub(crate) mod where_group;
 
 use crate::ParseError;
 use crate::parse::parser::assign_tail::assign_tail;
@@ -132,6 +134,8 @@ use crate::parse::parser::type_alias::type_alias;
 use crate::parse::parser::type_stop::TypeStop;
 use crate::parse::parser::unit_tail::unit_tail;
 use crate::parse::parser::visibility::visibility;
+use crate::parse::parser::where_entry_is_a_function::where_entry_is_a_function;
+use crate::parse::parser::where_group::where_group;
 use redox_ast::Visibility;
 use redox_ast::{Binding, Block, Expr, FnDecl, Ident, Item, Program, Stmt, TypeExpr};
 use redox_diag::Code;
@@ -379,6 +383,27 @@ impl<'a> Parser<'a> {
     self.equations(name, leading, start, &head, reserved, false)
   }
 
+  /// A function declared inside a `where` group — plan 61 leaf 0.
+  ///
+  /// [`Self::function`] with plan 63's `ends_on_a_new_name` **set**, which is
+  /// the only difference and is load-bearing. At module scope and at the top
+  /// of a `class` body a line beginning with a different name is a new
+  /// declaration, and the caller reads it; inside a `where` group it is a
+  /// **binding**, so without the flag `equations` consumes it as another
+  /// equation of the function above and reports `RDX0103` *"this equation
+  /// defines `trebled`, but the signature above it is for `half`"*.
+  ///
+  /// Plan 63 leaf 0 added the flag for the same shape one construct over —
+  /// two consecutive elided class members colliding — and its four lines are
+  /// the whole fix here too.
+  pub(crate) fn where_function(&mut self) -> Result<FnDecl, ParseError> {
+    let leading = self.peek_leading();
+    let start = self.peek_span().0;
+    let name = self.ident("expected a name to begin a declaration")?;
+    let head = self.signature_head(&name)?;
+    self.equations(name, leading, start, &head, &[], true)
+  }
+
   /// A signature line, from the `:` to the line break.
   ///
   /// Plan 63 (`docs/57 - 63 - Instance Inference.md`) leaf 0. Extracted from
@@ -603,7 +628,7 @@ impl<'a> Parser<'a> {
       self.advance();
       let guards = self.guards()?;
       self.expect(&TokenKind::Dedent, "expected the guard list to end")?;
-      let wheres = self.where_locals()?;
+      let wheres = self.where_locals(&patterns)?;
       return Ok(redox_ast::Clause {
         patterns,
         body: redox_ast::ClauseBody::Guarded(guards),
@@ -625,7 +650,7 @@ impl<'a> Parser<'a> {
     if !self.check(&TokenKind::Newline) {
       let body = self.inline_body()?;
       let trailing = self.newline_with_trailing("expected a line break after the body")?;
-      let wheres = self.where_locals()?;
+      let wheres = self.where_locals(&patterns)?;
       return Ok(redox_ast::Clause {
         patterns,
         body: redox_ast::ClauseBody::Plain(body),
@@ -654,7 +679,7 @@ impl<'a> Parser<'a> {
       unit_tail(name, &block)?;
     }
 
-    let wheres = self.where_locals()?;
+    let wheres = self.where_locals(&patterns)?;
     Ok(redox_ast::Clause {
       patterns,
       body: redox_ast::ClauseBody::Plain(block.clone()),
@@ -803,14 +828,30 @@ impl<'a> Parser<'a> {
   ///     best = xs |> iter |> max |> unwrap
   /// ```
   ///
-  /// An indented `where`, then its own indented block of bindings. Two levels
+  /// An indented `where`, then its own indented block of entries. Two levels
   /// because that is how Haskell writes it and how the doc's example is
-  /// written; the inner block is an ordinary statement block, so a local may
-  /// be anything a statement may be.
+  /// written.
+  ///
+  /// **An entry is a binding, a function declaration, or a statement** — plan
+  /// 61 leaf 0. The first two are what doc 03 §8.3 always specified; the third
+  /// is what this function accepted by reusing `stmt`, and plan 61 §11.2
+  /// found it reaches further than §6 claimed: *"the inner block is an
+  /// ordinary statement block, so a local may be anything a statement may
+  /// be"* is the sentence this comment used to end with, and it let a `print`
+  /// into a group the row goes on to **sort**.
+  ///
+  /// A function entry is `Parser::function` reused wholesale, so a local
+  /// declaration and a module-scope one are the same parse and cannot drift:
+  /// multi-equation bodies, guard ladders, `where`-within-`where` and
+  /// generics all arrive without being written again. It is carried as
+  /// `Expr::Item`, which plan 55 leaf 5 already built and `emit_stmt` already
+  /// routes to `emit_item` — so leaf 3's *"nothing in the emitter emits an
+  /// item inside a function body today"* was true when it was written and is
+  /// not now.
   ///
   /// Returns an empty vector when there is no clause, so a caller can ask
   /// unconditionally — there are three clause shapes and each has to.
-  fn where_locals(&mut self) -> Result<Vec<Stmt>, ParseError> {
+  fn where_locals(&mut self, params: &[redox_ast::Pattern]) -> Result<Vec<Stmt>, ParseError> {
     let opens = self.check(&TokenKind::Indent)
       && self
         .peek_at(1)
@@ -833,11 +874,38 @@ impl<'a> Parser<'a> {
       if self.check(&TokenKind::Dedent) || self.at_eof() {
         break;
       }
+      // Plan 61 leaf 0. Asked before `stmt` because a function entry's
+      // first token is a *name*, which is the one thing `stmt` cannot tell
+      // apart on its own: `looks_like_a_binding` wants `=`, `:` or `{` at the
+      // second token, so `go 0 = 0` parsed as a call and the `=` was
+      // unexpected.
+      if where_entry_is_a_function(self) {
+        let start = self.peek_span().0;
+        let decl = self.where_function()?;
+        let end = self.prev_span().1;
+        locals.push(Stmt {
+          expr: Expr::Item {
+            item: Box::new(Item::Fn(decl)),
+            span: (start, end),
+          },
+          span: (start, end),
+          // Empty for `Parser::stmt`'s reason, in the same words: `item`
+          // captured this trivia a moment ago and the declaration owns it, so
+          // a copy here printed every comment twice.
+          leading: Vec::new(),
+          trailing: None,
+        });
+        continue;
+      }
       locals.push(self.stmt()?);
     }
     self.expect(&TokenKind::Dedent, "expected the `where` bindings to end")?;
     self.skip_separators();
     self.expect(&TokenKind::Dedent, "expected the `where` clause to end")?;
+    // Plan 61 leaf 4's three refusals, checked once the whole group is read —
+    // a cycle is not a property of any one entry, and the shadow check needs
+    // the equation's parameters, which only a caller has.
+    where_group(&locals, params)?;
     Ok(locals)
   }
 

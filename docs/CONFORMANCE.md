@@ -52,19 +52,19 @@ Each is graded `UNREACHABLE` in `docs/GRAMMAR.md`.
 
 | Crate | Files | With a blocker | |
 |---|---:|---:|---:|
-| `redox-ast` | 48 | 0 | 0% |
+| `redox-ast` | 53 | 0 | 0% |
 | `redox-bench` | 13 | 1 | 8% |
 | `redox-cli` | 24 | 0 | 0% |
 | `redox-diag` | 21 | 1 | 5% |
 | `redox-driver` | 48 | 1 | 2% |
-| `redox-emit` | 107 | 0 | 0% |
+| `redox-emit` | 109 | 0 | 0% |
 | `redox-fmt` | 57 | 0 | 0% |
 | `redox-fuzz` | 6 | 0 | 0% |
 | `redox-lexer` | 33 | 3 | 9% |
 | `redox-lsp` | 22 | 2 | 9% |
 | `redox-mcp` | 19 | 0 | 0% |
-| `redox-parser` | 113 | 1 | 1% |
-| **total** | **511** | **9** | **2%** |
+| `redox-parser` | 115 | 1 | 1% |
+| **total** | **520** | **9** | **2%** |
 
 ---
 

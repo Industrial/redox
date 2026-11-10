@@ -1,0 +1,7 @@
+error[RDX0119]: `base` is already a parameter of this equation, and a `where` entry may not shadow one
+  --> where_shadows_a_parameter.sdx:18:5
+   |
+18 |     base = 100
+   |     ^^^^^^^^^^
+  = help: a `where` group is sorted into dependency order, so a name that means the parameter in one entry and the local in another would depend on where the sort put them — rename the local
+

@@ -37,6 +37,7 @@ pub(crate) mod emit_control;
 pub(crate) mod emit_control_inline;
 pub(crate) mod emit_fn;
 pub(crate) mod emit_stmts;
+pub(crate) mod emit_where_locals;
 pub(crate) mod error_message;
 pub(crate) mod errors;
 pub(crate) mod expr;
@@ -92,6 +93,7 @@ pub(crate) mod type_alias;
 pub(crate) mod unlowerable;
 pub(crate) mod unparen;
 pub(crate) mod unsafe_block;
+pub(crate) mod where_order;
 pub(crate) mod with_map;
 pub(crate) mod wraps_as_receiver;
 

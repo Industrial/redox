@@ -4717,6 +4717,10 @@
           "named": true
         },
         {
+          "type": "equation",
+          "named": true
+        },
+        {
           "type": "errors_declaration",
           "named": true
         },
@@ -4750,6 +4754,10 @@
         },
         {
           "type": "return_statement",
+          "named": true
+        },
+        {
+          "type": "signature",
           "named": true
         },
         {

@@ -1,0 +1,95 @@
+-- Plan 61: `where` bindings stop caring about the order they are written in,
+-- and may be mutually recursive.
+--
+-- **This row supersedes a published specification section.** Doc 03 §8.3
+-- said a forward reference between value definitions is an error *"because
+-- Rust `let` bindings are ordered and synthesising a correct order would
+-- require dependency analysis this surface does not admit"*. §1.2 is the
+-- argument that it refused the wrong thing: the analysis §8.3 declines is the
+-- one that asks *what does this name mean*, and this asks only *which of
+-- these names appears in that body*, over a set known in advance. No scope,
+-- no types, no inference.
+--
+-- Checked by compiling and **running**: a wrong order is `E0425` against
+-- generated code, and a wrong *sort* is a different number from the same
+-- program, which only running can see.
+
+-- Two bindings, written in the order Rust cannot take. Doc 03 §8.3's own
+-- failing example, now the example that works.
+area : f64 -> f64
+area w = scaled
+  where
+    scaled = base * 2.0
+    base = w * w
+
+-- A three-binding chain, written backwards. §3 case 1, and the case that
+-- tells a topological sort from a single-pass "move it earlier" heuristic:
+-- the heuristic passes the two-binding case above and fails this one.
+chain : u64 -> u64
+chain n = c
+  where
+    c = b + 1
+    b = a + 1
+    a = n * 2
+
+-- **A `where` entry may be a function**, declared exactly as at module scope:
+-- a signature line, then one or more equation rows. This is leaf 0, and the
+-- prerequisite the row's first draft missed — without it leaf 3 has no
+-- surface to lower.
+--
+-- Nothing was invented for the spelling. A signature line is `Ident` then `:`
+-- with no depth-zero `=`, which is plan 52's `reaches_a_binding_eq` asked the
+-- other way round; an equation is a name, a pattern row and an `=`. And the
+-- signature is **required**, which is already true at module scope and is
+-- precisely what makes a nested `fn`'s types available without inference.
+--
+-- `Parser::function` is reused wholesale, so multi-equation bodies, guard
+-- ladders and generics arrive without being written again.
+parity : u64 -> bool
+parity n = even n
+  where
+    even : u64 -> bool
+    even 0 = true
+    even k = odd (k - 1)
+    odd : u64 -> bool
+    odd 0 = false
+    odd k = even (k - 1)
+
+-- Mutual recursion needs no ordering at all, which is what made leaf 3 free:
+-- `even` calls `odd` and `odd` calls `even`, and Rust accepts nested `fn`
+-- items in either definition order. So the sort orders **bindings** among
+-- themselves and leaves functions where they are — simpler than sorting a
+-- mixed group.
+--
+-- A group holding both is the proof: `half` is a function, `doubled` and
+-- `trebled` are bindings in reverse dependency order, and the function stays
+-- in the middle where it was written.
+mixed : u64 -> u64
+mixed n = trebled
+  where
+    doubled = half n * 2
+    half : u64 -> u64
+    half k = k / 2
+    trebled = doubled * 3
+
+-- A reference to a **parameter** or to a module-scope name is not an edge,
+-- which is free rather than a check: a name not in the group's own bound set
+-- is simply not in the map. §3 case 4 — asserted because a scan treating
+-- every identifier as an edge would produce spurious cycles here.
+const OFFSET : u64 = 10
+
+offsets : u64 -> u64
+offsets n = total
+  where
+    total = shifted + OFFSET
+    shifted = n + OFFSET
+
+main : ()
+main =
+  println! \-> "#{(area 3.0)}"
+  println! \-> "#{(chain 5)}"
+  println! \-> "#{(parity 4)}"
+  println! \-> "#{(parity 5)}"
+  println! \-> "#{(mixed 10)}"
+  println! \-> "#{(offsets 1)}"
+  ()
