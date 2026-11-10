@@ -36,13 +36,7 @@ pub(crate) fn else_text(otherwise: &Option<Block>, indent: usize, source: &str) 
   };
   let pad = indent_text(indent);
   if let [only] = block.stmts.as_slice()
-    && matches!(
-      only.expr,
-      Expr::If {
-        is_inline: false,
-        ..
-      }
-    )
+    && matches!(only.expr, Expr::If { .. })
     && only.leading.is_empty()
     && only.trailing.is_none()
   {

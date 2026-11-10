@@ -202,6 +202,27 @@ pub enum Code {
   /// function's value outright, and a `()` after one is unreachable code.
   UnitTail,
 
+  /// `RDX0114` — a reserved word used where the language has no construct
+  /// for it.
+  ///
+  /// Plan 55 leaf 7, and `do` is its only trigger. §1.7 retired the construct
+  /// — an indented block is an expression, so no keyword announces one — and
+  /// §9 decision 4 kept the **word**: plan 60 takes `<-` as a monadic bind,
+  /// and `do`'s Haskell meaning is the one still unclaimed, so spending the
+  /// token on an identifier now would make that row a breaking change.
+  ///
+  /// **A reservation nothing says out loud is indistinguishable from an
+  /// oversight.** Without this code, `found = do` is `RDX0102` *"expected an
+  /// expression"* and `do = 1` is the same — both true, and both describing
+  /// the position rather than the rule. An author reading either has no way
+  /// to tell a retired construct from a word the parser has not learned yet,
+  /// which is the distinction the help line carries.
+  ///
+  /// The same shape as [`Self::LocalTest`]: a construct that *was* available
+  /// and is now refused by name, because the generic message names the wrong
+  /// problem.
+  ReservedWord,
+
   // ---- lints: RDX1000+ ----
   /// `unwrap` or `expect` used — doc 03 §12.7, plan 38.
   ///
@@ -307,6 +328,7 @@ impl Code {
       Self::NewtypeShape => 111,
       Self::LocalTest => 112,
       Self::UnitTail => 113,
+      Self::ReservedWord => 114,
       // Doc 03 §17's published number, and the first in the lint band.
       Self::UnwrapUsed => 1001,
       Self::CommentAllowPragma => 1002,
@@ -350,6 +372,7 @@ impl Code {
       Self::NewtypeShape,
       Self::LocalTest,
       Self::UnitTail,
+      Self::ReservedWord,
       Self::UnwrapUsed,
       Self::CommentAllowPragma,
       Self::ShadowedBinding,

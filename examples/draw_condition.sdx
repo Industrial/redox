@@ -71,10 +71,19 @@ unwrap_nested o = case o of
   y | Some _ = y -> -1
   _ -> -2
 
--- The condition form is an expression too, told apart by `then` exactly as
--- plan 20's is.
+-- A pattern test carries a **value** out of an `if`, not only an effect.
+--
+-- Written `if Some _ = o then "present" else "absent"` until plan 55 leaf 7
+-- retired `then`; there is one `if` spelling now, and a pattern test reads
+-- the same in it as it does in a statement. Nothing about the condition
+-- changed — `holds_a_pattern_test` stopped scanning at `then` and now stops
+-- at the line break, which is where the condition ended anyway.
 label : Option<i32> -> &'static str
-label o = if Some _ = o then "present" else "absent"
+label o =
+  if Some _ = o
+    "present"
+  else
+    "absent"
 
 -- A parenthesised constructor pattern in an equation's **row**. Juxtaposition
 -- there is ambiguous — `f Some v` could be `f (Some v)` or three patterns —

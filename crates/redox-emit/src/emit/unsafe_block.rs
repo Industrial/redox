@@ -1,4 +1,4 @@
-use crate::emit::emit_do::emit_do;
+use crate::emit::emit_block::emit_block;
 use crate::emit::expr::emit_expr;
 use redox_ast::Block;
 
@@ -20,5 +20,5 @@ pub(crate) fn emit_unsafe_block(body: &Block, indent: usize) -> String {
   if let Some(e) = body.sole_expression() {
     return format!("unsafe {{ {} }}", emit_expr(e, indent));
   }
-  format!("unsafe {}", emit_do(&None, body, indent))
+  format!("unsafe {}", emit_block(&None, body, indent))
 }

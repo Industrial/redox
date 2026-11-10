@@ -695,6 +695,19 @@ fn has_a_local_declaration(file: &Source) -> bool {
   const KEYWORDS: &[&str] = &[
     "data", "newtype", "union", "type", "class", "instance", "errors", "import", "const", "static",
   ];
+  any_line_head(file, |index, in_a_body| {
+    in_a_body && KEYWORDS.contains(&file.spellings[index].as_str())
+  })
+}
+
+/// Ask `test` at the first token of every line, with whether the enclosing
+/// block is a **function body**.
+///
+/// The walk [`has_a_local_declaration`] argues for, shared since plan 55 leaf
+/// 7 gave it a second caller. Depth comes from `Indent`/`Dedent` rather than
+/// from the text, for the reason `indentation_round_trip` records: a
+/// continuation line is indented text at its parent's token depth.
+fn any_line_head(file: &Source, mut test: impl FnMut(usize, bool) -> bool) -> bool {
   /// Heads of every line that opens a block which is *not* a function body.
   const OPENS_A_NON_BODY: &[&str] = &[
     "module", "class", "instance", "errors", "data", "newtype", "union", "extern", "test",
@@ -715,9 +728,8 @@ fn has_a_local_declaration(file: &Source) -> bool {
       }
       _ => {
         if starts_a_line(file, index) {
-          let head = file.spellings[index].as_str();
-          line_head = Some(head);
-          if is_body.last() == Some(&true) && KEYWORDS.contains(&head) {
+          line_head = Some(file.spellings[index].as_str());
+          if test(index, is_body.last() == Some(&true)) {
             return true;
           }
         }
@@ -725,6 +737,35 @@ fn has_a_local_declaration(file: &Source) -> bool {
     }
   }
   false
+}
+
+/// Whether a **binding's value** is an indented block — plan 55 leaf 7.
+///
+/// `Toks(["do"])` witnessed *Blocks as expressions* until the leaf retired the
+/// keyword, and it had to go for a second reason worth recording: this gate
+/// reads `tests/ui/` too, so `tests/ui/reserved_do.sdx` — the fixture that
+/// asserts `do` is **refused** — kept the old witness green. A token run
+/// cannot tell a construct from its own refusal fixture.
+///
+/// Nor can one tell a block-valued binding from a clause body: `inner =` and
+/// `tier n =` with a block under each are the same four tokens. What separates
+/// them is **what opened the enclosing block**, which is
+/// [`has_a_local_declaration`]'s finding one leaf earlier, and that walk is
+/// [`any_line_head`] — shared rather than copied.
+fn has_a_block_valued_binding(file: &Source) -> bool {
+  any_line_head(file, |index, in_a_body| {
+    in_a_body
+      && matches!(file.tokens[index].kind, TokenKind::Ident(_))
+      && file.spellings.get(index + 1).is_some_and(|s| s == "=")
+      && file
+        .tokens
+        .get(index + 2)
+        .is_some_and(|t| t.kind == TokenKind::Newline)
+      && file
+        .tokens
+        .get(index + 3)
+        .is_some_and(|t| t.kind == TokenKind::Indent)
+  })
 }
 
 /// Every reachable row of `docs/GRAMMAR.md`, and what witnesses it.
@@ -1082,8 +1123,11 @@ const WITNESSES: &[Covers] = &[
   },
   Covers {
     row: "Blocks as expressions",
-    spelling: "`do`, and `do 'label`",
-    witness: Witness::Toks(&["do"]),
+    spelling: "`inner =` with an indented block under it",
+    witness: Witness::Shape(
+      "a binding inside a function body whose value is an indented block",
+      has_a_block_valued_binding,
+    ),
   },
   Covers {
     row: "async blocks",
@@ -1234,10 +1278,13 @@ const WITNESSES: &[Covers] = &[
   },
   Covers {
     row: "Labelled loops and blocks",
-    spelling: "`'outer loop` and `do 'search`",
+    spelling: "`'outer loop` and `'search` on a bare block",
     witness: Witness::All(&[
       Witness::Toks(&["«label»", "loop"]),
-      Witness::Toks(&["do", "«label»"]),
+      // A label that **ends its line** opens a block — plan 55 leaf 7, where
+      // `do 'search` became `'search`. `'outer loop` has a keyword after the
+      // label and `break 'search c` has an expression, so neither is this.
+      Witness::Toks(&["«label»", "«nl»"]),
     ]),
   },
   Covers {

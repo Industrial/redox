@@ -504,6 +504,10 @@
 						"named": true
 					},
 					{
+						"type": "block_expression",
+						"named": true
+					},
+					{
 						"type": "boolean",
 						"named": true
 					},
@@ -525,10 +529,6 @@
 					},
 					{
 						"type": "conditional_expression",
-						"named": true
-					},
-					{
-						"type": "do_expression",
 						"named": true
 					},
 					{
@@ -717,6 +717,25 @@
 				},
 				{
 					"type": "while_statement",
+					"named": true
+				}
+			]
+		}
+	},
+	{
+		"type": "block_expression",
+		"named": true,
+		"fields": {},
+		"children": {
+			"multiple": true,
+			"required": true,
+			"types": [
+				{
+					"type": "label",
+					"named": true
+				},
+				{
+					"type": "statement_block",
 					"named": true
 				}
 			]
@@ -1369,201 +1388,10 @@
 	{
 		"type": "conditional_expression",
 		"named": true,
-		"fields": {
-			"alternative": {
-				"multiple": true,
-				"required": false,
-				"types": [
-					{
-						"type": "as",
-						"named": false
-					},
-					{
-						"type": "ascription",
-						"named": true
-					},
-					{
-						"type": "boolean",
-						"named": true
-					},
-					{
-						"type": "catch",
-						"named": false
-					},
-					{
-						"type": "char",
-						"named": true
-					},
-					{
-						"type": "comprehension",
-						"named": true
-					},
-					{
-						"type": "conditional_expression",
-						"named": true
-					},
-					{
-						"type": "identifier",
-						"named": true
-					},
-					{
-						"type": "lambda",
-						"named": true
-					},
-					{
-						"type": "lifetime",
-						"named": true
-					},
-					{
-						"type": "list",
-						"named": true
-					},
-					{
-						"type": "number",
-						"named": true
-					},
-					{
-						"type": "operator",
-						"named": true
-					},
-					{
-						"type": "parenthesized",
-						"named": true
-					},
-					{
-						"type": "path",
-						"named": true
-					},
-					{
-						"type": "raw_string",
-						"named": true
-					},
-					{
-						"type": "record_literal",
-						"named": true
-					},
-					{
-						"type": "section",
-						"named": true
-					},
-					{
-						"type": "self_expression",
-						"named": true
-					},
-					{
-						"type": "string",
-						"named": true
-					},
-					{
-						"type": "type_identifier",
-						"named": true
-					}
-				]
-			},
-			"condition": {
-				"multiple": false,
-				"required": false,
-				"types": [
-					{
-						"type": "condition",
-						"named": true
-					}
-				]
-			},
-			"consequence": {
-				"multiple": true,
-				"required": false,
-				"types": [
-					{
-						"type": "as",
-						"named": false
-					},
-					{
-						"type": "ascription",
-						"named": true
-					},
-					{
-						"type": "boolean",
-						"named": true
-					},
-					{
-						"type": "catch",
-						"named": false
-					},
-					{
-						"type": "char",
-						"named": true
-					},
-					{
-						"type": "comprehension",
-						"named": true
-					},
-					{
-						"type": "conditional_expression",
-						"named": true
-					},
-					{
-						"type": "identifier",
-						"named": true
-					},
-					{
-						"type": "lambda",
-						"named": true
-					},
-					{
-						"type": "lifetime",
-						"named": true
-					},
-					{
-						"type": "list",
-						"named": true
-					},
-					{
-						"type": "number",
-						"named": true
-					},
-					{
-						"type": "operator",
-						"named": true
-					},
-					{
-						"type": "parenthesized",
-						"named": true
-					},
-					{
-						"type": "path",
-						"named": true
-					},
-					{
-						"type": "raw_string",
-						"named": true
-					},
-					{
-						"type": "record_literal",
-						"named": true
-					},
-					{
-						"type": "section",
-						"named": true
-					},
-					{
-						"type": "self_expression",
-						"named": true
-					},
-					{
-						"type": "string",
-						"named": true
-					},
-					{
-						"type": "type_identifier",
-						"named": true
-					}
-				]
-			}
-		},
+		"fields": {},
 		"children": {
 			"multiple": false,
-			"required": false,
+			"required": true,
 			"types": [
 				{
 					"type": "if_statement",
@@ -1903,25 +1731,6 @@
 		}
 	},
 	{
-		"type": "do_expression",
-		"named": true,
-		"fields": {},
-		"children": {
-			"multiple": true,
-			"required": true,
-			"types": [
-				{
-					"type": "label",
-					"named": true
-				},
-				{
-					"type": "statement_block",
-					"named": true
-				}
-			]
-		}
-	},
-	{
 		"type": "draw_statement",
 		"named": true,
 		"fields": {
@@ -2135,10 +1944,6 @@
 					},
 					{
 						"type": "data_declaration",
-						"named": true
-					},
-					{
-						"type": "do_expression",
 						"named": true
 					},
 					{
@@ -2439,10 +2244,6 @@
 				},
 				{
 					"type": "conditional_expression",
-					"named": true
-				},
-				{
-					"type": "do_expression",
 					"named": true
 				},
 				{
@@ -4833,10 +4634,6 @@
 		"named": false
 	},
 	{
-		"type": "do",
-		"named": false
-	},
-	{
 		"type": "else",
 		"named": false
 	},
@@ -4958,10 +4755,6 @@
 	},
 	{
 		"type": "test",
-		"named": false
-	},
-	{
-		"type": "then",
 		"named": false
 	},
 	{

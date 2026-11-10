@@ -467,12 +467,15 @@ string-literal fixtures to miss, because `no_literal_expectations.rs` forbids th
 
 ## 10. Result
 
-**Leaves 0-6 done; criterion 7 withdrawn; leaves 7, 8 and 9 outstanding.**
+**Leaves 0-7 done; criterion 7 withdrawn; leaves 8 and 9 outstanding.**
 Criterion 1 is green. The
 statement/expression fork is gone: `StmtKind` is deleted, `Expr` has 46
 variants, and leaf 1 moved no golden at all — `git status tests/ examples/`
 empty, which is the strongest check available on a refactor across 62 files.
-Leaf 2 then made the indented `if` reachable as a value.
+Leaf 2 then made the indented `if` reachable as a value, and leaf 7 made it
+the **only** `if`: `then` and `do` are both retired, two keywords, two parser
+files and one AST field are deleted, and `Expr::Do` is `Expr::Block` because
+the construct no longer has the keyword's name.
 
 ### 10.1 Position alone cannot decide the `if` spelling, and a golden caught it
 
@@ -918,12 +921,130 @@ the reported position, insert, repeat until clean. Worth recording as the
 technique, because it is how a 61-file surface change gets made without a
 reviewer having to trust a regex.
 
+### 10.17 Leaf 7 — four retirements, and the fourth reader cost the most
+
+`then` is gone and freed, `do` is gone and **reserved**, `'name` labels a bare
+block, and `try`/`async`/`unsafe` are one `prefix` arm reading a block rather
+than three constructs of one shape. Criteria 2, 8 and 9 are green.
+
+**Criterion 2 needed the keyword freed, and measured so first.**
+`(b.1.cmp (&a.1)).then (a.0.cmp (&b.0))` was `RDX0103` *"expected a field
+name, a tuple index, or a method name after `.`"* before the retirement — run,
+not assumed. `examples/control.sdx`'s `ordered` writes it, and its input is
+ordered so that `sort_by`'s **stability** makes the tiebreak the only thing
+that decides the answer: without `.then (…)` it prints `31` where it prints
+`13`. A golden cannot catch that; `examples/control.stdout` can.
+
+**And §1.3's own spelling has a redundant parenthesis.** `redox fmt` removed
+it, `formatting_preserves_meaning` then held the claim to the AST, and the
+emitted Rust is identical: a method call is a receiver, so `.then` binds to
+the whole of `cmp (&a.1)` and `b.1.cmp (&a.1).then (…)` is the canonical
+form. §3 case 1 and §1.3 both quote the parenthesised version.
+
+**Plan 65 paid for argument position; it does not reach an interpolation.**
+§10.8 priced retiring `then` against `print (if c then a else b)` and plan 65
+made the indented form writable there — verified by running
+`examples/control.sdx`'s `bracketed_block` before anything was removed. But
+`#{…}` is scanned **inside one string token**, so there is no line for an
+indented branch to go on at any bracket depth, and a conditional in an
+interpolation has no spelling at all now. `bracketed` calls `tier` instead.
+That is one site in the corpus and one arm of an emit test, and it is the one
+position where this leaf took a spelling away rather than moving it.
+
+**`is_inline` went with `then`.** Leaf 1 put the bit on `Expr::If` because
+position could not recover which of two spellings the author wrote (§10.1);
+with one spelling there is nothing to record, so the field, `reaches_a_then`,
+`if_expression.rs` and `emit_expr`'s one-line arm are all deleted.
+`is_control_flow` answers `true` for every `if`, and `Block::of` — which
+existed to wrap a one-line branch in a block — lost its only caller. The
+**variant count is unchanged**: `Expr::Do` was renamed `Expr::Block`, because
+a node named for a retired keyword is a lie with plan 60 about to claim the
+word for something else.
+
+**The narrow lowering survived anyway, and `generated_rust_is_rustfmt_clean`
+is what insisted.** `tier n = if n > 9 then "big" else "small"` migrated to the
+indented form, which moved it out of the expression path and into **tail**
+position — where `emit_control` wrote four lines and rustfmt wanted
+`if n > 9 { "big" } else { "small" }` on one. `emit_control` now asks
+`one_line_if` when `tail` is set, which is the question `control_text` has
+asked since leaf 2, and `tests/golden/control.xrs`'s `fn tier` is byte-identical
+to its pre-leaf text.
+
+**`do` reserved took a new code, `RDX0114`, and it reused `local_test`'s
+lesson twice.** Both ways of writing it already failed as `RDX0102` *"expected
+an expression"* — true, and about the position rather than the rule, which is
+the distinction §9 decision 4 needs an author to be told. `reserved_word`
+**consumes** the old construct before raising, because leaving the block to
+recovery reported a second `RDX0102` on its first line *and then missed the
+`do = 2` on the next one*; and `tests/ui/reserved_do.sdx` puts the identifier
+use **first**, because recovery is line-oriented and the consumed block pushes
+it past a second occurrence. It is raised from `prefix` rather than
+`Parser::stmt` — the opposite placement to leaf 6's, for the opposite reason:
+`test` is a declaration and a body is where it is wrong, `do` is an expression
+and `prefix` is where every expression begins.
+
+**The fourth reader was the expensive one, and it took four attempts.**
+Doc 04's fifth ordering commitment again, in the direction a *retirement*
+makes easy to miss — a keyword list in an editor keeps colouring a word the
+compiler no longer knows.
+
+- A bare `statement_block` inside `_block_expression` is **token-for-token an
+  equation's indented body**, so GLR had two readings of every clause and
+  tree-sitter rejected both a `prec` on `block_expression` and a `prec` on
+  `equation`. `block_expression` is therefore reached from `binding` alone,
+  which is the same split the Rust parser has for free: `clause` reads a
+  statement list itself, and `prefix` is reached only where a *value* is
+  wanted.
+- **Leaving `do` out of the grammar** made it lex as an identifier, so
+  `found = do` parsed clean — the grammar and the compiler disagreeing about a
+  reserved word, which is exactly the drift the cross-check exists for.
+  **Listing it in `_expression_part`** fixed the colouring and not the refusal.
+  What states it is tree-sitter 0.25's `reserved`, and that needs a token to
+  point at — *"Reserved word 'do' must be a token"* — so the word gets a
+  `reserved_word` rule reachable from nowhere else.
+- `highlights.scm` then had to name `(reserved_word)` rather than `"do"`,
+  because a query may only name a node the grammar has and an invalid node type
+  is a **hard error** rather than a dead pattern. `editors.rs`'s
+  `NOT_KEYWORDS` gains `do` for that reason, beside `true`, `false` and `self`.
+- `every_grammar_keyword_is_coloured`'s floor was `> 40` and the derived set is
+  **39**. A floor that tracks the real figure fails on every retirement and
+  catches nothing a lower one misses, so it is `> 30` and the six named members
+  carry the non-vacuity. Zed's copies of the queries, the Vim list, the
+  TextMate regex and VSCode's `increaseIndentPattern` — which keyed on `do` and
+  `then` — all moved with it.
+- **One spelling still recovers silently**, disclosed rather than claimed:
+  `found = do` with a block drops the `do` and produces no ERROR node, while
+  `do = 2` produces one. `test/corpus/block_expressions.txt` asserts the
+  second. That is tree-sitter's lossy recovery, the class plan 65 recorded, and
+  `RDX0114` is the authority on the refusal either way.
+
+**`construct_coverage`'s witness was hollow in a new way, and §10.13's
+generalisation predicted it.** `Toks(["do"])` witnessed *Blocks as
+expressions* and stayed green after the retirement, because this gate reads
+`tests/ui/` and `tests/ui/reserved_do.sdx` **contains** the token it looked
+for. A token run cannot tell a construct from its own refusal fixture. The
+replacement is a shape — a binding inside a function body whose value is an
+indented block — and it is leaf 5's *what opened the block* test again, now
+shared as `any_line_head` rather than copied. *Labelled loops and blocks*
+takes `«label» «nl»`, which `'outer loop` and `break 'search c` cannot match.
+
+**`redox fmt` needed one real decision.** A block-valued binding has nothing
+after its `=`, and `do` was what used to fill that space — so `binding_text`
+chooses its separator from the value's form, or leaves a trailing space on the
+`=` line. That is the only place in that printer where the separator is not a
+constant.
+
 ### 10.16 Open
 
-- **Leaves 2-9.** Criterion 1 is green from leaf 0 and the fork is gone; the
-  remaining criteria — `.then` as a method, a `case` arm's indented block, local
-  declarations, the `test` carve-out, the explicit `()`, the discarded-`Result`
-  lint, retiring `do` and `then`, the labelled bare block — are untouched.
+- **Leaves 8 and 9.** The corpus rewrite of `return`-heavy shapes, and the doc
+  amendments — docs 01 §8, 03 §7, 18 §1.1, plan 20 §1.2, plan 22's disclosed
+  gap. Criteria 10-12 are theirs.
+- **`docs/STATUS.md` and `docs/CONFORMANCE.md` are stale after leaf 7** and are
+  blessed once at the end of the row rather than per leaf: `RDX0114`, the new
+  `tests/ui/` fixture and the moved line counts are all in them.
+- **`construct_coverage.rs` is 1,494 lines against a 1,500-line cap.** Leaf 7
+  crossed it at 1,512 and paid for the room by sharing the walk; the next
+  addition to that file has to split it.
 - **`StmtKind` is named in documents that no longer describe the code**:
   `docs/06 - Redox Code Architecture.md`'s two rows for `block/stmt/kind.rs`,
   plan 20 §§6-7, plan 30 §4, plan 34 §§10.15/11, plan 54 §§10/11.3, plan 60
@@ -935,6 +1056,14 @@ reviewer having to trust a regex.
   mostly one-liners, and splitting the match would cost the exhaustive
   no-wildcard property its doc comment argues for. Worth a look if it grows
   again.
+- **The same history muddle again, and leaf 1's note did not prevent it.**
+  Leaf 7 used `git mv` to rename `emit_do.rs` to `emit_block.rs`, which
+  **stages**; the concurrent docs commit `7ae143a` — *"nine orientations fed
+  back"* — picked the rename out of the index, so it carries one `R100` beside
+  its nine documents. The content edit is in leaf 7's own commit and the tree
+  is consistent; only the attribution is wrong. The lesson is narrower than
+  "avoid `git rm`": **any** index-staging git command is unsafe while another
+  agent may commit, and `mv` plus an unstaged add would have been safe.
 - **A history muddle, recorded rather than rewritten.** Leaf 1 used `git rm`,
   which stages; commit `2739b2b` — a docs commit — picked three file deletions
   out of the index as a result. `block/stmt/kind.rs`,

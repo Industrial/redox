@@ -282,54 +282,54 @@ pub enum Expr {
     qualifiers: Vec<Qualifier>,
     span: Span,
   },
-  /// `if c` with an indented block, and `if c then a else b` — doc 01 §8,
-  /// plan 20, one node since plan 55 leaf 1.
+  /// `if c` with an indented block — doc 01 §8, plan 20.
   ///
-  /// **Two spellings, one node.** Until leaf 1 there were two nodes, told
-  /// apart by which enum they lived in: `Expr::If` for the one-line form and
-  /// `StmtKind::If` for the indented one. Collapsing the enums collapses
-  /// them, and nothing is lost — the one-line form's branches are blocks of a
-  /// single expression, which is what the indented form's branches already
-  /// are when they hold one line.
+  /// **One spelling since plan 55 leaf 7.** Leaf 1 merged two nodes —
+  /// `Expr::If` for `if c then a else b` and `StmtKind::If` for the indented
+  /// form — into one carrying an `is_inline` bit, because the two surface
+  /// forms had to be told apart by something and position could not do it.
+  /// Leaf 7 retired `then`, so there is nothing left to tell apart and the
+  /// bit is gone with it: an `if` is the indented form, wherever it stands.
   ///
-  /// Which spelling the author wrote is `is_inline`, and **position cannot
-  /// recover it**. That was the first design and the golden corpus refused
-  /// it: a clause body written on its `=` line is one block element holding
-  /// whatever `parse_expr` returned (`Parser::inline_body`), so
-  /// `tier n = if n > 9 then "big" else "small"` puts a one-line `if` in
-  /// statement position. Deciding by position emitted it as four lines and
-  /// `tests/golden/control.xrs` moved, which is the check that caught it.
+  /// What paid for that is plan 65. An indented `if` could not be a
+  /// parenthesised argument while the lexer suppressed layout inside
+  /// brackets, so `print (if c then a else b)` was the only spelling there;
+  /// a bracket now opens a layout context, and `examples/control.sdx`'s
+  /// `bracketed_block` is the witness.
   ///
-  /// A bit on the node is the same device [`Call`](Self::Call)'s `is_dollar`
-  /// is, for the same reason: two surface spellings of one construct, and a
-  /// printer that picks the wrong one rewrites the author's source.
+  /// Narrow enough branches still *lower* to one line of Rust — `one_line_if`
+  /// is that decision, and it is rustfmt's rather than the author's.
   ///
-  /// `otherwise` is `None` only for the indented form. Rust's `if` without an
-  /// `else` has type `()`, so a conditional *expression* must have one — and
-  /// `else if` is an `else` whose block holds a single indented `If`, which is
-  /// how Rust reads it too.
+  /// `otherwise` is `None` for an `else`-less `if`. Rust's `if` without an
+  /// `else` has type `()`, so only the two-armed form carries a value — and
+  /// `else if` is an `else` whose block holds a single `If`, which is how
+  /// Rust reads it too.
   If {
     condition: crate::Condition,
     then_block: crate::Block,
     otherwise: Option<crate::Block>,
-    /// The one-line `if c then a else b`, rather than doc 01 §8's indented
-    /// form.
-    ///
-    /// When set, both branches are blocks of a single expression — which is
-    /// all the one-line form can hold, and what `Parser::if_expression`
-    /// builds. It is also what makes this form a **value expression** rather
-    /// than a statement one: [`Self::is_statement_form`] and
-    /// [`Self::is_control_flow`] both answer `false` for it, so it travels
-    /// the path every other expression travels.
-    is_inline: bool,
     span: Span,
   },
-  /// `do` and `do 'label` — doc 03 §7.2's block expression, plan 20.
+  /// An indented block as an expression, and `'label` on one — plan 55 leaf
+  /// 7.
   ///
-  /// An expression, because §7.2's own example assigns one to a binding. The
-  /// labelled form is Rust's labelled block, native since 1.65, which is what
-  /// *"permitting early exit with a value"* needs.
-  Do {
+  /// ```text
+  /// inner =                 found = 'search
+  ///   n = 2                   for c in candidates
+  ///   n * 10                    if c.matches q
+  ///                               break 'search Some c
+  ///                           None
+  /// ```
+  ///
+  /// Spelled `do` and `do 'label` until leaf 7 (doc 03 §7.2, plan 20). §1.7
+  /// retired the keyword rather than the construct: if an indented block is
+  /// an expression, nothing needs to announce one, and `do` stays **reserved**
+  /// for plan 60's sake (`RDX0114`).
+  ///
+  /// The label makes it Rust's labelled block, native since 1.65, which is
+  /// what *"permitting early exit with a value"* needs — and the one
+  /// capability the keyword carried that nothing else provides.
+  Block {
     label: Option<String>,
     body: crate::Block,
     span: Span,
@@ -659,7 +659,7 @@ impl Expr {
       | Expr::Try { span, .. }
       | Expr::Item { span, .. }
       | Expr::If { span, .. }
-      | Expr::Do { span, .. }
+      | Expr::Block { span, .. }
       | Expr::List { span, .. }
       | Expr::Comprehension { span, .. }
       | Expr::Num { span, .. }
@@ -691,10 +691,9 @@ impl Expr {
   /// leaf 1 the question was `matches!(stmt.kind, StmtKind::Expr(_))` and the
   /// *type* answered it; one node kind means the node answers it instead.
   ///
-  /// The **indented** `if` is in the set and the one-line form is not, which
-  /// is exactly what the old `StmtKind::If`/`Expr::If` split said with two
-  /// types: a block element holding `if c then a else b` is an expression
-  /// statement, and one holding doc 01 §8's indented `if` is not.
+  /// `If` is in the set unconditionally since leaf 7 retired the one-line
+  /// spelling. While both existed the answer split on `is_inline`, which is
+  /// what the old `StmtKind::If`/`Expr::If` pair said with two types.
   pub fn is_statement_form(&self) -> bool {
     matches!(
       self,
@@ -714,15 +713,14 @@ impl Expr {
   /// and their own trailing newline, which is why the emitter routes them to
   /// `emit_control` before it pads anything itself.
   ///
-  /// The one-line `if c then a else b` is **not** one of them: it fits on the
-  /// line it is on, so it lowers like any other expression.
+  /// Every `if` is one of them since leaf 7. The one-line `if c then a else b`
+  /// was not — it fitted on the line it was on — and that exception is what
+  /// the retired `is_inline` bit selected.
   pub fn is_control_flow(&self) -> bool {
     matches!(
       self,
-      Expr::If {
-        is_inline: false,
-        ..
-      } | Expr::While { .. }
+      Expr::If { .. }
+        | Expr::While { .. }
         | Expr::For { .. }
         | Expr::Loop { .. }
         | Expr::Break { .. }
@@ -734,22 +732,15 @@ impl Expr {
   /// The blocks this form owns as **indented statement lists in the same
   /// scope**.
   ///
-  /// Five forms own one: an indented `if`'s branches, the three loops' bodies
-  /// and a `guard`'s else. Nothing in any of them opens a closure, so a walk
-  /// over statements may descend into them and stay in the function it
-  /// started in.
+  /// Five forms own one: an `if`'s branches, the three loops' bodies and a
+  /// `guard`'s else. Nothing in any of them opens a closure, so a walk over
+  /// statements may descend into them and stay in the function it started in.
   ///
-  /// The one-line `if`'s branches are **not** here. They are expression slots
-  /// wearing a `Block` — one element each, built by the parser with no trivia
-  /// — so there is nothing a statement walk could find in one, and omitting
-  /// them keeps every such walk reading exactly what it read before plan 55
-  /// leaf 1 merged the two `if`s.
-  ///
-  /// **Not** `do`, `try`, `async`, `unsafe` or a lambda, each of which also
-  /// holds a block. Those are expression forms, reaching them needs an
-  /// expression walk, and `try` and a lambda open a closure of their own —
-  /// so a caller asking this question gets the set it can safely recurse
-  /// into rather than every block in the tree.
+  /// **Not** a bare [`Block`](Self::Block), `try`, `async`, `unsafe` or a
+  /// lambda, each of which also holds a block. Those are expression forms,
+  /// reaching them needs an expression walk, and `try` and a lambda open a
+  /// closure of their own — so a caller asking this question gets the set it
+  /// can safely recurse into rather than every block in the tree.
   ///
   /// **Not `Item` either**, for the stronger version of the same reason. A
   /// local declaration (leaf 5) does hold blocks — a nested `fn`'s clause
@@ -771,7 +762,6 @@ impl Expr {
       Expr::If {
         then_block,
         otherwise,
-        is_inline: false,
         ..
       } => match otherwise {
         Some(other) => vec![then_block, other],
@@ -782,9 +772,6 @@ impl Expr {
       // A local declaration's blocks belong to a different function; see the
       // note above.
       Expr::Item { .. }
-      | Expr::If {
-        is_inline: true, ..
-      }
       | Expr::Call { .. }
       | Expr::MethodCall { .. }
       | Expr::Field { .. }
@@ -807,7 +794,7 @@ impl Expr {
       | Expr::Record { .. }
       | Expr::List { .. }
       | Expr::Comprehension { .. }
-      | Expr::Do { .. }
+      | Expr::Block { .. }
       | Expr::Try { .. }
       | Expr::Unit { .. }
       | Expr::Section { .. }

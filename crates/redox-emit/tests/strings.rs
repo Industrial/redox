@@ -44,6 +44,13 @@ fn an_interpolation_becomes_a_format_hole() {
 /// ordinary scanners and the parser runs the ordinary expression parser over
 /// those tokens, so none of these is a special case — and Emerald accepted
 /// only an identifier here for eleven plans.
+///
+/// `#{if a then 1 else 2}` was the fifth case and is gone with plan 55 leaf
+/// 7: an interpolation is scanned inside **one string token**, so there is no
+/// line for an indented branch to go on and a conditional cannot be written
+/// here at all. `examples/control.sdx`'s `bracketed` records the cost and
+/// calls one instead — the only position where the retirement took a
+/// spelling away rather than moving it.
 #[test]
 fn an_interpolation_holds_an_expression() {
   for (sdx, want) in [
@@ -51,10 +58,7 @@ fn an_interpolation_holds_an_expression() {
     ("#{user.name}", "format!(\"{}\", user.name)"),
     ("#{f x}", "format!(\"{}\", f(x))"),
     ("#{xs.len ()}", "format!(\"{}\", xs.len())"),
-    (
-      "#{if a then 1 else 2}",
-      "format!(\"{}\", if a { 1 } else { 2 })",
-    ),
+    ("#{tier n}", "format!(\"{}\", tier(n))"),
   ] {
     assert_eq!(
       body(&format!("  s = \"{sdx}\"\n")),

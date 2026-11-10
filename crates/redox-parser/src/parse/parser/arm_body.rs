@@ -3,7 +3,6 @@ use crate::parse::parser::Parser;
 use crate::parse::parser::assign_tail::assign_tail;
 use crate::parse::parser::parse_expr::parse_expr;
 use redox_ast::Expr;
-use redox_lexer::TokenKind;
 
 /// A `case` arm's body, after its `->` — plan 55 leaf 3.
 ///
@@ -18,27 +17,21 @@ use redox_lexer::TokenKind;
 /// ```
 ///
 /// An arm body is an **expression**, and an indented block is one — so the
-/// block needs no marker in front of it. The node is `Expr::Do` with no
-/// label, which plan 55 §10.4 records as Redox's only spelling of a block
-/// expression: that is why `-> do` keeps parsing with nothing written for it
-/// here, why both spellings emit the same Rust, and why leaf 7 can retire the
-/// keyword without this production changing.
+/// block needs no marker in front of it.
 ///
-/// The inline body is one line and takes an assignment tail, which is
-/// criterion 3's second half — `Exit::Success _ -> enriched += 1` was
-/// `RDX0101` before this leaf, because `parse_expr` stops at `+=` and only
-/// `Parser::stmt` read what follows. `assign_tail` is that reading, shared.
+/// **Leaf 7 deleted this function's block case rather than its keyword.**
+/// Leaf 3 read the block here, because `prefix` had no production for a bare
+/// one and `-> do` was still accepted; leaf 7 gave `prefix` the production
+/// (`block_expr`), so `parse_expr` reaches it on its own and §10.10's
+/// prediction holds — *"once `prefix` parses a bare indented block,
+/// `arm_body`'s special case simply goes"*.
+///
+/// What is left is the assignment tail, which is criterion 3's second half:
+/// `Exit::Success _ -> enriched += 1` was `RDX0101` before leaf 3, because
+/// `parse_expr` stops at `+=` and only `Parser::stmt` read what follows.
+/// `assign_tail` is that reading, shared — and it declines harmlessly on a
+/// block, which ends on a `Dedent` with no operator after it.
 pub(crate) fn arm_body(p: &mut Parser) -> Result<Expr, ParseError> {
-  if p.check(&TokenKind::Newline) {
-    let body = p.statement_block("expected an indented `case` arm body")?;
-    let span = body.span;
-    return Ok(Expr::Do {
-      label: None,
-      body,
-      span,
-    });
-  }
-
   let start = p.peek_span().0;
   let value = parse_expr(p, 0)?;
   assign_tail(p, value, start)

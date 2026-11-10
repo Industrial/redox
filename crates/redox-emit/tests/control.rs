@@ -29,14 +29,25 @@ fn body(src: &str) -> String {
   lines.join("\n")
 }
 
-// --- §5.1 and §5.2: the two `if` forms ------------------------------------
+// --- §5.1 and §5.2: the one `if` form --------------------------------------
 
-/// `then` is what tells the expression from the statement — one keyword
-/// decides which node the parser builds.
+/// An `if` as a **value**, which is one spelling since plan 55 leaf 7 retired
+/// `then`.
+///
+/// This read `tier = if n > 9 then "big" else "small"` and asserted the same
+/// Rust, which is the point: the braces come from `one_line_if` asking what
+/// rustfmt would do with the width, not from the author having written a
+/// one-line conditional. So the retirement cost this lowering nothing.
+///
+/// The `if` stays on the `=` line, which is `examples/control.sdx`'s
+/// `labelled`. Pushing it to the next line is **also** legal and means the
+/// same thing — leaf 7 made a bare indented block an expression, so the value
+/// becomes a block holding one `if` and Rust gets a redundant `{ … }` that
+/// rustfmt keeps. Worth knowing rather than discovering.
 #[test]
-fn an_if_with_then_is_an_expression() {
+fn an_if_as_a_value_is_an_expression() {
   assert_eq!(
-    body("  tier = if n > 9 then \"big\" else \"small\"\n"),
+    body("  tier = if n > 9\n    \"big\"\n  else\n    \"small\"\n"),
     "let tier = if n > 9 { \"big\" } else { \"small\" };"
   );
 }
@@ -122,19 +133,23 @@ fn loop_emits_loop() {
   );
 }
 
-// --- §5.6: `do` ------------------------------------------------------------
+// --- §5.6: the block expression -------------------------------------------
 
+/// An indented block as a value — `v = do` with a block under it until plan
+/// 55 leaf 7 retired the keyword, and the same Rust either way.
 #[test]
-fn do_emits_a_block_expression() {
-  assert_eq!(body("  v = do\n    1\n"), "let v = {\n    1\n};");
+fn a_block_is_an_expression() {
+  assert_eq!(body("  v =\n    1\n"), "let v = {\n    1\n};");
 }
 
-/// `do 'name` is a labelled block — legal Rust since 1.65, and how a value
-/// leaves a loop that is not a function's last expression.
+/// `'name` on a block is a labelled block — legal Rust since 1.65, and how a
+/// value leaves a loop that is not a function's last expression. The one
+/// capability `do` carried that nothing else provides, so plan 55 §1.7 kept
+/// it and dropped the word in front.
 #[test]
-fn a_labelled_do_emits_a_labelled_block() {
+fn a_labelled_block_emits_a_labelled_block() {
   assert_eq!(
-    body("  v = do 'search\n    1\n"),
+    body("  v = 'search\n    1\n"),
     "let v = 'search: {\n    1\n};"
   );
 }

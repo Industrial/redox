@@ -1,0 +1,91 @@
+================================================================
+a binding whose value is a bare block
+================================================================
+
+main : ()
+main =
+  inner =
+    n = 2
+    n * 10
+  print inner
+
+----------------------------------------------------------------
+
+(source_file
+  (signature
+    name: (identifier)
+    type: (signature_type))
+  (equation
+    name: (identifier)
+    body: (binding
+      pattern: (pattern_run
+        (identifier))
+      value: (block_expression
+        (statement_block
+          (binding
+            pattern: (pattern_run
+              (identifier))
+            value: (number))
+          (expression_statement
+            (identifier)
+            (operator)
+            (number)))))
+    body: (expression_statement
+      (identifier)
+      (identifier))))
+
+================================================================
+a labelled block
+================================================================
+
+main : ()
+main =
+  found = 'search
+    break 'search 1
+  print found
+
+----------------------------------------------------------------
+
+(source_file
+  (signature
+    name: (identifier)
+    type: (signature_type))
+  (equation
+    name: (identifier)
+    body: (binding
+      pattern: (pattern_run
+        (identifier))
+      value: (block_expression
+        (label)
+        (statement_block
+          (break_statement
+            (label)
+            (number)))))
+    body: (expression_statement
+      (identifier)
+      (identifier))))
+
+================================================================
+`do` is reserved and names no construct
+:error
+================================================================
+
+main : ()
+main =
+  do = 2
+  print 1
+
+----------------------------------------------------------------
+
+(source_file
+  (signature
+    name: (identifier)
+    type: (signature_type))
+  (equation
+    name: (identifier)
+    body: (expression_statement
+      (ERROR)
+      (number))
+    body: (expression_statement
+      (identifier)
+      (number))))

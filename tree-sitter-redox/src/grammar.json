@@ -1759,6 +1759,10 @@
 							{
 								"type": "SYMBOL",
 								"name": "_block_expression"
+							},
+							{
+								"type": "SYMBOL",
+								"name": "block_expression"
 							}
 						]
 					}
@@ -2756,10 +2760,6 @@
 				},
 				{
 					"type": "SYMBOL",
-					"name": "do_expression"
-				},
-				{
-					"type": "SYMBOL",
 					"name": "async_block"
 				},
 				{
@@ -2888,13 +2888,9 @@
 				}
 			]
 		},
-		"do_expression": {
+		"block_expression": {
 			"type": "SEQ",
 			"members": [
-				{
-					"type": "STRING",
-					"value": "do"
-				},
 				{
 					"type": "CHOICE",
 					"members": [
@@ -2912,6 +2908,10 @@
 					"name": "statement_block"
 				}
 			]
+		},
+		"reserved_word": {
+			"type": "STRING",
+			"value": "do"
 		},
 		"async_block": {
 			"type": "SEQ",
@@ -2953,62 +2953,12 @@
 			]
 		},
 		"conditional_expression": {
-			"type": "CHOICE",
-			"members": [
-				{
-					"type": "PREC_LEFT",
-					"value": 0,
-					"content": {
-						"type": "SEQ",
-						"members": [
-							{
-								"type": "STRING",
-								"value": "if"
-							},
-							{
-								"type": "FIELD",
-								"name": "condition",
-								"content": {
-									"type": "SYMBOL",
-									"name": "condition"
-								}
-							},
-							{
-								"type": "STRING",
-								"value": "then"
-							},
-							{
-								"type": "FIELD",
-								"name": "consequence",
-								"content": {
-									"type": "SYMBOL",
-									"name": "_expression"
-								}
-							},
-							{
-								"type": "STRING",
-								"value": "else"
-							},
-							{
-								"type": "FIELD",
-								"name": "alternative",
-								"content": {
-									"type": "SYMBOL",
-									"name": "_expression"
-								}
-							}
-						]
-					}
-				},
-				{
-					"type": "PREC",
-					"value": -1,
-					"content": {
-						"type": "SYMBOL",
-						"name": "if_statement"
-					}
-				}
-			]
+			"type": "PREC",
+			"value": -1,
+			"content": {
+				"type": "SYMBOL",
+				"name": "if_statement"
+			}
 		},
 		"lambda": {
 			"type": "PREC_LEFT",
@@ -4101,5 +4051,12 @@
 	],
 	"inline": [],
 	"supertypes": [],
-	"reserved": {}
+	"reserved": {
+		"global": [
+			{
+				"type": "SYMBOL",
+				"name": "reserved_word"
+			}
+		]
+	}
 }

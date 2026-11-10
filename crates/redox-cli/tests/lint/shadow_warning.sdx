@@ -25,7 +25,7 @@ advance =
 -- than leaving a later row free to drift across it.
 --
 -- `examples/control.sdx`'s `shadowed` is the same shape one level further
--- out, in a `do` block.
+-- out, in a bare block.
 tally : i32
 tally =
   total = 1

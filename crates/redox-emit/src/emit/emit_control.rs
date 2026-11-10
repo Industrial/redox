@@ -4,6 +4,7 @@ use crate::emit::emit_control_inline::emit_control_inline;
 use crate::emit::emit_stmts::emit_stmts;
 use crate::emit::expr::emit_expr;
 use crate::emit::label_prefix::label_prefix;
+use crate::emit::one_line_if::one_line_if;
 use crate::emit::pad::pad;
 use crate::emit::rust_indent::RUST_INDENT;
 use crate::emit::sink::Sink;
@@ -59,6 +60,24 @@ pub(crate) fn emit_control(out: &mut Sink<'_>, expr: &Expr, indent: usize, tail:
       otherwise,
       ..
     } => {
+      // A **tail** `if … else …` is Rust's if-else *expression*, and rustfmt
+      // collapses one whose rendering fits `single_line_if_else_max_width`.
+      // `control_text` has asked that since leaf 2 for an `if` in an
+      // expression position; plan 55 leaf 7 made it a question here too,
+      // because retiring `then` moved
+      // `tier n = if n > 9 then "big" else "small"` out of the expression
+      // path and into tail position. `generated_rust_is_rustfmt_clean` is
+      // what caught it, on the one example that migrated.
+      //
+      // `one_line_if` declines on an `else`-less `if`, so `tail` alone is the
+      // whole condition: a non-tail `if` is a statement in Rust too and
+      // rustfmt leaves it spread.
+      if tail && let Some(text) = one_line_if(condition, then_block, otherwise.as_ref(), indent) {
+        pad(out, indent);
+        out.push_str(&text);
+        out.push('\n');
+        return;
+      }
       pad(out, indent);
       out.push_str(&condition_head("if", condition, indent));
       // `tail && otherwise.is_some()`: see the note above — an `if` with no
@@ -84,13 +103,7 @@ pub(crate) fn emit_control(out: &mut Sink<'_>, expr: &Expr, indent: usize, tail:
       out.unmark();
       pad(out, indent);
       if let [only] = otherwise.stmts.as_slice()
-        && matches!(
-          only.expr,
-          Expr::If {
-            is_inline: false,
-            ..
-          }
-        )
+        && matches!(only.expr, Expr::If { .. })
       {
         // The nested `if` writes its own `if … {`, so its leading pad is
         // already on this line.

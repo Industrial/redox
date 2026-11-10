@@ -1,6 +1,6 @@
 use crate::expr_text::expr_text;
 use crate::pattern_text::pattern_text;
-use redox_ast::Binding;
+use redox_ast::{Binding, Expr};
 
 /// A binding — `n = 0`, `mut n = 0`, `n : u64 = 0`.
 ///
@@ -24,14 +24,30 @@ use redox_ast::Binding;
 /// So row 8's *rule* — never tighten a spaced `::`, because tightening it
 /// changed an ascription into a path — no longer has anything to protect: the
 /// two are different tokens now. §10 records the correction.
+///
+/// # A block-valued binding has nothing after its `=`
+///
+/// Plan 55 leaf 7 retired `do`, and `do` was what used to fill that space:
+/// `inner = do` then an indented block. With the keyword gone the block
+/// begins on the *next* line, so `= ` would leave a trailing space on this
+/// one — which `treefmt` strips and the round-trip then fails on. The
+/// separator is therefore chosen by the value's form, which is the only place
+/// in this printer where it is.
+///
+/// A **labelled** block still has something to write — `found = 'search` —
+/// so it takes the ordinary separator.
 pub(crate) fn binding_text(binding: &Binding, indent: usize, source: &str) -> String {
   let prefix = if binding.is_mut { "mut " } else { "" };
   let ty = match &binding.ty {
     Some(ty) => format!(" : {}", ty.text),
     None => String::new(),
   };
+  let separator = match &binding.value {
+    Expr::Block { label: None, .. } => "=\n",
+    _ => "= ",
+  };
   format!(
-    "{prefix}{}{ty} = {}",
+    "{prefix}{}{ty} {separator}{}",
     pattern_text(&binding.pattern),
     expr_text(&binding.value, 0, indent, source)
   )

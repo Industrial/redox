@@ -47,9 +47,15 @@ syn keyword sdxBoolean      true false
 syn keyword sdxSelf         self Self
 
 " Keywords. One list, derived from the grammar — see the header.
+"
+" `then` left at plan 55 leaf 7, which retired the construct it named and
+" freed the word for `Ordering::then`. `do` stayed: the leaf retired its
+" construct too and kept the word **reserved**, so it is still worth colouring
+" and `editors.rs` excuses it from the grammar cross-check — the tree-sitter
+" grammar declares it through `reserved` rather than as a literal in a rule.
 syn keyword sdxKeyword      import module data newtype type class instance
 syn keyword sdxKeyword      errors test const static deriving from as where
-syn keyword sdxKeyword      otherwise if then else while until for in loop
+syn keyword sdxKeyword      otherwise if else while until for in loop
 syn keyword sdxKeyword      break continue return assert guard with case of
 syn keyword sdxKeyword      do async try catch mut move or
 syn keyword sdxKeyword      rust unsafe extern union

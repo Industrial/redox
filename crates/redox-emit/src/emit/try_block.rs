@@ -35,10 +35,10 @@ use redox_ast::Block;
 /// returns from `main`, which is why plan 28 §3 proves this by **running**
 /// rather than by text.
 pub(crate) fn try_block(body: &Block, indent: usize) -> String {
-  // A nested `Sink`, for the reason `emit_do` records: this returns text, and
+  // A nested `Sink`, for the reason `emit_block` records: this returns text, and
   // `emit_stmts` writes into a sink. So a `try` block's statements are
   // attributed to the binding that holds it rather than individually — the
-  // same coarseness, closed by the same change `emit_do`'s comment names.
+  // same coarseness, closed by the same change `emit_block`'s comment names.
   let mut inner = Sink::new("");
   emit_stmts(&mut inner, &body.stmts, indent + RUST_INDENT, true);
   let (statements, _) = inner.finish("");

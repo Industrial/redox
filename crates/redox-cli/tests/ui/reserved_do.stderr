@@ -1,0 +1,14 @@
+error[RDX0114]: `do` is a reserved word and names no construct
+  --> reserved_do.sdx:32:3
+   |
+32 |   do = 2
+   |   ^^
+  = help: an indented block is an expression on its own, so drop the `do` and keep the block — `found = 'search` for the labelled form. The word stays reserved for plan 60's do-notation (plan 55 §1.7)
+
+error[RDX0114]: `do` is a reserved word and names no construct
+  --> reserved_do.sdx:33:11
+   |
+33 |   found = do
+   |           ^^
+  = help: an indented block is an expression on its own, so drop the `do` and keep the block — `found = 'search` for the labelled form. The word stays reserved for plan 60's do-notation (plan 55 §1.7)
+

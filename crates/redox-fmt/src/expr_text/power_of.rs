@@ -76,7 +76,7 @@ pub(crate) fn power_of(expr: &Expr) -> Option<u8> {
     Expr::Lambda { .. }
     | Expr::Ascribe { .. }
     | Expr::If { .. }
-    | Expr::Do { .. }
+    | Expr::Block { .. }
     | Expr::Case { .. }
     | Expr::AsyncBlock { .. }
     | Expr::UnsafeBlock { .. }

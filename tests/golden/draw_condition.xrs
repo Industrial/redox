@@ -79,8 +79,13 @@ fn unwrap_nested(o: Option<Option<i32>>) -> i32 {
     }
 }
 
-// The condition form is an expression too, told apart by `then` exactly as
-// plan 20's is.
+// A pattern test carries a **value** out of an `if`, not only an effect.
+//
+// Written `if Some _ = o then "present" else "absent"` until plan 55 leaf 7
+// retired `then`; there is one `if` spelling now, and a pattern test reads
+// the same in it as it does in a statement. Nothing about the condition
+// changed — `holds_a_pattern_test` stopped scanning at `then` and now stops
+// at the line break, which is where the condition ended anyway.
 fn label(o: Option<i32>) -> &'static str {
     if let Some(_) = o { "present" } else { "absent" }
 }

@@ -1,0 +1,35 @@
+-- Plan 55 criterion 8: `do` is not a construct and **is** a reserved word.
+--
+-- Leaf 7 retired the construct. §1.7's argument is that nothing needs to
+-- announce a block once an indented block is an expression, so `found = do`
+-- with a block under it became `found =` with the block under it, and
+-- `do 'search` became `'search` — `examples/control.sdx`'s
+-- `first_square_over` is the migrated form.
+--
+-- The **word** stays, and §9 decision 4 is why: plan 60 takes `<-` as a
+-- monadic bind, and `do`'s Haskell meaning is the one still unclaimed, so
+-- spending the token on an identifier now would make that row a breaking
+-- change rather than an addition.
+--
+-- This fixture is here because a reservation nothing says out loud is
+-- indistinguishable from an oversight. Before `RDX0114` both lines below were
+-- `RDX0102` *"expected an expression"* — true, and about the position rather
+-- than the rule, which leaves an author unable to tell a retired construct
+-- from a word the parser has not learned yet. That is what the help line
+-- carries.
+--
+-- The **first** line below is criterion 8's own wording — *"using it as an
+-- identifier is diagnosed"* — and it reaches the same arm, because a reserved
+-- word cannot be a binding's name either and `prefix` is where the statement
+-- ends up.
+--
+-- It is first because recovery is line-oriented: `reserved_word` consumes the
+-- old construct's block, so recovery resumes on the line *after* it and the
+-- identifier use would be skipped if it came second. Two reports of one rule
+-- on two lines is what this file is for.
+main : ()
+main =
+  do = 2
+  found = do
+    1
+  print found

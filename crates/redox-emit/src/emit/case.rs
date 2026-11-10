@@ -57,7 +57,7 @@ pub(crate) fn emit_case(scrutinee: &Expr, arms: &[CaseArm], indent: usize) -> St
     // `sole_expression` answers the rest, and leaves the trivia test to the
     // caller for exactly this reason.
     let body = match &arm.body {
-      Expr::Do {
+      Expr::Block {
         label: None, body, ..
       } if body
         .stmts
@@ -73,7 +73,7 @@ pub(crate) fn emit_case(scrutinee: &Expr, arms: &[CaseArm], indent: usize) -> St
     // block, and one after every other body — `arm_comma`, and it reads the
     // body's node kind rather than its width. A block body is what leaf 3
     // added, so the comma became a question with it.
-    if !matches!(body, Expr::Do { .. }) {
+    if !matches!(body, Expr::Block { .. }) {
       out.push(',');
     }
     out.push('\n');

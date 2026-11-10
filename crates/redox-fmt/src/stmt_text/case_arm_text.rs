@@ -15,18 +15,19 @@ use redox_ast::{CaseArm, Expr};
 /// The guard is a full condition, so `n | n > 65 -> "senior"` and
 /// `y | Some (Some v) = y -> v` are one form with different operands.
 ///
-/// # A block body prints with no marker, which migrates `-> do`
+/// # A block body prints with no marker, which is what migrated `-> do`
 ///
-/// Plan 55 leaf 3 made an indented block an arm body, and it is the same
-/// node as `-> do` — `Expr::Do` with no label — because the two spellings
-/// mean the same thing and emit the same Rust. The parser therefore cannot
-/// tell them apart, so the printer has to choose one, and it writes the
-/// marker-free form: the deprecated spelling is what leaf 7 removes, and a
-/// formatter that printed it would be writing output its own next row
-/// cannot parse. Doc 02 §4.5's migration tool, doing the migration.
+/// Plan 55 leaf 3 made an indented block an arm body, and it was the same
+/// node as `-> do` — `Expr::Block` with no label — because the two spellings
+/// meant the same thing and emitted the same Rust. The parser could not tell
+/// them apart, so this printer chose the marker-free form and `redox fmt`
+/// *was* the migration (doc 02 §4.5). Leaf 7 then retired the keyword, so
+/// there is one spelling again and this arm is simply how a block body
+/// prints.
 ///
-/// A **labelled** block keeps `do 'name`, which is the one thing the marker
-/// still carries (§1.7).
+/// A **labelled** block prints its label, which is the one thing the marker
+/// carried that survives (§1.7) — and it is `expr_text`'s arm, not this
+/// one's, because a labelled arm body is not a shape the surface has.
 pub(crate) fn case_arm_text(arm: &CaseArm, indent: usize, source: &str) -> String {
   let guard = match &arm.guard {
     Some(condition) => format!(" | {}", condition_text(condition, indent, source)),
@@ -39,7 +40,7 @@ pub(crate) fn case_arm_text(arm: &CaseArm, indent: usize, source: &str) -> Strin
     guard
   );
   match &arm.body {
-    Expr::Do {
+    Expr::Block {
       label: None, body, ..
     } => {
       format!("{head}\n{}", block_text(body, indent + 1, source))

@@ -30,11 +30,11 @@ pub struct CaseArm {
   /// The arm's value, after the `->`.
   ///
   /// An **expression**, and since plan 55 leaf 3 an indented block is one:
-  /// a block body is `Expr::Do` with no label, which §10.4 records as
-  /// Redox's only spelling of a block expression. So `-> do` and the
-  /// marker-free block are the same node, which is what makes the marker
-  /// deprecated rather than special-cased — and leaf 7 removes a keyword,
-  /// not a form.
+  /// a block body is `Expr::Block` with no label. Leaf 3 reached it through
+  /// `-> do` and the marker-free spelling alike, because the two were the
+  /// same node; leaf 7 then removed the keyword and this field did not
+  /// change, which is what §10.10 predicted — *"leaf 7 removes a keyword
+  /// rather than a form"*.
   pub body: Expr,
   pub span: Span,
 }

@@ -11,7 +11,7 @@
 	],
 	"surroundingPairs": [["{", "}"], ["[", "]"], ["(", ")"], ["\"", "\""]],
 	"indentationRules": {
-		"increaseIndentPattern": "(=|->|=>|\\bdo\\b|\\bwhere\\b|\\bof\\b|\\bthen\\b|\\belse\\b)\\s*$",
+		"increaseIndentPattern": "(=|->|=>|\\bwhere\\b|\\bof\\b|\\belse\\b|'[a-z_][A-Za-z0-9_]*)\\s*$",
 		"decreaseIndentPattern": "^\\s*$"
 	},
 	"onEnterRules": [

@@ -98,7 +98,7 @@ checked against the host language instead of against this project's history.
 | Area | Grade | Evidence and note |
 |---|---|---|
 | Operators and precedence | `PASSTHROUGH` | `examples/expressions.sdx` |
-| Method calls, field access | `SUGARED` | `examples/section.sdx` — adjacency decides a call from a section |
+| Method calls, field access | `SUGARED` | `examples/section.sdx` — adjacency decides a call from a section. A method whose name is a Redox keyword is **unspellable**, which is what plan 55 leaf 7 bought back for one: `Ordering::then` was `RDX0103` while `then` was reserved, and `examples/control.sdx`'s `ordered` now writes it |
 | Function calls | `SUGARED` | `examples/hello.sdx` — parenless application, Haskell's rule (doc 18 §2.1) |
 | Indexing | `PASSTHROUGH` | `examples/arrays.sdx` |
 | Tuple indexing `.0` | `PASSTHROUGH` | `examples/destructuring.sdx` |
@@ -107,7 +107,7 @@ checked against the host language instead of against this project's history.
 | Array literals and repeats | `SUGARED` | `examples/arrays.sdx` — `[v; n]`, and `:: Vec<T>` for the growable form (plan 29) |
 | Closures | `SUGARED` | `examples/expressions.sdx` — `\x -> e` |
 | `move` closures | `SUGARED` | `examples/async.sdx` |
-| Blocks as expressions | `SUGARED` | `examples/control.sdx` — `do`, with labels |
+| Blocks as expressions | `SUGARED` | `examples/control.sdx` — an **indented block**, with an optional `'label`. Spelled `do` and `do 'label` until plan 55 leaf 7 retired the keyword: a block is an expression, so nothing announces one. `do` stays reserved and is `RDX0114` |
 | `async` blocks | `SUGARED` | `examples/async.sdx` — plan 39 |
 | `unsafe` blocks | `SUGARED` | `examples/reachability.sdx` — plan 45 leaf 2 |
 | `try` blocks | `SUGARED` | `examples/fallible.sdx` — an immediately-invoked closure, because Rust has try blocks only unstably |
@@ -138,15 +138,15 @@ checked against the host language instead of against this project's history.
 | `let` bindings, `let mut` | `SUGARED` | `examples/expressions.sdx` — `x = e` and `mut x = e` |
 | Assignment | `SUGARED` | `examples/control.sdx` — `x := e`, because `=` is a binding (plan 54). Covers a name, a field, an index, a deref target and Rust's destructuring assignment, the target being a general expression |
 | Compound assignment | `SUGARED` | `examples/control.sdx` — all five of `+=`, `-=`, `*=`, `/=`, `%=`. Shipped in plan 20 and graded here for the first time |
-| Shadowing | `PASSTHROUGH` | `examples/control.sdx` — an inner `n = 1` inside a `do` block over an outer `n`, which is the contrast that makes `:=` necessary. Cited `examples/expressions.sdx` until plan 54; that file holds exactly one binding, and nothing in the corpus shadowed anything |
-| `if` / `else` | `SUGARED` | `examples/control.sdx` — an expression, with layout |
+| Shadowing | `PASSTHROUGH` | `examples/control.sdx` — an inner `n = 1` inside a nested block over an outer `n`, which is the contrast that makes `:=` necessary. Cited `examples/expressions.sdx` until plan 54; that file holds exactly one binding, and nothing in the corpus shadowed anything |
+| `if` / `else` | `SUGARED` | `examples/control.sdx` — an expression, with layout, and **one spelling** since plan 55 leaf 7 retired `then`. A conditional in argument position is written indented inside the brackets (plan 65); inside a `#{…}` interpolation it cannot be written at all, and `bracketed` calls one instead |
 | `if let` | `SUGARED` | `examples/control.sdx` — `if P = e` |
 | `let` chains | `SUGARED` | `examples/draw_condition.sdx` — the draw arrow in a condition (doc 30) |
 | `while`, `while let` | `SUGARED` | `examples/control.sdx` |
 | `loop` | `SUGARED` | `examples/control.sdx` |
 | `for` | `SUGARED` | `examples/control.sdx` — `for x in xs` |
 | `break`, `continue`, with value | `PASSTHROUGH` | `examples/control.sdx` |
-| Labelled loops and blocks | `SUGARED` | `examples/control.sdx` — `do 'label`, `break 'label v` |
+| Labelled loops and blocks | `SUGARED` | `examples/control.sdx` — `'outer loop`, `'label` on a bare block, `break 'label v`. The label is the one capability `do` carried that nothing else provides (plan 55 §1.7), so it outlived the keyword |
 | `match` | `SUGARED` | `examples/case.sdx` — `case … of`, with guards |
 | Guards | `SUGARED` | `examples/guards.sdx` — `\|` in an arm, which is what shadows Rust's or-pattern |
 | `return` | `PASSTHROUGH` | `examples/control.sdx` |
@@ -185,7 +185,7 @@ rest. Plan 46 §6 records the decline.
 | Table literals | **REMOVE** | records and `data`; Redox has no table type |
 | `switch`/`when` | **REMOVE** | `case … of` (doc 18 §2.3) |
 | `with` blocks | **REMOVE** | doc 18 §7 deleted them; the keyword was reused for the callback bind (doc 30 §3.3) |
-| `do` blocks | **MODIFY** | a labelled block expression (doc 03 §7.2) |
+| `do` blocks | **REMOVE** | an indented block **is** an expression, so no keyword announces one — plan 55 leaf 7. The labelled form survives as `'label` on a block, and the word stays reserved for plan 60's do-notation (`RDX0114`). Graded **MODIFY** — *"a labelled block expression (doc 03 §7.2)"* — until that leaf |
 
 ---
 

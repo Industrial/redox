@@ -13,14 +13,26 @@
 ; no highlighter, because nothing compared the two lists — `editors.rs`'s
 ; `every_grammar_keyword_is_coloured` now does, for this file and for the Vim
 ; and TextMate copies of the same list.
+;
+; `then` and `do` left this list with plan 55 leaf 7, for two different
+; reasons. `then`'s construct is gone and so is the word. `do` is still
+; **reserved** (`RDX0114`) and is coloured one line down: `grammar.js` declares
+; it through `reserved` and a `reserved_word` rule, so what the grammar has is
+; the named node and not a `"do"` token — and a query may only name a node the
+; grammar has, a hard `Invalid node type` error rather than a dead pattern.
 [
   "import" "module" "data" "newtype" "type" "class" "instance" "errors"
   "test" "const" "static" "deriving" "from" "as" "where" "otherwise"
-  "if" "then" "else" "while" "until" "for" "in" "loop" "break" "continue"
-  "return" "assert" "guard" "with" "case" "of" "do" "async" "try" "catch"
+  "if" "else" "while" "until" "for" "in" "loop" "break" "continue"
+  "return" "assert" "guard" "with" "case" "of" "async" "try" "catch"
   "mut" "move" "or"
   "rust" "unsafe" "extern" "union"
 ] @keyword
+
+; `do` — reserved, and the production of no rule, so it is a node of its own.
+; `editors.rs`'s `NOT_KEYWORDS` names it for that reason, as it names `true`,
+; `false` and `self`.
+(reserved_word) @keyword
 
 (visibility) @keyword
 

@@ -5,8 +5,10 @@ use redox_lexer::{Keyword, TokenKind};
 ///
 /// With `one_operand`, the scan stops at `&&` and `||` — the question is
 /// whether *this* operand is a pattern test. Without it, the scan runs to the
-/// end of the condition — a line break, `then` for the expression form, `->`
-/// for an arm guard, or a closing delimiter never opened here.
+/// end of the condition — a line break, `else` for a `guard`, `->` for an arm
+/// guard, or a closing delimiter never opened here.
+///
+/// `then` was in that list until plan 55 leaf 7 retired the keyword.
 ///
 /// **Depth matters**, and more than it did when this looked for `<-`. A
 /// record literal's `=` is inside its braces — `if p { x = 1 }.valid` is an
@@ -33,7 +35,7 @@ pub(crate) fn holds_a_pattern_test(p: &Parser, one_operand: bool) -> bool {
         }
       }
       TokenKind::AndAnd | TokenKind::OrOr if depth == 0 && one_operand => return false,
-      TokenKind::Kw(Keyword::Then) | TokenKind::Kw(Keyword::Else) if depth == 0 => return false,
+      TokenKind::Kw(Keyword::Else) if depth == 0 => return false,
       // The arm-guard caller's terminator.
       TokenKind::Arrow if depth == 0 => return false,
       TokenKind::Newline | TokenKind::Indent | TokenKind::Dedent | TokenKind::Eof => return false,

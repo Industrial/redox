@@ -632,11 +632,21 @@ fn zed_config_parses_and_its_queries_match_the_grammar() {
 /// It found the gap it was written for. Plan 45 added `rust`, `unsafe`,
 /// `extern` and `union` to the grammar and to the compiler and **no
 /// highlighter coloured any of them**, because nothing compared the lists.
+///
+/// # The floor is a non-vacuity guard, not a count
+///
+/// It read `> 40` until plan 55 leaf 7 retired `then` and moved `do` out of
+/// the derived set (see [`NOT_KEYWORDS`](grammar_keywords)), leaving 39 — and
+/// a floor that tracks the real figure fails on every retirement while
+/// catching nothing a lower one misses. What it is for is a scan that has
+/// silently stopped working, and the six named members below are the stronger
+/// half of that: `MINIMUM_ROWS` in `construct_coverage.rs` records the same
+/// reasoning, having been wrong twice.
 #[test]
 fn every_grammar_keyword_is_coloured() {
   let keywords = grammar_keywords();
   assert!(
-    keywords.len() > 40,
+    keywords.len() > 30,
     "expected the grammar's keyword set, found {}: {keywords:?}",
     keywords.len()
   );
@@ -698,11 +708,18 @@ fn every_grammar_keyword_is_coloured() {
 /// fails instead of passing vacuously.
 fn grammar_keywords() -> Vec<String> {
   /// Has its own capture in `highlights.scm`, so it is not a `@keyword`:
-  /// `true`/`false` are `(boolean)`, `self` is `(self_expression)`, and
-  /// `redox` is the grammar's own name. `export` is a *regex* in `grammar.js`
-  /// rather than a literal — matched by `(visibility)` — so it is not in the
-  /// derived set at all.
-  const NOT_KEYWORDS: &[&str] = &["true", "false", "self", "redox"];
+  /// `true`/`false` are `(boolean)`, `self` is `(self_expression)`, `do` is
+  /// `(reserved_word)`, and `redox` is the grammar's own name. `export` is a
+  /// *regex* in `grammar.js` rather than a literal — matched by
+  /// `(visibility)` — so it is not in the derived set at all.
+  ///
+  /// `do` joined the list at plan 55 leaf 7, which retired its construct and
+  /// kept the word reserved. `grammar.js` declares it through `reserved` and a
+  /// `reserved_word` rule rather than as a literal in a production, so the
+  /// node the query can name is `(reserved_word)` — and this scan reads
+  /// literals, so it finds `"do"` and would ask for a `"do"` node that does
+  /// not exist.
+  const NOT_KEYWORDS: &[&str] = &["true", "false", "self", "redox", "do"];
 
   let text =
     std::fs::read_to_string(grammar_dir().join("grammar.js")).expect("should read the grammar");

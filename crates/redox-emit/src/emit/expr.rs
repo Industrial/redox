@@ -5,8 +5,7 @@ use crate::emit::catch_fallback::catch_fallback;
 use crate::emit::coalesce::coalesce;
 use crate::emit::comprehension::emit_comprehension;
 use crate::emit::control_text::control_text;
-use crate::emit::emit_condition::emit_condition;
-use crate::emit::emit_do::emit_do;
+use crate::emit::emit_block::emit_block;
 use crate::emit::expr_list::expr_list;
 use crate::emit::format_template::format_template;
 use crate::emit::optional_chain::optional_chain;
@@ -22,7 +21,7 @@ use crate::emit::try_block::try_block;
 use crate::emit::unlowerable::unlowerable;
 use crate::emit::unparen::unparen;
 use crate::emit::unsafe_block::emit_unsafe_block;
-use redox_ast::{BinaryOp, Block, Expr};
+use redox_ast::{BinaryOp, Expr};
 
 /// Render an expression as Rust, starting at column `indent`.
 ///
@@ -91,38 +90,9 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
     Expr::Case {
       scrutinee, arms, ..
     } => emit_case(scrutinee, arms, indent),
-    // Doc 01 §8's conditional — plan 20, and since plan 55 leaf 1 the same
-    // node as the indented form, told apart by `is_inline`. The one-line
-    // spelling lowers to one line, because Rust's own `if` expression is one
-    // when its arms are: see `SINGLE_LINE_IF_ELSE_MAX_WIDTH` for when rustfmt
-    // disagrees. Its branches are blocks of a single expression, which is all
-    // `if_expression` builds.
-    //
-    // An **indented** `if` reaching here is one in an expression position,
-    // which today's grammar cannot produce — `emit_stmt` claims every one it
-    // can. `control_text` is written for it anyway, like the promoted forms
-    // at the end of this match.
-    Expr::If {
-      condition,
-      then_block,
-      otherwise,
-      is_inline: true,
-      ..
-    } => match (
-      then_block.sole_expression(),
-      otherwise.as_ref().and_then(Block::sole_expression),
-    ) {
-      (Some(then), Some(els)) => format!(
-        "if {} {{ {} }} else {{ {} }}",
-        emit_condition(condition, indent),
-        emit_expr(unparen(then), indent),
-        emit_expr(unparen(els), indent)
-      ),
-      _ => control_text(e, indent),
-    },
-    // Doc 03 §7.2's `do` block — plan 20. A block expression, labelled when
-    // the author labelled it.
-    Expr::Do { label, body, .. } => emit_do(label, body, indent),
+    // An indented block as a value — plan 20's `do`, and marker-free since
+    // plan 55 leaf 7. Labelled when the author labelled it.
+    Expr::Block { label, body, .. } => emit_block(label, body, indent),
     Expr::Unit { .. } => "()".to_string(),
     // Rust's try operator, unchanged. The receiver needs parentheses for the
     // same reason a method call's does: `?` binds tighter than any operator.
@@ -149,10 +119,11 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
     // Doc 01 §13.1's optional chain and doc 03 §12.4's `try` block — plan 28.
     Expr::OptionalChain { head, segments, .. } => optional_chain(head, segments, indent),
     Expr::TryBlock { body, .. } => try_block(body, indent),
-    // Doc 03 §14.3's `async` block — plan 39. `emit_do` already writes a
-    // block expression, so this is that block with one word in front: the
-    // third construct to reuse it, after `do` and `try`.
-    Expr::AsyncBlock { body, .. } => format!("async {}", emit_do(&None, body, indent)),
+    // Doc 03 §14.3's `async` block — plan 39. `emit_block` already writes a
+    // block expression, so this is that block with one word in front, which
+    // is what plan 55 §1.7 means by a **modifier**: the lowering was always
+    // a block plus an adjective.
+    Expr::AsyncBlock { body, .. } => format!("async {}", emit_block(&None, body, indent)),
     // Plan 45 leaf 2. Delegated because a one-expression body collapses to a
     // single line, which is what rustfmt does and what the gate compares
     // against.
@@ -321,12 +292,14 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
       value,
       ..
     } => format!("{}.await", receiver(unparen(value), indent)),
-    Expr::If {
-      is_inline: false, ..
+    // An `if` in an expression position — plan 55 leaf 2 made it reachable
+    // and leaf 7 made it the only spelling, so `control_text` writes every
+    // one. It is what decides whether rustfmt would have collapsed the two
+    // branches onto one line (`one_line_if`), which is the lowering the
+    // retired `if c then a else b` used to reach directly.
+    Expr::If { .. } | Expr::While { .. } | Expr::For { .. } | Expr::Loop { .. } => {
+      control_text(e, indent)
     }
-    | Expr::While { .. }
-    | Expr::For { .. }
-    | Expr::Loop { .. } => control_text(e, indent),
     // The four with no expression spelling at all — `unlowerable` records
     // which they are, why `compile_error!` is the refusal, and why this is
     // not a Redox diagnostic.

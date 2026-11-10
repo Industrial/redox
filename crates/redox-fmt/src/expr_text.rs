@@ -27,8 +27,7 @@ use crate::expr_text::section_text::section_text;
 use crate::stmt_text::block_text::block_text;
 use crate::stmt_text::case_arm_text::case_arm_text;
 use crate::stmt_text::code_text::code_text;
-use crate::stmt_text::condition_text::condition_text;
-use redox_ast::{BinaryOp, Block, Expr};
+use redox_ast::{BinaryOp, Expr};
 
 /// One expression in canonical Redox — plan 34, leaf 3.
 ///
@@ -234,39 +233,15 @@ pub fn expr_text(expr: &Expr, required: u8, indent: usize, source: &str) -> Stri
     // later line sits at `indent + 1`, matching `code_text`'s convention —
     // the caller has already written whatever this hangs from.
     //
-    // `if c then a else b` is the **expression** `if`, and since plan 55 leaf
-    // 1 it is the same node as the indented form, told apart by `is_inline`
-    // rather than by which enum it lives in. Its branches are blocks of a
-    // single expression, which is what `if_expression` builds, and the sole
-    // expression of each is what goes beside `then` and `else`.
-    //
-    // An indented `if` reaching this function is one in an expression
-    // position; `code_text` prints it, and that is also the fallback when a
-    // one-line branch is somehow not a single expression — a decline here
-    // would print an `if` with no branches at all.
-    Expr::If {
-      condition,
-      then_block,
-      otherwise,
-      is_inline: true,
-      ..
-    } => match (
-      then_block.sole_expression(),
-      otherwise.as_ref().and_then(Block::sole_expression),
-    ) {
-      (Some(then), Some(els)) => format!(
-        "if {} then {} else {}",
-        condition_text(condition, indent, source),
-        expr_text(then, 0, indent, source),
-        expr_text(els, 0, indent, source)
-      ),
-      _ => code_text(expr, indent, source),
+    // An indented block, as a value — plan 55 leaf 7, and `do` / `do 'label`
+    // before it. The unlabelled form has **nothing on its own first line**,
+    // so the text begins with the block's first statement at `indent + 1`;
+    // `binding_text` is the caller that has to know, because `= ` in front of
+    // a newline is trailing whitespace.
+    Expr::Block { label, body, .. } => match label {
+      Some(name) => format!("'{name}\n{}", block_text(body, indent + 1, source)),
+      None => block_text(body, indent + 1, source),
     },
-    Expr::Do { label, body, .. } => format!(
-      "do{}\n{}",
-      label.as_ref().map_or(String::new(), |n| format!(" '{n}")),
-      block_text(body, indent + 1, source)
-    ),
     Expr::AsyncBlock { body, .. } => {
       format!("async\n{}", block_text(body, indent + 1, source))
     }
@@ -295,9 +270,7 @@ pub fn expr_text(expr: &Expr, required: u8, indent: usize, source: &str) -> Stri
     // production for any. Printed rather than declined because a formatter
     // that drops a form rewrites the program, which is the one failure
     // `formatting_preserves_meaning` exists to catch.
-    Expr::If {
-      is_inline: false, ..
-    }
+    Expr::If { .. }
     | Expr::Binding(_)
     | Expr::Item { .. }
     | Expr::Return { .. }

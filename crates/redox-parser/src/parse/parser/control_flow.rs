@@ -1,5 +1,6 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
+use crate::parse::parser::block_expr::block_expr;
 use crate::parse::parser::condition::condition;
 use crate::parse::parser::parse_expr::parse_expr;
 use crate::parse::parser::pattern_alt::pattern_alt;
@@ -22,7 +23,9 @@ use redox_lexer::{Keyword, TokenKind};
 ///
 /// A **label** precedes the loop keyword — `'outer while …` — which is Rust's
 /// own order with the colon dropped, and is why the label is read here rather
-/// than inside each loop's parser.
+/// than inside each loop's parser. Since plan 55 leaf 7 a label with nothing
+/// after it on the line labels a **block** instead, which is Rust's
+/// `'name: { … }` and what `do 'name` used to spell.
 pub(crate) fn control_flow(p: &mut Parser) -> Result<Option<Expr>, ParseError> {
   let start = p.peek_span().0;
   // `'name` before a loop keyword. Doc 03 §7.2: *"labels apply equally to
@@ -101,13 +104,25 @@ pub(crate) fn control_flow(p: &mut Parser) -> Result<Option<Expr>, ParseError> {
     }));
   }
 
-  // A label with no loop after it is a mistake worth reporting here: the
+  // A label on a **block** — plan 55 leaf 7, and Rust's own `'name: { … }`.
+  // §1.7 keeps it as the one capability `do` carried that nothing else
+  // provides: how a value leaves a loop that is not a function's tail. The
+  // line ends after the label, which is what tells it from the four loop
+  // forms above.
+  if label.is_some() && p.check(&TokenKind::Newline) {
+    return block_expr(p, label, start).map(Some);
+  }
+
+  // A label followed by neither is a mistake worth reporting here: the
   // alternative is rewinding and letting `'name` be read as an expression,
-  // which it is not.
+  // which it is only when a block follows.
   if let Some(name) = label {
     return Err(ParseError::with(
       Code::ExpectedToken,
-      format!("expected `while`, `until`, `for` or `loop` after the label `'{name}`"),
+      format!(
+        "expected `while`, `until`, `for`, `loop` or an indented block after the label \
+         `'{name}`"
+      ),
       p.peek_span(),
     ));
   }

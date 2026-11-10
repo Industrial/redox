@@ -11,10 +11,11 @@ use redox_ast::Expr;
 /// make it a *statement* taken back off: the leading pad to `indent`, which
 /// an expression's caller has already written, and the trailing newline.
 ///
-/// A nested `Sink`, for the reason `emit_do` records — the records it collects
-/// are discarded with it, so a loop reached through an expression position is
-/// attributed to the expression that holds it rather than line by line. The
-/// same coarseness, closed by the same change `emit_do`'s comment names.
+/// A nested `Sink`, for the reason `emit_block` records — the records it
+/// collects are discarded with it, so a loop reached through an expression
+/// position is attributed to the expression that holds it rather than line by
+/// line. The same coarseness, closed by the same change `emit_block`'s
+/// comment names.
 ///
 /// Reached by the indented `if`, `while`, `for` and `loop` from an expression
 /// position. Leaf 1 wrote it for a position the grammar could not yet produce
@@ -53,7 +54,6 @@ pub(crate) fn control_text(expr: &Expr, indent: usize) -> String {
     condition,
     then_block,
     otherwise,
-    is_inline: false,
     ..
   } = expr
     && let Some(text) = one_line_if(condition, then_block, otherwise.as_ref(), indent)

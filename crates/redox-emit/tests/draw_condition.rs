@@ -204,10 +204,16 @@ fn an_expression_arm_guard_still_works() {
 
 // --- the `if` expression ---------------------------------------------------
 
+/// A pattern test in an `if` used as a **value**.
+///
+/// Written `t = if Some _ = o then "yes" else "no"` until plan 55 leaf 7
+/// retired `then`, and the asserted Rust is unchanged: `holds_a_pattern_test`
+/// stopped its scan at `then` and now stops at the line break, which is
+/// where the condition ended either way.
 #[test]
 fn the_if_expression_takes_a_pattern_test() {
   assert_eq!(
-    body("  t = if Some _ = o then \"yes\" else \"no\"\n"),
+    body("  t = if Some _ = o\n    \"yes\"\n  else\n    \"no\"\n"),
     "let t = if let Some(_) = o { \"yes\" } else { \"no\" };"
   );
 }

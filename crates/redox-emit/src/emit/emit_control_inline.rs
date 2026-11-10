@@ -44,13 +44,7 @@ pub(crate) fn emit_control_inline(out: &mut Sink<'_>, expr: &Expr, indent: usize
   out.unmark();
   pad(out, indent);
   if let [only] = otherwise.stmts.as_slice()
-    && matches!(
-      only.expr,
-      Expr::If {
-        is_inline: false,
-        ..
-      }
-    )
+    && matches!(only.expr, Expr::If { .. })
   {
     out.push_str("} else ");
     emit_control_inline(out, &only.expr, indent, tail);

@@ -37,6 +37,38 @@ module.exports = grammar({
 
 	word: ($) => $.identifier,
 
+	// `do` is **reserved and names no construct** — plan 55 leaf 7, `RDX0114`.
+	// §1.7 retired the construct and §9 decision 4 kept the word, for plan 60's
+	// sake, and this is how the second parser says the same thing: a reserved
+	// word may not be matched where `word` — `identifier` — is expected, and `do`
+	// appears in no rule, so every way of writing it is an error.
+	//
+	// Two weaker versions were tried first. **Leaving it out** made `do` lex as
+	// an identifier, so `found = do` parsed clean and the grammar and the
+	// compiler disagreed about a reserved word. **Listing it in
+	// `_expression_part`** fixed the highlighting and not the refusal: it became
+	// a legal expression, and `found = do` parsed as a binding to a keyword.
+	//
+	// It also keeps `"do"` a token, which `highlights.scm` needs: a query may
+	// only name a node the grammar has, and `editors.rs` derives its keyword
+	// set from the literals in this file.
+	//
+	// **One spelling still recovers silently**, and it is disclosed rather than
+	// claimed: `found = do` with a block under it drops the `do` and produces no
+	// ERROR node, while `do = 2` produces one — `test/corpus/block_expressions.txt`
+	// asserts the second. That is tree-sitter's lossy recovery, the same class
+	// plan 65 recorded when `tree-sitter parse` could not see a missing hidden
+	// rule. `RDX0114` is the authority on the refusal; this makes the word a
+	// keyword rather than an identifier, which is what an editor needs.
+	//
+	// Named through [`reserved_word`](#reserved_word) rather than as a bare
+	// `"do"`: tree-sitter answers *"Reserved word 'do' must be a token"* for a
+	// literal that no rule produces, so the word needs a rule of its own and
+	// that rule is reachable from nowhere else.
+	reserved: {
+		global: ($) => [$.reserved_word],
+	},
+
 	// Ambiguities that are **the language's**, not this grammar's, and which
 	// tree-sitter's GLR resolves by exploring both readings.
 	//
@@ -364,6 +396,11 @@ module.exports = grammar({
 						field("body", $._block_expression),
 						optional($.where_clause),
 					),
+					// A clause's indented body is a **statement list**, and that is
+					// token-for-token a bare `block_expression`. Plan 55 leaf 7 kept
+					// the two apart by keeping `block_expression` out of
+					// `_block_expression` — see the note there — rather than by
+					// precedence, which tree-sitter rejected twice.
 					seq(
 						"=",
 						$._indent,
@@ -478,7 +515,15 @@ module.exports = grammar({
 				"=",
 				field(
 					"value",
-					choice(seq($._expression, $._newline), $._block_expression),
+					choice(
+						seq($._expression, $._newline),
+						$._block_expression,
+						// The one position a bare block stands in — plan 55 leaf 7, and
+						// `examples/control.sdx`'s `shadowed` and `first_square_over`.
+						// See `_block_expression`'s note for why it is named here and
+						// not there.
+						$.block_expression,
+					),
 				),
 			),
 
@@ -708,14 +753,20 @@ module.exports = grammar({
 		// terminates the statement holding it. Kept out of `_expression_part`
 		// for that reason — a `case` in the middle of an operand run would have
 		// no way to end, and it is not a shape the corpus has.
+		// `block_expression` is deliberately **not** here — plan 55 leaf 7.
+		// Every other member opens with a keyword, so the position it stands in
+		// is unambiguous; a bare block opens with an `_indent`, and this rule is
+		// reached from `equation`'s body, where an `_indent` already means the
+		// clause's own statement list. Including it gave GLR two readings of
+		// every indented equation body, and neither precedence nor
+		// associativity resolved it (tree-sitter named the pair both times).
+		//
+		// The Rust parser has the same split without stating it: `clause` reads
+		// a statement list itself, and `prefix` — where `block_expr` lives — is
+		// reached only where a **value** is wanted. `binding` is that position
+		// here.
 		_block_expression: ($) =>
-			choice(
-				$.case_expression,
-				$.do_expression,
-				$.async_block,
-				$.unsafe_block,
-				$.try_block,
-			),
+			choice($.case_expression, $.async_block, $.unsafe_block, $.try_block),
 
 		// Block-bearing, so they keep real rules: folding wants them, and so does
 		// anyone pressing expand-selection.
@@ -754,38 +805,38 @@ module.exports = grammar({
 				),
 			),
 
-		do_expression: ($) => seq("do", optional($.label), $.statement_block),
+		// Plan 55 leaf 7: an indented block **is** an expression, and `'name`
+		// labels one. `do` and `do 'label` spelled this until the leaf retired
+		// the keyword and reserved the word (`RDX0114`), so what left this rule
+		// is one literal.
+		//
+		// Reached from `binding` only, for the reason `_block_expression`
+		// records.
+		block_expression: ($) => seq(optional($.label), $.statement_block),
+
+		// `do` — reserved, and the production of no rule. Named here because
+		// `reserved` needs a token to point at; see the note beside it.
+		reserved_word: (_) => "do",
 		async_block: ($) => seq("async", $.statement_block),
 		// Plan 45 leaf 2. The fourth construct of this shape.
 		unsafe_block: ($) => seq("unsafe", $.statement_block),
 		try_block: ($) => seq("try", $.statement_block),
 
-		// Plan 55 leaf 2 made both `if` spellings usable as a value, so this
-		// position takes either. The Rust parser tells them apart with a
-		// depth-zero scan for `then` before the line break; GLR needs no such
-		// test — it explores both and the `then` or the indent settles it.
+		// Plan 55 leaf 2 made the indented `if` usable as a value, and leaf 7
+		// retired `then` — so this position takes the one spelling there is.
+		// What left is a `prec.left` branch carrying `"if" condition "then"
+		// consequence "else" alternative`, and with it the only place the
+		// grammar held two rules for one AST node.
 		//
-		// `if_statement` is reused rather than copied: since plan 55 leaf 1
-		// the two spellings are one AST node, and giving the grammar two rules
-		// for one node is how the highlighter and the compiler drift.
+		// `if_statement` is reused rather than copied: the two spellings have
+		// been one node since leaf 1, and giving the grammar two rules for one
+		// node is how the highlighter and the compiler drift.
 		conditional_expression: ($) =>
-			choice(
-				prec.left(
-					seq(
-						"if",
-						field("condition", $.condition),
-						"then",
-						field("consequence", $._expression),
-						"else",
-						field("alternative", $._expression),
-					),
-				),
-				// Negative, so the *statement* reading wins where both are
-				// possible. That is the same preference the Rust parser has, and
-				// it gets it for free by asking `control_flow` before it reads an
-				// expression at all; GLR has to be told.
-				prec(-1, $.if_statement),
-			),
+			// Negative, so the *statement* reading wins where both are possible.
+			// That is the same preference the Rust parser has, and it gets it for
+			// free by asking `control_flow` before it reads an expression at all;
+			// GLR has to be told.
+			prec(-1, $.if_statement),
 
 		lambda: ($) =>
 			prec.left(

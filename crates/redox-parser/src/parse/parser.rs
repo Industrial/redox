@@ -5,6 +5,7 @@ pub(crate) mod arm_body;
 pub(crate) mod assign_tail;
 pub(crate) mod atom;
 pub(crate) mod binary_op;
+pub(crate) mod block_expr;
 pub(crate) mod bracketed;
 pub(crate) mod byte_literal;
 pub(crate) mod can_end_a_type;
@@ -26,7 +27,6 @@ pub(crate) mod constructor_path;
 pub(crate) mod control_flow;
 pub(crate) mod data_decl;
 pub(crate) mod deriving;
-pub(crate) mod do_block;
 pub(crate) mod error_variant;
 pub(crate) mod errors_decl;
 pub(crate) mod expr_from_tokens;
@@ -36,7 +36,6 @@ pub(crate) mod field_init;
 pub(crate) mod flush_word;
 pub(crate) mod generalise;
 pub(crate) mod holds_a_pattern_test;
-pub(crate) mod if_expression;
 pub(crate) mod import_decl;
 pub(crate) mod import_path;
 pub(crate) mod inline_rust;
@@ -46,6 +45,7 @@ pub(crate) mod is_word;
 pub(crate) mod lambda;
 pub(crate) mod local_test;
 pub(crate) mod method_context;
+pub(crate) mod modified_block;
 pub(crate) mod module_decl;
 pub(crate) mod newtype_shape;
 pub(crate) mod opens_a_section;
@@ -68,6 +68,7 @@ pub(crate) mod receiver;
 pub(crate) mod receiver_text;
 pub(crate) mod record_literal;
 pub(crate) mod record_pattern;
+pub(crate) mod reserved_word;
 pub(crate) mod return_in_tail;
 pub(crate) mod rewritten;
 pub(crate) mod rust_generic;
@@ -636,51 +637,18 @@ impl<'a> Parser<'a> {
     self.check(&TokenKind::Newline) || self.check(&TokenKind::Dedent) || self.at_eof()
   }
 
-  /// Whether the `if` at the cursor is the one-line `if c then a else b`.
-  ///
-  /// Plan 55 leaf 2. Both spellings are one `Expr::If` since leaf 1, and in
-  /// *statement* position `stmt` asks `control_flow` first so the question
-  /// never arises — the indented form wins by reaching the cursor first. In
-  /// **expression** position both are legal, and something has to choose.
-  ///
-  /// `then` at depth zero before the line ends is the whole test. A nested
-  /// conditional cannot confuse it: `if (if a then b else c) then d else e`
-  /// has its inner `then` inside parentheses, so the first one this sees at
-  /// depth zero is the outer one.
-  ///
-  /// The same shape as [`Self::reaches_a_binding_eq`] and
-  /// `holds_a_pattern_test`, deliberately: a depth-tracking forward scan that
-  /// stops at the line break is how this parser answers every
-  /// which-production-is-this question, and inventing a second mechanism for
-  /// the third one would be worse than the duplication.
-  pub(crate) fn reaches_a_then(&self) -> bool {
-    let mut depth = 0i32;
-    let mut i = 0;
-    while let Some(tok) = self.peek_at(i) {
-      match &tok.kind {
-        TokenKind::Kw(Keyword::Then) if depth == 0 => return true,
-        TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => depth += 1,
-        TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
-          depth -= 1;
-          if depth < 0 {
-            return false;
-          }
-        }
-        TokenKind::Newline | TokenKind::Indent | TokenKind::Dedent | TokenKind::Eof => {
-          return false;
-        }
-        _ => {}
-      }
-      i += 1;
-    }
-    false
-  }
-
   /// `if c` with an indented block, and its `else` — doc 01 §8, plan 20.
   ///
   /// `else if` is read by recursion: the `else` branch is a block holding one
   /// `If` statement, which is how Rust reads it and what lets the emitter
   /// write `} else if … {` without a third node.
+  ///
+  /// **The only `if` production, since plan 55 leaf 7 retired `then`.**
+  /// `prefix` reached this or `if_expression` depending on a depth-zero scan
+  /// for the keyword (`reaches_a_then`, gone with it); with one spelling left
+  /// the expression position is the same parse as the statement position, and
+  /// the choice — along with `Expr::If`'s `is_inline` bit — has nothing to
+  /// record.
   pub(crate) fn if_statement(&mut self) -> Result<Expr, ParseError> {
     let open = self.peek_span().0;
     self.expect(&TokenKind::Kw(Keyword::If), "expected `if`")?;
@@ -693,7 +661,6 @@ impl<'a> Parser<'a> {
         condition,
         then_block,
         otherwise: None,
-        is_inline: false,
         span: (open, self.prev_span().1),
       });
     }
@@ -717,7 +684,6 @@ impl<'a> Parser<'a> {
           }],
           span: (start, end),
         }),
-        is_inline: false,
         span: (open, end),
       });
     }
@@ -727,7 +693,6 @@ impl<'a> Parser<'a> {
       condition,
       then_block,
       otherwise: Some(otherwise),
-      is_inline: false,
       span: (open, self.prev_span().1),
     })
   }

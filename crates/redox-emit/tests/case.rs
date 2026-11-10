@@ -65,6 +65,12 @@ fn a_case_is_an_expression() {
 /// and writes one after every other body, so the emitter agrees with it
 /// rather than being uniform — `generated_rust_is_rustfmt_clean` is what
 /// notices the difference.
+///
+/// `-> do` stood beside this spelling for one milestone and emitted the same
+/// Rust character for character, which is what made leaf 7's removal a
+/// removal of a *spelling* rather than of a form (plan 55 §10.4, §10.10). It
+/// is now `RDX0114`, and a refusal is a parse property rather than an emit
+/// one — `crates/redox-cli/tests/ui/reserved_do.sdx` carries it.
 #[test]
 fn an_indented_block_is_an_arm_body() {
   let out = xrs("f : u32 -> u32\nf n = case n of\n  0 ->\n    a = 1\n    a\n  _ -> n\n");
@@ -90,19 +96,6 @@ fn a_comment_keeps_a_one_expression_arm_braced() {
   let out = xrs("f : u32 -> u32\nf n = case n of\n  0 ->\n    -- why\n    1\n  _ -> n\n");
   assert!(out.contains("0 => {"), "{out}");
   assert!(out.contains("// why"), "{out}");
-}
-
-/// `-> do` is **accepted and deprecated** for this milestone, and it is the
-/// same node as the marker-free block — plan 55 §10.4's point that
-/// `Expr::Do` is Redox's only spelling of a block expression. So the two
-/// spellings emit the same Rust, character for character, which is what makes
-/// leaf 7's removal of the keyword a removal of a *spelling* rather than of a
-/// form.
-#[test]
-fn the_do_marker_still_parses_and_means_the_same() {
-  let marked = xrs("f : u32 -> u32\nf n = case n of\n  0 -> do\n    a = 1\n    a\n  _ -> n\n");
-  let bare = xrs("f : u32 -> u32\nf n = case n of\n  0 ->\n    a = 1\n    a\n  _ -> n\n");
-  assert_eq!(marked, bare);
 }
 
 /// Criterion 3's second half: a compound assignment is a legal arm body, and

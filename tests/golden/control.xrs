@@ -25,24 +25,22 @@ fn classify(n: i32) {
     ();
 }
 
-// `if c then a else b` is an expression. Plan 55 leaf 1 made it the **same
-// node** as the indented form, so this comment's previous claim — *"one
-// keyword decides which of the two nodes the parser builds"* — is wrong twice
-// over: there is one node, and the keyword decides a spelling.
+// The same `if` as a function's whole body, which is where it carries a
+// value rather than an effect.
 //
-// What decides is **position**. `Parser::stmt` asks `control_flow` before it
-// reads an expression at all, so an `if` beginning a statement is the indented
-// form by arrival. An `if` reached as a *value* could be either, and there
-// `then` at depth zero before the line break is the test — the same shape as
-// the scans that tell a binding from an expression and a pattern test from a
-// comparison.
+// This was `tier n = if n > 9 then "big" else "small"` until plan 55 leaf 7
+// retired `then`. There is **one** `if` now: leaf 1 merged the two nodes and
+// left an `is_inline` bit to record which of the two spellings the author
+// wrote, and leaf 7 removed the second spelling, so the bit had nothing left
+// to say. Narrow branches still *lower* to one line of Rust — that is
+// `one_line_if`, and it is rustfmt's decision rather than the author's.
 fn tier(n: i32) -> &'static str {
     if n > 9 { "big" } else { "small" }
 }
 
-// And the indented form used as a value — plan 55 leaf 2. Until it, this was
-// `RDX0101`: `prefix` reached only the one-line production, so an indented
-// `if` was available as a function's tail and nowhere else.
+// And an `if` used as a value — plan 55 leaf 2. Until it, this was `RDX0101`:
+// `prefix` reached only the one-line `then` production, so an indented `if`
+// was available as a function's tail and nowhere else.
 //
 // The `else if` rung is here because it is the case that proves the chain
 // survives the change. Each branch is a tail position, which is leaf 0's
@@ -60,13 +58,17 @@ fn labelled(n: i32) -> &'static str {
     out
 }
 
-// The one-line form inside brackets, which was the *only* spelling available
-// there until plan 65. The lexer suppressed `Indent` and `Newline` entirely
-// while bracket depth was above zero — which is what let a record literal and
-// a call span lines — so an indented `if` in argument position was `RDX0101`,
-// and that was the strongest argument for keeping `then`.
+// A conditional reaching a string interpolation, which is the one position
+// where plan 55 leaf 7 cost an author a line.
+//
+// This read `"#{if n > 9 then "big" else "small"}"`, and plan 55 §10.8 priced
+// the retirement of `then` against *parenthesised* argument position, which
+// plan 65 then made writable (see `bracketed_block` below). It does **not**
+// reach here: `#{…}` is scanned inside a single string token, so there is no
+// line for an indented branch to go on at any bracket depth. A conditional
+// in an interpolation is now written as a call to one, which is what this is.
 fn bracketed(n: i32) -> String {
-    format!("{}", if n > 9 { "big" } else { "small" })
+    format!("{}", tier(n))
 }
 
 // And the same conditional as a parenthesised argument, indented — plan 65.
@@ -128,8 +130,16 @@ fn nested() -> i32 {
     seen
 }
 
-// `do` is a block expression, and `do 'name` is a labelled block — which is
-// how a value leaves a loop that is not the last expression of a function.
+// An indented block is an expression, and `'name` labels one — which is how
+// a value leaves a loop that is not the last expression of a function.
+//
+// Written `do 'search` until plan 55 leaf 7. §1.7's argument is that a
+// keyword announcing a block is redundant once a block is an expression; the
+// label is the one thing `do` carried that nothing else provides, so it stays
+// and is Rust's own `'search: { … }`. The word `do` remains **reserved** and
+// is `RDX0114` — `tests/ui/reserved_do.sdx` has it — because plan 60 is about
+// to give `<-` a monadic reading and the Haskell meaning of `do` is the one
+// still unclaimed.
 fn first_square_over(limit: i32) -> i32 {
     'search: {
         for c in 1..20 {
@@ -252,6 +262,32 @@ fn shadowed() -> i32 {
     n + inner
 }
 
+// `.then` on an `Ordering`, which is what retiring `then` recovers — plan 55
+// §1.3, and criterion 2. While the word was reserved this method had no
+// spelling at all: `(b.1.cmp (&a.1)).then (…)` was `RDX0103`, *"expected a
+// field name, a tuple index, or a method name after `.`"*, so a comparator
+// with a tiebreak had to be written as a tuple comparison and the new-program
+// corpus says so in a comment.
+//
+// The input is ordered so that the tiebreak is the only thing that decides
+// the answer: `sort_by` is **stable**, so dropping `.then (…)` leaves `3`
+// before `1` and prints `31` where this prints `13`. A text golden cannot
+// catch that; the run can.
+//
+// §1.3 and §3 case 1 both quote this as `(b.1.cmp (&a.1)).then (…)`, and the
+// **parentheses are not needed**: a method call is a receiver, so `.then`
+// binds to the whole of `cmp (&a.1)` and the two spellings emit the same
+// Rust. `redox fmt` is what says so — it removed them, and
+// `formatting_preserves_meaning` then held the claim to the AST.
+fn ordered() -> String {
+    let mut rows = {
+        let __rdx_t: Vec<(i32, i32)> = Vec::from([(3, 2), (1, 2), (2, 9)]);
+        __rdx_t
+    };
+    rows.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    format!("{}{}", rows[1].0, rows[2].0)
+}
+
 fn main() {
     classify(3);
     classify(0 - 3);
@@ -276,5 +312,6 @@ fn main() {
     println!("{}", places());
     println!("{}", compounded());
     println!("{}", shadowed());
+    println!("{}", ordered());
     ();
 }

@@ -6,8 +6,14 @@
 -- lexer tracks bracket depth. Plan 40 §10.3 found the same thing and split its
 -- test in two for it; this row re-earned the lesson rather than reading it.
 --
--- `then` with no `if` is the parser's complaint, which is what `redox_build`
+-- `else` with no `if` is the parser's complaint, which is what `redox_build`
 -- and `redox_fmt` need: a program that reaches the parser and stops there.
+--
+-- It was `then 1` until plan 55 leaf 7 freed that word. A retired keyword is
+-- an **identifier**, so `then 1` became an ordinary call to an undefined
+-- function — it parses, and the complaint moves to rustc, which is the
+-- opposite of what this fixture asserts. `else` is reserved and has no
+-- production outside an `if`, so it stops where `then` used to.
 main : ()
 main =
-  then 1
+  else 1

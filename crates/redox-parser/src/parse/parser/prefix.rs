@@ -1,14 +1,15 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
+use crate::parse::parser::block_expr::block_expr;
 use crate::parse::parser::bracketed::bracketed;
 use crate::parse::parser::byte_literal::byte_literal;
 use crate::parse::parser::case_of::case_of;
-use crate::parse::parser::do_block::do_block;
-use crate::parse::parser::if_expression::if_expression;
 use crate::parse::parser::interpolated_string::interpolated_string;
 use crate::parse::parser::lambda::lambda;
+use crate::parse::parser::modified_block::modified_block;
 use crate::parse::parser::parse_expr::parse_expr;
 use crate::parse::parser::path_or_ident::path_or_ident;
+use crate::parse::parser::reserved_word::reserved_word;
 use crate::parse::parser::rust_string_body::rust_string_body;
 use crate::parse::parser::section::section;
 use crate::parse::parser::unary_op::unary_op;
@@ -107,37 +108,12 @@ pub(crate) fn prefix(p: &mut Parser) -> Result<Expr, ParseError> {
         span,
       })
     }
-    // Doc 03 §14.3's `async` block — plan 39. An expression, reached from
-    // here as `do` and `try` are, and taking the same statement block.
-    TokenKind::Kw(Keyword::Async) => {
-      p.advance();
-      let body = p.statement_block("expected an indented `async` body")?;
-      Ok(Expr::AsyncBlock {
-        body,
-        span: (start, p.prev_span().1),
-      })
-    }
-    // Rust's `unsafe { … }` — plan 45 leaf 2. The same shape again, which is
-    // the argument for reaching it from here rather than giving `unsafe` a
-    // statement form of its own.
-    TokenKind::Kw(Keyword::Unsafe) => {
-      p.advance();
-      let body = p.statement_block("expected an indented `unsafe` body")?;
-      Ok(Expr::UnsafeBlock {
-        body,
-        span: (start, p.prev_span().1),
-      })
-    }
-    // Doc 03 §12.4's `try` block — plan 28. An expression, so it is reached
-    // from here exactly as plan 20's `do` is, and it takes the same statement
-    // block. The difference between the two is entirely in the emitter.
-    TokenKind::Kw(Keyword::Try) => {
-      p.advance();
-      let body = p.statement_block("expected an indented `try` body")?;
-      Ok(Expr::TryBlock {
-        body,
-        span: (start, p.prev_span().1),
-      })
+    // Doc 03 §14.3's `async` block, §12.4's `try` block and Rust's own
+    // `unsafe` — plans 39, 28 and 45 leaf 2, and one arm since plan 55 leaf
+    // 7 made them **modifiers on a block** (§1.7) rather than three
+    // constructs of one shape. `modified_block` has the argument.
+    TokenKind::Kw(kw @ (Keyword::Async | Keyword::Unsafe | Keyword::Try)) => {
+      modified_block(p, kw, start)
     }
     TokenKind::Char(value) => {
       let span = p.peek_span();
@@ -225,24 +201,37 @@ pub(crate) fn prefix(p: &mut Parser) -> Result<Expr, ParseError> {
     // a closure here, so one token of lookahead settles it.
     TokenKind::Backslash => lambda(p),
     TokenKind::Kw(Keyword::Move) => lambda(p),
-    // Doc 01 §8's conditional **expression** and doc 03 §7.2's `do` block,
-    // both plan 20. `if` here is always the `then` form: the statement form
-    // is read by `control_flow`, which `stmt` asks before it ever reaches an
-    // expression.
-    // Plan 55 leaf 2: both `if` spellings are expressions, and in this
-    // position both are legal — `stmt` asks `control_flow` first, so an `if`
-    // only reaches here when it is being *used* as a value. `then` at depth
-    // zero before the line ends picks the one-line form; anything else is the
-    // indented one, which until this leaf was `RDX0101` here and reachable
-    // only as a function's tail.
-    TokenKind::Kw(Keyword::If) => {
-      if p.reaches_a_then() {
-        if_expression(p)
-      } else {
-        p.if_statement()
-      }
+    // Doc 01 §8's conditional — plan 20, and one production since plan 55
+    // leaf 7 retired `then`. Leaf 2 chose between two spellings here with a
+    // depth-zero scan for the keyword; with one spelling left there is
+    // nothing to choose, and `if` as a **value** is the same parse as `if` as
+    // a statement. `stmt` asks `control_flow` first, so one only reaches here
+    // when it is being used as a value — which plan 65 made writable inside
+    // brackets, and which is what paid for the retirement.
+    TokenKind::Kw(Keyword::If) => p.if_statement(),
+    // `do` is reserved and names no construct — `RDX0114`, plan 55 §1.7.
+    // A block needs no keyword in front of it, so the `Newline` arm below is
+    // where the old `do` block went.
+    TokenKind::Kw(Keyword::Do) => Err(reserved_word(p)),
+    // An indented block, as a value: `inner =` with the block on the lines
+    // under it. Plan 55 leaf 7, and the production `do` used to hold.
+    //
+    // A `Newline` here is always this: `parse_expr` is reached with the
+    // cursor on one only when the construct that wanted an expression found
+    // the line ended instead, and a block is what that means now. The old
+    // answer was `RDX0102` "expected an expression".
+    TokenKind::Newline => block_expr(p, None, start),
+    // `'name` on a bare block — Rust's own labelled block, and the one
+    // capability `do` carried that nothing else provides (§1.7): how a value
+    // leaves a loop that is not a function's tail.
+    //
+    // A label before a *loop* keyword is `control_flow`'s, which is reached
+    // from `stmt` before any expression. So a label arriving here opens a
+    // block or is a mistake, and `statement_block` says which.
+    TokenKind::Label(name) => {
+      p.advance();
+      block_expr(p, Some(name), start)
     }
-    TokenKind::Kw(Keyword::Do) => do_block(p),
     // Doc 18 §2.3's `case e of`. An expression, not a statement: its value is
     // the matching arm's, which is what lets it be a clause body, an argument
     // or the right-hand side of a binding with no extra form.

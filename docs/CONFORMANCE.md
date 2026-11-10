@@ -50,7 +50,7 @@ Each is graded `UNREACHABLE` in `docs/GRAMMAR.md`.
 
 | Crate | Files | With a blocker | |
 |---|---:|---:|---:|
-| `redox-ast` | 47 | 8 | 17% |
+| `redox-ast` | 47 | 7 | 15% |
 | `redox-bench` | 13 | 5 | 38% |
 | `redox-cli` | 24 | 20 | 83% |
 | `redox-diag` | 21 | 16 | 76% |
@@ -61,8 +61,8 @@ Each is graded `UNREACHABLE` in `docs/GRAMMAR.md`.
 | `redox-lexer` | 32 | 16 | 50% |
 | `redox-lsp` | 22 | 6 | 27% |
 | `redox-mcp` | 19 | 7 | 37% |
-| `redox-parser` | 107 | 33 | 31% |
-| **total** | **477** | **229** | **48%** |
+| `redox-parser` | 108 | 35 | 32% |
+| **total** | **478** | **230** | **48%** |
 
 ---
 

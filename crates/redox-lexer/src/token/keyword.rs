@@ -13,6 +13,14 @@
 /// falls is the number of *constructs*, and a keyword that stops existing is
 /// only evidence of that when a construct went with it.
 ///
+/// **`then` has since left, and it is the one case that evidence applies to.**
+/// Plan 55 leaf 7 retired the construct it was arriving for — the one-line
+/// `if c then a else b` — so the word is an ordinary identifier again and
+/// `Ordering::then` is spellable. [`Self::Do`] went the other way in the same
+/// leaf: its construct is gone and the word stays reserved, which is §1.7's
+/// decision and the reason a reserved word is not the same thing as a
+/// construct.
+///
 /// A variant no parser yet accepts is expected at this stage, not dead.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Keyword {
@@ -40,7 +48,6 @@ pub enum Keyword {
   Deriving,
   // Control flow
   If,
-  Then,
   Else,
   While,
   Until,
@@ -62,6 +69,16 @@ pub enum Keyword {
   // variable someone happened to name `otherwise`.
   Otherwise,
   When,
+  /// Reserved, and no longer a construct — plan 55 leaf 7, §1.7.
+  ///
+  /// `do` spelled doc 03 §7.2's block expression until an indented block
+  /// became an expression on its own; the construct is gone and the word is
+  /// kept, because plan 60 is about to give `<-` a monadic reading and the
+  /// Haskell meaning of `do` is the one still unclaimed. §9 decision 4.
+  ///
+  /// So the parser has no production for it and `RDX0114` says so, which is
+  /// what makes the reservation visible rather than a word that merely fails
+  /// to parse.
   Do,
   Break,
   Continue,
@@ -142,7 +159,6 @@ impl Keyword {
       "deriving" => Self::Deriving,
       "errors" => Self::Errors,
       "if" => Self::If,
-      "then" => Self::Then,
       "else" => Self::Else,
       "while" => Self::While,
       "until" => Self::Until,
@@ -207,7 +223,6 @@ impl Keyword {
       Self::Deriving => "deriving",
       Self::Errors => "errors",
       Self::If => "if",
-      Self::Then => "then",
       Self::Else => "else",
       Self::While => "while",
       Self::Until => "until",
@@ -262,7 +277,7 @@ mod tests {
     for text in [
       "mut",
       "if",
-      "then",
+      "do",
       "case",
       "of",
       "otherwise",
@@ -295,7 +310,7 @@ mod tests {
   fn leaves_ordinary_identifiers_alone() {
     for text in [
       "main", "print", "iff", "switched", "island", "notable", "Selfish", "is", "and", "use",
-      "defer", "cond", "into", "derive", "mod", "unless", "switch", "withhold",
+      "defer", "cond", "into", "derive", "mod", "unless", "switch", "withhold", "then",
     ] {
       assert!(
         Keyword::from_text(text).is_none(),

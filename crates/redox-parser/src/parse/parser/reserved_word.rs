@@ -1,0 +1,71 @@
+use crate::ParseError;
+use crate::parse::parser::Parser;
+use crate::parse::parser::block_expr::block_expr;
+use redox_diag::Code;
+use redox_lexer::{Keyword, TokenKind};
+
+/// Refuse a reserved word that names no construct — `RDX0114`, plan 55 leaf
+/// 7.
+///
+/// `do` is the only one. §1.7 retired the construct it spelled, because an
+/// indented block is an expression and needs nothing in front of it, and §9
+/// decision 4 kept the **word**: plan 60 gives `<-` a monadic reading, and
+/// `do`'s Haskell meaning is the one still unclaimed, so spending the token on
+/// an identifier now would make that row a breaking change.
+///
+/// # Why this is a code of its own
+///
+/// Both ways a `do` can reach source already failed. `found = do` was
+/// `RDX0102` *"expected an expression"* from [`prefix`](super::prefix) — the
+/// keyword is not one — and `do = 1` was the same, because a reserved word
+/// cannot be a binding's name either. Both messages are true and both
+/// describe the **position**, which leaves an author unable to tell a retired
+/// construct from a word the parser has not learned yet. That distinction is
+/// the whole content of the help line, and it is criterion 8's *"using it as
+/// an identifier is diagnosed"*.
+///
+/// The same shape as [`local_test`](super::local_test), one leaf earlier: a
+/// construct that was available and is now refused **by name**.
+///
+/// # Raised from `prefix`, not from `Parser::stmt`
+///
+/// The opposite placement to `local_test`'s, and for the opposite reason.
+/// `test` is a *declaration*, so the position where it is wrong is a body and
+/// `stmt` is where a body begins. `do` is an *expression*, and every way of
+/// writing one — a binding's value, an argument, an arm body, a bare
+/// statement — funnels through `prefix`. One arm there covers all of them.
+///
+/// # The old construct is **read** before the refusal
+///
+/// `local_test`'s lesson, re-earned on the first run of
+/// `tests/ui/reserved_do.sdx`: leaving the block to recovery reported a
+/// second `RDX0102` on its first line, and then **missed** the `do = 2` on
+/// the line after — one defect reported twice and one not at all. So `do`,
+/// its optional label and the indented block that follows are consumed here,
+/// which is `do_block`'s old shape run for its cursor movement, and recovery
+/// resumes at the next statement where it should.
+pub(crate) fn reserved_word(p: &mut Parser) -> ParseError {
+  debug_assert!(
+    p.check(&TokenKind::Kw(Keyword::Do)),
+    "`do` is the only reserved word with no construct"
+  );
+  let keyword = p.peek_span();
+  p.advance();
+  if matches!(p.peek().kind, TokenKind::Label(_)) {
+    p.advance();
+  }
+  // Only when a block actually follows: `do = 2` is the identifier use, and
+  // there is nothing after the word to read.
+  if p.check(&TokenKind::Newline) {
+    let _ = block_expr(p, None, keyword.0);
+  }
+
+  ParseError::with_help(
+    Code::ReservedWord,
+    "`do` is a reserved word and names no construct",
+    "an indented block is an expression on its own, so drop the `do` and keep the block — \
+     `found = 'search` for the labelled form. The word stays reserved for plan 60's \
+     do-notation (plan 55 §1.7)",
+    keyword,
+  )
+}

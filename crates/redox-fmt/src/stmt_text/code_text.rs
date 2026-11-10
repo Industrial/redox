@@ -23,10 +23,11 @@ use redox_ast::Expr;
 /// the same split the two printers always had, with the *position* deciding
 /// where it used to be decided by which enum a node lived in.
 ///
-/// `if` is the form where the choice shows. Reached here it is doc 01 §8's
-/// **indented** spelling; reached through `expr_text` it is the one-line
-/// `if c then a else b`. The spellings are `examples/control.sdx`'s and
-/// `examples/draw_condition.sdx`'s, which §1.5 makes the style guide.
+/// `if` used to be the form where the choice showed: reached here it was doc
+/// 01 §8's **indented** spelling and reached through `expr_text` it was the
+/// one-line `if c then a else b`. Plan 55 leaf 7 retired the second, so
+/// `expr_text` delegates every `if` here and the two printers cannot disagree
+/// about which one the author wrote.
 pub(crate) fn code_text(expr: &Expr, indent: usize, source: &str) -> String {
   // Every nested block is one level deeper than the element that owns it,
   // which is the whole of §3 row 11 as far as statements are concerned.
@@ -96,7 +97,6 @@ pub(crate) fn code_text(expr: &Expr, indent: usize, source: &str) -> String {
       condition,
       then_block,
       otherwise,
-      is_inline: false,
       ..
     } => format!(
       "if {}\n{}{}",
