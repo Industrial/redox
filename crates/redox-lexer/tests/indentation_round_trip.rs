@@ -70,6 +70,34 @@ fn line_indent(source: &str, offset: usize) -> Option<usize> {
   Some(line.len() - line.trim_start_matches(' ').len())
 }
 
+/// Whether a byte offset is the first non-space byte of its line.
+///
+/// Plan 65 leaf 1 made this necessary. A `Dedent` used to arrive only at a
+/// line boundary, so "the first token after a layout token" and "the first
+/// token on its line" were the same statement. A closing delimiter now emits
+/// the `Dedent`s for every level its bracket opened, and the closer sits
+/// *mid-line* — so in
+///
+/// ```text
+///   print (if n > 9
+///     "big"
+///   else
+///     "small")
+/// ```
+///
+/// the `)` follows a `Dedent` and is sampled at token depth 1 while its line
+/// is indented four. That is the bracket's interior level being closed, not a
+/// disagreement between the stack and the text, and this predicate is what
+/// tells the two apart.
+fn opens_its_line(source: &str, offset: usize) -> bool {
+  let start = source[..offset.min(source.len())]
+    .rfind('\n')
+    .map_or(0, |n| n + 1);
+  source[start..offset.min(source.len())]
+    .chars()
+    .all(|c| c == ' ')
+}
+
 /// Criterion 1: the depth the tokens imply equals the depth the text implies.
 ///
 /// Walking the stream, `Indent` pushes a level and `Dedent` pops one. The
@@ -101,6 +129,28 @@ fn line_indent(source: &str, offset: usize) -> Option<usize> {
 /// continuation; `examples/application.sdx` added the first and this
 /// assertion failed on it, naming a byte inside the `filter` call. The
 /// property is sound — the sampling was wider than the sentence above it.
+///
+/// # What plan 65 costs it, and the trap it leaves
+///
+/// A bracket now opens a layout context, and [`opens_its_line`] is what keeps
+/// the `Dedent`s a closer emits from being read as line boundaries.
+///
+/// The **remaining** limitation is real and is not papered over: a line inside
+/// brackets aligned under its opener pushes a level whose *width* is the
+/// opener's column, which has nothing to do with the file's other levels at
+/// the same token depth. `aligned = [ 1` with `, 2` under the bracket is depth
+/// 1 at width ten, and this property would call that a disagreement. It is
+/// not — it is a different context's base, and plan 65 §1.2 is the whole
+/// argument for allowing it.
+///
+/// No corpus file has that shape, and none can: `redox fmt` normalises a
+/// spread list onto one line, so `every_example_is_already_canonical` rejects
+/// the layout before this property ever sees it. Measured — adding one to
+/// `examples/arrays.sdx` failed that test, this one, and the tree-sitter
+/// grammar together. So the witness for the alignment case lives in
+/// `continuation.rs` as a direct `lex` call, and if a corpus file ever gains
+/// the shape, **this property is what needs the carve-out** rather than the
+/// file.
 #[test]
 fn token_depth_tracks_the_texts_indentation() {
   for path in sources() {
@@ -135,6 +185,11 @@ fn token_depth_tracks_the_texts_indentation() {
         TokenKind::Eof => {}
         _ => {
           if !std::mem::take(&mut opens_a_line) {
+            continue;
+          }
+          // A logical line start that is not a *textual* one is a closer
+          // following the `Dedent`s its bracket owed — see `opens_its_line`.
+          if !opens_its_line(&source, token.span.0) {
             continue;
           }
           let Some(width) = line_indent(&source, token.span.0) else {

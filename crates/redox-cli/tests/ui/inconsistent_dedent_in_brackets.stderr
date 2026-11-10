@@ -1,0 +1,7 @@
+error[RDX0002]: inconsistent dedent: 6 spaces matches no enclosing indentation level
+  --> inconsistent_dedent_in_brackets.sdx:5:7
+  |
+5 |       , 3
+  |       ^
+  = help: match an enclosing indentation level
+

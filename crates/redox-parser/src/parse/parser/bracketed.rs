@@ -21,6 +21,10 @@ use redox_lexer::TokenKind;
 pub(crate) fn bracketed(p: &mut Parser) -> Result<Expr, ParseError> {
   let start = p.peek_span().0;
   p.expect(&TokenKind::LBracket, "expected `[`")?;
+  // Plan 65 leaf 1 gave `[` a layout context, so the lines inside one carry
+  // `Newline`, `Indent` and `Dedent`. A list's structure is its commas, and
+  // nothing here reads layout — so every boundary skips it.
+  p.skip_layout();
 
   if p.check(&TokenKind::RBracket) {
     p.advance();
@@ -34,10 +38,13 @@ pub(crate) fn bracketed(p: &mut Parser) -> Result<Expr, ParseError> {
   // than absorbed as an operator — doc 18 §5.4's rule, applied to the third
   // place the bar is structural.
   let first = parse_expr(p, above_bitor())?;
+  p.skip_layout();
 
   if p.check(&TokenKind::Or) {
     p.advance();
+    p.skip_layout();
     let quals = qualifiers(p)?;
+    p.skip_layout();
     p.expect(
       &TokenKind::RBracket,
       "expected `]` to close the comprehension",
@@ -54,7 +61,9 @@ pub(crate) fn bracketed(p: &mut Parser) -> Result<Expr, ParseError> {
   // and the comprehension's `|` was already ruled out above.
   if p.check(&TokenKind::Semi) {
     p.advance();
+    p.skip_layout();
     let count = parse_expr(p, 0)?;
+    p.skip_layout();
     p.expect(
       &TokenKind::RBracket,
       "expected `]` to close the array repeat",
@@ -69,10 +78,12 @@ pub(crate) fn bracketed(p: &mut Parser) -> Result<Expr, ParseError> {
   let mut items = vec![first];
   while p.check(&TokenKind::Comma) {
     p.advance();
+    p.skip_layout();
     if p.check(&TokenKind::RBracket) {
       break;
     }
     items.push(parse_expr(p, 0)?);
+    p.skip_layout();
   }
   p.expect(&TokenKind::RBracket, "expected `]` to close the list")?;
   Ok(Expr::List {

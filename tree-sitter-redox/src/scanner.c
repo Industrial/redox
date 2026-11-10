@@ -292,6 +292,46 @@ bool tree_sitter_redox_external_scanner_scan(void *payload, TSLexer *lexer,
   bool crossed_a_line = false;
   bool found = skip_to_content(lexer, &width, &crossed_a_line);
   if (!crossed_a_line) {
+    // A closing delimiter ends every block its bracket opened — plan 65
+    // leaf 1, and the fourth reader of the surface change doc 04's fifth
+    // ordering commitment names.
+    //
+    // `redox-lexer` emits those `Dedent`s because it carries a layout-context
+    // mark per open delimiter. This scanner cannot: `(` is an ordinary
+    // grammar token it is never asked to lex, so it has no way to see one
+    // open. It gets the same answer from the grammar instead — the only
+    // reason `DEDENT` is valid with a closer ahead is that a
+    // `statement_block` inside the bracket is still open — and closes one
+    // level per call, letting the next call decide whether another is wanted.
+    //
+    // `print (if c` with indented branches and a trailing `)` is the shape.
+    // Without this the `)` arrived while `statement_block` still wanted its
+    // `_dedent`, and the whole function was an `ERROR`: the measurement below
+    // needs a line break to reach, and the closer sits on the body's own
+    // line, so the break never comes.
+    // A closer **ends the line** as far as layout is concerned, so it closes
+    // a block the way a line break does: the NEWLINE that terminates the
+    // block's last statement, then one DEDENT per level. That order is the
+    // only one the grammar is built for — `expression_statement` is
+    // `seq($._expression, $._newline)`, and emitting the DEDENT alone left a
+    // `(MISSING _newline)` in the tree, which `tree-sitter test` reports and
+    // `tree-sitter parse` does not print because `_newline` is hidden.
+    if (scanner->len > 1 &&
+        (lexer->lookahead == ')' || lexer->lookahead == ']' ||
+         lexer->lookahead == '}')) {
+      if (valid_symbols[NEWLINE]) {
+        // Owed rather than emitted, so this cannot loop: the next call pops a
+        // level whatever the grammar then asks for.
+        scanner->pending_dedents = 1;
+        lexer->result_symbol = NEWLINE;
+        return true;
+      }
+      if (valid_symbols[DEDENT]) {
+        scanner->len--;
+        lexer->result_symbol = DEDENT;
+        return true;
+      }
+    }
     // Mid-line whitespace, which is `extras`' business and not this
     // scanner's. Returning false here is what keeps a space between two
     // tokens from being mistaken for an indentation.

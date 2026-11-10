@@ -48,7 +48,9 @@ pub(crate) fn postfix(p: &mut Parser, lhs: Expr) -> Result<Result<Expr, Expr>, P
 
   if p.check(&TokenKind::LBracket) {
     p.advance();
+    p.skip_layout();
     let index = parse_expr(p, 0)?;
+    p.skip_layout();
     p.expect(&TokenKind::RBracket, "expected `]` to close the index")?;
     return Ok(Ok(Expr::Index {
       recv: Box::new(lhs),
@@ -93,6 +95,7 @@ pub(crate) fn postfix(p: &mut Parser, lhs: Expr) -> Result<Result<Expr, Expr>, P
     if p.check(&TokenKind::LParen) {
       p.advance();
       let args = arguments(p, &TokenKind::RParen)?;
+      p.skip_layout();
       p.expect(
         &TokenKind::RParen,
         "expected `)` to close the argument list",

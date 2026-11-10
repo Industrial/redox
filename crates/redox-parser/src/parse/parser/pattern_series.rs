@@ -19,12 +19,17 @@ pub(crate) fn pattern_series(
   close: &TokenKind,
 ) -> Result<Vec<Pattern>, ParseError> {
   let mut items = Vec::new();
+  // Plan 65 leaf 1: the bracket this sits inside opens a layout context, so
+  // its lines carry layout tokens the series itself has no use for.
+  p.skip_layout();
   while !p.check(close) {
     items.push(pattern_alt(p)?);
+    p.skip_layout();
     if !p.check(&TokenKind::Comma) {
       break;
     }
     p.advance();
+    p.skip_layout();
   }
   Ok(items)
 }

@@ -25,25 +25,127 @@ fn structural_count(src: &str) -> usize {
     .count()
 }
 
-/// Criterion 6: inside brackets, newlines and indentation are insignificant.
+/// Count `Indent`s and `Dedent`s, which must balance over a whole file.
+fn indent_balance(src: &str) -> (usize, usize) {
+  let toks = kinds(src);
+  (
+    toks.iter().filter(|k| **k == TokenKind::Indent).count(),
+    toks.iter().filter(|k| **k == TokenKind::Dedent).count(),
+  )
+}
+
+/// Plan 65 leaf 1 **replaces** plan 02 leaf 2's criterion 6.
+///
+/// Criterion 6 asserted that a bracketed expression emits no structural
+/// tokens at all, which is what made `print (if c` with an indented body
+/// unwritable — `statement_block` had no `Indent` to find. A bracket now opens
+/// a layout *context* instead of suppressing layout, so a multi-line list does
+/// carry `Newline`s and an `Indent` the one-line form does not.
+///
+/// What survives is the property criterion 6 was protecting: the closer pops
+/// every level its interior opened, so the indent stack after the `]` is the
+/// one before the `[` and the line after it reconciles against the file.
 #[test]
-fn a_bracketed_expression_emits_no_structural_tokens() {
-  let flat = "xs = [1, 2, 3]\n";
-  let spread = "xs = [\n  1,\n  2,\n  3,\n]\n";
+fn a_bracket_closes_every_level_its_interior_opened() {
+  let spread = "xs = [\n  1,\n  2,\n  3,\n]\ny = 1\n";
+  let (indents, dedents) = indent_balance(spread);
   assert_eq!(
-    structural_count(flat),
-    structural_count(spread),
-    "a multi-line bracketed list should lex like the one-line form"
+    (indents, dedents),
+    (1, 1),
+    "the interior opens one level and the `]` closes it: {:?}",
+    kinds(spread)
+  );
+  assert!(
+    structural_count(spread) > structural_count("xs = [1, 2, 3]\ny = 1\n"),
+    "the spread form carries layout the one-line form does not — that is the row"
   );
 }
 
 #[test]
-fn nested_delimiters_track_depth() {
-  let src = "xs = f(\n  g(\n    1\n  )\n)\n";
+fn nested_delimiters_each_close_their_own_context() {
+  let src = "xs = f(\n  g(\n    1\n  )\n)\ny = 1\n";
   assert_eq!(
-    structural_count(src),
-    structural_count("xs = f(g(1))\n"),
-    "depth must return to zero only at the outermost close"
+    indent_balance(src),
+    (2, 2),
+    "each `(` opens a level and each `)` unwinds to its own mark: {:?}",
+    kinds(src)
+  );
+}
+
+/// Plan 65 criterion 2, and §1.2's whole reason the suppression existed.
+///
+/// A continuation aligned under its opener sits at a column matching no
+/// enclosing level — seven, under `f (` — which with one shared stack is
+/// `RDX0002`. The context mark is what makes it one consistent deeper level
+/// instead.
+#[test]
+fn a_continuation_aligned_under_its_opener_is_not_an_inconsistent_dedent() {
+  for src in [
+    "m = f (a,\n       b)\n",
+    "m = f (a\n       + b)\n",
+    "xs = [ 1\n     , 2\n     ]\n",
+    "p = Point { x = 1\n          , y = 2\n          }\n",
+  ] {
+    assert!(
+      lex(src).is_ok(),
+      "{src:?} gave {:?}",
+      lex(src).err().map(|e| e.message)
+    );
+  }
+}
+
+/// Criterion 2 again, for the half a continuation line never reaches.
+///
+/// A *continuation* is suppressed before `sync_indent` ever runs, so the
+/// alignment above was only ever half the case. Once a bracket can hold a
+/// real statement — which is this row — its interior pushes genuine levels,
+/// and a closer placed to the left of them matched none of them: `RDX0002` on
+/// a `)`, decided by nothing but which column the author put it in.
+///
+/// A line that *opens* with a closer is therefore not content at that
+/// indentation. `track_delims` already owes the `Dedent`s, so every column is
+/// equally fine and none of them is semantic.
+#[test]
+fn a_closers_own_column_is_never_an_inconsistent_dedent() {
+  // The interior opens a level at 9; the closer is then placed at the base,
+  // short of it, under it, and at column zero.
+  for closer in ["  )", "        )", "         )", ")"] {
+    let src = format!("main =\n  m = f (1 +\n         2\n{closer}\n  print m\n");
+    assert!(
+      lex(&src).is_ok(),
+      "a `)` at column {} was rejected: {:?}",
+      closer.len() - 1,
+      lex(&src).err().map(|e| e.message)
+    );
+  }
+}
+
+/// Plan 65 criterion 3 and decision 3: a fresh base is not an amnesty.
+#[test]
+fn an_inconsistent_dedent_inside_brackets_is_still_rejected() {
+  // Four spaces, then three — which matches neither the level above it nor
+  // the context's base.
+  let err = lex("xs = [ f\n    a\n   b\n     ]\n").expect_err("should fail");
+  assert!(
+    err.message.contains("inconsistent dedent"),
+    "got {:?}",
+    err.message
+  );
+}
+
+/// Plan 65 criterion 1, at the lexical level: the `Indent` that
+/// `statement_block` needs now exists inside `(…)`.
+#[test]
+fn an_indented_block_inside_parentheses_carries_its_layout() {
+  let toks = kinds("v = print (if c\n  a\nelse\n  b)\n");
+  assert!(
+    toks.contains(&TokenKind::Indent),
+    "the branch bodies must open blocks: {toks:?}"
+  );
+  assert_eq!(
+    indent_balance("v = print (if c\n  a\nelse\n  b)\n"),
+    (2, 2),
+    "one level per branch, both closed inside the parentheses: {toks:?}"
   );
 }
 

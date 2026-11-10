@@ -26,18 +26,18 @@ pub(crate) fn record_literal(p: &mut Parser, head: Expr) -> Result<Expr, ParseEr
 
   let mut fields = Vec::new();
   loop {
-    p.skip_separators();
+    p.skip_layout();
     if p.check(&TokenKind::RBrace) {
       break;
     }
     fields.push(field_init(p)?);
-    p.skip_separators();
+    p.skip_layout();
     if !p.check(&TokenKind::Comma) {
       break;
     }
     p.advance();
   }
-  p.skip_separators();
+  p.skip_layout();
   p.expect(&TokenKind::RBrace, "expected `}` to close the record")?;
 
   Ok(Expr::Record {

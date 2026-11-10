@@ -1274,6 +1274,29 @@ impl<'a> Parser<'a> {
     }
   }
 
+  /// Skip every layout token — `Newline`, `Indent` *and* `Dedent`.
+  ///
+  /// For the inside of a bracket, and only there. Plan 65 leaf 1 gave `(`,
+  /// `[` and `{` a layout context, so a construct spanning lines inside one
+  /// now carries layout where it previously carried none: `[ 1` with `, 2` on
+  /// the next line arrives as `[ 1 Newline Indent , 2 … Dedent ]`. The levels
+  /// a bracket's interior opens are closed by its closer, so a list's item
+  /// boundaries have nothing to do with them.
+  ///
+  /// Deliberately **not** [`Self::skip_separators`], which every block
+  /// construct calls: `statements` breaks on a `Dedent` and `items_until_dedent`
+  /// is named for one. Widening that function would make every indented block
+  /// in the language unterminated, which is the opposite error to the one this
+  /// fixes.
+  pub(crate) fn skip_layout(&mut self) {
+    while self.check(&TokenKind::Newline)
+      || self.check(&TokenKind::Indent)
+      || self.check(&TokenKind::Dedent)
+    {
+      self.advance();
+    }
+  }
+
   /// Trivia left over at `Eof` — a comment at the end of the file.
   fn eof_trivia(&self) -> Vec<Trivia> {
     self

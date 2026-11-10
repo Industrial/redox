@@ -10,12 +10,18 @@ use redox_lexer::TokenKind;
 /// (plan 02 leaf 2) makes a multi-line argument list natural to write.
 pub(crate) fn arguments(p: &mut Parser, close: &TokenKind) -> Result<Vec<Expr>, ParseError> {
   let mut args = Vec::new();
+  // Plan 65 leaf 1: the delimiter this list sits inside opens a layout
+  // context, so an argument may be followed by `Newline`, `Indent` or
+  // `Dedent` where previously the lexer emitted none.
+  p.skip_layout();
   while !p.check(close) && !p.at_eof() {
     args.push(parse_expr(p, 0)?);
+    p.skip_layout();
     if !p.check(&TokenKind::Comma) {
       break;
     }
     p.advance();
+    p.skip_layout();
   }
   Ok(args)
 }

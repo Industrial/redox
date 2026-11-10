@@ -109,6 +109,44 @@ main =
       (number))))
 
 ================================================================
+an indented block inside parentheses
+================================================================
+
+main : ()
+main =
+  print (if c
+    1
+  else
+    2)
+  print 3
+
+----------------------------------------------------------------
+
+(source_file
+  (signature
+    name: (identifier)
+    type: (signature_type))
+  (equation
+    name: (identifier)
+    body: (expression_statement
+      (identifier)
+      (parenthesized
+        (conditional_expression
+          (if_statement
+            condition: (condition
+              (identifier))
+            consequence: (statement_block
+              (expression_statement
+                (number)))
+            (else_clause
+              alternative: (statement_block
+                (expression_statement
+                  (number))))))))
+    body: (expression_statement
+      (identifier)
+      (number))))
+
+================================================================
 an inconsistent dedent is an error
 :error
 ================================================================

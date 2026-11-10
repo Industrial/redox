@@ -43,6 +43,9 @@ pub(crate) fn record_pattern(
 
   let mut fields = Vec::new();
   let mut rest = false;
+  // Plan 65 leaf 1: `{` opens a layout context, so a field list spanning
+  // lines carries layout tokens this loop has no use for.
+  p.skip_layout();
   while !p.check(&TokenKind::RBrace) {
     // `..` ends the field list — *"and other fields"*. Rust requires it last,
     // so nothing follows it here either.
@@ -63,10 +66,12 @@ pub(crate) fn record_pattern(
     };
     fields.push(RecordPatternField { name, pattern });
 
+    p.skip_layout();
     if !p.check(&TokenKind::Comma) {
       break;
     }
     p.advance();
+    p.skip_layout();
   }
 
   p.expect(

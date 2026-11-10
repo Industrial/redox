@@ -60,13 +60,28 @@ fn labelled(n: i32) -> &'static str {
     out
 }
 
-// Inside brackets there is no layout, so an indented `if` cannot be a
-// parenthesised argument: the lexer suppresses `Indent` and `Newline` while
-// bracket depth is above zero, which is what lets a record literal and a call
-// span lines. `print (if c then a else b)` is the spelling there, and that is
-// the strongest argument for keeping `then` — leaf 7 proposes retiring it.
+// The one-line form inside brackets, which was the *only* spelling available
+// there until plan 65. The lexer suppressed `Indent` and `Newline` entirely
+// while bracket depth was above zero — which is what let a record literal and
+// a call span lines — so an indented `if` in argument position was `RDX0101`,
+// and that was the strongest argument for keeping `then`.
 fn bracketed(n: i32) -> String {
     format!("{}", if n > 9 { "big" } else { "small" })
+}
+
+// And the same conditional as a parenthesised argument, indented — plan 65.
+// A `(`, `[` or `{` now opens a layout *context* rather than suppressing
+// layout, so the lines inside one carry `Newline`, `Indent` and `Dedent` and
+// `statement_block` has the `Indent` it needs. The closer pops every level the
+// interior opened, which is what keeps a continuation aligned under its opener
+// — `m = f (a,` with `b` under the paren — from matching no enclosing level and
+// earning `RDX0002`.
+//
+// This is the function plan 55 leaf 7 needs: with it, retiring `then` costs an
+// author nothing in argument position.
+fn bracketed_block(n: i32) {
+    println!("{}", if n > 9 { "big" } else { "small" });
+    ();
 }
 
 // `until c` is `while !(c)`, **parenthesised**. This is the case the run
@@ -247,6 +262,8 @@ fn main() {
     println!("{}", labelled(7));
     println!("{}", labelled(1));
     println!("{}", bracketed(20));
+    bracketed_block(20);
+    bracketed_block(1);
     println!("{}", settle());
     count_up();
     println!("{}", nested());

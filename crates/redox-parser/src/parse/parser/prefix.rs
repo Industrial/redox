@@ -171,6 +171,11 @@ pub(crate) fn prefix(p: &mut Parser) -> Result<Expr, ParseError> {
     TokenKind::LBracket => bracketed(p),
     TokenKind::LParen => {
       p.advance();
+      // Plan 65 leaf 1 gave `(` a layout context, so a group whose content
+      // opens on the next line arrives with a `Newline` and an `Indent` in
+      // front of it. Grouping reads none of that — the construct *inside*
+      // the group reads its own layout, which is the whole point of the row.
+      p.skip_layout();
       // `()` — the unit value. Doc 18 §7 replaces the `!` zero-argument
       // suffix with `f ()`, so this is what makes a no-argument call
       // writable: juxtaposition needs something to juxtapose.
@@ -188,6 +193,7 @@ pub(crate) fn prefix(p: &mut Parser) -> Result<Expr, ParseError> {
         return Ok(found);
       }
       let inner = parse_expr(p, 0)?;
+      p.skip_layout();
 
       // A tuple, told from a group by its **comma** — plan 33, and the same
       // rule the tuple *pattern* uses one position over.
@@ -195,10 +201,12 @@ pub(crate) fn prefix(p: &mut Parser) -> Result<Expr, ParseError> {
         let mut items = vec![inner];
         while p.check(&TokenKind::Comma) {
           p.advance();
+          p.skip_layout();
           if p.check(&TokenKind::RParen) {
             break;
           }
           items.push(parse_expr(p, 0)?);
+          p.skip_layout();
         }
         p.expect(&TokenKind::RParen, "expected `)` to close the tuple")?;
         return Ok(Expr::Tuple {

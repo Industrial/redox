@@ -39,8 +39,9 @@ use redox_diag::Code;
 ///
 /// Plan 02 (`docs/07 - 02 - Lexical Surface.md`) replaced plan 01's line loop
 /// with a [`Cursor`], because two features break the line-at-a-time shape
-/// outright: continuation suppression needs bracket depth carried *across*
-/// line boundaries, and a `"""` block is one token spanning several lines.
+/// outright: bracket state has to be carried *across* line boundaries — plan
+/// 02 for continuation suppression, plan 65 for [`Self::open_delims`]'s layout
+/// context marks — and a `"""` block is one token spanning several lines.
 ///
 /// Private: [`crate::lex`] is the only way in. `Lexer` keeps the off-side rule
 /// and orchestration; every scanner is a free function over `&mut Cursor`, so
@@ -56,12 +57,25 @@ pub(crate) struct Lexer<'a> {
   toks: Vec<Token>,
   indents: Vec<usize>,
   pending: Vec<Trivia>,
-  /// Nesting depth of `(`, `[`, `{`. While positive, newlines and indentation
-  /// are not significant (plan 02 leaf 2).
-  depth: usize,
-  /// Byte offset of each currently-open delimiter, so an unbalanced one can be
-  /// reported where it was opened rather than at `Eof`.
-  open_delims: Vec<usize>,
+  /// Each currently-open `(`, `[` or `{`, as its byte offset paired with the
+  /// `indents` depth it opened at.
+  ///
+  /// The offset is so an unbalanced delimiter can be reported where it was
+  /// opened rather than at `Eof`. The depth is the delimiter's **layout
+  /// context mark** (plan 65 leaf 1): every indent level above it belongs to
+  /// the bracket's interior, and the closer truncates back to it.
+  ///
+  /// That mark is what replaced plan 02 leaf 2's `depth` counter and its two
+  /// `if self.depth > 0 { return }` guards, which suppressed layout *entirely*
+  /// inside brackets — so `print (if c` with an indented body had no `Indent`
+  /// for `statement_block` to find and was `RDX0101`. The guards were aimed at
+  /// a real target: with one shared stack, a continuation aligned under its
+  /// opener pushes a level the closer's own line then matches nothing in, and
+  /// `sync_indent` raises `RDX0002` on cosmetic alignment. A mark removes the
+  /// target rather than the rule — the closer pops straight past the interior
+  /// levels — while `RDX0002` still fires *within* a context, which is plan 65
+  /// decision 3.
+  open_delims: Vec<(usize, usize)>,
   /// A comment that trailed content on the current line, held until the
   /// closing `Newline` exists to carry it.
   trailing: Option<Trivia>,
@@ -95,7 +109,6 @@ impl<'a> Lexer<'a> {
       toks: Vec::new(),
       indents: vec![0],
       pending: Vec::new(),
-      depth: 0,
       open_delims: Vec::new(),
       trailing: None,
       // The file's first line is a line start, and a comment opening the file
@@ -135,9 +148,13 @@ impl<'a> Lexer<'a> {
       //
       // Setting it only on the continuation branch fixed the second field of
       // a record and not the first: after a `,` the continuation branch runs,
-      // but after the opening `{` neither branch sets anything, because
-      // `end_of_line` and `start_of_line` both return early while `depth > 0`
-      // and no `Newline` token is produced for `scan_dashes` to see.
+      // but after the opening `{` neither branch set anything, because
+      // `end_of_line` and `start_of_line` both returned early while bracket
+      // depth was positive and no `Newline` token was produced for
+      // `scan_dashes` to see. Plan 65 removed those guards, so the `{` case
+      // now reaches `end_of_line` — but a comment opening a *continuation*
+      // line still has no `Newline` in front of it, so this still has to be
+      // set here.
       self.at_line_start = true;
       if trailing_continues || self.next_line_continues() {
         // Consume the continuation line's indentation here, so the off-side
@@ -355,17 +372,30 @@ impl<'a> Lexer<'a> {
     Ok(true)
   }
 
-  /// Maintain bracket depth, so continuation suppression knows when a
-  /// newline is insignificant.
+  /// Open a layout context on `(`, `[` and `{`, and close it on the matching
+  /// closer — plan 65 leaf 1.
+  ///
+  /// Opening records the current `indents` depth; closing pops every level
+  /// above it, emitting a `Dedent` for each. So a continuation indented under
+  /// its opener is one consistent deeper level however many columns it sits
+  /// at, and the closer unwinds past it rather than reconciling against it.
+  ///
+  /// The `Dedent`s land **before** the closer, because `step` calls this
+  /// before pushing the delimiter — which is what lets an indented block
+  /// inside brackets end the way one at the top level does.
   fn track_delims(&mut self, kind: &TokenKind, start: usize) {
     match kind {
       TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => {
-        self.depth += 1;
-        self.open_delims.push(start);
+        self.open_delims.push((start, self.indents.len()));
       }
       TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
-        self.depth = self.depth.saturating_sub(1);
-        self.open_delims.pop();
+        let Some((_, mark)) = self.open_delims.pop() else {
+          return;
+        };
+        while self.indents.len() > mark {
+          self.indents.pop();
+          self.push(TokenKind::Dedent, (start, start), false);
+        }
       }
       _ => {}
     }
@@ -388,9 +418,6 @@ impl<'a> Lexer<'a> {
   /// Emit the statement separator closing a line, unless the line is
   /// continued (plan 02 leaf 2).
   fn end_of_line(&mut self) {
-    if self.depth > 0 {
-      return;
-    }
     let continued = self.toks.last().is_some_and(|t| t.kind.continues_line());
     if continued {
       return;
@@ -413,9 +440,6 @@ impl<'a> Lexer<'a> {
   /// A blank or comment-only line leaves the indent stack untouched, because
   /// an indentation change is only ever signalled by a line with content.
   fn start_of_line(&mut self) -> Result<(), LexError> {
-    if self.depth > 0 {
-      return Ok(());
-    }
     loop {
       let line_start = self.cur.pos();
       let width = self.measure_indent()?;
@@ -488,6 +512,18 @@ impl<'a> Lexer<'a> {
   /// Reconcile a line's indentation against the indent stack, emitting
   /// `Indent` or one or more `Dedent`s.
   fn sync_indent(&mut self, width: usize, line_start: usize) -> Result<(), LexError> {
+    // A line that *opens* with a closer is not content at that indentation.
+    // It ends a layout context rather than sitting inside one, and
+    // `track_delims` already owes the `Dedent`s that unwind it. Reconciling
+    // it instead would make the closer's own column semantic — `RDX0002` on
+    // a `)` placed to the left of an indented block it closes — and that is
+    // precisely the cosmetic-alignment hazard a per-bracket context exists
+    // to remove. A continuation line never reaches here at all, which is why
+    // this only shows up once a bracket can hold a real statement.
+    if !self.open_delims.is_empty() && matches!(self.cur.peek(), Some(')' | ']' | '}')) {
+      return Ok(());
+    }
+
     let top = *self.indents.last().expect("indent stack is never empty");
     let at = (line_start + width, line_start + width);
 
@@ -516,7 +552,7 @@ impl<'a> Lexer<'a> {
 
   /// Close every open block and emit `Eof`, which carries trailing trivia.
   fn finish(&mut self) -> Result<(), LexError> {
-    if let Some(&pos) = self.open_delims.first() {
+    if let Some(&(pos, _)) = self.open_delims.first() {
       return Err(LexError {
         code: Code::UnbalancedDelimiter,
         help: Some("add the closing delimiter".to_string()),

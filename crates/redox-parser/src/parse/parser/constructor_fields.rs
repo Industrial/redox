@@ -21,18 +21,18 @@ pub(crate) fn constructor_fields(p: &mut Parser) -> Result<ConstructorFields, Pa
     p.advance();
     let mut fields = Vec::new();
     loop {
-      p.skip_separators();
+      p.skip_layout();
       if p.check(&TokenKind::RBrace) {
         break;
       }
       fields.push(field_decl(p)?);
-      p.skip_separators();
+      p.skip_layout();
       if !p.check(&TokenKind::Comma) {
         break;
       }
       p.advance();
     }
-    p.skip_separators();
+    p.skip_layout();
     p.expect(&TokenKind::RBrace, "expected `}` to close the record")?;
     return Ok(ConstructorFields::Record(fields));
   }

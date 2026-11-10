@@ -38,10 +38,12 @@ pub(crate) fn qualifiers(p: &mut Parser) -> Result<Vec<Qualifier>, ParseError> {
       found.push(Qualifier::Guard(parse_expr(p, 0)?));
     }
 
+    p.skip_layout();
     if !p.check(&TokenKind::Comma) {
       break;
     }
     p.advance();
+    p.skip_layout();
   }
   Ok(found)
 }

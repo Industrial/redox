@@ -21,10 +21,12 @@ pub(crate) fn deriving(p: &mut Parser) -> Result<Vec<Ident>, ParseError> {
 
   let mut traits = Vec::new();
   loop {
+    p.skip_layout();
     if p.check(&TokenKind::RParen) {
       break;
     }
     traits.push(p.ident("expected a trait name")?);
+    p.skip_layout();
     if !p.check(&TokenKind::Comma) {
       break;
     }
