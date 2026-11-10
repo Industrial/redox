@@ -11,6 +11,13 @@ Status: `planned`
 
 ## 1. What this plan is
 
+> **Authorship.** The spelling is Tom's decision. This document was written in a
+> concurrent session and reviewed in another before registering; two corrections
+> were made then — the dependency is 56 rather than 58, and criterion 1 builds
+> the prefix-ordering test rather than running one that exists. Both are marked
+> in place.
+
+
 Composition is spelled `>>>` forward and `<<<` backward. Plan 58 chose `>|` and `|<`;
 this row replaces that choice before it reaches a line of code.
 
