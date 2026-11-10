@@ -3,7 +3,7 @@
 Plan ID: `mcp-server`
 Depends on: 05 (`diagnostics`), 06 (`source-maps`), 11 (`build-script-integration`)
 Milestone: 7 — *tooling*
-Status: `planned`
+Status: `done` 2026-11-10
 
 ---
 
@@ -244,4 +244,112 @@ the real preparation and Emerald's contribution is the decision that the row is 
 
 ## 10. Result
 
-*Filled in when the plan ships, including anything above that turned out wrong.*
+Shipped 2026-11-10. `crates/redox-mcp` — four tools, stdio only, **22 tests** passing — plus
+leaf 1's consolidation in `redox-driver` and the `.mcp.json` entry. The register is complete.
+
+### 10.1 §1.1's spike earned its keep twice, and then a third time in the tests
+
+The two preconditions that came from compiling rather than from a version number were both
+real, and a third of the same kind appeared only once the tests were written:
+
+1. stdio transport is `transport-io`, **not** a default feature;
+2. `ServerInfo` is deprecated for `ServerConfig`, which is `#[non_exhaustive]` — so E0639, and
+   the fields go on a `Default`;
+3. **`CallToolRequestParams` is `#[non_exhaustive]` too.** Once is a quirk of one type; twice
+   is `rmcp`'s convention, so `session.rs` has one `call` helper rather than four
+   workarounds.
+
+Plan 40 §10.1's lesson — *that row measured versions and not names* — held up as the reason
+§1.1 exists in that form. None of these three is discoverable from a version number, and all
+three would have been discovered anyway, later, as compile errors in a half-written crate.
+
+### 10.2 §7's anticipated `allow` was the wrong fix, because the warning was right
+
+§7 recorded a measured risk: the spike's `tool_router` field raised `field is never read`, and
+`:lint` is `clippy -D warnings`. It said the field *"needs an `allow` with a reason naming the
+macro"*.
+
+It does not. `#[tool_handler]` resolves the router through `Self::tool_router()` —
+**statically** — and never reads a field, so the warning is correct and the field is dead
+state that `rmcp`'s own examples carry. `Server` is a unit struct and there is no `allow`.
+
+Worth recording as a near-miss of a particular kind: the plan had already decided the fix
+before checking whether the diagnostic was right. An `allow` would have silenced a true
+statement, permanently, with a comment explaining why the compiler was wrong.
+
+### 10.3 Both error fixtures failed for the wrong reason, and only probing caught it
+
+Written, then checked before any assertion was made against them. Both were wrong:
+
+- `type_error.sdx` was `let n :: u32 = "not a number"`, which comes back **`RDX0101`** —
+  Redox's own code. The whole point of `redox_check` is that *rustc* is the authority
+  (AGENTS.md: every check rustc can make, rustc makes), so a fixture carrying an `RDX` code
+  would not have exercised the tool at all while looking exactly like it did. Replaced with a
+  wrong-typed argument, which is **`E0308`**.
+- `syntax_error.sdx` was `print (1`, an unbalanced delimiter — which is **`RDX0012`**, a
+  *lexical* code, because the lexer tracks bracket depth. Plan 40 §10.3 found precisely this
+  and split its test in two for it; this row re-earned the lesson rather than reading it.
+  Renamed `parse_error.sdx` and rewritten as `then` with no `if`, which is **`RDX0102`**.
+
+Plan 46 §1.3's ratio again: of that row's first-pass findings, 11 of 16 were its own probe's
+bugs. A fixture that fails for the wrong reason is the same error, one layer down, and the
+only defence is checking what it actually does before asserting anything about it.
+
+### 10.4 Narrowings, each stated rather than done quietly
+
+Three places the implementation is smaller than §3 or §5 asked for:
+
+- **`redox_fmt` never writes**, so there is no `write` parameter. §5 criterion 4 said *"does
+  not write unless asked"*, which implies one. A formatter tool that only returns text cannot
+  destroy work at all, the client has the file open, and an agent that wants the change
+  written can write it.
+- **`redox_build` takes no output path.** `redox build` has `-o`; this does not. The output is
+  `<stem>.xrs` beside the input, which is the rule plan 07's remap and plan 11's build script
+  already depend on — and a client that could redirect it could put the generated Rust
+  somewhere nothing else will look for its source map. Both written paths come back in the
+  response, so nothing has to be inferred.
+- **A diagnostic carries a position, not a range.** `redox_diag::Diagnostic` keeps a span so
+  `miette` can underline a statement; an end column that is sometimes a whole statement and
+  sometimes one token is a field nobody could rely on.
+
+### 10.5 The two kinds of failure are the row's load-bearing distinction
+
+Not a finding so much as the thing everything else is arranged around, and it is worth saying
+once plainly. Every tool returns `Result<T, String>`, and the split is:
+
+- **`Ok` with `ok: false`** — an answer *about the program*. It does not compile, it does not
+  parse, the line is synthetic. These are what the tool is for.
+- **`Err`** — the *environment* cannot answer. No rustc, an unreadable path, a corrupt map.
+  These become protocol errors.
+
+A reader has to be able to tell *your code is wrong* from *this machine cannot answer*, and
+collapsing them is the easy mistake: a `redox_check` that returned `Err` for a type error
+would be indistinguishable from one that could not find rustc. `server_content` is where the
+split is enforced and `session.rs` asserts it on the wire.
+
+### 10.6 Leaf 4's verification was wrong in the way leaf 4 was guarding against
+
+§1.5 made the `.mcp.json` edit textual because a JSON round-trip had once rewritten the whole
+file — 136 insertions for a seven-line change. The insertion worked: `git diff --stat` reports
+**6 insertions, 0 deletions**.
+
+The script's own *check* that nothing else moved then failed. It filtered out every line whose
+text matched an inserted line — and `"type": "stdio"` and `"disabled": false` appear in the
+neighbouring entries too, so it deleted theirs and concluded the file had changed. The edit
+was right and the assertion about it was wrong, which is the same shape as the bug being
+guarded against, one level up. Replaced with a structural splice check.
+
+Two smaller things in the same family: the first version of the script assumed two-space
+indentation and the file uses **tabs**, so its anchor matched nothing; and two probe scripts
+in this row grepped for `Adding` and `Summary` in coloured `cargo` and `nextest` output and
+silently matched nothing — AGENTS.md's own documented gotcha, hit three times in one session.
+*Check exit codes, not output text.*
+
+### 10.7 What `.mcp.json` now has, and what asserts it
+
+Sixteen servers, the fifteen that were there plus `redox`, each of the fifteen **named** in
+`manifest.rs` so a lost one fails the gate rather than being noticed by whoever next needs
+it. The stdio-only claim is asserted by reading the manifest text for `rmcp`'s network feature
+names, because a feature flipped on by a future `cargo add --features` would open a port
+without changing a line of Rust — and the `client` feature is asserted to be a dev-dependency
+**only**, since `session.rs` needs a real client and the shipped binary must not contain one.

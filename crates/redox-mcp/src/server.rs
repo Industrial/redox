@@ -1,0 +1,141 @@
+pub(crate) mod content;
+
+use crate::build::request::BuildRequest;
+use crate::check::request::CheckRequest;
+use crate::format::request::FormatRequest;
+use crate::server::content::server_content;
+use crate::source_map::request::SourceMapRequest;
+use rmcp::ErrorData;
+use rmcp::ServerHandler;
+use rmcp::handler::server::wrapper::Parameters;
+use rmcp::model::CallToolResult;
+use rmcp::model::ServerCapabilities;
+use rmcp::model::ServerConfig;
+use rmcp::tool;
+use rmcp::tool_handler;
+use rmcp::tool_router;
+
+/// The Redox MCP server: four tools over the driver.
+///
+/// Plan 50 (`docs/44 - 50 - MCP Server.md`) leaf 2. Doc 02 §9.3's argument is
+/// that an agent working in a Redox codebase should get the compiler's answers
+/// **as data** rather than as scraped terminal output, and that is the whole of
+/// what this type does. Every tool body is a function in its own module; this
+/// file is the protocol surface.
+///
+/// # Why the tools are all in one `impl`
+///
+/// `#[tool_router]` generates the dispatch table from the `#[tool]` methods it
+/// can see, so they have to share an `impl` block. That is not a conflict with
+/// doc 06 §1's one-construct-per-file rule — an `impl` travels with its type —
+/// and the four bodies live in `check.rs`, `build.rs`, `format.rs` and
+/// `source_map.rs` where they can be tested without a protocol.
+///
+/// # Why `spawn_blocking`
+///
+/// `redox_check` runs rustc, which takes as long as rustc takes, and
+/// `redox_build` and `redox_fmt` read and write files. Doing that on the async
+/// runtime's worker would block the reactor that is also reading stdin. One
+/// request at a time is fine for a stdio server; a *stuck* reactor is not.
+///
+/// # Why there is no `tool_router` field
+///
+/// `rmcp`'s examples hold one, and plan 50 §7 expected to need an `allow` for
+/// it: the spike raised `field is never read`, and this repository's `:lint` is
+/// `clippy -D warnings`. The warning is **right**. `#[tool_handler]` resolves
+/// the router through `Self::tool_router()`, statically, and never reads a
+/// field — so the field is removed rather than allowed, and the type is a unit
+/// struct. An `allow` would have silenced a correct diagnostic about dead
+/// state.
+#[derive(Clone, Copy, Default)]
+pub struct Server;
+
+#[tool_router]
+impl Server {
+  #[must_use]
+  pub fn new() -> Self {
+    Self
+  }
+
+  #[tool(
+    description = "Check a .sdx file: transpile it, compile the generated Rust with rustc, \
+                   and return rustc's diagnostics reported against the .sdx. Returns \
+                   {ok, diagnostics}."
+  )]
+  async fn redox_check(
+    &self,
+    Parameters(request): Parameters<CheckRequest>,
+  ) -> Result<CallToolResult, ErrorData> {
+    server_content(
+      tokio::task::spawn_blocking(move || crate::check::check(&request))
+        .await
+        .map_err(|e| ErrorData::internal_error(e.to_string(), None))?,
+    )
+  }
+
+  #[tool(
+    description = "Transpile a .sdx file to .xrs beside it, with its .xrs.map source-map \
+                   sidecar. Returns {ok, output, map, diagnostics}."
+  )]
+  async fn redox_build(
+    &self,
+    Parameters(request): Parameters<BuildRequest>,
+  ) -> Result<CallToolResult, ErrorData> {
+    server_content(
+      tokio::task::spawn_blocking(move || crate::build::build(&request))
+        .await
+        .map_err(|e| ErrorData::internal_error(e.to_string(), None))?,
+    )
+  }
+
+  #[tool(
+    description = "Return the canonical formatting of a .sdx file. Reads only — the file is \
+                   never written. Returns {ok, formatted, changed, diagnostics}."
+  )]
+  async fn redox_fmt(
+    &self,
+    Parameters(request): Parameters<FormatRequest>,
+  ) -> Result<CallToolResult, ErrorData> {
+    server_content(
+      tokio::task::spawn_blocking(move || crate::format::format(&request))
+        .await
+        .map_err(|e| ErrorData::internal_error(e.to_string(), None))?,
+    )
+  }
+
+  #[tool(
+    description = "Which .sdx line is this .xrs line? Resolves a position in generated Rust \
+                   back to the source, from the .xrs.map sidecar. Returns \
+                   {source, line, column} or {reason} when the line is synthetic or \
+                   out of range."
+  )]
+  async fn redox_source_map(
+    &self,
+    Parameters(request): Parameters<SourceMapRequest>,
+  ) -> Result<CallToolResult, ErrorData> {
+    server_content(
+      tokio::task::spawn_blocking(move || crate::source_map::source_map(&request))
+        .await
+        .map_err(|e| ErrorData::internal_error(e.to_string(), None))?,
+    )
+  }
+}
+
+#[tool_handler]
+impl ServerHandler for Server {
+  fn get_info(&self) -> ServerConfig {
+    // `ServerConfig` is `#[non_exhaustive]`, so a struct expression is rejected
+    // with E0639 and the fields go on a `Default`. It is also what replaced
+    // the deprecated `ServerInfo` in rmcp 3 — both found by plan 50 §1.1's
+    // spike rather than from a version number.
+    let mut config = ServerConfig::default();
+    config.capabilities = ServerCapabilities::builder().enable_tools().build();
+    config.instructions = Some(
+      "Redox transpiles .sdx to .xrs containing ordinary Rust. Diagnostics are reported \
+       against the .sdx you wrote, with 1-based line and column in characters. rustc is \
+       the authority on types and borrows — Redox has no checker of its own."
+        .to_string(),
+    );
+    config
+  }
+}

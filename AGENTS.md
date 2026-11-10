@@ -112,8 +112,17 @@ Two things to know before reaching for it:
   Everything in that list stays cargo's, which is why the toolchain is still
   installed.
 - **rustc is still the final word.** blaze's verdict is its own front end's and
-  not yet all of rustc's, so the pre-push gate runs `:cargo-check` and
-  `:cargo-test` as well. Do not drop them to make a push faster.
+  not yet all of rustc's — which is why **moon runs cargo**, not blaze, and why
+  `:check` and `:test` are rustc's answer rather than blaze's. There are no
+  `:cargo-check` / `:cargo-test` targets any more; the paragraph above the
+  command list says so, and this bullet used to contradict it.
+
+  Corrected 2026-11-10, after `moon run :cargo-test` reported **success having
+  run nothing**: `crates/redox-cli/moon.yml` still carried an inputs-only
+  `cargo-test` override of a task that no longer existed, which moon resolves
+  to `Command: noop`. A target that passes without running is worse than a
+  target that is missing — `moon run :cargo-check` at least said *"No tasks
+  found"*. Both are gone.
 
 `blaze test` reports a cached pass for a test whose inputs have not changed
 (`Cached N tests from an earlier run`); `BLAZE_TESTS=all blaze test` forces every

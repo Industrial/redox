@@ -25,6 +25,10 @@ members = [
   # Plan 44 (`docs/38 - 44 - Zero-cost Benchmarks.md`) — doc 03's zero-cost
   # claim, asserted as identical optimised IR rather than as a timing.
   "crates/redox-bench",
+  # Plan 50 (`docs/44 - 50 - MCP Server.md`) — the driver over the Model
+  # Context Protocol, stdio only. In the workspace, unlike `fuzz/`, because it
+  # builds on stable and its tests belong in the ordinary gate.
+  "crates/redox-mcp",
 ]
 # `.tmp/` is the gitignored scratch area. Excluded so a throwaway crate there
 # — plan 01 leaf 4's LALRPOP bake-off arm, for instance — cannot be picked up

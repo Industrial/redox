@@ -1,5 +1,11 @@
 {
 	"mcpServers": {
+		"redox": {
+			"type": "stdio",
+			"command": "cargo",
+			"args": ["run", "--quiet", "--package", "redox-mcp"],
+			"disabled": false
+		},
 		"context7": {
 			"type": "stdio",
 			"command": "npx",

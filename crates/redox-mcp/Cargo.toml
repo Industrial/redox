@@ -1,0 +1,58 @@
+[package]
+name = "redox-mcp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# Plan 50 §1.1, spiked rather than assumed — doc 02 §5.5 names all three.
+#
+# `transport-io` is **not** a default feature and is what provides
+# `rmcp::transport::stdio()`. The defaults are `base64, macros, schemars,
+# server, transport-async-rw, uuid`, and §1.1 found that out by compiling.
+#
+# `client` and every HTTP/SSE transport stay OFF. The register says stdio only;
+# `the_manifest_enables_no_network_transport` asserts it, because a claim about
+# a network listener is the kind that stops being true quietly.
+rmcp = { version = "3.9", default-features = false, features = [
+  "server",
+  "macros",
+  "schemars",
+  "transport-io",
+] }
+# The tool schemas MCP advertises. Derived from the request types rather than
+# hand-written, so a parameter cannot be documented as something it is not.
+schemars = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# `rmcp`'s server is async. `rt-multi-thread` because `redox_check` runs rustc
+# and does it on a blocking thread; `io-std` for the stdio transport.
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std"] }
+
+# The compiler. This crate contributes no analysis — plan 50's whole shape is
+# that the tools are a projection of what these already answer.
+redox-diag = { path = "../redox-diag" }
+redox-driver = { path = "../redox-driver" }
+redox-emit = { path = "../redox-emit" }
+redox-fmt = { path = "../redox-fmt" }
+redox-parser = { path = "../redox-parser" }
+
+[dev-dependencies]
+# The session tests drive the server over an in-process duplex rather than a
+# spawned process — plan 40 decision 6's choice, for plan 40's reason: a mock
+# tests the mock. `client` is a dev-dependency only, so the shipped binary
+# still has no client in it.
+rmcp = { version = "3.9", default-features = false, features = [
+  "server",
+  "client",
+  "macros",
+  "schemars",
+  "transport-io",
+  "transport-async-rw",
+] }
+tokio = { version = "1", features = [
+  "rt-multi-thread",
+  "macros",
+  "io-std",
+  "io-util",
+] }
