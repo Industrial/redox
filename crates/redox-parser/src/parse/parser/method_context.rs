@@ -1,50 +1,60 @@
-/// What a `class` or `instance` body needs to know about its own subject.
+use crate::parse::parser::rust_generic::rust_generic;
+use redox_ast::Ident;
+
+/// The type variables a `class` or `instance` body inherits from its own
+/// head, each with the Rust spelling it takes.
 ///
-/// Doc 18 §2.5 derives two things from the enclosing declaration, and both
-/// need the same information, so they travel together rather than as four
-/// loose arguments:
+/// Doc 18 §5.3 makes a lowercase name in a signature a *variable of that
+/// signature*, and a `class` or `instance` head is the one place that is
+/// wrong: the `t` in `class Convert t` belongs to the trait, and the `t` in
+/// `instance Describe (Wrapper t)` belongs to the impl. Both facts are needed
+/// twice over — once to keep the name **out** of the method's own generic
+/// list (`generalise`'s `reserved`), and once to rewrite it to Rust's
+/// spelling (`substitute_var`) — so they travel together rather than as loose
+/// arguments.
 ///
-/// - **which parameter becomes `self`** — "the first parameter typed by the
-///   class variable". More than one spelling names that type, so
-///   `receiver_names` is a list: `Self` always, the class variable when there
-///   is one, and the target's own name in an `instance`, because
-///   `instance Shape Square` writes `area : &Square -> f64`.
-/// - **what the class variable means in Rust** — `Self` inside a class, where
-///   the variable *is* the implementing type, and the impl's generic
-///   parameter inside an instance, where it is a type parameter.
+/// **It no longer says which parameter becomes `self`.** Plan 67 marks the
+/// receiver in the type, so `receiver_names` — `Self`, the class variable and
+/// the instance's own target name — is gone, and with it the question of
+/// which of three spellings happened to mean the implementing type.
 pub(crate) struct MethodContext {
-  /// The class variable, if the declaration has one.
-  pub var: Option<String>,
-  /// What the class variable becomes in Rust.
-  pub subject: String,
-  /// Every spelling of the implementing type, for receiver detection.
-  pub receiver_names: Vec<String>,
+  /// Each inherited variable as the source spells it, with its Rust
+  /// spelling.
+  pub vars: Vec<(String, String)>,
 }
 
 impl MethodContext {
-  /// A `class`'s context: the variable is the implementing type, so it is
-  /// `Self`.
-  pub(crate) fn for_class(var: &str) -> Self {
+  /// A `class`'s context: its parameters are the trait's own generic
+  /// parameters, so each takes its uppercase name — `class Convert t` gives
+  /// `trait Convert<T>`.
+  ///
+  /// Plan 67 §1.6 claimed this could only shrink, since the implementing type
+  /// substitutes to itself under `Self`. It lost one entry and gained a
+  /// dimension: the class variable is gone, and a class may now have more
+  /// than one parameter.
+  pub(crate) fn for_class(params: &[Ident]) -> Self {
     Self {
-      var: Some(var.to_string()),
-      subject: "Self".to_string(),
-      receiver_names: vec!["Self".to_string(), var.to_string()],
+      vars: params
+        .iter()
+        .map(|p| (p.text.clone(), rust_generic(&p.text)))
+        .collect(),
     }
   }
 
   /// An `instance`'s context. `var` is the target's first type variable, if
-  /// it has one, and `target` is the target's head name — `Square` in
-  /// `instance Shape Square`, which is how that instance's methods spell
-  /// their receiver.
-  pub(crate) fn for_instance(var: Option<&str>, target: &str, subject: &str) -> Self {
-    let mut receiver_names = vec!["Self".to_string(), target.to_string()];
-    if let Some(var) = var {
-      receiver_names.push(var.to_string());
-    }
+  /// it has one, and `subject` is that variable's Rust spelling — the impl's
+  /// generic parameter, as in `impl<T> Describe for Wrapper<T>`.
+  pub(crate) fn for_instance(var: Option<&str>, subject: &str) -> Self {
     Self {
-      var: var.map(str::to_string),
-      subject: subject.to_string(),
-      receiver_names,
+      vars: var
+        .map(|var| (var.to_string(), subject.to_string()))
+        .into_iter()
+        .collect(),
     }
+  }
+
+  /// The names a method must **not** make generic parameters of its own.
+  pub(crate) fn reserved(&self) -> Vec<String> {
+    self.vars.iter().map(|(var, _)| var.clone()).collect()
   }
 }

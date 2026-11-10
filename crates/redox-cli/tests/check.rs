@@ -372,6 +372,39 @@ fn a_field_selector_moves_and_rustc_says_so() {
   );
 }
 
+/// Plan 67 criterion 5: the program §1.4 measured at `E0049` is now silent.
+///
+/// `class Convert t` used to spend its one head slot on the implementing type,
+/// so a second lowercase name in a member's type became a **method** generic —
+/// `fn wrap<U>(…)` in the trait against `fn wrap(n: f64)` in the impl, which
+/// rustc rejects by naming a type parameter the author never wrote. With the
+/// receiver marked the slot is the trait's, and `trait Convert<T>` with two
+/// impls for one type is reachable.
+///
+/// # Why this is in `tests/check/` and not `tests/ui/`
+///
+/// The **fourth** plan to need this, after 54, 56 and 57: the fault is rustc's,
+/// and `ui.rs` runs `redox build`, which parses, lints and emits without ever
+/// invoking rustc. A program whose only defect is `E0049` therefore *builds
+/// clean*, and a `tests/ui/` fixture would fail on its own
+/// `assert!(!status.success())` rather than on the program.
+#[test]
+fn a_generic_class_with_two_impls_for_one_type_is_accepted() {
+  if support::skip_without_rustc("a_generic_class_with_two_impls_for_one_type_is_accepted") {
+    return;
+  }
+  let checked = check("generic_class");
+  assert!(
+    checked.success,
+    "`trait Convert<T>` with two impls for one type should compile:\n{}",
+    checked.stderr
+  );
+  // No `E0049` in particular, and nothing at all in general — a warning would
+  // be as much of a regression here as an error, because the old shape's
+  // failure was a type parameter nobody wrote.
+  assert_eq!(checked.stderr, "", "and should say nothing");
+}
+
 /// Criterion 6: a program rustc accepts produces nothing and exits zero.
 #[test]
 fn a_clean_program_passes_silently() {

@@ -37,11 +37,11 @@ describe n =
   -- A `class` and an `instance` for it, which is the pair that proves the
   -- `impl` lands in the right place: an `impl` emitted at module scope for a
   -- type declared in a function body does not compile at all.
-  class Named t
-    name : &t -> &'static str
+  class Named
+    name : &self -> &'static str
 
   instance Named Shade
-    name : &Shade -> &'static str
+    name : &self -> &'static str
     name self = case self of
       Deep -> "deep"
       _ -> "pale"

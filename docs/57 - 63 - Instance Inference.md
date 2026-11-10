@@ -9,15 +9,21 @@ Status: `planned`
 
 ## 1. What this plan is
 
-An `instance` method may omit its signature. The class supplies it, with the class variable
-substituted for the instance head.
+An `instance` method may omit its signature. The class supplies it, with the trait's own
+parameters substituted for the instance head's arguments.
 
 ```
-class Money t                   instance Money Entry
-  cents_of : &t -> i64            cents_of self = self.cents
-  pretty : &t -> String           -- signature taken from the class, t := Entry
+class Money                     instance Money Entry
+  cents_of : &self -> i64         cents_of self = self.cents
+  pretty : &self -> String        -- signature taken from the class, unchanged
   pretty self = format_cents (self.cents_of ())
 ```
+
+**Amended by plan 67 — see §11.6.** This example used to read `class Money t` with
+`cents_of : &t -> i64`, and the substitution it describes used to include the *implementing*
+type. Plan 67 marked the receiver and gave the head's slot to the trait, so the substitution for
+the implementing type is now the **identity** and what is left to substitute is only the trait's
+real parameters — which this row's §1.4 already refuses to resolve when there is more than one.
 
 This is the one row in the milestone that adds machinery Redox has deliberately not had, and it
 should be read with that in mind. §1.3 is the argument; §6 is the honest cost.
@@ -203,13 +209,19 @@ substitution is textual over the verbatim type (doc 03 §14.1), which is what ma
 substitution and not a type operation.
 
 **What is copied is the class's already-rendered form, not §1's `t := Entry`**, which §11.2 is
-the finding for: `MethodContext::for_class` has already substituted `t → Self` and `receiver`
-has already dropped the receiver's type, so `area : &t -> f64` renders `fn area(&self) -> f64`,
-identical to the restated `&Square -> f64`. For `instance Shape Square` the parser computes
-`var = None` and never calls `substitute_var` at all. §11.2 also bounds the result: a method
-mentioning the variable in a **non-receiver** position — `combine : &t -> t -> t` — renders
-`Self` where the restated form renders `Square`, which is valid Rust and different bytes, so
-byte-identity holds for `examples/class.sdx` rather than in general.
+the finding for. Restated after plan 67: `receiver` has dropped the marked parameter's type, so
+`area : &self -> f64` renders `fn area(&self) -> f64` — and the instance's restated
+`area : &self -> f64` renders the **same bytes by construction**, because both now spell the
+receiver the same way. Before plan 67 the two agreed by coincidence: the class's `&t` had been
+substituted to `&Self` and the instance's `&Square` had been dropped as a receiver, and they met
+in the middle. For `instance Shape Square` the parser still computes `var = None` and never calls
+`substitute_var` at all.
+
+§11.2's bound survives with a new mechanism: a method mentioning a **trait parameter** in a
+non-receiver position — `combine : &self -> t -> t` in `class Combine t` — renders `T` where the
+restated form renders the concrete type, which is valid Rust and different bytes. So byte-identity
+holds for `examples/class.sdx` rather than in general, exactly as §11.2 said, and §1.4's
+single-variable restriction is what keeps the general case out of scope.
 
 **Where the pass runs is open and owed.** §11.3 found that `receiver`, `substitute_var` and
 `generalise` all run **inside** `Parser::function`, during the single pass, while order
@@ -536,3 +548,33 @@ coexist.
   label does not say so; "4 method signatures" and "3 elidable" are right for
   instances.
 - **31 examples, 30 goldens as of 2026-11-10** — 30 and 29 when this was measured. `examples/lexical.sdx` has no golden by design, and `examples.rs`'s `NOT_PARSEABLE` is what encodes that.
+
+### 11.6 Amended by plan 67 — both §11.3 decisions survive, and one claim about them does not
+
+Plan 67 (`marked-receiver`) landed first and touches the same lowering, so it checked this row's
+settled decisions against the code rather than assuming them. Measured 2026-11-10, after the row
+landed:
+
+| §11.3 decision | Verdict |
+|---|---|
+| the lookup is a **collecting pre-pass**, leaving `receiver`, `substitute_var` and `generalise` where they are inside the single parse | **survives, untouched.** `generalise` is still called from `Parser::function`; `receiver` and `substitute_var` are still called from `class_member` immediately after it. Plan 67 moved no call site |
+| leaf 1's scope is **top-level items only** | **survives.** And it gained a second benign case: `examples/local.sdx` declares a `class` and an `instance` inside a *function body*, which is neither top-level nor a module, and restates its signature today. Degrading to today's behaviour there is the same benign failure §11.3 argued for |
+
+**Plan 67 §1.6's claim that `substitute_var` gets strictly *less* to do is half right, and the
+half that is wrong matters for leaf 2.** Measured: `MethodContext` lost `var: Option<String>` and
+gained `vars: Vec<(String, String)>`, so the substitution lost one entry and **gained a
+dimension**.
+
+- For a `class` with no parameters — `class Shape`, which is every class in the corpus bar one —
+  `substitute_var` is now called **zero** times where it was called once. That is the "less".
+- For `class Convert t` it is called once, as before, but with the subject `T` rather than `Self`,
+  because `t` is now the *trait's* parameter and not the implementing type.
+- For `class Pair t u` it is called **twice**, which is more than before — and that class head
+  was unspellable before plan 67, so nothing regressed. It is also precisely the shape §1.4
+  refuses to elide, which is the connection worth having written down: the row's
+  single-variable restriction and the substitution's new arity are the same fact.
+
+So leaf 2's substitution is simpler for the common case and the general case is the one §1.4
+already declines. What plan 67 removed outright is the substitution *for the implementing type*:
+with the receiver marked there is no class variable standing in for it, and `Self` substitutes to
+itself.

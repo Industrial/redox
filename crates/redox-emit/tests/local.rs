@@ -44,7 +44,7 @@ fn every_local_declaration_lowers_to_a_nested_item() {
     ("  data M = M f64\n", "struct M(f64);"),
     ("  newtype W = W f64\n", "#[repr(transparent)]"),
     ("  errors E\n    Gone  \"gone\"\n", "enum E {"),
-    ("  class C t\n    f : &t -> u32\n", "trait C {"),
+    ("  class C\n    f : &self -> u32\n", "trait C {"),
   ] {
     let out = body(sdx);
     assert!(

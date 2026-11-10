@@ -6,7 +6,7 @@
 // An instance method **restates its signature**, which doc 18 §2.5's own
 // example does not. Rust's `impl` restates it too, and Redox has no name
 // resolution to copy one from the class — AGENTS.md forbids growing any.
-// Doc 18 §11.5 records the deviation.
+// Doc 18 §2.5 records the deviation.
 
 struct Square {
     side: f64,
@@ -17,7 +17,8 @@ struct Circle {
 }
 
 // `class` is Rust's `trait`. The superclass becomes a supertrait bound, and
-// the first parameter typed by the class variable becomes the receiver.
+// `self` in a type marks the receiver — doc 18 §2.5, plan 67. The class
+// itself names no variable for the implementing type: that is `Self`.
 trait Shape {
     const SIDES: u32;
     fn area(&self) -> f64;
@@ -46,8 +47,8 @@ impl Shape for Circle {
     }
 }
 
-// An inherent `instance`: no class name, so no `for`. Its method names
-// `Self`, which doc 18 §2.5's own `instance Counter` example does too.
+// An inherent `instance`: no class name, so no `for`. The receiver is marked
+// the same way here, which is what makes one notation serve both forms.
 impl Square {
     fn perimeter(&self) -> f64 {
         4.0 * self.side

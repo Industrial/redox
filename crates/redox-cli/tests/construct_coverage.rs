@@ -52,11 +52,32 @@
 //! map from each graded row to the Redox token pattern that witnesses it, and
 //! [`every_graded_row_has_a_witness`] asserts the map and the document agree
 //! in both directions so a row added to one cannot be forgotten in the other.
+//!
+//! ## Three files, since plan 67
+//!
+//! This file sat at `line_cap`'s 1,500-line ceiling **exactly**, and plan 67
+//! had three witnesses to add. The split follows what the pieces are rather
+//! than where the middle fell: [`corpus`] is the haystack and the shape of a
+//! claim about it, [`shape`] holds the predicates a token run cannot express,
+//! and this file keeps the index, the witness table and the assertions — the
+//! three things a reader comparing it to `docs/GRAMMAR.md` needs side by side.
 
-use std::collections::BTreeMap;
+#[path = "construct_coverage/corpus.rs"]
+mod corpus;
+#[path = "construct_coverage/shape.rs"]
+mod shape;
+
 use std::path::PathBuf;
 
-use redox_lexer::{StrPart, Token, TokenKind, TriviaKind, lex};
+use crate::corpus::{Covers, Source, Witness, corpus};
+use crate::shape::{
+  has_a_block_valued_binding, has_a_late_receiver, has_a_local_declaration,
+  has_a_parameterised_class, has_an_associated_function, has_associated_const, has_async_marker,
+  has_const_item, has_const_marker, has_doc_comment, has_fenced_comment, has_ident,
+  has_inner_attribute, has_interpolation, has_line_comment, has_outer_attribute, has_raw_ident,
+  has_shadowing, has_signature_line, has_static_item, has_tight_path, has_triple_quoted,
+  has_two_impls_for_one_type, has_unit_struct, has_unsafe_marker,
+};
 
 /// The smallest index that can be believed.
 ///
@@ -254,520 +275,6 @@ fn reachable_rows() -> Vec<Row> {
     .collect()
 }
 
-// ---------------------------------------------------------------------------
-// The corpus, as token streams
-// ---------------------------------------------------------------------------
-
-/// One corpus file, lexed once.
-struct Source {
-  name: String,
-  text: String,
-  tokens: Vec<Token>,
-  /// One spelling per token, in step with `tokens`.
-  spellings: Vec<String>,
-}
-
-impl Source {
-  fn new(name: String, text: String) -> Option<Self> {
-    // A `.sdx` the lexer rejects contributes nothing, and several UI fixtures
-    // exist precisely to be rejected. Skipping them is correct; panicking
-    // would make this test fail for the lexer's reasons rather than its own.
-    let tokens = lex(&text).ok()?;
-    let spellings = tokens.iter().map(|t| spell(t, &text)).collect();
-    Some(Self {
-      name,
-      text,
-      tokens,
-      spellings,
-    })
-  }
-
-  /// Whether `pattern` occurs as a contiguous run of tokens.
-  fn has(&self, pattern: &[&str]) -> bool {
-    if pattern.is_empty() || self.tokens.len() < pattern.len() {
-      return false;
-    }
-    (0..=self.tokens.len() - pattern.len()).any(|start| {
-      pattern.iter().enumerate().all(|(offset, want)| {
-        matches(
-          want,
-          &self.tokens[start + offset],
-          &self.spellings[start + offset],
-        )
-      })
-    })
-  }
-
-  /// The source text a token spans.
-  fn span_text(&self, token: &Token) -> &str {
-    self.text.get(token.span.0..token.span.1).unwrap_or("")
-  }
-
-  /// Every trivium attached to any token of this file.
-  fn trivia(&self) -> impl Iterator<Item = &TriviaKind> {
-    self.tokens.iter().flat_map(|token| {
-      token
-        .leading
-        .iter()
-        .chain(token.trailing.iter())
-        .map(|trivium| &trivium.kind)
-    })
-  }
-}
-
-/// How a token is spelled for matching.
-///
-/// Operators, delimiters, identifiers and keywords are spelled by the **source
-/// text they span**, so the lexer stays the authority on what a construct looks
-/// like and this file holds no second copy of the operator table. Literals are
-/// spelled by a placeholder instead, which is what keeps the match honest: a
-/// string's span covers its whole body, so spelling a `Str` by its text would
-/// put `$` inside a string back into the haystack this test exists to keep it
-/// out of.
-fn spell(token: &Token, text: &str) -> String {
-  let class = match &token.kind {
-    TokenKind::Int(_) => "«int»",
-    TokenKind::Float(_) => "«float»",
-    TokenKind::Str { .. } => "«str»",
-    TokenKind::RawStr { .. } => "«rawstr»",
-    TokenKind::ByteStr(_) => "«bytestr»",
-    TokenKind::CStr(_) => "«cstr»",
-    TokenKind::Char(_) => "«char»",
-    TokenKind::Byte(_) => "«byte»",
-    TokenKind::Label(_) => "«label»",
-    TokenKind::Newline => "«nl»",
-    TokenKind::Indent => "«indent»",
-    TokenKind::Dedent => "«dedent»",
-    TokenKind::Eof => "«eof»",
-    _ => {
-      return text
-        .get(token.span.0..token.span.1)
-        .unwrap_or("")
-        .to_owned();
-    }
-  };
-  class.to_owned()
-}
-
-/// Whether one pattern element matches one token.
-///
-/// `«any»` is any single token and `«id»` is any identifier; everything else
-/// compares against the spelling.
-fn matches(pattern: &str, token: &Token, spelling: &str) -> bool {
-  match pattern {
-    "«any»" => true,
-    "«id»" => matches!(token.kind, TokenKind::Ident(_)),
-    _ => pattern == spelling,
-  }
-}
-
-/// The three corpora plan 51 §1.2 names, lexed.
-///
-/// Note the paths: the `.sdx` side of the golden corpus is `examples/`, not
-/// `tests/golden/` — that directory holds only the expected `.xrs` — and the
-/// UI and run corpora live under `crates/redox-cli/tests/`, not at the
-/// repository root.
-fn corpus() -> Vec<Source> {
-  let root = workspace_root();
-  let dirs = [
-    root.join("examples"),
-    root.join("crates/redox-cli/tests/ui"),
-    root.join("crates/redox-cli/tests/run"),
-  ];
-
-  let mut paths = Vec::new();
-  for dir in &dirs {
-    let entries = std::fs::read_dir(dir)
-      .unwrap_or_else(|e| panic!("should read the corpus at {}: {e}", dir.display()));
-    for entry in entries {
-      let path = entry.expect("should read a corpus entry").path();
-      if path.extension().is_some_and(|ext| ext == "sdx") {
-        paths.push(path);
-      }
-    }
-  }
-  paths.sort();
-
-  assert!(
-    paths.len() >= 50,
-    "the corpus should hold the examples and both fixture sets; found {}",
-    paths.len()
-  );
-
-  paths
-    .into_iter()
-    .filter_map(|path| {
-      let name = path
-        .strip_prefix(&root)
-        .unwrap_or(&path)
-        .to_string_lossy()
-        .to_string();
-      let text = std::fs::read_to_string(&path).expect("should read a corpus file");
-      Source::new(name, text)
-    })
-    .collect()
-}
-
-// ---------------------------------------------------------------------------
-// Witnesses
-// ---------------------------------------------------------------------------
-
-/// What it takes for the corpus to witness one construct.
-enum Witness {
-  /// A contiguous run of token spellings, in any one corpus file.
-  Toks(&'static [&'static str]),
-  /// Every part, each in some corpus file — not necessarily the same one.
-  All(&'static [Witness]),
-  /// At least one part.
-  Any(&'static [Witness]),
-  /// Something a token run cannot express, with a description of what it is.
-  Shape(&'static str, fn(&Source) -> bool),
-}
-
-impl Witness {
-  /// `None` when the corpus witnesses this, otherwise what was looked for.
-  fn unmet(&self, corpus: &[Source]) -> Option<String> {
-    match self {
-      Self::Toks(pattern) => {
-        (!corpus.iter().any(|file| file.has(pattern))).then(|| self.describe())
-      }
-      Self::All(parts) => parts.iter().find_map(|part| part.unmet(corpus)),
-      Self::Any(parts) => (!parts.iter().any(|part| part.unmet(corpus).is_none())).then(|| {
-        parts
-          .iter()
-          .map(Self::describe)
-          .collect::<Vec<_>>()
-          .join(" or ")
-      }),
-      Self::Shape(what, test) => (!corpus.iter().any(test)).then(|| (*what).to_owned()),
-    }
-  }
-
-  fn describe(&self) -> String {
-    match self {
-      Self::Toks(pattern) => format!("the tokens `{}`", pattern.join(" ")),
-      Self::All(parts) => parts
-        .iter()
-        .map(Self::describe)
-        .collect::<Vec<_>>()
-        .join(" and "),
-      Self::Any(parts) => parts
-        .iter()
-        .map(Self::describe)
-        .collect::<Vec<_>>()
-        .join(" or "),
-      Self::Shape(what, _) => (*what).to_owned(),
-    }
-  }
-}
-
-/// A graded row, the Redox spelling that witnesses it, and the pattern.
-struct Covers {
-  /// The `docs/GRAMMAR.md` area cell, normalised by [`normalise`].
-  row: &'static str,
-  /// The Redox spelling, for a reader of the failure message.
-  spelling: &'static str,
-  witness: Witness,
-}
-
-/// A string literal carrying an interpolation.
-fn has_interpolation(file: &Source) -> bool {
-  file.tokens.iter().any(|token| match &token.kind {
-    TokenKind::Str { parts, .. } => parts
-      .iter()
-      .any(|part| matches!(part, StrPart::Interp { .. })),
-    _ => false,
-  })
-}
-
-/// A `"""` block string, told from an ordinary one by its own delimiters.
-fn has_triple_quoted(file: &Source) -> bool {
-  file.tokens.iter().any(|token| {
-    matches!(token.kind, TokenKind::Str { .. }) && file.span_text(token).starts_with("\"\"\"")
-  })
-}
-
-fn has_ident(file: &Source) -> bool {
-  file
-    .tokens
-    .iter()
-    .any(|token| matches!(token.kind, TokenKind::Ident(_)))
-}
-
-/// `r#type` — an identifier whose spelling is a Rust keyword.
-fn has_raw_ident(file: &Source) -> bool {
-  file.tokens.iter().any(|token| {
-    matches!(token.kind, TokenKind::Ident(_)) && file.span_text(token).starts_with("r#")
-  })
-}
-
-fn has_trivia(file: &Source, kinds: &[TriviaKind]) -> bool {
-  file.trivia().any(|kind| kinds.contains(kind))
-}
-
-fn has_line_comment(file: &Source) -> bool {
-  has_trivia(file, &[TriviaKind::LineComment])
-}
-
-fn has_fenced_comment(file: &Source) -> bool {
-  has_trivia(file, &[TriviaKind::FencedComment])
-}
-
-fn has_doc_comment(file: &Source) -> bool {
-  has_trivia(file, &[TriviaKind::DocComment, TriviaKind::InnerDocComment])
-}
-
-fn has_outer_attribute(file: &Source) -> bool {
-  has_trivia(file, &[TriviaKind::Attribute])
-}
-
-fn has_inner_attribute(file: &Source) -> bool {
-  has_trivia(file, &[TriviaKind::InnerAttribute])
-}
-
-/// Whether the token at `index` opens a line.
-fn starts_a_line(file: &Source, index: usize) -> bool {
-  index == 0
-    || matches!(
-      file.tokens[index - 1].kind,
-      TokenKind::Newline | TokenKind::Indent | TokenKind::Dedent
-    )
-}
-
-/// The two spellings of the type colon.
-///
-/// `::` is doc 18 §5.2's, and plan 52 is replacing it with a single `:` — the
-/// paths keep `::`. Both are accepted here on purpose: this gate asserts a
-/// property of the *corpus*, and making it also assert which side of plan 52's
-/// migration the tree is on would make it fail for a reason that has nothing
-/// to do with coverage. The spacing, not the character count, is what tells a
-/// type colon from a path in either spelling.
-const TYPE_COLON: &[&str] = &[":", "::"];
-
-/// A signature line: a name, then a **spaced** type colon.
-///
-/// The spacing is the whole distinction. Doc 18 §5.2 makes a tight `::` a path
-/// and a spaced colon a signature or an ascription, which is why the lexer
-/// records `ws_before` at all — so `i32::max` is not read as a declaration.
-fn has_signature_line(file: &Source) -> bool {
-  (1..file.tokens.len()).any(|index| {
-    TYPE_COLON.contains(&file.spellings[index].as_str())
-      && file.tokens[index].ws_before
-      && matches!(file.tokens[index - 1].kind, TokenKind::Ident(_))
-      && starts_a_line(file, index - 1)
-  })
-}
-
-/// A marker consumed between the type colon and the spine — `const`, `async`
-/// or `unsafe` in `name : const u32 -> u32`.
-///
-/// Doc 18 §2.2 puts it there rather than inside the first type, because a type
-/// is verbatim text and `const u32` is not a Rust type.
-fn has_signature_marker(file: &Source, marker: &str) -> bool {
-  (1..file.spellings.len()).any(|index| {
-    file.spellings[index] == marker && TYPE_COLON.contains(&file.spellings[index - 1].as_str())
-  })
-}
-
-fn has_const_marker(file: &Source) -> bool {
-  has_signature_marker(file, "const")
-}
-
-fn has_async_marker(file: &Source) -> bool {
-  has_signature_marker(file, "async")
-}
-
-fn has_unsafe_marker(file: &Source) -> bool {
-  has_signature_marker(file, "unsafe")
-}
-
-/// A module-scope `const` or `static`, which is a keyword, a name and a type
-/// colon.
-fn has_typed_item(file: &Source, keyword: &str) -> bool {
-  (0..file.spellings.len().saturating_sub(2)).any(|index| {
-    file.spellings[index] == keyword
-      && matches!(file.tokens[index + 1].kind, TokenKind::Ident(_))
-      && TYPE_COLON.contains(&file.spellings[index + 2].as_str())
-  })
-}
-
-fn has_const_item(file: &Source) -> bool {
-  has_typed_item(file, "const")
-}
-
-fn has_static_item(file: &Source) -> bool {
-  has_typed_item(file, "static")
-}
-
-/// A tight `::`, which is a path.
-fn has_tight_path(file: &Source) -> bool {
-  (1..file.tokens.len()).any(|index| file.spellings[index] == "::" && !file.tokens[index].ws_before)
-}
-
-/// `data Marker = Marker` — one constructor, named for the type, no fields.
-///
-/// Doc 18 §2.4 reads a *shape* off the constructors, so a unit struct has no
-/// keyword of its own and cannot be matched by one: it is the absence of
-/// fields and of alternatives that makes it one.
-fn has_unit_struct(file: &Source) -> bool {
-  file.spellings.windows(5).any(|window| {
-    window[0] == "data"
-      && window[2] == "="
-      && window[1] == window[3]
-      && (window[4] == "«nl»" || window[4] == "«eof»")
-  })
-}
-
-/// A `const` declared inside a `class` or `instance` body.
-///
-/// An associated constant is spelled exactly as a module-scope one — doc 18
-/// §2.5 gives it no marker — so only its position tells them apart, and the
-/// layout tokens are what make the position readable.
-fn has_associated_const(file: &Source) -> bool {
-  let mut depth = 0usize;
-  let mut inside = false;
-  for (index, spelling) in file.spellings.iter().enumerate() {
-    match file.tokens[index].kind {
-      TokenKind::Indent if inside => depth += 1,
-      TokenKind::Dedent if inside => {
-        depth = depth.saturating_sub(1);
-        if depth == 0 {
-          inside = false;
-        }
-      }
-      _ => {}
-    }
-    if !inside && (spelling == "class" || spelling == "instance") {
-      inside = true;
-      depth = 0;
-    } else if inside && depth > 0 && spelling == "const" {
-      return true;
-    }
-  }
-  false
-}
-
-/// The same name bound twice in one file, which is what shadowing is.
-fn has_shadowing(file: &Source) -> bool {
-  let mut seen: BTreeMap<&str, usize> = BTreeMap::new();
-  for index in 0..file.tokens.len().saturating_sub(1) {
-    if !matches!(file.tokens[index].kind, TokenKind::Ident(_))
-      || !starts_a_line(file, index)
-      || file.spellings[index + 1] != "="
-    {
-      continue;
-    }
-    *seen.entry(file.spellings[index].as_str()).or_default() += 1;
-  }
-  seen.values().any(|count| *count > 1)
-}
-
-/// Whether any declaration keyword begins a line inside a **function body**.
-///
-/// Plan 55 leaf 5's witness, and it took three tries, each hollow in a
-/// different way and each proved so by moving `examples/local.sdx` aside and
-/// watching this gate stay green:
-///
-/// 1. `Toks(["import", "«id»"])` — matched a **module-scope** `import`.
-/// 2. "a declaration keyword at depth above zero" — matched an inline
-///    `module`'s items, which the inventory grades as *Modules, inline and
-///    nested*.
-/// 3. the same, excluding `module` bodies — matched `examples/class.sdx`'s
-///    `const SIDES : u32`, an **associated constant**, graded as *Associated
-///    types and constants*.
-///
-/// The lesson is in the pattern: "a declaration keyword, indented" is not what
-/// distinguishes a local declaration. What distinguishes it is **what opened
-/// the block**. A function body is opened by an equation, whose line begins
-/// with a *name*; every other indented block in the language is opened by a
-/// line beginning with a declaration keyword. So this is one test rather than
-/// a growing list of exclusions — which is also what makes it survive a row
-/// that adds a new kind of block.
-///
-/// Depth comes from `Indent`/`Dedent` rather than from the text, for the
-/// reason `indentation_round_trip` records: a continuation line is indented
-/// text at its parent's token depth.
-///
-/// `test` and `module` are absent from the keyword list, matching the parser.
-/// `RDX0112` refuses a local `test`, because rustc does not collect a nested
-/// `#[test]`; a bodiless `module` loads a file, which a block cannot do.
-fn has_a_local_declaration(file: &Source) -> bool {
-  const KEYWORDS: &[&str] = &[
-    "data", "newtype", "union", "type", "class", "instance", "errors", "import", "const", "static",
-  ];
-  any_line_head(file, |index, in_a_body| {
-    in_a_body && KEYWORDS.contains(&file.spellings[index].as_str())
-  })
-}
-
-/// Ask `test` at the first token of every line, with whether the enclosing
-/// block is a **function body**.
-///
-/// The walk [`has_a_local_declaration`] argues for, shared since plan 55 leaf
-/// 7 gave it a second caller. Depth comes from `Indent`/`Dedent` rather than
-/// from the text, for the reason `indentation_round_trip` records: a
-/// continuation line is indented text at its parent's token depth.
-fn any_line_head(file: &Source, mut test: impl FnMut(usize, bool) -> bool) -> bool {
-  /// Heads of every line that opens a block which is *not* a function body.
-  const OPENS_A_NON_BODY: &[&str] = &[
-    "module", "class", "instance", "errors", "data", "newtype", "union", "extern", "test",
-  ];
-
-  // One entry per open block: true when the block is a function body.
-  let mut is_body: Vec<bool> = Vec::new();
-  let mut line_head: Option<&str> = None;
-
-  for index in 0..file.tokens.len() {
-    match file.tokens[index].kind {
-      TokenKind::Indent => {
-        let opener = line_head.unwrap_or("");
-        is_body.push(!OPENS_A_NON_BODY.contains(&opener));
-      }
-      TokenKind::Dedent => {
-        is_body.pop();
-      }
-      _ => {
-        if starts_a_line(file, index) {
-          line_head = Some(file.spellings[index].as_str());
-          if test(index, is_body.last() == Some(&true)) {
-            return true;
-          }
-        }
-      }
-    }
-  }
-  false
-}
-
-/// Whether a **binding's value** is an indented block — plan 55 leaf 7.
-///
-/// `Toks(["do"])` witnessed *Blocks as expressions* until the leaf retired the
-/// keyword, and it had to go for a second reason worth recording: this gate
-/// reads `tests/ui/` too, so `tests/ui/reserved_do.sdx` — the fixture that
-/// asserts `do` is **refused** — kept the old witness green. A token run
-/// cannot tell a construct from its own refusal fixture.
-///
-/// Nor can one tell a block-valued binding from a clause body: `inner =` and
-/// `tier n =` with a block under each are the same four tokens. What separates
-/// them is **what opened the enclosing block**, which is
-/// [`has_a_local_declaration`]'s finding one leaf earlier, and that walk is
-/// [`any_line_head`] — shared rather than copied.
-fn has_a_block_valued_binding(file: &Source) -> bool {
-  any_line_head(file, |index, in_a_body| {
-    in_a_body
-      && matches!(file.tokens[index].kind, TokenKind::Ident(_))
-      && file.spellings.get(index + 1).is_some_and(|s| s == "=")
-      && file
-        .tokens
-        .get(index + 2)
-        .is_some_and(|t| t.kind == TokenKind::Newline)
-      && file
-        .tokens
-        .get(index + 3)
-        .is_some_and(|t| t.kind == TokenKind::Indent)
-  })
-}
-
 /// Every reachable row of `docs/GRAMMAR.md`, and what witnesses it.
 ///
 /// Ordered as the document orders them, so the two can be read side by side.
@@ -924,13 +431,30 @@ const WITNESSES: &[Covers] = &[
   },
   Covers {
     row: "Traits",
-    spelling: "`class Shape t`",
+    spelling: "`class Shape`",
     witness: Witness::Toks(&["class"]),
+  },
+  Covers {
+    row: "Generic traits",
+    spelling: "`class Scale t`, which is `trait Scale<T>`",
+    witness: Witness::Shape(
+      "a `class` head carrying a parameter of its own",
+      has_a_parameterised_class,
+    ),
   },
   Covers {
     row: "Impls, inherent and trait",
     spelling: "`instance Shape Square`",
     witness: Witness::Toks(&["instance"]),
+  },
+  Covers {
+    row: "Two impls of one trait for one type",
+    spelling: "`instance Scale f64 Meters` beside `instance Scale u32 Meters`",
+    witness: Witness::Shape(
+      "two `instance` heads agreeing on the class and the implementing type and \
+       differing in between",
+      has_two_impls_for_one_type,
+    ),
   },
   Covers {
     row: "Items in a function body",
@@ -1038,6 +562,22 @@ const WITNESSES: &[Covers] = &[
     // this row with the `where` keyword would witness the wrong thing.
     spelling: "the bound clause `=>`, which is where Rust's `where` comes from",
     witness: Witness::Toks(&["=>"]),
+  },
+  Covers {
+    row: "The receiver, marked in a type",
+    spelling: "`minus : u32 -> &self -> u32` — the marker, past the first type",
+    witness: Witness::Shape(
+      "a member signature whose `self` marker follows at least one `->`",
+      has_a_late_receiver,
+    ),
+  },
+  Covers {
+    row: "Associated functions",
+    spelling: "`start : u32 -> Self`, called `Counter::start 3`",
+    witness: Witness::Shape(
+      "a `class` or `instance` member with a spine and no `self` marker",
+      has_an_associated_function,
+    ),
   },
   Covers {
     row: "Associated types and constants",

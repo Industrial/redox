@@ -56,7 +56,7 @@ fn a_record_field_takes_its_own_marker() {
 fn an_alias_and_a_class_take_a_marker() {
   let alias = xrs("export(crate) type D = f64\n");
   assert!(alias.contains("pub(crate) type D = f64;"), "{alias}");
-  let class = xrs("export(super) class S t\n  area : &t -> f64\n");
+  let class = xrs("export(super) class S\n  area : &self -> f64\n");
   assert!(class.contains("pub(super) trait S {"), "{class}");
 }
 

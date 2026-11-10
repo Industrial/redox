@@ -10,7 +10,8 @@ use redox_ast::InstanceDecl;
 ///
 /// ```text
 /// instance Display t => Describe (Wrapper t)   impl<T: Display> Describe for Wrapper<T> {
-/// instance Counter                         →   impl Counter {
+/// instance Convert f64 Meters              →   impl Convert<f64> for Meters {
+/// instance Counter                             impl Counter {
 /// ```
 ///
 /// The generic list is **synthesised** — doc 18 §5.3's "type variables need
@@ -18,6 +19,9 @@ use redox_ast::InstanceDecl;
 /// and the constraints become its bounds. That is the one place a Redox type
 /// is assembled rather than copied verbatim, and `TypeApp` exists to make it
 /// possible: a captured string cannot say which of its words were variables.
+///
+/// The class carries arguments of its own since plan 67, so it is printed by
+/// the same `rust_text` the target is: `Convert<f64>`, not `Convert`.
 pub(crate) fn emit_instance(out: &mut Sink<'_>, i: &InstanceDecl, indent: usize) {
   out.unmark();
   emit_trivia(out, &i.leading, indent);
@@ -28,7 +32,7 @@ pub(crate) fn emit_instance(out: &mut Sink<'_>, i: &InstanceDecl, indent: usize)
   out.push_str(&generics(&i.target, &i.constraints));
   out.push(' ');
   if let Some(class) = &i.class {
-    out.push_str(&format!("{} for ", class.text));
+    out.push_str(&format!("{} for ", class.rust_text()));
   }
   out.push_str(&i.target.rust_text());
   out.push_str(" {\n");

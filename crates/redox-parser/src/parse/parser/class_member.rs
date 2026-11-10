@@ -15,8 +15,8 @@ use redox_lexer::{Keyword, TokenKind};
 /// ```text
 /// type Unit               an associated type
 /// const SIDES : u32      an associated constant
-/// area : &t -> f64       a method signature, with no body
-/// describe : &t -> String
+/// area : &self -> f64    a method signature, with no body
+/// describe : &self -> String
 /// describe self = "…"     a signature and its default body
 /// ```
 ///
@@ -58,14 +58,14 @@ pub(crate) fn class_member(p: &mut Parser, ctx: &MethodContext) -> Result<ClassM
     return Ok(ClassMember::AssocConst { name, ty, value });
   }
 
-  // The class variable belongs to the enclosing declaration, not to this
-  // method, so it is kept out of the method's generic list.
-  let reserved: Vec<String> = ctx.var.clone().into_iter().collect();
+  // The head's variables belong to the enclosing declaration, not to this
+  // method, so they are kept out of the method's generic list.
+  let reserved = ctx.reserved();
   let mut decl = p.function(&reserved)?;
   decl.visibility = member_visibility;
-  receiver(&mut decl.sig, &ctx.receiver_names);
-  if let Some(var) = &ctx.var {
-    substitute_var(&mut decl.sig, var, &ctx.subject);
+  receiver(&mut decl.sig);
+  for (var, subject) in &ctx.vars {
+    substitute_var(&mut decl.sig, var, subject);
   }
   Ok(ClassMember::Method(decl))
 }

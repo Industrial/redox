@@ -1,0 +1,88 @@
+================================================================
+a class head with no parameters, and all three marked receivers
+================================================================
+
+class Shape
+  area : &self -> f64
+  consume : self -> u32
+  resize : &mut self -> u32
+  minus : u32 -> &self -> u32
+  unit : f64 -> Self
+
+----------------------------------------------------------------
+
+(source_file
+  (class_declaration
+    name: (type_identifier)
+    (block
+      (signature
+        name: (identifier)
+        type: (signature_type
+          (identifier)
+          (identifier)))
+      (signature
+        name: (identifier)
+        type: (signature_type
+          (identifier)
+          (identifier)))
+      (signature
+        name: (identifier)
+        type: (signature_type
+          (identifier)
+          (identifier)))
+      (signature
+        name: (identifier)
+        type: (signature_type
+          (identifier)
+          (identifier)
+          (identifier)))
+      (signature
+        name: (identifier)
+        type: (signature_type
+          (identifier)
+          (type_identifier))))))
+
+================================================================
+a class head with a superclass and two parameters
+================================================================
+
+class Debug => Convert t u
+  wrap : t -> u -> Self
+
+----------------------------------------------------------------
+
+(source_file
+  (class_declaration
+    (class_supers
+      (type_identifier))
+    name: (type_identifier)
+    parameter: (identifier)
+    parameter: (identifier)
+    (block
+      (signature
+        name: (identifier)
+        type: (signature_type
+          (identifier)
+          (identifier)
+          (type_identifier))))))
+
+================================================================
+an instance head of three names
+================================================================
+
+instance Convert f64 Meters
+  wrap : f64 -> Self
+
+----------------------------------------------------------------
+
+(source_file
+  (instance_declaration
+    target: (type_identifier)
+    target: (identifier)
+    target: (type_identifier)
+    (block
+      (signature
+        name: (identifier)
+        type: (signature_type
+          (identifier)
+          (type_identifier))))))

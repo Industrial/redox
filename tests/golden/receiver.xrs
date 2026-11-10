@@ -1,0 +1,111 @@
+// Doc 18 §2.5's **marked** receiver — plan 67. `self` in a type is the
+// receiver, wherever in the signature it is written, and the borrow prefix on
+// the marker chooses between Rust's three forms.
+//
+// `examples/class.sdx` is the ordinary shape: one class, one argument per
+// method. This file is the three shapes the corpus never had, each of which
+// the old positional rule either could not express or expressed wrongly —
+// plan 67 §1.3 counted the gap.
+
+use std::fmt::Debug;
+
+#[repr(transparent)]
+struct Meters(f64);
+
+#[derive(Debug)]
+struct Counter {
+    value: u32,
+}
+
+// A superclass survives the class losing its variable: `=>` before the name,
+// and nothing after it. A bound on a trait *parameter* is a different row —
+// plan 67 §6.
+trait Tally: Debug {
+    // All three receivers, from the prefix on the marker and nothing else.
+    fn current(&self) -> u32;
+    fn bump(&mut self);
+    fn total(self) -> u32;
+    // Two arguments with the receiver **first**, which is Rust's order.
+    fn plus(&self, __rdx_a1: u32) -> u32;
+    // Two arguments with the receiver **last**, which is the order plan 57's
+    // call reads: `.minus 1 c`. Both emit `fn …(&self, n: u32) -> u32`, so
+    // position carries no meaning and an author writes whichever reads better.
+    fn minus(&self, __rdx_a1: u32) -> u32;
+    // No `self` in any type, so no receiver at all: an associated function,
+    // reached through the type rather than through a value.
+    fn start(__rdx_a0: u32) -> Self;
+}
+
+impl Tally for Counter {
+    fn current(&self) -> u32 {
+        self.value
+    }
+    fn bump(&mut self) {
+        self.value += 1;
+        ();
+    }
+    fn total(self) -> u32 {
+        self.value
+    }
+    fn plus(&self, n: u32) -> u32 {
+        self.value + n
+    }
+    fn minus(&self, n: u32) -> u32 {
+        self.value - n
+    }
+    fn start(n: u32) -> Self {
+        Counter { value: n }
+    }
+}
+
+// A class with a parameter of its own, which is `trait From<T>`'s shape and
+// was unreachable until plan 67: the one slot a class head had was spent on
+// the implementing type, so a second lowercase name became a *method* generic
+// and rustc answered `E0049`. The implementing type is `Self`, so the slot is
+// free and the names in it are the trait's.
+trait Scale<T> {
+    fn times(&self, __rdx_a1: T) -> f64;
+}
+
+// Two impls for one type, differing only in the argument — the shape §1.4
+// measured as impossible. The **last** name in the head is the implementing
+// type, so this reads in the same order as the `impl Scale<f64> for Meters`
+// it becomes.
+impl Scale<f64> for Meters {
+    fn times(&self, k: f64) -> f64 {
+        self.0 * k
+    }
+}
+
+impl Scale<u32> for Meters {
+    fn times(&self, k: u32) -> f64 {
+        self.0 * f64::from(k)
+    }
+}
+
+fn main() {
+    // The associated function, through the type.
+    let mut c = Counter::start(3);
+    println!("{}", c.current());
+    c.bump();
+    println!("{}", c.current());
+    println!("{}", c.plus(10));
+    println!("{}", c.minus(1));
+    // `total : self -> u32` takes the receiver by value, so this is `c`'s last
+    // use and rustc is the one that knows it.
+    println!("{}", c.total());
+    let m = Meters(4.0);
+    // Which `Scale` impl applies is chosen by the argument's type, which is
+    // rustc's job and not Redox's — the ascription is what fixes it here.
+    let wide = {
+        let __rdx_t: f64 = 1.5;
+        __rdx_t
+    };
+    println!("{}", m.times(wide));
+    let narrow = {
+        let __rdx_t: u32 = 2;
+        __rdx_t
+    };
+    println!("{}", m.times(narrow));
+    ();
+}

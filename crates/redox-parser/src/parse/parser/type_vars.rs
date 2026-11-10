@@ -1,5 +1,5 @@
 use crate::parse::parser::is_word::is_word;
-use crate::parse::parser::primitive_type::primitive_type;
+use redox_ast::primitive_type;
 
 /// The type variables and lifetimes a signature's types mention, in order of
 /// first appearance — doc 18 §§2.2, 5.3.
@@ -22,9 +22,16 @@ use crate::parse::parser::primitive_type::primitive_type;
 /// each group the order is the source's, because the emitter's output has to
 /// be byte-stable.
 ///
-/// Four things are excluded, each for a reason worth stating:
+/// Five things are excluded, each for a reason worth stating:
 ///
-/// - **primitives** — `i32` is lowercase and concrete; see `primitive_type`;
+/// - **primitives** — `i32` is lowercase and concrete; see
+///   [`primitive_type`];
+/// - **`self`** — plan 67's receiver marker. `area : &self -> f64` would
+///   otherwise synthesise `fn area<Self_>(…)`, and the failure mode is a
+///   program that still compiles in simple cases. Checked here as its own
+///   condition rather than added to `primitive_type`, because `self` is not a
+///   primitive type and a list whose name stops describing its contents is
+///   how a reader learns to stop trusting the names — plan 67 §9 decision 4;
 /// - **`'static`** — a lifetime that needs no declaration;
 /// - **the type keywords** `dyn`, `impl`, `mut` and `as`, which are lowercase
 ///   words inside a type and name nothing;
@@ -79,6 +86,9 @@ pub(crate) fn type_vars(types: &[&str]) -> Vec<String> {
 
       if !word.starts_with(|c: char| c.is_lowercase())
         || primitive_type(&word)
+        // Plan 67's receiver marker, and not a type at all — see the doc
+        // comment's fifth exclusion for why it is not in `primitive_type`.
+        || word == "self"
         || matches!(word.as_str(), "dyn" | "impl" | "mut" | "as")
       {
         continue;

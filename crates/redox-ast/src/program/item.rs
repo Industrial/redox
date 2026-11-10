@@ -21,6 +21,7 @@ pub(crate) mod leading;
 pub(crate) mod module_decl;
 pub(crate) mod param;
 pub(crate) mod pattern;
+pub(crate) mod primitive_type;
 pub(crate) mod record_pattern_field;
 pub(crate) mod signature;
 pub(crate) mod test_decl;

@@ -1,7 +1,7 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
 use crate::parse::parser::class_body::class_body;
-use crate::parse::parser::constraints::constraints;
+use crate::parse::parser::class_supers::class_supers;
 use crate::parse::parser::method_context::MethodContext;
 use redox_ast::{ClassDecl, Visibility};
 use redox_lexer::{Keyword, TokenKind, Trivia};
@@ -9,10 +9,14 @@ use redox_lexer::{Keyword, TokenKind, Trivia};
 /// Parse doc 18 §2.5's `class` — Rust's `trait`.
 ///
 /// ```text
-/// class Debug t => Shape t     trait Shape: Debug {
+/// class Debug => Shape         trait Shape: Debug {
 ///   type Unit                      type Unit;
 ///   const SIDES : u32         →   const SIDES: u32;
-///   area : &t -> f64              fn area(&self) -> f64;
+///   area : &self -> f64           fn area(&self) -> f64;
+///                              }
+///
+/// class Convert t              trait Convert<T> {
+///   wrap : t -> Self          →   fn wrap(__rdx_a0: T) -> Self;
 ///                              }
 /// ```
 ///
@@ -20,8 +24,16 @@ use redox_lexer::{Keyword, TokenKind, Trivia};
 /// words change back: `class` stops meaning doc 01 §17.7's "struct plus impl"
 /// and means `trait`.
 ///
-/// The constraint clause is read speculatively, because `class Shape t` and
-/// `class Debug t => Shape t` begin identically — see `constraints`.
+/// **The names after the class's own are the trait's parameters, and there
+/// may be none.** Until plan 67 there was exactly one and it stood for the
+/// implementing type, which `Self` names already — so a second lowercase name
+/// in a member's type became a *method* generic and `impl From<u32>` and
+/// `impl From<f64>` for one type could not both be written. §1.4 measured the
+/// near miss: `E0049` from rustc, naming a type parameter the author never
+/// wrote.
+///
+/// The superclass clause is read speculatively, because `class Show => Shape`
+/// and `class Shape` differ only at the `=>` — see `class_supers`.
 pub(crate) fn class_decl(
   p: &mut Parser,
   leading: Vec<Trivia>,
@@ -29,15 +41,20 @@ pub(crate) fn class_decl(
   visibility: Visibility,
 ) -> Result<ClassDecl, ParseError> {
   p.expect(&TokenKind::Kw(Keyword::Class), "expected `class`")?;
-  let supers = constraints(p)?;
+  let supers = class_supers(p)?;
   let name = p.ident("expected the class's name")?;
-  let var = p.ident("expected the class variable, as in `class Shape t`")?;
+  // Greedy, and safe to be: a class head is followed by a line break, so
+  // there is nothing else on the line for a name to belong to.
+  let mut params = Vec::new();
+  while let Some(param) = p.try_ident() {
+    params.push(param);
+  }
 
-  let members = class_body(p, &MethodContext::for_class(&var.text))?;
+  let members = class_body(p, &MethodContext::for_class(&params))?;
 
   Ok(ClassDecl {
     name,
-    var,
+    params,
     supers,
     members,
     visibility,

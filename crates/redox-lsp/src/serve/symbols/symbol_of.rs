@@ -44,7 +44,11 @@ pub(crate) fn symbol_of(item: &Item, source: &str) -> DocumentSymbol {
     Item::Class(decl) => (decl.name.text.clone(), SymbolKind::INTERFACE, None),
     Item::Instance(decl) => (
       match &decl.class {
-        Some(class) => format!("{} {}", class.text, decl.target.head.text),
+        // The class's own name only: `instance Convert f64 Meters` is
+        // `Convert Meters` in the outline, because the symbol names the pair
+        // a reader is looking for and the trait's arguments are not part of
+        // it.
+        Some(class) => format!("{} {}", class.head.text, decl.target.head.text),
         None => decl.target.head.text.clone(),
       },
       SymbolKind::OBJECT,

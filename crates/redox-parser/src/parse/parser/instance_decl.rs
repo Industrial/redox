@@ -20,25 +20,32 @@ use redox_lexer::{Keyword, TokenKind, Trivia};
 /// ```
 ///
 /// One keyword covers both of Rust's forms. Which is written is decided by
-/// **what follows `instance`**, in three readings that between them cover
+/// **what follows `instance`**, in readings that between them cover
 /// everything Haskell can write and the one thing it cannot:
 ///
 /// | Source | Reading |
 /// |---|---|
 /// | `instance Counter` | inherent, on `Counter` |
 /// | `instance Show Point` | `Show` for `Point` |
+/// | `instance Convert f64 Meters` | `Convert<f64>` for `Meters` |
 /// | `instance Describe (Wrapper t)` | `Describe` for `Wrapper<T>` |
 /// | `instance (Wrapper t)` | inherent, on `Wrapper<T>` |
+///
+/// **The last name is the implementing type and the rest are the class's own
+/// arguments** — plan 67 §9 decision 3, chosen so
+/// `instance Convert f64 Meters` and `impl Convert<f64> for Meters` read in
+/// the same order. That reverses the previous split, which took the *first*
+/// argument as the target and so put the implementing type between the trait
+/// and its arguments; a two-name head reads the same under both, which is why
+/// nothing in the corpus observed the change.
 ///
 /// The parentheses are grouping, as they are in an expression — they say
 /// where the target begins, which is the only thing juxtaposition alone
 /// cannot. The last row is the case Haskell has no need for and Rust does:
 /// an inherent `impl` on a generic type.
 ///
-/// The class variable is the first type variable of the **target**, which is
-/// what makes a method's `self` derivable here as it is in a `class`. An
-/// inherent instance on a concrete type has none, and its methods name `Self`
-/// instead — as §2.5's own `instance Counter` example does.
+/// The impl's own generic parameter is the first type variable of the
+/// **target**. An inherent instance on a concrete type has none.
 pub(crate) fn instance_decl(
   p: &mut Parser,
   leading: Vec<Trivia>,
@@ -55,29 +62,36 @@ pub(crate) fn instance_decl(
   let (class, target) = if grouped {
     (None, first)
   } else if p.check(&TokenKind::LParen) {
-    (Some(first.head.clone()), type_app(p)?)
+    // `instance Describe (Wrapper t)`, and `instance Convert f64 (Wrapper t)`
+    // — the whole juxtaposition before the group is the class.
+    (Some(first), type_app(p)?)
   } else if first.args.is_empty() {
     (None, first)
   } else {
-    // `instance Show Point` — juxtaposition put the target in the argument
-    // list, so the head is the class and the first argument is the target.
+    // `instance Show Point` and `instance Convert f64 Meters` — juxtaposition
+    // put the target in the argument list, and it is the **last** one.
     let mut args = first.args.clone();
-    let head = args.remove(0);
+    let head = args.pop().expect("the argument list is not empty");
+    let class_end = args.last().map_or(first.head.span.1, |a| a.span.1);
     (
-      Some(first.head.clone()),
-      TypeApp {
-        head,
+      Some(TypeApp {
+        head: first.head.clone(),
         args,
-        span: first.span,
+        span: (first.head.span.0, class_end),
+      }),
+      TypeApp {
+        head: head.clone(),
+        args: Vec::new(),
+        span: head.span,
       },
     )
   };
 
   let var = target.vars().first().map(|v| v.to_string());
-  // Inside an `instance` the class variable is the impl's generic parameter,
-  // so it is that parameter's uppercase name — doc 18 §5.3.
+  // Inside an `instance` a target's type variable is the impl's generic
+  // parameter, so it is that parameter's uppercase name — doc 18 §5.3.
   let subject = var.as_deref().map_or_else(String::new, TypeApp::rust_name);
-  let ctx = MethodContext::for_instance(var.as_deref(), &target.head.text, &subject);
+  let ctx = MethodContext::for_instance(var.as_deref(), &subject);
   let members = class_body(p, &ctx)?;
 
   Ok(InstanceDecl {

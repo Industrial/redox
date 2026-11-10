@@ -1,4 +1,3 @@
-use crate::Ident;
 use crate::program::item::class_member::ClassMember;
 use crate::program::item::constraint::Constraint;
 use crate::program::item::type_app::TypeApp;
@@ -12,7 +11,7 @@ use redox_lexer::{Span, Trivia};
 ///                                              }
 ///
 /// instance Counter                             impl Counter {
-///   increment : &mut Self -> ()           →       fn increment(&mut self) {
+///   increment : &mut self -> ()           →       fn increment(&mut self) {
 ///   increment self = self.value += 1                   self.value += 1;
 ///                                                  }
 ///                                              }
@@ -24,8 +23,14 @@ use redox_lexer::{Span, Trivia};
 /// inherent, `instance Describe (Wrapper t)` is a trait impl.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstanceDecl {
-  /// The class being implemented, or `None` for an inherent `impl`.
-  pub class: Option<Ident>,
+  /// The class being implemented, with its own arguments, or `None` for an
+  /// inherent `impl`.
+  ///
+  /// A [`TypeApp`] rather than a bare name since plan 67:
+  /// `instance Convert f64 Meters` is `impl Convert<f64> for Meters`, so the
+  /// class carries arguments of its own and the **last** name in the head is
+  /// the implementing type.
+  pub class: Option<TypeApp>,
   pub target: TypeApp,
   /// `Display t =>` — bounds on the generic parameters.
   pub constraints: Vec<Constraint>,

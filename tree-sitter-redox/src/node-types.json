@@ -1076,9 +1076,9 @@
 					}
 				]
 			},
-			"variable": {
-				"multiple": false,
-				"required": true,
+			"parameter": {
+				"multiple": true,
+				"required": false,
 				"types": [
 					{
 						"type": "identifier",
@@ -1096,11 +1096,26 @@
 					"named": true
 				},
 				{
-					"type": "constraints",
+					"type": "class_supers",
 					"named": true
 				},
 				{
 					"type": "visibility",
+					"named": true
+				}
+			]
+		}
+	},
+	{
+		"type": "class_supers",
+		"named": true,
+		"fields": {},
+		"children": {
+			"multiple": true,
+			"required": true,
+			"types": [
+				{
+					"type": "type_identifier",
 					"named": true
 				}
 			]

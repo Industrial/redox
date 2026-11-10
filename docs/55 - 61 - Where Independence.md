@@ -734,6 +734,21 @@ claim; it says only that *"`where` keeps one meaning"*. The section to amend is
   The rule above still holds for everything that is *not* passed through
   verbatim, which is every other position a lowering could touch.
 
+  **And plan 67 found the limit, which is worth having beside the exemption.**
+  That row reads a marked receiver at parse time — `area : &self -> f64` — and
+  §1.7 took this exemption to mean the whole lowering could stay in the parser.
+  It cannot. `emit_clauses` pairs `sig.params` with each clause's pattern row
+  **by index**, so moving the receiver to the front in the parser and not moving
+  the pattern row silently misaligns the `match` arms; and moving the pattern row
+  too *is* visible, because `clause_text` prints patterns **from the tree** while
+  `signature_line` slices the signature **from the source**. The formatter would
+  then print a signature in one order above an equation in the other.
+
+  So the exemption is exactly the signature *line* and nothing else on the same
+  declaration. Plan 67 reads the marker in the parser and floats the receiver in
+  `emit::signature`, four lines, which is this rule applied rather than
+  overridden.
+
   So the dependency ordering is applied while emitting the `let`s, and the tree
   keeps the author's order. `formatting_preserves_meaning` is still the gate
   that would catch a regression, and §5 should assert the formatter case

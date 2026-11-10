@@ -4,7 +4,7 @@ Plan ID: `marked-receiver`
 Depends on: 52 (`type-colon`), 57 (`methods-as-functions`)
 Precedes and amends: 63 (`instance-inference`), whose §11.3 is reconciled in §1.6
 Milestone: 9 — *surface coherence*
-Status: `planned`
+Status: `done` — shipped 2026-11-10
 
 ---
 
@@ -284,6 +284,14 @@ Then the three shapes the corpus has never had, which is the larger half of this
 
 `construct_coverage` gains rows for all three so that none of them can quietly disappear again.
 
+**`construct_coverage.rs` is at its ceiling, and this leaf has to split it.** Exactly 1,500
+lines against `line_cap`'s `MAX_LINES = 1_500`, checked as `lines > MAX_LINES` — so the
+witnesses above cannot be added until the file is divided. Plan 66 landed net-zero there by
+rewriting an existing witness; several new rows cannot. The split follows the
+one-construct-per-file rule rather than being a line-count exercise.
+
+Done: `construct_coverage/corpus.rs` and `construct_coverage/shape.rs`, 1,500 → 1,040 lines.
+
 ### Leaf 5 — `leaf-plan-63-and-docs`
 
 Plan 63's §1 and §4 restated: the substitution for the implementing type is the identity, and
@@ -315,7 +323,7 @@ example into an `ERROR` node if they drift.
 8. `examples/class.sdx`'s stdout is unchanged.
 9. A lowercase `self` in a type synthesises no generic parameter, asserted directly — the
    failure mode is `fn area<Self_>(…)` and it would still compile in simple cases.
-10. `construct_coverage` green, with the two-argument method, the associated function and the
+10. `construct_coverage` green, and `line_cap` green — which requires leaf 4's split, with the two-argument method, the associated function and the
     generic trait all indexed.
 11. `redox fmt` round-trips the migrated example and `formatting_is_idempotent` holds.
 12. The tree-sitter corpus parses every example with no `ERROR` node.
@@ -370,6 +378,33 @@ Plus the three blessable corpora, `cargo test -p redox-fuzz`, and the tree-sitte
 is a grammar change and the grammar is checked against the same examples the compiler is.
 
 ---
+
+
+**The examples sweep catches one of leaf 6's three changes, and the reason differs per
+change.** Measured before the row ran, then corrected by running it:
+
+| Change | Caught by `every_example_parses_with_no_error`? | Why |
+|---|---|---|
+| `class Shape` with no variable, and `class Convert t u` | **yes** | `class_declaration` requires a single `field("variable", $.identifier)`, so both new heads are an `ERROR` node |
+| `area : &self -> f64` | **no** | `signature_type` is a flat `repeat1(choice(…))`, so `&self` parses as punctuation plus an identifier in a grammar that knows nothing about the marker |
+| `instance Convert f64 Meters` | **yes**, and not for the predicted reason | — |
+
+The third row was predicted as *not caught*, because `instance_declaration`'s `target` is
+already `repeat1(choice($.type_identifier, $.identifier))` and a three-name head therefore
+parses. The rule text is right and the conclusion was wrong: **a precedence on another rule
+wins first.** `constraints` was `prec(1, seq(sep1(seq($.type_identifier, $.identifier), ","),
+"=>"))`, and `Convert f64` matches `seq(type_identifier, identifier)` — so the parser
+committed to reading the head as a constraint clause and failed when no `=>` arrived,
+giving `(ERROR (identifier))` on `f64`. Only an all-uppercase run parsed. Removing the
+`prec(1)` is what fixed it; a declared conflict did not, because `tree-sitter generate`
+calls it *unnecessary* when a precedence already decides.
+
+So the lesson is narrower and sharper than the prediction: **reading a rule's text does not
+tell you what the parser does with it**, because another rule's precedence can intercept
+the same token sequence. Leaf 6 still needs its own cases under
+`tree-sitter-redox/test/corpus/` — `marked_receiver.txt` is this row's — because the
+receiver marker genuinely is invisible to the sweep. Plan 66 found the general shape: its
+grammar gates were green before `grammar.js` knew `>>>` existed.
 
 ## 8. Emerald reuse
 
@@ -427,4 +462,191 @@ does to `sig.params[0]`.
 
 ## 10. Result
 
-*Not yet executed.*
+Executed 2026-11-10 against `429e269`. All twelve acceptance criteria met; the gate is green on
+**12 of 14 steps**, with `moon :test` and `status` red on `conformance_is_current` and
+`status_is_current` alone — the two generated documents, whose numbers moved because this row adds
+source lines, an example, a golden and one `UNREACHABLE` fixture. Both are the owner's to bless and
+neither was touched.
+
+### 10.1 The criteria, measured
+
+| # | Criterion | Verdict |
+|---|---|---|
+| 1 | all three receiver forms in a running example | `examples/receiver.sdx` — `current : &self`, `bump : &mut self`, `total : self`, stdout asserted |
+| 2 | receiver-first and receiver-last emit byte-identical Rust | met, and **more strongly than §3 case 3 asked** — see §10.2 |
+| 3 | an associated function, called through its type | `start : u32 -> Self` → `fn start(__rdx_a0: u32) -> Self`, called `Counter::start 3` |
+| 4 | `class Convert t` is `trait Convert<T>`, two impls for one type compile and run | `class Scale t` with `instance Scale f64 Meters` and `instance Scale u32 Meters` |
+| 5 | `redox check` silent on §1.4's `E0049` program | `crates/redox-cli/tests/check/generic_class.sdx`, and `a_generic_class_with_two_impls_for_one_type_is_accepted` asserts stderr is **empty** |
+| 6 | `class Show => Shape` is `trait Shape: Show` | `class Debug => Tally` → `trait Tally: Debug` |
+| 7 | `instance Square` byte-identical in the golden | met — `tests/golden/class.xrs` moved **only in its comments**, verified by diffing the generated file against the golden before re-blessing |
+| 8 | `examples/class.sdx`'s stdout unchanged | met — `examples/class.stdout` is untouched in the diff |
+| 9 | the marker synthesises no generic parameter | `the_marker_synthesises_no_generic_parameter` asserts `!out.contains("fn area<")` directly |
+| 10 | `construct_coverage` green with all three shapes indexed | **four** rows added, each proved to fail when `examples/receiver.sdx` is moved aside — §10.5 |
+| 11 | `redox fmt` round-trips the migrated example | `redox fmt --check` exits 0 on both `class.sdx` and `receiver.sdx`; `redox-fmt`'s own suite green |
+| 12 | the tree-sitter corpus parses every example with no `ERROR` | green, and the sweep was **not** the gate that mattered — §10.4 |
+
+### 10.2 Criterion 2 needed one more change than §4 leaf 1 listed
+
+`__rdx_aN` is numbered by the parameter's position, so a **required** two-argument method emitted
+`fn scaled(&self, __rdx_a1: f64)` receiver-first and `fn scaled(&self, __rdx_a0: f64)`
+receiver-last — not byte-identical, and §2's own row *"a required method's non-receiver parameter
+is named by the emitter"* is where the number comes from. §3 case 3's example has a binder (`k`),
+so the criterion as *illustrated* held either way; as *written* it did not.
+
+`receiver` now renumbers a generated name by its place in the **Rust** signature. Nothing existing
+moved, because a receiver written first already numbered that way — which is why this is a
+correction rather than a surface change, and it is asserted in
+`a_two_argument_method_emits_the_same_rust_in_either_order` by `assert_eq!` on the whole output.
+
+### 10.3 Leaf 1's move-to-front belongs in the emitter, and §1.7's exemption is narrower than it reads
+
+**§9 decision 8 is right about the parser and §1.7 is right about `signature_line.rs`. Both are
+about the signature, and the pattern row is a second consumer neither considered.**
+
+`emit_clauses` pairs `sig.params` with each clause's **pattern row by index** to build a `match`
+scrutinee. So moving the receiver to the front of `sig.params` in the parser, as leaf 1 specifies,
+misaligns the arms of any method with several equations or a testing pattern — silently, into Rust
+that can still compile. Moving the pattern row with it is worse: `redox-fmt`'s `clause_text` prints
+an equation's patterns **from the tree**, where `signature_line` slices the signature from the
+source, so the formatter would print `scaled : f64 -> &self -> Self` above `scaled self k = …` —
+a program that does not re-parse to itself.
+
+So the marker reading and the borrow-prefix logic stay in the parser exactly as decision 8 requires,
+and `emit::signature` floats the receiver to the front — four lines, in the one consumer that wants
+Rust's order. **Plan 61 §11.6's two-consumers rule does bind here**, for the pattern row, and plan
+67 §1.7's measurement that it does not bind is true only of the signature line. Recorded in
+`emit/signature.rs`, `parser/receiver.rs` and here, because an implementer reading leaf 1 will
+otherwise put it back.
+
+### 10.4 Three findings in the grammar, two of which the examples sweep could not report
+
+The coordinator's amendment said the examples sweep catches one of leaf 6's three changes. Measured,
+it catches **two**, and there were three defects rather than one change:
+
+1. **`class Shape` and `class Convert t u`** — caught, as predicted: `field("variable", $.identifier)` was a required single identifier.
+2. **`instance Convert f64 Meters` was an `(ERROR (identifier))` on the `f64`**, which the sweep *does* catch, contradicting the amendment's claim that a three-name head already parses. Only an **all-uppercase** run parsed: `Convert f64` is also the shape of the constraint clause `Convert f64 =>`, and `constraints`' `prec(1)` committed the table to that reading before the `Meters` arrived. A declared `[$.constraints, $.instance_declaration]` conflict did not help — `tree-sitter generate` reported it *unnecessary*, because a precedence beats a declared conflict. Removing the `prec(1)` fixed it.
+3. **`&mut` was not in `signature_type` at all.** `bump : &mut self -> ()` fell out of the `signature` rule entirely. Doc 18 §2.5's own `increment : &mut Self -> ()` would have shown this years ago; nothing in the corpus had a `&mut` in a signature until this row.
+
+**`area : &self -> f64` needed no grammar change**, exactly as the amendment said: `self` already
+lexes as `$.identifier` there. Adding `$.self_expression` to `signature_type` so a highlighter could
+colour the marker was tried and **does not work** — `identifier` wins the lexical conflict, measured
+as `(identifier)` in the parsed tree — and was removed rather than forced with a token precedence
+that would have changed what `Self` means in every type position.
+
+`tree-sitter-redox/test/corpus/marked_receiver.txt` is leaf 6's own gate: three cases, and a
+deliberately wrong expectation in the second was confirmed to fail and be named before the file was
+corrected.
+
+**One pre-existing grammar defect is disclosed and not fixed.** A signature whose return type is
+`()` *inside a block* loses the `[$.signature, $._expression_part]` conflict and comes out as an
+`expression_statement` holding an `ascription`, two `(operator)`s and a `(parenthesized)` — with
+**no `ERROR` node**, so the sweep cannot see it. `a : u32 -> ()`, `a : &Self -> ()` and
+`a : &self -> ()` all do it; the same lines at item level parse correctly, which is why
+`classify : i32 -> ()` in `examples/control.sdx` never showed it. `prec.dynamic` on `signature` and
+a token `prec` on `_type_punctuation` were both tried and changed nothing, so the fix is structural
+and belongs to a row that owns the grammar. Recorded in `grammar.js` beside the rule.
+
+### 10.5 The corpus leaf, and what it had to add before green meant anything
+
+`examples/class.sdx` migrated with its generated **code** byte-identical — only its comments moved —
+which is the strongest possible form of criterion 8 and also the measure of how little the corpus
+could see. The whole row is invisible in that file.
+
+`examples/receiver.sdx` is new and is where it stops being invisible: three receiver forms, a
+two-argument method written **both** ways, an associated function called through its type, a
+superclass clause, a parameterised class, and two impls of it for one type. 89 lines, run under real
+rustc with asserted stdout, `redox check` silent.
+
+Four `construct_coverage` rows, each verified by moving `examples/receiver.sdx` aside and confirming
+the gate **names it**: *Generic traits*, *Two impls of one trait for one type*, *The receiver, marked
+in a type*, *Associated functions*. Each witness is built from what makes the construct different
+rather than from its own spelling — `has_a_late_receiver` demands a `self` marker **past at least one
+`->`**, because `Toks(["&", "self"])` would be satisfied by `examples/class.sdx`'s receiver-first
+one-argument methods, which is the decoy it exists to distinguish itself from.
+
+**`construct_coverage.rs` was split**, as the amendment required: it was at `line_cap`'s ceiling
+exactly and this row adds four witnesses. 1,500 → 995 lines, by what the pieces are rather than
+where the middle fell — `construct_coverage/corpus.rs` is the haystack and the shape of a claim
+about it, `construct_coverage/shape.rs` is the predicates a token run cannot express, and the root
+keeps the index, the witness table and the assertions. Reached by `#[path]` rather than by renaming
+the target to `construct_coverage/main.rs`, so `--test construct_coverage` still names it.
+
+### 10.6 Plan 63's two decisions survive, and §1.6's claim about `substitute_var` is half wrong
+
+Checked against the code rather than assumed, and written up in plan 63 §11.6.
+
+**Both §11.3 decisions survive untouched.** `generalise` is still called from `Parser::function`;
+`receiver` and `substitute_var` are still called from `class_member` immediately after it. No call
+site moved. Leaf 1's top-level-items-only scope survives and gains a second benign case —
+`examples/local.sdx` declares a `class` and an `instance` inside a *function body*, which restates
+its signature today and degrades to exactly that.
+
+**§1.6's "strictly less to do" is half right.** `MethodContext` lost `var: Option<String>` and
+gained `vars: Vec<(String, String)>`: it lost one entry and **gained a dimension**. For
+`class Shape` — every class in the corpus bar one — `substitute_var` is called **zero** times where
+it was called once. For `class Convert t` it is called once, with the subject `T` rather than `Self`.
+For `class Pair t u` it is called **twice**, which is more than before and was unspellable before,
+and which is precisely the shape plan 63 §1.4 already refuses to elide. What this row removed
+outright is the substitution *for the implementing type*.
+
+It also made plan 63 leaf 2's byte-identity **stronger**: a class's rendered `fn area(&self) -> f64`
+and an instance's restated one are now identical **by construction**, because both spell the
+receiver the same way. Before this row they agreed by coincidence — the class's `&t` substituted to
+`&Self`, the instance's `&Square` dropped as a receiver, and the two met in the middle.
+
+### 10.7 `receiver.rs` and doc 18 §2.5 had **not** drifted, and §2's "only file" claim had
+
+The pair the brief flagged as most likely to disagree agreed exactly. Doc 18 §2.5 said *"the first
+parameter typed by the class variable lowers to `self`"*; `receiver.rs` returned early unless
+`sig.params.first()`'s type matched, and its own doc comment quoted §2.5 verbatim. The code, the
+comment and the specification were one rule. That is the row's premise rather than a defect, and it
+is worth stating because it is the opposite of what today's pattern predicted.
+
+**What had drifted was §2's corpus claim.** *"`examples/class.sdx` is the only file with a `class`
+or an `instance`"*, attributed to plan 63 §1.2, is **false**: `examples/local.sdx` has
+`class Named t` and `instance Named Shade` inside a function body — plan 55 leaf 5's local-items
+example. It was found by the examples sweep failing with `E0107` and `E0599` after the migration,
+not by reading. One migrated file in a two-file corpus is half of it.
+
+Two smaller drifts in the same area:
+
+- **§2's row *"`&Self` therefore already lowers to `&self` inside a `class`"*** was true and is now
+  deliberately false: `receiver_text` matches the literal `self` and nothing else, so
+  `perimeter : &Self -> f64` in `examples/class.sdx` had to migrate. §1.5's *"this row mostly
+  deletes the second spelling rather than introducing the first"* understates it — both spellings
+  were replaced by a third.
+- **`substitute_var`'s doc comment** claimed the class variable *"becomes `Self`"*, which this row
+  makes false in every case; it now says what it does. Its citation of doc 18 §11.5 for the
+  nested-occurrence gap is one of the three stale `§11.5` pointers plan 63 §11.5 counted, and is
+  left alone as that row's to fix.
+
+### 10.8 Four smaller findings
+
+- **`TypeApp::is_var` had to learn about primitives.** *"A lowercase first letter and nothing else"*
+  made `instance Convert f64 Meters` emit `impl Convert<F64> for Meters`, because a primitive is
+  lowercase and concrete — the same correction doc 18 §5.3 already carries for `type_vars`. The
+  closed list moved to `redox-ast` so there is **one** copy; the parser's own
+  `primitive_type.rs` is deleted and `type_vars` imports it. Asserted by
+  `a_primitive_class_argument_is_not_a_type_variable`.
+- **A blanket impl parses and emits `impl Describe for t`.** Leaf 3 asked for this to be settled
+  either way: `TypeApp::vars` reads a type application's *arguments*, and in
+  `instance Display t => Describe t` the variable is the **head**, so the generic list comes out
+  empty and `rust_text` writes the head verbatim. `E0425` from rustc. Graded `UNREACHABLE` with
+  `tests/unreachable/blanket_impl.sdx`, which is the ninth gap and why `docs/STATUS.md` moves.
+- **`redox-fmt` was dropping an `instance` target's parentheses, and the new head split made that
+  wrong.** `instance Describe (Wrapper t)` printed flat as `instance Describe Wrapper t`, which
+  round-tripped by accident under the old *first*-argument split and does not under the last-name
+  one. A target with arguments is now parenthesised — and the inherent generic form
+  `instance (Wrapper t)` was losing its parentheses under **both** splits, so this is a fidelity bug
+  the change exposed rather than one it introduced.
+- **A `class`'s superclass clause could not be spelled at all before this row.** `constraints`
+  requires a trait name **and** a variable, so `class Show => Shape` would have rewound and then
+  failed at the body. §2's row *"the superclass clause is read speculatively, keyed on the
+  variable"* is true and understates the consequence: leaf 2 needed a new `class_supers` reader, not
+  an adjustment, and criterion 6 was unreachable until it existed.
+
+### 10.9 What was out of lane and is left
+
+- **Doc 03's class section is not this row's.** Leaf 5 names it, but doc 03 §9.3's `class Counter(value: i32)` is doc 01 §17.7's struct-plus-impl `class`, which doc 18 §2.5 **retired** and `docs/GRAMMAR.md` already grades `REMOVE`. Editing it would document a construct the language does not have.
+- **`docs/CONFORMANCE.md` and `docs/STATUS.md` are stale by exactly the counts this row moves**, listed in §10.1. Not blessed.
+- **The `-> ()`-in-a-block grammar defect** of §10.4, which is pre-existing, silent, and structural.

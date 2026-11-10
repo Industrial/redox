@@ -70,6 +70,7 @@ pub use program::item::leading::leading;
 pub use program::item::module_decl::ModuleDecl;
 pub use program::item::param::Param;
 pub use program::item::pattern::Pattern;
+pub use program::item::primitive_type::primitive_type;
 pub use program::item::record_pattern_field::RecordPatternField;
 pub use program::item::signature::Signature;
 pub use program::item::test_decl::TestDecl;

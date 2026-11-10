@@ -1,4 +1,5 @@
 use crate::Ident;
+use crate::program::item::primitive_type::primitive_type;
 use redox_lexer::Span;
 
 /// A type written by **juxtaposition**: `Wrapper t`, `Pair k v`, `Counter`.
@@ -55,9 +56,14 @@ impl TypeApp {
   }
 
   /// Whether a name is a type variable, which doc 18 §5.3 makes the case of
-  /// its first letter and nothing else.
+  /// its first letter — with [`primitive_type`]'s correction, because `f64`
+  /// is lowercase and concrete.
+  ///
+  /// The correction arrived with plan 67: `instance Convert f64 Meters` is
+  /// `impl Convert<f64> for Meters`, and the case of the first letter alone
+  /// made it `Convert<F64>`.
   pub fn is_var(text: &str) -> bool {
-    text.chars().next().is_some_and(char::is_lowercase)
+    text.chars().next().is_some_and(char::is_lowercase) && !primitive_type(text)
   }
 
   /// A type argument's Rust spelling: a variable uppercased, a concrete type

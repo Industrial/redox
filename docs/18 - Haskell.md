@@ -301,26 +301,69 @@ guarantee and not a matter of taste.
 
 Rust's trait system is Haskell's class system with different words, so the words change back.
 `class` stops meaning "struct plus impl" (doc 01 §17.7) and means `trait`; `instance` means
-`impl`, with or without a class name. The first parameter typed by the class variable lowers to
-`self`, which is the one place Haskell's dictionary-passing and Rust's receiver differ in
-spelling but not in content.
+`impl`, with or without a class name.
+
+**The receiver is marked, not positional: `self` in a type is the receiver** — plan 67, which
+replaced this paragraph's first draft. That draft said *"the first parameter typed by the class
+variable lowers to `self`"*, and three things had to be true at once before a reader knew which
+parameter that was: which position it was in, which of up to three spellings happened to name
+the implementing type, and what borrow prefix it carried. The third is kept and is good design;
+the first two are gone.
 
 ```haskell
-class Debug t => Shape t
+class Debug => Shape
   type Unit
   const SIDES : u32
-  area : &t -> f64
-  describe : &t -> String
+  area : &self -> f64
+  scaled : &self -> f64 -> Self     -- the receiver first, which is Rust's order
+  grown : f64 -> &self -> Self      -- the receiver last, which is the call's order
+  unit : f64 -> Self                -- no `self`, so no receiver: an associated fn
+  consume : self -> u32             -- by value
+  retitle : &mut self -> ()         -- by mutable reference
+  describe : &self -> String
   describe self = "a shape with #{Self::SIDES} sides"
 
+class Convert t                     -- `t` is the trait's parameter, not the subject
+  wrap : t -> Self
+
+instance Convert f64 Meters         -- impl Convert<f64> for Meters
+  wrap : f64 -> Self
+  wrap n = Meters n
+
 instance Display t => Describe (Wrapper t)
-  describe : &t -> String
+  describe : &self -> String
   describe self = "#{self.inner}"
 
 instance Counter
-  increment : &mut Self -> ()
+  increment : &mut self -> ()
   increment self = self.value += 1
 ```
+
+Three consequences, each of which is the point rather than a side effect.
+
+**`scaled` and `grown` above emit the same Rust.** Plan 57 calls a method `.scaled 2.0 s` — the
+argument first, the receiver last — so the declaration and the call read in opposite orders, and
+every Rust method has always had that reversal. The difference is that nobody reads std's
+declarations and a `class` is the one place a Redox author writes one. Marking the receiver makes
+the question stop having an answer that matters: `fn scaled(&self, k: f64) -> Self` comes out of
+both, down to the generated name a required method's parameter takes.
+
+**`Self` names the implementing type and a `class` head names the trait's own parameters.** The
+variable was never doing Haskell's job here: in Haskell it earns its keep because methods mention
+`t` in arbitrary positions and there is no `Self`; Redox has `Self`, needs it for an inherent
+`instance` regardless, and accepted it in a class body from the start. One name for one thing —
+and the freed slot is what makes `trait From<T>` reachable. Before plan 67, `class Convert t`
+spent that slot on the implementing type, so a second lowercase name in a member's type became a
+**method** generic and rustc answered `E0049`, naming a type parameter the author never wrote.
+
+**The last name in an `instance` head is the implementing type.** `instance Convert f64 Meters`
+is `impl Convert<f64> for Meters`, which a reader can check by eye because the two read in the
+same order. A two-name head is unchanged.
+
+The cost, stated plainly: `self` becomes a reserved spelling in **type** position, one more
+exception to §5.3's *lowercase is a type variable* beside the seventeen primitives. And `self` is
+not really a type, which is a small lie the notation tells. It is Rust's own lie, told in Rust's
+own notation, which is why a reader who knows Rust needs no rule at all.
 
 **Assignment is `:=`, and `=` is a binding** — plan 54. `self.value += 1`
 above is a *compound* assignment, which is all docs 01, 03 and this one defined
@@ -361,9 +404,22 @@ trait Shape: Debug {
     type Unit;
     const SIDES: u32;
     fn area(&self) -> f64;
+    fn scaled(&self, __rdx_a1: f64) -> Self;
+    fn grown(&self, __rdx_a1: f64) -> Self;
+    fn unit(__rdx_a0: f64) -> Self;
+    fn consume(self) -> u32;
+    fn retitle(&mut self);
     fn describe(&self) -> String {
         format!("a shape with {} sides", Self::SIDES)
     }
+}
+
+trait Convert<T> {
+    fn wrap(__rdx_a0: T) -> Self;
+}
+
+impl Convert<f64> for Meters {
+    fn wrap(n: f64) -> Self { Meters(n) }
 }
 
 impl<T: Display> Describe for Wrapper<T> {
@@ -374,6 +430,14 @@ impl Counter {
     fn increment(&mut self) { self.value += 1; }
 }
 ```
+
+**A bound on a trait parameter is not spellable.** `trait Convert<T: Display>` needs somewhere
+to put the bound, and the `=>` clause in a class head is read as the *superclass* list — a
+constraint on `Self`. A row that wants it is opening the question of where a `where` clause lives
+in a class head. **A blanket impl is not reachable either**: `instance Display t => Describe t`
+parses and emits `impl Describe for t`, with a lowercase target rustc rejects, because `TypeApp`
+reads type variables out of a type application's *arguments* and a bare variable is the head.
+`tests/unreachable/blanket_impl.sdx` is the fixture; inline Rust is the alternative.
 
 Dropping `@name` and `@@name` for `self.name` and `Self::name` is the cost of this move, and it
 is a cost worth paying twice over: Haskell has no such sigil, and `@` is left with exactly one
@@ -630,6 +694,13 @@ of one parameter. A lowercase name is a type variable **unless it is one of Rust
 type names** — a closed, lexical list, which keeps the rule decidable from the source text
 alone (doc 03 §2's admission test 1). The cost is that a user cannot name a type in lowercase,
 which §5.3 was already spending to make type variables undeclared.
+
+**A second correction, made when plan 67 marked the receiver.** `self` is lowercase and in type
+position it is §2.5's receiver marker, so the rule would otherwise synthesise `fn area<SELF>(…)`
+from `area : &self -> f64` — a program that still compiles in simple cases, which is the worst
+shape a defect can take. `self` therefore joins the exceptions, and it joins them as **its own
+check rather than as an entry in the primitive list**: `self` is not a primitive type, and a
+list whose name stops describing its contents is how a reader learns to stop trusting the names.
 
 ### 5.4 The guard bar against bitwise or
 

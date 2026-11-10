@@ -83,6 +83,7 @@ module.exports = grammar({
 		[$._expression, $.section],
 		[$._expression_part, $.section],
 		[$._item, $._statement],
+		[$.constraints, $.instance_declaration],
 		[$._pattern, $._expression_part],
 		[$.binding, $._expression_part],
 		[$.binding],
@@ -251,16 +252,47 @@ module.exports = grammar({
 				$._newline,
 			),
 
+		// Plan 67: the head carries the **trait's own** parameters, and usually
+		// none. The single required `field("variable", $.identifier)` this
+		// replaced is the one of the row's three surface changes the examples
+		// sweep would have caught on its own — `class Shape` and
+		// `class Convert t u` were both an `ERROR` node under it. The other two,
+		// `&self` in a signature and a three-name `instance` head, parse under the
+		// old grammar as an identifier run and so have corpus cases of their own
+		// in `test/corpus/marked_receiver.txt`.
 		class_declaration: ($) =>
 			seq(
 				optional($.visibility),
 				"class",
-				optional($.constraints),
+				optional($.class_supers),
 				field("name", $.type_identifier),
-				field("variable", $.identifier),
+				repeat(field("parameter", $.identifier)),
 				choice($.block, $._newline),
 			),
 
+		// A `class`'s superclasses: trait names alone, where `constraints` reads a
+		// trait *and* the variable it bounds. A superclass constrains `Self`,
+		// which has no spelling to read — plan 67 leaf 2.
+		class_supers: ($) =>
+			prec(
+				1,
+				seq(
+					choice(
+						seq("(", sep1($.type_identifier, ","), ")"),
+						sep1($.type_identifier, ","),
+					),
+					"=>",
+				),
+			),
+
+		// The head's names, the last of which is the implementing type — plan 67
+		// leaf 3. A **lowercase** name among them is why
+		// `[$.constraints, $.instance_declaration]` is in the conflict list:
+		// `instance Convert f64 Meters` begins exactly like the constraint clause
+		// `Convert f64 =>`, and `constraints`' own `prec(1)` committed to that
+		// reading and then found no `=>`. Measured as `(ERROR (identifier))` on
+		// the `f64`; an all-uppercase run such as `instance Show Point Thing` was
+		// unaffected, which is how the gap survived to here.
 		instance_declaration: ($) =>
 			seq(
 				"instance",
@@ -269,8 +301,20 @@ module.exports = grammar({
 				choice($.block, $._newline),
 			),
 
+		// Not a `prec(1)` since plan 67, and that one token of precedence is what
+		// made `instance Convert f64 Meters` an `(ERROR (identifier))` on the
+		// `f64`: a constraint item and a target name are the same two tokens, the
+		// precedence committed the table to the constraint reading, and then
+		// `Meters` arrived where `,` or `=>` was expected. The declared
+		// `[$.constraints, $.instance_declaration]` conflict is what should decide
+		// it, and a precedence beats a declared conflict — `tree-sitter generate`
+		// said so, by calling the conflict *unnecessary*.
+		//
+		// An all-uppercase head such as `instance Show Point Thing` was never
+		// affected, because `Thing` cannot be a constraint's variable. That is how
+		// a three-name head looked like it already worked.
 		constraints: ($) =>
-			prec(1, seq(sep1(seq($.type_identifier, $.identifier), ","), "=>")),
+			seq(sep1(seq($.type_identifier, $.identifier), ","), "=>"),
 
 		errors_declaration: ($) =>
 			seq(
@@ -317,6 +361,22 @@ module.exports = grammar({
 		// a declared conflict rather than a precedence, for the reason the header
 		// gives about `f (x) = y`: which one it is depends on a `=` an unknown
 		// distance away.
+		//
+		// **One shape still loses that conflict, and it is disclosed rather than
+		// fixed.** A signature whose return type is `()` *inside a block* comes
+		// out as an `expression_statement` holding an `ascription`, two
+		// `(operator)`s and a `(parenthesized)` — with **no `ERROR` node**, so
+		// `tree_sitter.rs`'s examples sweep cannot report it. `a : u32 -> ()`,
+		// `a : &Self -> ()` and `a : &self -> ()` all do it; the same lines at
+		// item level parse as a signature, which is why
+		// `classify : i32 -> ()` in `examples/control.sdx` never showed it, and
+		// why doc 18 §2.5's own `increment : &mut Self -> ()` would have shown it
+		// long before plan 67's `bump : &mut self -> ()` did.
+		//
+		// Measured at plan 67 and left alone: `prec.dynamic` on this rule and a
+		// token `prec` on `_type_punctuation` were both tried and changed
+		// nothing, so the fix is a structural one and belongs to a row that owns
+		// the grammar rather than to one passing through. Plan 67 §10 records it.
 		signature: ($) =>
 			seq(
 				optional($.visibility),
@@ -346,6 +406,13 @@ module.exports = grammar({
 					// Plan 45 leaf 2's `unsafe fn` marker, in the signature for
 					// `async`'s reason: it sits inside the type run.
 					"unsafe",
+					// `&mut T`, and plan 67's `&mut self`. A reserved word, so it is not
+					// reached through `$.identifier` — and until plan 67 nothing in the
+					// corpus had a `&mut` in a signature at all, so `increment : &mut
+					// Self -> ()` from doc 18 §2.5's own example parsed as an
+					// `expression_statement` with an `ascription` and **no `ERROR`
+					// node** — which is why the examples sweep could not report it.
+					"mut",
 					$._type_punctuation,
 				),
 			),

@@ -88,7 +88,7 @@ fn an_attribute_above_a_statement_stays_above_it() {
 /// indented it — so this reached a fifth position for free.
 #[test]
 fn an_attribute_above_a_class_member_is_indented_with_it() {
-  let out = xrs("class C t\n  #[must_use]\n  f : &t -> u32\n");
+  let out = xrs("class C\n  #[must_use]\n  f : &self -> u32\n");
   assert!(
     out.contains("    #[must_use]\n    fn f(&self) -> u32;"),
     "{out}"

@@ -66,8 +66,11 @@ checked against the host language instead of against this project's history.
 | Type aliases | `PASSTHROUGH` | `examples/generic.sdx` — `type` and the type verbatim |
 | `const` and `static` items | `SUGARED` | `examples/constants.sdx` |
 | Traits | `SUGARED` | `examples/class.sdx` — `class`, with default bodies, associated types and consts, supertraits |
+| Generic traits | `SUGARED` | `examples/receiver.sdx` — `class Scale t` is `trait Scale<T>`, plan 67 leaf 2. Unreachable until then: the head's one slot named the *implementing* type, so a second lowercase name became a **method** generic and rustc answered `E0049` (plan 67 §1.4). `crates/redox-cli/tests/check/generic_class.sdx` is the program that used to |
 | `unsafe trait` | `UNREACHABLE` | `tests/unreachable/unsafe_class.sdx` — plan 45 §6 asked for this check and plan 45 §10 did not record it. **No alternative**: an invariant rustc cannot check has no safe spelling |
 | Impls, inherent and trait | `SUGARED` | `examples/class.sdx` — `instance` |
+| Two impls of one trait for one type | `SUGARED` | `examples/receiver.sdx` — `instance Scale f64 Meters` and `instance Scale u32 Meters`, which is `impl From<T>`'s shape. The **last** name in the head is the implementing type (plan 67 §9 decision 3), so the head reads in the same order as the `impl Scale<f64> for Meters` it becomes |
+| Blanket impls | `UNREACHABLE` | `tests/unreachable/blanket_impl.sdx` — `instance Display t => Describe t` parses and emits `impl Describe for t`, with a lowercase target rustc rejects: `TypeApp::vars` reads the *arguments* and a bare variable is the head. Alternative: inline Rust. Plan 67 leaf 3 settled this by measuring it rather than assuming |
 | `unsafe impl` | `UNREACHABLE` | `tests/unreachable/unsafe_class.sdx` — same row, same fixture |
 | Modules, inline and nested | `SUGARED` | `examples/module.sdx` — `module` |
 | Items in a function body | `SUGARED` | `examples/local.sdx` — plan 55 leaf 5. A `data`, `errors`, `class`, `instance`, `import`, `const` or `type` is a block element and lowers to the nested Rust item. `test` is refused (`RDX0112`: rustc does not collect a nested `#[test]`) and `module` is out of scope, a bodiless one loading a file |
@@ -82,6 +85,7 @@ checked against the host language instead of against this project's history.
 |---|---|---|
 | Paths and generic arguments | `PASSTHROUGH` | `examples/generic.sdx` — a type is verbatim text (doc 03 §14.1) |
 | References, `&mut` | `PASSTHROUGH` | `examples/class.sdx` |
+| The receiver, marked in a type | `SUGARED` | `examples/receiver.sdx` — plan 67. `self` in a type is the receiver at **any** position, and the borrow prefix on the marker chooses between `&self`, `&mut self` and `self`. `minus : u32 -> &self -> u32` and `plus : &self -> u32 -> u32` emit byte-identical Rust |
 | Raw pointers | `PASSTHROUGH` | `examples/reachability.sdx` — verbatim, as any type is |
 | Tuples | `PASSTHROUGH` | `examples/destructuring.sdx` |
 | Arrays and slices | `PASSTHROUGH` | `examples/arrays.sdx` |
@@ -92,6 +96,7 @@ checked against the host language instead of against this project's history.
 | Generic parameters and bounds | `SUGARED` | `examples/generic.sdx` — a **bound clause** read off `=>` (doc 18 §2.2), not `where` |
 | `where` clauses | `SUGARED` | `examples/generic.sdx` — the same bound clause. Redox's own `where` introduces **local bindings** and is a different construct |
 | Associated types and constants | `SUGARED` | `examples/class.sdx` |
+| Associated functions | `SUGARED` | `examples/receiver.sdx` — a member with no `self` in any of its types has no receiver, which is how Rust spells one too: `start : u32 -> Self` is `fn start(__rdx_a0: u32) -> Self`, called `Counter::start 3`. Plan 67 leaf 4; the construct existed before the row and had no witness |
 
 ### 1.4 Expressions
 
