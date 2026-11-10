@@ -86,15 +86,21 @@ fn a_clone_without_the_generated_rust_bootstraps_from_the_seed() {
     String::from_utf8_lossy(&cloned.stderr)
   );
 
-  // The state a clean clone is in once the ignore has flipped, reached by
-  // deletion so this does not depend on which commit is `HEAD`.
+  // The state a clean clone is in: no generated Rust at all.
+  //
+  // Since the flip landed, a clone arrives in that state already and there is
+  // nothing to delete — so the removal is **tolerant** and the assertion is
+  // what carries the weight. Before the flip the clone still carried those
+  // trees and the removal did the work. Either way the bootstrap starts from
+  // an empty `src/`, which is the only thing this test needs to be true, and
+  // it holds whichever commit is `HEAD`.
   for crate_name in PORTED {
     let generated = clone.join("crates").join(crate_name).join("src");
-    std::fs::remove_dir_all(&generated)
-      .unwrap_or_else(|e| panic!("should clear {}: {e}", generated.display()));
+    let _ = std::fs::remove_dir_all(&generated);
     assert!(
       !generated.exists(),
-      "{} should be gone before bootstrapping",
+      "{} should be gone before bootstrapping — it could not be removed, so the \
+       bootstrap would be graded against files it did not write",
       generated.display()
     );
   }
