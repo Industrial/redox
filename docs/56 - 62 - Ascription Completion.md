@@ -409,7 +409,49 @@ positions.
 
 ## 10. Result
 
-*Not yet executed.*
+**Leaf 1 done 2026-11-10; leaves 3, 4 and 5 outstanding.** Binding-position ascription emits
+`let x: T = e`, which §1.3 measured as the overwhelming majority of the construct's 84 uses.
+Five goldens moved and the direction is the whole point: **66 lines deleted against 24 added.**
+
+### 10.1 §11.2's open question, settled against widening
+
+§11.2 recorded that leaf 2 and criterion 2 could not both stand, and did not pick. Picked: leaf
+2 and criterion 2 stand, and **§3's opening claim goes.** A receiver *is* a nested position, so
+`(e : T).len ()` still puts a brace in a method chain, and narrowing leaf 2 to exclude a receiver
+would need the identity-function trick §9 decision 2 already refused.
+
+`examples/module.sdx` therefore keeps its `where` locals. What changed is the Rust behind them —
+each was a four-line block and is now one annotated `let` — so the comment explaining the
+workaround stays true and stops being the only thing the row delivers there.
+
+### 10.2 One ascription must not move, and it is not an exception
+
+Doc 18 §6's third lowering reads the container *off* the ascription: `[a, b] : C<_>` is
+`C::from([a, b])`. Hoisting that to an annotation emits the bare array and earns
+
+```text
+error[E0308]: expected `Vec<i32>`, found `[{integer}; 3]`
+     let owned: Vec<i32> = [1, 2, 3];
+```
+
+measured on `examples/comprehension.sdx`, which is the file that carries that lowering. So a list
+and an array-repeat keep their ascription in place.
+
+The line this draws is worth more than the special case: an ascription that **says** what a value
+is can move to an annotation, and one the emitter **reads** to decide what to build cannot. Only
+the first kind is an annotation at all. A comprehension is deliberately on the first side —
+its container also comes from the ascription, but it arrives through `collect`, which a `let`
+annotation pins just as well.
+
+### 10.3 What is left
+
+- **Leaf 3**, pattern ascription, is real parser work and untouched. §11.3's finding stands: the
+  only workable lowering for a `case` arm is a `let` in the arm body, because rustc accepts a
+  type in a pattern in exactly three places and a `match` arm is not one of them.
+- **Leaf 4** is an assertion rather than an implementation — §11.1 measured that the remedy
+  already ships — and the example is owed.
+- **Leaf 5**'s `docs/DECLINED.md` entry for the turbofish decline is owed, with §1.4's
+  measurement as its reason.
 
 ---
 

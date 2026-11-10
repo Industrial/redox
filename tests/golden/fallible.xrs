@@ -37,10 +37,7 @@ struct User {
 // type, because `parse` is generic over its target and nothing else here says
 // which one.
 fn parse_it(s: &str) -> Result<i32, String> {
-    let n = {
-        let __rdx_t: Result<i32, core::num::ParseIntError> = s.parse();
-        __rdx_t
-    };
+    let n: Result<i32, core::num::ParseIntError> = s.parse();
     n.map_err(|e| e.to_string())
 }
 
@@ -167,10 +164,7 @@ fn main() {
             nickname: None,
         }),
     });
-    let empty = {
-        let __rdx_t: Option<User> = None;
-        __rdx_t
-    };
+    let empty: Option<User> = None;
 
     println!("{}", first_name(&u).is_some());
     println!("{}", first_name(&empty).is_some());

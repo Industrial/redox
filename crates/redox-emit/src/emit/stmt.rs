@@ -1,3 +1,4 @@
+use crate::emit::annotated_binding::annotated_binding;
 use crate::emit::assert_call::assert_call;
 use crate::emit::emit_await::emit_await;
 use crate::emit::emit_control::emit_control;
@@ -61,12 +62,16 @@ pub(crate) fn emit_stmt(out: &mut Sink<'_>, stmt: &Stmt, indent: usize, tail: bo
         out.push_str("mut ");
       }
       out.push_str(&b.pattern.rust_text());
-      if let Some(ty) = &b.ty {
+      // Plan 62 leaf 1: an ascription that is the whole right-hand side is
+      // Rust's annotated `let`, so it moves to the annotation rather than
+      // emitting a block whose only job is to carry the type.
+      let (ty, value) = annotated_binding(b);
+      if let Some(ty) = ty {
         out.push_str(": ");
-        out.push_str(&ty.text);
+        out.push_str(&ty);
       }
       out.push_str(" = ");
-      out.push_str(&emit_expr(&b.value, indent));
+      out.push_str(&emit_expr(value, indent));
       out.push(';');
     }
     // A draw arrow is flattened by `emit_stmts`, which owns the run of

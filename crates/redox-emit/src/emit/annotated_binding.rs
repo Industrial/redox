@@ -1,0 +1,57 @@
+use crate::emit::annotated_binding::selects_a_container::selects_a_container;
+use redox_ast::{Binding, Expr};
+
+pub(crate) mod selects_a_container;
+
+/// A binding's type annotation and the value to emit under it.
+///
+/// Plan 62 (`docs/56 - 62 - Ascription Completion.md`) leaf 1. An ascription
+/// that **is** a binding's whole right-hand side is Rust's annotated `let`,
+/// and emitting it as one is the row's main output:
+///
+/// ```text
+/// a = HashMap::new () : HashMap<String, u32>
+///
+///   before   let a = { let __rdx_t: HashMap<String, u32> = HashMap::new(); __rdx_t };
+///   after    let a: HashMap<String, u32> = HashMap::new();
+/// ```
+///
+/// §11.6 is why this is small: the annotated path already exists keyed on
+/// `Binding.ty`, and `x : T = e` already parses. So the leaf's content is
+/// routing `x = e : T` into a path that was already there, not building one.
+///
+/// # What it deliberately does not do
+///
+/// Only the **outermost** ascription moves, and only when the binding carries
+/// no annotation of its own. `x : T = e : U` keeps both — the author wrote two
+/// things and rustc is the right judge of whether they agree, which is
+/// AGENTS.md's standing rule rather than a special case here.
+///
+/// A **nested** ascription keeps the block lowering, leaf 2, and §11.2's open
+/// question is settled against this leaf widening: a receiver is a nested
+/// position, so `(e : T).len ()` still puts a brace in a method chain. What
+/// goes is §3's claim that `examples/module.sdx` loses its `where` locals —
+/// they stay, and what improves is the Rust behind them.
+///
+/// # The one ascription that must not move, and why it is not an exception
+///
+/// Doc 18 §6 discloses **four** lowerings, and its third is `[a, b] : C<_>`
+/// becoming `C::from([a, b])` — the container is read off the ascription, so
+/// there the ascription chooses a *construction* rather than annotating a
+/// value. Hoisting it emits the bare array under a `Vec` annotation and earns
+/// `E0308: expected `Vec<i32>`, found `[{integer}; 3]`` — measured on
+/// `examples/comprehension.sdx`, which is the file that carries that lowering.
+///
+/// So a list or an array-repeat keeps its ascription in place. That is not a
+/// special case bolted on; it is the difference between an ascription that
+/// *says* what a value is and one the emitter *reads* to decide what to
+/// build, and only the first kind is an annotation.
+pub(crate) fn annotated_binding(b: &Binding) -> (Option<String>, &Expr) {
+  match (&b.ty, &b.value) {
+    (None, Expr::Ascribe { inner, ty, .. }) if !selects_a_container(inner) => {
+      (Some(ty.text.clone()), inner.as_ref())
+    }
+    (Some(ty), value) => (Some(ty.text.clone()), value),
+    (None, value) => (None, value),
+  }
+}

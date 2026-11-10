@@ -1,3 +1,4 @@
+pub(crate) mod annotated_binding;
 pub(crate) mod application;
 pub(crate) mod arity_scope;
 pub(crate) mod arity_table;

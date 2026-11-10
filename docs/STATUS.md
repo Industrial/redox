@@ -38,14 +38,14 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 | `redox-cli` | 1372 | 8433 |
 | `redox-diag` | 1741 | 0 |
 | `redox-driver` | 2897 | 0 |
-| `redox-emit` | 5567 | 4400 |
+| `redox-emit` | 5650 | 4400 |
 | `redox-fmt` | 2803 | 1464 |
 | `redox-fuzz` | 120 | 268 |
 | `redox-lexer` | 2822 | 1146 |
 | `redox-lsp` | 893 | 496 |
 | `redox-mcp` | 777 | 776 |
 | `redox-parser` | 7242 | 608 |
-| **total** | **29682** | **17808** |
+| **total** | **29765** | **17808** |
 
 ---
 

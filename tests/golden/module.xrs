@@ -50,14 +50,8 @@ mod inner {
 // bound by a `where` local first: `.len` over an ascription block would put a
 // brace in a method chain's receiver, which rustfmt reformats.
 fn sizes() -> usize {
-    let a = {
-        let __rdx_t: HashMap<String, u32> = HashMap::new();
-        __rdx_t
-    };
-    let b = {
-        let __rdx_t: Sorted<String, u32> = Sorted::new();
-        __rdx_t
-    };
+    let a: HashMap<String, u32> = HashMap::new();
+    let b: Sorted<String, u32> = Sorted::new();
     a.len() + b.len()
 }
 
@@ -71,10 +65,7 @@ fn main() {
     println!("{}", inner::deeper::deep());
     // The `fmt` import is used by `write_ok`'s return type, and `write_ok` is
     // called here so rustc has nothing to say about either.
-    let mut buffer = {
-        let __rdx_t: String = String::new();
-        __rdx_t
-    };
+    let mut buffer: String = String::new();
     println!("{}", write_ok(&mut buffer).is_ok());
     ();
 }

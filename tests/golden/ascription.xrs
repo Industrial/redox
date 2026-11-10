@@ -6,27 +6,18 @@
 
 fn main() {
     // `e : T` states a type without naming a path.
-    let n = {
-        let __rdx_t: u64 = 1;
-        __rdx_t
-    };
+    let n: u64 = 1;
     println!("{}", n);
     // Ascription is the loosest thing in an expression: the sum is ascribed,
     // not the `2`.
-    let total = {
-        let __rdx_t: u64 = 1 + 2;
-        __rdx_t
-    };
+    let total: u64 = 1 + 2;
     println!("{}", total);
     // A tight `::` is still a path, which is the half that would break every
     // existing program if it went wrong.
     println!("{}", i32::max(1, 9));
     // A generic type survives verbatim — doc 03 §14.1 — and the value is an
     // application, because `Some 1` is juxtaposition like everything else.
-    let wide = {
-        let __rdx_t: Option<u8> = Some(1);
-        __rdx_t
-    };
+    let wide: Option<u8> = Some(1);
     // `wide` is `Some` by construction two lines up, so the panic is
     // unreachable — doc 03 §12.7's lint is suppressed rather than argued with,
     // and the attribute is consumed, so the `.xrs` below carries no trace of it.

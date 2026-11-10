@@ -22,10 +22,7 @@ fn main() {
 
     // One generator. `collect` carries no turbofish, so the type comes from the
     // ascription — which is §3.2's own spelling.
-    let doubled = {
-        let __rdx_t: Vec<i32> = xs.into_iter().map(|n| n * 2).collect();
-        __rdx_t
-    };
+    let doubled: Vec<i32> = xs.into_iter().map(|n| n * 2).collect();
     println!("{}", {
         let __rdx_t: i32 = doubled.iter().sum();
         __rdx_t
@@ -34,36 +31,27 @@ fn main() {
     // A guard. `filter_map` hands the closure the *value*, so the guard reads
     // as written — §3.2's own lowering uses `filter`, whose closure receives a
     // reference and so needs a `*` Redox cannot know to insert.
-    let odd = {
-        let __rdx_t: Vec<i32> = xs
-            .into_iter()
-            .filter_map(|n| if n % 2 == 1 { Some(n) } else { None })
-            .collect();
-        __rdx_t
-    };
+    let odd: Vec<i32> = xs
+        .into_iter()
+        .filter_map(|n| if n % 2 == 1 { Some(n) } else { None })
+        .collect();
     println!("{}", odd.len());
 
     // Two generators and a guard, which is §3.2's own example. The source is a
     // range, so the receiver needs its parentheses: `1..3.into_iter()` would
     // be `1..(3.into_iter())`.
-    let pairs = {
-        let __rdx_t: Vec<i32> = (1..4)
-            .into_iter()
-            .flat_map(move |x| {
-                (1..4)
-                    .into_iter()
-                    .filter_map(move |y| if x != y { Some(x * y) } else { None })
-            })
-            .collect();
-        __rdx_t
-    };
+    let pairs: Vec<i32> = (1..4)
+        .into_iter()
+        .flat_map(move |x| {
+            (1..4)
+                .into_iter()
+                .filter_map(move |y| if x != y { Some(x * y) } else { None })
+        })
+        .collect();
     println!("{}", pairs.len());
 
     // A set, which is the whole of what doc 03's deleted set literal did.
-    let seen = {
-        let __rdx_t: std::collections::HashSet<i32> = xs.into_iter().map(|c| c).collect();
-        __rdx_t
-    };
+    let seen: std::collections::HashSet<i32> = xs.into_iter().map(|c| c).collect();
     println!("{}", seen.len());
     ();
 }
