@@ -1,0 +1,66 @@
+// Doc 03 §13.4's module-scope values, finished — plan 59. A parameterless
+// binding is a **value**, and the use site is the name alone.
+//
+// Before this row there were two kinds of top-level value with two use-site
+// spellings: `const MAX : usize = 1024` was `MAX`, and a signature-carrying
+// `block : &'static str` was `block ()`. Nothing in docs 01, 03, 18 or plan 16
+// argued for the difference — it was an artefact of which row shipped which
+// half.
+//
+// Checked by compiling and **running**, because the classification is
+// deliberately invisible at the use site: only the generated Rust and the
+// printed output can tell the two kinds apart.
+
+// A literal body under an upper-case name is **shared**, and emits the `const`
+// §13.4 makes the default with no keyword written.
+const LIMIT: usize = 1024;
+
+const GREETING: &'static str = "hello";
+
+// A literal body under a **lower-case** name stays a function, and plan 59
+// §11.8 is why: `const block` earns `non_upper_case_globals`, and this corpus
+// requires rustc to emit nothing. The case decides the item, as it already
+// decides a type variable from a concrete type.
+//
+// The use site cannot tell, which is the point.
+fn block() -> &'static str {
+    "indented"
+}
+
+// A body that does work is recomputed per use. That is not a shortcoming, it
+// is §1.4: an `Effect` is a one-shot description, so memoising this would hand
+// `Effect::retry` the same consumed effect on every attempt.
+fn built() -> u32 {
+    println!("built");
+    7
+}
+
+// A parameterless binding inside an inline `module`, reached by its path.
+// A **bodiless** module contributes nothing, because the referent is in
+// another file and there is nothing in this `Program` to classify.
+mod inner {
+    pub fn depth() -> u32 {
+        2 + 1
+    }
+}
+
+// And the factory, which is the shape §11.10 resolved. A bare name is the
+// binding's *value*, so passing the function item needs a spelling of its
+// own — the nullary lambda, which says what it is.
+//
+// `f ()` keeps its parentheses: `f` is a **parameter**, not a binding this
+// file declares, so it is absent from the table and absent means unchanged.
+fn twice(f: impl Fn() -> u32) -> u32 {
+    f() + f()
+}
+
+fn main() {
+    println!("{}", LIMIT);
+    println!("{}", GREETING);
+    println!("{}", block());
+    println!("{}", inner::depth());
+    // The case only a run catches. `built` prints once per call, so this prints
+    // `built` **twice** and then 14; a memoised binding would print it once.
+    println!("{}", twice(|| built()));
+    ();
+}

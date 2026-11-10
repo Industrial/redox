@@ -1,5 +1,7 @@
 use crate::emit::arity_scope::ArityScope;
 use crate::emit::arity_table::ArityTable;
+use crate::emit::binding_scope::BindingScope;
+use crate::emit::binding_table::BindingTable;
 use crate::emit::items::emit_items;
 use crate::emit::sink::Sink;
 use crate::emit::trivia::emit_trivia;
@@ -27,6 +29,11 @@ pub fn emit_with_map(program: &Program, source: &str, source_path: &str) -> (Str
   // §1.4's boundary — currying is available where the signature is in the file
   // being emitted.
   let _arity = ArityScope::enter(ArityTable::from_items(&program.items));
+  // Plan 59 leaf 1, and here for the same reason rather than a parallel one:
+  // `redox_fmt::format` reads this `Program` too and must keep printing the
+  // author's `block` as `block`, so the classification may not be visible
+  // before the emitter's entry either. Two guards, one entry point.
+  let _bindings = BindingScope::enter(BindingTable::from_items(&program.items));
 
   let mut out = Sink::new(source);
   // The items, with the blank-line rule, source order and the gathered test

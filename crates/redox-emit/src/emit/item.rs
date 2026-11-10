@@ -1,3 +1,5 @@
+use crate::emit::binding_kind::BindingKind;
+use crate::emit::binding_scope::BindingScope;
 use crate::emit::class::emit_class;
 use crate::emit::data::emit_data;
 use crate::emit::emit_const::emit_const;
@@ -8,6 +10,7 @@ use crate::emit::import::emit_import;
 use crate::emit::inline_rust::emit_inline_rust;
 use crate::emit::instance::emit_instance;
 use crate::emit::module::emit_module;
+use crate::emit::shared_const::shared_const;
 use crate::emit::sink::Sink;
 use crate::emit::type_alias::emit_type_alias;
 use redox_ast::Item;
@@ -29,6 +32,17 @@ use redox_ast::Item;
 /// a new `Item` must fail to compile here rather than be silently dropped.
 pub(crate) fn emit_item(out: &mut Sink<'_>, item: &Item, indent: usize) {
   match item {
+    // Plan 59 leaf 2. A parameterless binding with a literal body and an
+    // upper-case name is a value, so it is written as the `const` doc 03
+    // §13.4 makes the default — through plan 16's own emission, not a second
+    // path to the same Rust. Everything else is still a function, and leaf 3
+    // restores the call at the use site.
+    Item::Fn(f) if BindingScope::kind_of(&f.name.text) == Some(BindingKind::Shared) => {
+      match shared_const(f) {
+        Some(c) => emit_const(out, &c, indent),
+        None => emit_fn(out, f, indent),
+      }
+    }
     Item::Fn(f) => emit_fn(out, f, indent),
     Item::Data(d) => emit_data(out, d, indent),
     Item::Type(a) => emit_type_alias(out, a, indent),

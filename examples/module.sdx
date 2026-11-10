@@ -47,9 +47,9 @@ write_ok s = .write_str "ok" s
 
 main : ()
 main =
-  print (sizes ())
-  print (inner::hello ())
-  print (inner::deeper::deep ())
+  print sizes
+  print inner::hello
+  print inner::deeper::deep
   -- The `fmt` import is used by `write_ok`'s return type, and `write_ok` is
   -- called here so rustc has nothing to say about either.
   mut buffer = String::new () : String
@@ -57,4 +57,4 @@ main =
   ()
 
 test "the file has its own test module"
-  assert sizes () == 0
+  assert sizes == 0

@@ -380,7 +380,13 @@ module.exports = grammar({
 		signature: ($) =>
 			seq(
 				optional($.visibility),
-				field("name", $.identifier),
+				// A **type identifier is admitted too**, because the compiler
+				// admits one: plan 59 shares a literal binding as a `const` only
+				// when its name is upper case (§11.8), and an upper-case name
+				// lexes here as a `type_identifier`. Nothing else at item level
+				// begins `Upper :`, so there is nothing for this to be ambiguous
+				// against — `data`, `class` and `type` all carry a keyword.
+				field("name", choice($.identifier, $.type_identifier)),
 				":",
 				field("type", $.signature_type),
 				$._newline,
@@ -442,7 +448,10 @@ module.exports = grammar({
 		equation: ($) =>
 			seq(
 				optional($.visibility),
-				field("name", $.identifier),
+				// Upper case admitted for `signature`'s reason: plan 59 shares a
+				// literal binding as a `const` only when its name is upper case,
+				// and both halves of the declaration have to spell the same name.
+				field("name", choice($.identifier, $.type_identifier)),
 				field("parameters", repeat($._pattern)),
 				choice(
 					seq(
@@ -910,9 +919,15 @@ module.exports = grammar({
 				seq(
 					"\\",
 					optional("move"),
+					// `repeat` rather than `repeat1`: the **nullary** lambda is
+					// reachable in the surface and was an `ERROR` node here,
+					// invisibly, because it appeared in no corpus file. Plan 59
+					// §11.10 gave it a job — a factory is a nullary lambda over
+					// the binding's name — and `examples/bindings.sdx` is the
+					// first file to write one.
 					field(
 						"parameters",
-						repeat1(choice($.identifier, $.parenthesized_pattern, "mut")),
+						repeat(choice($.identifier, $.parenthesized_pattern, "mut")),
 					),
 					"->",
 					field("body", $._expression),

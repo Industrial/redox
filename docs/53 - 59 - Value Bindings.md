@@ -193,6 +193,11 @@ A shared binding emits `const`, which is doc 03 §13.4's default. `static` keeps
 keyword — §13.4 states no rule selecting it by type, and inventing one here would make the
 keyword's meaning conditional. Reuses plan 16's emission rather than adding a second path.
 
+**Sharing additionally requires the name to be upper case**, per §11.8: `const block` earns
+`non_upper_case_globals` and the examples corpus requires rustc to emit nothing, so a
+lower-case literal binding stays a `fn` with its call elided. The use site is identical either
+way, which is why this narrows the leaf without touching criterion 1.
+
 ### Leaf 3 — `leaf-call-elision`
 
 A function binding's use site emits the call. The name alone is the whole surface; the
@@ -239,8 +244,12 @@ doc comment and `examples/constants.sdx` both still say the type goes *"after th
    emits `println!("{}", inner::probe)` → `E0277: fn() -> u32 {probe} doesn't implement Display`.
    Plan 56 §11.8 withdrew the same claim for the same reason; criterion 4 narrows to the same set
    so that the parenthesised spelling survives outside it.
-2. A literal binding emits `const`; a working binding emits `fn` plus an elided call. Both
-   asserted in goldens, so the classification is visible.
+2. A literal binding **whose name is upper case** emits `const`; a working binding, and a
+   literal binding with a lower-case name, emit `fn` plus an elided call. All three asserted in
+   goldens, so the classification is visible.
+
+   Amended from *"A literal binding emits `const`"*, which §11.8 measured as turning
+   `examples/strings.sdx` red: its binding is `block`, and `const block` warns.
 3. `Effect::retry probe_rate (…)` makes four attempts against the flaky-upstream fixture — a
    **run** assertion, per §3 case 3.
 
@@ -254,9 +263,12 @@ doc comment and `examples/constants.sdx` both still say the type goes *"after th
    that infrastructure the criterion wants a **nondeterministic upstream** that must still
    satisfy a deterministic `*.stdout` gate.
 
-   §11.5 stops at *"state that or drop it"*, which is two options and not a decision. The
-   criterion is left standing and the choice between **stating that cost** and **dropping the
-   criterion** is open and owed.
+   §11.5 stopped at *"state that or drop it"*, which is two options and not a decision.
+   **Taken in §11.9: neither — replaced.** The criterion now reads: a parameterless binding
+   passed bare to a higher-order function declared in the same file is invoked **once per call**,
+   witnessed by a `run` fixture whose body prints, so a memoised binding prints once and a
+   rebuilt one prints twice. Same property, deterministic stdout, no external crate. The
+   `id_effect` program stays in §1.4 as the motivation it always was.
 4. `name ()` with explicit parentheses is a diagnostic naming the bare form **where the callee is
    a bare name, or a path into an inline `module`, declared parameterless in this file** —
    because every program written before this row uses it. Everywhere else `()` keeps being erased
@@ -376,7 +388,53 @@ That is the transfer: not a technique, but a declined technique whose decline sh
 
 ## 10. Result
 
-*Not yet executed.*
+**Done 2026-11-10**, against `edf3bb3`. Leaves 1, 2, 3 and 5 shipped; the gate is green and
+**no golden moved for any pre-existing example**, which is plan 52's definition of correctness
+for a surface row and the strongest thing this row can say.
+
+### 10.1 The bare and parenthesised spellings emit the same Rust, deliberately
+
+Criterion 4 asks for a diagnostic on `name ()`. The emitter instead makes both spellings read
+the binding **once**, and that ordering was not in the plan: routing a callee through
+`binding_text` and then applying it writes `block()()`, so the Call arm had to recognise the
+parenthesised form before `emit_application` ever saw it.
+
+Keeping both working is what made the migration free. Every one of the corpus's pre-existing
+`name ()` sites emitted byte-identical Rust before and after, so leaf 5's migration —
+`examples/module.sdx`'s four sites and `examples/strings.sdx`'s one — moved no golden either.
+**The diagnostic is therefore outstanding, not shipped**, and it is now a deprecation of a
+spelling that works rather than a repair of one that miscompiles. That is a better thing to
+own and a smaller one.
+
+### 10.2 Two grammar gaps, both invisible, both found by one example
+
+`examples/bindings.sdx` is the first corpus file to write a **nullary lambda**, and the
+tree-sitter grammar had `repeat1` on a lambda's parameters — so `\->` was an `ERROR` node for
+every editor client from the moment it became reachable in the surface. Nothing had reported
+it because nothing in the corpus wrote one.
+
+The second is this row's own doing. Sharing requires an upper-case name (§11.8), an upper-case
+name lexes as a `type_identifier`, and both `signature` and `equation` bound their name field to
+`$.identifier` — so `LIMIT : usize` and `LIMIT = 1024` were `ERROR` nodes while the compiler
+accepted them happily. Both rules now admit either spelling, which is the authority rule
+`AGENTS.md` records: the compiler's table decides and the grammar describes.
+
+Three ERROR nodes, found by `every_example_parses_with_no_error` and located with
+`tree-sitter parse` — which is the habit that gotcha asks for, working.
+
+### 10.3 What the generated documents say, and whether it is the expected direction
+
+`docs/CONFORMANCE.md`: `redox-emit` gains 6 files and 2 blocked, so its blocked share falls
+**73% → 71%** and the macro count rises 941 → 944. Four of six new files carry no blocker,
+which is the direction a row adding declaration-shaped code should move.
+
+`docs/STATUS.md`: `redox-emit` +381 source lines, examples 34 → 35, goldens 33 → 34.
+
+### 10.4 Leaf 4 cost nothing, which §11.2 predicted
+
+`const` and `static` with the keyword are untouched, and a keyword on a non-const body is still
+rustc's `E0015`. No code was written for this leaf because §11.2 had already established that
+the right behaviour was the existing one — which is what an orientation is for.
 
 ---
 
@@ -513,6 +571,105 @@ plan 20 §10.6's finding, re-measured and unchanged"*. Raw rustc does say it.
 diagnostics, so `redox check` reports `E0277 … doesn't implement Display` and
 nothing else. That matters, because "rustc already tells them" is part of this
 row's motivation.
+
+### 11.8 Leaf 2 emits a warning on the example it cites
+
+Measured against the working tree after plans 55–67, by building the shape and running rustc on
+the result:
+
+```text
+block : &'static str      ->  const block: &'static str = "literal";
+block = "literal"
+                              warning: constant `block` should have an upper case name
+                              note: `#[warn(non_upper_case_globals)]` on by default
+```
+
+`examples/strings.sdx` is the file leaf 5 names and §2 cites, and its binding is `block` — lower
+case. The examples corpus requires rustc to emit **nothing**, so leaf 2 as written turns that
+example red on the row meant to improve it.
+
+| Way out | Cost |
+|---|---|
+| synthesise `#[allow(non_upper_case_globals)]` | a line of noise per shared binding in a document doc 02 §10.1 makes human-facing — and the emitter would be *writing* an attribute where plan 53's only precedent *consumes* one |
+| share only when the name is already upper case | the classification gains a second test, and an author writing `block = "x"` gets a `fn` where they might expect a `const`, with nothing at the use site to tell them |
+| upper-case the emitted identifier | breaks leaf 3's inline-module paths, breaks the source map's name correspondence, and makes the `.xrs` say something the `.sdx` did not |
+
+**The second is taken.** Case-driven classification is not new here: it is how doc 18 §5.3 tells
+a type variable from a concrete type, how `primitive_type.rs` corrects that rule with a closed
+list, and how `names_a_constructor` picks between two lowerings — which is leaf 1's own cited
+precedent. And nothing a reader can see is lost, because the use site is `block` either way.
+What changes is only which Rust item stands behind it.
+
+The residual is recorded rather than hidden: a lower-case literal binding is recomputed per use
+where an upper-case one is shared, and the surface does not say so. That is the same class of
+invisible difference §1.3 already accepts — *"some genuinely-constant expressions become
+functions, which is a performance decision rustc makes anyway through inlining."*
+
+### 11.9 Criterion 3 is replaced, which is the decision §11.5 owed
+
+The property criterion 3 protects is that a parameterless binding is **not** memoised: a factory
+needs a fresh description per call. That property does not need `id_effect`, and §11.5's finding
+is that `id_effect` cannot be had here — no `--extern` on `redox check`, no
+`[workspace.dependencies]`, and a *nondeterministic* upstream that would still have to satisfy a
+deterministic `*.stdout` gate.
+
+What tests the same property with no dependency at all:
+
+```
+probe : u32
+probe =
+  print "built"
+  7
+
+twice : impl Fn() -> u32 -> u32
+twice f = f () + f ()
+
+main : ()
+main =
+  print (twice (\-> probe))
+  ()
+```
+
+Memoised, that prints `built` once; rebuilt, twice. It also exercises criterion 4's narrowing in
+the same fixture, because `f ()` is a **parameter** rather than a binding declared parameterless
+in this file, so its parentheses must survive.
+
+The thunk is explicit — `\-> probe` rather than bare `probe` — and §11.10 is why that is not a
+detail.
+
+### 11.10 Leaf 3 contradicts §1.4, and the thunk spelling already exists
+
+**The contradiction, stated before it was built.** §1.4 refuses memoisation specifically to keep
+`Effect::retry probe_rate` working, and §3 case 3 asserts it still makes four attempts. Leaf 3
+appends the call to a bare parameterless name. Apply leaf 3 to §1.4's own program and it emits
+`Effect::retry(probe_rate(), …)` — the factory receives a *consumed effect*, which is the exact
+failure §1.4 exists to prevent. §6 records the value-versus-nullary-function question as
+*"unresolved and asserted to behave as case 2"*, and case 2 is the call. So the row as published
+protects a program in §1.4 and breaks it in leaf 3.
+
+This is not decidable from syntax. `print block` wants the value and `retry probe_rate` wants the
+function item, and both are a bare parameterless name in argument position.
+
+**Resolved by spelling the thunk, which costs nothing because the spelling already parses.**
+Measured against the working tree:
+
+```text
+twice (\-> probe ())   ->   twice(|| probe())
+```
+
+`\->` is the nullary lambda. It is in the surface today, so this needs nothing from plan 64 —
+which matters, because plan 64 depends on *this* row and a resolution that needed it would be
+circular.
+
+So: a bare parameterless binding is its **value**, at every use site, which is criterion 1 and the
+headline. A **factory** is `\-> name`, which says what it is. After this row that reads
+`Effect::retry (\-> probe_rate) (Schedule::recurs 4)`, one token longer and no longer relying on
+a bare name silently meaning something other than its value.
+
+§6's residual is therefore **closed rather than carried**: the distinction between a value and a
+nullary function is now spelled, not inferred. What remains open is only §11.1's narrower case —
+a local binder shadowing a parameterless binding — which is about *which* `name` is meant rather
+than about what a bare name means.
 
 ### 11.7 Smaller corrections
 

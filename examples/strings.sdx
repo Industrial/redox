@@ -98,7 +98,7 @@ main =
   print (tag ())
   print (.len (magic ()))
   print (.count_bytes (ffi_name ()))
-  print (block ())
+  print block
   -- A string with no interpolation takes the path it always took.
   print "plain, unchanged"
   ()

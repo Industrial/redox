@@ -1,6 +1,8 @@
 use crate::emit::application::emit_application;
 use crate::emit::ascribed_list::ascribed_list;
 use crate::emit::assert_call::assert_call;
+use crate::emit::binding_scope::BindingScope;
+use crate::emit::binding_text::binding_text;
 use crate::emit::case::emit_case;
 use crate::emit::catch_fallback::catch_fallback;
 use crate::emit::coalesce::coalesce;
@@ -162,8 +164,8 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
     // keyword, because nothing else distinguishes `todo` from a function the
     // author wrote and has not defined yet — which is, after all, what
     // `todo` is for.
-    Expr::Ident(i) => panic_macro(&i.text).map_or_else(|| i.text.clone(), str::to_string),
-    Expr::Path { text, .. } => text.clone(),
+    Expr::Ident(i) => panic_macro(&i.text).map_or_else(|| binding_text(&i.text), str::to_string),
+    Expr::Path { text, .. } => binding_text(text),
     // Doc 01 §16: `@field` is `self.field` and `@@name` is `Self::name`.
     Expr::SelfField { name, .. } => format!("self.{}", name.text),
     Expr::SelfType { name, .. } => format!("Self::{}", name.text),
@@ -244,6 +246,27 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
         && name.text == "panic"
       {
         return format!("panic!({})", expr_list(args, indent));
+      }
+      // Plan 59 leaf 3. `block ()` and `block` are the same program, so they
+      // emit the same Rust. A lone unit is the *empty argument list* (doc 18
+      // §7), so applying a parameterless binding reads it once — where
+      // routing the callee through `binding_text` and then applying the
+      // result would write `block()()`.
+      //
+      // Both spellings are kept working rather than one being broken here:
+      // criterion 4's diagnostic deprecates the parenthesised form, and a
+      // diagnostic is a thing a reader can act on where a miscompile is not.
+      if args.is_empty() || matches!(args.as_slice(), [Expr::Unit { .. }]) {
+        let named = match callee.as_ref() {
+          Expr::Ident(name) => Some(name.text.as_str()),
+          Expr::Path { text, .. } => Some(text.as_str()),
+          _ => None,
+        };
+        if let Some(name) = named
+          && BindingScope::kind_of(name).is_some()
+        {
+          return binding_text(name);
+        }
       }
       // Doc 18 §2.1's application, and plan 56's currying: a saturated call,
       // or the closure an under-applied one becomes. Delegated because the
