@@ -7,16 +7,24 @@
 # which is the thing rustc, Go, Zig and OCaml all have to download or check in
 # as a blob and cannot read.
 #
-# Committed, but not hand-written. These two attributes say so where it counts:
+# **No longer committed at all**, since plan 72 leaf 5: these trees are in
+# `.gitignore` and `./bootstrap.sh` regenerates them from `seed/redox1.wasm`.
 #
-# - `linguist-generated` collapses the file in a diff view, keeps it out of
-#   language statistics, and marks it generated in a review.
-# - `-diff` stops git producing a textual diff for it, so a regeneration shows
-#   as one line rather than as a thousand. `git diff --text` still works when
-#   you actually want to read it, and `tests/port.rs` is what grades the
-#   content.
+# The rules below are kept rather than deleted because they are still correct
+# and still cheap. `git add -f` on one of these files is a thing a person does
+# while debugging a generation, and if it happens the attributes are what stop
+# ~32,000 lines of authorless output from arriving as a reviewable diff.
 #
-# Plan 70. Before it the `.sdx` lived in `conformance/<crate>/` and nothing
-# marked the `src/` tree as generated at all.
+# Plan 70 added them when the trees *were* committed, with `linguist-generated`
+# to keep them out of the language statistics and `-diff` to collapse a
+# regeneration to one line.
+
+# The one binary this repository tracks — plan 72 leaf 3, and `seed/SEED.md`
+# is its provenance. Marked binary so git never attempts a textual diff or a
+# line-ending conversion on it, and `linguist-generated` so it stays out of the
+# language statistics: it is a compiled artifact of this repository's own Rust,
+# not a vendored dependency.
+seed/redox1.wasm binary linguist-generated=true
+
 crates/redox-ast/src/**/*.rs linguist-generated=true -diff
 crates/redox-fmt/src/**/*.rs linguist-generated=true -diff

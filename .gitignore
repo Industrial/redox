@@ -86,6 +86,25 @@ benchmarks/pairs/*.xrs.map
 crates/*/sdx/**/*.xrs
 crates/*/sdx/**/*.xrs.map
 
+# **The crates written in Redox.** Plan 72 leaf 5.
+#
+# `crates/<crate>/sdx/` is the source and is tracked; the `.rs` under the same
+# crate's `src/` is **generated** by `seed/redox1.wasm` and is not. Run
+# `./bootstrap.sh` on a clean clone before the first build.
+#
+# This is not tidiness, and it was not free. `redox-cli` is built from
+# `redox-fmt`, which is built from `redox-ast`, so untracking these trees
+# removes the crates the compiler itself is built from — which is exactly why
+# a checked-in seed had to exist first. `seed/SEED.md` has the provenance and
+# `docs/66 - 72 - The Seed Compiler.md` has the argument.
+#
+# Two tests hold it up, and both are in the gate:
+# `crates/redox-seed/tests/bootstrap.rs` clones `HEAD`, deletes these trees,
+# bootstraps, and requires byte-identical output; `tests/fixpoint.rs` requires
+# the compiler the seed produces to reproduce the seed's own output.
+crates/redox-ast/src/
+crates/redox-fmt/src/
+
 # Plan 49, amended by plan 71. `editors/vscode/` is a VSCode extension, so an
 # `npm install` for `vscode-languageclient` lands here. Plan 49 ignored the
 # lockfile too, and gave as its reason that "the VSIX payload is an explicit

@@ -1,6 +1,6 @@
 # Plan 72 — The Seed Compiler
 
-Status: `partial` — leaves 1 and 2 done 2026-11-10
+Status: `done` 2026-11-11
 Depends on: 68 (the AST in Redox), 69 (the formatter in Redox), 70 (the source beside the crate), 09 (the cargo integration)
 
 > **Numbering.** Plan **72**, doc index **66**. Row 71 (`cursor-support`, doc 65) was
@@ -399,10 +399,37 @@ and all **53 byte-identical** to what is committed after the native rustfmt
 pass. The same assertion the native binary passes, from the artifact that would
 actually be checked in.
 
-Leaves 3 through 7 remain: the blob with a recipe and a hash, the fixpoint
-test, the clean-clone bootstrap and first ignore flip, the version-skew rule,
-and the register amendment — of which the amendment is already done, at
-`d945524`.
+**Leaves 3 through 7 are done.**
+
+`seed/redox1.wasm` is committed at 913,773 bytes with `seed/SEED.md` recording
+its commit, size, blake3 and build command — and, more usefully, when *not* to
+rebuild it. `moon run :seed-refresh` rebuilds it with `cache: false`, because
+the output is a tracked file and a cached no-op would leave a stale blob
+committed while reporting success. `tests/blob.rs` recomputes the hash and
+fails on disagreement, blessed like every other expectation here.
+
+`tests/fixpoint.rs` asserts **`stage1 == stage2`**: the committed blob under
+`wasmtime`, the native `redox-seed`, and the committed trees, all three
+byte-identical in one assertion. The native binary is built *from* those trees,
+so the three-way equality says the stage0 emits exactly the sources stage1 was
+built from and stage1 emits them again — the loop closes without a second cargo
+build, which is why it cannot be split into two tests.
+
+**And the generated Rust is untracked.** `crates/redox-ast/src/` and
+`crates/redox-fmt/src/` are in `.gitignore`; 110 files left the index and
+`./bootstrap.sh` regenerates them from the seed. `tests/bootstrap.rs` is leaf
+5's own precondition made executable: it clones `HEAD`, **deletes** those
+trees, runs `bootstrap.sh`, and requires byte-identical output — deleting
+rather than relying on the ignore, so the proof is independent of commit order
+and is strictly the harder case. Its sibling asserts via `git check-ignore`
+that this tree really is the kind of tree the first test simulates.
+
+The version-skew rule is in `AGENTS.md`, and leaf 7's register amendment landed
+earlier at `d945524`.
+
+**So the compiler no longer ships the Rust for two of its twelve crates**, and
+a clean clone needs `./bootstrap.sh` before `cargo build`. That is the shape
+the ten successor rows extend, one crate at a time.
 
 ---
 
@@ -537,6 +564,41 @@ does — WASI has `clock_time_get` — and which satisfies the fallback's own
 paragraph **better** than a pid did: a pid is reused between runs, so two
 different compilers could share a fingerprint, where a nanosecond timestamp
 effectively cannot.
+
+### 11.7 The seed exited 0 having written nothing
+
+Leaf 4's first run handed the seed an **absolute** path. `--dir .` grants
+`wasmtime` exactly one preopened directory and an absolute host path reaches
+nothing through it, so the seed saw no `.sdx` — and reported success.
+`compile_dir_with` returns `Ok` with an empty output list for a directory
+holding no `.sdx`, including one it cannot read at all, and nothing above it
+asked how many files that was.
+
+For a bootstrap tool that is the worst available failure mode, because the
+consequence is deferred and misattributed: an empty `src/`, a green exit, and a
+cargo error minutes later naming a missing crate rather than a missing
+argument. Writing nothing is now a failure, with a message that names the
+likely cause.
+
+Worth keeping how it surfaced. The manual run that worked used relative paths
+and the test used absolute ones — the same command spelled two ways, and only
+one of them is the spelling `bootstrap.sh` has to use. A tool whose single
+interface is a preopened directory needs its path convention asserted, not
+assumed.
+
+### 11.8 Two commits, because a clone cannot contain what is not committed
+
+`tests/bootstrap.rs` clones `HEAD` and runs `./bootstrap.sh` in the clone,
+which means the script has to be in `HEAD` before the test can pass. So leaves
+3, 4 and 6 landed first and carried `bootstrap.sh` with them, and the flip
+followed.
+
+The same ordering trap is why the test **deletes** the generated trees in the
+clone rather than relying on them being absent: a test that depended on the
+ignore already being committed could not pass in the commit that introduces it.
+Deleting is also the harder case — a clone that still carried them would pass
+trivially — so the workaround is strictly better than the thing it works
+around.
 
 ### 11.4 Two smaller drifts, found in passing
 

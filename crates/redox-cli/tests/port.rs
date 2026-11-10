@@ -1,12 +1,16 @@
 //! The crates written in Redox — plans 68 and 69.
 //!
 //! `crates/<crate>/sdx/**/*.sdx` is the **source**; the `.rs` under
-//! `crates/<crate>/src/` is generated from it and committed, and cargo
-//! compiles that exactly as it compiled the hand-written Rust. So the whole
-//! workspace and all of its tests run against Redox-generated code, which is
-//! the assertion plan 48's port could not make: a module lifted out of a crate
-//! cannot resolve `crate::Stmt`, so its oracle had to be `syn::parse_file`
-//! rather than rustc.
+//! `crates/<crate>/src/` is generated from it, and cargo compiles that exactly
+//! as it compiled the hand-written Rust. So the whole workspace and all of its
+//! tests run against Redox-generated code, which is the assertion plan 48's
+//! port could not make: a module lifted out of a crate cannot resolve
+//! `crate::Stmt`, so its oracle had to be `syn::parse_file` rather than rustc.
+//!
+//! **The generated `.rs` is no longer committed** — plan 72 leaf 5 untracked
+//! it, and `./bootstrap.sh` regenerates it from `seed/redox1.wasm` on a clean
+//! clone. This test is unaffected in mechanism and *more* load-bearing in
+//! consequence: see the regeneration note below.
 //!
 //! # One harness, a list of crates
 //!
@@ -25,6 +29,13 @@
 //! Regeneration being a test rather than a build step catches both failure
 //! directions with one assertion: a `.sdx` edited without regenerating, and a
 //! hand edit to the generated Rust.
+//!
+//! The second direction got harder to see at plan 72 leaf 5 and this test got
+//! more important for it. While the tree was committed, a hand edit showed up
+//! in `git status`; now the files are **untracked**, so git says nothing and
+//! this assertion is the only thing that can tell. A local edit to
+//! `crates/redox-ast/src/expr.rs` is invisible to every other check in the
+//! repository.
 //!
 //! ```bash
 //! REDOX_BLESS=1 cargo test -p redox-cli --test port
