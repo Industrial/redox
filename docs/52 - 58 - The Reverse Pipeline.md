@@ -315,3 +315,112 @@ is gone, it builds the collision deliberately and asserts both spellings resolve
 ## 10. Result
 
 *Not yet executed.*
+
+---
+
+## 11. Corrections from orientation
+
+Probed against the tree at commit `59706fe`, before any leaf ran. Three of
+this plan's claims are exactly right, two of its numbers are not, and the
+collision check §2 defers to leaf 1 can be discharged here instead.
+
+### 11.1 Leaf 1's tokens are free, and the closure spelling is why
+
+`>|` and `|<` appear nowhere in the lexer's operator table, which holds
+`>`, `>=`, `>>`, `|`, `|>` and `||`. So neither is taken.
+
+The question worth asking is not whether the spelling is taken but whether
+**maximal munch can steal a valid program**, and the answer turns on something
+this plan does not mention: **Redox spells a closure `\n -> …`, not `|n|`.**
+`examples/application.sdx` lines 58–59 are `filter (\n -> *n % 2 == 0)` and
+`map (\n -> n * 2)`.
+
+That is what makes `|<` safe. In a Rust-shaped surface, `|<` would sit directly
+on top of a closure parameter list — `f(|x| < y)` is lexed `|`, `x`, `|`, `<`,
+and a greedy `|<` would eat the closing bar. Redox has no such sequence to
+break.
+
+`|` does already carry two meanings, and a third is being added:
+
+| Spelling | Meaning | Where |
+|---|---|---|
+| `\|` | `BinaryOp::BitOr` | `binary_power.rs`, `TokenKind::Or` |
+| `\|` at line start | the `data` variant separator | `examples/data.sdx` line 22, `\| Close` |
+| `\|>` | `BinaryOp::Pipeline` | `binary_power.rs`, `TokenKind::Pipe` |
+
+Note the naming trap for whoever implements this: **`TokenKind::Pipe` is `|>`,
+and bare `|` is `TokenKind::Or`.** Reading the table quickly gets this backwards.
+
+Maximal munch is safe for both new tokens because neither `<` nor `>` can begin
+an expression or a variant name, so no existing program contains `| <` or
+`> |` as adjacent tokens with the second one starting something.
+
+### 11.2 `BinaryOp::Pipeline` is power 1, as claimed
+
+Confirmed at `crates/redox-ast/src/expr/binary_op.rs` line 122. Leaf 2's
+*"precedence needs no change"* holds.
+
+### 11.3 A fourth site leaf 2 does not name, and it correctly stays
+
+Leaf 2 says the blast radius is three files. There is a fourth place that
+mentions `Pipeline`, and it is worth naming precisely because a careful
+implementer will find it and wonder: `BinaryOp::rust_text` returns `None` for
+`Coalesce`, `Catch` and `Pipeline` (`binary_op.rs` line 74), on the stated
+ground that those *"need"* a lowering rather than an operator.
+
+That stays true after this row. Reverse application still has no Rust operator
+— `f(x)` is a call, not an infix form — so the `None` is as correct for
+reverse application as it was for receiver sugar. **It is a site to read and
+leave alone**, which is a different instruction from a site not to look at.
+
+### 11.4 Leaf 2a's callers are right
+
+`emit/chain.rs`'s only callers are `nest.rs` line 43 and `comprehension.rs`
+line 78. `optional_chain.rs` line 71 is a *definition* that looks like a call
+in a grep, and `expr.rs` line 150 calls `optional_chain` rather than `chain`.
+The claim survives the check that would most easily have broken it.
+
+### 11.5 The corpus count is 28, not 24 — and the migratable count is 23
+
+Leaf 4 says *"24 pipeline operators across 5 examples, 15 of them in
+`examples/section.sdx`"*. Measured:
+
+| File | `\|>` | In a comment | Code |
+|---|---:|---:|---:|
+| `examples/section.sdx` | 17 | 1 | 16 |
+| `examples/application.sdx` | 4 | 1 | 3 |
+| `examples/generic.sdx` | 3 | 0 | 3 |
+| `examples/lexical.sdx` | 3 | 0 | 3 |
+| `examples/comprehension.sdx` | 1 | 0 | 1 |
+| **total** | **28** | **2** | **26** |
+
+So **28** occurrences, 26 of them code, and **23 that a migration can touch** —
+because `examples/lexical.sdx` is the error-path example that deliberately does
+not parse, and its three are there to be lexed and rejected.
+
+The plan's 24-and-15 is within one and two of the migratable figures, which is
+near enough to look verified and is not. The number that matters to leaf 4 is
+**23 in four files**, and the one that matters to whoever reads §1.1's *"all 24
+of its pipeline operators"* is that two of them are prose.
+
+### 11.6 What the live corpus actually pipes into
+
+All 23 are collection or iterator methods — `map` 6, `sum` 5, `into_iter` 3,
+`filter` 3, `count` 3, and one each of `unwrap`, `max` and `len`. **Not one is
+a free function**, which is both why §1.1's hazard has stayed theoretical and
+why leaf 4 is as cheap as it claims: every live step is exactly the kind plan
+57 marks with a leading dot.
+
+The remaining two occurrences are the `(\|> name)` method-reference section,
+in `examples/lexical.sdx` line 41 and in a comment in `examples/section.sdx`
+line 35. Leaf 2 already assigns that construct to plan 57.
+
+### 11.7 Criterion 7 is assertable, which was not obvious
+
+*"The §1.1 hazard is unreachable: a function and a same-named method are both
+callable and distinguishable"* reads like it needs a check Redox must never
+have. It does not. After leaf 2, `x \|> f` is `f(x)` and `x \|> .f` is
+`x.f()`, so the two are distinguished by one character **in the source**, and
+rustc resolves each independently. The criterion is a parsing and lowering
+assertion, not a name-resolution one — which is the only form it could take
+here, since AGENTS.md forbids the analysis that any other form would need.
