@@ -155,6 +155,25 @@ the gate.
 `|>` becomes reverse application. The lowering is `f (x)` where it was `x.f()`, and plan 57's
 `.name` handles everything that used to rely on the receiver reading.
 
+The blast radius is smaller than it looks: three files. `emit/expr.rs`'s `BinaryOp::Pipeline`
+arm, `emit/pipeline.rs` (whose whole lowering is two match arms), and
+`emit/wraps_as_receiver.rs`'s `Pipeline` carve-out. Precedence needs no change —
+`BinaryOp::Pipeline` is already power 1, the loosest binary rung, which is correct for reverse
+application. `section.rs`'s `(|> name)` method reference becomes a different construct and is
+plan 57's.
+
+### Leaf 2a — `leaf-wire-up-the-chain-breaker`
+
+**The emitter already implements rustfmt's `chain_width` breaking and the pipeline does not use
+it.** `emit/chain.rs` exists; its only callers are `emit_comprehension` and `nest`.
+`emit/pipeline.rs` builds a flat string by recursion and never consults it, which is why plan 51
+found `generated_rust_is_rustfmt_clean` failing on a five-stage pipeline — the longest chain in
+the corpus before that was 21 characters, so nothing had tripped it.
+
+This row makes long chains the normal case, so it is this row that must wire `pipeline` to
+`chain` and re-bless every golden whose chain exceeds 60 characters. `examples/application.sdx`
+carries the finding and is deliberately under the limit until this leaf lands.
+
 ### Leaf 3 — `leaf-composition`
 
 `>|` and `|<`, both producing a function. Shares plan 56's closure-generation path rather than
@@ -183,6 +202,9 @@ semantics section is struck. `docs/GRAMMAR.md` regraded; `docs/STATUS.md` update
 3. A five-line pipeline mixing functions and methods runs, with asserted stdout.
 4. `>|` and `|<` each produce a function; the swapped-operand equivalence from §3 case 4 is
    asserted.
+4a. A pipeline wider than rustfmt's `chain_width` is broken across lines by the emitter, and
+   `generated_rust_is_rustfmt_clean` passes on a five-stage chain —
+   `examples/application.sdx`'s fifth stage is restored as the witness.
 5. Composition works inside an adaptor — §3 case 3 — which exercises plan 56.
 6. `<<` and `>>` are unchanged, and `expressions.sdx`'s shift assertion still passes.
 7. The §1.1 hazard is unreachable: a function and a same-named method are both callable and

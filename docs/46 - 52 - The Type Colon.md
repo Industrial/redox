@@ -149,9 +149,32 @@ Three cases chosen because they fail differently:
 `:` and `::` are **already both tokens** — `operator_table.rs` lists them and longest-match
 already orders them — so the lexer needs no change on that point. What this leaf deletes is the
 *parser's* adjacency machinery: `Token::ws_before`, the `spaced_colon_colon.rs` predicate and
-`tight_colon_colon.rs`, plus the five call sites that cite §5.2 — `path_or_ident.rs`,
-`lambda.rs`, `constructor_path.rs`, `record_pattern.rs`, `field_decl.rs`. That is the whole of
-doc 18 §5.2's machinery and all of it goes.
+`tight_colon_colon.rs`, plus the call sites that cite §5.2. That is the whole of doc 18 §5.2's
+machinery and all of it goes.
+
+**Corrected after reading them.** The draft named `field_decl.rs` as the fifth predicate call
+site; it is not one. `field_decl.rs` calls `expect(ColonColon)` — it is a *consumer* of `::` as
+a type marker, so it belongs with the six sites leaf 2 and leaf 4 retarget, not with the
+predicates. The five predicate sites are:
+
+| Site | Predicate | What it decides |
+|---|---|---|
+| `path_or_ident.rs:21` | `tight_colon_colon` | `Vec::new` is a path, not `Vec : :new` |
+| `path_or_ident.rs:27` | `tight_colon_colon` | continuing a multi-segment path |
+| `constructor_path.rs:21` | `tight_colon_colon` | `Color::Red` in a pattern |
+| `record_pattern.rs:37` | `tight_colon_colon` | a qualified record-pattern path |
+| `lambda.rs:35`, `parse_expr.rs:30` | `spaced_colon_colon` | ascription, not a path |
+
+And the six `expect(ColonColon)` sites that become `expect(Colon)`: `parser.rs:377` (the
+signature), `parser.rs:411` (the equation lookahead that distinguishes a signature from a
+binding), `class_member.rs:48`, `const_decl.rs:32`, `extern_block.rs:61`, `field_decl.rs:26`.
+
+**A hazard the draft missed.** `split_format_spec.rs` walks an interpolation looking for the
+`:` that starts a format spec, and it already skips `::` to let `#{Vec::len x}` through — but it
+has no reason to skip a *lone* `:`, because today a lone `:` inside `#{…}` can only be a format
+spec. After this row `#{total : u64}` is a legal ascription, and the splitter would cut it at the
+colon and emit `u64` as a width. Leaf 3 must teach it the difference; `tests/golden/strings.xrs`
+is the witness.
 
 ### Leaf 2 — `leaf-signature-and-binding`
 

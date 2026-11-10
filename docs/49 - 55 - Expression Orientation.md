@@ -17,26 +17,45 @@ parser, four constructs lose their special cases, one keyword is retired, one is
 class of diagnostics stops being needed. The emitter gets simpler because Rust is already
 expression-oriented and the two surfaces stop disagreeing about what a block is.
 
-### 1.1 `if` is the odd one out among its own siblings
+### 1.1 `if` is the odd one out — and the mechanism is eight lines of the emitter
 
-Measured, not inferred:
+The behaviour is as this row's first draft described it:
 
-| Construct | An expression? | Evidence |
+| Construct | Behaves as an expression? | Evidence |
 |---|---|---|
 | `loop` | **yes** | `break n` as a function tail works; `examples/async.sdx` depends on it |
 | `case … of` | **yes** | emits `match` in tail position |
 | `do` / `try` / `async` | **yes** | that is their whole purpose |
 | indented `if` | **no** | emits `"big";` → rustc `E0308` |
 
-`loop` and `case` are expressions. `if` is not. Nothing in doc 01, 03, 18, 20 or 22 argues for
-the difference — plan 20 §1.2 explains the *two* `if`s (statement and `if … then … else`
-expression) as Haskell's doing, and plan 22's result section records the consequence as a *gap
-belonging to plan 20*:
+**But the draft was wrong about why, and the correction makes this row much cheaper.** Three
+findings from reading the code:
 
-> plan 20's indented `if` is a **statement**, so it is not a tail expression, and a branch
-> written as a bare value emits `"big";`
+**`loop` and `break` are not expressions.** They are `StmtKind::Loop` and `StmtKind::Break`
+variants — there is no `Expr::Loop`. `loop` behaves as one for exactly one reason:
+`emit_control` writes `loop { … }` and **never appends a `;`**, so when it is a tail-position
+statement rustc reads the braces as the block's value and `break v;` supplies it. Only
+`case`, `do`, `try`, `async` and `unsafe` are genuine `Expr` variants.
 
-That is not a design. It is an accident with a note attached, and the note is in the right place.
+**The `if` defect is therefore not an AST problem.** `if` and `loop` travel the *same*
+`emit_stmt` → `emit_control` path. The difference is that `loop`'s value arrives via `break`,
+which carries it explicitly, while an `if`'s arrives from its branches' tails — and
+`emit_control` **takes no `tail` parameter at all**, hardcoding `false` at six call sites
+(`emit_control.rs` lines 42, 67, 91, 109, 118, 139) plus two more in `emit_control_inline.rs`.
+Those eight literals are the whole mechanical cause of `"big";`.
+
+So §5's criterion 1 is reachable by giving `emit_control` a `tail` parameter and threading it to
+the branch bodies — an emitter change of a few dozen lines, not the AST-and-parser rewrite leaf 1
+was scoped as. Leaf 1 is re-scoped accordingly in §4.
+
+**And `then` does not decide between the two `if` forms — position does.** `Parser::stmt` asks
+`control_flow` first, and `control_flow` claims `Kw(If)` unconditionally with no lookahead for
+`then`; `if_expression` is reachable *only* from `prefix`, and once there `then` is a hard
+`expect`. A consequence worth knowing before leaf 2: **`if c then a else b` written as a bare
+statement cannot parse today**, because `if_statement` reads the condition and then demands a
+line break. Plan 20 §1.2's account — *"One keyword decides which of the two nodes the parser
+builds"* — describes an intent the code does not implement, and `StmtKind::If`'s own doc comment
+repeats it. Both are amended by leaf 8.
 
 ### 1.2 The cost, measured
 
@@ -226,11 +245,23 @@ silent unit.
 
 ## 4. Leaves
 
+### Leaf 0 — `leaf-tail-through-control-flow`
+
+The cheap half of §1.1, done first because it is what makes criterion 1 pass and it touches no
+grammar: give `emit_control` a `tail` parameter and thread it to each branch body, replacing the
+eight hardcoded `false`s. `if`, `while`, `for`, `loop` and `guard` all route through it, so this
+is also where a tail-position `while` stops silently discarding a value.
+
+Re-bless `tests/golden/control.xrs`. If this leaf alone turns criterion 1 green, leaf 1 is a
+grammar simplification rather than a bug fix, and should be judged on that merit.
+
 ### Leaf 1 — `leaf-one-expression-node`
 
-Collapse the statement/expression fork in the AST and the parser. A block is a sequence of
-expressions; its value is the last. This is the leaf the rest depend on and the one that deletes
-the most code.
+Collapse the statement/expression fork in the AST and the parser: `StmtKind`'s 17 variants and
+`Expr`'s 33 become one, and `Block = Vec<Stmt>` gives way to a sequence of expressions whose
+value is the last. Note what this is **not** — leaf 0 has already fixed the observable defect, so
+this leaf's justification is the grammar it deletes and the diagnostics it retires, not `"big";`.
+It remains the leaf the rest depend on and the one that deletes the most code.
 
 ### Leaf 2 — `leaf-if-expression`
 
@@ -253,6 +284,14 @@ line rather than rustc's.
 
 `data`, `newtype`, `type`, `class`, `instance`, `errors`, `import`, `const`, `static` in a body
 position, emitted as nested Rust items. Includes the generic-synthesis case from §1.4.
+
+This leaf is **net-new in both the AST and the parser**, which §1.4 understated. There is no
+declaration-in-body-position anywhere today: `StmtKind` has no `Item` variant, `Parser::stmt`
+never calls `item()`, and a declaration keyword in a body reaches `prefix`'s default arm and
+becomes `RDX0102`. The nearest existing machinery is `items_until_dedent` plus `emit/items.rs`
+and `emit/module.rs`, which already nest items one indent level in — `module` is the only
+construct that contains items. Rust accepting nested items (§1.4) is necessary and not
+sufficient; the carrier has to be built.
 
 ### Leaf 6 — `leaf-test-carve-out`
 
@@ -368,8 +407,11 @@ string-literal fixtures to miss, because `no_literal_expectations.rs` forbids th
    `.then` unreachable, which is the recovery §1.3 is for.
 6. **Discarding stays unmarked.** Requiring `_ = e` for every discard would add a token to every
    `print` line in a `main`. The lints cover the shapes that actually bite.
-7. **Leaf 1 first and alone.** It deletes the fork; everything else is a consequence. Attempting
-   the consequences first means writing special cases that leaf 1 then removes.
+7. **Leaf 0 before leaf 1, then leaf 1 alone.** Leaf 0 is eight literals in the emitter and fixes
+   the defect §1.1 opens with, so it ships first and independently — and once it has, criterion 1
+   is green without any grammar having moved, which is the honest basis on which to judge the
+   rest. Leaf 1 then deletes the fork; everything after it is a consequence. Attempting those
+   consequences first means writing special cases that leaf 1 removes again.
 
 ---
 
