@@ -30,7 +30,28 @@ use redox_ast::StmtKind;
 ///
 /// Every body is a statement block, so `return`, a nested `if` and a `break`
 /// all work inside one without this knowing about them.
-pub(crate) fn emit_control(out: &mut Sink<'_>, kind: &StmtKind, indent: usize) {
+///
+/// # `tail` is the `if`'s, and only the `if`'s
+///
+/// `tail` marks this statement as the block's final one, whose value is the
+/// function's. It is forwarded to an `if`'s branch bodies and to **nothing
+/// else**, because nothing else here can carry a value:
+///
+/// - a `while` or `for` loop is `()` in Rust whatever its body ends with;
+/// - a `loop`'s value arrives through `break`, which carries it explicitly —
+///   which is the whole reason `loop` already read as an expression while
+///   `if` did not;
+/// - a `guard`'s else block must diverge, so rustc never reads it for a value.
+///
+/// An `if` **without** an `else` is also not forwarded: `if c { v }` as a
+/// function's tail is `()` by Rust's own rule, so its branch stays a
+/// statement. Only `if … else …` is an expression, and that is plan 55 leaf 0.
+///
+/// Before it, this function took no `tail` at all and passed a literal `false`
+/// at all six body sites. That single omission is what made plan 22 record
+/// `if` as the one control form that is not an expression: a branch written as
+/// a bare value emitted `"big";` and rustc answered `E0308`.
+pub(crate) fn emit_control(out: &mut Sink<'_>, kind: &StmtKind, indent: usize, tail: bool) {
   match kind {
     StmtKind::If {
       condition,
@@ -39,7 +60,14 @@ pub(crate) fn emit_control(out: &mut Sink<'_>, kind: &StmtKind, indent: usize) {
     } => {
       pad(out, indent);
       out.push_str(&condition_head("if", condition, indent));
-      emit_stmts(out, &then_block.stmts, indent + RUST_INDENT, false);
+      // `tail && otherwise.is_some()`: see the note above — an `if` with no
+      // `else` is `()`, so its branch is never the function's value.
+      emit_stmts(
+        out,
+        &then_block.stmts,
+        indent + RUST_INDENT,
+        tail && otherwise.is_some(),
+      );
 
       let Some(otherwise) = otherwise else {
         out.unmark();
@@ -60,11 +88,11 @@ pub(crate) fn emit_control(out: &mut Sink<'_>, kind: &StmtKind, indent: usize) {
         // The nested `if` writes its own `if … {`, so its leading pad is
         // already on this line.
         out.push_str("} else ");
-        emit_control_inline(out, &only.kind, indent);
+        emit_control_inline(out, &only.kind, indent, tail);
         return;
       }
       out.push_str("} else {\n");
-      emit_stmts(out, &otherwise.stmts, indent + RUST_INDENT, false);
+      emit_stmts(out, &otherwise.stmts, indent + RUST_INDENT, tail);
       out.unmark();
       pad(out, indent);
       out.push_str("}\n");

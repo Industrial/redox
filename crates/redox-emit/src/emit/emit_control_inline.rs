@@ -10,7 +10,12 @@ use redox_ast::StmtKind;
 /// The `} else ` before it already occupies the line, so the nested statement
 /// must not pad again. Separate from `emit_control` because the difference is
 /// one call and merging them would mean a flag on every arm.
-pub(crate) fn emit_control_inline(out: &mut Sink<'_>, kind: &StmtKind, indent: usize) {
+///
+/// `tail` carries the same meaning as in `emit_control`, and must be forwarded
+/// here too: in `if a then … else if b then … else …` the value can come from
+/// any rung of the chain, so dropping it at the first `else if` would make the
+/// deeper branches statements again.
+pub(crate) fn emit_control_inline(out: &mut Sink<'_>, kind: &StmtKind, indent: usize, tail: bool) {
   let StmtKind::If {
     condition,
     then_block,
@@ -21,7 +26,12 @@ pub(crate) fn emit_control_inline(out: &mut Sink<'_>, kind: &StmtKind, indent: u
   };
 
   out.push_str(&condition_head("if", condition, indent));
-  emit_stmts(out, &then_block.stmts, indent + RUST_INDENT, false);
+  emit_stmts(
+    out,
+    &then_block.stmts,
+    indent + RUST_INDENT,
+    tail && otherwise.is_some(),
+  );
 
   let Some(otherwise) = otherwise else {
     out.unmark();
@@ -36,11 +46,11 @@ pub(crate) fn emit_control_inline(out: &mut Sink<'_>, kind: &StmtKind, indent: u
     && matches!(only.kind, StmtKind::If { .. })
   {
     out.push_str("} else ");
-    emit_control_inline(out, &only.kind, indent);
+    emit_control_inline(out, &only.kind, indent, tail);
     return;
   }
   out.push_str("} else {\n");
-  emit_stmts(out, &otherwise.stmts, indent + RUST_INDENT, false);
+  emit_stmts(out, &otherwise.stmts, indent + RUST_INDENT, tail);
   out.unmark();
   pad(out, indent);
   out.push_str("}\n");

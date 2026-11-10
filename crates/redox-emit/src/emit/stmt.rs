@@ -39,7 +39,7 @@ pub(crate) fn emit_stmt(out: &mut Sink<'_>, stmt: &Stmt, indent: usize, tail: bo
       | StmtKind::Continue { .. }
       | StmtKind::Guard { .. }
   ) {
-    emit_control(out, &stmt.kind, indent);
+    emit_control(out, &stmt.kind, indent, tail);
     return;
   }
 
@@ -86,13 +86,19 @@ pub(crate) fn emit_stmt(out: &mut Sink<'_>, stmt: &Stmt, indent: usize, tail: bo
     StmtKind::Await { pattern, value } => {
       out.push_str(&emit_await(pattern, value, indent));
     }
-    // Doc 01 §4.3's compound assignment — plan 20. The operator's own Rust
-    // text plus `=`, so the five share one arm.
+    // Assignment — doc 01 §4.3's compound form from plan 20, and plan 54's
+    // plain `:=`. Rust spells both with `=`, differing only by the operator
+    // in front of it, so one arm prints all six: `None` is `=` and `Some(op)`
+    // is the operator's own Rust text plus `=`.
+    //
+    // Redox's two spellings collapse to Rust's one here, which is the point
+    // of the row: `:=` exists to stop *Redox* having to decide whether `=`
+    // means a binding, and Rust never had that problem because `let` says so.
     StmtKind::Assign { target, op, value } => {
+      let operator = op.map_or("", |op| op.rust_text().unwrap_or("/* unsupported */"));
       out.push_str(&format!(
-        "{} {}= {};",
+        "{} {operator}= {};",
         emit_expr(unparen(target), indent),
-        op.rust_text().unwrap_or("/* unsupported */"),
         emit_expr(unparen(value), indent)
       ));
     }
