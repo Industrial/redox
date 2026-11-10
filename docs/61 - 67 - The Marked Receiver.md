@@ -80,9 +80,15 @@ to last — each make half the corpus read backwards and leave the rule invisibl
 
 ### 1.3 The corpus cannot see any of this
 
-`examples/class.sdx` is the only file in the repository with a `class` or an `instance` — plan
-63 §1.2 counted it — and **every one of its methods takes a single argument**, where first and
-last are the same position.
+**Corrected after this row shipped.** This section said `examples/class.sdx` was the only file
+in the repository with a `class` or an `instance`, citing plan 63 §1.2. That was wrong at the
+source: `examples/local.sdx` has had both inside a function body since plan 55 leaf 5, and this
+row copied the number rather than measuring it. Plan 63 §1.2 is recounted and dated.
+
+**The conclusion survives the correction and the count did not.** Both files held *only*
+single-argument methods, where first and last are the same position — so the rule this row
+replaces was unobservable across two files rather than one, which changes the arithmetic and
+nothing else.
 
 So the rule this row is replacing is unobservable in this repository. No golden moves if it
 changes, no example fails, no gate reports anything. That is exactly the
@@ -191,13 +197,13 @@ programs through `cargo run -p redox-cli -- build` and `-- check`.
 | a required method's non-receiver parameter is named by the emitter | true — `fn scaled(&self, __rdx_a1: f64)` and `fn unit(__rdx_a0: f64)`, measured |
 | a member with no receiver-typed parameter emits an associated function | true — `fn unit(__rdx_a0: f64) -> Self`, measured; `receiver.rs`'s doc says so and the build confirms it |
 | `_` works as the receiver's binder in a default body | true — `describe _ = "a shape"` emits `fn describe(&self) -> &'static str` |
-| `examples/class.sdx` is the only file with a `class` or `instance` | true — plan 63 §1.2 |
-| …and every method in it takes one argument | true — `area`, `describe`, `perimeter`; §1.3 |
+| `examples/class.sdx` is the only file with a `class` or `instance` | **false**, and this row should not have taken it on trust — `examples/local.sdx` has both inside a function body. Copied from plan 63 §1.2, which was wrong at the source and is corrected there; §1.3 |
+| …and every method in **both** files takes one argument | true — `area`, `describe`, `perimeter`, `name`; §1.3's conclusion rests on this rather than on the file count |
 | `type_vars` excludes lowercase primitives through a closed list | true — `type_vars.rs` calls `primitive_type.rs`, seventeen names |
 | `instance_decl` splits `instance Show Point` as head-is-class, **first argument is the target** | true — `instance_decl.rs`; §9 decision 3 reverses this for three-or-more names |
 | `redox fmt` on `examples/class.sdx` is **byte-identical**, despite the parser destroying `params[0]` | true — run against the working tree |
 | …because `redox-fmt` prints a signature line as a **verbatim source slice** | true — `signature_line.rs`, and its doc comment gives `generalise`'s in-place type rewrite as the reason |
-| the superclass clause is read speculatively, keyed on the variable | true — `constraints.rs`, because `class Shape t` and `class Debug t => Shape t` begin identically; §4 leaf 2 |
+| the superclass clause demands a trait **and** a variable | true — `constraints.rs`. So `class Show => Shape` was **unreachable**, not merely awkward, and criterion 6 needed a whole new reader rather than leaf 2's tweak. This row first wrote that the clause was *"read speculatively, keyed on the variable"* and that losing the variable made the speculation simpler; that understated the work |
 
 ---
 

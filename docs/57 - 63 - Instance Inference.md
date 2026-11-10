@@ -57,15 +57,25 @@ disputes — *"a feature that could not be built"* is the claim being tested.
 
 ### 1.2 What the restatement costs, measured
 
+**Recounted 2026-11-10, and the first count was wrong at the source rather than merely stale.**
+This row reported one file. `examples/local.sdx` has had a `class` and an `instance` inside a
+function body since plan 55 leaf 5, so the number was already wrong when it was written — and
+plan 67 §1.3 copied it forward before anyone checked, which is how a measurement in one document
+became a claim in two. Plan 67's own `examples/receiver.sdx` then added a third.
+
 | | Count |
 |---|---|
-| Files with a `class` or `instance` block | **1** — `examples/class.sdx` |
-| Signature-bearing member lines in it | **6** |
-| …of which are *method* signatures | **4** |
-| …of which this row can elide (class-bearing, single-variable) | **3** |
+| Files with a `class` or `instance` block | **3** — `examples/class.sdx`, `examples/local.sdx` (inside a function body), `examples/receiver.sdx` |
+| `instance` bodies across them | **7** |
+| Method signature lines restated in an `instance` | **13** |
+| …of which this row can elide | **12** — `instance Square`'s `perimeter` is inherent, so there is no class to take a signature from |
 
-Three lines in 703 is not, by itself, a crisis — and the corpus understates it, because only one
-example uses the construct at all. Two things make it worth a row.
+Twelve lines across three files is still not, by itself, a crisis. What the recount shows that
+the first count could not is the **shape** of the cost: it tripled in a day without the construct
+becoming any more popular, because a restatement is one line *per member per instance* —
+`instance Tally Counter` carries six of them on its own, for a class with six members. That
+scales with every class anyone writes, which is a better argument for this row than "three lines"
+ever was. Two more things make it worth a row.
 
 **The restatement can drift.** A signature that disagrees with its class is a rustc error about a
 trait impl — correct, and arriving in generated Rust, about a mismatch Redox could see.

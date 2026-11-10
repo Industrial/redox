@@ -405,6 +405,32 @@ result, which is why they are written down rather than rediscovered.
   why `every_coloured_keyword_is_still_in_the_grammar` asks the lexer rather than
   `grammar.js`.
 
+- **A declaration read correctly still does not tell you the behaviour, because another
+  rule can intercept the same input.** This is the one above's harder sibling, and the only
+  one of the three that a *careful* reader hits anyway: there is no stale comment and no
+  missed file, just a correct reading and a wrong conclusion.
+
+  Measured. Plan 67 needed to know whether `instance Convert f64 Meters` would be caught by
+  `every_example_parses_with_no_error`. `instance_declaration`'s `target` is
+  `repeat1(choice($.type_identifier, $.identifier))`, so a three-name head plainly parses by
+  that rule — read twice, by two sessions, and right both times. It was still caught, as
+  `(ERROR (identifier))` on the `f64`, because **`constraints` carried
+  `prec(1, seq(sep1(seq($.type_identifier, $.identifier), ","), "=>"))`** and `Convert f64`
+  matches `seq(type_identifier, identifier)`: the parser committed to the constraint reading
+  and then failed for want of a `=>`. Only an all-uppercase run parsed.
+
+  Two details worth keeping. Removing the `prec(1)` is what fixed it — a **declared conflict
+  did not**, because `tree-sitter generate` reports one as *"unnecessary"* when a precedence
+  already decides, which reads like reassurance and is the opposite. And the same shape bit
+  the other way at plan 66: the grammar gates were green *before* `grammar.js` knew `>>>`,
+  because a flat `repeat1(choice(…))` run accepts `>>` then `>` with no `ERROR` node.
+
+  So for anything involving precedence, conflicts, or a flat `repeat1` — which is most of
+  `grammar.js` — **run the input.** `tree-sitter parse` on a two-line file costs a second
+  and is the only thing that answers. And prefer a case in
+  `tree-sitter-redox/test/corpus/`, which `tree_sitter.rs` runs, over leaning on the
+  examples sweep: the sweep cannot see a construct the grammar never knew it was missing.
+
 ## See also
 
 - `.maestro/MAESTRO.md` — read order, lane policy, daily commands
