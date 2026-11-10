@@ -91,6 +91,20 @@ is still identifiable by its row here:
 | 02 | `docs/07 - 02 - Lexical Surface.md` |
 | 04 | `docs/09 - 04 - Emitter Determinism.md` |
 | 03 | `docs/08 - 03 - Parser Core.md` |
+| 51 | `docs/45 - 51 - Construct Coverage.md` |
+| 52 | `docs/46 - 52 - The Type Colon.md` |
+| 53 | `docs/47 - 53 - Declaration Hygiene.md` |
+| 54 | `docs/48 - 54 - Assignment.md` |
+| 55 | `docs/49 - 55 - Expression Orientation.md` |
+| 56 | `docs/50 - 56 - Currying.md` |
+| 57 | `docs/51 - 57 - Methods as Functions.md` |
+| 58 | `docs/52 - 58 - The Reverse Pipeline.md` |
+| 59 | `docs/53 - 59 - Value Bindings.md` |
+| 60 | `docs/54 - 60 - The Bind Arrow.md` |
+| 61 | `docs/55 - 61 - Where Independence.md` |
+| 62 | `docs/56 - 62 - Ascription Completion.md` |
+| 63 | `docs/57 - 63 - Instance Inference.md` |
+| 64 | `docs/58 - 64 - Macro Invocation.md` |
 
 **`docs/05 - 01 - Vertical Slice.md` is the authored exemplar** — every subsequent plan
 follows its shape:
@@ -253,6 +267,97 @@ as a gesture.
 
 ---
 
+## Milestone 9 — Surface coherence
+
+**Added 2026-11-10, after writing 1,501 lines of new Redox against the shipped surface** — five
+standalone programs and seven driving `id_effect 0.13.0`. The milestone exists because that
+exercise produced a measurement no plan had: of **sixteen** constructs that refuse or
+reinterpret, **fifteen are caught by something** and **one by nothing at all**.
+
+The three classes matter more than the count, and they are what this milestone is organised
+around:
+
+| Class | Count | What it means |
+|---|---|---|
+| **Refused** | 11 | the parser says no and names a code — the system working |
+| **Deferred** | 4 | Redox accepts it and **rustc** rejects the generated code |
+| **Silent** | 1 | nothing catches it: `i = j` emits `let i = j;` and shadows |
+
+The four deferred cases are the milestone's subject. Each is a **borrowed Haskell surface whose
+semantics did not come with it**, so the error arrives in a language the author did not write:
+
+| Written | Reads as | Emits | rustc says |
+|---|---|---|---|
+| `map (add 1)` | partial application | `map(add(1))` | `E0061` arity |
+| `5 \|> double` | reverse application | `5.double()` | `E0599` no method |
+| out-of-order `where` | a recursive binding group | `let` in source order | `E0425` not found |
+| `if c` / bare branch value | an expression | `"big";` | `E0308` mismatched types |
+
+Three further measurements set the milestone's priorities. **14 non-tail `return`s against 2
+`if … then … else` expressions** — the statement/expression split is pushing imperative control
+flow into a declarative surface, because the expression form is one line only. **Four separate
+defects share one cause**, *a lone `()` is the empty argument list*, which plan 20 §10.6 stated
+correctly and which collides with juxtaposition four ways. And **`$` is fully implemented,
+correct, and in no example**. Doc 18 is not at fault — §11.1 records the commit that shipped it
+and §11.2 says *"Nothing in this document is unimplemented."* The false claim is in the
+**corpus**: `examples/lexical.sdx` explains `$`'s absence by calling it *"specified and not yet
+lexed"*. So 27 lines were written at parenthesis depth three that `$` would have flattened,
+because the examples — the documentation anyone actually reads — disclaimed a working construct.
+A corpus failure, not a language one, and plan 51 is the standing fix.
+
+Two rows that shipped before this milestone was written are what make it affordable. Plan 45
+§1.5 found macro invocation unreachable and **explicitly left the spelling decision to a future
+row**; plan 48 then **priced it at 855 of 867 blocking lines**. Plan 64 is that row, and it is
+the largest reachability gain in the register.
+
+| # | Plan | Scope | From Emerald | Depends on | Status |
+|---|---|---|---|---|---|
+| 51 | `construct-coverage` | A test that fails when a construct graded `SUGARED` or `PASSTHROUGH` in `docs/GRAMMAR.md` appears in no corpus file. Joins plan 46's inventory to the examples; lexical matching, so a construct inside a comment or string does not count. Closes the two known gaps (`$`, multi-line pipelines) and corrects doc 18 §11.2 | `examples/README.md`'s gap tracking, with enforcement added | 43, 46 | `planned` — `docs/45 - 51 - Construct Coverage.md` |
+| 52 | `type-colon` | `:` for every type position — signature, binding, ascription — and `::` for paths only, which **deletes doc 18 §5.2's whitespace rule**. 184 substitutions across 29 files; generated Rust unchanged, so every golden diff is comment-only and that is the row's definition of correctness. Makes `::<T>` spellable (plan 62 declines to spell it) and `data` fields literally Rust's struct syntax | plan 34's formatter as migration tool (doc 02 §4.5) | 51 | `planned` — `docs/46 - 52 - The Type Colon.md` |
+| 53 | `declaration-hygiene` | Three declarations that are not what they appear to be: `errors` glob-imports its variants as `data` already does (the only use-site asymmetry between the two forms, and no document gives a reason); `newtype` gains the one-field rule and `#[repr(transparent)]`, so it stops lowering identically to `data`; lint pragmas move from comments to `#[redox::allow(…)]`, because plan 48 found `redox fmt` deleting comments silently | — | 52 | `planned` — `docs/47 - 53 - Declaration Hygiene.md` |
+| 54 | `assignment` | `:=` reassigns; `=` stays binding. **Plan 20 §10.2 wrote this row's specification in a result section** — *"a distinct token (`:=`) costs one lexer arm and no analysis… That belongs in a surface-design doc, not in a plan"* — and this is that decision taken. Closes the register's only silent defect. Place expressions in one leaf (name, field, index, deref), per plan 20 §10.1's lesson that a row's scope can be smaller than what it claims | plan 20 §10.1's lesson, applied before the gate rather than after | 52 | `planned` — `docs/48 - 54 - Assignment.md` |
+| 55 | `expression-orientation` | Every body position becomes an expression, declarations included; `test` is the one carve-out because **a nested `#[test]` is not collected** — rustc warns `cannot test inner items` and it silently never runs. **This row deletes grammar rather than adding any**: the statement/expression fork, `-> do` on arms, the `then` keyword's job, `do` as a construct, and a class of diagnostics. Frees `.then` as a method name — `Ordering::then` and `bool::then`, both unreachable today (`Option::then` and `Future::then` do not exist; rustc offers `and_then` and `futures::FutureExt`) | — (doc 02 §4's Emerald review has no statement/expression section; the argument is this row's own measurement) | 52, 54 | `planned` — `docs/49 - 55 - Expression Orientation.md` |
+| 56 | `currying` | Under-application emits a `move` closure, so juxtaposition starts paying for itself and `map (add 1)` means what it reads as. **Arity is syntactic** — a signature's top-level arrow count, which the parser already computes and which already ignores arrows nested in a verbatim type — so this needs no analysis Redox does not perform. Bounded to signatures in the file being compiled — plan 14's `module` emits `mod name;` and loads nothing, and plan 14 decision 4 refuses import resolution, so there is no cross-file story to inherit; beyond the file a named diagnostic, not a pass-through to rustc | — (Emerald had no currying, sections or juxtaposition; the nearest record is doc 02 §4.6 on parenless-call ambiguity) | 52, 55 | `planned` — `docs/50 - 56 - Currying.md` |
+| 57 | `methods-as-functions` | `.trim` is a function, receiver last; `x.f ()` retired; `?.` **deleted**. One row closes all four of the *lone-`()`* defects, because a method taking its receiver as an ordinary last argument has no `()` in the spelling to be ambiguous about. 52 sites across 29 files, and unlike plan 52 the generated Rust changes — so the **run** corpus is the proof and criterion 8 asserts byte-identical stdout | plan 34's formatter again; doc 04's commitment 4 and `no_literal_expectations.rs` protect the migration | 55, 56 | `planned` — `docs/51 - 57 - Methods as Functions.md` |
+| 58 | `reverse-pipeline` | `x \|> f` becomes `f x`, so you can pipe into your own functions — and the **silent** variant goes with it: today, if any trait in scope has a matching method, `x \|> myfn` compiles and calls that instead. Composition arrives as `>\|` / `\|<`, reversing doc 18 §4's decline, whose stated ground — *"without currying there is nothing to compose"* — plan 56 removed. Shifts keep `<<`/`>>`, because `examples/expressions.sdx` asserts their precedence | — Emerald had no pipeline operator, so the reading-direction argument has no prior evidence and is stated as a judgement | 56, 57 | `planned` — `docs/52 - 58 - The Reverse Pipeline.md` |
+| 59 | `value-bindings` | A parameterless binding is a value: `block`, not `block ()`. Today `const MAX` and `block ()` are two kinds of top-level value with different use-site syntax, which is an artefact of which row shipped which half. **Memoisation is refused on evidence**: an `Effect` is a one-shot description, and sharing `probe_rate` would hand `Effect::retry` the same consumed effect five times. Literal-or-function is a syntactic test, because doc 03 §13.3 declines const evaluation permanently | doc 03 §13.3's decline, which cites Emerald's plan 61 needing a step-limit flag | 55, 56 | `planned` — `docs/53 - 59 - Value Bindings.md` |
+| 60 | `bind-arrow` | `<-` becomes monadic bind read by the enclosing block modifier — `async` awaits, `try` is the `?` — which is do-notation earned rather than imitated, and generalises to any future modifier. Pattern tests move to `is` with scrutinee first, restoring doc 03 §5.5 and relieving `=` of its fifth meaning. **Asserts byte-identical Rust between `<-` and `?`**, because a sugar that emits different code is not a sugar | doc 30's method: write down what a token means in every position *before* assigning it | 54, 55 | `planned` — `docs/54 - 60 - The Bind Arrow.md` |
+| 61 | `where-independence` | `where` bindings are dependency-sorted and may be mutually recursive, emitted as nested `fn` items where a cycle needs it. The sort is **not a resolver** — a `where` group is a closed flat name set in one syntactic region, so the graph is a scan and not a scope walk. A parameterless cycle is refused statically, which Haskell cannot do because it is lazy and Redox can because it is strict | plan 20 §10.1's lesson, cited for the third time in this milestone | 55 | `planned` — `docs/55 - 61 - Where Independence.md` |
+| 62 | `ascription-completion` | Ascription becomes the one way to pin a type and starts working in the three positions it is missing from — in a pattern, on a `try` block, and emitting `let x: T = e` instead of a three-line block in binding position, which `examples/module.sdx` currently pays for in a `where`-local workaround and a comment. **Turbofish is declined on a compiled measurement**: signature-driven inference reaches an id_effect capability read in all three forms tried | plan 47's `docs/DECLINED.md`, gaining its first decline backed by a compiled measurement | 52, 55 | `planned` — `docs/56 - 62 - Ascription Completion.md` |
+| 63 | `instance-inference` | An `instance` method may omit its signature; the class supplies it with its single type variable substituted. **The one row in the milestone that adds machinery Redox has deliberately not had** — a one-name, one-file resolver — so §6 states the cost and criterion 6 asserts its boundary as a test, and leaf 4 (the mismatch diagnostic) is separable and carries most of the value if the resolver is judged too expensive. Reverses **doc 18 §2.5**'s recorded deviation, which calls the alternative *"a feature that could not be built"* — and notes that the name-resolution ban §2.5 cites to AGENTS.md is not in AGENTS.md, whose rule is about checks | Emerald's symbol table, as the thing being resisted; doc 02 §12.4 and doc 03 §13.3 are the two prior declines | 52, 62 | `planned` — `docs/57 - 63 - Instance Inference.md` |
+| 64 | `macro-invocation` | Macros become callable as `name! \-> e` — `!` marks the name, the nullary lambda opens the argument, layout closes it, and **no brackets or braces anywhere**. Then the keyword family that existed only because macros were unreachable is **deleted**: `assert`, `panic`, `todo`, `unimplemented`, `unreachable`, `print`, `otherwise`. Plan 45 §1.5 left this row the spelling decision and found that **`assert! true` misparses to `assert!(!true)`**; plan 48 priced the gap at 855 of 867 blocking lines. `print` gains a family it never had — `eprintln!` is unreachable today, so a diagnostic-emitting program cannot exist. Token-stream DSLs go through plan 45's shipped `rust` block | doc 01 §23's retained macro syntax, whose enabling token doc 18 §7 spent before any row implemented it — the drift plan 51 now guards | 45, 55, 59 | `planned` — `docs/58 - 64 - Macro Invocation.md` |
+
+### Sequencing, and why it is not negotiable
+
+Three constraints, each with a reason:
+
+1. **Plan 51 goes first.** This milestone adds roughly a dozen constructs and retires several the
+   corpus depends on. A coverage gate installed *before* that work makes each row prove its own
+   discoverability as a condition of being `done`, rather than leaving a dozen `$`-shaped holes.
+2. **Plans 56 → 57 → 58 are a chain, and ship separately.** They could be one row. Separating
+   them means the corpus migrates once for method syntax and once for pipeline semantics, each
+   with its own unchanged-stdout assertion — so if the second goes wrong the first is green.
+3. **Plan 64 goes last.** It deletes `print`, which every one of the 29 examples uses. Nothing
+   else should be in flight when 29 files change their most common line.
+
+Plan 59 is also constrained: it must land *after* plan 56, because currying is what turns a bare
+`block` from a rustc error into a silently-passed function item. The milestone creates that
+hazard and closes it in the same milestone.
+
+### What this milestone costs the documents
+
+Docs 01, 02, 03, 18 and 30 are all amended, and two recorded decisions are **reversed with their
+original reasoning preserved**: doc 18 §4's composition decline (plan 58) and doc 18 §11.5's
+instance deviation (plan 63). Doc 18 §5.2's whitespace rule is struck outright (plan 52).
+
+One disclosure belongs here rather than in a plan. **Adjacency as a disambiguator now appears
+three times** — plan 52 removes it from `::`, plan 57 adopts it for `(.name)` versus `.name`, and
+plan 64 adopts it for `foo!` versus `! foo`. Each is individually the cheapest available answer
+and the pattern is worth consolidating into one stated rule by a later row. It is written down
+here so that row has the argument ready rather than reconstructing it.
+
+---
+
 ## Ordering commitments
 
 Four constraints on reordering, each with a reason that cost somebody something:
@@ -283,13 +388,19 @@ no plan may introduce a `types.rs`, `helpers.rs` or any other bucket.
 Every plan clears, before it is `done`:
 
 ```bash
-moon run :check          # blaze check — fast inner-loop verdict
+moon run :check          # per-crate `cargo check` — rustc's verdict
 moon run :lint           # cargo fmt --check && cargo clippy -D warnings
-moon run :test           # unit, integration, doctests
-moon run :cargo-check    # rustc's verdict — AGENTS.md: rustc is the final word
-moon run :cargo-test     # cargo nextest run
+moon run :test           # cargo nextest run, then the doctests
 moon run :format         # treefmt
 ```
+
+**Corrected 2026-11-10.** This block listed `:cargo-check` and `:cargo-test` until plan 51
+copied it into fourteen new plans. Those targets **do not exist**: AGENTS.md records that
+*"`:check` and `:test` *are* rustc's answer now"* — moon runs cargo per crate, so the
+double-check they performed against blaze has no second verdict to reconcile. Plan 45 §10
+recorded the sharper reason they went: an inputs-only override of a removed task resolves to
+`Command: noop`, and `moon run :cargo-test` **reported success having run nothing**. A gate
+naming a target that does not exist is the same defect one document up.
 
 From Milestone 1 onward, additionally: every example `.sdx` transpiles, **its generated Rust
 compiles under real rustc**, runs, and its stdout is asserted. Golden text proves stability;
@@ -304,3 +415,8 @@ compilation proves correctness; neither substitutes for the other (doc 02 §8.1�
   They are not optional.
 - **Specification-closed** — rows 01–50 `done`; `docs/03 - Redox Surface Design.md` §23 has
   no open items, and doc 03 §18's residue list is empty.
+- **Surface-coherent** — rows 51–64 `done`. Milestone 9, added 2026-11-10 after the surface was
+  exercised at scale. The test is not that every row shipped but that the register's **deferred**
+  and **silent** classes are empty: no construct reads as one thing and emits another, and no
+  construct fails in a language the author did not write. `construct_coverage` green with an
+  empty `ALLOW` list is the standing proof that it stays that way.

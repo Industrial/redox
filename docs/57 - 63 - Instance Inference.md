@@ -1,0 +1,306 @@
+# Plan 63 — Instance Inference
+
+Plan ID: `instance-inference`
+Depends on: 52 (`type-colon`), 62 (`ascription-completion`)
+Milestone: 9 — *surface coherence*
+Status: `planned`
+
+---
+
+## 1. What this plan is
+
+An `instance` method may omit its signature. The class supplies it, with the class variable
+substituted for the instance head.
+
+```
+class Money t                   instance Money Entry
+  cents_of : &t -> i64            cents_of self = self.cents
+  pretty : &t -> String           -- signature taken from the class, t := Entry
+  pretty self = format_cents (self.cents_of ())
+```
+
+This is the one row in the milestone that adds machinery Redox has deliberately not had, and it
+should be read with that in mind. §1.3 is the argument; §6 is the honest cost.
+
+### 1.1 The deviation is recorded in doc 18 §2.5, which already weighed this row and refused it
+
+Three corrections to how this row's first draft cited its own subject, because the citation is
+load-bearing.
+
+**It is doc 18 §2.5, not §11.5.** §11.5 is *"Three findings from converting rather than
+designing"* and is about the `--1` comment rule, hand-written position literals, and
+`no_literal_expectations.rs`. `examples/class.sdx` carries the same wrong pointer — *"Doc 18
+§11.5 records the deviation"* — which this row inherited from the corpus. Correcting the corpus
+comment is leaf 6's, and it is a second instance of plan 51's subject found by hand.
+
+**§2.5's example does restate the signature**, and §2.5 says why it does:
+
+> **An instance method restates its signature**, and the line above is a correction to this
+> document's first draft, which omitted it. Rust's `impl` restates it too; Redox would have to
+> resolve the class to copy one from it, and AGENTS.md forbids growing any name resolution. The
+> cost is one line per method and the alternative was a feature that could not be built.
+
+So the omitting form was a draft, corrected deliberately — which makes this row a **reversal of a
+considered decision** rather than the closing of an oversight.
+
+**And AGENTS.md does not contain a name-resolution prohibition.** Its rule is about *checks*:
+*"Redox has no type checker, no borrow checker and no exhaustiveness checker, and must never grow
+one."* Doc 18 §2.5 and `examples/class.sdx` both attribute a resolution ban to it. That
+attribution is the thing §1.3 examines, and it is the only part of §2.5's reasoning this row
+disputes — *"a feature that could not be built"* is the claim being tested.
+
+### 1.2 What the restatement costs, measured
+
+| | Count |
+|---|---|
+| Files with a `class` or `instance` block | **1** — `examples/class.sdx` |
+| Signature-bearing member lines in it | **6** |
+| …of which are *method* signatures | **4** |
+| …of which this row can elide (class-bearing, single-variable) | **3** |
+
+Three lines in 703 is not, by itself, a crisis — and the corpus understates it, because only one
+example uses the construct at all. Two things make it worth a row.
+
+**The restatement can drift.** A signature that disagrees with its class is a rustc error about a
+trait impl — correct, and arriving in generated Rust, about a mismatch Redox could see.
+
+**It is the last place the surface lies.** After plans 52 through 62, `instance` is the only
+construct whose Haskell form means something Redox does not do. Doc 18 §2.5 shows one thing and
+the language requires another, and the corpus comment exists to explain the difference.
+
+### 1.3 The resolution needed is narrow, and the boundary is assertable
+
+AGENTS.md's rule is about **checks**, quoted in §1.1. Doc 18 §2.5's phrasing is about **name
+resolution**, which is a different thing, is not in AGENTS.md, and which this row needs a little
+of.
+
+What it needs:
+
+1. given `instance Money Entry`, find the declaration `class Money t`;
+2. read the method's declared signature from it;
+3. substitute `t := Entry`.
+
+What it does not need: types, inference, trait solving, coherence checking, or knowledge of
+whether `Entry` satisfies anything. **rustc does all of that**, and a wrong substitution is a
+rustc error exactly as a wrong restatement is today.
+
+The scope boundary is the same one plan 56 §1.4 drew for arity, in its corrected form:
+**classes declared in the file being compiled.** Plan 14's `module` loads nothing — it emits
+`mod name;` and plan 14 decision 4 refuses import resolution outright — so there is no
+cross-file story to inherit. A class that cannot be found is a named diagnostic asking for the
+signature, not a silent pass-through, so the feature degrades to today's behaviour rather than
+to a rustc error.
+
+That boundary is assertable, and criterion 6 asserts it, because a resolver that quietly widens
+is how a project acquires the thing AGENTS.md forbids.
+
+### 1.4 Multi-variable classes keep restating
+
+A class with one type variable needs one substitution. A class with more — `class Convert a b` —
+needs to know which instance argument binds which variable, and in which order, which is where a
+local substitution becomes a resolution problem with genuine choices in it.
+
+So: **omission is available when the class declares exactly one type variable**, and anything
+more restates, with a diagnostic saying why. That covers every class in the corpus and the
+overwhelming majority of real ones, and it keeps the mechanism a substitution rather than a
+solver.
+
+---
+
+## 2. Verified preconditions
+
+Measured 2026-11-10, against `redox` at `194fdf7`.
+
+**The restatement is required.** `examples/class.sdx`, in today's `::` spelling:
+
+```
+instance Shape Square
+  const SIDES :: u32 = 4
+  area :: &Square -> f64
+  area self = self.side * self.side
+```
+
+Omitting the signature is `RDX0101: expected '::' after the name, to begin the signature`,
+pointing at the equation — the parser demands a signature line, so there is no form for a bare
+equation inside an `instance` to take.
+
+**Inherent `instance` blocks exist and have no class.** `examples/class.sdx`'s `instance Square`
+with `perimeter :: &Self -> f64` — no class name, so nothing to infer from, and `Self` rather
+than the type name. These must keep restating and the diagnostic must not suggest otherwise.
+
+**Default methods already carry a signature in the class.** `describe :: &t -> &'static str` with
+`describe self = "a shape"` in the class body — so the class is already the place a signature is
+written, and this row reads what is there rather than needing a new declaration form.
+
+**`const` members restate too.** `const SIDES :: u32 = 4` against the class's
+`const SIDES :: u32`. Same mechanism, and in scope — §4 leaf 3.
+
+**Every class in the corpus is single-variable.** There is exactly one, `class Shape t`, so
+§1.4's limit is currently invisible and will be met by the first `class Convert a b` anyone
+writes.
+
+---
+
+## 3. Concrete proof this plan targets
+
+**`examples/class.sdx` loses three signature lines and compiles to byte-identical Rust.** The
+emitted `impl` must still restate, because Rust's does; the *source* stops having to. A golden
+diff of zero is the proof that this is a surface change.
+
+Five more:
+
+1. **A substituted method.** `area self = …` in `instance Shape Square`, with the emitted
+   signature `fn area(&self) -> f64` matching the hand-restated version exactly.
+2. **A default method overridden with no signature**, which must take the class's and not
+   silently get a different one.
+3. **A `const` member.** §2's `SIDES`.
+4. **An inherent `instance`**, which must still restate, with a diagnostic that says *why* —
+   there is no class — rather than repeating the one-variable rule.
+5. **A two-variable class.** §1.4's refusal, as a `tests/ui/` fixture.
+
+And one negative: **a restated signature that disagrees with the class is a Redox diagnostic**,
+not a rustc trait error. That is leaf 4 and it is the half of this row that pays off even for
+authors who keep restating.
+
+---
+
+## 4. Leaves
+
+### Leaf 1 — `leaf-class-lookup`
+
+Find a class declaration by name **within the file being compiled**. The narrowest possible
+resolver: one name, one kind of declaration, one file, no scopes to walk. Returns not-found
+rather than guessing — including for a class in a sibling file, which §1.3 states is out of
+scope rather than a bug.
+
+### Leaf 2 — `leaf-signature-substitution`
+
+Read the method's signature from the class and substitute the single type variable. The
+substitution is textual over the verbatim type (doc 03 §14.1), which is what makes it a
+substitution and not a type operation.
+
+### Leaf 3 — `leaf-const-members`
+
+The same for `const` members, which declare a type and no parameters.
+
+### Leaf 4 — `leaf-mismatch-diagnostic`
+
+A restated signature compared against the class's, with a named code on disagreement. Independent
+of omission and useful without it — this is the leaf that would be worth shipping even if §1.3's
+argument had failed.
+
+### Leaf 5 — `leaf-refusals`
+
+Three diagnostics: class not found, more than one type variable, inherent `instance`. Each with a
+`tests/ui/` fixture and each saying something different, because a reader who omits a signature
+needs to know which of the three they hit.
+
+### Leaf 6 — `leaf-corpus-and-docs`
+
+`examples/class.sdx`'s three elidable restatements removed. **Doc 18 §2.5**'s deviation marked
+resolved with its reasoning preserved — and `examples/class.sdx`'s comment amended twice: once
+for the resolution, and once because it cites §11.5 where it means §2.5 (§1.1).
+`docs/GRAMMAR.md` regraded; `docs/STATUS.md` updated.
+
+---
+
+## 5. Acceptance criteria
+
+1. An `instance` method of a one-variable class may omit its signature, and the emitted `impl`
+   is byte-identical to the restated version — asserted by a golden diff of zero.
+2. A `const` member may omit its type.
+3. A default method overridden without a signature takes the class's.
+4. A restated signature disagreeing with the class is a named Redox diagnostic, with the class's
+   and the instance's forms both shown.
+5. Class-not-found, multi-variable and inherent-`instance` are three distinct diagnostics with
+   three `tests/ui/` fixtures.
+6. **The resolver's scope is asserted**: a class in a module that `module` does not load is
+   not-found, and the test states that boundary explicitly so a future widening is a deliberate
+   change to a failing test.
+7. All 29 examples green, no rustc output, stdout unchanged; `examples/class.sdx`'s golden diff
+   is **empty**.
+8. `construct_coverage` green.
+9. **Doc 18 §2.5** marked resolved, citing this row and preserving its original reasoning; and
+   `examples/class.sdx`'s §11.5 pointer corrected to §2.5.
+
+---
+
+## 6. Out of scope, and what it discloses
+
+**This row adds a name resolver, and that is a scope expansion.** It is the only one in the
+milestone and it should be read as a genuine cost rather than a technicality. The mitigations are
+that it resolves one kind of name, that it cannot check anything, that its boundary is asserted
+by criterion 6, and that not-found degrades to today's behaviour. The risk is the ordinary one:
+a resolver that exists gets used, and the next row wanting one will cite this plan rather than
+argue from scratch.
+
+If that is judged too expensive, **leaf 4 is separable and carries most of the value** — the
+mismatch diagnostic needs the same lookup and delivers the drift-catching benefit without
+changing the surface. Shipping leaf 4 alone is a coherent outcome and §9 records it as the
+fallback.
+
+**Multi-variable classes keep restating.** §1.4. Every class in the corpus is single-variable, so
+this limit is currently invisible, and it will be met by the first `class Convert a b` anyone
+writes.
+
+**Inherent `instance` blocks keep restating, permanently.** There is no class to read. That is
+not a limitation to be lifted later; it is what an inherent impl is.
+
+**The emitted `impl` still restates.** Rust requires it. So this row narrows the
+source-to-generated gap's *contents* while widening its *shape* — one source line becomes two
+generated ones. Doc 04's second ordering commitment applies, and leaf 2 must keep the span of the
+instance method's name pointing at the source the author wrote.
+
+---
+
+## 7. Gate
+
+```bash
+moon run :check          # per-crate cargo check -- rustc's answer
+moon run :lint           # cargo fmt --check && cargo clippy -D warnings
+moon run :test           # cargo nextest run, then the doctests
+moon run :format         # treefmt
+```
+
+Plus: every example transpiles, compiles under rustc with no output, runs, stdout unchanged;
+`examples/class.sdx`'s golden diff empty; three `tests/ui/` fixtures from leaf 5;
+`construct_coverage` green.
+
+---
+
+## 8. Emerald reuse
+
+Negative, and specific. Emerald grew a symbol table and doc 02 §12.4 declines a type checker
+*because* of what that cost — and doc 03 §13.3 declines transpile-time evaluation citing
+Emerald's plan 61 needing a step-limit flag. The pattern in both is a mechanism that started
+narrow and was asked to do more.
+
+This row is the test of whether that pattern can be resisted deliberately. Criterion 6 — assert
+the resolver's boundary, so widening it breaks a test — is the mechanism, and it is borrowed from
+plan 46's rule that an `UNREACHABLE` fixture must still **fail**, so the test breaks when a gap
+closes.
+
+---
+
+## 9. Decision log
+
+1. **Infer the signature, reversing doc 18 §2.5.** That section calls the alternative *"a
+   feature that could not be built"*, which is the claim §1.3 disputes: the resolution needed is
+   narrower than the ban it was measured against, and the ban is not in AGENTS.md.
+2. **Single type variable only.** §1.4. More than one turns a substitution into a solver with
+   choices in it.
+3. **Not-found degrades to today's behaviour.** A diagnostic asking for the signature, rather
+   than a guess or a rustc error.
+4. **Leaf 4 is independent and is the fallback.** §6. If the resolver is judged too expensive,
+   the mismatch diagnostic alone is worth the lookup and changes no surface.
+5. **Assert the scope boundary as a test, not a convention.** Plan 46's discipline: a boundary
+   that is only written down drifts; one that is asserted fails loudly when crossed.
+6. **Land last among the type-level rows.** It depends on plan 52's token and plan 62's
+   ascription being settled, and it is the row most likely to be cut — so it should be the one
+   whose removal costs the least.
+
+---
+
+## 10. Result
+
+*Not yet executed.*
