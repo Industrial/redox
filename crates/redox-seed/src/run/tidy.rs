@@ -1,0 +1,33 @@
+//! Remove the incremental cache the seed's own API leaves behind.
+
+use std::path::Path;
+
+/// Delete `<dir>/.redox-cache/`, ignoring whether it was there.
+///
+/// # Why a bootstrap tool deletes a cache
+///
+/// `compile_dir_with` writes its cache to `<out>/.redox-cache/`
+/// (`cache/store.rs`), which is exactly right for the caller it was built for:
+/// plan 09's `build.rs` passes `OUT_DIR`, where an incremental cache is the
+/// whole point and cargo owns the directory.
+///
+/// The seed's output directory is a crate's `src/`, under version control, and
+/// there the same cache is wrong three ways. `.redox-cache` is **not** in
+/// `.gitignore`, so it would be committed. `one_construct_per_file` walks for
+/// `*.rs` with no hidden-directory exclusion, so it would grade every cached
+/// file as a construct and fail — `directory_structure` has `is_hidden` and
+/// would not, which is the kind of disagreement between two tests that stays
+/// quiet until something writes the file. And a one-shot bootstrap gains
+/// nothing from a cache it will never read again.
+///
+/// Deleting is the seed's business rather than the driver's: `compile_dir`'s
+/// behaviour is correct for its intended caller and changing it would need the
+/// cache key reworked anyway (see `walk`'s doc). Plan 72 leaf 1.
+pub(crate) fn tidy(dir: &Path) {
+  // Errors are deliberately dropped. The only ones possible are "it was not
+  // there", which is the desired state, and a permission failure on a
+  // directory the seed just wrote — which the caller will notice when the
+  // layout tests fail, with a far better message than this function could
+  // produce.
+  let _ = std::fs::remove_dir_all(dir.join(".redox-cache"));
+}

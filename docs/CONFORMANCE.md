@@ -64,7 +64,8 @@ Each is graded `UNREACHABLE` in `docs/GRAMMAR.md`.
 | `redox-lsp` | 22 | 2 | 9% |
 | `redox-mcp` | 19 | 0 | 0% |
 | `redox-parser` | 115 | 1 | 1% |
-| **total** | **520** | **9** | **2%** |
+| `redox-seed` | 6 | 0 | 0% |
+| **total** | **526** | **9** | **2%** |
 
 ---
 

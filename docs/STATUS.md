@@ -45,7 +45,8 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 | `redox-lsp` | 934 | 502 |
 | `redox-mcp` | 808 | 776 |
 | `redox-parser` | 7974 | 609 |
-| **total** | **32233** | **18611** |
+| `redox-seed` | 275 | 130 |
+| **total** | **32508** | **18741** |
 
 ---
 

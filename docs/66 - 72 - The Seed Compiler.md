@@ -1,6 +1,6 @@
 # Plan 72 — The Seed Compiler
 
-Status: `planned`
+Status: `partial` — leaf 1 done 2026-11-10
 Depends on: 68 (the AST in Redox), 69 (the formatter in Redox), 70 (the source beside the crate), 09 (the cargo integration)
 
 > **Numbering.** Plan **72**, doc index **66**. Row 71 (`cursor-support`, doc 65) was
@@ -91,6 +91,11 @@ last step of each port, not a one-time switch.
 
 Measured 2026-11-10 against `redox` at `c7d9c37`.
 
+> **§11 corrects two of this section's claims.** One of the two dependency
+> blockers below is measured and the other was an inference stated as a
+> precondition, and the leaf order is wrong as a consequence. Read §11.1 before
+> relying on this section.
+
 **The toolchain has none of what a WASM build needs.** `rustc --print target-list` knows
 `wasm32-wasip1`, `-p2` and `-p3`, but **no wasm `std` is installed**, there is no `rustup`
 to add one (the toolchain is Nix-pinned), and no `wasmtime`, `wasm-opt`, `wasm2c` or
@@ -162,7 +167,8 @@ One binary, one job: `.sdx` in, `.rs` out, over a directory. No `watch`, no `che
 `fmt`, no fancy diagnostics — diagnostics print as plain text, because `miette`'s `fancy`
 feature is one of the two things that blocks the target.
 
-It depends on `redox-driver`'s `compile_dir` and nothing else new. Deliverable includes
+It depends on `redox-driver`'s `compile_dir` and nothing else new — which
+turned out not to be enough on its own, twice: see §11.2 and §11.3. Deliverable includes
 **the measured `wasm32-wasip1` size**, at `opt-level = "z"`, `lto`, `panic = "abort"`,
 stripped, then `wasm-opt -Oz`. §2's estimate is 1–2 MB; the criterion is that the number is
 measured and recorded, not that it falls under a bound.
@@ -171,6 +177,10 @@ measured and recorded, not that it falls under a bound.
 
 `wasm32-wasip1` std, plus a runtime. **Recommend `wasmtime`**: one dependency, no
 compilation step, and Nix pins it as easily as anything else.
+
+**§11.1 moves this leaf before leaf 1's measurement**: the question of what
+actually blocks the target cannot be answered without the target, and leaf 1
+was built on an inference about it.
 
 `wasm2c` is the alternative and is what Zig chose, for a reason worth recording: converting
 to C means the only build dependency is a C compiler, which every platform has. The cost is
@@ -361,4 +371,109 @@ other projects' measured decisions, surveyed at plan 70:
 
 ## 10. Result
 
-*Not yet executed.*
+**Leaf 1 is done.** `crates/redox-seed` — 275 code lines across six files, a
+transpile-only binary with no `clap`, no `notify` and no terminal. It
+reproduces `crates/redox-ast/src` **byte for byte**: 53 of 53 files identical to
+what is committed, after the native rustfmt pass leaf 5 will run, asserted by
+`crates/redox-seed/tests/seed.rs`.
+
+The remaining leaves are untouched. Leaf 2 is next and §11.1 explains why it
+should have been first.
+
+---
+
+## 11. Corrections from orientation
+
+### 11.1 §2 stated an inference as a precondition, and the leaf order follows from it
+
+§2 lists two dependencies as blocking a `wasm32-wasip1` build of `redox-cli`.
+Measured against the seed's actual dependency graph:
+
+| §2's claim | Measured |
+|---|---|
+| `notify` blocks the target | **Gone by construction** — `cargo tree -p redox-seed` contains it zero times, because `notify` is only in `redox-cli` |
+| `miette { features = ["fancy"] }` blocks the target | **Still linked.** `backtrace`, `backtrace-ext`, `owo-colors`, `supports-color` and `terminal_size` are all in the seed's graph |
+
+The seed is 86 unique crates against `redox-cli`'s 119, so the diet is real —
+but rendering with `render(.., plain: true)` is **not** the same as not linking
+the graphical path, which is what the crate's module doc says and what the
+measurement confirms. Cargo's feature unification puts `fancy` in the graph
+because `redox-driver` depends on `redox-diag` with default features.
+
+**And whether `fancy` blocks the target at all is still unverified**, because
+`wasm32-wasip1` std is not installed. That claim came from reasoning about what
+`supports-color` and `terminal_size` do, not from a compiler. It may be wrong:
+`backtrace` has a no-op fallback, and both of the others may well compile and
+simply report nothing useful under WASI.
+
+So §2 is **half measured and half inferred**, and presents both the same way.
+The consequence is an ordering mistake: leaf 1 was built to avoid a blocker
+nobody has confirmed, and the 5-crate feature-gating refactor it implies —
+`redox-diag`'s `miette` made optional, `redox-driver` forwarding the feature,
+three callers enabling it — **has not been done and should not be until the
+target says it is needed.** `plain_one.rs` referencing `miette` zero times
+against `graphical_one.rs`'s four means the gate is tractable when wanted.
+
+**Leaf 2 therefore comes before leaf 1's measurement criterion.** Install the
+target, build the seed as it stands, and let rustc name what blocks. The plan
+said *"nothing was buildable to confirm sizes by measurement, which is why leaf
+1 carries a measurement criterion"* — and then put leaf 1 first anyway.
+
+`devenv.nix` was deliberately not touched: it is a shared, high-blast-radius
+file, a concurrent session was mid-flight on `flake.nix` and `flake.lock`, and
+the toolchain comes from a `cursor.features.languages-rust` module whose
+`targets` option is unverified. Breaking it breaks every command in the
+repository for two sessions at once.
+
+### 11.2 `compile_dir` does not descend, and plan 09's cargo path has the same hole
+
+Pointed at `crates/redox-ast/sdx`, the first seed wrote **7** files where the
+crate has **53**. `sdx_in` lists one directory; it does not recurse.
+
+This is not only the seed's problem. **Plan 09's documented `build.rs`
+integration has it too** — a user whose `src/` has subdirectories gets a silent
+partial build from the path `examples/cargo-project/` advertises, and nothing
+caught it because that example holds a single `greeting.sdx` at top level.
+`tests/port.rs` never hit it either, because it invokes `redox build` once per
+file rather than using `compile_dir` at all.
+
+The seed walks, in `src/run/walk.rs`, which needs no change to shared code: one
+`compile_dir_with` call per directory keeps every cache key unique because the
+store is scoped to the output directory it is handed.
+
+**Fixing `compile_dir` itself is a successor row**, and the reason is in
+`cache/store.rs`: the cache is keyed by **file stem**, writing `{key}.rs`, so
+two `expr.sdx` in different directories would collide. Re-keying a cache is a
+change to the incremental path that wants its own row and its own evidence.
+
+### 11.3 The driver writes its cache into the output tree, and two layout tests disagree about it
+
+`compile_dir_with` writes `<out>/.redox-cache/`. For plan 09's caller that is
+the whole point — `out` is `OUT_DIR` and cargo owns it. For the seed, `out` is
+a crate's `src/`, and there the same cache is wrong three ways:
+
+1. `.redox-cache` is **not** in `.gitignore`, so it would be committed.
+2. `one_construct_per_file` walks for `*.rs` with **no** hidden-directory
+   exclusion, so it would grade every cached file as a construct — while
+   `directory_structure` has `is_hidden` and would not. Two tests disagreeing
+   about the same directory, quiet until something writes one.
+3. A one-shot bootstrap gains nothing from a cache it will never read.
+
+The seed deletes it, in `src/run/tidy.rs`, and `tests/seed.rs` asserts the
+absence rather than assuming it — because the failure would otherwise arrive as
+a message about constructs rather than about caching.
+
+### 11.4 Two smaller drifts, found in passing
+
+`moon_project_graph.rs`'s `declared_sources` scans **every** line of a
+`moon.yml` for `- '/crates/<name>/`, not only the lines inside the
+`dependency_sources` group. So a task-input glob of `/crates/*/sdx/**/*`
+contributes a crate named `*` and fails the transitive-dependency check;
+`redox-cli` carries that shape only because its `/crates/**/*.rs` line is
+special-cased. `redox-seed`'s moon.yml names `redox-ast` explicitly instead,
+which is also more accurate — that is the one tree its test reads.
+
+`AGENTS.md` says `.moon/workspace.yml` *"now spells the project sources out
+instead of globbing"*. It globs `crates/*` and spells out only
+`project-template`, which is why the new crate was picked up with no change
+there.

@@ -990,6 +990,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "redox-seed"
+version = "0.1.0"
+dependencies = [
+ "redox-diag",
+ "redox-driver",
+]
+
+[[package]]
 name = "ref-cast"
 version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"

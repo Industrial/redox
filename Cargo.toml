@@ -14,6 +14,11 @@ members = [
   "crates/redox-diag",
   "crates/redox-driver",
   "crates/redox-fmt",
+  # Plan 72 (`docs/66 - 72 - The Seed Compiler.md`) leaf 1 - the bootstrap
+  # seed. Transpile only, no `clap`, no `notify`, built for `wasm32-wasip1`
+  # and checked in as `redox1.wasm` so a ported crate need not commit the
+  # Rust it generates.
+  "crates/redox-seed",
   # Plan 40 (`docs/35 - 40 - LSP.md`) — the language server, editor-agnostic
   # by construction; plan 49 ships the clients.
   "crates/redox-lsp",
