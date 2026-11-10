@@ -127,7 +127,7 @@ checked against the host language instead of against this project's history.
 | Tuple patterns | `PASSTHROUGH` | `examples/destructuring.sdx` |
 | Slice patterns, with `..` | `PASSTHROUGH` | `examples/destructuring.sdx` |
 | Range patterns | `PASSTHROUGH` | `examples/case.sdx` |
-| `ref` and `ref mut` | `UNREACHABLE` | `tests/unreachable/ref_pattern.sdx` — regraded 2026-11-10. `ref` is **not reserved**, so `ref a` lexes as two identifiers and the pattern parser answers `RDX0101`; the old note claimed `PASSTHROUGH` against `examples/destructuring.sdx`, which contains no `ref`. Nearest: **match ergonomics**, which is what that example actually uses — `case &pair of (a, b) ->` binds by reference with no keyword. What is lost is the case where ergonomics do not apply and a binder must be explicitly `ref mut` |
+| `ref` and `ref mut` | `UNREACHABLE` | `tests/unreachable/ref_pattern.sdx` — regraded 2026-11-10. `ref` is **not reserved**, so `ref a` lexes as two identifiers and the pattern parser answers `RDX0101`; the old note graded this `PASSTHROUGH` and cited a destructuring example that contains no `ref` at all. Nearest: **match ergonomics**, which is what that example actually uses — `case &pair of (a, b) ->` binds by reference with no keyword. What is lost is the case where ergonomics do not apply and a binder must be explicitly `ref mut` |
 | `\|` or-patterns | `UNREACHABLE` | `tests/unreachable/or_pattern.sdx` — doc 18 made `\|` a **guard**, so `1 \| 2 ->` parses and means `1` guarded by `2`. Nearest: **separate arms**, which match the same values; what is lost is one arm body shared across patterns |
 
 ### 1.6 Statements and control flow

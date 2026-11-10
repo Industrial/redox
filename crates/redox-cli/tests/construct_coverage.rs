@@ -60,10 +60,19 @@ use redox_lexer::{StrPart, Token, TokenKind, TriviaKind, lex};
 
 /// The smallest index that can be believed.
 ///
-/// `docs/GRAMMAR.md` grades 89 rows, 7 of them `UNREACHABLE`, so 82 are in
-/// scope here. The floor is deliberately below that and deliberately not at
-/// it: a row legitimately added or regraded should not fail this, and a parse
-/// that loses a table should.
+/// `docs/GRAMMAR.md` grades somewhat more rows than this, a handful of them
+/// `UNREACHABLE` and so out of scope here. The floor is deliberately below the
+/// real count and deliberately not at it: a row legitimately added or regraded
+/// should not fail this, and a parse that loses a table should.
+///
+/// **The count is deliberately not written down.** It was, as "89 rows, 7 of
+/// them `UNREACHABLE`, so 82", and it has been wrong twice since — 91/7/84
+/// once plan 54 graded assignment, then 93/8/85 once `ref`/`ref mut` was
+/// regraded. A frozen number beside a constant that exists *because* the
+/// number moves is the defect plan 52 §10.4a found three times over in byte
+/// offsets derived in comments. `every_graded_row_has_a_witness` prints the
+/// real figures when it fails, which is where a reader who needs them is
+/// already looking.
 const MINIMUM_ROWS: usize = 80;
 
 /// Rows this gate records as uncovered rather than asserting.
@@ -135,15 +144,6 @@ const ALLOW: &[(&str, &str)] = &[
      here — plan 51's §6 is explicit that this gate cannot tell a missing \
      example from a mis-graded row, and the next step is to try writing one",
   ),
-  (
-    "ref and ref mut",
-    "the strongest of the seven, and possibly a mis-grading rather than a \
-     gap: `ref` is **not** in doc 18 §7's reserved set, so it lexes as an \
-     ordinary identifier and `ref x` in a pattern is juxtaposition, not Rust's \
-     `ref` binding. If that is right the row belongs under `UNREACHABLE` with \
-     a fixture, which is plan 46's to regrade and not this test's to assert — \
-     doc `GRAMMAR.md` itself notes match ergonomics make the construct rare",
-  ),
 ];
 
 /// The length of [`ALLOW`] when this gate was written.
@@ -151,7 +151,7 @@ const ALLOW: &[(&str, &str)] = &[
 /// The list may shrink. Raising this is a deliberate act with a diff, which is
 /// the friction plan 51 §9.3 asks for: an escape hatch with none becomes the
 /// answer to every failure.
-const ALLOW_AT_MERGE: usize = 7;
+const ALLOW_AT_MERGE: usize = 6;
 
 // ---------------------------------------------------------------------------
 // The inventory
@@ -1077,14 +1077,6 @@ const WITNESSES: &[Covers] = &[
     row: "Range patterns",
     spelling: "`18..=64 -> …`",
     witness: Witness::Toks(&["«int»", "..=", "«int»", "->"]),
-  },
-  Covers {
-    row: "ref and ref mut",
-    spelling: "`ref name` or `ref mut name` in a pattern",
-    witness: Witness::Any(&[
-      Witness::Toks(&["ref", "«id»"]),
-      Witness::Toks(&["ref", "mut"]),
-    ]),
   },
   // --- §1.6 Statements and control flow ---
   Covers {

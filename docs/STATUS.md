@@ -33,19 +33,19 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 
 | Crate | `src` | `tests` |
 |---|---:|---:|
-| `redox-ast` | 2485 | 0 |
+| `redox-ast` | 2701 | 0 |
 | `redox-bench` | 588 | 217 |
-| `redox-cli` | 1372 | 7201 |
-| `redox-diag` | 1396 | 0 |
-| `redox-driver` | 2460 | 0 |
-| `redox-emit` | 4277 | 4015 |
-| `redox-fmt` | 2640 | 1494 |
+| `redox-cli` | 1372 | 7193 |
+| `redox-diag` | 1574 | 0 |
+| `redox-driver` | 2897 | 0 |
+| `redox-emit` | 4420 | 4015 |
+| `redox-fmt` | 2713 | 1454 |
 | `redox-fuzz` | 120 | 268 |
 | `redox-lexer` | 2708 | 910 |
 | `redox-lsp` | 889 | 496 |
 | `redox-mcp` | 777 | 776 |
-| `redox-parser` | 6447 | 543 |
-| **total** | **26159** | **15920** |
+| `redox-parser` | 6483 | 541 |
+| **total** | **27242** | **15870** |
 
 ---
 
@@ -56,7 +56,7 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 | `examples/*.sdx` | 30 | the CI-checked source of truth for what works |
 | `tests/golden/*.xrs` | 29 | the generated Rust, as exact text |
 | `crates/redox-cli/tests/ui/*.sdx` | 32 | the diagnostic a bad program gets |
-| `tests/unreachable/*.sdx` | 6 | the gaps below, asserted to **still fail** |
+| `tests/unreachable/*.sdx` | 7 | the gaps below, asserted to **still fail** |
 | `benchmarks/pairs/*.sdx` | 9 | generated and hand-written Rust, as identical IR |
 
 **30 examples and 29 goldens is not an error.** `examples/lexical.sdx` deliberately does not parse — it is the error-path example, and `benchmarks/REPORT.md` excludes it from the throughput sweep for the same reason. Reporting "30 examples, all green" would be rounding up by exactly one file.
@@ -65,7 +65,7 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 
 ## Gaps
 
-7 Rust constructs a Redox program cannot express. Read out of `docs/GRAMMAR.md`'s `UNREACHABLE` rows rather than listed again here, so the two cannot disagree; each has a fixture that the gate asserts **still fails**, so closing a gap breaks the build until both documents are updated.
+8 Rust constructs a Redox program cannot express. Read out of `docs/GRAMMAR.md`'s `UNREACHABLE` rows rather than listed again here, so the two cannot disagree; each has a fixture that the gate asserts **still fails**, so closing a gap breaks the build until both documents are updated.
 
 | Construct | Fixture |
 |---|---|
@@ -73,6 +73,7 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 | Macro invocations | `tests/unreachable/macro_call.sdx` |
 | `as` casts | `tests/unreachable/as_cast.sdx` |
 | `extern "C" fn` (export) | `tests/unreachable/extern_fn_abi.sdx` |
+| `ref` and `ref mut` | `tests/unreachable/ref_pattern.sdx` |
 | `unsafe impl` | `tests/unreachable/unsafe_class.sdx` |
 | `unsafe trait` | `tests/unreachable/unsafe_class.sdx` |
 | `|` or-patterns | `tests/unreachable/or_pattern.sdx` |
