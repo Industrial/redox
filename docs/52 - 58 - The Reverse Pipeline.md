@@ -31,7 +31,9 @@ have a method of that name, `x |> myfn` compiles and calls the method instead of
 Nothing reports it. Adding an import can change what an existing pipeline means.
 
 That is a narrow hazard today because `|>` is nearly always applied to iterator methods, which
-is what the corpus does with all 24 of its pipeline operators. It is a wide hazard the moment anyone
+is what the corpus does with **all 23** of its live pipeline operators — §11.6 measured them and
+not one is a free function. (§11.5 corrects the count: 28 occurrences, 26 in code, 23 that parse.
+Two of the 24 this paragraph originally claimed are prose.) It is a wide hazard the moment anyone
 writes a free function and reaches for the operator that every other language would let them use.
 
 ### 1.2 Plan 57 is what makes this affordable
@@ -171,6 +173,12 @@ Six more:
 them. If either collides, the fallback pair is recorded in §9 decision 3 rather than invented at
 the gate.
 
+**The collision checks are discharged, in §11.1, before this leaf runs.** Neither spelling is
+in the operator table, and the sharper question — whether maximal munch can steal a valid
+program — is answered by a fact this plan did not state: Redox spells a closure `\n -> …`, not
+`|n|`, so `|<` has no closure parameter list to eat. §9 decision 3's fallback pair is therefore
+not needed, and this leaf is the two token arms and nothing else.
+
 ### Leaf 2 — `leaf-reverse-application`
 
 `|>` becomes reverse application. The lowering is `f (x)` where it was `x.f()`, and plan 57's
@@ -210,10 +218,18 @@ emitting its own shape — one lowering for everything that produces a closure, 
 
 ### Leaf 4 — `leaf-corpus-migration`
 
-24 pipeline operators across 5 examples, 15 of them in `examples/section.sdx`. Mechanically
-this is plan 57's migration already done —
-every corpus step is a method and plan 57 marked them — so this leaf is mostly verification that
-nothing was missed, plus the new examples from §3.
+**23 live pipeline operators across 4 examples, 16 of them in `examples/section.sdx`** —
+corrected by §11.5, which measured **28** occurrences in 5 files, 2 of them inside comments and
+3 in `examples/lexical.sdx`, the error-path example that deliberately does not parse. The
+figures this leaf was written with, *"24 across 5 examples, 15 of them in
+`examples/section.sdx`"*, are within one and two of the live count, which is near enough to look
+verified and is not.
+
+Mechanically this is plan 57's migration already done — §11.6 confirmed the claim behind that
+by measuring what the corpus actually pipes into: all 23 are collection or iterator methods
+(`map` 6, `sum` 5, `into_iter` 3, `filter` 3, `count` 3, one each of `unwrap`, `max`, `len`) and
+**not one is a free function**. So this leaf is mostly verification that nothing was missed, plus
+the new examples from §3 — and §1.1's hazard has stayed theoretical for exactly the same reason.
 
 ### Leaf 5 — `leaf-docs`
 
@@ -238,7 +254,17 @@ semantics section is struck. `docs/GRAMMAR.md` regraded; `docs/STATUS.md` update
 6. `<<` and `>>` are unchanged, and `expressions.sdx`'s shift assertion still passes.
 7. The §1.1 hazard is unreachable: a function and a same-named method are both callable and
    distinguishable, asserted in one example.
-8. All 29 examples green, no rustc output, stdout unchanged from before the migration.
+
+   **§11.7 confirmed this is assertable, which was not obvious** — it reads like it needs name
+   resolution Redox must never have. It does not: after leaf 2, `x |> f` is `f(x)` and
+   `x |> .f` is `x.f()`, so the two differ by one character **in the source** and rustc resolves
+   each independently. The criterion is a parsing and lowering assertion, which is the only form
+   AGENTS.md's *"every check rustc can make, rustc makes"* leaves available to it.
+8. Every example green, no rustc output, stdout unchanged from before the migration.
+
+   **No count, deliberately.** This criterion said *"All 29 examples green"*, and the corpus has been 29, then 30, then 31 during this milestone alone — `examples/local.sdx` arrived with plan 55 leaf 1. A number here is a criterion that a future example breaks. The invariant is what matters and it is already enforced: `examples.rs` runs every file and excepts exactly the ones its `NOT_PARSEABLE` constant names, today `["lexical.sdx"]`, the error-path example. `docs/STATUS.md` is generated and is where the count lives.
+   `examples/lexical.sdx` is excluded from "green" as always, and §11.5 is the reason it also
+   holds 3 of the corpus's 28 `|>` occurrences without being migratable.
 9. `construct_coverage` green with `>|` and `|<` indexed.
 10. Doc 18 §4's composition decline is amended, citing plan 56.
 
@@ -424,3 +450,20 @@ have. It does not. After leaf 2, `x \|> f` is `f(x)` and `x \|> .f` is
 rustc resolves each independently. The criterion is a parsing and lowering
 assertion, not a name-resolution one — which is the only form it could take
 here, since AGENTS.md forbids the analysis that any other form would need.
+
+### 11.8 The method-reference section has an owner now, and it is not this row
+
+Leaf 2 says the `(\|> name)` method reference *"becomes a different construct
+and is plan 57's"*, while plan 57's §11.3 read its own leaf 7 as regrading only
+a doc table. Each row pointed at the other.
+
+**Settled 2026-11-10 in plan 57 §1.3: plan 57 retires the construct**, because
+plan 57 builds the replacement and `Section::Method`'s emitted text is
+byte-identical to what a bare `.name` will lower to. The rule applied is plan
+65's: whoever builds the replacement retires what it replaces, so no window
+exists in which neither spelling works.
+
+What that means here is that **this row inherits nothing**. By the time `\|>`
+becomes reverse application there is no `(\|> name)` left to reinterpret —
+which matters, because under reverse application `(\|> f)` would mean
+`\|x\| f x`, and that is just `f`: a section that sections nothing.

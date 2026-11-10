@@ -117,6 +117,12 @@ files.
 **A bare name emits the function item**, which rustc rejects today with *"use parentheses to
 call this function"* — plan 20 §10.6's finding, re-measured and unchanged.
 
+That sentence is true of raw rustc and false of Redox, which §11.6 is the finding for: `check.rs`
+passes `--error-format=short` and `RustcMessage::parse` keeps only positioned diagnostics, so
+`redox check` reports `E0277 … doesn't implement Display` and nothing else. **A Redox user never
+sees the parentheses line**, which matters because "rustc already tells them" is part of this
+row's motivation.
+
 **The factory pattern depends on the bare name, today.** Verified running:
 `rate = Effect::retry probe_rate (Schedule::recurs 4) |> flat_map parse_rate` makes four attempts
 against a flaky upstream and succeeds, where a single shared description could not. `suspend` is
@@ -126,10 +132,16 @@ what defers the body; the binding is what rebuilds it.
 as the argument. Plan 57 removes the method-call side of this; the *call* side is this row's,
 because `drain` stops needing `()` at all.
 
-**Corpus scale.** **39** `name ()` call sites on parameterless Redox bindings across the new
-corpus's 905 code lines — one every twenty-three lines — plus `sizes ()`, `block ()`,
-`inner::hello ()` and `inner::deeper::deep ()` in the examples. The `()` is not a rare
-ceremony.
+**Corpus scale.** At least **13** `name ()` call sites on parameterless Redox bindings in
+`examples/` alone — eight in `examples/strings.sdx` (`nested`, `pattern_text`, `quoted`,
+`initial`, `tag`, `magic`, `ffi_name`, `block`) and five in `examples/module.sdx`. The `()` is
+not a rare ceremony.
+
+Corrected from *"**39** `name ()` call sites … across the new corpus's 905 code lines — one every
+twenty-three lines — plus `sizes ()`, `block ()`, `inner::hello ()` and `inner::deeper::deep ()`
+in the examples"*: §11.4 counts the examples at three times the four sites that sentence named,
+and §11.5 found the corpus the 39 came from **is not in this repository** — `id_effect`,
+`Effect::retry` and `Schedule::recurs` appear in documents only.
 
 ---
 
@@ -163,6 +175,18 @@ The syntactic test from §1.3: does the right-hand side contain an application? 
 aggregates, paths to other constants — shared. Anything else — a function. One pass over the
 declaration's expression, no evaluation.
 
+The classification has a precedent and **one property the precedent lacks**, which §11.3 is the
+finding for. `names_a_constructor` classifies a record head by case alone and drives two
+lowerings — *"decidable from the source text alone, which is doc 03 §2's admission test 1 and the
+reason this needs no name resolution"* — and `ascribed_list` and `expr_list` are two more. All
+three classify **locally**. This one does not: the declaration's classification determines every
+use site's spelling, and that cross-site agreement is a new property rather than an inherited
+one. It is where the row's risk actually lives.
+
+Placement is settled by plan 56 §11.3 and is cited rather than re-derived: the **check** rides
+`parse()`, the declared chokepoint; the **rewrite** rides the emitter's entry. Not `parse()`
+alone, because `redox_fmt::format` consumes the same `Program`.
+
 ### Leaf 2 — `leaf-const-emission`
 
 A shared binding emits `const`, which is doc 03 §13.4's default. `static` keeps its explicit
@@ -174,11 +198,21 @@ keyword's meaning conditional. Reuses plan 16's emission rather than adding a se
 A function binding's use site emits the call. The name alone is the whole surface; the
 parentheses are gone from both sides.
 
+**Bounded to the file being compiled**, per §11.1: bare names, and paths into an **inline**
+`module` with a body. A bodiless `module` has `items: None` and `emit_module` writes `;`, and
+`Expr::Path` is verbatim text with no structured name to resolve, so the referent is not in this
+`Program` and Redox cannot know to elide the call. Outside that set the use site keeps today's
+parenthesised spelling, which is the fallback plan 56 §11.8 had and this row's first draft
+removed.
+
 ### Leaf 4 — `leaf-explicit-keyword-still-works`
 
 `const` and `static` with the keyword keep working and keep meaning exactly what they mean. A
-keyword on a non-const expression is a diagnostic, which is rustc's error today and becomes a
-Redox one.
+keyword on a non-const expression stays **rustc's error**, which is the status quo.
+
+Amended from *"a keyword on a non-const expression is a diagnostic, which is rustc's error today
+and becomes a Redox one"*, which §11.2 found rejects a program that compiles today — see
+criterion 5, where the measurement is.
 
 ### Leaf 5 — `leaf-corpus-and-docs`
 
@@ -186,22 +220,87 @@ Redox one.
 amended — its finding was correct and its rule is superseded. Doc 03 §13.4 and doc 18 §7 updated;
 `docs/GRAMMAR.md` regraded.
 
+**At least 13 call sites, not four** — §11.4's count, listed in §2. And two statements of plan
+52's fallout live in files this row already touches, so they are this leaf's: `const_decl.rs`'s
+doc comment and `examples/constants.sdx` both still say the type goes *"after the same `::`"*
+(§11.7).
+
 ---
 
 ## 5. Acceptance criteria
 
-1. A parameterless binding is used by name, with no parentheses, at every use site including
-   module-qualified ones.
+1. A parameterless binding is used by name, with no parentheses, at every use site **in the file
+   being compiled** — bare names, and paths into an **inline** `module` with a body.
+
+   Amended from *"at every use site including module-qualified ones"*, which §11.1 found leaves a
+   cross-file binding with no spelling at all: `Expr::Path` is carried verbatim as a `String`, a
+   bodiless `module` has `items: None` and `emit_module` writes `;`, so the referent is not in
+   this `Program` and Redox cannot know to elide the call. Measured there: `print inner::probe`
+   emits `println!("{}", inner::probe)` → `E0277: fn() -> u32 {probe} doesn't implement Display`.
+   Plan 56 §11.8 withdrew the same claim for the same reason; criterion 4 narrows to the same set
+   so that the parenthesised spelling survives outside it.
 2. A literal binding emits `const`; a working binding emits `fn` plus an elided call. Both
    asserted in goldens, so the classification is visible.
 3. `Effect::retry probe_rate (…)` makes four attempts against the flaky-upstream fixture — a
    **run** assertion, per §3 case 3.
-4. `name ()` with explicit parentheses is a diagnostic naming the bare form, because every
-   program written before this row uses it.
-5. Explicit `const` and `static` are unchanged; a keyword on a non-const body is a Redox
-   diagnostic.
-6. All 29 examples green, no rustc output, stdout unchanged.
-7. `construct_coverage` green.
+
+   §11.5 found **the fixture does not exist and cannot live in `examples/`**. `id_effect`,
+   `Effect::retry` and `Schedule::recurs` appear in documents only — zero hits under `crates/`,
+   `examples/` or any `Cargo.toml`, which has no `[workspace.dependencies]` section at all. And
+   `redox check` shells out to bare rustc with `--edition 2024 --error-format=short
+   --emit=metadata` and **no `--extern`**, so an external-crate fixture needs the
+   `examples/cargo-project/` shape — `Cargo.toml`, `build.rs`, `include!`, driven by
+   `compile_dir` — a project that has no parameterless binding and no `module` today. On top of
+   that infrastructure the criterion wants a **nondeterministic upstream** that must still
+   satisfy a deterministic `*.stdout` gate.
+
+   §11.5 stops at *"state that or drop it"*, which is two options and not a decision. The
+   criterion is left standing and the choice between **stating that cost** and **dropping the
+   criterion** is open and owed.
+4. `name ()` with explicit parentheses is a diagnostic naming the bare form **where the callee is
+   a bare name, or a path into an inline `module`, declared parameterless in this file** —
+   because every program written before this row uses it. Everywhere else `()` keeps being erased
+   exactly as today.
+
+   Amended from *"`name ()` with explicit parentheses is a diagnostic naming the bare form"*,
+   which §11.1 found fires across the whole language: `()` is erased for every call on one line.
+
+   ```rust
+   // emit/expr_list.rs
+   if matches!(args, [Expr::Unit { .. }]) { return String::new(); }
+   ```
+
+   `HashMap::new ()`, `String::new ()`, `.len ()`, `.is_ok ()` and `sizes ()` all travel through
+   it, so the diagnostic must fire for the last and stay silent for the rest. The narrowing is
+   criterion 1's set, which is also the only set this row can decide.
+
+   **One residual is owed**, and §11.1 names it rather than settling it: inside that set a lambda
+   parameter, an equation binder or a `where` local sharing a name with a parameterless binding
+   is indistinguishable from the binding itself at the call site — the undecidability plan 56
+   §11.1 withdrew its leaf 3 over. Whether leaf 3 keeps the diagnostic silent in the presence of
+   a local shadow, or the diagnostic goes the way of plan 56's leaf 3, is not decided here.
+5. Explicit `const` and `static` are unchanged. A keyword on a body §1.3's syntactic test calls
+   non-const is **left to rustc**, which is the status quo: the genuinely non-const case is
+   `E0015: cannot call non-const function`, remapped onto the `.sdx` at the right column.
+
+   Amended from *"a keyword on a non-const body is a Redox diagnostic"*, which §11.2 found
+   rejects a program that compiles today:
+
+   ```text
+   square : const u32 -> u32
+   const SQ : u32 = square 7     ->  const SQ: u32 = square(7);   exit 0, clean
+   ```
+
+   `square 7` contains an application, so §1.3's syntactic test calls it non-const and the
+   original criterion refuses it; `const N : usize = size_of::<u32>()` is the same shape. That is
+   a check rustc makes, and makes well, so the original breaks AGENTS.md's standing rule — *every
+   check rustc can make, rustc makes* — and costs working programs. Leaf 4 is amended to match.
+6. Every example green, no rustc output, stdout unchanged.
+
+   **No count, deliberately.** This criterion said *"All 29 examples green"*, and the corpus has been 29, then 30, then 31 during this milestone alone — `examples/local.sdx` arrived with plan 55 leaf 1. A number here is a criterion that a future example breaks. The invariant is what matters and it is already enforced: `examples.rs` runs every file and excepts exactly the ones its `NOT_PARSEABLE` constant names, today `["lexical.sdx"]`, the error-path example. `docs/STATUS.md` is generated and is where the count lives.
+7. `construct_coverage` green — near-free as the row stands, per §11.7: coverage keys off
+   `docs/GRAMMAR.md` rows, `const fn` and `const`/`static` are already witnessed by
+   `examples/constants.sdx`, and nothing grades `f ()`. It stops being free if leaf 5 adds a row.
 8. Plan 20 §10.6 and doc 18 §7 are both amended, each citing this row.
 
 ---
@@ -378,6 +477,32 @@ external-crate fixture needs the `examples/cargo-project/` shape — `Cargo.toml
 parameterless binding and no `module` today. Criterion 3 is new infrastructure
 plus a nondeterministic upstream that must still produce deterministic stdout
 for the `*.stdout` gate. State that or drop it.
+
+#### Decided 2026-11-10: criterion 3 is dropped, and criterion 4 silences on a shadow
+
+**Criterion 3 goes.** §11.5 offered *"state that or drop it"*, and the deciding
+factor is not the build-out cost — it is what the criterion would install. A
+**nondeterministic upstream behind a byte-exact `*.stdout` gate is a flake
+generator**, and this repository has already paid heavily for intermittent
+failures it could not explain: AGENTS.md records a `watch.rs` test that fails at
+exactly 20 seconds under load, and a tmpfs exhaustion that plan 23 §10.8, doc 30
+§8.7 and plan 43 §10.3 each wrote down as *unexplained* before the mechanism was
+found. Adding a deliberate source of flakiness to a gate is the wrong trade at
+any price.
+
+Two supports. The corpus the criterion needs **is not in this repository** —
+§11.5 measured `id_effect` at zero hits outside `docs/` — so the criterion is
+not merely expensive but currently unbuildable, and plan 64 §11.3's witness was
+decided the same way on the same evidence. And §1.4's argument against
+memoisation stands without a running external-crate fixture: it is an argument
+about what a parameterless binding *means*, which a golden can assert.
+
+**Criterion 4 keeps its diagnostic and silences it when an enclosing binder
+shares the name**, which is §11.1's option (a). The asymmetry decides it: a
+diagnostic that fails to fire costs an author one `()` they did not have to
+remove, while one that fires wrongly **rejects a legal program**. That is the
+same test that withdrew plan 56's leaf 3 — a false-positive generator is worse
+than a gap — and applying it consistently is what makes the two rows coherent.
 
 ### 11.6 Plan 20 §10.6's quote is true of rustc and false of Redox
 

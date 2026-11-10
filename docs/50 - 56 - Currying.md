@@ -132,7 +132,7 @@ spelling for `|| e`, which is why `Effect::retry` factories in new code are name
 rather than closures. Plan 64 adds `\->`; this row does not depend on it but the interaction is
 recorded in §6.
 
-**Corpus scale.** 29 examples, 703 code lines; no example currently partially applies a named
+**Corpus scale.** 31 examples as of 2026-11-10 — `docs/STATUS.md` is generated and authoritative; 703 code lines; no example currently partially applies a named
 function, because it cannot.
 
 ---
@@ -418,6 +418,8 @@ positional binders (`signature_from.rs:55-58`), so `|__rdx_a|` would shadow
 
 ### 11.3 The pass has nowhere clean to live, and §4 does not say where
 
+**The rule this is a case of, stated at plan 61:** *a pass that rewrites `Program` has two consumers and will surprise one of them.* `redox-fmt` and `redox-emit` read the same tree, so a lowering that mutates it makes the formatter rewrite the author's source. Whatever this pass turns out to be, it belongs where only generated Rust can see it.
+
 `parse()` (`crates/redox-parser/src/parse.rs:24-42`) is the declared chokepoint
 and already returns `Result<Program, Vec<ParseError>>`, so a **check** there
 needs zero plumbing. But an **AST rewrite** there is wrong, because
@@ -474,8 +476,30 @@ Once `add 1` is a closure, `add 1 $ 2` is `Call{Lambda, [2]}` →
 `move |__rdx_1| add(1, __rdx_1)(2)`, which is §11.5's bug on a path §3 case 4
 names. The decision is either to flatten `Call(Call(f,[a]),[b])` into
 `Call(f,[a,b])` when `f`'s arity is ≥ 2 — restoring `add(1, 2)` and killing the
-allocation — or to parenthesise in the Call arm and pay for the closure. Assign
-it to a leaf.
+allocation — or to parenthesise in the Call arm and pay for the closure.
+
+**Decided 2026-11-10: flatten, and it is leaf 1's.**
+
+Two reasons, and the second is what makes it cheap.
+
+`add 1 $ 2` and `add 1 2` mean the same thing — `$` is Haskell's loose
+application and carries no meaning beyond precedence. If one emits
+`add(1, 2)` and the other a closure that is immediately called, then `$`
+has become **semantically significant**, and a reader would have to know
+which spelling allocates. That is a worse outcome than either listed cost.
+
+And the flatten needs no analysis that this row is not already building.
+§11.1's restatement limits currying to a bare `Expr::Ident` with a visible
+in-file signature — *exactly* the case where arity is known. So the
+condition *"when `f`'s arity is ≥ 2"* is satisfiable precisely where
+currying applies, and unnecessary everywhere else: an unknown-arity name
+emits a call today and keeps doing so, with no closure to flatten. **The
+flattening predicate and the currying predicate are the same predicate**,
+read off the same table. One table, two uses, no second pass.
+
+So leaf 1 owns both: it builds the arity table, and `Call(Call(f, [a]), [b])`
+collapses to `Call(f, [a, b])` whenever that table gives `f` an arity of two
+or more. §11.5's allocation goes with it, on the path §3 case 4 names.
 
 Minor: §3 case 4's `print $ add 1 $ 2` is the uninteresting half, since `print`
 is intercepted by `print_call`. `add 1 $ 2` alone is the case.

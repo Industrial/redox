@@ -166,49 +166,175 @@ Five more:
 Binding-position ascription emits `let x: T = e`. One emitter branch, keyed on whether the
 ascription is the whole right-hand side of a binding.
 
+Half of this already ships, which §11.6 is the finding for: the `let x: T = e` path exists keyed
+on `Binding.ty`, and `x : T = e` already parses — `examples/expressions.sdx:19` emits
+`let total: i32 = 40 + 2;` and `mut buffer : String = String::new ()` works. So this leaf's real
+content is rewriting `x = e : T` into the existing path, not building the path.
+
 ### Leaf 2 — `leaf-nested-block`
 
 The block lowering retained for genuinely nested positions, unchanged. Kept as a separate leaf so
 §3 case 2's assertion has an owner and the two paths are visibly two.
 
+**This leaf and criterion 2 cannot both stand, and the choice is open and owed** — §11.2 is the
+finding. A receiver *is* a nested position, so keeping the block here keeps the brace in
+`examples/module.sdx`'s method chain, keeps its `where` locals, and keeps the comment explaining
+them true; and decision 2's refusal of an identity-function trick forecloses the third option.
+Either this leaf narrows to exclude a receiver, or criterion 2 and §3's opening claim go. The
+leaf is left standing rather than resolved, because §11.2 states the conflict and does not pick.
+
 ### Leaf 3 — `leaf-pattern-ascription`
 
-`pattern : T` in a `case` arm, a `guard`, and an equation row. Emits Rust's pattern type
-annotation where one exists and falls back to annotating the scrutinee where it does not — a
-distinction leaf 3 must establish, because Rust's pattern grammar does not accept a type
-everywhere Redox's will offer one.
+`pattern : T` in a `case` arm, a `guard`, and an equation row. Lowered to a `let` in the arm
+body — `Err(e) => { let e: VersionError = e; … }` — which §11.3 found is the only workable
+lowering for the `case`-arm shape this row leads with.
+
+Amended from *"emits Rust's pattern type annotation where one exists and falls back to annotating
+the scrutinee where it does not"*, which §11.3 refuted in both halves: rustc accepts a type in a
+pattern in exactly three places — `let PAT: T = e`, let-else, and fn or closure parameters — and
+a `match` arm is not one of them (*"specifying the type of a pattern isn't supported"*), so the
+first half is vacuous for the headline example; and the scrutinee fallback **cannot express**
+`Err e : VersionError`, which pins only the error parameter where annotating the scrutinee would
+require naming the `Ok` type too. §11.3 also records that the other two positions are
+near-redundant: `guard`'s let-else annotates the source rather than the binder, and an equation
+row lowers to a fn parameter the signature line already types.
 
 ### Leaf 4 — `leaf-block-ascription`
 
 Ascription on a `try` or `async` block, which after plan 55 are block modifiers rather than
 constructs — so this is ascription on a block expression and needs no per-construct handling.
 
+**Re-sized to a test and an example by §11.1**, which measured both directions: an untyped `try`
+with two `From`-widening `?`s reproduces `E0282`, and the same block with the ascription at its
+binding compiles clean today, emitting `let r: Result<…> = (|| { … })();`. The remedy ships; what
+is left here is asserting it.
+
 ### Leaf 5 — `leaf-corpus-and-docs`
 
 `examples/module.sdx`'s workaround removed; `ascription.sdx` extended with the three new
 positions. Doc 18 §6 amended — note it discloses **four** lowerings, not three, so the ascription
-row is one of four and the others must not be disturbed. `docs/GRAMMAR.md` regraded, and the turbofish
-decline is written into `docs/DECLINED.md` with §1.4's measurement as its reason — plan 47 built
-that document for exactly this.
+row is one of four and the others must not be disturbed. The turbofish decline is written into
+`docs/DECLINED.md` with §1.4's measurement as its reason — plan 47 built that document for
+exactly this, and §11.6 confirms the entry is free because `declined.rs` checks one direction
+only.
+
+*"`docs/GRAMMAR.md` regraded"* is withdrawn, which §11.5 is the finding for: that document is an
+inventory of **Rust's** grammar — its §1 is headed *"Rust's grammar"* — and Rust has no
+ascription construct, so there is no ascription row and no pattern-type-annotation row to
+regrade. Removing `examples/module.sdx`'s workaround is still this leaf's, and it is contingent
+on §11.2's open choice above.
+
+### Leaf 6 — `leaf-interpolated-colon`
+
+A lone `:` inside `#{…}` that is not a valid format spec is a named diagnostic rather than a
+silent miscompile. Added by §11.4's `#### Decided 2026-11-10` block, which assigns the hazard to
+this row — plan 52 §4 gave it to plan 52's own leaf 3 and plan 52 §10 shipped recording only
+that it is *"not yet triggered"*, so it was unowned until now, and it belongs here because this
+row is what makes a `:` inside an expression ordinary.
+
+The fix is a diagnostic, **not** a disambiguation, checked against Rust's closed format-spec
+grammar — `[[fill]align][sign]['#']['0'][width]['.' precision][type]`, where `type` is one of
+`?`, `x`, `X`, `o`, `b`, `e`, `E` or empty. Text after `:` that **is** a valid spec stays a
+format spec; text that is not gets the diagnostic, saying a type ascription cannot be written
+inside an interpolation and to bind the value first; and where the two genuinely overlap —
+`#{v:X}` is both `X`-as-hex and `X`-as-type-parameter — **the format spec wins**, because that is
+what it means today and in Rust. `u64` fails the grammar at `u`, so `#{total : u64}` becomes a
+diagnostic rather than `println!("{: u64}", total)`.
+
+The fix may **not** be splitting on whitespace: that would make `#{x : T}` and `#{x:.2}` differ
+by a space, which is the exact hazard class plan 52 existed to delete. This leaf carries a
+`tests/ui/` fixture for the new code, because `code_coverage.rs`'s `NOT_YET_REACHABLE` is `&[]`
+and a code without a fixture fails the gate; plan 52 §4's witness stands,
+`tests/golden/strings.xrs`.
 
 ---
 
 ## 5. Acceptance criteria
 
-1. Binding-position ascription emits `let x: T = e`; a nested one emits a block. Both asserted in
-   goldens.
+1. `x = e : T` is rewritten into the existing annotated-`let` path and emits `let x: T = e`; a
+   nested one emits a block. Both asserted in goldens.
+
+   Amended from *"binding-position ascription emits `let x: T = e`"*, which §11.6 found half
+   already true: the path exists keyed on `Binding.ty` and `x : T = e` already parses —
+   `examples/expressions.sdx:19` emits `let total: i32 = 40 + 2;`, and
+   `mut buffer : String = String::new ()` works. The deliverable is the rewrite into that path,
+   not the path.
 2. `examples/module.sdx` no longer needs a `where` local to avoid a brace in a receiver, and the
    comment is deleted.
-3. Pattern ascription works in a `case` arm, a `guard` and an equation row.
-4. A `try` block is ascribable at its binding, and the forced-function-extraction workaround is
-   removed from the example that used it.
+
+   **This criterion and leaf 2 cannot both hold, and the choice is open and owed** — §11.2 is
+   the finding, and it states the conflict without picking. A receiver *is* a nested position, so
+   leaf 2's retained block keeps the brace: measured,
+   `let n = ({ let __rdx_t: HashMap<String, u32> = HashMap::new(); __rdx_t }).len();`. The locals
+   stay, the comment stays true, and all leaf 1 buys that file is re-spelling its locals as
+   `a : HashMap<String, u32> = HashMap::new ()` — which already works today. Decision 2's refusal
+   of an identity-function trick forecloses the third option, so either this criterion or leaf 2
+   goes.
+3. Pattern ascription works in a `case` arm, a `guard` and an equation row, lowered to a `let` in
+   the arm body — `Err(e) => { let e: VersionError = e; … }`.
+
+   Amended from *"pattern ascription works in a `case` arm, a `guard` and an equation row"* read
+   as leaf 3's Rust-pattern-annotation lowering, which §11.3 found impossible for this row's own
+   headline example: rustc accepts a type in a pattern only in `let PAT: T = e`, let-else, and fn
+   or closure parameters, and a `match` arm is none of them — *"specifying the type of a pattern
+   isn't supported"*. The stated scrutinee fallback cannot express `Err e : VersionError` either,
+   because that pins only the error parameter. The arm-body `let` is the lowering §11.3 names as
+   the only workable one. In the other two positions the ascription is near-redundant and the
+   criterion is an assertion of that: `guard`'s let-else annotates the source rather than the
+   binder, and an equation row lowers to a fn parameter the signature line already types.
+4. A `try` block is ascribable at its binding, asserted by a test and an example, and the
+   forced-function-extraction workaround is removed from the example that used it.
+
+   Amended from a deliverable to an assertion, which §11.1 is the finding for: measured both
+   ways, an untyped `try` with two `From`-widening `?`s reproduces
+   *"E0282: type annotations needed for `Result<(i32, f64), _>`"*, and the same block ascribed at
+   its binding **compiles clean with no output**, emitting `let r: Result<…> = (|| { … })();`.
+   The remedy ships today in both directions; §1's table row 3 and §1.2's *"a real restructuring
+   forced by a missing annotation"* overstate what is missing.
 5. `xs |> collect : Vec<i32>` ascribes the pipeline, asserted.
+
+   Amended from a deliverable to a regression assertion, which §11.6 is the finding for:
+   `xs.iter () |> collect : Vec<&i32>` already ascribes the pipeline rather than the `collect`
+   and already emits the block around the whole chain, because parse is gated at `min == 0`, the
+   loosest binding power, with `$` at 1.
 6. Turbofish is **not** added, and `docs/DECLINED.md` carries the decline with §1.4's three
    verified forms as evidence.
-7. All 29 examples green, no rustc output, stdout unchanged.
-8. `construct_coverage` green with the three new positions indexed.
+
+   §11.6 confirms the decline is safe — `::` is unconditionally a path separator and every site
+   after it demands a name, so `Vec::<i32>::new ()` is `RDX0103` and nothing accepts a turbofish
+   by accident — and records that the entry is free, because `declined.rs` checks one direction
+   only. It also records that §1.4's three compiled forms, like §1.3's measurement, come from the
+   `id_effect` port corpus and **cannot be settled from this repository**: no `id_effect` fixture
+   exists in the tree. The decline stands; its evidence is cited as external rather than as
+   reproducible here.
+7. Every example green, no rustc output, stdout unchanged.
+
+   **No count, deliberately.** This criterion said *"All 29 examples green"*, and the corpus has been 29, then 30, then 31 during this milestone alone — `examples/local.sdx` arrived with plan 55 leaf 1. A number here is a criterion that a future example breaks. The invariant is what matters and it is already enforced: `examples.rs` runs every file and excepts exactly the ones its `NOT_PARSEABLE` constant names, today `["lexical.sdx"]`, the error-path example. `docs/STATUS.md` is generated and is where the count lives.
+
+   §11.6 corrected 29 to 30; by the time it was propagated the corpus was 31, which is the point.
+8. *Withdrawn.*
+
+   Was *"`construct_coverage` green with the three new positions indexed"*, and §11.5 is the
+   finding for why it has no target: `docs/GRAMMAR.md` is an inventory of **Rust's** grammar —
+   its §1 is headed *"Rust's grammar"* — and Rust has no ascription construct, so there is no
+   ascription row and no pattern-type-annotation row to regrade, and plan 51's
+   `construct_coverage` reads the same rows and so has nothing to index. The number is kept
+   rather than closed up, for the reason plan 56 §4 gives: other sections cite the numbers.
+   `construct_coverage` staying green is already §7's, as an unchanged gate rather than as a
+   deliverable of this row.
 9. Doc 18 §6 amended; the generated-Rust shape change is reflected in the re-blessed goldens and
    reviewed.
+10. A lone `:` inside `#{…}` whose trailing text is not a valid Rust format spec is a **named
+    diagnostic**, with a `tests/ui/` fixture; a valid spec is unchanged, and where the two
+    overlap the format spec wins. `#{total : u64}` no longer emits `println!("{: u64}", total)`.
+
+    Added by §11.4, whose `#### Decided 2026-11-10` block assigns the hazard to this row: plan 52
+    §4 gave it to plan 52's own leaf 3 and plan 52 §10 shipped recording only that it is *"not
+    yet triggered"*, so it was unowned, and it belongs here because this row is what makes a `:`
+    inside an expression ordinary. The fix is a diagnostic rather than a disambiguation, decided
+    against Rust's **closed** format-spec grammar; the fixture is not optional, because
+    `code_coverage.rs`'s `NOT_YET_REACHABLE` is `&[]` and a new code without one fails the gate.
+    Leaf 6 carries it, and plan 52 §4's witness stands: `tests/golden/strings.xrs`.
 
 ---
 
@@ -341,6 +467,28 @@ leaf 1 buys that file is re-spelling its locals as
 Either criterion 2 or leaf 2 has to go, and decision 2's refusal of an
 identity-function trick forecloses the third option.
 
+#### Decided 2026-11-10: criterion 2 goes, and leaf 2 stays
+
+Not a coin toss — narrowing leaf 2 is **not achievable**, because the thing it
+would have to emit does not exist. Rust has no expression-level type
+ascription. `as` is a *cast*, not an ascription, and `docs/GRAMMAR.md` grades it
+`UNREACHABLE` in Redox anyway; a turbofish works only when the ascribed
+expression happens to be a call to a generic function, which is a special case
+and not a lowering; and hoisting to a `let` outside the expression changes
+where the value is evaluated and is impossible in positions that are not
+statements.
+
+So the block is **the only spelling** for an ascription in receiver position.
+That reframes §11.2's finding: the brace is not a workaround that this row
+removes, it is the lowering, and `examples/module.sdx`'s comment stays because
+it stays *true*. §3's *"the comment explaining the workaround is deleted because
+the reason is gone"* was simply wrong about receivers, and criterion 2 was
+asking for something no lowering can give it.
+
+What the row still buys that file is criterion 1's re-spelling, and §11.6 is
+right that that half already works. Criterion 1 is this row's real output
+change; criterion 2 was the part that read like more.
+
 ### 11.3 Criterion 3 is impossible for its own headline example
 
 rustc accepts a type in a pattern in exactly three places: `let PAT: T = e`,
@@ -388,6 +536,41 @@ Note what the fix may **not** be: splitting on whitespace. That would make
 `#{x : T}` and `#{x:.2}` differ by a space, which is the exact hazard class plan
 52 existed to delete.
 
+#### Decided 2026-11-10: this row owns it, and the fix is a diagnostic
+
+Not a disambiguation. Rust's format spec has a **closed grammar** —
+`[[fill]align][sign]['#']['0'][width]['.' precision][type]`, where `type` is
+one of `?`, `x`, `X`, `o`, `b`, `e`, `E` or empty — so the text after a `:`
+inside `#{…}` can be checked against it without knowing anything about types.
+
+The rule, in three lines:
+
+1. text after `:` that **is** a valid format spec stays a format spec;
+2. text that **is not** gets a named diagnostic saying a type ascription
+   cannot be written inside an interpolation, and to bind the value first;
+3. where the two genuinely overlap — `#{v:X}` is both `X`-as-hex and
+   `X`-as-type-parameter — **the format spec wins**, because that is what it
+   means today, what it means in Rust, and changing it would break working
+   programs to serve one that does not exist yet.
+
+`u64` fails the grammar at `u`, which is neither a sign, a flag, a digit nor a
+type character, so `#{total : u64}` becomes a diagnostic rather than
+`println!("{: u64}", total)`. That is the whole bug §11.4 opens with.
+
+Why a diagnostic rather than support: ascribing inside an interpolation buys
+nothing a binding does not — `t : u64 = total` then `#{t}` — and AGENTS.md's
+*"every check rustc can make, rustc makes"* cuts against growing a second
+reading of `:` to serve it. What this row must not leave in place is the
+**silent** path: `redox build` exiting 0 and rustc then complaining about a
+format string on a line whose author wrote a legal ascription. Converting a
+quiet miscompile into a loud refusal is the whole of the fix, and it is
+cheaper than either alternative.
+
+Leaf and criterion: this belongs with whichever leaf makes a lone `:` ordinary,
+and needs a `tests/ui/` fixture — `code_coverage.rs`'s `NOT_YET_REACHABLE` is
+`&[]`, so a new code without a fixture fails the gate. Plan 52 §4's witness
+stands: `tests/golden/strings.xrs`.
+
 ### 11.5 Criterion 8 has no target
 
 *"`docs/GRAMMAR.md` regraded"* and *"three new positions indexed"*. That
@@ -419,7 +602,7 @@ reads the same rows, so there is nothing for it to index either.
   and every site after it demands a name, so `Vec::<i32>::new ()` is `RDX0103`.
   Nothing accepts a turbofish by accident. `declined.rs` checks one direction
   only, so adding the entry is free.
-- **30 examples, not 29.**
+- **31 examples as of 2026-11-10, not 29 and no longer the 30 this bullet measured.**
 - §1.3's measurement — *"905 code lines, 186 `::` annotations, 84 at a value"* —
   is from the `id_effect` port corpus and **cannot be settled from this
   repository**; no `id_effect` fixture exists in the tree, which also makes

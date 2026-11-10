@@ -215,60 +215,176 @@ rule is the one thing plan 52 removed from `::`, so §6 records the inconsistenc
 ### Leaf 2 — `leaf-callback-argument`
 
 `\-> e` as the argument form, one arrow per argument, layout-delimited for the multi-line case.
-The nullary lambda itself already works (§2), so this leaf is the *argument position*, not the
-lambda.
+
+Amended from *"the nullary lambda itself already works (§2), so this leaf is the *argument
+position*, not the lambda"*, which §11.1 found false for the **multi-line** form — which is
+precisely the shape §1.3 shows and criterion 4 requires:
+
+```text
+f = \->
+  a = 1
+  a + 1
+->  RDX0102: expected an expression
+```
+
+So this leaf **either owns a layout-delimited lambda body, or criterion 4 is wholly dependent on
+plan 55 leaf 1** making an indented block an expression. The row declares the dependency on 55
+and then prices this leaf as if it were free, and §11.1 settles the disposition empirically
+rather than by argument: **re-run the probe above once plan 55 lands.** If a block is an
+expression by then, this leaf really is just the argument position; if it is not, the
+layout-delimited body is costed here. Until that probe runs the sizing is open.
 
 ### Leaf 3 — `leaf-interpolation-splice`
 
 `"… #{e} …"` inside a macro callback lowers to a format string plus arguments, reusing plan 23's
 existing interpolation lowering rather than a second one.
 
+**Cheaper than it reads**, which §11.5 is the finding for: `format_template` already returns
+exactly *(template, args)* and already has two callers — `format!` and `println!` — with a doc
+comment saying it is a pair *"because two callers need it"*. A third caller is a parameter, not a
+second implementation. (`split_format_spec` is in the **lexer**, not the emitter.) This leaf is
+also what criterion 7's `eprintln!` waits on — §11.5 again — since `print_call` is what turns
+`#{x}` into a template today.
+
 ### Leaf 4 — `leaf-rust-block`
 
-The layout-delimited `rust` block of §1.4, beside plan 45's string form.
+The layout-delimited `rust` block of §1.4, beside plan 45's string form — **two things, not
+one**.
+
+Amended from §1.4's *"the mechanism exists and is tested"*, which §11.5 found overstated:
+`rust """…"""` works as a **top-level item only**. In expression position it is `RDX0102`, and
+there is no block form at all — `rust` over an indented block is `RDX0101`. §1.4's own sample is
+an expression binding of a block, so this leaf adds both the expression position and the block
+form, and plan 45's tested mechanism covers only the item-level string form.
 
 ### Leaf 5 — `leaf-retire-the-family`
 
 Six constructs removed; six diagnostics added, each naming its replacement. One is a reserved
-word (`assert`) and five are emitter special cases — §1.5. `otherwise` is untouched and stays a
-keyword.
+word (`assert`) and five are emitter special cases — §1.5, with §11.5's correction that
+`leaves_ordinary_identifiers_alone` covers `print` only and the other four are true from the
+enum rather than from that test. `otherwise` is untouched and stays a keyword.
+
+**This leaf keeps the `==` → `assert_eq!` rewrite**, which §11.2 is the finding for: retiring
+`assert` into the general macro path is a **regression in diagnostic quality** without it.
+`assert_call`'s own doc comment argues why — *"those macros print both values when they differ
+and `assert!` prints only the expression's text. A test that fails and says `assertion failed:
+add(1, 2) == 3` has told the author nothing they did not type"* — and criterion 5's example is
+exactly the form that comment calls useless. §4's original text did not say the rewrite survives;
+it does.
 
 ### Leaf 6 — `leaf-corpus-migration`
 
-28 of the 29 examples use `print`. This is the largest single-construct migration in the
-milestone by site count and the most mechanical.
+**29 of the 30** examples use `print` — amended from *"28 of the 29"* per §11.4; the one without
+is `examples/lexical.sdx`, which §2 already names as the exception. This is the largest
+single-construct migration in the milestone by site count and the most mechanical.
 
 ### Leaf 7 — `leaf-docs`
 
 Doc 03 §12.6's panic-family table is deleted; §13.3's macro-definition decline is re-sited onto
-plan 45's shipped escape hatch; doc 18 §7's `!` retirement is amended. `docs/GRAMMAR.md` loses
-**one** of its two macro `UNREACHABLE` rows — invocation closes, **definition stays declined**
-(§6) — so `tests/unreachable/macro_call.sdx` goes and `macro_def.sdx` remains, which is plan 46's
-rule working in both directions at once. `docs/STATUS.md` and `docs/CONFORMANCE.md` both
-regenerate, and plan 48's 855-line figure should drop to near zero.
+plan 45's shipped escape hatch; doc 18 §7's `!` retirement is amended. `docs/GRAMMAR.md`
+**regrades** its macro-invocation row from `UNREACHABLE` to `SUGARED` while the macro-definition
+row **stays declined** (§6) — so `tests/unreachable/macro_call.sdx` goes and `macro_def.sdx`
+remains, which is plan 46's rule working in both directions at once. `docs/STATUS.md` and
+`docs/CONFORMANCE.md` both regenerate, and the blocking figure that document states should drop
+to near zero.
+
+Amended from *"`docs/GRAMMAR.md` loses **one** of its two macro `UNREACHABLE` rows"*, which
+§11.4 found to be the wrong verb: `construct_coverage` filters `UNREACHABLE` rows out and then
+requires **bidirectional** agreement between every reachable row and a `WITNESSES` entry, so a
+regrade needs a new `Covers` entry *and* a corpus witness — real work, not a deletion — and
+**deleting** the row would remove Rust's macro-invocation construct from the graded index
+entirely, which is the thing `docs/GRAMMAR.md` exists to prevent.
+
+Amended also from *"plan 48's 855-line figure"*: §11.4 found it wrong in both value and unit —
+`docs/CONFORMANCE.md` says *"Macro invocation accounts for **885 of 897** blocking
+occurrences"*, and it moves again on any commit that adds Rust. Cite the document rather than a
+number.
 
 ---
 
 ## 5. Acceptance criteria
 
-1. `\->` still emits `|| e` — a regression assertion, since §2 measured it already working,
-   and kept separate from the macro tests so a failure there is not mistaken for a macro
-   failure.
+1. `\->` still emits `|| e` **in its one-line form** — a regression assertion, since §2 measured
+   that much already working, and kept separate from the macro tests so a failure there is not
+   mistaken for a macro failure.
+
+   Scoped to the one-line form by §11.1: `g = \-> 7` emits `let g = || 7;`, but a `\->` over an
+   indented block is `RDX0102: expected an expression`. The multi-line form is criterion 4's and
+   is not a regression assertion, because it does not work today.
 2. `name! \-> e` invokes a macro with one argument; `\->` repeated supplies more.
 3. Interpolation inside a callback splices to a format string plus arguments, asserted in a
    golden.
+
+   §11.5 found this cheap: `format_template` already returns exactly *(template, args)* and
+   already has two callers, so a third is a parameter rather than a second implementation.
+   Criterion 7 depends on it.
 4. A multi-line callback is layout-delimited and runs.
-5. `assert! \-> a == b` reports the **expression text** on failure, asserted by a test that
-   catches the panic and inspects the message.
+
+   §11.1 found that the shape this requires **does not work today** — `\->` over an indented
+   block is `RDX0102` — so this criterion is either leaf 2's to build or wholly dependent on
+   plan 55 leaf 1 making an indented block an expression, and the row prices leaf 2 as if it were
+   free. §11.1's disposition is empirical: re-run its probe once plan 55 lands. Until then the
+   ownership is open.
+5. `assert! \-> a == b` reports the **Rust rendering** of the expression on failure, asserted by
+   a test that catches the panic and inspects the message; and the `==` → `assert_eq!` rewrite
+   survives the retirement of `assert`, so a comparison still prints **both values**.
+
+   Amended from *"`assert! \-> a == b` reports the **expression text** on failure"*, which §11.2
+   found backwards: **Redox does not stringify the source. Rust stringifies the generated Rust.**
+   `assert_call.rs` emits `format!("assert!({})", emit_expr(…))`, so under this criterion Rust's
+   `assert!` would print `add(1, 2) == 3` — not the text the author wrote. §1.3's *"`assert!`
+   recovers the expression text"* and §3's headline are overstated in exactly that way.
+
+   **Whether the row must report the `.sdx` text instead is open and owed.** §11.2 raises the
+   conflict with this project's standing rule that diagnostics report against the `.sdx` and does
+   not resolve it, and it names two obstacles the row does not price: `Sink` exposes no
+   span-to-text accessor, and **`emit()` passes `""`**, which every `redox-emit` test uses — so a
+   source-text feature would be silently empty in unit tests and populated only under
+   `redox build`, the worst possible failure shape. The second half of this criterion is settled:
+   §11.2 found that retiring `assert` into the general macro path is a regression in diagnostic
+   quality unless the `==` rewrite is kept, and leaf 5 now keeps it.
 6. `effect!` from `id_effect 0.13.0` is invocable, in a program that compiles and runs.
+
+   **Which macro, in which position, is open and owed** — §11.3 is the finding. A probe left in
+   scratch from the exercise that opened this milestone records that `caps!(T)` is a
+   **type-position** macro — `HCons<T, HNil>` — which `name! \-> e` cannot express in any form,
+   and that `effect!` is do-notation over a **block**, so this criterion collapses onto
+   criterion 4, the one thing measured not to work. §11.3 says the criterion should name which
+   macro, in which position, and whether it needs the block form; it names none of the three.
+   The same probe notes the family is largely avoidable in Redox because `|>` *is* the
+   combinator API written left to right, which is an argument about how much this criterion is
+   worth at all.
 7. `eprintln!` works — a capability the language lacks today.
+
+   §11.5 found it needs **no special case**: `eprint "x"` emits `eprint("x")`, a call to a
+   function no program defines, so `eprintln!` arrives by the general macro path. It is only
+   useful once leaf 3's splice exists, because `print_call` is what turns `#{x}` into a template
+   today.
 8. All six deleted constructs produce diagnostics naming their replacements, with `tests/ui/`
    fixtures. `otherwise` is **not** among them and still works.
 9. `test "description"` still works and is unchanged.
-10. All 29 examples green, no rustc output, stdout unchanged.
-11. `construct_coverage` green; `docs/GRAMMAR.md`'s macro **invocation** row deleted with its
-    fixture, and the macro **definition** row and fixture retained and still failing.
-12. `docs/CONFORMANCE.md` regenerated, and plan 48's blocking-line count restated.
+10. All **30** examples green, no rustc output, stdout unchanged.
+
+    Amended from *"all 29 examples"* — the corpus is 30, and `print` appears in 29 of them, per
+    §11.4.
+11. `construct_coverage` green; `docs/GRAMMAR.md`'s macro **invocation** row **regraded** from
+    `UNREACHABLE` to `SUGARED`, with a new `Covers` entry and a corpus witness, and its
+    `tests/unreachable/macro_call.sdx` fixture retired; the macro **definition** row and fixture
+    retained and still failing.
+
+    Amended from *"macro **invocation** row deleted with its fixture"*, which §11.4 found to be
+    the wrong verb: `construct_coverage` filters `UNREACHABLE` rows out and then requires
+    **bidirectional** agreement between every reachable row and a `WITNESSES` entry, so a
+    regrade is real work rather than a deletion — and deleting the row would remove Rust's
+    macro-invocation construct from the graded index entirely, which is the thing
+    `docs/GRAMMAR.md` exists to prevent.
+12. `docs/CONFORMANCE.md` regenerated, and the blocking count restated **by citing that document
+    rather than a number**.
+
+    Amended from *"plan 48's blocking-line count restated"*, which §11.4 found wrong in both
+    value and unit: `docs/CONFORMANCE.md` says *"Macro invocation accounts for **885 of 897**
+    blocking occurrences"* where §1.1 and leaf 7 said *"855 lines"*, and the figure moves again
+    on any commit that adds Rust.
 
 ---
 
@@ -294,7 +410,7 @@ Redox's business. A reader seeing `\->` may expect deferral, and §1.3 is the di
 **Token-stream DSLs go through `rust`, not through `!`.** §1.4. A macro whose input is not a
 Redox expression cannot be reached by a value-passing shape, and no spelling fixes that.
 
-**This row deletes `print`, which 28 of 29 examples use.** The migration is mechanical and
+**This row deletes `print`, which all but one example uses.** §11.4 counted 29 of 30; the corpus is 31 as of 2026-11-10, which is why this sentence now names the shape rather than a number. The migration is mechanical and
 large, and it is last in the milestone precisely so that nothing else is in flight while the
 corpus changes its most common line.
 
@@ -397,6 +513,25 @@ The row declares the dependency on 55 and then prices leaf 2 as if it were free.
 Re-run the probe above once plan 55 lands: if a block is an expression by then,
 leaf 2 really is just the argument position.
 
+#### Decided 2026-11-10: neither option — the probe is runnable now
+
+§11.1 left this to be resolved *"empirically after 55 lands"*, and that
+condition is met in a stronger form than it anticipated. **Plan 55 leaf 1 is
+done** — `StmtKind` is deleted and every body position holds an `Expr` — and
+**plan 65 then made layout work inside brackets**, which is precisely the
+construct in question: a multi-line body inside `(…)` that the lexer used to
+emit no layout token for at all.
+
+So the question is no longer which of two costs to pay. It is a measurement,
+and the measurement is cheap: write `name! -> e` with a layout-delimited body
+and see what comes out. If it works, criterion 4 needs nothing and leaf 2's
+contingent sizing collapses to zero; if it does not, leaf 2 owns the body and
+the cost is priced against a real failure rather than an anticipated one.
+
+**Owed: run the probe and record the result here before leaf 2 starts.** An
+"empirically, later" that is never run becomes a decision made by default, and
+that is what this block exists to prevent.
+
 ### 11.2 Criterion 5 has the stringification backwards, and deleting `assert` costs a feature
 
 **Redox does not stringify the source. Rust stringifies the generated Rust.**
@@ -421,6 +556,25 @@ that comment calls useless. Retiring `assert` into the general macro path is a
 **regression in diagnostic quality** unless the row keeps the `==` → `assert_eq!`
 rewrite, and §4 does not say it does.
 
+#### Decided 2026-11-10: accept Rust's rendering, and the tension is apparent only
+
+Rust's rendering of the generated Rust, option (a). The `.sdx` source-text
+alternative needs a span-to-text accessor on `Sink` *and* a fix for `emit()`
+passing `""`, and §11.2's own observation settles it: such a feature would be
+silently empty in every `redox-emit` test and populated only under
+`redox build`, which is a feature whose tests cannot see it.
+
+**The conflict with *"diagnostics report against the `.sdx`"* is a category
+error, not a trade.** That rule governs **Redox diagnostics** — the `RDX` codes
+this compiler issues about source it has read. A failed `assert!` is a **Rust
+runtime panic** emitted by the generated program at execution time; Redox is
+not the one reporting it, and the `.xrs` is a human-facing artifact precisely so
+that what Rust says about it is readable. The bridge already exists and is the
+right one: the source map, which plan 50's `redox_source_map` serves.
+
+So no rule is being bent. A panic message is not a diagnostic, and the two were
+only in tension while they were described in the same words.
+
 ### 11.3 Criterion 6's `id_effect` macros may not fit the callback shape at all
 
 §7 correctly discloses that `id_effect` is a dependency of nothing. But a
@@ -434,6 +588,31 @@ Criterion 6 should name *which* `id_effect` macro, in which position, and
 whether it needs the block form. The same probe notes that the macro family is
 largely avoidable in Redox because `|>` *is* the combinator API written left to
 right — which is an argument about how much criterion 6 is worth.
+
+#### Decided 2026-11-10: a simpler crates.io proc-macro, not an `id_effect` one
+
+Option (b), and against the reading that the witness should come from the crate
+that motivated the row. The deciding fact is in **plan 59 §11.5**, which
+measured it: `id_effect` appears in **documents only** — zero hits under
+`crates/`, under `examples/`, or in any `Cargo.toml`, and the workspace manifest
+has no `[workspace.dependencies]` section at all. The 1,501-line corpus that
+motivated this milestone is not in this repository.
+
+So option (a) does not merely name a macro. It requires the
+`examples/cargo-project/` shape — `Cargo.toml`, `build.rs`, `include!`, driven
+by `compile_dir` — because `redox check` shells out to bare rustc with **no
+`--extern`**. Plan 59 §11.5 flagged that same infrastructure as an open cost
+nobody has funded. Making criterion 6 depend on it funds it by accident, inside
+a row about macro invocation.
+
+And the criterion's job is narrower than its example suggests: it proves **token
+passthrough**, which any value-position proc-macro proves. `caps!` and `effect!`
+move to §6 as disclosed non-fits — §11.3 is right that one is type-position and
+the other block-position — and the witness becomes a proc-macro already
+reachable from this workspace.
+
+If the `id_effect` corpus is ever brought in-tree, promoting the witness is a
+one-line change against a passing test. That is the right order.
 
 ### 11.4 Two numbers, and a verb
 

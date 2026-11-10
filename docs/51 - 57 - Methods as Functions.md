@@ -86,6 +86,43 @@ The mitigation is a diagnostic rather than a hope: a parenthesised `(.name)` use
 is required, or a bare `.name` used as a selector, fails in rustc today and gets a named Redox
 code in leaf 5 instead. §6 records this as the row's one internal inconsistency.
 
+#### Decided 2026-11-10: plan 57 retires `(|> name)`, because plan 57 builds its replacement
+
+The redundancy is exact, not approximate. `emit_section` has two arms and
+`tests/golden/section.xrs` pins both:
+
+| Source | Emitted | Golden |
+|---|---|---|
+| `(.name)` | `\|__rdx_1\| __rdx_1.name` | line 54 |
+| `(\|> len)` | `\|__rdx_1\| __rdx_1.len()` | line 56 |
+
+A bare `.len` under this row is a method with its receiver last, which lowers
+to `\|x\| x.len()` — the **same text** as `Section::Method`. So the two
+spellings are not merely similar; after leaf 2 one of them is dead weight.
+
+**`(\|> name)` goes, and this row is what removes it.** The ordering rule is
+the one plan 65 established an hour earlier, when leaf 7 was forbidden from
+retiring `then` before a bracket could hold an indented `if`: **whoever builds
+the replacement retires the thing it replaces**, so there is never a window in
+which neither spelling works. Plan 57 builds `.name`; plan 57 therefore takes
+`Section::Method` out, in the same row, and leaf 7 regrades more than a doc
+table.
+
+`(.name)` **stays** — it is the field selector, doc 18 §4 retired `&:name` to
+get it, and §1.3's `)`-after-the-name discriminator is what keeps the two
+apart. Only the `\|>` spelling is redundant, because only it duplicates a
+method call.
+
+Two corpus sites hold it, both already known: `examples/lexical.sdx` line 41's
+`method_ref = (\|> name)`, which §11.3 established **parses cleanly** and is
+not part of that file's exemption, and a comment at `examples/section.sdx` line
+35. `benchmarks/pairs/section.sdx` pairs the construct and will re-bless.
+
+This also removes plan 58's dependency on an unowned decision: by the time
+`\|>` becomes reverse application, `(\|> name)` no longer exists to be
+reinterpreted. Without that, `(\|> f)` under reverse application would read as
+`\|x\| f x`, which is just `f` — a section that sections nothing.
+
 ### 1.4 `?.` is deleted
 
 Doc 18 §8 keeps `?.` among constructs retained *"because deleting **them** would cost
@@ -174,7 +211,7 @@ because `f a.b` is ambiguous. An index can: `parts[0]` works.
 **`(.name)` and `(|> name)` both work**, per doc 18 §4 and `examples/section.sdx` — the field
 selector and the method reference, which is the distinction this row generalises.
 
-**Corpus scale.** 52 method calls across 703 code lines in 29 examples.
+**Corpus scale.** 52 method calls across 703 code lines in 29 examples — §11.5 re-counted the method calls at 67 across 23 files, and the example count is 31 as of 2026-11-10 (`docs/STATUS.md` is generated and authoritative).
 
 ---
 
@@ -263,11 +300,47 @@ borrow claim re-sited onto the new spelling. `docs/GRAMMAR.md` and `docs/STATUS.
 4. `(.name)` still selects a field; bare `.name` calls a method; both in one running example.
 5. `x.f ()` is a named Redox diagnostic naming the replacement.
 6. `?.` is not a token; `examples/fallible.sdx` keeps its non-`Clone` assertion and still
-   compiles, which is what proves the chain still borrows.
+   compiles, which is what proves the chain still borrows — **written with an explicit `&`,
+   because without one it does not compile.**
+
+   **§1.4's reasoning is struck, which §11.4 is the finding for.** §1.4 claimed the `?.` chain
+   *"is expressible in the ordinary combinator vocabulary"*; probed, it is not, for exactly the
+   case this criterion names. A field selector **moves**: `(.tag)` lowers to
+   `|__rdx_1| __rdx_1.tag` with no `&`, so `map (.tag)` over a borrow is
+   `E0507: cannot move out of `__rdx_1.tag` which is behind a shared reference`. The risk was
+   never evaluation order.
+
+   **Decided 2026-11-10, rather than left to leaf 4: the replacement is the `try`-and-`?`
+   form.** §11.4 compiled both candidates clean and leaf 4 was told to *"name which"*:
+
+   | | Spelling | Why not / why |
+   |---|---|---|
+   | A | `u.as_ref () \|> and_then (\x -> x.profile.as_ref ()) \|> map (\p -> &p.tag)` | two lambdas and an `&` buried inside the second — three constructs where the original had one |
+   | **B** | `try` block over `Some (&u.as_ref ()? .profile.as_ref ()? .tag)` | **chosen** — one line, left to right, fallibility marked at each step exactly as `?.` marked it, and the `&` sits at the front where a reader sees it |
+
+   B keeps the shape of the construct being deleted, which is the property that makes a
+   migration readable rather than merely correct. **One dependency to honour**: plan 55 leaf 7
+   turns `try` from a block construct into a block *modifier*, so this example must be written
+   in the post-leaf-7 spelling, not the spelling §11.4 probed with.
+
+   **And the deletion radius is wider than §4 says.** Not *"the lexer and the parser"*: eleven
+   source files reference `QuestionDot` or `OptionalChain`, four of them in `redox-fmt`.
 7. Misuse of selector-versus-method is a Redox diagnostic, with `tests/ui/` fixtures both ways.
 8. All 29 examples transpile, compile with no rustc output, run, stdout asserted — **and the
    stdout is unchanged from before the migration**, which is this row's definition of
    behaviour-preserving.
+
+   **The migration surface is 67 sites across 23 files, not the 52-across-14 §1 states**, which
+   §11.5 measured by regex over comment-stripped sources with every match in the top five files
+   hand-checked: 55 sites in 15 `examples/` files, plus **12 sites in 8 files §1 does not count
+   at all**. Two of those twelve are the reason this criterion is not sufficient on its own —
+   `crates/redox-fmt/tests/fmt/expressions.sdx` and `expressions.canonical.sdx` hold three each,
+   and a `.canonical.sdx` is a **canonical-form assertion**, so this row changes what the
+   formatter's own expected output is. The remainder are two lint fixtures, a `tests/ui/` case,
+   `tests/unreachable/macro_call.sdx`, and two benchmark pairs.
+
+   So "all 29 examples green" is necessary and does not cover the row. The formatter's canonical
+   fixtures and the benchmark pairs need naming in §4 alongside it.
 9. `construct_coverage` green with `.name` indexed. (`?.` is not a `docs/GRAMMAR.md` row today —
    that inventory grades *Rust* constructs — so there is nothing to remove; plan 51's index is
    the thing that gains the entry.)
@@ -300,6 +373,19 @@ when no function `f` exists — would make meaning depend on what is in scope, s
 import could silently change a call. That is why `.name` is marked.
 
 ---
+
+**Deleting `?.` deletes a zero-cost assertion, and that is a real loss.**
+`benchmarks/pairs/optional_chain.sdx` and its `.rs` are a plan-44 IR-equality
+pair: they assert that the generated Rust and the hand-written Rust compile to
+the *same* IR, which is how this project proves a construct costs nothing.
+Removing the construct removes the proof with it. §11.4 found this; leaf 4 did
+not account for it.
+
+The honest statement is that the replacement chosen at criterion 6 — a `try`
+block over a `?` chain — is **not** covered by an IR-equality pair unless this
+row builds one, and the pair it replaces was one of only nine in the corpus.
+Either leaf 4 pairs the replacement, or this row trades a measured
+zero-cost claim for an unmeasured one and §6 says so.
 
 ## 7. Gate
 
@@ -439,10 +525,17 @@ and `:53-65`; `emit/section.rs:27-28` emits `|__rdx_1| __rdx_1.name` and
 file's exemption comes from lines 25, 28 and 40 only. Any claim that it is
 unparsed is false.
 
-What happens to `(|> name)` is unassigned: plan 58 leaf 2 says it "becomes a
+What happens to `(|> name)` was unassigned: plan 58 leaf 2 says it "becomes a
 different construct and is plan 57's", and this row's leaf 7 only regrades a
 doc table. Since `(|> len)` and a bare `.len`-as-value would have the same
-lowering, this row makes one of them redundant and should say which goes.
+lowering, this row makes one of them redundant and had to say which goes.
+
+**Settled 2026-11-10 — see §1.3's decision block.** `(|> name)` goes and this
+row removes it, because this row builds the replacement; `(.name)` stays as the
+field selector. Verified rather than reasoned: `emit_section`'s two arms emit
+`|__rdx_1| __rdx_1.name` and `|__rdx_1| __rdx_1.name()`, pinned at
+`tests/golden/section.xrs` lines 54 and 56, and the second is what a bare
+`.name` lowers to under this row. Leaf 7 is therefore more than a doc table.
 
 ### 11.4 Criterion 6 is the hardest criterion, and §1.4's reasoning is false
 
@@ -493,7 +586,7 @@ five files hand-checked:
 - `tests/golden/` holds **no `.sdx`** — goldens are `.xrs` paired against
   `examples/*.sdx`, so §1's "28 goldens plus 24 `examples/*.xrs`" needs
   rechecking against that.
-- There are **30** `examples/*.sdx` and 29 `.stdout`; "29 examples" is right
+- There are **31** `examples/*.sdx` and 30 `.stdout` as of 2026-11-10 — this bullet said 30 and 29 when written, and §1's "29 examples" was already stale then; `docs/STATUS.md` is generated and is the authority
   only as the run corpus.
 
 The `UnwrapUsed` lint is lexical, so it survives the respelling, but the two
@@ -535,8 +628,34 @@ lint fixtures still change.
   is where `.`-sections live. Five editor clients' `highlights.scm` are
   cross-checked by `crates/redox-cli/tests/editors.rs`. None of this appears in
   §4 or §5; its size is unmeasured.
-- **Unsettled: the formatter's canonical form for `.name args receiver`.**
-  `MethodCall` is referenced in four `redox-fmt` files. If the receiver is a
-  bare name, `.name a b` and `(.name a) b` both re-print plausibly, and
-  `can_drop_paren.rs` has to decide. `formatting_preserves_meaning` is the gate
-  that will catch a wrong choice.
+- **Settled 2026-11-10: the formatter's canonical form is `.name a b`, and it
+  needs no decision in `can_drop_paren` — it needs §11.2 to pick the right AST
+  shape.** `can_drop_paren(inner, required)` is one line,
+  `power_of(inner).is_some_and(|p| p >= required)`, and `power_of`'s table
+  already answers both candidates:
+
+  | `.name a` lowers to | `power_of` | Formatter prints |
+  |---|---|---|
+  | `Expr::Call` / `Expr::MethodCall` | `u8::MAX` | `.name a b` — paren dropped |
+  | a `Section` | **declines** | `(.name a) b` — paren kept |
+
+  So the canonical form is a *consequence* of §11.2's choice, not a separate
+  call, and the two must be made together or the formatter will contradict the
+  row.
+
+  **It should be an application.** `power_of`'s doc states why sections decline:
+  they *"end at a place that depends on what follows"*, like a lambda body
+  extending as far right as it can. `.name a b` does not — juxtaposition is
+  left-associative and `(.name a) b` is the same tree, so the parenthesis is
+  redundant by associativity rather than by precedence, which is exactly the
+  case §3 row 3 exists to remove.
+
+  Choosing the application shape therefore costs **no formatter work at all**:
+  `power_of` already gives it `u8::MAX`, `can_drop_paren` already drops the
+  parenthesis, and `formatting_preserves_meaning` already covers it. Choosing
+  the section shape would mean teaching `power_of` an exception to its own
+  stated rationale.
+
+  One live exception to keep in view: `Expr::Call { is_dollar: true }` is
+  deliberately power **0**, because `$` is looser than every operator. A
+  `.name` applied with `$` keeps its parenthesis, and that stays correct.

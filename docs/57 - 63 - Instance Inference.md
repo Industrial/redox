@@ -166,18 +166,58 @@ authors who keep restating.
 
 ## 4. Leaves
 
+### Leaf 0 — `leaf-member-boundary`
+
+Inside a `class` or `instance` body, an `Ident` not followed by `:` whose text **differs** from
+the member currently being read starts a **new member**; the same name is the next clause. That
+is `parser.rs`'s name-mismatch guard, and it is one line.
+
+Added by §11.1, which found the blocker that stops an elided signature parsing at all and which
+§4's original leaves did not contain: `Parser::function`'s clause loop treats any `Ident` not
+followed by `:` as a continuation equation of the member it is already reading, so an elided
+member collides with doc 18 §2.3's multi-clause function grammar and the name-mismatch guard
+fires — *"RDX0103: this equation defines `tag`, but the signature above it is for `area`"*. So
+§2's *"the parser demands a signature line"* is half the story; an omitted signature on the
+*first* member does give `RDX0101`, which is why the simpler reading looked complete.
+
+Numbered 0 rather than inserted, so leaves 1–6 keep the numbers §5 and §9 cite. It is **costed
+and landed before leaves 1–3**, because until it exists there is nothing for the resolver to be
+asked.
+
 ### Leaf 1 — `leaf-class-lookup`
 
 Find a class declaration by name **within the file being compiled**. The narrowest possible
-resolver: one name, one kind of declaration, one file, no scopes to walk. Returns not-found
-rather than guessing — including for a class in a sibling file, which §1.3 states is out of
-scope rather than a bug.
+resolver: one name, one kind of declaration, one file. Returns not-found rather than guessing —
+including for a class in a sibling file, which §1.3 states is out of scope rather than a bug.
+
+Amended from *"one name, one kind of declaration, one file, no scopes to walk"*, which §11.3
+found false: `Item::Module` nests items and is *"the only item that contains items"*, so a class
+inside `module tests` is not in Rust scope for an instance outside it. **The choice is open and
+owed** — §11.3 states it as a decision this leaf has to take and does not take it: top-level
+items only, or walk the item tree.
 
 ### Leaf 2 — `leaf-signature-substitution`
 
 Read the method's signature from the class and substitute the single type variable. The
 substitution is textual over the verbatim type (doc 03 §14.1), which is what makes it a
 substitution and not a type operation.
+
+**What is copied is the class's already-rendered form, not §1's `t := Entry`**, which §11.2 is
+the finding for: `MethodContext::for_class` has already substituted `t → Self` and `receiver`
+has already dropped the receiver's type, so `area : &t -> f64` renders `fn area(&self) -> f64`,
+identical to the restated `&Square -> f64`. For `instance Shape Square` the parser computes
+`var = None` and never calls `substitute_var` at all. §11.2 also bounds the result: a method
+mentioning the variable in a **non-receiver** position — `combine : &t -> t -> t` — renders
+`Self` where the restated form renders `Square`, which is valid Rust and different bytes, so
+byte-identity holds for `examples/class.sdx` rather than in general.
+
+**Where the pass runs is open and owed.** §11.3 found that `receiver`, `substitute_var` and
+`generalise` all run **inside** `Parser::function`, during the single pass, while order
+independence is already real — an `instance` may precede its `class` in one file and compiles
+today, emitting `impl Shape for Square` before `trait Shape`. So this leaf needs either a
+pre-pass that collects classes before any body is parsed, or a post-parse pass that re-runs all
+three. §4 described neither, and §11.3 calls it the second-largest undisclosed cost after
+§11.1; it states the two options without choosing.
 
 ### Leaf 3 — `leaf-const-members`
 
@@ -200,28 +240,79 @@ needs to know which of the three they hit.
 `examples/class.sdx`'s three elidable restatements removed. **Doc 18 §2.5**'s deviation marked
 resolved with its reasoning preserved — and `examples/class.sdx`'s comment amended twice: once
 for the resolution, and once because it cites §11.5 where it means §2.5 (§1.1).
-`docs/GRAMMAR.md` regraded; `docs/STATUS.md` updated.
+`docs/STATUS.md` updated.
+
+The stale-citation fix is **three sites, not two**, which §11.5 is the finding for: §1.1 names
+doc 18 §2.5 and `examples/class.sdx`, and the third is
+`crates/redox-emit/src/emit/fn_call_width.rs`. All three point at a section that is *"Three
+findings from converting rather than designing"* and records none of what they claim.
+
+*"`docs/GRAMMAR.md` regraded"* is withdrawn, which §11.5 is also the finding for: Traits, Impls,
+and Associated types and constants are all already `SUGARED` and all already cite
+`examples/class.sdx`, so nothing changes grade.
 
 ---
 
 ## 5. Acceptance criteria
 
-1. An `instance` method of a one-variable class may omit its signature, and the emitted `impl`
-   is byte-identical to the restated version — asserted by a golden diff of zero.
-2. A `const` member may omit its type.
+1. An `instance` method of a one-variable class may omit its signature, and the emitted `impl`'s
+   **Rust-code region** is byte-identical to the restated version — asserted by a golden diff
+   confined to that region.
+
+   Amended from *"the emitted `impl` is byte-identical to the restated version — asserted by a
+   golden diff of zero"*, which §11.2 found cannot hold alongside leaf 6: `tests/golden/class.xrs`
+   carries the example's comments — its first nine lines are `examples/class.sdx`'s verbatim —
+   and leaf 6 amends one of them, twice, so the *file* cannot be byte-identical. §11.2's own
+   remedy is the split taken here, and it calls it the stronger claim because it is the one a
+   reader can check: the Rust code is identical and the comment region changes deliberately.
+
+   Two further bounds from §11.2, both carried into leaf 2: byte-identity holds for
+   `examples/class.sdx` rather than in general — `combine : &t -> t -> t` renders `Self` where
+   the restated form renders `Square`, valid Rust and different bytes — and what makes it hold is
+   copying the class's **already-rendered** signature, not §1's advertised `t := Entry`, since
+   for `instance Shape Square` the parser computes `var = None` and never calls `substitute_var`.
+
+   And this criterion rests on **leaf 0**: §11.1 found that an elided member currently parses as
+   a *clause of the member above it*, so until the name-mismatch guard distinguishes them there
+   is no form for an omitted signature to take.
+2. A `const` member may omit its type, at **both** sites that demand it.
+
+   Amended from *"a `const` member may omit its type"*, which §11.5 found under-specified: §2
+   quotes only the member-signature refusal and never mentions the second site this criterion
+   must change, `class_member.rs`'s *"expected `:` after the constant's name"*.
 3. A default method overridden without a signature takes the class's.
 4. A restated signature disagreeing with the class is a named Redox diagnostic, with the class's
    and the instance's forms both shown.
 5. Class-not-found, multi-variable and inherent-`instance` are three distinct diagnostics with
-   three `tests/ui/` fixtures.
+   three `tests/ui/` fixtures — which with criterion 4's mismatch code makes **four** new codes
+   for this row.
+
+   The count is stated and the next-free number deliberately is not, which §11.5 is the finding
+   for: `RDX0111` is the last taken, two sibling plans still say *"next free is `RDX0110`"* and
+   both are wrong, and a number written in a plan doc goes stale the moment a sibling row lands.
 6. **The resolver's scope is asserted**: a class in a module that `module` does not load is
    not-found, and the test states that boundary explicitly so a future widening is a deliberate
    change to a failing test.
-7. All 29 examples green, no rustc output, stdout unchanged; `examples/class.sdx`'s golden diff
-   is **empty**.
+
+   §11.4 supplies a stronger reason for that boundary than §1.3's scope discipline, and it is
+   the one to cite: **the compile cache is keyed on *that file's* source bytes plus the compiler
+   fingerprint**, so a cross-file resolver would make an instance's output depend on a sibling
+   file that does not invalidate its cache entry. Widening the boundary is a **correctness bug**,
+   not merely scope creep. Supporting facts, both verified in §11.4: a bodiless `module` has
+   `items: None` — *"`mod name;` and `mod name {}` are different Rust"* — and `compile_dir` loops
+   `compile_file` per file, so there is no structure in which two files' items coexist.
+7. Every example green, no rustc output, stdout unchanged; `examples/class.sdx`'s golden diff
+   is confined to its **comment region**, and its Rust-code region is unchanged.
+
+   Amended from *"`examples/class.sdx`'s golden diff is **empty**"*, per §11.2 and criterion 1:
+   leaf 6 amends a comment the golden carries verbatim, so an empty diff and leaf 6 are
+   incompatible.
 8. `construct_coverage` green.
 9. **Doc 18 §2.5** marked resolved, citing this row and preserving its original reasoning; and
-   `examples/class.sdx`'s §11.5 pointer corrected to §2.5.
+   the stale `§11.5` pointer corrected to `§2.5` at **all three** sites.
+
+   Amended from *"`examples/class.sdx`'s §11.5 pointer corrected to §2.5"*, which §11.5 found
+   to be an undercount: the third site is `crates/redox-emit/src/emit/fn_call_width.rs`.
 
 ---
 
@@ -378,6 +469,32 @@ items and is *"the only item that contains items"*, so a class inside
 `module tests` is not in Rust scope for an instance outside it. Leaf 1 has to
 decide: top-level items only, or walk the tree.
 
+#### Decided 2026-11-10: a collecting pre-pass, and top-level items only
+
+**Where it runs: a pre-pass, and it collects only.** `receiver`,
+`substitute_var` and `generalise` stay exactly where they are, inside
+`Parser::function`; what the pre-pass adds is a read-only scan that fills the
+class table before any body is parsed. The alternative — a post-parse pass
+re-running all three — puts copies of three parser-internal functions outside
+the parser, which is the drift hazard plan 34 leaf 3 moved the precedence table
+onto `BinaryOp` to avoid, and it also re-derives the spans §6 promises to
+preserve. One substitution site, called once, from a table that is populated
+before it is read.
+
+The pre-pass must **collect and not transform**. That keeps it clear of the
+rule plan 61 states — *a pass that rewrites `Program` has two consumers and
+will surprise one of them* — because a scan that only reads has no second
+consumer to surprise.
+
+**Leaf 1's scope: top-level items only.** It matches §1.3's narrowness, and the
+failure mode is benign in a way the alternative's is not: a class the lookup
+does not find degrades to *today's* behaviour, which is a program that still
+compiles because rustc resolves it. So the narrow version cannot regress
+anything, and widening to walk `Item::Module` with Rust's visibility rule stays
+available later as a deliberate change driven by a failing test — which is a
+better way to acquire a scope rule than inferring one now. Criterion 6's
+assert-the-boundary discipline is the same instinct.
+
 ### 11.4 A stronger argument for criterion 6 than §1.3 makes
 
 Criterion 6 asserts the resolver's boundary so a future widening is a deliberate
@@ -418,4 +535,4 @@ coexist.
   `class`, 6 in the instances. The table means *instance* lines and the row
   label does not say so; "4 method signatures" and "3 elidable" are right for
   instances.
-- **30 examples, 29 goldens.** `examples/lexical.sdx` has none by design.
+- **31 examples, 30 goldens as of 2026-11-10** — 30 and 29 when this was measured. `examples/lexical.sdx` has no golden by design, and `examples.rs`'s `NOT_PARSEABLE` is what encodes that.
