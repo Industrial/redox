@@ -9,9 +9,9 @@ use redox_lexer::{Keyword, TokenKind, Trivia};
 /// Parse doc 03 §13.4's module-scope `const` or `static` — plan 16.
 ///
 /// ```text
-/// const MAX :: usize = 1024
-/// static COUNT :: u32 = 0
-/// export const LIMIT :: usize = 8
+/// const MAX : usize = 1024
+/// static COUNT : u32 = 0
+/// export const LIMIT : usize = 8
 /// ```
 ///
 /// The value is **required**. A class's associated constant may be declared
@@ -29,8 +29,8 @@ pub(crate) fn const_decl(
 
   let name = p.ident("expected a name after `const`")?;
   p.expect(
-    &TokenKind::ColonColon,
-    "expected `::` and a type — doc 03 §13.4 requires one on a module-scope binding",
+    &TokenKind::Colon,
+    "expected `:` and a type — doc 03 §13.4 requires one on a module-scope binding",
   )?;
   let ty = capture_type(p, "expected the binding's type", TypeStop::Greedy)?;
   p.expect(

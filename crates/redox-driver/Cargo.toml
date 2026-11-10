@@ -10,6 +10,9 @@ license.workspace = true
 # releases, which for a key written to disk means last week's cache
 # silently mismatches this week's.
 blake3 = "1"
+# Plan 53 leaf 4: detection stays lexical, but suppression **scope** is the
+# span of the construct a pragma leads, so the lint needs the `Program`.
+redox-ast = { path = "../redox-ast" }
 redox-diag = { path = "../redox-diag" }
 redox-emit = { path = "../redox-emit" }
 # Plan 38: `RDX1001` is a lexical lint — a `.` then the name — so the driver

@@ -4,7 +4,7 @@
 -- `case` arms rather than bindings, because a binding's pattern must be
 -- irrefutable and most of these are not.
 
-shape :: Thing -> i32
+shape : Thing -> i32
 shape t = case t of
   -- A name, a literal, a wildcard.
   v -> 0

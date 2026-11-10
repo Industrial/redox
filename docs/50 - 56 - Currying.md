@@ -295,3 +295,181 @@ different number, so only the run catches it.
 ## 10. Result
 
 *Not yet executed.*
+
+---
+
+## 11. Corrections from orientation
+
+Written after reading the code this row targets. The premise holds and is
+narrower than it looks: application is parsed in one place
+(`application.rs:29-52`) and emitted in one place (`emit/expr.rs:238-249`),
+**arity is consulted nowhere**, and the arity itself is already sitting in
+`FnDecl.sig.params.len()`. So the work is the index and the placement of the
+pass, not the computation. Five things in this row are wrong, and two of them
+are not implementable as written.
+
+### 11.1 Leaf 3 and criterion 7's second half have no decidable trigger
+
+This is the finding most likely to sink the row.
+
+Under-application is detectable only where arity is known, and arity is known
+**only** for a bare `Expr::Ident` naming a signature in this file. Everything
+else is unknown-arity: every `Expr::Path` (`String::from`), every `where`
+local (`examples/module.sdx:41-42`), every equation binder, every lambda
+parameter, and every bare name reached through `import std::cmp::max`. For all
+of those Redox cannot tell an under-applied call from a saturated one, because
+it has no arity to compare against.
+
+So *"an under-applied call to a name with no visible signature is a named
+diagnostic"* is either unimplementable or a false-positive generator. There is
+no mechanism anywhere in the repository that knows a non-signature name's
+arity — `print` and `panic` are hardcoded callee names in `emit/expr.rs:239-247`
+and `panic_macro.rs` is a three-string lookup.
+
+**Restatement, which §1.5 already argues for:** curry only a bare `Expr::Ident`
+with a visible in-file signature; everything else emits a call exactly as
+today and rustc judges. That deletes leaf 3, halves criterion 7, and makes
+criterion 5 a diagnostic about a *known* arity rather than an unknown one.
+
+Criterion 7's **first** half already works at HEAD, measured: `map String::from`
+emits `map(String::from)` and survives a pipeline. Leaf 5 is an assertion and an
+example, not an implementation.
+
+### 11.2 Criterion 6 contradicts §1.3
+
+§1.3 mandates `move |__rdx_1| add(1, __rdx_1)`. Sections emit **no `move`**,
+and no capture annotation of any kind — `emit/section.rs:25-48` inlines the
+operand into the body. From `tests/golden/section.xrs`:
+
+| Source | Emitted |
+|---|---|
+| `(+ 1)` | `\|__rdx_1\| __rdx_1 + 1` |
+| `(10 -)` | `\|__rdx_1\| 10 - __rdx_1` |
+| `(> 1)` | `\|__rdx_1\| __rdx_1.gt(&1)` |
+
+So "the emitted closure shape is identical for `(+ 1)` and a one-of-two `add`"
+cannot hold unless one side changes. Decide which; adding `move` to sections
+re-blesses `tests/golden/section.xrs` and `benchmarks/pairs/section.sdx`.
+
+Related, for leaf 4: `SECTION_PARAM` is a single constant, `"__rdx_1"`, so
+n-of-m for m ≥ 3 needs an indexed generator. Use the `__rdx_N` family and
+**not** `__rdx_a{i}` — that is already taken by the clause lowering's
+positional binders (`signature_from.rs:55-58`), so `|__rdx_a|` would shadow
+`fn fib(__rdx_a0: u64)`.
+
+### 11.3 The pass has nowhere clean to live, and §4 does not say where
+
+`parse()` (`crates/redox-parser/src/parse.rs:24-42`) is the declared chokepoint
+and already returns `Result<Program, Vec<ParseError>>`, so a **check** there
+needs zero plumbing. But an **AST rewrite** there is wrong, because
+`redox_fmt::format(&Program, &str)` consumes the same `Program` —
+`redox-cli/src/fmt_command.rs:36`, `redox-lsp/src/serve/formatting.rs:30`,
+`redox-mcp/src/format.rs:45`. A `Call`→`Lambda` rewrite in `parse()` makes
+`redox fmt` rewrite the author's `add 1` into
+`move \__rdx_1 -> add 1 __rdx_1`.
+
+And the emit side has no diagnostic channel: `compile_file.rs:54-56` is
+`parse_source` then `emit_with_map` with nothing between, and `emit_with_map`
+returns `(String, SourceMap)` rather than a `Result`.
+
+**The split that works, which must be written down or someone will thread an
+arity map through `emit_expr` and its 24 importers:** the check rides `parse()`;
+the rewrite lives at `emit_with_map`/`emit_items` entry.
+
+### 11.4 Two interceptors sit between `Expr::Call` and the Call arm
+
+Both matter and neither is in §4.
+
+- `emit/pipeline.rs:33-40` destructures an `Expr::Call` on the right of `|>`
+  into `recv.head(args)`, so `xs |> add 1` never reaches the Call arm.
+- `emit/expr_list.rs:22-24` returns `""` for `[Expr::Unit]`. **`f ()` is
+  `args.len() == 1` in the AST and zero arguments in Rust.** Any arity pass
+  must special-case it or it will mis-saturate every zero-argument call in the
+  corpus — `sizes ()`, `hello ()`, `inner::hello ()`. §6 mentions this as a
+  note; it is a constraint on leaf 1.
+
+### 11.5 A live emitter bug that currying makes routine
+
+A closure in **callee** position is emitted unparenthesised, because the
+`Expr::Call` arm calls bare `emit_expr(callee)` and never consults
+`wraps_as_receiver` — which does list `Expr::Lambda` and `Expr::Section`, but is
+only called from `receiver()`:
+
+```text
+print ((+ 1) 2)      ->  println!("{}", |__rdx_1| __rdx_1 + 1(2));   // broken Rust
+print ((\_ -> 7) 1)  ->  println!("{}", (|_| 7)(1));                 // parens are
+                                                                     // accidental
+```
+
+The second only works because a written `(\_ -> 7)` leaves an `Expr::Paren`
+behind. A **synthesized** lambda has no `Paren`, so partial application
+inherits the first shape. Fix it in the row that creates synthesized lambdas.
+
+### 11.6 `$` has an ordering hazard nobody owns
+
+`$` is hardcoded in the Pratt loop at `parse_expr.rs:48-57`, binding power 1,
+right-associative — and it produces an `Expr::Call` **indistinguishable from
+juxtaposition**. Measured: `add 1 $ 2` emits `add(1)(2)` today.
+
+Once `add 1` is a closure, `add 1 $ 2` is `Call{Lambda, [2]}` →
+`move |__rdx_1| add(1, __rdx_1)(2)`, which is §11.5's bug on a path §3 case 4
+names. The decision is either to flatten `Call(Call(f,[a]),[b])` into
+`Call(f,[a,b])` when `f`'s arity is ≥ 2 — restoring `add(1, 2)` and killing the
+allocation — or to parenthesise in the Call arm and pay for the closure. Assign
+it to a leaf.
+
+Minor: §3 case 4's `print $ add 1 $ 2` is the uninteresting half, since `print`
+is intercepted by `print_call`. `add 1 $ 2` alone is the case.
+
+### 11.7 Criterion 9 cites the wrong sentence
+
+§4's paragraph (`docs/18 - Haskell.md:443-447`) declines **composition**, not
+currying: *"composition is declined for lack of a lowering target: without
+currying there is nothing to compose."* The normative decline of currying is
+§8's table at `:646`:
+
+> | Currying and partial application | Rust functions are not curried. `f x y`
+> is one saturated call; a partial application is written `\y -> f x y`. **This
+> is the central limitation**, and it is why composition is also declined. |
+
+plus `:649` and §1 at `:43-44`. Doc 18 declares itself normative at `:4`, so
+those are the sentences criterion 9 must amend. Also amend
+`application.rs:17-21`, whose doc comment carries the decline in code and will
+read as false the moment leaf 2 lands.
+
+Two leaf-6 targets are wrong: `docs/DECLINED.md` does not list currying and
+correctly needs no edit, and doc 03 §5.1 is **superseded** by doc 18 (`:7`), so
+editing it is inert. Adding a `docs/GRAMMAR.md` row is also no longer free —
+plan 51's `construct_coverage` requires every graded row to have a `WITNESSES`
+entry *and* a lexical corpus witness, asserted in both directions.
+
+### 11.8 Smaller corrections
+
+- **§4 leaf 1 contradicts §1.4 and decision 4.** Leaf 1 says signatures
+  visible "in the modules `module` loads". `ModuleDecl.items` is `None` for a
+  bodiless `module` and `emit_module` writes `;` — nothing is loaded. A
+  first-draft leftover. An **inline** `module` with a body does carry
+  signatures (`examples/module.sdx:22-29`, reachable as `inner::hello`), so the
+  arity table needs a scoping rule this row does not give.
+- **§1.1's `-> rustc: E0061` is incomplete.** `redox check` reports **three**
+  errors: `E0061`, `E0277` (*"expected a `FnMut(i32)` closure, found `i32`"*)
+  and `E0599` (`sum` unavailable on the resulting `Map`). A `tests/ui`
+  expectation records all three.
+- **Next free diagnostic code is `RDX0110`.** The 0040–0099 band is closed by
+  `every_reserved_code_is_one_doc_03_published`, whose `PUBLISHED` list must be
+  extended to use it. Registration is five steps — variant, `number()` arm,
+  `all()` entry, raise at construction (`code.rs` forbids matching message
+  text), `tests/ui/` fixture — then bless. Note `RDX0103` already ships two
+  meanings, the arity-disagreement error at `signature_from.rs:38` being the
+  second; do not repeat that.
+- **§2's corpus scale is off by one**: there are **30** `examples/*.sdx`, not
+  29. Twenty-nine is the *run* corpus, `lexical.sdx` being exempt.
+- **§2's provenance is stale.** Commit `194fdf7` is plan 44's docs commit, and
+  at it the type marker was still `::`. Every §2 measurement still reproduces at
+  HEAD with `:`.
+- **Chain width will bite this row for a reason unrelated to currying.**
+  `CHAIN_WIDTH` is 60, and `xs.into_iter().map(move |__rdx_1| add(1,
+  __rdx_1)).sum()` is 56 characters. A two-stage curried pipeline in an example
+  crosses it and criterion 8 fails. `examples/application.sdx` already records
+  the underlying emitter defect; plan 58 leaf 2a fixes it. Sequence accordingly
+  or keep this row's examples short.

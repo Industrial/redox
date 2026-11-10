@@ -1,7 +1,7 @@
 -- `guard P = e else <diverging>` is Rust's let-else, which is what doc 03
 -- §7.1 chose it for: the else branch must diverge, and rustc enforces that.
 
-halve :: Option<i32> -> i32
+halve : Option<i32> -> i32
 halve o =
   guard Some v = o else
     return 0

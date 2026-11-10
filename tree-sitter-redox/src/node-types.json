@@ -110,7 +110,7 @@
 				"required": true,
 				"types": [
 					{
-						"type": "compound_operator",
+						"type": "assignment_operator",
 						"named": true
 					}
 				]
@@ -1734,6 +1734,93 @@
 		}
 	},
 	{
+		"type": "continuation",
+		"named": true,
+		"fields": {},
+		"children": {
+			"multiple": true,
+			"required": false,
+			"types": [
+				{
+					"type": "ascription",
+					"named": true
+				},
+				{
+					"type": "boolean",
+					"named": true
+				},
+				{
+					"type": "char",
+					"named": true
+				},
+				{
+					"type": "comprehension",
+					"named": true
+				},
+				{
+					"type": "conditional_expression",
+					"named": true
+				},
+				{
+					"type": "identifier",
+					"named": true
+				},
+				{
+					"type": "lambda",
+					"named": true
+				},
+				{
+					"type": "lifetime",
+					"named": true
+				},
+				{
+					"type": "list",
+					"named": true
+				},
+				{
+					"type": "number",
+					"named": true
+				},
+				{
+					"type": "operator",
+					"named": true
+				},
+				{
+					"type": "parenthesized",
+					"named": true
+				},
+				{
+					"type": "path",
+					"named": true
+				},
+				{
+					"type": "raw_string",
+					"named": true
+				},
+				{
+					"type": "record_literal",
+					"named": true
+				},
+				{
+					"type": "section",
+					"named": true
+				},
+				{
+					"type": "self_expression",
+					"named": true
+				},
+				{
+					"type": "string",
+					"named": true
+				},
+				{
+					"type": "type_identifier",
+					"named": true
+				}
+			]
+		}
+	},
+	{
 		"type": "continue_statement",
 		"named": true,
 		"fields": {},
@@ -2187,6 +2274,10 @@
 			"multiple": true,
 			"required": false,
 			"types": [
+				{
+					"type": "continuation",
+					"named": true
+				},
 				{
 					"type": "guard_ladder",
 					"named": true
@@ -4544,10 +4635,6 @@
 		"named": false
 	},
 	{
-		"type": "::",
-		"named": false
-	},
-	{
 		"type": ";",
 		"named": false
 	},
@@ -4596,6 +4683,10 @@
 		"named": false
 	},
 	{
+		"type": "assignment_operator",
+		"named": true
+	},
+	{
 		"type": "async",
 		"named": false
 	},
@@ -4622,10 +4713,6 @@
 	{
 		"type": "class",
 		"named": false
-	},
-	{
-		"type": "compound_operator",
-		"named": true
 	},
 	{
 		"type": "const",

@@ -4,6 +4,7 @@ use crate::emit::pad::pad;
 use crate::emit::sink::Sink;
 use crate::emit::trivia::line::line;
 use redox_ast::{Trivia, TriviaKind};
+use redox_diag::ALLOW_UNWRAP_ATTRIBUTE;
 use std::fmt::Write as _;
 
 /// Emit leading trivia at `indent`.
@@ -21,8 +22,31 @@ use std::fmt::Write as _;
 /// Plan 18's attributes are trivia for the same reason, and the exhaustive
 /// match is what made adding them a two-arm change: a wildcard here would
 /// have dropped every `#[…]` in the file and compiled.
+///
+/// # The one trivium that is dropped on purpose
+///
+/// `#[redox::allow(unwrap)]` is **consumed** — plan 53 leaf 4, and the single
+/// carve-out in plan 18 §1.3's attributes-are-trivia rule. The paragraph
+/// above argues against a wildcard because a wildcard drops trivia the author
+/// wrote *silently*; this is the opposite — one named spelling, Redox's own,
+/// which the emitter must drop because passing it through is
+/// `error[E0433]: cannot find module or crate 'redox'` (plan 53 §11.6). The
+/// rule the paragraph above states is *no trivium leaves without a decision*,
+/// and this is the decision rather than an exception to it: the spelling is
+/// [`ALLOW_UNWRAP_ATTRIBUTE`], one constant shared with the driver that
+/// recognises it, so neither crate can drop an attribute the other still
+/// honours.
+///
+/// `#![register_tool(redox)]` is deliberately **not** emitted to make the
+/// attribute legal instead: it is unstable, plan 38 §1.3 refused it, and
+/// consuming the attribute is what makes it irrelevant.
 pub(crate) fn emit_trivia(out: &mut Sink<'_>, trivia: &[Trivia], indent: usize) {
   for t in trivia {
+    // Consumed before anything is marked or written, so the pragma leaves no
+    // trace in the `.xrs` and none in the span map either.
+    if matches!(t.kind, TriviaKind::Attribute) && t.text.trim() == ALLOW_UNWRAP_ATTRIBUTE {
+      continue;
+    }
     // A comment the author wrote has a source position of its own, so the
     // generated comment line maps to it. Plan 06's totality test found this:
     // leaving trivia unmarked made every comment line in the output

@@ -43,13 +43,16 @@ pub(crate) fn kind_text(kind: &StmtKind, indent: usize, source: &str) -> String 
       ),
       None => format!("<- {}", expr_text(value, 0, indent, source)),
     },
-    // Compound assignment. Plan 20 §10 records that **plain** reassignment has
-    // no owner, so every `Assign` carries a real operator and there is no
-    // bare-`=` case to print.
+    // Assignment. Plan 20 §10 recorded that **plain** reassignment had no
+    // owner, so every `Assign` carried a real operator and there was no
+    // bare-`=` case to print. Plan 54 gave it one, and it is spelled `:=`
+    // rather than `=` — printing a bare `=` here would turn an assignment
+    // back into a binding, which is the whole distinction the row exists to
+    // make.
     StmtKind::Assign { target, op, value } => format!(
       "{} {}= {}",
       expr_text(target, 0, indent, source),
-      op.redox_text(),
+      op.map_or(":", |op| op.redox_text()),
       expr_text(value, 0, indent, source)
     ),
     // `guard P = e else` and a diverging block — doc 03 §7.1's let-else.

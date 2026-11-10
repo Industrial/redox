@@ -116,6 +116,12 @@ fn every_pair_has_both_halves() {
 /// The name is discovered from the hand-written half rather than derived from
 /// the filename — `catch` and `guard` are keywords, so no function can be
 /// called either — and this is the check that the `.sdx` agrees.
+///
+/// The marker is `:` as of plan 52. This assertion was the last thing in the
+/// repository still spelling it `::`, and it survived a repository-wide sweep
+/// because the `::` is a literal inside a `format!` template: the space before
+/// it comes from `"{} ::"`, so a grep for a spaced `::` in source files does
+/// not match the line that produces one.
 #[test]
 fn both_halves_define_the_same_function() {
   let found = pairs(&root());
@@ -123,8 +129,8 @@ fn both_halves_define_the_same_function() {
   for pair in found {
     let sdx = std::fs::read_to_string(&pair.sdx).expect("should read");
     assert!(
-      sdx.contains(&format!("{} ::", pair.function)),
-      "{} should declare `{} ::`, which is what {} defines",
+      sdx.contains(&format!("{} :", pair.function)),
+      "{} should declare `{} :`, which is what {} defines",
       pair.sdx.display(),
       pair.function,
       pair.rust.display()

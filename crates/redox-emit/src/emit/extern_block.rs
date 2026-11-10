@@ -8,7 +8,7 @@ use redox_ast::ExternBlock;
 ///
 /// ```text
 /// extern "C"            extern "C" {
-///   abs :: i32 -> i32  →    fn abs(__rdx_a0: i32) -> i32;
+///   abs : i32 -> i32  →    fn abs(__rdx_a0: i32) -> i32;
 /// }
 /// ```
 ///

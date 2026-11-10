@@ -3,7 +3,7 @@
 Plan ID: `assignment`
 Depends on: 52 (`type-colon`)
 Milestone: 9 — *surface coherence*
-Status: `planned`
+Status: `in progress` — leaf 3 outstanding
 
 ---
 
@@ -204,8 +204,8 @@ move, because that table is derived from `UNREACHABLE` rows and assignment was n
    work, asserted.
 7. `a_plain_equals_is_still_a_binding` is rewritten to assert both halves of the new boundary,
    not deleted.
-7. `construct_coverage` green with `:=` indexed.
-8. Plan 20 §10.2's disclosure is marked resolved in doc 04's register, naming this row.
+8. `construct_coverage` green with `:=` indexed.
+9. Plan 20 §10.2's disclosure is marked resolved in doc 04's register, naming this row.
 
 ---
 
@@ -276,4 +276,306 @@ than discovering it at the gate. The disclosure plan 20 wrote is why.
 
 ## 10. Result
 
-*Not yet executed.*
+**Leaves 1, 2, 4 and 5 done; leaf 3 outstanding.** `:=` assigns, `=` still
+binds, and the limit plan 20 §10.2 disclosed is gone. The shadow lint has not
+been built — §10.6 says what it needs and why it was deferred.
+
+### 10.1 One node, not two, and no new match arm anywhere
+
+§4 and the orientation both expected a new `StmtKind` variant and budgeted
+four exhaustive matches gaining an arm. None did. `StmtKind::Assign` was
+already *compound* assignment, `a += b` is `a = a + b`, and the two are one
+construct with a modifier — so `op` became `Option<BinaryOp>` and the whole
+AST change is one field.
+
+That matters beyond the line count. `emit/stmt.rs`'s match is deliberately
+exhaustive — *"a new `StmtKind` must fail to compile here"* — and the same is
+true of `redox-fmt`'s `kind_text.rs`. A design that adds a variant pays that
+tax at four sites; one that refines a field pays it at the two that actually
+print the operator, which is where the real decision lives:
+
+```rust
+// redox-emit                        // redox-fmt
+op.map_or("", |op| op.rust_text())   op.map_or(":", |op| op.redox_text())
+```
+
+Redox's two spellings collapse to Rust's one, and the asymmetry in those two
+lines *is* the row: Rust tells a binding from an assignment with `let`, and
+Redox has no `let` to lean on. Printing a bare `=` in the formatter would turn
+an assignment back into a binding.
+
+### 10.2 Criterion 3 was in the wrong corpus, and the reason generalises
+
+Criterion 3 named `tests/ui/`. It cannot live there: `ui.rs` runs
+`redox build`, which parses, lints, emits and writes **without ever invoking
+rustc**, so a program whose only fault is `E0384` builds clean and the harness
+fails on its own `assert!(!out.status.success())`.
+
+The fixture is `crates/redox-cli/tests/check/immutable_assignment.sdx`, and
+`redox check` reports
+
+```text
+error[E0384]: cannot assign twice to immutable variable `total`
+  --> immutable_assignment.sdx:19:3
+```
+
+against the `.sdx`. `is_mut` is set only by the literal `mut` keyword and the
+emitter writes `mut` only when it is set, so Redox has no mechanism to make
+this compile — and the test is what stops one being added as a convenience
+later. *"Every check rustc can make, rustc makes."*
+
+### 10.3 §6 declined something that was free, and rustc settles it
+
+The assignment target is a general `Expr`, which is the existing precedent for
+compound assignment and the reason `self.value`, `v[0]` and `*r` all work. So
+does `(a, b) := (b, a)` — Rust's destructuring assignment, stable since 1.59 —
+and §6 and decision 5 declined it.
+
+**The decline is withdrawn.** Refusing it would mean Redox deciding what is and
+is not a place expression, and `(1 + 2) := 3` is rustc's `E0070`: it is a check
+rustc makes, so rustc makes it. The alternative also costs the corpus its best
+line — a swap is the one shape no compound operator can express, and
+`(a, b) := (b, a)` is how it should read.
+
+### 10.4 The corpus was missing four of five compound operators
+
+`construct_coverage` reported `-=` unwitnessed the moment this row graded
+assignment in `docs/GRAMMAR.md`, and the orientation had measured the same
+thing from the other side: only `+=` appeared in any example or golden. Four
+operators shipped in **plan 20** and were asserted nowhere but one
+string-literal unit test.
+
+`examples/control.sdx` now exercises all five in an order-dependent sequence,
+so a transposed lowering changes the printed value.
+
+Two further gaps the same test forced into the open:
+
+- **`docs/GRAMMAR.md` had no assignment row at all** — not for `:=`, which is
+  new, and not for compound assignment, which was four plans old. Both are
+  graded now.
+- **Nothing in the corpus shadowed anything.** The `Shadowing | PASSTHROUGH`
+  row cited `examples/expressions.sdx`, which holds exactly one binding; the
+  nearest candidate elsewhere was two bindings of `a` in two *different*
+  functions, which is not shadowing either. The construct was graded reachable
+  and witnessed by nothing. It needed a witness for this row regardless —
+  criterion 5 requires that a nested-block shadow be legal and silent — so
+  `examples/control.sdx` gained one, and the row cites it.
+
+### 10.5 Two more readers, as plan 52 predicted
+
+§11.5 found no leaf for the tree-sitter grammar, and `tree_sitter.rs` asserts
+every corpus `.sdx` — `tests/lint/` included — parses with no `ERROR` node. The
+grammar's `compound_operator` is now `assignment_operator` with `:=` at the
+head of its `token(choice(...))`. No precedence was needed: tree-sitter takes
+the longest match, `:=` is longer than `:`, and neither it nor `::` is a prefix
+of the other.
+
+Also as predicted, the formatter is a *writer* of the token and not only a
+reader. `kind_text.rs` is in §10.1 above.
+
+### 10.6 Leaf 3 — the shadow lint — is outstanding
+
+Deferred rather than attempted, for two measured reasons:
+
+1. **Leaf 3 names the wrong crate.** It says the lint is *"one list, in the
+   parser"*. `crates/redox-driver/src/lint.rs`'s own module doc already
+   settled that a lint cannot live in the parser — `ParseFailure` has no notion
+   of a warning, and `Diagnostic` is the type that carries a `Severity`. The
+   lint belongs in `redox-driver/src/lint/`, over the AST.
+2. **Plan 53 landed the machinery it needs, in the same files, in this same
+   push.** `lint` now takes an `Option<&Program>` and
+   `redox-driver/src/lint/suppressed_spans.rs` already walks items, clauses,
+   `where` locals, statements and statement-owned blocks for pragmas. A shadow
+   lint is a second consumer of that walk, not a new one — and building it
+   concurrently with the walk itself would have meant two agents in one file.
+
+What it still owes when it is built: `RDX1003` (plan 53 took `RDX1002`), a
+`tests/lint/` fixture because `code_coverage`'s `NOT_YET_REACHABLE` is `&[]`,
+a decision about what counts as "a name" when `Binding.pattern` is a
+`Pattern` rather than an `Ident`, and **a way for an author to say a shadow is
+meant** — `allow_pragma` is hard-coded to `unwrap`, so an intentional shadow
+would warn forever. Plan 53 parametrising the pragma is the cheaper order.
+
+Measured, for whoever builds it: scanning every `.sdx` under `examples/`,
+`tests/` and `crates/` for two bindings of one name in the same statement list
+found **zero** hits before this row, and the one deliberate shadow added here
+is in a *nested* block, where criterion 5 says the lint must stay silent. So
+it will fire on nothing that exists, which is the right starting point and
+also means the corpus proves very little about it.
+
+### 10.7 Smaller findings
+
+- **`:=`'s only ordering constraint is against `":"`**, not `"::"`, because
+  neither of the latter is a prefix of the other.
+  `longer_operators_are_tried_before_their_prefixes` enforces the one that
+  matters and is correctly silent about the imagined one.
+- **Reaching the wrong parse arm would fail loudly**, which is worth knowing
+  before relying on it: `looks_like_a_binding` tests for `Eq`, `Colon` or
+  `LBrace` at the second token and `reaches_a_binding_eq` scans for a
+  depth-zero `Eq`, so a `ColonEq` answers no to both and falls through to
+  `parse_expr` with *"expected a line break after the statement"*.
+- **`redox-bench` builds the signature marker in a `format!` template**, so
+  `both_halves_define_the_same_function` spelled it `::` and survived a
+  repository-wide sweep for a spaced `::` — the space comes from `"{} ::"`, not
+  from the file. It was the last one left.
+- **Three byte offsets derived in comments** moved when the marker lost a
+  character; plan 52 §10.4a has them.
+- §5's criteria were numbered 1,2,3,4,5,6,7,7,8. Renumbered.
+- Plan 20 §10.2's disclosure is marked resolved in doc 04's register row 20,
+  naming this row.
+
+---
+
+## 11. Corrections from orientation
+
+Written after reading the code this row targets. The additive premise holds:
+`:=` appears nowhere in the lexer, the AST, the parser, the tree-sitter grammar
+or the corpus — the only `:=` in the repository is BNF notation in three doc
+comments. Seven more claims check out. Five do not, and three of those would
+have sent the implementation to the wrong crate or the wrong corpus.
+
+### 11.1 Criterion 3 names a corpus that cannot carry it
+
+`tests/ui/` runs `redox build --plain` and asserts the case **fails**
+(`crates/redox-cli/tests/ui.rs`). `build_command.rs` never invokes rustc — it
+parses, lints, emits and writes. A program whose only fault is
+`cannot assign twice to immutable variable` therefore **builds clean**, and the
+ui harness fails on its own assertion rather than on the program.
+
+The corpus that runs real rustc and remaps its message onto the `.sdx` is
+`tests/check/` with `crates/redox-cli/tests/check.rs` — five fixtures
+(`clean`, `restructured`, `syntax`, `trivial`, `verbatim`), hand-written line
+and column assertions rather than blessed `.stderr`. Criterion 3 belongs there.
+(`tests/unreachable/` also runs `redox check`, but is reserved for
+`docs/GRAMMAR.md`'s `UNREACHABLE` rows.)
+
+### 11.2 Leaf 3 puts the lint in the crate whose own documentation refuses it
+
+Leaf 3 says the shadow lint is "one list, in the parser".
+`crates/redox-driver/src/lint.rs`'s module doc, under *Why the driver and not
+the parser*, already settled this:
+
+> Plan 30's `check_callback_tails` is a whole-program pass in the **parser**,
+> and it produces `ParseError`s — which become hard errors, because
+> `ParseFailure` has no notion of a warning. **A lint cannot go that way.**
+> `Diagnostic` is the type that carries a `Severity`, and the driver is where
+> `Diagnostic`s are built
+
+So the lint lives in `crates/redox-driver/src/lint/`, over the AST. That brings
+a signature change the leaf does not budget: `pub fn lint(path: &Path, source:
+&str)` is source-only *because* its one existing lint is lexical. A shadow lint
+needs statement lists, so it needs `&Program`. Four call sites, all of which
+already hold a parsed `program`: `redox-cli/src/build_command.rs:28`,
+`redox-driver/src/check.rs:65`, `redox-lsp/src/serve/diagnostics.rs:41`,
+`redox-mcp/src/build.rs:42`.
+
+Two further facts the leaf needs. **Scope tracking is net-new** — nothing in
+the repository tracks bindings; `Block { stmts: Vec<Stmt> }` is the whole model
+of "one statement list". And `Binding.pattern` is a `Pattern`, not an `Ident`,
+so what counts as "a name" for a destructuring binding is undecided and must be
+decided here.
+
+The lint's home corpus is `tests/lint/`, not `tests/ui/`: `lint.rs` asserts
+`out.status.success()` where `ui.rs` asserts failure, and `code_coverage.rs`
+accepts a fixture in either. A new lint code needs one, because
+`NOT_YET_REACHABLE` is `&[]`. Next free lint code: **`RDX1002`** — `RDX1001`
+(`UnwrapUsed`) is the only warning that exists today.
+
+**Suppression is a hole.** `allow_pragma.rs:23` hard-codes
+`trivium.text.trim() == "redox: allow unwrap"`. Leaf 3 says the lint warns
+"because shadowing is legal and sometimes meant" — but an author who means it
+has no way to say so. Either the pragma is parametrised or an intentional
+shadow warns forever. Plan 53 is already changing that file; sequencing 53
+before 54 makes this cheaper.
+
+### 11.3 `StmtKind::Assign` is already taken
+
+`crates/redox-ast/src/block/stmt/kind.rs:73-80` is **compound** assignment:
+`Assign { target: Expr, op: BinaryOp, value: Expr }`. The new variant needs a
+different name, or `Assign.op` becomes `Option<BinaryOp>` and the two share one
+node. The plan never mentions the collision.
+
+The `StmtKind` blast radius is also unbudgeted. Four exhaustive matches with no
+wildcard gain an arm: `redox-emit/src/emit/stmt.rs` (deliberately exhaustive —
+*"a new `StmtKind` must fail to compile here"*),
+`redox-fmt/src/stmt_text/kind_text.rs`, `redox-fmt/tests/pattern_printer.rs:86`,
+and one in `redox-cli/tests/`. `redox-lsp` and `redox-mcp` match no `StmtKind`.
+
+### 11.4 §6 declines something this row would otherwise ship
+
+Because the assignment LHS is a general `Expr` — which is the right design, and
+the existing precedent for compound assignment — `(a, b) := (b, a)` **parses**
+(`prefix.rs`'s LParen arm builds `Expr::Tuple`) and emits `(a, b) = (b, a);`,
+which is valid Rust: destructuring assignment, stable since 1.59. §6's "no
+destructuring assignment" and decision 5 therefore describe a **refusal that
+must be implemented**, not a feature left out. As written, the plan ships the
+thing its own §6 declines.
+
+### 11.5 There is no leaf for the tree-sitter grammar
+
+`tree-sitter-redox/grammar.js:439` holds the assignment token set
+(`token(choice("+=", "-=", "*=", "/=", "%=", "??="))`) and
+`crates/redox-cli/tests/tree_sitter.rs` asserts that every corpus `.sdx` parses
+with **no `ERROR` node** — including, at `:102`, every file under
+`tests/lint/`. So leaf 4's `examples/control.sdx` edit *and* the new lint
+fixture both fail that gate until the grammar gains `:=` and the parser is
+regenerated. Editors need no change: there are no operator lists under
+`editors/`.
+
+### 11.6 Smaller corrections
+
+- **The `:=` ordering constraint is only against `":"`.** `operator_table.rs`
+  must list `(":=", …)` before line 55's `(":", …)`; there is **no** constraint
+  relative to `"::"`, because neither string is a prefix of the other and both
+  are two characters.  `scan_operator.rs`'s
+  `longer_operators_are_tried_before_their_prefixes` enforces exactly the prefix
+  relation, so it will catch the real mistake and is correctly silent about the
+  imagined one.
+- **`:=` must be read in `stmt()`'s final arm beside `compound_assign`**, not in
+  `try_binding`. Verified it fails loudly rather than silently if it is not:
+  `looks_like_a_binding` tests `peek_at(1) ∈ {Eq, Colon, LBrace}` and
+  `reaches_a_binding_eq` scans for `TokenKind::Eq` at depth zero, so a
+  `ColonEq` answers no to both and `i := j` falls through to `parse_expr`,
+  erroring with *"expected a line break after the statement"*.
+- **Criterion 3's premise is safe.** `mut` is **never** inferred — `is_mut` is
+  set only by the literal keyword at `parser.rs:878`, and `emit/stmt.rs:59`
+  emits `mut` iff that flag is set. Redox has no mechanism to add it, so
+  rustc's message is reachable.
+- **All four place forms already parse**: `Expr::Ident`, `Expr::Field`
+  (`postfix.rs`), `Expr::Index` (`postfix.rs:50`) and
+  `Expr::Unary{op: Deref}` (`unary_op.rs:13`). There is no place-expression
+  concept and none is needed — `StmtKind::Assign`'s own doc comment already
+  records why the target is an expression.
+- **Criterion 6 is already satisfied**, but its "asserted" rests on one
+  string-literal unit test. All five operators work
+  (`compound_assign.rs:21-32`, `emit/stmt.rs:91-98`,
+  `the_five_compound_operators_assign`), but only `+=` appears in any golden or
+  example — `tests/golden/control.xrs:40,63,105`. `??=` is in the tree-sitter
+  token set and retired from the parser.
+- **The new lint fires on nothing that exists.** Scanning every `.sdx` under
+  `examples/`, `tests/` and `crates/` for two bindings of the same name at the
+  same indentation found **zero** hits; the nearest pair,
+  `examples/fallible.sdx:78` and `:101`, are at different indents and so in
+  different statement lists. The `examples`, `run` and golden corpora are safe.
+- **A corollary defect worth closing here.** `docs/GRAMMAR.md:138` grades
+  `Shadowing | PASSTHROUGH | examples/expressions.sdx`, and that file contains
+  exactly one binding and no shadowing at all — so :137's `let mut` citation is
+  false for it too. Criterion 5's nested-block fixture has no existing basis,
+  and plan 51's `construct_coverage` now reads that row. GRAMMAR.md also has
+  **no row for compound assignment**, despite it shipping in plan 20; adding
+  one is free here and `examples/control.sdx` already witnesses it.
+- **§1's quotation of plan 20 is inexact.** The source reads *"The five
+  compound operators are what docs 01, 03 and 18 define, and **plain
+  reassignment appears in none of them**."*
+- **Criterion 8's target is `docs/04 - Redox Plan of Plans.md:198`**, register
+  row 20, ending *"Plain reassignment stays **unspecified**, disclosed in plan
+  §10.2 rather than designed around"*. That is the clause to mark resolved.
+- **§5 numbers its criteria 1,2,3,4,5,6,7,7,8.** Renumber.
+- **Re-blessing is unstated**: `examples/control.stdout` and
+  `tests/golden/control.xrs` both move under leaf 4.
+- **One hazard plan 52 hands over.** `parse_expr.rs:29-38` consumes a bare
+  `Colon` at `min == 0` as ascription, so after plan 52 `total : = 42` and
+  `total := 42` differ by one space. The first is a parse error rather than a
+  second meaning, so plan 52 §1.1's standard — no semantic difference carried by
+  a space — is **not** violated. Worth saying so in §6 rather than leaving a
+  reader of the milestone to find it.

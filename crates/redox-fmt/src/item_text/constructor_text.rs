@@ -1,7 +1,7 @@
 use crate::item_text::visibility_text::visibility_text;
 use redox_ast::{Constructor, ConstructorFields};
 
-/// One `data` alternative — `Click`, `Meters f64`, `Square { side :: f64 }`.
+/// One `data` alternative — `Click`, `Meters f64`, `Square { side : f64 }`.
 ///
 /// The three field shapes are the three Rust shapes with Redox's spellings: a
 /// tuple constructor's types are **juxtaposed** rather than parenthesised,
@@ -24,7 +24,7 @@ pub(crate) fn constructor_text(constructor: &Constructor) -> String {
         .iter()
         .map(|field| {
           format!(
-            "{}{} :: {}",
+            "{}{} : {}",
             visibility_text(&field.visibility),
             field.name.text,
             field.ty.text

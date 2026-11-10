@@ -1,0 +1,9 @@
+-- A `newtype` that wraps nothing, and the one shape rustc is no backstop
+-- for. Plan 53 §6 said a bad payload was "rejected by rustc, not by Redox";
+-- §11.3 measured it and `#[repr(transparent)] pub struct Unit;` compiles
+-- clean, so only the multi-field case gets `E0690`. This declaration emitted
+-- `struct Zero;` and exited 0, which makes `RDX0111` the only thing that
+-- catches it.
+--
+-- `data Zero = Zero` is the unit-struct spelling that was meant.
+newtype Zero = Zero

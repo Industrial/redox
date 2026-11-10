@@ -20,7 +20,7 @@ fn xrs(src: &str) -> String {
 /// file's business: these assert the **lowering**, and the `async` marker is
 /// row 39's.
 fn body(src: &str) -> String {
-  xrs(&format!("main :: ()\nmain =\n{src}"))
+  xrs(&format!("main : ()\nmain =\n{src}"))
     .lines()
     .skip(1)
     .take_while(|l| *l != "}")
@@ -92,7 +92,7 @@ fn a_binding_is_not_an_await() {
 #[test]
 fn postfix_await_no_longer_parses() {
   assert!(
-    parse_source("main :: ()\nmain =\n  r = (fetch id).await\n").is_err(),
+    parse_source("main : ()\nmain =\n  r = (fetch id).await\n").is_err(),
     "doc 30 deletes postfix `.await`: every await binds"
   );
 }
@@ -106,7 +106,7 @@ fn postfix_await_no_longer_parses() {
 #[test]
 fn question_dot_is_one_token_and_not_two_postfixes() {
   assert!(
-    parse_source("main :: ()\nmain =\n  r = (fetch id)?.await\n").is_err(),
+    parse_source("main : ()\nmain =\n  r = (fetch id)?.await\n").is_err(),
     "`?.` is doc 03 §12.3's operator, not `?` then `.`"
   );
 }

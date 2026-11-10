@@ -1,5 +1,5 @@
 -- Precedence is checked by arithmetic: a wrong tree is a wrong number.
-main :: ()
+main : ()
 main =
   -- 2 + (3 * 4) = 14, not (2 + 3) * 4 = 20
   print (2 + 3 * 4)

@@ -6,7 +6,7 @@
 -- the one syntax cutover Emerald did missed 113 fixtures that lived inside
 -- test modules, and that cost is paid once per syntax change, forever.
 
-main :: ()
+main : ()
 main =
   -- §3 row 1: a single parenthesized argument is juxtaposition.
   a = f (x)
@@ -28,7 +28,7 @@ main =
   l = xs.len  ()
   m = xs.fold(0, add)
   -- §3 row 8: a spaced `::` ascribes, and must never be tightened.
-  n = count :: u64
+  n = count : u64
   -- §3 row 12: no trailing comma, except the one that makes a tuple.
   o = [1, 2, 3,]
   p = (1, 2,)
@@ -57,7 +57,7 @@ main =
   -- ascription's inner expression is an *operand*: `::` binds looser than
   -- every binary operator, so this needs no parentheses, and printing it as
   -- an argument added a pair.
-  aj = 1 + 2 :: u64
+  aj = 1 + 2 : u64
   -- A lambda argument grew one parenthesis per formatting pass, because the
   -- wrap fired on a `Paren` the printer then kept.
   ak = f (\q -> q + 1)

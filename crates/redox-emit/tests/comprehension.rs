@@ -9,7 +9,7 @@ use redox_emit::emit;
 use redox_parser::parse_source;
 
 fn body(src: &str) -> String {
-  emit(&parse_source(&format!("main :: ()\nmain =\n  {src}\n")).expect("should parse"))
+  emit(&parse_source(&format!("main : ()\nmain =\n  {src}\n")).expect("should parse"))
 }
 
 /// A list literal is Rust's array literal, unchanged — a spelling, not a
@@ -28,10 +28,10 @@ fn the_empty_list_is_the_empty_array() {
 
 /// Doc 18 §6's third lowering, which has to sit **inside** the ascription
 /// block rather than replace it: `C::from` alone drops the type's generic
-/// arguments, so `[1, 2] :: Vec<i64>` would become a `Vec<i32>`.
+/// arguments, so `[1, 2] : Vec<i64>` would become a `Vec<i32>`.
 #[test]
 fn an_ascribed_list_becomes_a_from_call() {
-  let out = body("xs = [1, 2] :: Vec<i64>");
+  let out = body("xs = [1, 2] : Vec<i64>");
   assert!(
     out.contains("let __rdx_t: Vec<i64> = Vec::from([1, 2]);"),
     "{out}"
@@ -96,7 +96,7 @@ fn a_guard_lands_at_the_innermost_level() {
 /// The element type comes from the ascription, which is §3.2's own spelling.
 #[test]
 fn an_ascribed_comprehension_types_its_collect() {
-  let out = body("r = [ c | c in cs ] :: Vec<char>");
+  let out = body("r = [ c | c in cs ] : Vec<char>");
   assert!(
     out.contains("let __rdx_t: Vec<char> = cs.into_iter()"),
     "{out}"

@@ -6,8 +6,8 @@ use redox_ast::ClassDecl;
 ///
 /// ```text
 /// class Shape t
-///   const SIDES :: u32
-///   area :: &t -> f64
+///   const SIDES : u32
+///   area : &t -> f64
 ///   describe self = "a shape"
 /// ```
 ///

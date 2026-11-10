@@ -191,7 +191,7 @@ fn transpiling_twice_produces_identical_bytes() {
 fn rejects_a_tab_in_indentation_with_a_located_diagnostic() {
   let dir = scratch("tab");
   let bad = dir.join("tab.sdx");
-  std::fs::write(&bad, "main :: ()\nmain =\n\tprint \"x\"\n").expect("should write the fixture");
+  std::fs::write(&bad, "main : ()\nmain =\n\tprint \"x\"\n").expect("should write the fixture");
 
   let out = Command::new(env!("CARGO_BIN_EXE_redox"))
     .arg("build")
@@ -211,7 +211,7 @@ fn rejects_a_tab_in_indentation_with_a_located_diagnostic() {
 fn rejects_an_inconsistent_dedent_with_a_located_diagnostic() {
   let dir = scratch("dedent");
   let bad = dir.join("dedent.sdx");
-  std::fs::write(&bad, "main :: ()\nmain =\n    print \"a\"\n  print \"b\"\n")
+  std::fs::write(&bad, "main : ()\nmain =\n    print \"a\"\n  print \"b\"\n")
     .expect("should write the fixture");
 
   let out = Command::new(env!("CARGO_BIN_EXE_redox"))
@@ -232,7 +232,7 @@ fn rejects_an_inconsistent_dedent_with_a_located_diagnostic() {
 fn writes_a_sibling_xrs_when_no_output_is_given() {
   let dir = scratch("default-output");
   let src = dir.join("prog.sdx");
-  std::fs::write(&src, "main :: ()\nmain =\n  print \"x\"\n").expect("should write the fixture");
+  std::fs::write(&src, "main : ()\nmain =\n  print \"x\"\n").expect("should write the fixture");
 
   let status = Command::new(env!("CARGO_BIN_EXE_redox"))
     .arg("build")

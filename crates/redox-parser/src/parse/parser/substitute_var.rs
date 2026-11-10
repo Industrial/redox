@@ -10,7 +10,7 @@ use redox_ast::Signature;
 ///
 /// ```text
 /// class Combine t                  trait Combine {
-///   combine :: &t -> t -> t    →       fn combine(&self, __rdx_a1: Self) -> Self;
+///   combine : &t -> t -> t    →       fn combine(&self, __rdx_a1: Self) -> Self;
 /// ```
 ///
 /// **Only a type that is exactly the variable, or `&`/`&mut ` plus the

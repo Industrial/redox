@@ -7,7 +7,7 @@ use redox_ast::FnDecl;
 ///
 /// `parser::generalise` rewrites a signature's types **in place**: for each
 /// type variable it replaces every occurrence with the Rust spelling, so
-/// `largest :: Ord t => Option<t> -> t` is stored as
+/// `largest : Ord t => Option<t> -> t` is stored as
 /// `Ord T => Option<T> -> T` and the author's lowercase `t` is gone. Doc 18
 /// §5.3 makes the case of the first letter the whole difference between a
 /// variable and a concrete type, which is why the parser does it and why it
@@ -38,12 +38,12 @@ pub(crate) fn signature_line(decl: &FnDecl, source: &str) -> Option<String> {
   let line = source[start..end].trim_end().to_string();
   let Some(clause) = decl.clauses.first() else {
     // A signature with **no equation**: a `class` member's declaration, like
-    // `area :: &t -> f64` above a default-less method. The whole declaration
+    // `area : &t -> f64` above a default-less method. The whole declaration
     // is the signature line.
     //
     // The first version bailed here, because it read the first clause's span
     // to find out where the signature ended. That dropped the member
-    // entirely — `examples/class.sdx` lost `area :: &t -> f64` and emitted a
+    // entirely — `examples/class.sdx` lost `area : &t -> f64` and emitted a
     // line of bare indentation in its place.
     return Some(line);
   };

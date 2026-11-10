@@ -12,7 +12,7 @@ use redox_lexer::{Span, Trivia};
 ///                                              }
 ///
 /// instance Counter                             impl Counter {
-///   increment :: &mut Self -> ()           →       fn increment(&mut self) {
+///   increment : &mut Self -> ()           →       fn increment(&mut self) {
 ///   increment self = self.value += 1                   self.value += 1;
 ///                                                  }
 ///                                              }

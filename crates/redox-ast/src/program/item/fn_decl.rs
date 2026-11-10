@@ -7,7 +7,7 @@ use redox_lexer::{Span, Trivia};
 /// Doc 18 §§2.2–2.3:
 ///
 /// ```text
-/// fib :: u64 -> u64        -- the signature
+/// fib : u64 -> u64        -- the signature
 /// fib 0 = 0                -- clause 1
 /// fib n = fib (n - 1)      -- clause 2
 /// ```

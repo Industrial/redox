@@ -15,7 +15,7 @@ fn xrs(src: &str) -> String {
 /// A record whose constructor matches the type.
 #[test]
 fn a_matching_record_constructor_is_a_struct() {
-  let out = xrs("data Point = Point { x :: f64, y :: f64 }\n");
+  let out = xrs("data Point = Point { x : f64, y : f64 }\n");
   assert!(out.contains("struct Point {"), "{out}");
   assert!(out.contains("    x: f64,"), "{out}");
   assert!(!out.contains("enum"), "{out}");
@@ -25,13 +25,13 @@ fn a_matching_record_constructor_is_a_struct() {
 /// does to it — unlike a *variant* body, which stays inline while it fits.
 #[test]
 fn a_struct_body_is_one_field_per_line() {
-  let out = xrs("data P = P { x :: f64 }\n");
+  let out = xrs("data P = P { x : f64 }\n");
   assert!(out.contains("struct P {\n    x: f64,\n}\n"), "{out}");
 }
 
 #[test]
 fn a_narrow_record_variant_stays_on_one_line() {
-  let out = xrs("data E\n  = Click { x :: i32, y :: i32 }\n  | Close\n");
+  let out = xrs("data E\n  = Click { x : i32, y : i32 }\n  | Close\n");
   assert!(out.contains("    Click { x: i32, y: i32 },"), "{out}");
 }
 
@@ -39,7 +39,7 @@ fn a_narrow_record_variant_stays_on_one_line() {
 #[test]
 fn a_wide_record_variant_expands() {
   let out =
-    xrs("data E\n  = Wide { first :: SomeLongTypeName, second :: AnotherLongOne }\n  | Close\n");
+    xrs("data E\n  = Wide { first : SomeLongTypeName, second : AnotherLongOne }\n  | Close\n");
   assert!(out.contains("    Wide {\n"), "{out}");
   assert!(out.contains("        first: SomeLongTypeName,"), "{out}");
 }
@@ -64,7 +64,7 @@ fn an_enum_brings_its_constructors_into_scope() {
 /// A struct does not, because its constructor is already its name.
 #[test]
 fn a_struct_brings_nothing_into_scope() {
-  let out = xrs("data Point = Point { x :: f64 }\n");
+  let out = xrs("data Point = Point { x : f64 }\n");
   assert!(!out.contains("use "), "{out}");
 }
 
@@ -87,16 +87,20 @@ fn a_unit_constructor_is_a_unit_struct() {
 /// `newtype` and `data` lower identically for a single-field tuple, because
 /// Rust has one such form and not two.
 #[test]
-fn newtype_and_data_agree_on_a_tuple_struct() {
+fn newtype_and_data_differ_only_by_repr_transparent() {
   let from_newtype = xrs("newtype Meters = Meters f64\n");
   let from_data = xrs("data Meters = Meters f64\n");
-  assert_eq!(from_newtype, "struct Meters(f64);\n");
-  assert_eq!(from_newtype, from_data);
+  assert_eq!(from_newtype, "#[repr(transparent)]\nstruct Meters(f64);\n");
+  assert_eq!(from_data, "struct Meters(f64);\n");
+  assert_ne!(
+    from_newtype, from_data,
+    "the two keywords no longer lower identically — plan 53 leaf 3"
+  );
 }
 
 #[test]
 fn deriving_becomes_a_derive_attribute() {
-  let out = xrs("data P = P { x :: f64 }\n  deriving (Debug, Clone, PartialEq)\n");
+  let out = xrs("data P = P { x : f64 }\n  deriving (Debug, Clone, PartialEq)\n");
   assert!(
     out.starts_with("#[derive(Debug, Clone, PartialEq)]\n"),
     "{out}"
@@ -108,8 +112,8 @@ fn deriving_becomes_a_derive_attribute() {
 /// reason: a reader chooses the layout, not a different construct.
 #[test]
 fn deriving_reads_the_same_in_either_layout() {
-  let indented = xrs("data P = P { x :: f64 }\n  deriving (Debug)\n");
-  let inline = xrs("data P = P { x :: f64 } deriving (Debug)\n");
+  let indented = xrs("data P = P { x : f64 }\n  deriving (Debug)\n");
+  let inline = xrs("data P = P { x : f64 } deriving (Debug)\n");
   assert_eq!(indented, inline);
 }
 
@@ -129,7 +133,7 @@ fn a_type_alias_is_already_rust() {
 /// break if `data` consumed the line break the next item needs.
 #[test]
 fn a_declaration_does_not_swallow_the_next_item() {
-  let out = xrs("newtype Meters = Meters f64\n\nmain :: ()\nmain =\n  print \"x\"\n");
+  let out = xrs("newtype Meters = Meters f64\n\nmain : ()\nmain =\n  print \"x\"\n");
   assert!(out.contains("struct Meters(f64);"), "{out}");
   assert!(out.contains("fn main() {"), "{out}");
 }
@@ -138,6 +142,6 @@ fn a_declaration_does_not_swallow_the_next_item() {
 /// no use.
 #[test]
 fn a_tuple_index_reads_a_field() {
-  let out = xrs("depth :: Meters -> f64\ndepth m = m.0\n");
+  let out = xrs("depth : Meters -> f64\ndepth m = m.0\n");
   assert!(out.contains("m.0"), "{out}");
 }

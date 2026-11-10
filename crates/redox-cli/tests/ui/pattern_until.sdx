@@ -3,7 +3,7 @@
 -- `while !matches!(x, Some(_))`, binds nothing — so it cannot be what a
 -- binding construct meant, and lowering to it would be doc 02 §5.2's failure
 -- mode. Plan 22 §1.3 reports instead.
-main :: ()
+main : ()
 main =
   until Some v = queue.pop ()
     print v

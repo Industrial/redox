@@ -112,7 +112,7 @@ fn a_resolved_position_agrees_with_the_source_text() {
 /// phase1.sdx                      phase1.xrs
 /// 1  -- Doc 01 §31 …          1  // Doc 01 §31 …
 /// 2  -- print. Prints 30 …    2  // print. Prints 30 …
-/// 3  add :: i32 -> i32 -> i32 3  fn add(a: i32, b: i32) -> i32 {
+/// 3  add : i32 -> i32 -> i32 3  fn add(a: i32, b: i32) -> i32 {
 /// 4  add a b =                4      a + b
 /// 5    a + b                  5  }
 /// ```

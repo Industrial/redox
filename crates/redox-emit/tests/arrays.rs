@@ -14,7 +14,7 @@ fn xrs(src: &str) -> String {
 
 /// The body of `fn main`, dedented.
 fn body(src: &str) -> String {
-  xrs(&format!("main :: ()\nmain =\n{src}"))
+  xrs(&format!("main : ()\nmain =\n{src}"))
     .lines()
     .skip(1)
     .take_while(|l| *l != "}")
@@ -49,7 +49,7 @@ fn a_list_literal_is_unchanged() {
 /// which is also why `[1, 2, 3]` is *not* a `vec!`.
 #[test]
 fn an_ascribed_literal_becomes_a_vec() {
-  let out = body("  v = [1, 2, 3] :: Vec<i32>\n");
+  let out = body("  v = [1, 2, 3] : Vec<i32>\n");
   assert!(out.contains("Vec::from([1, 2, 3])"), "{out}");
 }
 
@@ -97,8 +97,8 @@ fn the_neighbouring_bracket_forms_still_work() {
 #[test]
 fn the_retired_collection_literals_do_not_parse() {
   for src in [
-    "main :: ()\nmain =\n  x = %w[a b]\n",
-    "main :: ()\nmain =\n  x = #{1, 2}\n",
+    "main : ()\nmain =\n  x = %w[a b]\n",
+    "main : ()\nmain =\n  x = #{1, 2}\n",
   ] {
     assert!(parse_source(src).is_err(), "{src} should not parse");
   }

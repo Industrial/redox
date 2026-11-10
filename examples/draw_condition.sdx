@@ -13,7 +13,7 @@
 -- A constructor applied to a sub-pattern — `Some v` — is the pattern form
 -- every use of `Option` needs, and no row owned it before this one. See the
 -- plan's §10.
-first_or :: Option<i32> -> i32 -> i32
+first_or : Option<i32> -> i32 -> i32
 first_or o fallback =
   if Some v = o
     return v
@@ -28,7 +28,7 @@ first_or o fallback =
 -- indented `if` is a **statement**, so it is not a tail expression, and a
 -- branch written as a bare value emits `"big";` instead. Recorded in plan 22
 -- §10 as a gap belonging to plan 20, not worked around silently.
-describe :: Option<i32> -> &'static str
+describe : Option<i32> -> &'static str
 describe o =
   if Some v = o && v > 2
     return "big"
@@ -40,7 +40,7 @@ describe o =
 -- `while P <- e` drains, and the collection is mutated by a **method** — not
 -- by rebinding `stack`, which plan 20 §10.2 records as unspelled. A wrong
 -- lowering here either loops forever or stops on the first turn.
-total :: Vec<i32> -> i32
+total : Vec<i32> -> i32
 total xs =
   mut stack = xs
   mut sum = 0
@@ -52,7 +52,7 @@ total xs =
 -- §7.1 chose it for: the else branch must diverge, and that is `guard`'s own
 -- requirement. rustc enforces it — Redox does not check divergence, because
 -- it is a check rustc can make.
-halve :: Option<i32> -> i32
+halve : Option<i32> -> i32
 halve o =
   guard Some v = o else
     return 0
@@ -65,7 +65,7 @@ halve o =
 -- is left-associative, so `Some Some v` is `Some` applied to two arguments
 -- and means nothing. rustc rejects the arity, which is the division of labour
 -- AGENTS.md states — but the parentheses are the spelling.
-unwrap_nested :: Option<Option<i32>> -> i32
+unwrap_nested : Option<Option<i32>> -> i32
 unwrap_nested o = case o of
   y | Some (Some v) = y -> v
   y | Some _ = y -> -1
@@ -73,17 +73,17 @@ unwrap_nested o = case o of
 
 -- The condition form is an expression too, told apart by `then` exactly as
 -- plan 20's is.
-label :: Option<i32> -> &'static str
+label : Option<i32> -> &'static str
 label o = if Some _ = o then "present" else "absent"
 
 -- A parenthesised constructor pattern in an equation's **row**. Juxtaposition
 -- there is ambiguous — `f Some v` could be `f (Some v)` or three patterns —
 -- so the parentheses are required, as they are in Haskell.
-doubled :: Option<i32> -> i32
+doubled : Option<i32> -> i32
 doubled (Some n) = n * 2
 doubled _ = 0
 
-main :: ()
+main : ()
 main =
   print (first_or (Some 7) 0)
   print (first_or None 5)

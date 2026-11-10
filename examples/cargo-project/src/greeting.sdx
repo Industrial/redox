@@ -8,10 +8,10 @@
 -- item is private to the module that includes it. Doc 03 §9.6 specified the
 -- spelling, plan 24 implemented it, and plan 14's `module` is what then had
 -- something to declare.
-export greet :: &str -> String
+export greet : &str -> String
 greet name =
   "hello, ".to_string () + name
 
-export twice :: i32 -> i32
+export twice : i32 -> i32
 twice n =
   n * 2

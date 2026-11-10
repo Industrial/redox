@@ -4,7 +4,7 @@ use redox_lexer::Span;
 
 /// One constructor of a `data` declaration — doc 18 §2.4.
 ///
-/// `Click { x :: i32, y :: i32 }`, `Key char`, `Close`. Which Rust form it
+/// `Click { x : i32, y : i32 }`, `Key char`, `Close`. Which Rust form it
 /// becomes depends on the *declaration*, not on the constructor: the same
 /// `Marker` is `struct Marker;` alone and `Marker,` inside an enum.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -1,0 +1,5 @@
+main : ()
+main =
+  x = 7
+  y = x :: u64
+  print y

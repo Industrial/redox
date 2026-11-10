@@ -108,6 +108,47 @@ fn a_plain_row_generates_no_from_impl() {
 #[test]
 fn the_try_operator_passes_through() {
   let out =
-    xrs("parse_it :: &str -> Result<u32, E>\nparse_it s = Ok n\n  where\n    n = s.parse ()?\n");
+    xrs("parse_it : &str -> Result<u32, E>\nparse_it s = Ok n\n  where\n    n = s.parse ()?\n");
   assert!(out.contains("let n = s.parse()?;"), "{out}");
+}
+
+/// Criterion 1 of plan 53 — the variants come into scope under their own
+/// names, as `data`'s do.
+///
+/// Before this row, `errors` was the one declaration that introduced
+/// constructors and then hid them. `data Event = Click | Close` gave you
+/// `Click`; `errors ConfigError` with a `Missing` row gave you
+/// `ConfigError::Missing` and nothing shorter, and writing the short form got
+/// `E0425: cannot find function, tuple struct or tuple variant` against a
+/// line that reads like ordinary Haskell. Neither doc 03 §12.5 nor doc 18 §8
+/// asks for the difference — it was an omission.
+///
+/// The glob sits after the enum and before the `Display` impl, and is a plain
+/// `use` rather than `pub use`: `emit_data`'s is plain, and re-exporting the
+/// variants from the enclosing module would be a visibility decision nobody
+/// made.
+#[test]
+fn the_variants_come_into_scope_under_their_own_names() {
+  let out = xrs("errors E\n  Gone  \"gone\"\n");
+  assert!(out.contains("use E::*;\n"), "{out}");
+  let glob = out.find("use E::*;").expect("the glob is emitted");
+  let display = out
+    .find("impl std::fmt::Display")
+    .expect("Display is emitted");
+  assert!(
+    out.find("enum E").expect("the enum is emitted") < glob && glob < display,
+    "the glob sits between the enum and its Display impl:\n{out}"
+  );
+}
+
+/// And the qualified form still works, which is the half that must not be
+/// traded away: a program with two error types in scope needs it.
+///
+/// Asserted on the generated `Display` arms rather than on user code, because
+/// those are written fully qualified by the emitter and would break first if
+/// the glob had somehow replaced the long form rather than added to it.
+#[test]
+fn the_display_arms_stay_qualified() {
+  let out = xrs("errors E\n  Gone  \"gone\"\n");
+  assert!(out.contains("E::Gone =>"), "{out}");
 }

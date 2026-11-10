@@ -6,11 +6,11 @@ use redox_lexer::{Span, Trivia};
 /// A `data` or `newtype` declaration — doc 18 §2.4.
 ///
 /// ```text
-/// data Point = Point { x :: f64, y :: f64 }     #[derive(Debug, Clone)]
+/// data Point = Point { x : f64, y : f64 }     #[derive(Debug, Clone)]
 ///   deriving (Debug, Clone)                     struct Point { x: f64, y: f64 }
 ///
 /// data Event                                    enum Event {
-///   = Click { x :: i32, y :: i32 }                  Click { x: i32, y: i32 },
+///   = Click { x : i32, y : i32 }                  Click { x: i32, y: i32 },
 ///   | Key char                              →       Key(char),
 ///   | Close                                         Close,
 ///                                               }
@@ -35,14 +35,29 @@ pub struct DataDecl {
   pub derives: Vec<Ident>,
   /// Whether the author wrote `newtype`.
   ///
-  /// Kept even though it changes no output: `newtype Meters = Meters f64` and
-  /// `data Meters = Meters f64` lower identically, because Rust has one
-  /// single-field tuple struct and not two. The flag is what lets the
+  /// **It changes the output.** `newtype Meters = Meters f64` emits
+  /// `#[repr(transparent)] struct Meters(f64);` and
+  /// `data Meters = Meters f64` emits the struct alone — plan 53 leaf 3.
+  /// Rust has one single-field tuple struct and not two, which is why this
+  /// used to be a flag that changed nothing; what it does have is a layout
+  /// guarantee worth asking for by name, and `newtype` is the keyword that
+  /// asks. The flag is also what lets the
   /// formatter re-spell the declaration the way it was written, and what
-  /// would let a later plan reject `newtype` with more than one field — a
-  /// check Haskell makes and Rust has no equivalent of.
+  /// `newtype_shape` reads to reject a `newtype` that is not **one
+  /// constructor over one field** — a check Haskell makes and Rust has no
+  /// equivalent of, now `RDX0111`.
+  ///
+  /// Both halves of that rule, not just the field count this comment used to
+  /// name: `newtype Shade = Light | Dark` emitted a perfectly good `enum`
+  /// before plan 53 leaf 2, which is as wrong as a two-field tuple and was
+  /// the half nobody had written down.
+  ///
+  /// rustc backstops exactly one of the four refused shapes, and only since
+  /// leaf 3: `#[repr(transparent)]` over two fields is `E0690`. A unit struct
+  /// with it compiles clean, so zero fields, zero constructors and a bare
+  /// `newtype Lone` with no `=` row at all are caught here or not at all.
   pub is_newtype: bool,
-  /// `union Reg = Reg { a :: u32, b :: f32 }` — plan 45 leaf 4.
+  /// `union Reg = Reg { a : u32, b : f32 }` — plan 45 leaf 4.
   ///
   /// Doc 18 §2.4's rule reads a shape off the constructors, and a union is
   /// not a shape — it is a struct's shape with overlapping storage, which no

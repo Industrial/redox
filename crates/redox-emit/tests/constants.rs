@@ -15,7 +15,7 @@ fn xrs(src: &str) -> String {
 #[test]
 fn a_const_takes_its_type_from_the_signature_colons() {
   assert_eq!(
-    xrs("const MAX :: usize = 1024\n"),
+    xrs("const MAX : usize = 1024\n"),
     "const MAX: usize = 1024;\n"
   );
 }
@@ -23,7 +23,7 @@ fn a_const_takes_its_type_from_the_signature_colons() {
 /// One keyword apart, which is why one node carries both.
 #[test]
 fn a_static_differs_by_one_keyword() {
-  assert_eq!(xrs("static COUNT :: u32 = 0\n"), "static COUNT: u32 = 0;\n");
+  assert_eq!(xrs("static COUNT : u32 = 0\n"), "static COUNT: u32 = 0;\n");
 }
 
 #[test]
@@ -37,7 +37,7 @@ fn every_visibility_scope_applies_to_a_binding() {
       "pub(in crate::deep) const LIMIT: usize = 8;",
     ),
   ] {
-    let out = xrs(&format!("{marker} const LIMIT :: usize = 8\n"));
+    let out = xrs(&format!("{marker} const LIMIT : usize = 8\n"));
     assert_eq!(out, format!("{want}\n"), "{marker}");
   }
 }
@@ -51,7 +51,7 @@ fn every_visibility_scope_applies_to_a_binding() {
 #[test]
 fn a_lowercase_name_is_legal() {
   assert_eq!(
-    xrs("const threshold :: u32 = 2\n"),
+    xrs("const threshold : u32 = 2\n"),
     "const threshold: u32 = 2;\n"
   );
 }
@@ -59,7 +59,7 @@ fn a_lowercase_name_is_legal() {
 /// Doc 18 §2.2's `const fn`: a marker between `::` and the spine.
 #[test]
 fn a_const_marker_makes_a_const_fn() {
-  let out = xrs("square :: const u32 -> u32\nsquare n = n * n\n");
+  let out = xrs("square : const u32 -> u32\nsquare n = n * n\n");
   assert!(out.contains("const fn square(n: u32) -> u32 {"), "{out}");
 }
 
@@ -68,7 +68,7 @@ fn a_const_marker_makes_a_const_fn() {
 /// §14.1), and `const u32` is not a Rust type. It *was* one until plan 16.
 #[test]
 fn the_const_marker_never_reaches_a_type() {
-  let out = xrs("square :: const u32 -> u32\nsquare n = n * n\n");
+  let out = xrs("square : const u32 -> u32\nsquare n = n * n\n");
   assert!(!out.contains("const u32"), "{out}");
   assert!(!out.contains("n: const"), "{out}");
 }
@@ -77,7 +77,7 @@ fn the_const_marker_never_reaches_a_type() {
 /// it is read between them and the spine.
 #[test]
 fn a_const_fn_composes_with_the_rest_of_a_signature() {
-  let out = xrs("export square :: const u32 -> u32\nsquare n = n * n\n");
+  let out = xrs("export square : const u32 -> u32\nsquare n = n * n\n");
   assert!(out.contains("pub const fn square("), "{out}");
 }
 
@@ -86,7 +86,7 @@ fn a_const_fn_composes_with_the_rest_of_a_signature() {
 /// nowhere else for one to come from.
 #[test]
 fn a_binding_without_a_value_is_rejected() {
-  assert!(parse_source("const MAX :: usize\n").is_err());
+  assert!(parse_source("const MAX : usize\n").is_err());
 }
 
 /// And it must have a type, which is the second of §13.4's two corrections.

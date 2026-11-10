@@ -4,5 +4,5 @@
 -- limit existed — an abort, not a diagnostic. 24 levels parse and 32 abort in
 -- a debug build, so the limit is 16 with headroom.
 
-deep :: ()
+deep : ()
 deep = ((((((((((((((((((((1))))))))))))))))))))

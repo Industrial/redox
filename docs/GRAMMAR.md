@@ -135,7 +135,9 @@ checked against the host language instead of against this project's history.
 | Area | Grade | Evidence and note |
 |---|---|---|
 | `let` bindings, `let mut` | `SUGARED` | `examples/expressions.sdx` — `x = e` and `mut x = e` |
-| Shadowing | `PASSTHROUGH` | `examples/expressions.sdx` |
+| Assignment | `SUGARED` | `examples/control.sdx` — `x := e`, because `=` is a binding (plan 54). Covers a name, a field, an index, a deref target and Rust's destructuring assignment, the target being a general expression |
+| Compound assignment | `SUGARED` | `examples/control.sdx` — all five of `+=`, `-=`, `*=`, `/=`, `%=`. Shipped in plan 20 and graded here for the first time |
+| Shadowing | `PASSTHROUGH` | `examples/control.sdx` — an inner `n = 1` inside a `do` block over an outer `n`, which is the contrast that makes `:=` necessary. Cited `examples/expressions.sdx` until plan 54; that file holds exactly one binding, and nothing in the corpus shadowed anything |
 | `if` / `else` | `SUGARED` | `examples/control.sdx` — an expression, with layout |
 | `if let` | `SUGARED` | `examples/control.sdx` — `if P = e` |
 | `let` chains | `SUGARED` | `examples/draw_condition.sdx` — the draw arrow in a condition (doc 30) |

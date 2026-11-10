@@ -1,7 +1,7 @@
 /// Whether a lowercase name is one of Rust's **primitive** type names.
 ///
 /// Doc 18 §5.3 says "lowercase type names are type variables", and taken
-/// literally that makes `i32` a type variable and `add :: i32 -> i32 -> i32`
+/// literally that makes `i32` a type variable and `add : i32 -> i32 -> i32`
 /// a generic function of one parameter. It cannot mean that, and this closed
 /// list is the correction: a lowercase name is a type variable *unless* it is
 /// a primitive.

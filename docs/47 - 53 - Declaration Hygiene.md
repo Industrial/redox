@@ -3,7 +3,7 @@
 Plan ID: `declaration-hygiene`
 Depends on: 52 (`type-colon`)
 Milestone: 9 — *surface coherence*
-Status: `planned`
+Status: `done`
 
 ---
 
@@ -292,4 +292,297 @@ the source, so a suppression outlived the line it was written for. A per-site at
 
 ## 10. Result
 
-*Not yet executed.*
+**Done.** `errors` brings its variants into scope; `newtype` is
+`#[repr(transparent)]` and is refused unless it is one constructor over one
+field; `#[redox::allow(unwrap)]` suppresses `RDX1001` on a declaration and on a
+statement, and the comment pragma warns with `RDX1002`.
+
+### 10.1 Criterion 4 could not be met as written, and rustfmt is why
+
+Criterion 4 asked for a native `#[derive(...)]`, a `deriving` clause and
+deterministic attribute order **asserted by the golden**. The order is
+deterministic and the combination compiles. It cannot appear in an example,
+because rustfmt's `merge_derives` defaults to true:
+
+```text
+#[derive(PartialEq)]       becomes   #[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone)]              #[repr(transparent)]
+#[repr(transparent)]                 struct Tally(u32);
+struct Tally(u32);
+```
+
+and `generated_rust_is_rustfmt_clean` runs over `examples/`. Emitting one
+merged `#[derive]` instead would mean reading `derive` out of **verbatim
+attribute trivia** and splicing the `deriving` names into it — exactly the
+per-attribute work doc 03 §13.2's design exists to avoid, on the one attribute
+Redox already knows about. The order is what the criterion was for, and
+rustfmt-stability is a stronger property this one combination does not have.
+
+So the criterion is split: `examples/attributes.sdx` pins the
+`deriving`-then-`repr` order in a golden, and
+`crates/redox-emit/tests/attributes.rs` pins all three attributes where rustfmt
+does not run. Both say why in place.
+
+Worth recording that the ordering half was **already true and already correct**
+before this row — `emit_data` emits trivia, then the `deriving` derive, then
+the struct — and that no test combined the two spellings, which is why nobody
+knew.
+
+### 10.2 `newtype` was unvalidated in four shapes, not two
+
+§1 and criterion 2 named the field count. The parser read `is_newtype` *nowhere*
+and `constructor_fields` loops unbounded, so four shapes were accepted:
+
+| Probe | Emitted at HEAD | Diagnostic |
+|---|---|---|
+| `newtype Bad = Bad f64 f64` | `struct Bad(f64, f64);` | none |
+| `newtype Zero = Zero` | `struct Zero;` | none |
+| `newtype Lone` (no `=` row) | `struct Lone;` | none |
+| `newtype Shade = Light \| Dark` | `enum Shade { … }` | none |
+
+The last two were not in the plan. A `newtype` lowering to an **enum** is as
+wrong as one lowering to a two-field tuple, and `newtype Lone` would have been
+a hole straight through a field-count-only check. All four are `RDX0111`, one
+code with three messages — a code names a rule, and there is one rule and one
+remedy. Ordering is load-bearing: the constructor count is checked first, or
+`newtype Shade = Light | Dark` reports `Light`'s missing field, which is true
+and the wrong diagnosis.
+
+**And `#[repr(transparent)]` gave the multi-field case a rustc backstop it did
+not have.** §11.3 measured that a unit struct with `repr(transparent)` compiles
+clean while two fields are `E0690` — so leaf 3 turned one of the four shapes
+into something rustc also catches. Zero fields, zero constructors and the bare
+`newtype Lone` are caught here or not at all.
+
+### 10.3 Criterion 1 was a build requirement, not an illustration
+
+Leaf 1 is described as one emitter change. Adding `use ConfigError::*;` while
+`examples/errors.sdx` still qualified every variant is an `unused import`
+warning, and `support.rs` asserts rustc emits nothing for an example. So the
+example had to gain an unqualified use in the same leaf. It now exercises both
+spellings deliberately — `Missing` bare and `ConfigError::Invalid` qualified —
+because the glob must *add* to the long form rather than replace it: a program
+with two error types in scope needs the long one.
+
+Also corrected: §1's table implied `data` always emits the glob. It emits it in
+the **enum branch only**, and `a_struct_brings_nothing_into_scope` asserts the
+absence for a struct. The comparison holds for the case that matters, `errors`
+being always an enum.
+
+### 10.4 Leaf 4 was not one match arm — the suppression *key* was wrong
+
+`unwrap_call_sites` keyed suppression on the **trivium's own line**. An
+attribute can only sit on the line above what it applies to, so the key could
+not work for one. Measured before building anything: a *comment* pragma on the
+line above did not suppress either.
+
+The fix splits the lint in two, and the split is the interesting part:
+
+- **Detection stays lexical.** `unwrap_call_sites`'s doc comment argues that an
+  `Expr` walker which forgets a variant **silently misses call sites** and
+  nothing in the suite would notice. That argument stands.
+- **Suppression walks the tree**, because it needs construct spans. The
+  asymmetry is what makes it safe: a suppression walk that forgets a variant
+  makes a warning **fire that should have been silenced** — loud, not silent —
+  which is the opposite failure direction, and is why the argument against
+  walking does not transfer.
+
+`lint` therefore takes a `Program`. It takes an **`Option<&Program>`**, which
+is a correction to §4: three of the four call sites had one parsed, and
+`redox-lsp`'s `serve/diagnostics.rs` deliberately discards it — its doc says a
+lint must still run on a document that does not parse. A non-optional
+parameter would have meant a behaviour regression or a second parse.
+
+Two smaller findings in the same leaf. The four pragma sites in `examples/`
+were all **trailing** comments, so every one of them worked under the old key
+and none demonstrated the bug — converting them to attributes is what makes
+the new key load-bearing in the corpus. And `allow_pragma.rs` cited a test,
+`an_unrelated_comment_does_not_suppress`, that did not exist anywhere;
+`redox-driver` had no `tests/` directory at all. It exists now.
+
+Whitespace inside the attribute is **not** normalised: `#[redox :: allow(
+unwrap )]` is refused. A spaced `::` is `RDX0110` everywhere else after plan
+52, so there is no admitted spelling to be generous to, and an unrecognised one
+fails loudly — it is not consumed, reaches rustc, and `E0433` names it on the
+author's line.
+
+### 10.5 Five artifacts claimed something that is no longer true
+
+§8 named three; §11.7 found three more, and all six are corrected rather than
+deleted. Three said `newtype` and `data` lower identically — true until leaf 3.
+Three more said a `newtype` is one-field **"by construction"**, which was not
+true of the code at all until leaf 2: `crates/redox-fmt/src/item_text/data_text.rs`
+relied on it to skip a multi-line shape, and `newtype Multi = A | B` falsified
+it outright.
+
+Two of those three were written *ahead* of the check, in the past tense, and
+now match the code — which is the hazard of describing an invariant a plan
+intends rather than one the code keeps.
+
+### 10.6 Open
+
+- `docs/GRAMMAR.md:62`'s tuple-struct row wording is now stale about
+  `newtype`. `grammar_inventory` only checks the cited file exists, so it will
+  not catch it; plan 51's `construct_coverage` indexes the row, so it has a
+  second reader.
+- The comment pragma is deprecated, not removed. `RDX1002`'s help says so:
+  *"the comment still suppresses `RDX1001` for this milestone; the attribute is
+  what plan 64 keeps."*
+- `crates/redox-lsp/tests/session.rs` embeds `.sdx` source as Rust string
+  literals, which AGENTS.md forbids and `no_literal_expectations` does not
+  catch (it guards *expectations*). Not this row's to convert, but counted.
+
+---
+
+## 11. Corrections from orientation
+
+Written after reading the code this row targets, before implementing it. The
+three core claims hold: `errors` emits no glob, `newtype` and `data` lower
+identically with no validation whatsoever, and
+`newtype_and_data_agree_on_a_tuple_struct` exists and says what §1 quotes. Six
+things do not, and four of them change what a leaf has to do.
+
+### 11.1 Criterion 1 is load-bearing, not illustrative
+
+Leaf 1 is described as one emitter change. It cannot be. Adding
+`use ConfigError::*;` to the generated Rust while `examples/errors.sdx` still
+qualifies every variant produces
+
+```
+warning: unused import: `ConfigError::*`
+```
+
+and `crates/redox-cli/tests/support.rs`'s `run()` asserts
+`out.stderr.is_empty()` — *"rustc should emit nothing for generated code"*. So
+`examples/errors.sdx` **must** gain an unqualified use in the same leaf or
+`every_example_compiles_and_runs` goes red. Criterion 1's "both asserted in one
+example" is a build requirement, not a nicety.
+
+Scale, for calibration: there is exactly **one** `errors` declaration in the
+whole `.sdx` corpus, `examples/errors.sdx:9`.
+
+### 11.2 §1's table row overstates what `data` does
+
+`data.rs:94-95` emits `use T::*;` in the **enum branch only** — the struct
+branch returns at `data.rs:60`, and `a_struct_brings_nothing_into_scope`
+asserts `!out.contains("use ")` for it. `data Meters = Meters f64` emits no
+glob either. The comparison still holds for the case that matters, because
+`errors` always lowers to an enum, but the row as written implies a rule `data`
+does not have.
+
+The right emission for leaf 1 is therefore `data.rs:94-95` verbatim: a
+module-level, **private** `use T::*;` at the declaration's indent. Not
+`use Self::*` in an impl — the `Display` arms already write fully-qualified
+`T::V`, and a glob inside an impl would not reach user code. Not `pub use` —
+`data`'s is plain, and `pub use` would re-export the variants.
+
+### 11.3 §6's rustc backstop does not exist for the zero-field case
+
+§6 says a zero-sized or multi-field `newtype` payload "is rejected by rustc,
+not by Redox". Measured:
+
+```rust
+#[repr(transparent)] pub struct Unit;                   // compiles clean
+#[repr(transparent)] pub struct Two(pub f64, pub f64);  // error[E0690]
+```
+
+Only the multi-field half has a backstop. For `newtype Foo = Foo` the Redox
+check in leaf 2 is the **only** thing that catches it, so §6's "the rest is
+rustc's" needs qualifying and criterion 2's zero-field half is not redundant
+with rustc.
+
+### 11.4 A `newtype` can lower to an enum today, which §1 does not mention
+
+Measured at HEAD:
+
+| Probe | Emitted | Diagnostic |
+|---|---|---|
+| `newtype Bad = Bad f64 f64` | `struct Bad(f64, f64);` | none, exit 0 |
+| `newtype Zero = Zero` | `struct Zero;` | none, exit 0 |
+| `newtype Multi = A \| B` | `enum Multi { A, B }` + `use Multi::*;` | none, exit 0 |
+
+`data_decl.rs:43` sets `is_newtype` and **never consults it again**;
+`constructor_fields.rs:40-47` loops `while starts_a_field_type(...)` unbounded.
+The Haskell rule is one constructor with one field, and the
+**constructor-count** half is as unenforced as the field-count half. Leaf 2 and
+criterion 2 mention only arity; both halves belong in the same check.
+
+### 11.5 Criterion 4's ordering half is already true
+
+`data.rs:27-33` emits `emit_trivia(&d.leading)` first, then the
+`deriving`-derived `#[derive(...)]`, then the struct line. Native attributes are
+`TriviaKind::Attribute` trivia printed verbatim, so
+
+```rust
+#[derive(Clone)]
+#[derive(Debug)]
+struct M(f64);
+```
+
+is already deterministic and already compiles. rustfmt does not reorder
+attributes. So criterion 4 needs a **test** and no production code — no
+existing test combines a native attribute *with* a `deriving` clause, which is
+why nobody knew. Only the `repr` interaction is new work.
+
+### 11.6 Leaf 4 is larger than "recognise one more trivium kind"
+
+`unwrap_call_sites.rs` keys suppression on `line_of(source, trivium.span.0)` —
+the **trivium's own line**. A Rust attribute can only sit on the line *above*
+the statement it applies to. Measured:
+
+```text
+main : ()
+main =
+  raw = Some 7
+  -- redox: allow unwrap
+  port = raw.unwrap ()
+```
+
+→ `RDX1001` **still fires**. So the suppression key must change from the
+trivium's line to the line of the construct the trivium leads, and the
+declaration-level case of criterion 5 needs a **span range**, which the current
+model has no notion of at all. That is two changes to
+`unwrap_call_sites.rs`, not one match arm in `allow_pragma.rs`.
+
+Two smaller findings in the same area. The pragma's exact text is
+`allow_pragma.rs:24`, `trivium.text.trim() == "redox: allow unwrap"` — a plain
+`LineComment` only, so a doc comment never suppresses. And
+`#[redox::allow(unwrap)]` reaching rustc is `error[E0433]: cannot find module
+or crate 'redox'`, a hard error rather than an unknown lint — which strengthens
+plan 38 §1.3's must-consume argument rather than weakening it. `register_tool`
+appears nowhere in `crates/`; plan 38 refused it and the refusal held.
+
+Supporting §1.3's evidential argument, verified: `redox-fmt`'s
+`stmt_text/trivia_text.rs:27` already prints `TriviaKind::Attribute` back as
+`#[…]`, so the formatter round-trips an attribute and the parser needs no
+change — attributes are already trivia on every item and statement.
+
+### 11.7 Two counts, and a criterion that cannot be checked yet
+
+- **Pragma sites: 2 examples, 4 sites, plus one test fixture.**
+  `examples/ascription.sdx:25`, `examples/fallible.sdx:124`, `:125`, `:127`,
+  and `crates/redox-cli/tests/lint/unwrap_suppressed.sdx:14`. §2 has this
+  right; §6 and criterion 4 both say "5 examples", which is internally
+  inconsistent with §2.
+- **Leaf 6 undercounts the artifacts by three.** Beyond the three §8 names,
+  these claim *one field by construction*, which is also false today and
+  becomes true only after leaf 2:
+  `crates/redox-fmt/src/item_text/data_text.rs:30-31` (falsified outright by
+  the `Multi` probe above), `crates/redox-lsp/src/serve/symbols/symbol_of.rs:26`,
+  `crates/redox-lexer/src/token/keyword.rs:33`.
+- **Criterion 3's second half has no existing basis.** `examples/data.sdx` has
+  `newtype Meters` but its only `data` is the `Event` enum; there is no
+  single-field `data` tuple struct anywhere in the corpus to contrast against.
+  It needs a new declaration whose field is actually read, because of the
+  zero-rustc-output rule. The two `newtype`s in the corpus are
+  `examples/data.sdx:26` and `examples/fallible.sdx:19`, both legal under
+  `repr(transparent)`, both forcing a golden re-bless.
+- **Criterion 2 needs a `tests/ui/` fixture to exist at all**, not just for
+  completeness: `code_coverage.rs`'s `every_code_is_reached_by_the_corpus` has
+  `NOT_YET_REACHABLE = &[]`, so a declared `Code` with no fixture fails the
+  gate.
+
+Also in scope but unlisted: `docs/GRAMMAR.md:62`'s tuple-struct row is about to
+become wrong in its wording. `grammar_inventory` only checks the cited file
+exists, so it will not catch it — but plan 51's `construct_coverage` now
+indexes that row, so the two documents have a second reader.

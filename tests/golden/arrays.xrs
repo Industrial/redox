@@ -50,7 +50,7 @@ fn lists() -> Vec<[u8; 2]> {
 }
 
 // `vec![0; n]` stays available as an ordinary macro call for a growable
-// repeat. This plan gives that no spelling of its own: `[v; n] :: Vec<T>`
+// repeat. This plan gives that no spelling of its own: `[v; n] : Vec<T>`
 // already reaches it through the ascribed-literal form, since `Vec::from`
 // takes an array.
 fn total() -> usize {

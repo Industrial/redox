@@ -13,7 +13,7 @@ use redox_ast::{ConstructorFields, DataDecl};
 /// resolution and why doc 18 §2.4 calls it "the whole requirement".
 ///
 /// ```text
-/// data Point = Point { x :: f64 }   struct Point { x: f64 }
+/// data Point = Point { x : f64 }   struct Point { x: f64 }
 /// data Marker = Marker              struct Marker;
 /// newtype Meters = Meters f64       struct Meters(f64);
 /// data Event = Key char | Close     enum Event { Key(char), Close }
@@ -45,6 +45,32 @@ pub(crate) fn emit_data(out: &mut Sink<'_>, d: &DataDecl, indent: usize) {
       .constructors
       .first()
       .map_or(&ConstructorFields::Unit, |c| &c.fields);
+    // Plan 53 leaf 3: `newtype` is the single-field case, so it is
+    // `#[repr(transparent)]` and `data` is not. That is the whole difference
+    // between the two keywords in the generated Rust, and before this row
+    // there was none — which made `newtype` a synonym for `data` that three
+    // doc comments and one test nonetheless described as meaningful.
+    //
+    // `repr(transparent)` is not decoration. It guarantees the wrapper has
+    // the layout of its field, which is what makes a `newtype` sound to
+    // transmute across an FFI boundary and what tells a reader the wrapper
+    // costs nothing. A `data` declaration promises neither.
+    //
+    // **After the derive, immediately above the struct.** Both orders compile
+    // and rustfmt reorders neither, so the choice is for the reader: the
+    // attribute that describes this struct's layout sits closest to the
+    // struct, and the derives — which describe its behaviour — stay grouped
+    // above. `attributes.rs`'s golden pins the order so it cannot drift.
+    //
+    // rustc only backstops half of the shape rule: a two-field
+    // `#[repr(transparent)]` is `E0690`, but a *unit* struct with it compiles
+    // clean. Leaf 2's parser check is the only thing that refuses
+    // `newtype Foo = Foo`, which is why this emitter does not try to.
+    if d.is_newtype {
+      pad(out, indent);
+      out.push_str("#[repr(transparent)]\n");
+    }
+
     pad(out, indent);
     // Plan 45 leaf 4: `union` takes the `struct` slot. Everything after the
     // keyword — the fields, the generics, the derives — is a struct's, which

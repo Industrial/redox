@@ -1,4 +1,4 @@
 -- | Formatted wrongly on purpose, so `redox_fmt` has something to change.
-main    ::    ()
+main    :    ()
 main =
       print    1

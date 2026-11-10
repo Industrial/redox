@@ -16,7 +16,7 @@ pub enum ConstructorFields {
   /// reading doc 18 §2.1 gives everywhere else, so a constructor needs no
   /// notation of its own.
   Tuple(Vec<TypeExpr>),
-  /// `Click { x :: i32, y :: i32 }` → `Click { x: i32, y: i32 }`
+  /// `Click { x : i32, y : i32 }` → `Click { x: i32, y: i32 }`
   ///
   /// Braces for the shape and `::` for the types, which is the same `::` as
   /// a signature line and an ascription (doc 18 §5.2). Records use `=` for

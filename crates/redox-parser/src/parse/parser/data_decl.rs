@@ -2,17 +2,18 @@ use crate::ParseError;
 use crate::parse::parser::Parser;
 use crate::parse::parser::constructor::constructor;
 use crate::parse::parser::deriving::deriving;
+use crate::parse::parser::newtype_shape::newtype_shape;
 use redox_ast::{DataDecl, Visibility};
 use redox_lexer::{Keyword, TokenKind, Trivia};
 
 /// Parse doc 18 §2.4's `data` or `newtype` declaration.
 ///
 /// ```text
-/// data Point = Point { x :: f64, y :: f64 }
+/// data Point = Point { x : f64, y : f64 }
 ///   deriving (Debug, Clone)
 ///
 /// data Event
-///   = Click { x :: i32, y :: i32 }
+///   = Click { x : i32, y : i32 }
 ///   | Key char
 ///   | Close
 ///   deriving (Debug)
@@ -90,7 +91,7 @@ pub(crate) fn data_decl(
     p.expect(&TokenKind::Dedent, "expected the declaration to end")?;
   }
 
-  Ok(DataDecl {
+  let decl = DataDecl {
     name,
     constructors,
     derives,
@@ -99,5 +100,12 @@ pub(crate) fn data_decl(
     visibility,
     span: (start, p.prev_span().1),
     leading,
-  })
+  };
+
+  // Plan 53 leaf 2. On the finished declaration, because `is_newtype`'s
+  // narrowing is a fact about the constructor *list* — the field count alone
+  // would miss `newtype Multi = A | B`, which emitted an enum.
+  newtype_shape(&decl)?;
+
+  Ok(decl)
 }

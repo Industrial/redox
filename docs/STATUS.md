@@ -20,10 +20,10 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 
 | Status | Rows |
 |---|---:|
-| `done` | 46 |
+| `done` | 49 |
 | `superseded` | 4 |
-| outstanding | 14 |
-| **total** | **64** |
+| outstanding | 10 |
+| **total** | **63** |
 
 `docs/04 - Redox Plan of Plans.md` is the register and the authority. **`done` is a register status, not a guarantee**: several rows record a later plan finding something they got wrong, which is why the register carries the correction and this table only counts.
 
@@ -33,19 +33,19 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 
 | Crate | `src` | `tests` |
 |---|---:|---:|
-| `redox-ast` | 2430 | 0 |
-| `redox-bench` | 588 | 211 |
-| `redox-cli` | 1372 | 5778 |
-| `redox-diag` | 1291 | 0 |
-| `redox-driver` | 1994 | 0 |
-| `redox-emit` | 4163 | 3875 |
-| `redox-fmt` | 2449 | 1188 |
+| `redox-ast` | 2485 | 0 |
+| `redox-bench` | 588 | 217 |
+| `redox-cli` | 1372 | 7201 |
+| `redox-diag` | 1396 | 0 |
+| `redox-driver` | 2460 | 0 |
+| `redox-emit` | 4277 | 4015 |
+| `redox-fmt` | 2640 | 1494 |
 | `redox-fuzz` | 120 | 268 |
-| `redox-lexer` | 2690 | 874 |
-| `redox-lsp` | 872 | 471 |
+| `redox-lexer` | 2708 | 910 |
+| `redox-lsp` | 889 | 496 |
 | `redox-mcp` | 777 | 776 |
-| `redox-parser` | 6330 | 223 |
-| **total** | **25076** | **13664** |
+| `redox-parser` | 6447 | 543 |
+| **total** | **26159** | **15920** |
 
 ---
 
@@ -55,7 +55,7 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 |---|---:|---|
 | `examples/*.sdx` | 30 | the CI-checked source of truth for what works |
 | `tests/golden/*.xrs` | 29 | the generated Rust, as exact text |
-| `crates/redox-cli/tests/ui/*.sdx` | 28 | the diagnostic a bad program gets |
+| `crates/redox-cli/tests/ui/*.sdx` | 32 | the diagnostic a bad program gets |
 | `tests/unreachable/*.sdx` | 6 | the gaps below, asserted to **still fail** |
 | `benchmarks/pairs/*.sdx` | 9 | generated and hand-written Rust, as identical IR |
 

@@ -9,17 +9,17 @@
 -- Checked by compiling and running with **zero** rustc output, so a binding
 -- emitted with the wrong keyword or a missing type does not pass.
 
-const MAX :: usize = 1024
+const MAX : usize = 1024
 
 -- `static` differs from `const` by one keyword and nothing else, which is why
 -- one AST node carries both.
-static GREETING :: &'static str = "hello"
+static GREETING : &'static str = "hello"
 
 -- The visibility markers are doc 03 §9.6's, unchanged — they go before the
 -- binding's keyword, as they do before every other declaration's.
-export const LIMIT :: usize = 8
+export const LIMIT : usize = 8
 
-export(crate) const SCALE :: u32 = 3
+export(crate) const SCALE : u32 = 3
 
 -- §13.4's "the uppercase-name convention is a lint, not semantics" cannot be
 -- shown here: a lowercase `const` is legal Redox and legal Rust, and rustc
@@ -30,15 +30,15 @@ export(crate) const SCALE :: u32 = 3
 -- Doc 18 §2.2's `const fn`: a marker between `::` and the spine. It has to be
 -- consumed there rather than left in the first type, because a type is
 -- verbatim text and `const u32` is not a Rust type.
-square :: const u32 -> u32
+square : const u32 -> u32
 square n = n * n
 
 -- A `const fn` is an ordinary function too, so it composes with everything
 -- else a signature can say.
-scaled :: const u32 -> u32
+scaled : const u32 -> u32
 scaled n = n * SCALE
 
-main :: ()
+main : ()
 main =
   print MAX
   print GREETING

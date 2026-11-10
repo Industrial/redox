@@ -5,7 +5,7 @@
 // the right column.
 
 fn main() {
-    // `e :: T` states a type without naming a path.
+    // `e : T` states a type without naming a path.
     let n = {
         let __rdx_t: u64 = 1;
         __rdx_t
@@ -28,9 +28,9 @@ fn main() {
         __rdx_t
     };
     // `wide` is `Some` by construction two lines up, so the panic is
-    // unreachable — doc 03 §12.7's lint is suppressed per line rather than
-    // argued with.
-    println!("{}", wide.unwrap()); // redox: allow unwrap
+    // unreachable — doc 03 §12.7's lint is suppressed rather than argued with,
+    // and the attribute is consumed, so the `.xrs` below carries no trace of it.
+    println!("{}", wide.unwrap());
     // A multi-line lowering as a macro argument: `println!` keeps the call on
     // one line and lets the block hang, which is the form rustfmt writes.
     println!("{}", {

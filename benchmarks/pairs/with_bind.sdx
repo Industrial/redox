@@ -5,7 +5,7 @@
 -- author writes the expression bare. That block is the whole difference, and
 -- this pair is what says it costs nothing.
 
-scale :: Option<i32> -> Option<i32>
+scale : Option<i32> -> Option<i32>
 scale o =
   with v = o.map
   v * 2

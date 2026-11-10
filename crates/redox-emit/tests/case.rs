@@ -16,7 +16,7 @@ fn xrs(src: &str) -> String {
 #[test]
 fn the_doc_example_lowers_to_a_match() {
   let out = xrs(
-    "label :: u32 -> &'static str\n\
+    "label : u32 -> &'static str\n\
      label age = case age of\n  \
        n | n > 65 -> \"senior\"\n  \
        18..=64 -> \"adult\"\n  \
@@ -35,7 +35,7 @@ fn the_doc_example_lowers_to_a_match() {
 /// would fail if alternation ever took Rust's bar.
 #[test]
 fn the_bar_after_a_pattern_is_the_guard() {
-  let out = xrs("f :: u32 -> u32\nf n = case n of\n  m | m > 0 -> m\n  _ -> 0\n");
+  let out = xrs("f : u32 -> u32\nf n = case n of\n  m | m > 0 -> m\n  _ -> 0\n");
   assert!(out.contains("m if m > 0 => m,"), "{out}");
   assert!(!out.contains("m | m"), "not alternation:\n{out}");
 }
@@ -43,7 +43,7 @@ fn the_bar_after_a_pattern_is_the_guard() {
 /// An exclusive range keeps its own spelling.
 #[test]
 fn an_exclusive_range_is_not_made_inclusive() {
-  let out = xrs("f :: u32 -> u32\nf n = case n of\n  0..10 -> 1\n  _ -> 0\n");
+  let out = xrs("f : u32 -> u32\nf n = case n of\n  0..10 -> 1\n  _ -> 0\n");
   assert!(out.contains("0..10 => 1,"), "{out}");
 }
 
@@ -52,7 +52,7 @@ fn an_exclusive_range_is_not_made_inclusive() {
 #[test]
 fn a_case_is_an_expression() {
   let out =
-    xrs("main :: ()\nmain =\n  r = case 1 of\n    1 -> \"one\"\n    _ -> \"other\"\n  print r\n");
+    xrs("main : ()\nmain =\n  r = case 1 of\n    1 -> \"one\"\n    _ -> \"other\"\n  print r\n");
   assert!(out.contains("let r = match 1 {"), "{out}");
   assert!(out.contains("1 => \"one\","), "{out}");
 }
@@ -62,6 +62,6 @@ fn a_case_is_an_expression() {
 /// second thing the keyword commit bought.
 #[test]
 fn the_scrutinee_may_be_a_whole_expression() {
-  let out = xrs("f :: u32 -> u32\nf n = case n + 1 of\n  1 -> 1\n  _ -> 0\n");
+  let out = xrs("f : u32 -> u32\nf n = case n + 1 of\n  1 -> 1\n  _ -> 0\n");
   assert!(out.contains("match n + 1 {"), "{out}");
 }

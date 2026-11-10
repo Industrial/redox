@@ -8,7 +8,7 @@ use redox_lexer::{Span, Trivia};
 /// each a row of patterns and either a body or a list of guards:
 ///
 /// ```text
-/// fib :: u64 -> u64            tier :: u64 -> &'static str
+/// fib : u64 -> u64            tier : u64 -> &'static str
 /// fib 0 = 0                    tier spend
 /// fib 1 = 1                      | spend > 10_000 = "platinum"
 /// fib n = fib (n - 1) + …        | otherwise      = "basic"

@@ -47,6 +47,7 @@ pub(crate) fn application(p: &mut Parser) -> Result<Expr, ParseError> {
   Ok(Expr::Call {
     callee: Box::new(head),
     args,
+    is_dollar: false,
     span,
   })
 }

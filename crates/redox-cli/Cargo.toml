@@ -26,6 +26,11 @@ redox-fmt = { path = "../redox-fmt" }
 redox-parser = { path = "../redox-parser" }
 
 [dev-dependencies]
+# Plan 51 leaf 2: `construct_coverage` matches the corpus on the **token
+# stream**, not on its text, so `|>` inside a comment and `$` inside a string
+# do not count as coverage. That needs the lexer itself — a second tokenizer
+# in a test would be the one thing guaranteed to disagree with the compiler.
+redox-lexer = { path = "../redox-lexer" }
 # Plan 49 leaf 3 reads the VSCode extension's `package.json` and leaf 4 the
 # Helix and Zed manifests. Reading a config a test asserts about means parsing
 # it, and AGENTS.md is explicit that no plan implements a library function.

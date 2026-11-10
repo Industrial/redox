@@ -3,7 +3,7 @@
 Plan ID: `type-colon`
 Depends on: 51 (`construct-coverage`)
 Milestone: 9 — *surface coherence*
-Status: `planned`
+Status: `done`
 
 ---
 
@@ -148,9 +148,16 @@ Three cases chosen because they fail differently:
 
 `:` and `::` are **already both tokens** — `operator_table.rs` lists them and longest-match
 already orders them — so the lexer needs no change on that point. What this leaf deletes is the
-*parser's* adjacency machinery: `Token::ws_before`, the `spaced_colon_colon.rs` predicate and
-`tight_colon_colon.rs`, plus the call sites that cite §5.2. That is the whole of doc 18 §5.2's
-machinery and all of it goes.
+*parser's* adjacency machinery: the `spaced_colon_colon.rs` predicate and `tight_colon_colon.rs`,
+plus the call sites that cite §5.2.
+
+**`Token::ws_before` stays, and this leaf's first draft said it went.** Measured
+after the fact: the field is still set by the lexer and still read, by
+`capture_type.rs:63` and `:118` to decide where a captured type's text ends,
+and by plan 51's `construct_coverage.rs:555` and `:604` to tell a tight `::`
+from a spaced one. What this row removes is adjacency deciding *what a token
+means*, which is the property that made it dangerous — not adjacency being
+observable at all.
 
 **Corrected after reading them.** The draft named `field_decl.rs` as the fifth predicate call
 site; it is not one. `field_decl.rs` calls `expect(ColonColon)` — it is a *consumer* of `::` as
@@ -296,4 +303,299 @@ tests reference files**, so there are no string-literal fixtures hiding from the
 
 ## 10. Result
 
-*Not yet executed.*
+**Done.** `:` is the type marker in signatures, bindings, ascription, lambda
+binders, record and `errors` fields, `class` members, `const` declarations and
+`extern` blocks; `::` is path-only; `spaced_colon_colon.rs` and
+`tight_colon_colon.rs` are deleted along with `Token::ws_before`, and doc 18
+§5.2's whitespace rule is gone with them.
+
+### 10.1 The row's own definition of correctness was met exactly
+
+§1 said the generated Rust must not change at all, so every golden diff would
+be empty or a comment. Measured: **2 of 30 goldens moved, and both diffs are
+comment-only** — filtering the blessed diff for lines that are not comments
+returns nothing. Signatures never reach the `.xrs`, which is why. Five
+`tests/ui/*.stderr` also moved, all of them the echoed source line.
+
+### 10.2 §2's scale was low by three and a half times
+
+The register and §2 both say "184 substitutions across 29 files". The real
+migration is **226 files and 652 lines carrying a spaced `::`**:
+
+| | files |
+|---|---:|
+| `.rs` — doc comments, inline tests, embedded `.sdx` sources | 122 |
+| `.sdx` — `examples/`, `tests/`, `benchmarks/`, `conformance/`, four `crates/*/tests/` trees | 91 |
+| `tests/ui/*.stderr` | 5 |
+| `docs/*.md` | 5 |
+| `tests/golden/*.xrs` | 2 |
+
+§2 counted the `.sdx` corpus under `examples/` and nothing else. The `.sdx`
+corpus is in fact spread across **eight** directories, not one, and the
+majority of the work was Rust doc comments describing Redox syntax.
+
+### 10.3 Five things the plan's map did not contain
+
+1. **`redox-fmt` *emits* the type token, at five sites** — `expr_text.rs:168`,
+   `item_text/const_text.rs:18`, `item_text/member_text.rs:37`,
+   `item_text/constructor_text.rs:27`,
+   `expr_text/lambda_text/param_text.rs:11`. Left alone, `redox fmt` would have
+   emitted source the parser no longer accepts. §4 listed the parser's readers
+   and forgot the formatter's writers.
+2. **`.sdx` programs written as string literals inside Rust tests broke
+   silently-shaped**, and AGENTS.md predicted it: *"Emerald's one syntax
+   cutover missed 113 fixtures that lived as string literals inside test
+   modules."* Here it was `crates/redox-cli/tests/watch.rs`'s three
+   `main :: ()` programs, which stopped parsing, so the watcher never emitted
+   and all three tests **timed out at the 20-second ceiling** — presenting as
+   AGENTS.md's documented load-dependent flake rather than as a syntax break.
+   The same class existed in `redox-lsp`, `redox-fuzz`, `redox-driver`,
+   `redox-diag`, `redox-mcp` and `redox-cli`: 23 files. `no_literal_expectations.rs`
+   polices *expectations*, not *sources*, which is the hole.
+3. **One test derived byte offsets from a source string in a comment.**
+   `redox-driver/src/remap/narrow.rs`'s multibyte test computed `é` at 13..15
+   from `"x :: ()\n"` being 8 bytes; at 7 bytes every number moved by one. The
+   assertion two lines below it is what caught the arithmetic.
+4. **A blanket substitution is wrong in three places**, all of them tests whose
+   subject *is* the old spelling: the two new parser tests in §10.4 below, and
+   the `1 :: u64` case in `crates/redox-emit/tests/ascription.rs`.
+5. **There is a second parser in this repository, and it is checked against the
+   same corpus.** `tree-sitter-redox/grammar.js` still required `::` in a
+   signature, so after the migration `crates/redox-cli/tests/tree_sitter.rs`
+   and `editors.rs`'s `neovim_runs_the_committed_config` reported an `ERROR`
+   node in essentially every file under `examples/`. Five editor clients'
+   query files are cross-checked by the same test, which is how a previous plan
+   found four dead keywords.
+
+   **This generalises past this row.** Any surface change in milestone 9 has
+   four readers, not one: the hand-written lexer and parser, the formatter's
+   *writers* (§10.3 item 1), the tree-sitter grammar, and the editor queries.
+   §4 of this plan listed the first only. Plans 54 and 57 have the same hole
+   and now say so in their own §11.
+
+   **The grammar needed a GLR conflict, not a precedence** — which is the one
+   technical thing worth carrying forward. `::` winning over `:` required
+   nothing: tree-sitter's lexer takes the longest match, and in every state
+   where both could begin, `path` or `operator` is the longer token. What it
+   needed was that `:` made a signature and a typed binding start identically,
+   so `tree-sitter generate` refused outright:
+
+   ```text
+   Unresolved conflict for symbol sequence:
+     'module'  identifier  _indent  identifier  •  ':'  …
+   Possible interpretations:
+     1:  (_expression_part  identifier)  •  ':'  …
+     2:  (_pattern  identifier)  •  ':'  …
+     3:  (signature  identifier  •  ':'  signature_type  _newline)
+   ```
+
+   One line in `conflicts` resolves it: `[$.signature, $._pattern,
+   $._expression_part]`. The hand-written parser needed nothing because
+   `looks_like_a_binding` scans forward to the `=`; the grammar reaches the
+   same answer by letting GLR explore all three readings until the `=` or the
+   newline arrives. A precedence would have been wrong for the reason the
+   grammar's own header gives about `f (x) = y`.
+
+   **And `"::"` stopped being a node type**, which no amount of reading would
+   have predicted. Once the four type-position literals became `":"`, the only
+   surviving `::` lives inside the named `operator` token and inside the hidden
+   `_type_punctuation`, neither of which emits a visible node — confirmed in
+   the regenerated `node-types.json`. A query naming an absent node is an
+   error rather than a no-op, so `queries/highlights.scm` and its byte-identical
+   copy in `editors/zed/` both had to change.
+
+   The vim and VS Code highlighters additionally still called `::`
+   "ascription" and coloured no `:` at all. **The gate does not catch that
+   class**: `every_grammar_keyword_is_coloured` compares lowercase word
+   keywords only, so a wrong *operator* colour in three disagreeing
+   highlighters is exactly what that test exists to prevent and exactly what it
+   cannot see.
+
+### 10.3a Two things found next door, for later rows
+
+Neither is this row's to fix, and both are the kind of thing that only surfaces
+when somebody has to touch the area:
+
+- **`tree-sitter test` is in no gate**, and was passing 1 of its 5 corpus cases
+  because the corpus was written in the old syntax. `tree_sitter.rs`'s module
+  doc explains why the corpus is distrusted, but an uncheckable file in the
+  repository rots, and this one had. All five pass now with their expectations
+  unchanged — which independently says the `:` migration moved no tree shape.
+- **The tree-sitter pin has drifted.** `docs/36 - 41 - Tree-sitter Grammar.md`
+  records 0.26.11 and `devenv.nix` pins `pkgs.tree-sitter` with no version,
+  which currently resolves to 0.26.9. Doc 41's stated reason for pinning is
+  that the committed parser must be regenerable identically on another
+  machine; it is not. The committed parser is still `LANGUAGE_VERSION 15` and
+  `the_generated_parser_is_abi_15` passes, so nothing is broken today.
+
+### 10.4 Criterion 2, in two halves — the second one was not free
+
+With a **literal** on the left, `n = 1 :: u64` was a parse error the moment
+ascription moved to `:`: a literal cannot begin a path, so there is nothing for
+`::` to join.
+
+With a **name** on the left it was not. `y = x :: u64` was silently consumed as
+the path `x::u64` — `u64` is a perfectly good segment — and the first sign of
+trouble was rustc reporting an unresolved path against a line the author did
+not write. That is the exact failure mode doc 18 §5.2's whitespace rule existed
+to prevent, which makes it the one thing this row could not retire the rule
+without replacing.
+
+It is replaced by `RDX0110`, and the replacement needed no revival of
+`Token::ws_before`. Token **spans** survive the deletion, so a gap between the
+previous token's end and the `::`'s start *is* whitespace, and the rule
+
+> a `::` with whitespace before it is never a path
+
+is positional rather than a guess about intent — paths are written tight in
+Rust and in Redox alike. `path_or_ident` carries the check and tracks
+`tight_through` across a multi-segment path, so `A :: b::c` and `A::b :: c` are
+both caught and `A::b::c` is untouched.
+
+```text
+RDX0110
+
+  × `::` joins a path, so it takes no space before it — write `:` to annotate
+  │ a type, or close up the `::` to name a path
+   ╭─[spaced_path_separator.sdx:4:9]
+ 4 │   y = x :: u64
+   ·         ─┬
+   ·          ╰── here
+```
+
+The test that recorded the gap is inverted rather than deleted —
+`a_spaced_colon_colon_after_a_name_is_refused`, with
+`a_tight_colon_colon_is_still_a_path` beside it so the half that must not
+regress is asserted too.
+
+**No continuation-line false positive is possible.** A `::` opening a
+continuation line would be whitespace-separated, but an identifier does not
+continue a line and `|>` is the only leading continuation operator the lexer
+recognises, so `Foo\n  ::bar` is two statements and never one path.
+
+### 10.4a Three byte offsets written in comments, all wrong by one
+
+The type marker lost a character, so every offset derived from a source string
+containing a signature moved by one. Three assertions carried such a number:
+`redox-diag`'s `line_col` (20 → 19), `redox-driver`'s `narrow` (14..16 →
+13..15) and `redox-parser`'s `parses_the_hello_slice` (20..25 → 19..24). A
+fourth, in `redox-emit`'s `sink.rs`, was found during the parser work.
+
+Each was caught by an assertion rather than by review, and in two of the three
+the *comment* deriving the number was wrong alongside it. The test immediately
+below `parses_the_hello_slice` —
+`nodes_carry_spans_that_index_the_source`, which slices the source instead of
+writing the offset down — needed no change at all, which is the argument for
+writing them that way.
+
+### 10.6 The normative documents were the last thing left, and the worst
+
+This is where the row nearly stopped at *"the compiler is migrated"*. It was
+not finished until `docs/18 - Haskell.md` was, and that document **declares
+itself normative** — *"This is the Redox surface"* — while its §5.2 still
+*specified the whitespace rule this row deleted*. A normative section
+contradicting the compiler is worse than a missing one, because a reader has no
+way to tell which of the two won.
+
+§5.2 is rewritten as the superseded section it is: what the rule was, the
+argument for it — it agreed with both communities' formatters, Haskell always
+spacing `::` and Rust never spacing a path, so nobody would have to learn it —
+and why that argument is true and insufficient. It made whitespace **semantic**
+in one place in the language, so the same two characters meant two things
+depending on a space, a formatter normalising spacing could change what a
+program meant, and a reader could not tell the two apart without counting
+columns. Giving ascription its own token costs one character and removes the
+category.
+
+41 further type markers in that document and 3 in doc 03 are migrated.
+
+**Historical plan docs keep their contemporaneous spelling.** They record what
+was true when they were written, and this section is where the change is
+recorded instead. 115 occurrences across 17 doc files: 44 of them were the
+language's specification and are migrated; the rest are history.
+
+### 10.7 The migration found a parser hang, by changing arithmetic nobody was watching
+
+The most valuable thing this row produced is not in its criteria.
+
+`crates/redox-fuzz`'s sweep began failing with `signal: 9, SIGKILL` and no
+diagnostic. That is AGENTS.md's environment signature, so the machine was
+checked first — 26 GB available, both tmpfs mounts under a third full, no stray
+blaze workers — and it was not the environment. Running `no_target_panics`
+alone, single-threaded, with a probe printing each input, it died on
+`crates/redox-cli/tests/ui/arity_mismatch.sdx mutation 5`: **36 bytes**.
+
+Reproduced as a file, under a 2 GB and 10 second cap so it reports rather than
+taking the box:
+
+```text
+add : i32 \r> i32
+add a =
+  a
+```
+
+A `-` flipped to a carriage return. The minimal form has nothing to do with
+`\r` at all — `add : i32 !> i32` hangs identically, and 28 bytes is enough:
+
+```text
+main : ()
+main =
+  n : i32 !> i32 = 1
+```
+
+**The defect.** `capture_type` tracks bracket depth and decrements on `Gt`
+without checking that anything opened, so a `>` with no `<` takes `depth` to
+**-1** at depth zero. Every termination condition in that loop — the comma,
+the closing paren, `Newline`, **and `Eof`** — is guarded by `depth == 0`, so
+none of them is ever tested again; `p.advance()` at `Eof` does not advance; and
+the captured text grows until the kernel kills the process.
+
+A **hang**, not a panic, which is the worse failure of the two the sweep was
+built to catch: plan 40's language server runs this parser on every keystroke,
+so this is a frozen editor in front of somebody who has not finished typing.
+
+**Authorship: it is older than this row, and the row is why it was found.**
+A typed binding took a single `:` before plan 52 — the migration left that path
+alone — and `n : i32 !> i32 = 1` hangs through it, so `capture_type` owned the
+bug already. What this row changed is the *fuzz corpus*: every seed got one byte
+shorter, `mutate` derives its position from `index % seed.len()`, and so every
+mutation of every seed became different bytes. The sweep had been testing a
+different 276 inputs all along.
+
+That is worth stating plainly, because it is an argument about the value of the
+fuzz corpus rather than about this row: a mutation sweep whose seeds never
+change explores one fixed sample of the input space forever, and looks
+exhaustive while doing it.
+
+**The fix is two changes, and only one of them is the cause.** A depth-zero
+`Gt`, `Shr` or `RBracket` now *ends* the type, exactly as `RParen` and `RBrace`
+already did — at depth zero there is nothing for it to close, so it belongs to
+whatever encloses the type and the caller's `expect` is the right thing to
+complain. That removes the cause and makes a negative depth unreachable. And
+`Eof` now breaks **at any depth**, which is a termination proof rather than a
+convenience: without it, any future arithmetic slip in that loop is a hang
+again rather than an error.
+
+The sweep's own runtime is the clearest measurement of what was being spent on
+it: **530 seconds and then a SIGKILL**, against **0.37 seconds** now. One input
+out of 276 was consuming the entire run, and the test it took down —
+`no_target_panics` — never reached a verdict on any of the other 275.
+
+Pinned by `a_stray_closer_in_a_type_terminates` in
+`crates/redox-parser/tests/recovery.rs`, which asserts nothing about the parse
+— it tests that the line after the call is reached, so a regression times the
+suite out instead of producing a diff.
+
+### 10.5 Also verified
+
+- **A signature line is never misread as a typed binding.**
+  `reaches_a_binding_eq` returns false at the first depth-zero `Newline`, and a
+  signature carries no depth-zero `=` before its break — an
+  `impl Trait<Assoc = T>`-style `=` sits inside `<>`, which increments depth.
+  It is moot in practice too: signature lines are only read by `Parser::item`,
+  never at statement level where `looks_like_a_binding` runs. Both directions
+  are now asserted.
+- The typed-binding path already used `TokenKind::Colon`; nothing to change.
+- `split_format_spec.rs` is the hazard §4 records, and it is **not yet
+  triggered** — no corpus file writes `#{total : u64}`. It will fire the first
+  time one does, and `tests/golden/strings.xrs` is the witness to add.

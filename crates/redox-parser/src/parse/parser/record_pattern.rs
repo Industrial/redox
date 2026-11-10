@@ -1,7 +1,6 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
 use crate::parse::parser::pattern_alt::pattern_alt;
-use crate::parse::parser::tight_colon_colon::tight_colon_colon;
 use redox_ast::{Pattern, RecordPatternField};
 use redox_lexer::TokenKind;
 
@@ -12,10 +11,10 @@ use redox_lexer::TokenKind;
 /// # `=` and not `:`
 ///
 /// §6.3 published `Point{x: 0, y}`. Doc 18 §2.4 changed the record *literal*
-/// to `=` — `Point { x = 10, y = 20 }` — and §5.2 made a spaced `::` the type
-/// marker, which leaves `:` no job inside braces at all. So the pattern uses
-/// `=` and reads identically to the literal that builds it, lowering to Rust's
-/// `Point { x: 0, y }`.
+/// to `=` — `Point { x = 10, y = 20 }` — and plan 52 made `:` the type marker
+/// everywhere, which leaves it no job supplying a *value* inside braces. So
+/// the pattern uses `=` and reads identically to the literal that builds it,
+/// lowering to Rust's `Point { x: 0, y }`.
 ///
 /// Two spellings of one shape differing only by position is exactly what doc
 /// 18 §5.3 exists to remove.
@@ -31,10 +30,10 @@ pub(crate) fn record_pattern(
   head: String,
   start: usize,
 ) -> Result<Pattern, ParseError> {
-  // A `::`-joined path, for `Event::Click { x }`. Tight only, for doc 18
-  // §5.2's reason — a spaced `::` ascribes.
+  // A `::`-joined path, for `Event::Click { x }`. `::` is a path separator and
+  // nothing else — plan 52 made `:` the type marker.
   let mut path = head;
-  while tight_colon_colon(p) {
+  while p.check(&TokenKind::ColonColon) {
     p.advance();
     path.push_str("::");
     path.push_str(&p.ident("expected a name after `::`")?.text);

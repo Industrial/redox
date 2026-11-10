@@ -60,7 +60,13 @@ syn keyword sdxKeyword      export
 " is the honest answer rather than a heuristic that is sometimes wrong.
 syn match   sdxType         "\<\u[a-zA-Z0-9_]*\>"
 syn match   sdxAttribute    "@[a-zA-Z_][a-zA-Z0-9_]*"
-syn match   sdxAscription   "::"
+" Plan 52's two tokens. `:` introduces a type in every position that has one —
+" a signature, a typed binding, an ascription, a field, a lambda's binder — and
+" `::` separates path segments and nothing else. The `:\(:\)\@!` lookahead is
+" the same idiom as the `-` match below, and for the same reason: it makes the
+" result independent of which item Vim happens to prefer.
+syn match   sdxTypeColon    ":\(:\)\@!"
+syn match   sdxPathSep      "::"
 " `-` is matched with a negative lookahead for a second `-`, and that is the
 " second half of the comment fix above. Redox has no `--` operator, and among
 " items starting at the same column Vim prefers the one defined **last** — so
@@ -81,7 +87,8 @@ hi def link sdxSelf         Identifier
 hi def link sdxKeyword      Keyword
 hi def link sdxType         Type
 hi def link sdxAttribute    PreProc
-hi def link sdxAscription   Delimiter
+hi def link sdxTypeColon    Delimiter
+hi def link sdxPathSep      Delimiter
 hi def link sdxOperator     Operator
 
 let b:current_syntax = 'sdx'

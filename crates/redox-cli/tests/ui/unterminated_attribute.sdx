@@ -1,4 +1,4 @@
 #[derive(Debug)
-main :: ()
+main : ()
 main =
   print 1

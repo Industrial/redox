@@ -3,4 +3,4 @@ warning[RDX1001]: `unwrap` and `expect` panic — the ergonomic path is `?`, `??
    |
 13 |   port = raw.unwrap ()
    |              ^^^^^^
-  = help: if a panic is intended here, say so: `-- redox: allow unwrap`
+  = help: if a panic is intended here, say so on the line above: `#[redox::allow(unwrap)]`

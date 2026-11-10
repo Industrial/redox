@@ -5,7 +5,7 @@
 -- An author who writes this followed a published specification, so the
 -- message names the correction rather than the token — the same reason
 -- `RDX0106` exists for doc 01 §4.3's module-scope binding.
-main :: ()
+main : ()
 main =
   [first, ...rest] = values
   print first

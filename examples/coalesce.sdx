@@ -2,7 +2,7 @@
 -- expression — checked by running the generated Rust: a coalesce lowered to
 -- the wrong arm prints the wrong word.
 
-main :: ()
+main : ()
 main =
   -- `??` is `Option`-only and lowers to a `match`, not to
   -- `unwrap_or_else`. Doc 03 §12.1's first reason is decisive: that method's
@@ -23,8 +23,8 @@ main =
 -- suffix, so the unit expression is what makes a no-argument call writable at
 -- all — juxtaposition needs something to juxtapose. A lone `()` argument
 -- *is* the empty argument list, so `none_str ()` is `none_str()`.
-none_str :: Option<&'static str>
+none_str : Option<&'static str>
 none_str = None
 
-expensive :: &'static str
+expensive : &'static str
 expensive = "computed"

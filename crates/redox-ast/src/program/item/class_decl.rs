@@ -9,9 +9,9 @@ use redox_lexer::{Span, Trivia};
 /// ```text
 /// class Debug t => Shape t          trait Shape: Debug {
 ///   type Unit                           type Unit;
-///   const SIDES :: u32                  const SIDES: u32;
-///   area :: &t -> f64             →     fn area(&self) -> f64;
-///   describe :: &t -> String            fn describe(&self) -> String {
+///   const SIDES : u32                  const SIDES: u32;
+///   area : &t -> f64             →     fn area(&self) -> f64;
+///   describe : &t -> String            fn describe(&self) -> String {
 ///   describe self = "…"                     "…"
 ///                                     }
 ///                                   }

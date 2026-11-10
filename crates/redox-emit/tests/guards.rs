@@ -17,7 +17,7 @@ fn xrs(src: &str) -> String {
 #[test]
 fn a_ladder_becomes_an_if_else_chain() {
   let rust = xrs(
-    "tier :: u64 -> &'static str\n\
+    "tier : u64 -> &'static str\n\
      tier spend\n  \
        | spend > 10_000 = \"platinum\"\n  \
        | spend > 1_000 = \"gold\"\n  \
@@ -38,7 +38,7 @@ fn a_ladder_becomes_an_if_else_chain() {
 #[test]
 fn otherwise_does_not_become_a_condition() {
   let rust = xrs(
-    "tier :: u64 -> &'static str\n\
+    "tier : u64 -> &'static str\n\
      tier spend\n  \
        | spend > 10 = \"high\"\n  \
        | otherwise = \"low\"\n",
@@ -58,7 +58,7 @@ fn otherwise_does_not_become_a_condition() {
 #[test]
 fn a_ladder_needs_no_return() {
   let rust = xrs(
-    "sign :: i32 -> i32\n\
+    "sign : i32 -> i32\n\
      sign n\n  \
        | n > 0 = 1\n  \
        | otherwise = 0\n",
@@ -71,7 +71,7 @@ fn a_ladder_needs_no_return() {
 #[test]
 fn a_ladder_lives_inside_a_match_arm() {
   let rust = xrs(
-    "step :: u64 -> u64\n\
+    "step : u64 -> u64\n\
      step 0 = 0\n\
      step n\n  \
        | n > 100 = 100\n  \
@@ -86,7 +86,7 @@ fn a_ladder_lives_inside_a_match_arm() {
 /// ladder is total, so the chain reaches rustc and rustc reports the type.
 #[test]
 fn a_ladder_without_otherwise_still_emits() {
-  let rust = xrs("noisy :: ()\nnoisy\n  | 1 > 0 = print \"hi\"\n");
+  let rust = xrs("noisy : ()\nnoisy\n  | 1 > 0 = print \"hi\"\n");
   assert!(rust.contains("if 1 > 0 {"), "{rust}");
   assert!(!rust.contains("else"), "nothing is invented:\n{rust}");
 }

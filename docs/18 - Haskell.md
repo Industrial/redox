@@ -14,7 +14,7 @@ also the smaller one: **nineteen constructs, eight diagnostics and four of the s
 of `#`** fall out of the language without taking any capability with them.
 
 ```haskell
-load :: &str -> Result<Config, Error>
+load : &str -> Result<Config, Error>
 load p =
   guard Ok raw <- read p   else return Err Error::Unreadable
   guard Ok cfg <- parse raw else return Err Error::Malformed
@@ -58,7 +58,7 @@ is a construct whose work another construct already does.**
 | | Move | One line |
 |---|---|---|
 | 1 | `f x y` | Application is juxtaposition, left-associating. Commas leave the call grammar; parentheses become pure grouping. |
-| 2 | `f :: A -> B` | A signature line above the equations. The generic list and the bound clause are read off it. |
+| 2 | `f : A -> B` | A signature line above the equations. The generic list and the bound clause are read off it. |
 | 3 | `f 0 = …` | Definition by equations over patterns, with `\|` guards and `where` locals. |
 | 4 | `data T = …` | One declaration form for product and sum types, with `deriving`. |
 | 5 | `class` / `instance` | Traits and impls under their Haskell names, constraints by `=>`. |
@@ -106,16 +106,16 @@ atom between the arrows is still a verbatim Rust type, so doc 03 §14.1's guaran
 in the type grammar can drift is intact.
 
 ```haskell
-largest :: Ord t => &[t] -> &t
+largest : Ord t => &[t] -> &t
 largest xs = best
   where
     best = xs |> iter |> max |> unwrap
 
-index :: HashMap<String, Vec<u8>> -> &str -> Option<&Vec<u8>>
+index : HashMap<String, Vec<u8>> -> &str -> Option<&Vec<u8>>
 
-const MAX :: usize = 1024
+const MAX : usize = 1024
 
-square :: const u32 -> u32
+square : const u32 -> u32
 square n = n * n
 ```
 
@@ -147,12 +147,12 @@ disagreeing. With the signature hoisted, a clause is a pattern row and the diagn
 to arity.
 
 ```haskell
-fib :: u64 -> u64
+fib : u64 -> u64
 fib 0 = 0
 fib 1 = 1
 fib n = fib (n - 1) + fib (n - 2)
 
-tier :: u64 -> &'static str
+tier : u64 -> &'static str
 tier spend
   | spend > 10_000 = "platinum"
   | spend > 1_000  = "gold"
@@ -184,7 +184,7 @@ an arm — are deleted, and with them the scrutinee-temporary lowering they need
 user now writes the binder the guard tests.
 
 ```haskell
-label :: u32 -> &'static str
+label : u32 -> &'static str
 label age = case age of
   n | n > 65        -> "senior"
   18..=64           -> "adult"
@@ -216,11 +216,11 @@ four Redox keywords into two. **A single constructor whose name matches the type
 anything else is an `enum`.** That rule is syntactic, which is the whole requirement.
 
 ```haskell
-data Point = Point { x :: f64, y :: f64 }
+data Point = Point { x : f64, y : f64 }
   deriving (Debug, Clone, PartialEq)
 
 data Event
-  = Click { x :: i32, y :: i32 }
+  = Click { x : i32, y : i32 }
   | Key char
   | Close
   deriving (Debug)
@@ -286,19 +286,48 @@ spelling but not in content.
 ```haskell
 class Debug t => Shape t
   type Unit
-  const SIDES :: u32
-  area :: &t -> f64
-  describe :: &t -> String
+  const SIDES : u32
+  area : &t -> f64
+  describe : &t -> String
   describe self = "a shape with #{Self::SIDES} sides"
 
 instance Display t => Describe (Wrapper t)
-  describe :: &t -> String
+  describe : &t -> String
   describe self = "#{self.inner}"
 
 instance Counter
-  increment :: &mut Self -> ()
+  increment : &mut Self -> ()
   increment self = self.value += 1
 ```
+
+**Assignment is `:=`, and `=` is a binding** — plan 54. `self.value += 1`
+above is a *compound* assignment, which is all docs 01, 03 and this one defined
+for a long time: at statement level `x = v` introduces a name, so plain
+reassignment had no spelling, and plan 20 §10.2 disclosed the consequence
+rather than designing around it — *"a loop can advance a numeric accumulator
+and cannot rebind anything else."*
+
+```haskell
+increment self = self.value += 1     -- compound: the five arithmetic forms
+relabel self = self.name := "next"   -- plain: anything at all
+inner = 1                            -- a binding, and still a binding
+```
+
+```rust
+fn increment(&mut self) { self.value += 1; }
+fn relabel(&mut self) { self.name = "next"; }
+let inner = 1;
+```
+
+Rust spells all six with `=` and tells a binding from an assignment by `let`.
+Redox has no `let` to lean on, so it tells them apart by the operator instead
+— which is one character against the scope tracking the alternative needed and
+AGENTS.md forbids.
+
+The assignment target is a general expression, so a field, an index, a deref
+target and Rust's destructuring assignment all work: `(a, b) := (b, a)` is a
+swap, the one shape no compound operator can express. Nothing checks that the
+target *is* a place; `(1 + 2) := 3` is rustc's `E0070`.
 
 **An instance method restates its signature**, and the line above is a correction to this
 document's first draft, which omitted it. Rust's `impl` restates it too; Redox would have to
@@ -369,9 +398,9 @@ takes `<-` for consistency: `guard Ok raw <- read p else return …`. Its loweri
 
 ```haskell
 pairs = [ (x, y) | x <- 1..3, y <- 1..3, x != y ]
-names = [ u.name | u <- &users ] :: Vec<String>
-seen  = [ c | c <- cs ] :: HashSet<char>
-word  = [ c | c <- cs ] :: String
+names = [ u.name | u <- &users ] : Vec<String>
+seen  = [ c | c <- cs ] : HashSet<char>
+word  = [ c | c <- cs ] : String
 ```
 
 ```rust
@@ -425,7 +454,7 @@ result = numbers
 
 labels  = &users |> iter |> map (.name)
 lengths = &users |> iter |> map (|> len)
-f = move \x :: i32 -> x + captured
+f = move \x : i32 -> x + captured
 ```
 
 ```rust
@@ -462,7 +491,7 @@ Haskell's comment syntax leaves two, and the longest-match table becomes a line.
 | `## outer` | `-- \| outer` | `/// outer` |
 | `##! inner` | `-- ! inner` | `//! inner` |
 | `#[attr]` | `#[attr]` kept | verbatim §13.2 |
-| `#{1, 2}` | deleted — `[1, 2] :: HashSet<_>` | `HashSet::from([1, 2])` |
+| `#{1, 2}` | deleted — `[1, 2] : HashSet<_>` | `HashSet::from([1, 2])` |
 | `"#{expr}"` | `"#{expr}"` kept | `format!` §11.1 |
 
 `-- |` is Haddock's own outer-doc marker. `-- !` for the inner form is this document's
@@ -471,22 +500,43 @@ invention, since Haskell has no module-level analogue of `//!`; it is chosen to 
 because `x --1` is a comment. Haskell has the same hazard and the same mitigation — `--` opens
 a comment only when followed by a space or end of line — and `redox fmt` enforces the spacing.
 
-### 5.2 The one surviving use of adjacency lexing
+### 5.2 Adjacency lexing is gone — `:` annotates, `::` is a path
 
-Doc 03 §21 records adjacency as load-bearing for three decisions: calls, subtraction sections
-and unary minus. Juxtaposition removes the first, Haskell's missing subtraction section removes
-the other two, and one new use arrives to replace all three: **a spaced `::` ascribes, a tight
-`::` is a path.**
+**Superseded by plan 52.** This section specified the last surviving use of
+adjacency lexing *in the type grammar*: *a spaced `::` ascribes, a tight `::`
+is a path*. That rule is deleted, along with the two parser predicates that
+read it.
 
-The rule agrees with both communities' existing formatters — Haskell always spaces `::`, Rust
-never spaces a path — so it is a rule people already follow.
+`Token::ws_before` itself stays. It is still how `capture_type` decides where a
+captured type's text ends, and the heading above is therefore narrower than it
+first looks: adjacency is no longer load-bearing for *what a token means*,
+which is the property that made it dangerous, and remains available for
+deciding where one ends.
+
+What it was, and why it went. Doc 03 §21 recorded adjacency as load-bearing for
+three decisions — calls, subtraction sections and unary minus. Juxtaposition
+removed the first and Haskell's missing subtraction section removed the other
+two, and this rule arrived to replace all three. The argument for it was that
+it agrees with both communities' formatters: Haskell always spaces `::`, Rust
+never spaces a path, so nobody would have to learn it.
+
+That argument is true and insufficient. It made whitespace **semantic** in one
+place in the language: the same two characters meant two different things
+depending on a space, so a formatter that normalised spacing could change what
+a program meant, and a reader could not tell the two apart without counting
+columns. Giving ascription its own token costs one character and removes the
+category.
+
+So the type marker is `:` everywhere a type is written — signature, typed
+binding, ascription, lambda binder, record and `errors` field, `class` member,
+`const`, `extern` — and `::` joins a path and does nothing else:
 
 ```haskell
-load :: &str -> Result<Config, Error>
+load : &str -> Result<Config, Error>
 kind = Error::Malformed
-n :: u64 = 0
-total = xs |> iter |> sum :: u64
-set = [1, 2, 3] :: HashSet<i32>
+n : u64 = 0
+total = xs |> iter |> sum : u64
+set = [1, 2, 3] : HashSet<i32>
 ```
 
 ```rust
@@ -496,6 +546,18 @@ let n: u64 = 0;
 let total = { let __rdx_t: u64 = xs.iter().sum(); __rdx_t };
 let set = HashSet::from([1, 2, 3]);
 ```
+
+Two consequences worth naming. The Rust column now reads as a transliteration
+of the Redox one rather than as a translation, because `:` *is* Rust's type
+marker — which is the same argument §2.4's record fields already made. And
+`::<T>` becomes spellable, where the old rule had no way to write it; doc 56's
+plan declines to spell it for separate reasons.
+
+A spaced `::` is now `RDX0110` rather than an ascription. It has to be a
+diagnostic and not silence: `y = x : u64` would otherwise be consumed as the
+path `x::u64` — `u64` is a valid segment — and rustc would report an
+unresolved path against a line nobody wrote, which is precisely the failure
+mode this section's rule existed to prevent.
 
 ### 5.3 Capitalisation becomes lexical, and pays for itself twice
 
@@ -514,7 +576,7 @@ other mechanism here can do.
 
 **One correction, made when this was implemented.** "Lowercase type names are type variables"
 cannot be read literally: `i32`, `usize`, `f64`, `bool`, `char` and `str` are lowercase and
-concrete, and taking the rule at its word makes `add :: i32 -> i32 -> i32` a generic function
+concrete, and taking the rule at its word makes `add : i32 -> i32 -> i32` a generic function
 of one parameter. A lowercase name is a type variable **unless it is one of Rust's primitive
 type names** — a closed, lexical list, which keeps the rule decidable from the source text
 alone (doc 03 §2's admission test 1). The cost is that a user cannot name a type in lowercase,
@@ -537,14 +599,14 @@ here rather than discovered later.
 
 | Construct | Lowering | Why it is type-free |
 |---|---|---|
-| `e :: T` ascription | `{ let __rdx_t: T = e; __rdx_t }` | The type is written, not inferred. Replaces the `into` clause and most turbofish needs. |
+| `e : T` ascription | `{ let __rdx_t: T = e; __rdx_t }` | The type is written, not inferred. Replaces the `into` clause and most turbofish needs. |
 | `p { x = 1 }` record update | `{ let mut __rdx_r = p; __rdx_r.x = 1; __rdx_r }` | Needs no type path, which `Point { x: 1, ..p }` would. Moves `p`, as `..p` does. |
-| `[a, b] :: C<_>` ascribed literal | `{ let __rdx_t: C<T> = C::from([a, b]); __rdx_t }` | The container is named in the ascription. Covers the deleted set and map literals. |
+| `[a, b] : C<_>` ascribed literal | `{ let __rdx_t: C<T> = C::from([a, b]); __rdx_t }` | The container is named in the ascription. Covers the deleted set and map literals. |
 | `data T = A \| B` | the `enum`, plus `use T::*;` | Syntactic: the declaration names the type and the constructors, and nothing else is consulted. |
 
 The third row is written here as the ascription block *containing* `C::from`, which is a
-correction: `C::from([a, b])` alone drops the type's generic arguments, so `[] :: Vec<i32>` has
-nothing to infer its element from and `[1, 2] :: Vec<i64>` becomes a `Vec<i32>` because an
+correction: `C::from([a, b])` alone drops the type's generic arguments, so `[] : Vec<i32>` has
+nothing to infer its element from and `[1, 2] : Vec<i64>` becomes a `Vec<i32>` because an
 unsuffixed integer literal defaults. The two lowerings compose; neither replaces the other.
 
 The fourth was **not in this document's first draft**, and it is not optional sugar. In Haskell
@@ -593,7 +655,7 @@ runtime scaffolding at all, and doc 01 §36 needs no exception.
 | Broadcasting `.+`, `.(` | 10.2 | `\|> map`; `RDX0054` goes too |
 | Collection `if`/`for` | 10.1 | The one comprehension |
 | `into` clause | 10.3 | `::` ascription |
-| Set, map and `%w` literals | 10.4 | `[…] :: C<_>` |
+| Set, map and `%w` literals | 10.4 | `[…] : C<_>` |
 | Block struct initialiser | 9.1 | Brace records; `RDX0052` goes |
 | Primary constructors | 9.3 | `data` constructors; `RDX0053` goes |
 | Labelled arguments | 8.2 | Nothing — deleted with its best-effort `RDX0051` |
@@ -677,9 +739,9 @@ import std::collections::HashMap
 import std::fs
 
 data Config = Config
-  { path    :: String
-  , retries :: u32
-  , flags   :: HashMap<String, String>
+  { path    : String
+  , retries : u32
+  , flags   : HashMap<String, String>
   }
   deriving (Debug, Clone)
 
@@ -688,7 +750,7 @@ errors ConfigError
   from io::Error as Io  "io error: #{0}"
 
 -- | Read and validate a configuration file.
-load :: &str -> Result<Config, ConfigError>
+load : &str -> Result<Config, ConfigError>
 load p =
   guard Ok raw <- fs::read_to_string p
     else return Err ConfigError::Io
@@ -697,16 +759,16 @@ load p =
   where
     retries = lookup raw "retries" ?? 3
 
-describe :: &Config -> String
+describe : &Config -> String
 describe cfg
   | cfg.retries == 0 = "#{cfg.path} (no retries)"
   | otherwise        = "#{cfg.path} (#{cfg.retries} retries)"
 
-summarise :: &[Config] -> Vec<String>
+summarise : &[Config] -> Vec<String>
 summarise cs = [ describe c | c <- cs, c.retries > 0 ]
 
 instance Display Config
-  fmt :: &Self -> &mut Formatter<'_> -> fmt::Result
+  fmt : &Self -> &mut Formatter<'_> -> fmt::Result
   fmt self f = write! f "{}" (describe self)
 
 test "a default config retries three times"
@@ -833,7 +895,7 @@ signature, and expression application. All three are converted, and the suite is
 | `### … ###` | `{- … -}` | the fenced-comment scanner |
 | `## outer` | `-- \| outer` | trivia kinds unchanged, markers change |
 | `##! inner` | `-- ! inner` | likewise |
-| `add = (a: i32, b: i32): i32 ->` | `add :: i32 -> i32 -> i32` + `add a b = …` | `redox-parser` signature and item parsing, `redox-emit` |
+| `add = (a: i32, b: i32): i32 ->` | `add : i32 -> i32 -> i32` + `add a b = …` | `redox-parser` signature and item parsing, `redox-emit` |
 | `print add(10, 20)` | `print (add 10 20)` | the expression grammar: juxtaposition |
 | `f(x)` | `f x` | likewise |
 
@@ -845,7 +907,7 @@ Since then, one construct per commit:
 | Commit | Construct | § |
 |---|---|---|
 | `3944640` | `<-` is a token at all — it was lexing as `<` then unary `-` and silently emitting `x < -f` | §3.1 |
-| `f3069a2` | ascription `e :: T`, and the spaced-vs-tight `::` rule that distinguishes it from a path | §2.2 |
+| `f3069a2` | ascription `e : T`, and the spaced-vs-tight `::` rule that distinguishes it from a path | §2.2 |
 | `0abcdf0` | lambdas `\x -> …`, `$`, and parentheses that are only grouping | §4, §2.1 |
 | `2ce7485` | the `\|>` receiver pipeline — parsed since plan 03, previously a `compile_error!` | §4 |
 | `3bb6710` | multi-clause equations with pattern binders | §2.3 |
@@ -958,11 +1020,11 @@ for those constructs are re-pointed here.
 ```haskell
 -- Doc 01 §31 Phase 1's own acceptance test: a typed function, a call, and a
 -- print. Prints 30, computed by rustc rather than asserted by hand.
-add :: i32 -> i32 -> i32
+add : i32 -> i32 -> i32
 add a b =
   a + b
 
-main :: ()
+main : ()
 main =
   print (add 10 20)
 ```

@@ -10,27 +10,27 @@
 -- precedence cases are the ones a golden alone cannot settle: `$` applied to
 -- the wrong operand still compiles and prints a different number.
 
-show :: i32 -> String
+show : i32 -> String
 show n = "#{n}"
 
-twice :: String -> String
+twice : String -> String
 twice s = "#{s}#{s}"
 
 -- `$` is **lower** than every operator, so the sum is the argument and not
 -- just the `1`. Written with parentheses this is `print (1 + 2)`; the point
 -- of `$` is that it does not need them.
-sum_of :: i32 -> i32 -> String
+sum_of : i32 -> i32 -> String
 sum_of a b = "#{a} + #{b}"
 
 -- `$` is **right**-associative, so this is `twice (show 7)` and never
 -- `(twice show) 7` — which would not compile, and so is the one case here
 -- that a wrong lowering cannot hide.
-nested :: String
+nested : String
 nested = twice $ show 7
 
 -- And it does not swallow a method chain: the receiver of `.len ()` is
 -- `show 3`, not the whole application.
-chained :: usize
+chained : usize
 chained = (show 3).len ()
 
 -- The multi-line pipeline. The receiver sits on the `=` line and every
@@ -53,13 +53,13 @@ chained = (show 3).len ()
 -- So this function stays inside 60 deliberately, and the defect is recorded
 -- rather than worked around in silence — plan 58 makes long chains the normal
 -- case and is where the emitter learns to break them.
-evens_doubled :: Vec<i32> -> usize
+evens_doubled : Vec<i32> -> usize
 evens_doubled xs = xs.iter ()
   |> filter (\n -> *n % 2 == 0)
   |> map (\n -> n * 2)
   |> count
 
-main :: ()
+main : ()
 main =
   print $ 1 + 2
   print $ sum_of 2 3

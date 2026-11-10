@@ -3,5 +3,5 @@
 -- `unwrap_or_else`'s closure arity differs between `Option` and `Result`, so a
 -- method lowering would be type-dependent and Redox has no types.
 
-parse_or :: &str -> i32
-parse_or raw = (raw.parse () :: Result<i32, core::num::ParseIntError>) catch 0
+parse_or : &str -> i32
+parse_or raw = (raw.parse () : Result<i32, core::num::ParseIntError>) catch 0

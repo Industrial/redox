@@ -287,7 +287,7 @@ vim.cmd('syntax on')
 local buf = vim.api.nvim_create_buf(false, true)
 vim.api.nvim_set_current_buf(buf)
 vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
-  'data C = C { a :: i32 }',
+  'data C = C { a : i32 }',
   '-- a comment mentioning data',
 })
 vim.bo.filetype = 'sdx'

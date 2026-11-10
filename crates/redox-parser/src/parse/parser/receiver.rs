@@ -8,9 +8,9 @@ use redox_ast::{Ident, Param, Signature};
 /// differ in spelling but not in content.
 ///
 /// ```text
-/// area :: &t -> f64            fn area(&self) -> f64
-/// increment :: &mut Self -> () fn increment(&mut self)
-/// consume :: t -> u32          fn consume(self) -> u32
+/// area : &t -> f64            fn area(&self) -> f64
+/// increment : &mut Self -> () fn increment(&mut self)
+/// consume : t -> u32          fn consume(self) -> u32
 /// ```
 ///
 /// The borrow form comes from the *type*, not from a sigil the author writes,
@@ -22,7 +22,7 @@ use redox_ast::{Ident, Param, Signature};
 /// Only the **first** parameter is converted, and the decision is made from
 /// its *type*, not from its name. The type is what doc 18 §2.5 names, and it
 /// is also the only thing available: a required method —
-/// `area :: &t -> f64` with no equation — has no binder to inspect, and it
+/// `area : &t -> f64` with no equation — has no binder to inspect, and it
 /// needs the same receiver as the default method below it.
 ///
 /// A method whose first parameter is not typed by the class variable keeps

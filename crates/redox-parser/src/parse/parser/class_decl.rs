@@ -11,8 +11,8 @@ use redox_lexer::{Keyword, TokenKind, Trivia};
 /// ```text
 /// class Debug t => Shape t     trait Shape: Debug {
 ///   type Unit                      type Unit;
-///   const SIDES :: u32         →   const SIDES: u32;
-///   area :: &t -> f64              fn area(&self) -> f64;
+///   const SIDES : u32         →   const SIDES: u32;
+///   area : &t -> f64              fn area(&self) -> f64;
 ///                              }
 /// ```
 ///

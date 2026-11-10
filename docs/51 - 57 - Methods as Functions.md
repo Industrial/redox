@@ -308,3 +308,182 @@ reasoning about equivalence is the compensation.
 ## 10. Result
 
 *Not yet executed.*
+
+---
+
+## 11. Corrections from orientation
+
+Written after reading the code this row targets. The mechanism is sound; the
+*rule* §1.3 states is wrong, the counts are low, two preconditions are false,
+and criterion 6 is much harder than it reads. The single most useful finding
+answers the sequencing question this row and plan 58 share.
+
+### 11.1 Plans 57 and 58 are independent, in that order
+
+**57 before 58, and 57 need not assume either meaning of `|>`** — because the
+two meanings emit identical Rust for a `.name args` right operand:
+
+| | today's rule (`emit/pipeline.rs:26-46`) | plan 58's reverse application |
+|---|---|---|
+| `x \|> .cmp y` | RHS dismantled: head → method, LHS → receiver ⇒ `x.cmp(y)` | `.cmp y` awaits its last argument ⇒ `x.cmp(y)` |
+
+The reverse order is impossible, which is plan 58 §1.2's own argument: every
+live pipeline step is a method.
+
+Two things follow that neither plan says. **`emit/pipeline.rs` is missing from
+§4's leaves** and criterion 2 cannot be met without it — `x |> .trim` is
+`RDX0102` today. Plan 58 leaf 2 claims that same file as part of its
+three-file radius, so it is edited twice and this row under-declares. And the
+implementation trap: `emit/pipeline.rs:44`'s `other =>` arm appends `()`, so a
+zero-argument `x |> .name` must be matched **before** it or the lowering yields
+`x.(|__rdx_1| __rdx_1.name())()`.
+
+There is also a **transient redundancy nothing discloses**. After 57 and before
+58, `xs |> map f` (22 live corpus sites) and `xs |> .map f` both work and mean
+the same thing. This milestone's anti-redundancy rule is suspended for exactly
+one plan; §6 should say so rather than leave it to be discovered.
+
+### 11.2 There are two AST shapes for a method call, and leaf 3 only retires one
+
+- `x.f (a)` → `Expr::MethodCall { recv, name, args }` (`postfix.rs:93-100`).
+  The receiver **is** distinguished here.
+- `x.f a` → `Expr::Call { callee: Expr::Field, args }`, because
+  `postfix.rs:19-27` deliberately removed the paren-call step. Verified:
+  `s.find "h"` emits `s.find("h")`; `h.ts.get h.at` emits `h.ts.get(h.at)`.
+
+So deleting the `MethodCall` branch does **not** retire `x.f (a)` — it
+re-parses as `Call{callee: Field}` and emits the same `x.f(a)` silently, and
+`x.f ()` degrades to `x.f(())` rather than to an error. Criterion 5's
+diagnostic has to live on the application-over-`Field` shape, not in `postfix`.
+
+The discriminator for a method, verified, is `p.check(&TokenKind::LParen)` at
+`postfix.rs:93` and nothing else — it is **not** adjacency-aware despite the
+comment above it saying "immediately after", so `x.f ()`, `x.f()` and `x.f  ()`
+are all `MethodCall`. `x.f` with no parens is `Expr::Field`, emitted verbatim.
+
+### 11.3 §1.3's rule is wrong, and §2 has a false measurement
+
+**The rule.** §1.3 says the two spellings "differ by parentheses". They cannot:
+criterion 3's `map (.cmp y)` is parenthesised *and* a method. The real
+discriminator is **`)` immediately after the name**. Today `(.cmp 1)` is a hard
+`RDX0101` — *"expected `)` to close the section"* — because `section.rs:44`
+uses `p.expect(...)?` and propagates where `:83`, `:89` and `:105` rewind. Leaf
+2 must convert that to a rewind. §6's "one internal inconsistency" is
+understated: it is a one-token-lookahead difference, not a parenthesis one.
+
+**The measurement.** §2 claims *"A field access cannot be a parenless argument.
+`self.tokens.get self.at` is `RDX0101`, because `f a.b` is ambiguous."*
+Probed: `h.ts.get h.at` builds clean and emits `h.ts.get(h.at)`; `id h.at`
+emits `id(h.at)`. **False for plain receivers.** It may hold inside a
+`class`/`instance` body where `self`/`@` sugar applies — if that is where the
+measurement came from, say so rather than generalising. Unsettled.
+
+**And `(.name)` and `(|> name)` are both fully implemented.** `section.rs:37-50`
+and `:53-65`; `emit/section.rs:27-28` emits `|__rdx_1| __rdx_1.name` and
+`|__rdx_1| __rdx_1.name()`; `examples/section.sdx` exercises both with a
+`.stdout`, and `benchmarks/pairs/section.sdx` pairs them. In particular
+`examples/lexical.sdx:41`'s `method_ref = (|> name)` **parses cleanly** — that
+file's exemption comes from lines 25, 28 and 40 only. Any claim that it is
+unparsed is false.
+
+What happens to `(|> name)` is unassigned: plan 58 leaf 2 says it "becomes a
+different construct and is plan 57's", and this row's leaf 7 only regrades a
+doc table. Since `(|> len)` and a bare `.len`-as-value would have the same
+lowering, this row makes one of them redundant and should say which goes.
+
+### 11.4 Criterion 6 is the hardest criterion, and §1.4's reasoning is false
+
+The risk is not evaluation order. It is that **a field selector moves**.
+`(.name)` lowers to `|__rdx_1| __rdx_1.name` with no `&`. Probed:
+
+```text
+ps |> into_iter |> map (.tag)
+->  ps.into_iter().map(|__rdx_1| __rdx_1.tag)
+->  E0507: cannot move out of `__rdx_1.tag` which is behind a shared reference
+```
+
+So §1.4's claim that the `?.` chain "is expressible in the ordinary combinator
+vocabulary" is false for exactly the case criterion 6 names. Two replacements
+do work, both compiled clean, and both need an **explicit `&` written by
+hand**:
+
+```text
+u.as_ref () |> and_then (\x -> x.profile.as_ref ()) |> map (\p -> &p.tag)
+try / Some (&u.as_ref ()? .profile.as_ref ()? .tag)
+```
+
+Leaf 4 should name which, and §1.4's sentence should be struck. Also missed by
+leaf 4: `benchmarks/pairs/optional_chain.sdx` + `.rs` is a plan-44 IR-equality
+pair built on `?.`, so deleting the construct deletes a zero-cost assertion.
+And the `?.` deletion radius is wider than "the lexer and the parser" — eleven
+source files reference `QuestionDot`/`OptionalChain`, four of them in
+`redox-fmt`, plus the benchmark pair.
+
+### 11.5 The corpus is half again as large as §1 says
+
+Counted by regex over comment-stripped sources, with every match in the top
+five files hand-checked:
+
+- **`examples/`: 55 sites across 15 files**, not 52 across 14 — `fallible` 15,
+  `comprehension` 6, `arrays` 6, `class` 5, `errors` 4, `application` 3,
+  `module` 3, then nine files with one or two.
+- **Plus 12 sites in 8 files §1 does not count at all**, including
+  `crates/redox-fmt/tests/fmt/expressions.sdx` and its
+  `expressions.canonical.sdx` (3 each) — those are *canonical-form*
+  assertions, so the formatter's own output changes — two lint fixtures, a
+  `tests/ui/` case, `tests/unreachable/macro_call.sdx`, and two benchmark
+  pairs.
+- **Real total: 67 sites across 23 files.**
+- `?.`: **6, all in `examples/fallible.sdx`** — §1 is right.
+- `|>`: 26 occurrences in examples minus two `(|> name)` sections =
+  **24 operators**, 22 in the run corpus. Plan 58's "23" is off either way.
+- `tests/golden/` holds **no `.sdx`** — goldens are `.xrs` paired against
+  `examples/*.sdx`, so §1's "28 goldens plus 24 `examples/*.xrs`" needs
+  rechecking against that.
+- There are **30** `examples/*.sdx` and 29 `.stdout`; "29 examples" is right
+  only as the run corpus.
+
+The `UnwrapUsed` lint is lexical, so it survives the respelling, but the two
+lint fixtures still change.
+
+### 11.6 Smaller corrections
+
+- **§8 contradicts §9 decision 5.** §8 says "plan 34's formatter as the
+  migration tool, for the third time in this milestone"; §1 and decision 5 say
+  hand-migrate and that a rewriter was declined. Pick one.
+- **Criterion 3's dependency on plan 56 is over-claimed.** Receiver-last makes
+  the missing-argument count always exactly one, so `map (.cmp y)` is
+  `emit/section.rs:28`'s shape with arguments threaded — no signature
+  visibility, no arity resolution. The dependency is for sharing one
+  closure-generation path, not for capability, and should say so.
+- **§1.1's four defects do not share one cause.** `s.find ("x") ("y")` is
+  `postfix.rs:93` taking the first paren group; `mk ().len ()` is postfix
+  binding tighter than application; `succeed ()` is a lone `()` reading as the
+  empty argument list; the `?.` case is `"?."` being one token
+  (`operator_table.rs:27`). Three distinct causes, and the fourth is worse than
+  described — it silently nests a closure and a spurious `as_ref()` per link.
+- **Criterion 9 needs a new witness, not just an index entry.**
+  `docs/GRAMMAR.md:100` does carry the method-call row, and its note
+  ("adjacency decides a call from a section") becomes false under this row. But
+  `construct_coverage.rs`'s witness for it is `Toks(["«id»", ".", "«id»"])`
+  plus a left section — **field access only** — so it would stay green through
+  the entire migration without ever witnessing a method call.
+- **Diagnostics: next free is `RDX0110`**, and this row needs three
+  (criterion 5, plus criterion 7 both ways) → 0110/0111/0112. The fixture path
+  is **`crates/redox-cli/tests/ui/`**, not `tests/ui/` as criterion 7 says.
+  The 0040–0099 band is reserved for doc 03 §17 and gated by a hard-coded
+  `PUBLISHED` list, so the syntactic band is correct.
+- **Doc 18 §8's passage is at `:659-663`**, and §1.4's miscount complaint is
+  right: it says "Four" and lists seven. §4's table rows for `(.name)` and
+  `(|> name)` are at `:409-410`; the paragraph leaf 7 rewrites is `:443-447`.
+- **tree-sitter and the editors are unlisted work.**
+  `crates/redox-cli/tests/tree_sitter.rs:70` asserts every example parses with
+  no `ERROR` node — `lexical.sdx` included — and `tree-sitter-redox/grammar.js:711-715`
+  is where `.`-sections live. Five editor clients' `highlights.scm` are
+  cross-checked by `crates/redox-cli/tests/editors.rs`. None of this appears in
+  §4 or §5; its size is unmeasured.
+- **Unsettled: the formatter's canonical form for `.name args receiver`.**
+  `MethodCall` is referenced in four `redox-fmt` files. If the receiver is a
+  bare name, `.name a b` and `(.name a) b` both re-print plausibly, and
+  `can_drop_paren.rs` has to decide. `formatting_preserves_meaning` is the gate
+  that will catch a wrong choice.

@@ -1,0 +1,13 @@
+-- The fixture for plan 51 §5 criterion 6, and the only `.sdx` in the
+-- repository whose job is to be *not* matched.
+--
+-- Every construct named below is inside a comment or inside a string literal,
+-- so a substring search over this file finds all of them and the token stream
+-- contains none of them. `construct_coverage` asserts both halves, because a
+-- scan that cannot tell the two apart would report the whole language covered
+-- by a file like this one.
+--
+-- The decoys: case x of, |>, $, dyn, move, ref, *const, \n -> n, @name.
+main : ()
+main =
+  print "case x of |> $ dyn move ref *const \\n -> n @name"

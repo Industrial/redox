@@ -15,16 +15,16 @@
 -- mandatory, so there is no safe form to choose between and the word is the
 -- emitter's rather than the surface's.
 extern "C"
-  abs :: i32 -> i32
+  abs : i32 -> i32
 
 -- Leaf 4: a `union`. Doc 18 §2.4's rule reads a *shape* off the
 -- constructors, and a union is not a shape — it is a struct's shape with
 -- overlapping storage — so it takes a keyword, as `newtype` does.
-union Word = Word { whole :: u32, halves :: u16 }
+union Word = Word { whole : u32, halves : u16 }
 
 -- Leaf 2: `unsafe` as a block. Reading a union field is unsafe in Rust
 -- because nothing says which field was last written.
-low_half :: u32 -> u16
+low_half : u32 -> u16
 low_half n =
   w = Word { whole = n }
   unsafe
@@ -33,21 +33,21 @@ low_half n =
 -- Leaf 2 again: `unsafe` as a function marker. The marker sits between
 -- `async` and `extern` in Rust's `FunctionQualifiers`, and emitting them in
 -- that order is what makes two markers together valid.
-unsafe_double :: unsafe u32 -> u32
+unsafe_double : unsafe u32 -> u32
 unsafe_double n =
   n * 2
 
 -- Leaf 4: a raw identifier. `type` is a Rust keyword, and `r#type` is how a
 -- program uses it as a name. The spelling was already claimed by plan 23's
 -- raw strings, which is what made this more than an omission — plan 45 §1.4.
-r#type :: &'static str
+r#type : &'static str
 r#type =
   "a name that is a Rust keyword"
 
 -- And a raw string still lexes as a raw string. Criterion 4 is asserted in
 -- both directions, because fixing one by breaking the other is the failure
 -- mode a one-character lookahead invites.
-raw_pattern :: &'static str
+raw_pattern : &'static str
 raw_pattern = r#"back\slash"#
 
 -- Leaf 1: inline Rust. Doc 01 §23.1's escape hatch, which before this row
@@ -61,7 +61,7 @@ rust """
   }
 """
 
-main :: ()
+main : ()
 main =
   print (low_half 65537)
   n = unsafe

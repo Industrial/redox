@@ -46,7 +46,7 @@ mod tests {
       let dir = std::env::temp_dir().join(format!("redox-sdx-in-{tag}-{}-{n}", std::process::id()));
       std::fs::create_dir_all(&dir).expect("should create");
       for name in names {
-        std::fs::write(dir.join(name), "main :: ()\nmain =\n  print 1\n").expect("should write");
+        std::fs::write(dir.join(name), "main : ()\nmain =\n  print 1\n").expect("should write");
       }
       Self(dir)
     }

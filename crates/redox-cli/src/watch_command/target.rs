@@ -85,7 +85,7 @@ mod tests {
   fn a_file_is_watched_through_its_parent() {
     let dir = Dir::new("parent");
     let file = dir.0.join("main.sdx");
-    std::fs::write(&file, "main :: ()\nmain =\n  print 1\n").expect("should write");
+    std::fs::write(&file, "main : ()\nmain =\n  print 1\n").expect("should write");
 
     let target = Target::resolve(&file).expect("should resolve");
     assert_eq!(target.dir, dir.0, "the parent directory is what is watched");
@@ -104,7 +104,7 @@ mod tests {
   fn a_bare_filename_resolves_to_the_current_directory() {
     let dir = Dir::new("bare");
     let file = dir.0.join("main.sdx");
-    std::fs::write(&file, "main :: ()\nmain =\n  print 1\n").expect("should write");
+    std::fs::write(&file, "main : ()\nmain =\n  print 1\n").expect("should write");
 
     let previous = std::env::current_dir().expect("a cwd");
     std::env::set_current_dir(&dir.0).expect("should chdir");

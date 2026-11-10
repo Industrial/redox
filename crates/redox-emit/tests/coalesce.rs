@@ -7,7 +7,7 @@ use redox_emit::emit;
 use redox_parser::parse_source;
 
 fn body(src: &str) -> String {
-  emit(&parse_source(&format!("main :: ()\nmain =\n  {src}\n")).expect("should parse"))
+  emit(&parse_source(&format!("main : ()\nmain =\n  {src}\n")).expect("should parse"))
 }
 
 /// A `match`, not `unwrap_or_else`. Doc 03 §12.1's first reason is decisive

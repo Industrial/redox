@@ -15,7 +15,7 @@ fn xrs(src: &str) -> String {
 /// The body of `fn main`, dedented, so an assertion reads as the statements it
 /// is about rather than as a whole file.
 fn body(src: &str) -> String {
-  xrs(&format!("main :: ()\nmain =\n{src}"))
+  xrs(&format!("main : ()\nmain =\n{src}"))
     .lines()
     .skip(1)
     .take_while(|l| *l != "}")
@@ -117,7 +117,7 @@ fn a_while_let_chain_emits_as_rusts() {
 /// lowering to something plausible.
 #[test]
 fn until_with_a_pattern_is_an_error() {
-  let failure = parse_source("main :: ()\nmain =\n  until Some v = x\n    print v\n")
+  let failure = parse_source("main : ()\nmain =\n  until Some v = x\n    print v\n")
     .expect_err("`until` cannot hold a pattern test");
   let redox_parser::ParseFailure::Parse(errors) = failure else {
     panic!("expected a parse failure, not a lex one");
@@ -176,7 +176,7 @@ fn a_guards_else_takes_any_diverging_form() {
 /// that cannot exit is a `let`.
 #[test]
 fn a_guard_without_an_else_is_an_error() {
-  assert!(parse_source("main :: ()\nmain =\n  guard Some v = o\n  print v\n").is_err());
+  assert!(parse_source("main : ()\nmain =\n  guard Some v = o\n  print v\n").is_err());
 }
 
 // --- §5.6: an arm guard ----------------------------------------------------
@@ -186,14 +186,14 @@ fn a_guard_without_an_else_is_an_error() {
 /// that promises an unstable lowering cannot ship.
 #[test]
 fn an_arm_guard_may_be_a_pattern_test() {
-  let out = xrs("f :: Option<i32> -> i32\nf o = case o of\n  y | Some v = y -> v\n  _ -> 0\n");
+  let out = xrs("f : Option<i32> -> i32\nf o = case o of\n  y | Some v = y -> v\n  _ -> 0\n");
   assert!(out.contains("y if let Some(v) = y => v,"), "{out}");
 }
 
 /// An ordinary expression guard is untouched.
 #[test]
 fn an_expression_arm_guard_still_works() {
-  let out = xrs("f :: i32 -> i32\nf n = case n of\n  m | m > 0 -> m\n  _ -> 0\n");
+  let out = xrs("f : i32 -> i32\nf n = case n of\n  m | m > 0 -> m\n  _ -> 0\n");
   assert!(out.contains("m if m > 0 => m,"), "{out}");
 }
 
@@ -271,7 +271,7 @@ fn a_nullary_constructor_emits_no_parentheses() {
 /// Haskell.
 #[test]
 fn a_row_takes_a_parenthesised_constructor_pattern() {
-  let out = xrs("depth :: Option<i32> -> i32\ndepth (Some n) = n\ndepth _ = 0\n");
+  let out = xrs("depth : Option<i32> -> i32\ndepth (Some n) = n\ndepth _ = 0\n");
   assert!(out.contains("Some(n) => n,"), "{out}");
 }
 
@@ -279,6 +279,6 @@ fn a_row_takes_a_parenthesised_constructor_pattern() {
 /// patterns and not four.
 #[test]
 fn alternation_composes_with_application() {
-  let out = xrs("f :: Option<i32> -> i32\nf o = case o of\n  Some 0 or None -> 0\n  _ -> 1\n");
+  let out = xrs("f : Option<i32> -> i32\nf o = case o of\n  Some 0 or None -> 0\n  _ -> 1\n");
   assert!(out.contains("Some(0) | None => 0,"), "{out}");
 }

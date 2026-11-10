@@ -4,13 +4,13 @@ error[RDX0104]: expected a type after `::`
 2 | add a =
   | ^
 
-error[RDX0101]: expected `::` after the name, to begin the signature
+error[RDX0101]: expected `:` after the name, to begin the signature
   --> expected_type.sdx:2:5
   |
 2 | add a =
   |     ^
 
-error[RDX0101]: expected `::` after the name, to begin the signature
+error[RDX0101]: expected `:` after the name, to begin the signature
   --> expected_type.sdx:2:7
   |
 2 | add a =

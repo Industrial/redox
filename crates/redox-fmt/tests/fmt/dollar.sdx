@@ -1,0 +1,46 @@
+-- Doc 18 §2.1's `$`, written in the spellings the formatter must keep apart.
+-- `dollar.canonical.sdx` is this file formatted, compared as whole files — so
+-- every comment here reaches both halves of the pair, which is the formatter's
+-- first rule rather than an accident.
+--
+-- `$` is the construct a formatter can delete: it lowers to nothing, so the
+-- tree is an ordinary call and the only record that a `$` was written is
+-- `Expr::Call`'s `is_dollar`. Every row here is a reading of that bit.
+
+show : i32 -> String
+show n = "#{n}"
+
+twice : String -> String
+twice s = "#{s}#{s}"
+
+add : i32 -> i32 -> i32
+add a b = a + b
+
+main : ()
+main =
+  -- Right-associative application, and the row the defect was found on: this
+  -- used to come back as `twice (show 7)`.
+  nested = twice $ show 7
+  -- The argument is the whole expression to the right, because `$` binds
+  -- looser than every operator.
+  summed = twice $ show (1 + 2)
+  -- Right-associativity through two of them, which is one chain and not a
+  -- call of a call.
+  chained = twice $ twice $ show 7
+  -- `$` as the last of several arguments. The callee is the application
+  -- `add 1`, and it keeps no brackets of its own.
+  trailing = add 1 $ 2 + 3
+  -- The parenthesised spelling stays parenthesised where it is needed, and
+  -- never acquires a `$`.
+  kept = twice (show 7)
+  -- §3 row 1's droppable parenthesis — `twice (s)` → `twice s` — is pinned by
+  -- `expressions.sdx` and deliberately absent here: dropping one is a change
+  -- to the tree, and this fixture's point is that the tree comes back
+  -- unchanged.
+  --
+  -- Looser than every operator means a `$` on the left of one needs the
+  -- author's brackets, which is what `power_of` reports power 0 for.
+  compared = (twice $ show 7) == "77"
+  -- And in receiver position, for the same reason.
+  measured = (twice $ show 7).len ()
+  print $ add 1 2

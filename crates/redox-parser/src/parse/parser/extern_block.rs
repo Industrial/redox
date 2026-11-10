@@ -9,7 +9,7 @@ use redox_lexer::{Keyword, TokenKind, Trivia};
 ///
 /// ```text
 /// extern "C"
-///   abs :: i32 -> i32
+///   abs : i32 -> i32
 /// ```
 ///
 /// Doc 01 §26 names FFI as a requirement and doc 03 §23 item 2 rules out the
@@ -58,8 +58,8 @@ pub(crate) fn extern_block(
     let decl_start = p.peek_span().0;
     let name = p.ident("expected a foreign function's name")?;
     p.expect(
-      &TokenKind::ColonColon,
-      "expected `::` after the foreign function's name",
+      &TokenKind::Colon,
+      "expected `:` after the foreign function's name",
     )?;
     let spine = parse_spine(p)?;
     let span = (decl_start, p.prev_span().1);

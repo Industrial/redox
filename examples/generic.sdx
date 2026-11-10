@@ -12,7 +12,7 @@
 -- correction.
 -- Written over an `Option` rather than a slice because an array literal is
 -- not parsed yet, and this corpus requires the program to *run*.
-largest :: Ord t => Option<t> -> t
+largest : Ord t => Option<t> -> t
 largest xs = best
   where
     best = xs |> into_iter |> max |> unwrap
@@ -21,29 +21,29 @@ largest xs = best
 -- discarded with `_`, whose generated parameter name begins with an
 -- underscore — so rustc's unused-variable lint is silent without the emitter
 -- knowing the lint exists.
-pick :: t -> u -> t
+pick : t -> u -> t
 pick a _ = a
 
 -- A lifetime is a generic parameter too, and comes first in the list —
 -- rustc's requirement, not a style.
-first :: &'a str -> &'a str
+first : &'a str -> &'a str
 first s = s
 
 -- No variables at all, so no generic list: this is the Rust it emitted before
 -- any of §2.2 existed.
-add :: i32 -> i32 -> i32
+add : i32 -> i32 -> i32
 add a b = a + b
 
 -- Several `where` locals, in order. Haskell writes them after the expression
 -- that uses them; Rust needs them before it, and that reordering is the whole
 -- of the lowering.
-area :: f64 -> f64 -> f64
+area : f64 -> f64 -> f64
 area w h = scaled
   where
     base = w * h
     scaled = base * 2.0
 
-main :: ()
+main : ()
 main =
   print (add 1 2)
   print (pick 7 "ignored")

@@ -7,7 +7,7 @@ use redox_lexer::TokenKind;
 
 /// Parse a signature line's type spine: the types between top-level `->`s.
 ///
-/// Doc 18 §2.2. `load :: &str -> Result<Config, Error>` has the spine
+/// Doc 18 §2.2. `load : &str -> Result<Config, Error>` has the spine
 /// `[&str, Result<Config, Error>]` — the last element is the return type and
 /// the rest are parameter types, matched against the equation's binders.
 ///

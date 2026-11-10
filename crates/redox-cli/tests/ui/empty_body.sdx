@@ -1,6 +1,6 @@
-main :: ()
+main : ()
 main =
   print 1
 
-empty :: ()
+empty : ()
 empty =

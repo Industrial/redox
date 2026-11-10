@@ -14,7 +14,7 @@ fn xrs(src: &str) -> String {
 
 /// The body of `fn main`, dedented.
 fn body(src: &str) -> String {
-  xrs(&format!("main :: ()\nmain =\n{src}"))
+  xrs(&format!("main : ()\nmain =\n{src}"))
     .lines()
     .skip(1)
     .take_while(|l| *l != "}")

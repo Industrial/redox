@@ -9,7 +9,7 @@
 --
 -- Interpolation itself is a later plan; until then `#{...}` is literal text,
 -- and this case pins that it is literal text that *compiles*.
-main :: ()
+main : ()
 main =
   print "a\tb"            -- a real tab, decoded by Redox and re-encoded
   print "brace: \#{"      -- prints `brace: #{`

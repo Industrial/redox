@@ -10,22 +10,22 @@
 -- run time, and only on an array of more than two elements.
 
 data Point
-  = Point { x :: i32, y :: i32, label :: String }
+  = Point { x : i32, y : i32, label : String }
 
 data Shape
-  = Circle { radius :: i32 }
-  | Rect { w :: i32, h :: i32 }
+  = Circle { radius : i32 }
+  | Rect { w : i32, h : i32 }
 
 -- §6.5's tuple destructuring. Both bindings are used, so a lowering that
 -- bound one name to the pair fails to compile.
-sum_pair :: (i32, i32) -> i32
+sum_pair : (i32, i32) -> i32
 sum_pair p =
   (a, b) = p
   a + b
 
 -- Nested, because each form is independent and a lowering that worked only at
 -- the top level would pass every flat test.
-inner_sum :: (i32, (i32, i32)) -> i32
+inner_sum : (i32, (i32, i32)) -> i32
 inner_sum p =
   (a, (b, c)) = p
   a + b + c
@@ -33,14 +33,14 @@ inner_sum p =
 -- A **middle** rest over an array long enough that `first` and `last` differ
 -- from the second and second-to-last. This is the assertion the golden cannot
 -- make.
-ends :: [i32; 5] -> i32
+ends : [i32; 5] -> i32
 ends row =
   [first, .., last] = row
   first * 10 + last
 
 -- A **named** rest, with its length printed: a lowering that bound the whole
 -- slice gives 5 rather than 4.
-tail_len :: [i32; 5] -> usize
+tail_len : [i32; 5] -> usize
 tail_len row =
   [_head, rest @ ..] = row
   rest.len ()
@@ -54,7 +54,7 @@ tail_len row =
 -- Rust's match ergonomics, unchanged here. `*` dereferences, as it does in
 -- Rust, which is doc 01 §25.1's no-silent-clone rule staying visible at the
 -- use site rather than hidden in the lowering.
-origin_label :: &Point -> i32
+origin_label : &Point -> i32
 origin_label p = case p of
   Point { x = 0, y, .. } -> *y
   Point { x, y = 0, .. } -> *x
@@ -62,13 +62,13 @@ origin_label p = case p of
 
 -- A pun binding a field that is not `Copy`, which the pattern borrows rather
 -- than moves — so `label` reaches the caller without a clone.
-label_of :: &Point -> &String
+label_of : &Point -> &String
 label_of p = case p of
   Point { label, .. } -> label
 
 -- A record pattern on an enum variant, so the path is a test as well as a
 -- destructuring.
-area :: &Shape -> i32
+area : &Shape -> i32
 area s = case s of
   Circle { radius } -> 3 * *radius * *radius
   Rect { w, h } -> *w * *h
@@ -76,25 +76,25 @@ area s = case s of
 -- §6.4's as-pattern. `@`'s one remaining meaning after doc 18 §4.3 dropped
 -- `@name` and `@@name`, and Haskell's spelling too. The bound name is used
 -- **beside** the bindings from the pattern it names, which is the whole point.
-describe :: &Shape -> i32
+describe : &Shape -> i32
 describe s = case s of
   whole @ Rect { w, h } -> *w + *h + area whole
   other -> area other
 
 -- Every form works in an equation's **row** too, parenthesised where
 -- juxtaposition would be ambiguous — plan 22 §10.2's rule.
-first_of :: (i32, i32) -> i32
+first_of : (i32, i32) -> i32
 first_of (a, _) = a
 
 -- And in a `<-` condition, because the vocabulary is shared and sharing it is
 -- the point.
-has_origin :: &Option<Point> -> bool
+has_origin : &Option<Point> -> bool
 has_origin o =
   if Some (Point { x = 0, y = 0, .. }) = o
     return true
   false
 
-main :: ()
+main : ()
 main =
   print (sum_pair (3, 4))
   print (inner_sum (1, (2, 3)))

@@ -1,5 +1,4 @@
 use crate::parse::parser::Parser;
-use crate::parse::parser::tight_colon_colon::tight_colon_colon;
 use redox_lexer::TokenKind;
 
 /// The `::`-joined path at the cursor if it begins uppercase, consumed.
@@ -16,9 +15,9 @@ pub(crate) fn constructor_path(p: &mut Parser) -> Option<String> {
 
   let mut text = first.clone();
   p.advance();
-  // A **tight** `::` only, for doc 18 §5.2's reason: a spaced `::` is an
-  // ascription marker, and reading it as a separator here would eat the type.
-  while tight_colon_colon(p) {
+  // `::` is a path separator and nothing else — plan 52 retired doc 18 §5.2's
+  // spaced-versus-tight rule when `:` became the type marker.
+  while p.check(&TokenKind::ColonColon) {
     p.advance();
     match &p.peek().kind {
       TokenKind::Ident(next) => {

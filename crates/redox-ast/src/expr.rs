@@ -30,6 +30,23 @@ pub enum Expr {
   Call {
     callee: Box<Expr>,
     args: Vec<Expr>,
+    /// Whether the author spelled this application with doc 18 §2.1's `$`.
+    ///
+    /// `$` is low-precedence right-associative application, and it **lowers
+    /// to nothing**: `f $ x` and `f (x)` are the same call, so the emitter
+    /// cannot tell them apart and does not need to. A *formatter* does. One
+    /// that reprints `f $ x` as `f (x)` makes `$` unusable in a formatted
+    /// codebase, which is what formatting `examples/application.sdx` found.
+    ///
+    /// The bit sits here, on the node `$` produces, rather than on a `Paren`
+    /// wrapping the argument: the parser builds no `Paren` for `$` today, so
+    /// adding one would hand the emitter a tree it has never seen, while a
+    /// field no lowering reads cannot change a single byte of output.
+    ///
+    /// Always exactly one argument when set. `$` takes the whole rest of the
+    /// expression as its argument, so `f $ g x` is `f (g x)` and never a
+    /// two-argument call.
+    is_dollar: bool,
     span: Span,
   },
   /// `recv.name(args)`
@@ -147,7 +164,7 @@ pub enum Expr {
     body: crate::Block,
     span: Span,
   },
-  /// `e :: T`, doc 18 §6's ascription.
+  /// `e : T`, doc 18 §6's ascription.
   ///
   /// Lowers to `{ let __rdx_t: T = e; __rdx_t }` — a block, because Rust has
   /// no expression-level ascription and a `let` is the only way to state a

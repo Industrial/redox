@@ -2,11 +2,11 @@ use crate::expr_text::expr_text;
 use crate::item_text::visibility_text::visibility_text;
 use redox_ast::ConstDecl;
 
-/// A `const` or `static` item — `const MAX :: usize = 1024`.
+/// A `const` or `static` item — `const MAX : usize = 1024`.
 ///
-/// **This** is the form §3 row 8's example named. The separator is `::` and it
-/// is spaced, where a local binding takes a single `:` — three similar forms,
-/// §10.22's table.
+/// **This** is the form §3 row 8's example named. Its separator used to be a
+/// spaced `::` where a local binding took a single `:`; plan 52 made both `:`,
+/// which is what retires §10.22's table of three similar forms.
 ///
 /// `is_static` picks the keyword. The value is an expression at power 0, and
 /// the type is printed from the tree: a `const`'s type is concrete by
@@ -15,7 +15,7 @@ use redox_ast::ConstDecl;
 pub(crate) fn const_text(decl: &ConstDecl, source: &str) -> String {
   let keyword = if decl.is_static { "static" } else { "const" };
   format!(
-    "{}{keyword} {} :: {} = {}",
+    "{}{keyword} {} : {} = {}",
     visibility_text(&decl.visibility),
     decl.name.text,
     decl.ty.text,

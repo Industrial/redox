@@ -1,11 +1,11 @@
-//! Doc 18 §6's ascription, and §5.2's spaced-versus-tight `::` rule.
+//! Doc 18 §6's ascription, with plan 52's one-token marker.
 //!
-//! `e :: T` lowers to a block, because Rust has no expression-level
+//! `e : T` lowers to a block, because Rust has no expression-level
 //! ascription and a `let` is the only way to state a type without naming a
 //! path:
 //!
 //! ```text
-//! n = 1 :: u64        let n = {
+//! n = 1 : u64         let n = {
 //!                         let __rdx_t: u64 = 1;
 //!                 →       __rdx_t
 //!                     };
@@ -16,9 +16,12 @@
 //! the lowering had been breaking plan 04's guarantee from the day it shipped,
 //! unnoticed because no example used ascription.
 //!
-//! The rule that tells it from a path is the **only** place in Redox where a
-//! stray space changes meaning, which doc 18 §10.1 item 3 names as the thing
-//! to watch. These tests are that watch.
+//! Doc 18 §5.2 used to tell an ascription from a path by its *whitespace* — a
+//! spaced `::` ascribed, a tight one was a path — which made this the only
+//! place in Redox where a stray space changed meaning, and which doc 18 §10.1
+//! item 3 named as the thing to watch. Plan 52 retired the rule by giving
+//! ascription its own token: `:` ascribes, `::` joins a path. These tests are
+//! what watch that the two never cross.
 
 use redox_emit::emit;
 use redox_parser::parse_source;
@@ -28,22 +31,22 @@ fn xrs(src: &str) -> String {
 }
 
 fn body(src: &str) -> String {
-  xrs(&format!("main :: ()\nmain =\n  {src}\n"))
+  xrs(&format!("main : ()\nmain =\n  {src}\n"))
 }
 
 #[test]
-fn a_spaced_colon_colon_ascribes() {
-  let out = body("n = 1 :: u64");
+fn a_colon_ascribes() {
+  let out = body("n = 1 : u64");
   assert!(
     out.contains("let n = {\n        let __rdx_t: u64 = 1;\n        __rdx_t\n    };"),
     "{out}"
   );
 }
 
-/// The other half of §5.2, and the one that would break every existing
+/// The other half of plan 52, and the one that would break every existing
 /// program if it went wrong.
 #[test]
-fn a_tight_colon_colon_is_still_a_path() {
+fn a_colon_colon_is_still_a_path() {
   let out = body("kind = Error::Malformed");
   assert!(out.contains("let kind = Error::Malformed;"), "{out}");
   assert!(
@@ -56,7 +59,7 @@ fn a_tight_colon_colon_is_still_a_path() {
 /// sum rather than the last operand.
 #[test]
 fn ascription_binds_looser_than_every_operator() {
-  let out = body("total = 1 + 2 :: u64");
+  let out = body("total = 1 + 2 : u64");
   assert!(
     out.contains("let __rdx_t: u64 = 1 + 2;"),
     "the sum is ascribed, not the `2`:\n{out}"
@@ -67,30 +70,30 @@ fn ascription_binds_looser_than_every_operator() {
 /// §8 declines type-application-by-juxtaposition specifically to keep.
 #[test]
 fn a_generic_type_survives_verbatim() {
-  let out = body("set = xs :: HashSet<i32>");
+  let out = body("set = xs : HashSet<i32>");
   assert!(out.contains("let __rdx_t: HashSet<i32> = xs;"), "{out}");
 }
 
-/// A path *inside* an ascribed type is tight, and must not end the type.
+/// A path *inside* an ascribed type must not end the type — doc 03 §14.1's
+/// verbatim capture is what carries it through.
 #[test]
 fn a_path_inside_an_ascribed_type_is_kept() {
-  let out = body("e = x :: fmt::Result");
+  let out = body("e = x : fmt::Result");
   assert!(out.contains("let __rdx_t: fmt::Result = x;"), "{out}");
 }
 
-/// Asymmetric spacing is neither form, and is **refused** rather than
-/// reinterpreted.
+/// `::` no longer ascribes, however it is spaced — plan 52 criterion 2.
 ///
-/// `1 ::u64` is not an ascription by §5.2's rule and not a path either, so it
-/// fails to parse. That is the right outcome for the one whitespace-sensitive
-/// rule in the language: a reader who gets the spacing wrong is told, rather
-/// than handed a program that means something else. Doc 18 §10.1 item 3 asks
-/// for the diagnostic to name the spacing explicitly — it does not yet, and
-/// that is recorded there rather than asserted here.
+/// With a literal on the left there is nothing for `::` to join, so the line
+/// is **refused** rather than reinterpreted. That is the outcome the criterion
+/// asks for. The remaining gap — `x :: u64`, where `::` does join two names
+/// and so is still consumed as a path — is asserted in
+/// `redox-parser/tests/parse.rs`, because it is a parse question rather than
+/// an emit one.
 #[test]
-fn asymmetric_spacing_is_refused() {
-  let failure = parse_source("main :: ()\nmain =\n  n = 1 ::u64\n")
-    .expect_err("`::u64` is neither an ascription nor a path");
+fn a_colon_colon_no_longer_ascribes() {
+  let failure = parse_source("main : ()\nmain =\n  n = 1 :: u64\n")
+    .expect_err("`::` joins a path, and `1` is not a path segment");
   let message = format!("{failure:?}");
   assert!(
     message.contains("expected"),

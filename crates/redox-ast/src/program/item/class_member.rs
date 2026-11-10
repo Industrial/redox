@@ -5,8 +5,8 @@ use crate::{Expr, FnDecl, Ident, TypeExpr};
 pub enum ClassMember {
   /// `type Unit` → `type Unit;`
   AssocType(Ident),
-  /// `const SIDES :: u32` → `const SIDES: u32;`, and
-  /// `const SIDES :: u32 = 4` → `const SIDES: u32 = 4;`.
+  /// `const SIDES : u32` → `const SIDES: u32;`, and
+  /// `const SIDES : u32 = 4` → `const SIDES: u32 = 4;`.
   ///
   /// The same `::` as everywhere else a type is written, and the same `=` as
   /// everywhere else a value is (doc 18 §5.2, §2.4). The value is absent in a

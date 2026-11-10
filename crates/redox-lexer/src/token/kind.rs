@@ -110,6 +110,21 @@ pub enum TokenKind {
   At,
   AtAt,
   ColonColon,
+  /// `:=` — assignment, doc 18 §2.5 and plan 54.
+  ///
+  /// Its own token because `=` is a **binding**: at statement level `x = v`
+  /// introduces a name, and telling a rebinding from a binding by looking at
+  /// it would need the scope tracking AGENTS.md forbids Redox growing. Plan
+  /// 20 disclosed the consequence rather than designing around it — *"a loop
+  /// can advance a numeric accumulator and cannot rebind anything else"* —
+  /// and this token is what retires that limit.
+  ///
+  /// Two characters, so it is listed before `":"`; there is no ordering
+  /// constraint against `"::"`, because neither string is a prefix of the
+  /// other. `scan_operator`'s
+  /// `longer_operators_are_tried_before_their_prefixes` enforces the one that
+  /// matters.
+  ColonEq,
   Colon,
   Comma,
   Dot,
@@ -167,11 +182,11 @@ impl TokenKind {
   /// `=`, `->`, `=>` and `:` are deliberately **not** here, and that is not an
   /// oversight: each of them ends a header whose body follows on an *indented*
   /// line, so suppressing the newline would swallow the `Indent` the parser
-  /// needs. `main :: ()` / `main =` is the case that proved it.
+  /// needs. `main : ()` / `main =` is the case that proved it.
   ///
   /// `>` and `>>` are not here either, for a different reason: they close a
   /// generic argument list far more often than they dangle off a comparison.
-  /// `wide = Some 1 :: Option<u8>` swallowed the whole next line into the
+  /// `wide = Some 1 : Option<u8>` swallowed the whole next line into the
   /// type's verbatim text, because `capture_type` ends a type at a newline and
   /// there was no newline to find. A comparison genuinely split after `>` is
   /// writable with parentheses; a type ending in `>` is not avoidable at all,

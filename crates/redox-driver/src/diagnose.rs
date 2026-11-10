@@ -54,7 +54,7 @@ mod tests {
 
   #[test]
   fn carries_a_lex_errors_code_and_help_across() {
-    let source = "main :: ()\nmain =\n\tprint 1\n";
+    let source = "main : ()\nmain =\n\tprint 1\n";
     let failure = redox_parser::parse_source(source).expect_err("a tab is an error");
     let diagnostics = diagnose(Path::new("a.sdx"), source, &failure);
     assert_eq!(diagnostics.len(), 1);
@@ -78,7 +78,7 @@ mod tests {
     // `print (1 +)` was the first of them until doc 18 §4 made it a **left
     // section**, which parses. A statement that begins with a binary
     // operator has nowhere left to go, and ends at its own line break.
-    let source = "a :: ()\na =\n  + 1\n\nb :: ()\nb =\n  * \n";
+    let source = "a : ()\na =\n  + 1\n\nb : ()\nb =\n  * \n";
     let failure = redox_parser::parse_source(source).expect_err("should fail");
     let diagnostics = diagnose(Path::new("a.sdx"), source, &failure);
     assert!(

@@ -30,7 +30,9 @@ pub enum Keyword {
   Module,
   Errors,
   // Doc 18 §2.4's declaration form. `data` covers struct, enum, union and
-  // tuple struct; `newtype` is the single-field case rustc wants named; and
+  // tuple struct; `newtype` is the single-field case, which plan 53 gives
+  // `#[repr(transparent)]` and a parser check so the keyword earns its
+  // keeping — it was a synonym for `data` until then; and
   // `deriving` is a clause of the declaration rather than an attribute, which
   // is why `derive` as a standalone keyword is gone.
   Data,
@@ -102,7 +104,7 @@ pub enum Keyword {
   /// program defines; reserving the word is what makes the documented syntax
   /// mean what it says instead of silently meaning something else.
   Rust,
-  /// `name :: unsafe T -> U` and the `unsafe` block — plan 45 leaf 2.
+  /// `name : unsafe T -> U` and the `unsafe` block — plan 45 leaf 2.
   ///
   /// Doc 01 §25.4 *"gestures at native Rust syntax or the inline Rust escape
   /// hatch without choosing"*; doc 03 §23 item 2 forbids the hatch for this,

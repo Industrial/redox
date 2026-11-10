@@ -2,5 +2,5 @@ error[RDX0007]: unterminated attribute; expected `]`
   --> unterminated_attribute.sdx:1:1
   |
 1 | #[derive(Debug)
-  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

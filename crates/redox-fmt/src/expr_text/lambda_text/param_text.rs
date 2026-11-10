@@ -8,7 +8,7 @@ pub(crate) fn param_text(param: &Param) -> String {
     param.name.text.clone()
   };
   match &param.ty {
-    Some(ty) => format!("({name} :: {})", ty.text),
+    Some(ty) => format!("({name} : {})", ty.text),
     None => name,
   }
 }

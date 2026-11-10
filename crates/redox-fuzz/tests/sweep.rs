@@ -72,18 +72,18 @@ fn hostile() -> Vec<(&'static str, Vec<u8>)> {
     // target that can see this, and it is the reason it takes `&[u8]`.
     ("invalid utf-8", vec![0x80, 0x81, 0xfe, 0xff]),
     ("a lone nul", vec![0x00]),
-    ("unterminated string", b"a :: ()\na = \"open\n".to_vec()),
+    ("unterminated string", b"a : ()\na = \"open\n".to_vec()),
     (
       "unterminated raw string",
-      b"a :: ()\na = r#\"open\n".to_vec(),
+      b"a : ()\na = r#\"open\n".to_vec(),
     ),
-    ("unterminated fence", b"{- open\na :: ()\n".to_vec()),
-    ("unbalanced delimiter", b"a :: ()\na = (((\n".to_vec()),
+    ("unterminated fence", b"{- open\na : ()\n".to_vec()),
+    ("unbalanced delimiter", b"a : ()\na = (((\n".to_vec()),
     // Doc 03 §3.1's `RDX0002`: a dedent to a width matching no enclosing
     // level. The one input this file asserts is *rejected*.
     (
       "inconsistent dedent",
-      b"main :: ()\nmain =\n    print 1\n  print 2\n".to_vec(),
+      b"main : ()\nmain =\n    print 1\n  print 2\n".to_vec(),
     ),
     // Deep nesting, to find a recursion limit if there is one. Short enough to
     // stay fast and deep enough to blow a naive recursive descent.
@@ -93,7 +93,7 @@ fn hostile() -> Vec<(&'static str, Vec<u8>)> {
 
 /// `a = ((((…1…))))`, `depth` deep.
 fn deep_nesting(depth: usize) -> Vec<u8> {
-  let mut text = String::from("a :: ()\na = ");
+  let mut text = String::from("a : ()\na = ");
   text.push_str(&"(".repeat(depth));
   text.push('1');
   text.push_str(&")".repeat(depth));
@@ -249,7 +249,7 @@ fn the_generated_rust_always_parses() {
 /// `RDX0002` is about a **dedent** landing between two levels.
 #[test]
 fn an_input_that_must_be_rejected_is_rejected() {
-  let bad = b"main :: ()\nmain =\n    print 1\n  print 2\n";
+  let bad = b"main : ()\nmain =\n    print 1\n  print 2\n";
   assert!(
     redox_lexer::lex(&String::from_utf8_lossy(bad)).is_err(),
     "a dedent matching no enclosing level must be RDX0002"
@@ -260,7 +260,7 @@ fn an_input_that_must_be_rejected_is_rejected() {
   );
   // The positive counterpart, so the case is not passing for an unrelated
   // reason.
-  let good = b"main :: ()\nmain =\n  if c\n    print 1\n  print 2\n";
+  let good = b"main : ()\nmain =\n  if c\n    print 1\n  print 2\n";
   assert!(
     redox_lexer::lex(&String::from_utf8_lossy(good)).is_ok(),
     "a nested block then a dedent to a level that *is* open must lex"

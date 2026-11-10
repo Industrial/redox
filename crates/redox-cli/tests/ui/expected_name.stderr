@@ -1,6 +1,6 @@
 error[RDX0103]: expected a name to begin a declaration
   --> expected_name.sdx:5:1
   |
-5 | "x" :: ()
+5 | "x" : ()
   | ^^^
 

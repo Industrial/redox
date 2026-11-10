@@ -1,4 +1,4 @@
 -- | A program that compiles, for the tools that need one.
-main :: ()
+main : ()
 main =
   print 1

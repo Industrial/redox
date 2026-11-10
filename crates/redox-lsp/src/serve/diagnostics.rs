@@ -29,16 +29,27 @@ use lsp_types::{Diagnostic, Uri};
 /// The order matters and is easy to get backwards: a lint is a token scan, so
 /// it works on a file that does not parse, and a parse failure should not
 /// suppress it. Both lists are always computed and concatenated.
+///
+/// That is also why the parse result is **kept** rather than only tested.
+/// Since plan 53 a lint reads suppression ranges off the tree, and the tree
+/// is what a document mid-edit does not have — so it is passed when there is
+/// one and `None` when there is not, which keeps the lint running on a broken
+/// document at the cost of a pragma not reaching past its own line until the
+/// file parses again.
 pub(crate) fn diagnostics(uri: &Uri, source: &str) -> Vec<Diagnostic> {
   let path = path_of(uri);
   let mut found: Vec<Diagnostic> = Vec::new();
 
-  if let Err(failure) = redox_parser::parse_source(source) {
-    for diagnostic in redox_driver::diagnose(&path, source, &failure) {
-      found.push(convert(&diagnostic, source));
+  let parsed = match redox_parser::parse_source(source) {
+    Ok(program) => Some(program),
+    Err(failure) => {
+      for diagnostic in redox_driver::diagnose(&path, source, &failure) {
+        found.push(convert(&diagnostic, source));
+      }
+      None
     }
-  }
-  for diagnostic in redox_driver::lint(&path, source) {
+  };
+  for diagnostic in redox_driver::lint(&path, source, parsed.as_ref()) {
     found.push(convert(&diagnostic, source));
   }
   found

@@ -210,8 +210,8 @@ fn matching_brace(text: &str, open: usize) -> Option<usize> {
 /// indented block is a change `redox fmt` would make silently and rustc would
 /// never see, because the file would stop parsing as Redox first.
 fn reparse(text: &str) -> Option<(Stmt, String)> {
-  let indented = format!("__rdx_probe :: ()\n__rdx_probe =\n{text}\n");
-  let tail = format!("__rdx_probe :: ()\n__rdx_probe = {}\n", text.trim_start());
+  let indented = format!("__rdx_probe : ()\n__rdx_probe =\n{text}\n");
+  let tail = format!("__rdx_probe : ()\n__rdx_probe = {}\n", text.trim_start());
   for whole in [indented, tail] {
     let Ok(program) = redox_parser::parse_source(&whole) else {
       continue;

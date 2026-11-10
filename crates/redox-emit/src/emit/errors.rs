@@ -56,6 +56,26 @@ pub(crate) fn emit_errors(out: &mut Sink<'_>, d: &ErrorsDecl, indent: usize) {
   pad(out, indent);
   out.push_str("}\n\n");
 
+  // The variants come into scope under their own names, exactly as `data`'s
+  // do — `emit_data`'s enum branch ends with the same two lines, for the same
+  // reason and with the same wording.
+  //
+  // Plan 53 leaf 1. Before it, `errors` was the one declaration that
+  // introduced constructors and then hid them: `data Event = Click | Close`
+  // gave you `Click`, and `errors ConfigError` with a `Missing` row gave you
+  // `ConfigError::Missing` and nothing shorter. Haskell has no such
+  // distinction, and neither document that specifies `errors` — doc 03 §12.5
+  // and doc 18 §8 — asks for one. It was an omission, and the symptom was
+  // `E0425: cannot find function, tuple struct or tuple variant` reported
+  // against a line that reads like ordinary Haskell.
+  //
+  // Private, and a plain `use` rather than `pub use`: `data`'s is plain, and
+  // re-exporting the variants from the enclosing module would be a visibility
+  // decision nobody made. A collision between two names is rustc's error to
+  // give — the same division of labour `emit_data` records.
+  pad(out, indent);
+  out.push_str(&format!("use {name}::*;\n\n"));
+
   pad(out, indent);
   out.push_str(&format!("impl std::fmt::Display for {name} {{\n"));
   pad(out, indent + RUST_INDENT);

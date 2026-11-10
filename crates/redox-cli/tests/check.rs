@@ -159,6 +159,47 @@ fn a_restructured_line_underlines_the_statement() {
   );
 }
 
+/// Plan 54 criterion 3: `:=` against a binding that is not `mut` is rustc's
+/// error, reported against the `.sdx`.
+///
+/// This is the row's load-bearing negative. `is_mut` is set only by the
+/// literal `mut` keyword (`parser.rs`) and the emitter writes `mut` only when
+/// it is set (`emit/stmt.rs`), so Redox has no mechanism to make an immutable
+/// assignment compile — and this test is what stops one being added as a
+/// convenience later. *"Every check rustc can make, rustc makes."*
+///
+/// # Why this is in `tests/check/` and not `tests/ui/`
+///
+/// Plan 54 criterion 3 named `tests/ui/`, and it cannot live there: that
+/// harness runs `redox build`, which parses, lints, emits and writes without
+/// ever invoking rustc. A program whose only fault is `E0384` **builds
+/// clean**, so `ui.rs`'s `assert!(!out.status.success())` would fail on its
+/// own expectation rather than on the program. `tests/check/` is the corpus
+/// that runs real rustc and remaps its spans, which is what this needs.
+#[test]
+fn assigning_to_an_immutable_binding_is_rustcs_error() {
+  if support::skip_without_rustc("assigning_to_an_immutable_binding_is_rustcs_error") {
+    return;
+  }
+  let checked = check("immutable_assignment");
+  assert!(!checked.success);
+  assert!(
+    checked.stderr.contains("error[E0384]"),
+    "rustc's immutable-assignment error, not a Redox one:\n{}",
+    checked.stderr
+  );
+  assert!(
+    checked.stderr.contains("immutable_assignment.sdx:19:3"),
+    "reported against the `:=` on line 19 of the .sdx:\n{}",
+    checked.stderr
+  );
+  assert!(
+    !checked.stderr.contains(".xrs"),
+    "never against the generated Rust:\n{}",
+    checked.stderr
+  );
+}
+
 /// Criterion 6: a program rustc accepts produces nothing and exits zero.
 #[test]
 fn a_clean_program_passes_silently() {

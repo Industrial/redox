@@ -5,7 +5,7 @@
 -- §2.4's `data` to have constructors to alternate, so the alternation here is
 -- over literals. The lowering is the same `|`.
 
-label :: u32 -> &'static str
+label : u32 -> &'static str
 label age = case age of
   n | n > 65 -> "senior"
   18..=64 -> "adult"
@@ -14,14 +14,14 @@ label age = case age of
   _ -> "teen"
 
 -- A `case` is an expression, so it is a binding's value with no second form.
-describe :: char -> &'static str
+describe : char -> &'static str
 describe c =
   kind = case c of
     'a' or 'e' or 'i' or 'o' or 'u' -> "vowel"
     _ -> "consonant"
   kind
 
-main :: ()
+main : ()
 main =
   print (label 80)
   print (label 30)

@@ -7,9 +7,9 @@
 -- truncates and `try_from` is fallible, so a program wanting the truncating
 -- conversion cannot write it.
 
-narrow :: i32 -> u8
+narrow : i32 -> u8
 narrow n = n as u8
 
-main :: ()
+main : ()
 main =
   print (narrow 300)

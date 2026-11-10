@@ -10,9 +10,9 @@ use redox_ast::ClassMember;
 ///
 /// ```text
 /// type Item
-/// const SIDES :: u32
-/// const SIDES :: u32 = 4
-/// area :: &t -> f64
+/// const SIDES : u32
+/// const SIDES : u32 = 4
+/// area : &t -> f64
 /// area self = self.side * self.side
 /// ```
 ///
@@ -22,7 +22,7 @@ use redox_ast::ClassMember;
 ///
 /// A method is a whole `FnDecl`, signature line and equations, so it goes
 /// through `fn_text` and inherits the verbatim signature slice. That is what
-/// keeps `area :: &t -> f64` inside a `class Shape t` from being rewritten to
+/// keeps `area : &t -> f64` inside a `class Shape t` from being rewritten to
 /// `&T` — the member's `t` is the implementing type and `generalise` reserves
 /// it, but the type *text* is rewritten all the same wherever a variable is
 /// not reserved.
@@ -34,7 +34,7 @@ pub(crate) fn member_text(member: &ClassMember, indent: usize, source: &str) -> 
       let assigned = value.as_ref().map_or(String::new(), |v| {
         format!(" = {}", expr_text(v, 0, indent, source))
       });
-      format!("{pad}const {} :: {}{assigned}", name.text, ty.text)
+      format!("{pad}const {} : {}{assigned}", name.text, ty.text)
     }
     // The method's leading trivia is printed here and nowhere else: a member
     // is not an `Item`, so `item_text`'s `leading_text` never sees it.

@@ -2,7 +2,7 @@
 a nested block
 ================================================================
 
-main :: ()
+main : ()
 main =
   if c
     print 1
@@ -31,7 +31,7 @@ main =
 a dedent of two levels at once
 ================================================================
 
-main :: ()
+main : ()
 main =
   if c
     if d
@@ -65,7 +65,7 @@ main =
 a blank line and a comment carry no depth
 ================================================================
 
-main :: ()
+main : ()
 main =
   print 1
 
@@ -91,7 +91,7 @@ main =
 a nesting fenced comment
 ================================================================
 
-main :: ()
+main : ()
 main =
   {- outer {- inner -} still outer -}
   print 1
@@ -113,7 +113,7 @@ an inconsistent dedent is an error
 :error
 ================================================================
 
-main :: ()
+main : ()
 main =
     print 1
   print 2

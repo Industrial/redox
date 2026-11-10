@@ -38,8 +38,8 @@ mod tests {
   #[test]
   fn the_same_source_and_compiler_give_the_same_key() {
     assert_eq!(
-      cache_key("main :: ()\nmain =\n", &fp()),
-      cache_key("main :: ()\nmain =\n", &fp())
+      cache_key("main : ()\nmain =\n", &fp()),
+      cache_key("main : ()\nmain =\n", &fp())
     );
   }
 
@@ -52,8 +52,8 @@ mod tests {
   /// Criterion 3's mechanism: a new compiler invalidates everything.
   #[test]
   fn a_different_compiler_changes_the_key() {
-    let a = cache_key("main :: ()\nmain =\n", &Fingerprint::of(b"old"));
-    let b = cache_key("main :: ()\nmain =\n", &Fingerprint::of(b"new"));
+    let a = cache_key("main : ()\nmain =\n", &Fingerprint::of(b"old"));
+    let b = cache_key("main : ()\nmain =\n", &Fingerprint::of(b"new"));
     assert_ne!(a, b);
   }
 

@@ -10,6 +10,6 @@
 macro twice
   ($e:expr) => { $e + $e }
 
-main :: ()
+main : ()
 main =
   print 1

@@ -1,0 +1,6 @@
+error[RDX0111]: a `newtype` wraps exactly one field, and this declaration wraps 2 — write `data` for a constructor with more than one field
+  --> newtype_two_fields.sdx:9:27
+  |
+9 | newtype Span = Span usize usize
+  |                           ^^^^^
+

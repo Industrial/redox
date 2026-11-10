@@ -9,7 +9,7 @@ fn xrs(src: &str) -> String {
 }
 
 fn body(src: &str) -> String {
-  xrs(&format!("main :: ()\nmain =\n  {src}\n"))
+  xrs(&format!("main : ()\nmain =\n  {src}\n"))
 }
 
 #[test]
@@ -35,7 +35,7 @@ fn several_tests_share_one_module() {
 /// §15: the module is emitted **only** when a `test` block is present.
 #[test]
 fn a_file_without_tests_gets_no_module() {
-  let out = xrs("main :: ()\nmain =\n  print \"x\"\n");
+  let out = xrs("main : ()\nmain =\n  print \"x\"\n");
   assert!(!out.contains("__rdx_tests"), "{out}");
 }
 
@@ -43,7 +43,7 @@ fn a_file_without_tests_gets_no_module() {
 /// for one module, and a module cannot be interleaved with what it tests.
 #[test]
 fn the_module_follows_the_rest_of_the_file() {
-  let out = xrs("test \"t\"\n  assert 1 == 1\n\nmain :: ()\nmain =\n  print \"x\"\n");
+  let out = xrs("test \"t\"\n  assert 1 == 1\n\nmain : ()\nmain =\n  print \"x\"\n");
   let main_at = out.find("fn main()").expect("main");
   let module_at = out.find("mod __rdx_tests").expect("the module");
   assert!(main_at < module_at, "{out}");

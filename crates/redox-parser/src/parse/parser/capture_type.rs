@@ -29,7 +29,7 @@ use redox_lexer::TokenKind;
 /// blamed the equation.
 ///
 /// `}` and `|` joined the set with doc 18 §2.4's declarations, which are the
-/// first place a type is followed by either: `{ x :: f64, y :: f64 }` ended
+/// first place a type is followed by either: `{ x : f64, y : f64 }` ended
 /// its last field's type with the brace *inside* it, and `Key char | Close`
 /// swallowed the bar. A string literal joined it with doc 03 §12.5's
 /// `errors` rows, where the `Display` message follows the payload types with
@@ -66,6 +66,16 @@ pub(crate) fn capture_type(
       break;
     }
 
+    // **`Eof` ends the loop at any depth**, and this is a termination proof
+    // rather than a convenience. Every other condition below is guarded by
+    // `depth == 0`, and `p.advance()` at `Eof` does not advance — so a depth
+    // that is wrong by even one turns this loop into a hang that grows `text`
+    // until the process is killed. That happened: see the stray-closer note
+    // on the match below.
+    if matches!(kind, TokenKind::Eof) {
+      break;
+    }
+
     if depth == 0 {
       let ends = match kind {
         TokenKind::Comma | TokenKind::RParen | TokenKind::Eq => true,
@@ -89,6 +99,19 @@ pub(crate) fn capture_type(
         // when the equation bound one.
         TokenKind::Arrow => !closed_a_named_group,
         TokenKind::Newline | TokenKind::Indent | TokenKind::Dedent | TokenKind::Eof => true,
+        // **A closer with no opener ends the type**, for the same reason
+        // `RParen` and `RBrace` two arms up do: at depth zero there is
+        // nothing for it to close, so it belongs to whatever encloses this
+        // type and the caller's own `expect` should be the one to complain
+        // about it.
+        //
+        // Without this, `>` fell through to the match below and took `depth`
+        // to **-1**, which disabled every condition in this block
+        // permanently — a 28-byte input (`n : i32 !> i32 = 1`) hung the
+        // compiler until the OOM killer stopped it. No valid Rust type has a
+        // depth-zero closer: in `Vec<u8>` the `<` has already raised the
+        // depth before the `>` arrives, and `[u8; 4]` works the same way.
+        TokenKind::Gt | TokenKind::Shr | TokenKind::RBracket => true,
         _ => false,
       };
       if ends {
@@ -104,6 +127,9 @@ pub(crate) fn capture_type(
         depth += 1;
       }
       TokenKind::Lt | TokenKind::LBracket | TokenKind::LBrace => depth += 1,
+      // Reached only at `depth > 0` — every one of these is a depth-zero
+      // terminator above, which is what keeps `depth` from going negative and
+      // is the invariant the `Eof` guard no longer has to rely on.
       TokenKind::Gt | TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => depth -= 1,
       // `>>` closes two generic argument lists, as in `Vec<Vec<u8>>`.
       TokenKind::Shr => depth -= 2,

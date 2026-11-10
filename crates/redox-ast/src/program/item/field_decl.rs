@@ -2,7 +2,7 @@ use crate::program::item::visibility::Visibility;
 use crate::{Ident, TypeExpr};
 use redox_lexer::{Span, Trivia};
 
-/// One `name :: Type` field of a record constructor — doc 18 §2.4.
+/// One `name : Type` field of a record constructor — doc 18 §2.4.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FieldDecl {
   pub name: Ident,

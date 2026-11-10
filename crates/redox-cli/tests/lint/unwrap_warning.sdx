@@ -7,7 +7,7 @@
 --
 -- The message names the ergonomic path — `?`, `??`, `catch` — which is the
 -- only thing this lint has that `clippy::unwrap_used` does not.
-main :: ()
+main : ()
 main =
   raw = Some 7
   port = raw.unwrap ()

@@ -7,8 +7,8 @@ use redox_ast::ConstDecl;
 /// Emit doc 03 §13.4's module-scope `const` or `static`, at `indent` spaces.
 ///
 /// ```text
-/// const MAX :: usize = 1024      const MAX: usize = 1024;
-/// static COUNT :: u32 = 0    →   static COUNT: u32 = 0;
+/// const MAX : usize = 1024      const MAX: usize = 1024;
+/// static COUNT : u32 = 0    →   static COUNT: u32 = 0;
 /// ```
 ///
 /// One keyword apart, which is why one node carries both.

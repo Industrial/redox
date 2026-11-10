@@ -10,8 +10,8 @@ use redox_ast::ClassMember;
 ///
 /// ```text
 /// type Unit                  type Unit;
-/// const SIDES :: u32     →   const SIDES: u32;
-/// area :: &t -> f64          fn area(&self) -> f64;
+/// const SIDES : u32     →   const SIDES: u32;
+/// area : &t -> f64          fn area(&self) -> f64;
 /// describe self = "…"        fn describe(&self) -> String { "…" }
 /// ```
 ///

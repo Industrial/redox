@@ -57,25 +57,48 @@ pub enum StmtKind {
   },
   /// `counter += 1` — doc 01 §4.3's compound assignment, plan 20.
   ///
-  /// **The only assignment spelling docs 01, 03 and 18 define.** §4.3 shows
-  /// `mut counter = 0` followed by `counter += 1`, doc 18 §2.5's
-  /// `increment self = self.value += 1` uses it on a *field*, and plain
-  /// reassignment — `counter = 2` — appears nowhere: at statement level
-  /// `x = v` is a binding, and telling a rebinding from a binding would need
-  /// scope tracking Redox does not have and AGENTS.md forbids it growing.
+  /// Assignment to a place — `counter := 2` and `counter += 1`, one node.
   ///
-  /// So this plan implements the five compound operators and no more, and
-  /// plan 20 §10 records the consequence: a loop can advance a counter and
-  /// cannot rebind a non-numeric variable.
+  /// # Why `:=` exists at all
   ///
-  /// The target is an **expression**, not a name, because §2.5's example
-  /// assigns to `self.value`.
+  /// `=` is a **binding**. At statement level `x = v` introduces a name, and
+  /// telling a rebinding from a binding by looking at it needs the scope
+  /// tracking AGENTS.md forbids Redox growing. Plan 20 therefore shipped the
+  /// five compound operators and no more, and disclosed the consequence
+  /// instead of designing around it (§10.2): *"a loop can advance a numeric
+  /// accumulator and cannot rebind anything else."*
+  ///
+  /// Plan 54 retires that limit with a second token rather than with
+  /// analysis. `:=` is unambiguous wherever it appears, so the two meanings
+  /// stop competing for one spelling and nothing has to be inferred.
+  ///
+  /// # Why one node and not two
+  ///
+  /// `a += b` *is* `a = a + b`, so a plain assignment and a compound one are
+  /// one construct with a modifier. Spelling that as `Option<BinaryOp>`
+  /// rather than as a second `StmtKind` variant is also what keeps this
+  /// change small: `emit/stmt.rs`, `redox-fmt`'s `kind_text.rs` and two test
+  /// matches are all exhaustive with no wildcard — *"a new `StmtKind` must
+  /// fail to compile here"* — and none of them gains an arm.
+  ///
+  /// # The target is an expression, and rustc judges it
+  ///
+  /// Not a name: doc 18 §2.5's example assigns to `self.value`, and `v[0]`,
+  /// `*r` and `(a, b)` are all reachable through the same general `Expr`.
+  /// That last one is destructuring assignment, stable Rust since 1.59, and
+  /// it falls out for free — plan 54 §6 declined it and §10 amends that,
+  /// because refusing it would mean Redox deciding what is a place
+  /// expression. `(1 + 2) := 3` is rustc's `E0070`, and *"every check rustc
+  /// can make, rustc makes"* is the rule that settles which side of the line
+  /// that sits on.
   Assign {
     target: Expr,
-    /// One of `Add`, `Sub`, `Mul`, `Div`, `Rem`, emitted as `+=` and so on.
-    /// Reusing `BinaryOp` rather than a second enum keeps the spelling in one
-    /// place — the operator's Rust text plus `=`.
-    op: crate::BinaryOp,
+    /// `Some(op)` is `+=` and the other four; `None` is a plain `:=`.
+    ///
+    /// One of `Add`, `Sub`, `Mul`, `Div`, `Rem`. Reusing `BinaryOp` rather
+    /// than a second enum keeps the spelling in one place — the operator's
+    /// Rust text plus `=`.
+    op: Option<crate::BinaryOp>,
     value: Expr,
   },
   /// `guard P = e else <diverging>` — doc 03 §7.1's early-exit binding,

@@ -16,7 +16,7 @@ fn xrs(src: &str) -> String {
 
 /// The body of `fn main`, dedented.
 fn body(src: &str) -> String {
-  xrs(&format!("main :: ()\nmain =\n{src}"))
+  xrs(&format!("main : ()\nmain =\n{src}"))
     .lines()
     .skip(1)
     .take_while(|l| *l != "}")
@@ -237,7 +237,7 @@ fn a_triple_quoted_block_interpolates() {
 /// has to reach the closing `"""`.
 #[test]
 fn a_triple_quoted_blocks_span_covers_it() {
-  let src = "main :: ()\nmain =\n  s = \"\"\"\n    a\n    b\n    \"\"\"\n  print s\n";
+  let src = "main : ()\nmain =\n  s = \"\"\"\n    a\n    b\n    \"\"\"\n  print s\n";
   let program = parse_source(src).expect("should parse");
 
   let redox_ast::Item::Fn(main) = &program.items[0] else {

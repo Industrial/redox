@@ -1161,16 +1161,16 @@ context exists, and `into` replaces it.
 | Form | Rust | Note |
 |---|---|---|
 | `[1, 2, 3]` | `[1, 2, 3]` | **corrected** — see below |
-| `[1, 2, 3] :: Vec<i32>` | `Vec::from([1, 2, 3])` | doc 18 §7's ascribed literal |
+| `[1, 2, 3] : Vec<i32>` | `Vec::from([1, 2, 3])` | doc 18 §7's ascribed literal |
 | `{k: v}` | `HashMap` from iterator | **deleted** by doc 18 §7 |
-| `#{1, 2, 3}` | `HashSet::from([1, 2, 3])` | **deleted** by doc 18 §7 — `[…] :: HashSet<_>` |
+| `#{1, 2, 3}` | `HashSet::from([1, 2, 3])` | **deleted** by doc 18 §7 — `[…] : HashSet<_>` |
 | `[0, ...xs, 9]` | chained `extend` / iterator chain | **deleted** — `...` leaves the language |
 | `%w[get post put]` | `["get", "post", "put"]` | **deleted** by doc 18 §7 |
 | `[0u8; 1024]` | `[0u8; 1024]` | added (§18); pure passthrough |
 
 > **Corrected 2026-11-09 by plan 29 (§10.1).** The first row said
 > `[1, 2, 3]` → `vec![1, 2, 3]`. It does not and must not: doc 18 §7 replaced
-> four of this table's six rows with `[…] :: C<_>`, and that form needs the bare
+> four of this table's six rows with `[…] : C<_>`, and that form needs the bare
 > literal to be an **array**, because `Vec::from` and `HashSet::from` both take
 > `[T; N]`. A bare bracketed literal is therefore an array, and `:: Vec<T>` is
 > how it becomes a `Vec`.

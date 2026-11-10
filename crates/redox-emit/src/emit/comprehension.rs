@@ -41,7 +41,7 @@ use redox_ast::{Expr, Qualifier};
 /// question, not a meaning one.
 ///
 /// **`collect()` carries no turbofish**, so the element type comes from the
-/// ascription — `[ c | c in cs ] :: HashSet<char>`, which is §3.2's own
+/// ascription — `[ c | c in cs ] : HashSet<char>`, which is §3.2's own
 /// spelling — or from the use site. Without either, rustc asks for a type
 /// annotation, which is the correct error and points at the comprehension.
 pub(crate) fn emit_comprehension(

@@ -5,8 +5,8 @@ use redox_lexer::{Span, Trivia};
 ///
 /// ```text
 /// extern "C"
-///   abs :: i32 -> i32
-///   labs :: i64 -> i64
+///   abs : i32 -> i32
+///   labs : i64 -> i64
 /// ```
 ///
 /// Doc 01 §26 lists **FFI** among the things that *"must remain possible"*,

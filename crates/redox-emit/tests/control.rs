@@ -15,7 +15,7 @@ fn xrs(src: &str) -> String {
 /// The body of `fn main`, dedented, so an assertion reads as the statements it
 /// is about rather than as a whole file.
 fn body(src: &str) -> String {
-  let out = xrs(&format!("main :: ()\nmain =\n{src}"));
+  let out = xrs(&format!("main : ()\nmain =\n{src}"));
   out
     .lines()
     .skip(1)
@@ -177,7 +177,7 @@ fn a_label_prefixes_any_loop() {
 /// `'outer` alone cannot be anything else.
 #[test]
 fn a_label_with_no_loop_is_an_error() {
-  assert!(parse_source("main :: ()\nmain =\n  'outer\n  print 1\n").is_err());
+  assert!(parse_source("main : ()\nmain =\n  'outer\n  print 1\n").is_err());
 }
 
 // --- §5.9: `return` reaches through ---------------------------------------
@@ -195,9 +195,11 @@ fn return_works_inside_a_loop() {
 
 // --- doc 01 §4.3: compound assignment -------------------------------------
 
-/// The only assignment spelling docs 01, 03 and 18 define, and a dependency
-/// of loops being usable — a `while` whose body cannot change its condition
-/// does not terminate. Plan 20 §10 records that no row owned it.
+/// The five compound operators, which were the only assignment spelling docs
+/// 01, 03 and 18 defined, and a dependency of loops being usable — a `while`
+/// whose body cannot change its condition does not terminate. Plan 20 §10
+/// recorded that no row owned plain assignment; plan 54 is that row, and
+/// `plain_assignment_emits_rusts_bare_equals` below is its half of this pair.
 #[test]
 fn the_five_compound_operators_assign() {
   for (sdx, want) in [
@@ -218,10 +220,50 @@ fn a_compound_assignment_targets_a_place_expression() {
   assert_eq!(body("  self.value += 1\n"), "self.value += 1;");
 }
 
-/// A plain `=` is still a binding. This is the line that makes plain
-/// reassignment inexpressible, and it is deliberate: telling a rebinding from
-/// a binding needs scope tracking AGENTS.md forbids.
+/// Both halves of the boundary plan 54 moved.
+///
+/// This test used to assert one half alone, and plan 20 §10.2 said why: it was
+/// the record of a limit, kept *"so the limit is a tested fact and not an
+/// accident waiting to be 'fixed'"*. Plan 54 is the row that fixed it, so the
+/// test is rewritten rather than deleted — the limit it recorded is gone and
+/// the distinction it protected is not.
+///
+/// `=` is still a **binding**. That is what makes a second token necessary:
+/// telling a rebinding from a binding by looking at `x = v` needs the scope
+/// tracking AGENTS.md forbids Redox growing, and `:=` means the two readings
+/// never compete for one spelling.
 #[test]
 fn a_plain_equals_is_still_a_binding() {
   assert_eq!(body("  n = 1\n"), "let n = 1;");
+}
+
+/// And `:=` assigns, emitting Rust's bare `=`.
+///
+/// Redox's two spellings collapse to Rust's one, which is the shape of the
+/// whole row: `let` is what tells Rust a binding from an assignment, and
+/// Redox has no `let` to lean on.
+#[test]
+fn plain_assignment_emits_rusts_bare_equals() {
+  assert_eq!(body("  n := 1\n"), "n = 1;");
+}
+
+/// Every place form, because `*slot := v` and `row[i] := v` are what a loop
+/// actually needs and plan 20 §10.1 describes what omitting them costs.
+///
+/// The last row is Rust's destructuring assignment, stable since 1.59. It
+/// falls out of the target being a general expression; plan 54 §6 declined it
+/// before measuring that it was free, and §10 amends that. Nothing here
+/// checks that the target *is* a place — `(1 + 2) := 3` is rustc's `E0070`,
+/// and *"every check rustc can make, rustc makes"*.
+#[test]
+fn assignment_targets_every_place_form() {
+  for (sdx, want) in [
+    ("n := 1", "n = 1;"),
+    ("self.value := 1", "self.value = 1;"),
+    ("v[0] := 1", "v[0] = 1;"),
+    ("*r := 1", "*r = 1;"),
+    ("(a, b) := (b, a)", "(a, b) = (b, a);"),
+  ] {
+    assert_eq!(body(&format!("  {sdx}\n")), want, "{sdx}");
+  }
 }

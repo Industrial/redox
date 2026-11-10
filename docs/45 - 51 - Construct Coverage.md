@@ -3,7 +3,7 @@
 Plan ID: `construct-coverage`
 Depends on: 43 (`test-suite-expansion`), 46 (`grammar-inventories`)
 Milestone: 9 — *surface coherence*
-Status: `planned`
+Status: `done`
 
 ---
 
@@ -272,4 +272,103 @@ why plan 46 had to build it before this row could exist.
 
 ## 10. Result
 
-*Not yet executed.*
+**Done.** `crates/redox-cli/tests/construct_coverage.rs` ships with six tests,
+1360 lines, and the two corpus leaves landed as `examples/application.sdx` and
+a correction to `examples/lexical.sdx`.
+
+### 10.1 The ALLOW list is not empty, and that is the honest outcome
+
+§5 criterion 3 asked for an empty `ALLOW`. It has **seven** entries, and each
+is a real corpus gap rather than an unwitnessable row:
+
+| Row | Why nothing witnesses it |
+|---|---|
+| Raw pointers | no `*` in any type in the corpus |
+| Trait objects `dyn Trait` | no `dyn` token anywhere |
+| `impl Trait`, argument and return | the only `impl` in the corpus is inside a comment in `errors.sdx` |
+| Function pointers and `Fn` bounds | no `Fn` bound in `generic.sdx` or `reachability.sdx` |
+| Unit structs | all 13 `data`/`newtype`/`union` declarations have fields or alternatives |
+| `move` closures | `Keyword::Move` is reserved; `async.sdx` has no `move`, and whether the parser accepts one is unverified |
+| `ref` and `ref mut` | **probably a mis-grading** — `ref` is not in doc 18 §7's reserved set, so `ref x` lexes as juxtaposition of two identifiers |
+
+`ALLOW_AT_MERGE = 7` pins the length, so the list can shrink and cannot grow.
+The `impl`-in-a-comment entry is the clearest vindication of §2's lexical rule:
+a substring scan would have accepted it and reported the row covered.
+
+The last row is a finding for plan 46 rather than for this one. If `ref` really
+is unreserved then the row belongs under `UNREACHABLE`, and the inventory is
+over-graded by one.
+
+### 10.2 It is proven to fail, and it took a *left* section to prove it
+
+§3 proof 1 asked for a demonstration. With `examples/section.sdx` moved aside:
+
+```text
+Method calls, field access [docs/GRAMMAR.md:100 (1.4 Expressions)]
+    spelled `p.x`, and a left section like `(1 <)` or `(10 -)` — looked for
+    the tokens `( «int» < )` or the tokens `( «int» - )` or the tokens
+    `( «int» > )` or the tokens `( «id» < )`
+```
+
+Worth recording *why* it had to be a left section: `examples/lexical.sdx` still
+carries the right sections `(+1)` and `(> 0)`, so a generic "section" witness
+would have stayed green with the only file that exercises the construct
+removed. A witness is only as sharp as its least-covered spelling.
+
+### 10.3 Four defects larger than this row, found by its two examples
+
+`examples/application.sdx` was written to exercise `$` and the multi-line
+pipeline, the two constructs §1 named as implemented-and-unexampled. It found
+three separate defects in doing so, which is the whole argument of §1 landing:
+
+1. **The emitter cannot break a chain.** `generated_rust_is_rustfmt_clean`
+   failed on the first draft's five-stage pipeline: the emitter joins a chain
+   onto one line whatever its width and rustfmt breaks one wider than
+   `chain_width` (60). No golden had caught it because the longest chain in the
+   corpus was 21 characters. The example stays inside 60 deliberately and the
+   fix is plan 58 leaf 2a.
+2. **`redox fmt` deleted `$`.** The formatter rewrote `twice $ show 7` into
+   `twice (show 7)` and joined the four-stage pipeline onto one 89-character
+   line, because `$` desugars to an `Expr::Paren` at parse time and the AST kept
+   no memory of it. A formatter that rewrites `$` into parentheses makes `$`
+   unusable in any formatted codebase. Fixed in this row.
+3. **The tree-sitter grammar could not parse a multi-line pipeline**, and
+   this row's commit left that gate red. The grammar had no branch for an
+   inline receiver followed by an indented continuation, so `scanner.c`'s
+   INDENT had only `where_clause` to land in and the equation body came out as
+   an `ERROR` reaching into the next line. Measured by generating the HEAD
+   grammar and parsing a `::`-spelled copy of the same file: it fails
+   identically, so the colon had nothing to do with it.
+
+   The honest part of this entry is the gate. `crates/redox-cli/tests/tree_sitter.rs`
+   went red at `240b8ef`, the commit that added the example, and I verified
+   `examples`, `run` and `status` before committing without running it — so the
+   defect was found a plan later, by the agent migrating the grammar for plan
+   52, rather than by the commit that caused it. There is a second parser in
+   this repository and a corpus addition is a change to both.
+4. **A lexer invariant was stated more widely than it holds.**
+   `token_depth_tracks_the_texts_indentation` asserted that one token depth
+   means one text width *per token*, where its own doc comment says "the first
+   token on each new line". A continuation line emits no `Newline`, `Indent` or
+   `Dedent` by design — `lexer.rs` eats its indentation so the off-side rule
+   never sees it — so it sits at its parent's depth with indented text. The
+   first indented continuation in the corpus failed the assertion at a byte
+   inside `filter`. The property was sound; the sampling was not, and it now
+   samples logical lines.
+
+### 10.4 `examples/lexical.sdx` was the only thing asserting a falsehood
+
+Its comment said `\` lambdas and `$` were "specified and not yet lexed". Both
+ship, in doc 18 §11.1's commit `0abcdf0`. One file explaining a construct's
+absence is exactly how a construct stays undiscoverable, and it is why this row
+exists; the file now carries the correction and lexes both.
+
+### 10.5 Open
+
+- 82 reachable rows indexed, 7 `UNREACHABLE` excluded, floor `MINIMUM_ROWS = 80`.
+- The seven `ALLOW` rows are each a corpus addition somebody owes. They are not
+  this row's to write — §6 keeps corpus growth out of scope — but they are now
+  counted, which they were not before.
+- `construct_coverage` accepts both `:` and `::` as the type marker via a
+  `TYPE_COLON` constant, so it stayed green across plan 52's migration. That
+  dual acceptance should be narrowed to `:` once plan 52 is committed.

@@ -14,7 +14,7 @@ fn xrs(src: &str) -> String {
 
 #[test]
 fn a_lowercase_type_becomes_a_generic_parameter() {
-  let out = xrs("id :: t -> t\nid x = x\n");
+  let out = xrs("id : t -> t\nid x = x\n");
   assert!(out.contains("fn id<T>(x: T) -> T {"), "{out}");
 }
 
@@ -23,7 +23,7 @@ fn a_lowercase_type_becomes_a_generic_parameter() {
 /// which left `&[t]` alone and so left a `t` rustc could not resolve.
 #[test]
 fn a_nested_variable_is_rewritten() {
-  let out = xrs("len_of :: &Vec<t> -> usize\nlen_of xs = xs.len ()\n");
+  let out = xrs("len_of : &Vec<t> -> usize\nlen_of xs = xs.len ()\n");
   assert!(
     out.contains("fn len_of<T>(xs: &Vec<T>) -> usize {"),
     "{out}"
@@ -33,7 +33,7 @@ fn a_nested_variable_is_rewritten() {
 /// Order is first appearance, which is what keeps the output byte-stable.
 #[test]
 fn variables_keep_their_order_of_first_appearance() {
-  let out = xrs("pick :: u -> t -> u\npick a _ = a\n");
+  let out = xrs("pick : u -> t -> u\npick a _ = a\n");
   assert!(out.contains("fn pick<U, T>("), "{out}");
 }
 
@@ -41,14 +41,14 @@ fn variables_keep_their_order_of_first_appearance() {
 /// type parameter before a lifetime is an error, not a lint.
 #[test]
 fn lifetimes_come_before_type_parameters() {
-  let out = xrs("tag :: &'a t -> &'a t\ntag x = x\n");
+  let out = xrs("tag : &'a t -> &'a t\ntag x = x\n");
   assert!(out.contains("fn tag<'a, T>(x: &'a T) -> &'a T {"), "{out}");
 }
 
 /// `'static` needs no declaration.
 #[test]
 fn static_is_not_a_lifetime_parameter() {
-  let out = xrs("name :: () -> &'static str\nname _ = \"x\"\n");
+  let out = xrs("name : () -> &'static str\nname _ = \"x\"\n");
   assert!(!out.contains("<'static>"), "{out}");
 }
 
@@ -57,7 +57,7 @@ fn static_is_not_a_lifetime_parameter() {
 /// the test that the correction holds.
 #[test]
 fn a_primitive_is_not_a_type_variable() {
-  let out = xrs("add :: i32 -> i32 -> i32\nadd a b = a + b\n");
+  let out = xrs("add : i32 -> i32 -> i32\nadd a b = a + b\n");
   assert_eq!(
     out, "fn add(a: i32, b: i32) -> i32 {\n    a + b\n}\n",
     "{out}"
@@ -67,7 +67,7 @@ fn a_primitive_is_not_a_type_variable() {
 #[test]
 fn every_primitive_stays_concrete() {
   for name in ["u8", "usize", "f64", "bool", "char", "str", "i128"] {
-    let out = xrs(&format!("f :: &{name} -> usize\nf x = 1\n"));
+    let out = xrs(&format!("f : &{name} -> usize\nf x = 1\n"));
     assert!(!out.contains('<'), "{name} is concrete:\n{out}");
   }
 }
@@ -76,7 +76,7 @@ fn every_primitive_stays_concrete() {
 /// `where` clause rather than inline in the generic list.
 #[test]
 fn a_constraint_becomes_a_where_clause() {
-  let out = xrs("largest :: Ord t => Option<t> -> t\nlargest xs = 1\n");
+  let out = xrs("largest : Ord t => Option<t> -> t\nlargest xs = 1\n");
   assert!(out.contains("fn largest<T>(xs: Option<T>) -> T\n"), "{out}");
   assert!(out.contains("where\n    T: Ord,\n{"), "{out}");
 }
@@ -85,7 +85,7 @@ fn a_constraint_becomes_a_where_clause() {
 /// which is what rustfmt does and the only form it leaves alone.
 #[test]
 fn the_brace_follows_a_where_clause_on_its_own_line() {
-  let out = xrs("f :: Ord t => t -> t\nf x = x\n");
+  let out = xrs("f : Ord t => t -> t\nf x = x\n");
   assert!(
     !out.contains(", {"),
     "no stray brace on the bound line:\n{out}"
@@ -97,7 +97,7 @@ fn the_brace_follows_a_where_clause_on_its_own_line() {
 /// needs them before it, and that reordering is the whole of the lowering.
 #[test]
 fn where_locals_come_before_the_body() {
-  let out = xrs("area :: f64 -> f64\narea w = scaled\n  where\n    scaled = w * 2.0\n");
+  let out = xrs("area : f64 -> f64\narea w = scaled\n  where\n    scaled = w * 2.0\n");
   let let_at = out.find("let scaled").expect("the local");
   let use_at = out.rfind("scaled\n").expect("the use");
   assert!(let_at < use_at, "{out}");
@@ -107,7 +107,7 @@ fn where_locals_come_before_the_body() {
 #[test]
 fn several_where_locals_keep_their_order() {
   let out = xrs(
-    "area :: f64 -> f64\narea w = scaled\n  where\n    base = w * 2.0\n    scaled = base * 3.0\n",
+    "area : f64 -> f64\narea w = scaled\n  where\n    base = w * 2.0\n    scaled = base * 3.0\n",
   );
   let base_at = out.find("let base").expect("base");
   let scaled_at = out.find("let scaled").expect("scaled");
@@ -118,7 +118,7 @@ fn several_where_locals_keep_their_order() {
 /// locals need statements, and an arm with statements needs its braces.
 #[test]
 fn an_arm_with_where_locals_keeps_its_braces() {
-  let out = xrs("step :: u64 -> u64\nstep 0 = 0\nstep n = doubled\n  where\n    doubled = n * 2\n");
+  let out = xrs("step : u64 -> u64\nstep 0 = 0\nstep n = doubled\n  where\n    doubled = n * 2\n");
   assert!(out.contains("n => {"), "{out}");
   assert!(out.contains("let doubled = n * 2;"), "{out}");
 }

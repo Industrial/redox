@@ -1,0 +1,8 @@
+-- Two constructors, which plan 53 §11.4 found as unenforced as the field
+-- count and which neither the plan's criterion 2 nor its leaf 2 mentions.
+-- This emitted `enum Shade { Light, Dark }` plus a `use Shade::*;` and
+-- exited 0 — an enum, from the one keyword whose whole content is that it is
+-- not one.
+--
+-- `data Shade = Light | Dark` is the declaration that was meant.
+newtype Shade = Light | Dark

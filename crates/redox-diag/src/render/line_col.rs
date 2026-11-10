@@ -19,12 +19,17 @@ mod tests {
 
   #[test]
   fn resolves_a_byte_offset() {
-    let src = "main :: ()\nmain =\n  print 1\n";
+    let src = "main : ()\nmain =\n  print 1\n";
     assert_eq!(line_col(src, 0), (1, 1));
-    // `main :: ()\n` is 11 bytes, `main =\n` is 7, so the `p` of `print` is
-    // at 20 — line 3, column 3.
-    assert_eq!(&src[20..21], "p");
-    assert_eq!(line_col(src, 20), (3, 3));
+    // `main : ()\n` is 10 bytes, `main =\n` is 7, so the `p` of `print` is
+    // at 19 — line 3, column 3.
+    //
+    // Both numbers moved by one when plan 52 made the type marker `:` rather
+    // than `::`. The slice assertion below is deliberately there to catch
+    // exactly that: an offset derived in a comment is only as trustworthy as
+    // the assertion that re-derives it from the source.
+    assert_eq!(&src[19..20], "p");
+    assert_eq!(line_col(src, 19), (3, 3));
   }
 
   #[test]

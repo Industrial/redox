@@ -94,7 +94,7 @@ fn a_leading_dot_does_not_continue_a_with_block() {
 /// newline. This is the case that proved the first version of the rule wrong.
 #[test]
 fn a_trailing_arrow_does_not_suppress_the_newline() {
-  let toks = kinds("main :: ()\nmain =\n  print \"x\"\n");
+  let toks = kinds("main : ()\nmain =\n  print \"x\"\n");
   assert!(
     toks.contains(&TokenKind::Newline),
     "the header's newline must survive: {toks:?}"
@@ -129,14 +129,14 @@ fn a_balanced_delimiter_is_accepted() {
 /// `>` does not continue a line, and that is a deliberate reversal.
 ///
 /// It was in the continuation set because it is a binary operator, which made
-/// `x = Some 1 :: Option<u8>` swallow the whole next line: `capture_type`
+/// `x = Some 1 : Option<u8>` swallow the whole next line: `capture_type`
 /// ends a type at a newline, and the newline had been suppressed. A `>` at
 /// the end of a line closes a generic argument list far more often than it
 /// dangles off a comparison, and a comparison split there is still writable
 /// with parentheses — a type ending in `>` is not avoidable at all.
 #[test]
 fn a_trailing_angle_bracket_does_not_continue_the_line() {
-  let toks = kinds("a = x :: Vec<u8>\nb = 1\n");
+  let toks = kinds("a = x : Vec<u8>\nb = 1\n");
   assert!(
     toks.contains(&TokenKind::Newline),
     "the line must end: {toks:?}"
@@ -146,7 +146,7 @@ fn a_trailing_angle_bracket_does_not_continue_the_line() {
 /// `>>` likewise, for `Vec<Vec<u8>>`.
 #[test]
 fn a_trailing_double_angle_bracket_does_not_continue_the_line() {
-  let toks = kinds("a = x :: Vec<Vec<u8>>\nb = 1\n");
+  let toks = kinds("a = x : Vec<Vec<u8>>\nb = 1\n");
   assert!(
     toks.contains(&TokenKind::Newline),
     "the line must end: {toks:?}"

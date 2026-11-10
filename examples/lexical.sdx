@@ -3,7 +3,7 @@
 
 -- | Outer doc comment.
 -- ! Inner doc comment.
-main :: ()
+main : ()
 main =
   -- A line comment, then every literal kind.
   count = 1_000_000
@@ -26,7 +26,7 @@ main =
   range = 1..10
   closed = 1..=10
   label = 'outer
-  ascribed = total :: u64
+  ascribed = total : u64
   -- Corrected by plan 51. These three lines previously said `\` lambdas and
   -- `$` were "specified and not yet lexed" and left them out on that basis.
   -- Both ship — doc 18 §11.1 names the commit, `0abcdf0` — so the claim was

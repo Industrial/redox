@@ -14,7 +14,7 @@ fn xrs(src: &str) -> String {
 
 /// The body of `fn main`, dedented.
 fn body(src: &str) -> String {
-  xrs(&format!("main :: ()\nmain =\n{src}"))
+  xrs(&format!("main : ()\nmain =\n{src}"))
     .lines()
     .skip(1)
     .take_while(|l| *l != "}")
@@ -26,7 +26,7 @@ fn body(src: &str) -> String {
 /// The first `case` arm's text, for the forms that only make sense in one.
 fn arm(pattern: &str) -> String {
   let out = xrs(&format!(
-    "f :: T -> i32\nf v = case v of\n  {pattern} -> 1\n  _ -> 0\n"
+    "f : T -> i32\nf v = case v of\n  {pattern} -> 1\n  _ -> 0\n"
   ));
   out
     .lines()
@@ -91,7 +91,7 @@ fn a_rest_pattern_takes_rusts_spelling() {
 #[test]
 fn the_published_ellipsis_spelling_is_declined() {
   assert_eq!(
-    codes("main :: ()\nmain =\n  [a, ...rest] = xs\n  print a\n"),
+    codes("main : ()\nmain =\n  [a, ...rest] = xs\n  print a\n"),
     vec![Code::EllipsisRestPattern]
   );
 }
@@ -161,7 +161,7 @@ fn an_as_pattern_works_over_a_record() {
 /// `case` arm.
 #[test]
 fn the_forms_work_in_an_equations_row() {
-  let out = xrs("first :: (i32, i32) -> i32\nfirst (a, _) = a\n");
+  let out = xrs("first : (i32, i32) -> i32\nfirst (a, _) = a\n");
   assert!(out.contains("(a, _) =>"), "{out}");
 }
 

@@ -5,7 +5,7 @@
 -- So the thing worth asserting is that `rust` is now a construct, which this
 -- case shows by rejecting the one shape the construct does not take. A
 -- single-quoted string has nowhere to put the Rust code's own quotes.
-main :: ()
+main : ()
 main =
   print 1
 

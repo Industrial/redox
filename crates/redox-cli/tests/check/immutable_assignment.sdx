@@ -1,0 +1,20 @@
+-- Plan 54 criterion 3: `:=` against a binding that is not `mut`.
+--
+-- The point of the fixture is what Redox does **not** do. `is_mut` is set only
+-- by the literal `mut` keyword and the emitter writes `mut` only when it is
+-- set, so Redox has no mechanism to make this compile and never silently adds
+-- one. rustc answers `E0384`, and `redox check` maps it back onto this file —
+-- which is `every check rustc can make, rustc makes` working on the one
+-- construct where a compiler might be tempted to be helpful instead.
+--
+-- `tests/ui/` cannot hold this case: that harness runs `redox build`, which
+-- never invokes rustc, so a program whose only fault is a borrow-checker
+-- error builds clean there and the harness fails on its own assertion. Plan
+-- 54 criterion 3 named `tests/ui/`; §11.1 is the correction.
+--
+-- The assignment is on line 19, column 3.
+main : ()
+main =
+  total = 1
+  total := 2
+  print total

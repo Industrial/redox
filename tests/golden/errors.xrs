@@ -14,6 +14,8 @@ enum ConfigError {
     Parse(std::num::ParseIntError),
 }
 
+use ConfigError::*;
+
 impl std::fmt::Display for ConfigError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -33,6 +35,17 @@ impl From<std::num::ParseIntError> for ConfigError {
     }
 }
 
+// An `errors` declaration brings its variants into scope under their own
+// names, as `data` does and as Haskell does — plan 53 leaf 1. Before it,
+// `errors` was the one declaration that introduced constructors and then hid
+// them, and writing `Missing` got you `E0425` against a line that reads like
+// ordinary Haskell.
+//
+// Both spellings are exercised below, deliberately: `Missing` unqualified and
+// `ConfigError::Invalid` qualified. The qualified half is not redundant — the
+// glob must not *replace* the long form, because a program with two error
+// types in scope needs it.
+//
 // The generated `From` is what makes `?` work across the boundary, which is
 // the whole reason the `from` row exists.
 fn retries(raw: &str) -> Result<u32, ConfigError> {
@@ -45,10 +58,7 @@ fn describe(e: &ConfigError) -> String {
 }
 
 fn main() {
-    println!(
-        "{}",
-        describe(&ConfigError::Missing(String::from("retries")))
-    );
+    println!("{}", describe(&Missing(String::from("retries"))));
     println!("{}", describe(&ConfigError::Invalid(String::from("x"), 7)));
     println!("{}", describe(&ConfigError::Closed));
     println!("{}", retries("12").is_ok());

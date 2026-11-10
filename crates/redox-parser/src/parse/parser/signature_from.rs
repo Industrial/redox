@@ -7,10 +7,10 @@ use redox_diag::{Code, Span};
 ///
 /// Doc 18 §2.2. The spine's last type is the return type and the rest are the
 /// parameter types, matched positionally against the binders — so
-/// `load :: &str -> Result<Config, Error>` plus `load p =` gives
+/// `load : &str -> Result<Config, Error>` plus `load p =` gives
 /// `fn load(p: &str) -> Result<Config, Error>`.
 ///
-/// **A unit return type is omitted**, not emitted as `-> ()`. `main :: ()`
+/// **A unit return type is omitted**, not emitted as `-> ()`. `main : ()`
 /// becomes `fn main()`, which is what Rust writes and what rustfmt would
 /// produce; emitting the arrow would be byte-stable noise that plan 04's
 /// rustfmt-clean guarantee would then have to defend.
@@ -110,7 +110,7 @@ mod tests {
     assert_eq!(sig.ret.expect("a return type").text, "i32");
   }
 
-  /// `main :: ()` is `fn main()`, not `fn main() -> ()`.
+  /// `main : ()` is `fn main()`, not `fn main() -> ()`.
   #[test]
   fn a_unit_return_is_omitted() {
     let sig = signature_from(&[ty("()")], &[], (0, 0)).expect("should build");

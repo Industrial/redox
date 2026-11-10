@@ -4,7 +4,7 @@ use redox_ast::Visibility;
 ///
 /// Redox says `export` where Rust says `pub`, which is doc 18's own choice and
 /// `examples/visibility.sdx`'s spelling: `export data Point`,
-/// `export(crate) type Depth = f64`, and a per-field `export x :: f64`.
+/// `export(crate) type Depth = f64`, and a per-field `export x : f64`.
 ///
 /// `Visibility::rust_text` gives the Rust side. This is the third printer in
 /// the plan that needed a Redox spelling where the AST carried only the Rust

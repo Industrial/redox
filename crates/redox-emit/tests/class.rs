@@ -15,7 +15,7 @@ fn xrs(src: &str) -> String {
 
 #[test]
 fn a_class_becomes_a_trait() {
-  let out = xrs("class Shape t\n  area :: &t -> f64\n");
+  let out = xrs("class Shape t\n  area : &t -> f64\n");
   assert!(out.contains("trait Shape {"), "{out}");
   assert!(out.contains("    fn area(&self) -> f64;"), "{out}");
 }
@@ -23,9 +23,9 @@ fn a_class_becomes_a_trait() {
 /// A superclass becomes a supertrait bound, and several join with `+`.
 #[test]
 fn superclasses_become_supertrait_bounds() {
-  let one = xrs("class Debug t => Shape t\n  area :: &t -> f64\n");
+  let one = xrs("class Debug t => Shape t\n  area : &t -> f64\n");
   assert!(one.contains("trait Shape: Debug {"), "{one}");
-  let two = xrs("class (Debug t, Clone t) => Shape t\n  area :: &t -> f64\n");
+  let two = xrs("class (Debug t, Clone t) => Shape t\n  area : &t -> f64\n");
   assert!(two.contains("trait Shape: Debug + Clone {"), "{two}");
 }
 
@@ -34,7 +34,7 @@ fn superclasses_become_supertrait_bounds() {
 /// arrives. This is the test that the rewind actually rewinds.
 #[test]
 fn a_class_without_constraints_keeps_its_name() {
-  let out = xrs("class Shape t\n  area :: &t -> f64\n");
+  let out = xrs("class Shape t\n  area : &t -> f64\n");
   assert!(out.contains("trait Shape {"), "{out}");
   assert!(!out.contains(": "), "no stray bound:\n{out}");
 }
@@ -43,7 +43,7 @@ fn a_class_without_constraints_keeps_its_name() {
 /// `;` where a body would be.
 #[test]
 fn a_method_without_equations_is_required() {
-  let out = xrs("class Shape t\n  area :: &t -> f64\n");
+  let out = xrs("class Shape t\n  area : &t -> f64\n");
   assert!(out.contains("fn area(&self) -> f64;"), "{out}");
   assert!(!out.contains("fn area(&self) -> f64 {"), "{out}");
 }
@@ -52,14 +52,14 @@ fn a_method_without_equations_is_required() {
 /// can be, it can be — several clauses and guard ladders included.
 #[test]
 fn a_default_method_carries_its_body() {
-  let out = xrs("class Shape t\n  name :: &t -> u32\n  name self = 1\n");
+  let out = xrs("class Shape t\n  name : &t -> u32\n  name self = 1\n");
   assert!(out.contains("fn name(&self) -> u32 {"), "{out}");
   assert!(out.contains("        1\n"), "{out}");
 }
 
 #[test]
 fn associated_types_and_constants_pass_through() {
-  let out = xrs("class Shape t\n  type Unit\n  const SIDES :: u32\n");
+  let out = xrs("class Shape t\n  type Unit\n  const SIDES : u32\n");
   assert!(out.contains("    type Unit;"), "{out}");
   assert!(out.contains("    const SIDES: u32;"), "{out}");
 }
@@ -68,7 +68,7 @@ fn associated_types_and_constants_pass_through() {
 /// not enforce the pairing, because rustc does.
 #[test]
 fn an_associated_constant_may_carry_a_value() {
-  let out = xrs("instance Shape Square\n  const SIDES :: u32 = 4\n");
+  let out = xrs("instance Shape Square\n  const SIDES : u32 = 4\n");
   assert!(out.contains("    const SIDES: u32 = 4;"), "{out}");
 }
 
@@ -76,11 +76,11 @@ fn an_associated_constant_may_carry_a_value() {
 /// expressible with one notation.
 #[test]
 fn every_receiver_form_comes_from_the_type() {
-  let shared = xrs("class C t\n  f :: &t -> u32\n");
+  let shared = xrs("class C t\n  f : &t -> u32\n");
   assert!(shared.contains("fn f(&self) -> u32;"), "{shared}");
-  let unique = xrs("class C t\n  f :: &mut t -> u32\n");
+  let unique = xrs("class C t\n  f : &mut t -> u32\n");
   assert!(unique.contains("fn f(&mut self) -> u32;"), "{unique}");
-  let owned = xrs("class C t\n  f :: t -> u32\n");
+  let owned = xrs("class C t\n  f : t -> u32\n");
   assert!(owned.contains("fn f(self) -> u32;"), "{owned}");
 }
 
@@ -89,7 +89,7 @@ fn every_receiver_form_comes_from_the_type() {
 /// at all.
 #[test]
 fn a_non_subject_first_parameter_is_not_a_receiver() {
-  let out = xrs("class C t\n  make :: u32 -> t\n");
+  let out = xrs("class C t\n  make : u32 -> t\n");
   assert!(out.contains("fn make(__rdx_a0: u32) -> Self;"), "{out}");
   assert!(!out.contains("self"), "{out}");
 }
@@ -98,7 +98,7 @@ fn a_non_subject_first_parameter_is_not_a_receiver() {
 /// type, so it becomes `Self`.
 #[test]
 fn the_class_variable_elsewhere_becomes_self() {
-  let out = xrs("class Combine t\n  combine :: &t -> t -> t\n");
+  let out = xrs("class Combine t\n  combine : &t -> t -> t\n");
   assert!(
     out.contains("fn combine(&self, __rdx_a1: Self) -> Self;"),
     "{out}"
@@ -107,24 +107,24 @@ fn the_class_variable_elsewhere_becomes_self() {
 
 #[test]
 fn a_trait_instance_becomes_an_impl_for() {
-  let out = xrs("instance Shape Square\n  area :: &Square -> f64\n  area self = 1.0\n");
+  let out = xrs("instance Shape Square\n  area : &Square -> f64\n  area self = 1.0\n");
   assert!(out.contains("impl Shape for Square {"), "{out}");
   assert!(out.contains("fn area(&self) -> f64 {"), "{out}");
 }
 
-/// `instance Shape Square` writes `area :: &Square -> f64`, and that
+/// `instance Shape Square` writes `area : &Square -> f64`, and that
 /// `&Square` is as much the receiver as `&t` is — which is why receiver
 /// detection takes a list of names rather than one.
 #[test]
 fn an_instances_own_target_names_the_receiver() {
-  let out = xrs("instance Shape Square\n  area :: &Square -> f64\n  area self = 1.0\n");
+  let out = xrs("instance Shape Square\n  area : &Square -> f64\n  area self = 1.0\n");
   assert!(!out.contains("self: &Square"), "{out}");
 }
 
 /// No class name, so no `for`.
 #[test]
 fn an_inherent_instance_has_no_for() {
-  let out = xrs("instance Counter\n  get :: &Self -> u32\n  get self = 1\n");
+  let out = xrs("instance Counter\n  get : &Self -> u32\n  get self = 1\n");
   assert!(out.contains("impl Counter {"), "{out}");
   assert!(!out.contains(" for "), "{out}");
 }
@@ -134,7 +134,7 @@ fn an_inherent_instance_has_no_for() {
 #[test]
 fn the_generic_list_is_synthesised() {
   let out =
-    xrs("instance Display t => Describe (Wrapper t)\n  show :: &t -> u32\n  show self = 1\n");
+    xrs("instance Display t => Describe (Wrapper t)\n  show : &t -> u32\n  show self = 1\n");
   assert!(
     out.contains("impl<T: Display> Describe for Wrapper<T> {"),
     "{out}"
@@ -145,7 +145,7 @@ fn the_generic_list_is_synthesised() {
 /// byte-stable.
 #[test]
 fn several_variables_keep_source_order() {
-  let out = xrs("instance Keyed (Pair k v)\n  key :: &k -> u32\n  key self = 1\n");
+  let out = xrs("instance Keyed (Pair k v)\n  key : &k -> u32\n  key self = 1\n");
   assert!(out.contains("impl<K, V> Keyed for Pair<K, V> {"), "{out}");
 }
 
@@ -154,7 +154,7 @@ fn several_variables_keep_source_order() {
 /// does.
 #[test]
 fn a_parenthesised_first_type_is_the_target() {
-  let out = xrs("instance (Wrapper t)\n  get :: &Self -> u32\n  get self = 1\n");
+  let out = xrs("instance (Wrapper t)\n  get : &Self -> u32\n  get self = 1\n");
   assert!(out.contains("impl<T> Wrapper<T> {"), "{out}");
   assert!(!out.contains(" for "), "{out}");
 }
@@ -164,6 +164,6 @@ fn a_parenthesised_first_type_is_the_target() {
 /// pattern and the expression grammar.
 #[test]
 fn self_is_an_expression_and_a_binder() {
-  let out = xrs("instance C\n  get :: &Self -> u32\n  get self = self.value\n");
+  let out = xrs("instance C\n  get : &Self -> u32\n  get self = self.value\n");
   assert!(out.contains("self.value"), "{out}");
 }

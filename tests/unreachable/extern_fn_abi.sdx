@@ -10,9 +10,9 @@
 -- doc 02 §4.1's "escape hatch used for a common construct is a bug report
 -- against the grammar".
 
-callme :: extern "C" i32 -> i32
+callme : extern "C" i32 -> i32
 callme n = n + 1
 
-main :: ()
+main : ()
 main =
   print (callme 1)

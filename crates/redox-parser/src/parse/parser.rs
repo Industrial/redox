@@ -45,6 +45,7 @@ pub(crate) mod is_word;
 pub(crate) mod lambda;
 pub(crate) mod method_context;
 pub(crate) mod module_decl;
+pub(crate) mod newtype_shape;
 pub(crate) mod opens_a_section;
 pub(crate) mod optional_chain;
 pub(crate) mod parse_expr;
@@ -73,13 +74,11 @@ pub(crate) mod scan_run;
 pub(crate) mod section;
 pub(crate) mod signature_from;
 pub(crate) mod signature_only;
-pub(crate) mod spaced_colon_colon;
 pub(crate) mod starts_a_field_type;
 pub(crate) mod starts_a_pattern_argument;
 pub(crate) mod starts_argument;
 pub(crate) mod substitute_var;
 pub(crate) mod test_decl;
-pub(crate) mod tight_colon_colon;
 pub(crate) mod token_text;
 pub(crate) mod try_await;
 pub(crate) mod type_alias;
@@ -226,7 +225,7 @@ impl<'a> Parser<'a> {
   }
 
   /// ```text
-  /// Item := Ident "::" Spine Newline
+  /// Item := Ident ":" Spine Newline
   ///         Ident Binder* "=" Newline Indent Stmt+ Dedent
   /// ```
   ///
@@ -340,7 +339,7 @@ impl<'a> Parser<'a> {
   /// function passes nothing.
   ///
   /// **Zero equations is legal here**, and that is the one difference from a
-  /// top-level function. `area :: &t -> f64` with no body is a *required*
+  /// top-level function. `area : &t -> f64` with no body is a *required*
   /// method, which Rust writes `fn area(&self) -> f64;` — so the caller, not
   /// this, decides whether a bodiless signature is an error.
   pub(crate) fn function(&mut self, reserved: &[String]) -> Result<FnDecl, ParseError> {
@@ -349,13 +348,13 @@ impl<'a> Parser<'a> {
 
     let name = self.ident("expected a name to begin a declaration")?;
     // Doc 01 §4.3's `PI = 3.14159`, which doc 03 §13.4 corrected out of
-    // existence. The generic "expected `::`" is true and unhelpful: the
+    // existence. The generic "expected `:`" is true and unhelpful: the
     // author followed a published specification, so the message names the
     // correction instead of the token.
     //
     // **The value has to be on the same line.** `main =` followed by a line
     // break is a *function* whose signature line is missing, and that wants
-    // the `::` message — the first version of this check fired on it too and
+    // the `:` message — the first version of this check fired on it too and
     // `reports_a_missing_signature_marker` caught it.
     let binds_on_this_line = self.check(&TokenKind::Eq)
       && self
@@ -366,7 +365,7 @@ impl<'a> Parser<'a> {
         Code::ModuleScopeBinding,
         format!(
           "a module-scope binding needs `const` or `static` and a type: \
-           `const {} :: T = …`. Rust forbids `let` at module scope, and doc \
+           `const {} : T = …`. Rust forbids `let` at module scope, and doc \
            03 §13.4 corrects doc 01 §4.3 accordingly",
           name.text
         ),
@@ -374,11 +373,11 @@ impl<'a> Parser<'a> {
       ));
     }
     self.expect(
-      &TokenKind::ColonColon,
-      "expected `::` after the name, to begin the signature",
+      &TokenKind::Colon,
+      "expected `:` after the name, to begin the signature",
     )?;
     // Doc 18 §2.2's `=>` clause. Read speculatively, because
-    // `f :: Ord t => &[t] -> &t` and `f :: &[t] -> &t` begin with the same
+    // `f : Ord t => &[t] -> &t` and `f : &[t] -> &t` begin with the same
     // token — see `constraints`.
     let bounds = constraints(self)?;
     // Doc 18 §2.2's `const fn` marker, consumed **before** the spine: a type
@@ -400,15 +399,13 @@ impl<'a> Parser<'a> {
     let mut clauses = Vec::new();
     let mut sig = None;
     loop {
-      // An equation begins with a name that is *not* followed by `::` — a
+      // An equation begins with a name that is *not* followed by `:` — a
       // name that is starts the next declaration's signature line. That one
       // test tells three things apart: another clause of this function, a
       // new declaration, and (doc 18 §2.5) a required method with no
       // equation at all.
       let is_equation = matches!(&self.peek().kind, TokenKind::Ident(_))
-        && !self
-          .peek_at(1)
-          .is_some_and(|t| t.kind == TokenKind::ColonColon);
+        && !self.peek_at(1).is_some_and(|t| t.kind == TokenKind::Colon);
       if !is_equation {
         break;
       }
@@ -446,7 +443,7 @@ impl<'a> Parser<'a> {
     // With no equation there is no pattern row, so the signature comes from
     // the spine alone and the parameters take generated names. Not
     // `signature_from` with an empty row: that reports an arity error, which
-    // is the right answer for `area = …` under `area :: &t -> f64` and the
+    // is the right answer for `area = …` under `area : &t -> f64` and the
     // wrong one for a required method with no equation at all.
     let mut sig = sig.unwrap_or_else(|| signature_only(&spine, (name.span.0, self.prev_span().1)));
     // The generic list is synthesised from the types, not written — doc 18
@@ -824,16 +821,30 @@ impl<'a> Parser<'a> {
       StmtKind::Binding(binding)
     } else {
       let value = parse_expr(self, 0)?;
-      // Doc 01 §4.3's compound assignment, read after the place expression
-      // because the five tokens can only follow one. A plain `=` here is a
-      // *binding*, which `try_binding` already took.
-      match compound_assign(self) {
-        Some(op) => StmtKind::Assign {
+      // Assignment, read after the place expression because every one of its
+      // six tokens can only follow one. A plain `=` here is a *binding*,
+      // which `try_binding` already took — and `:=` reaches this arm rather
+      // than that one because `looks_like_a_binding` tests for `Eq`, `Colon`
+      // or `LBrace` at the second token and `reaches_a_binding_eq` scans for
+      // a depth-zero `Eq`. A `ColonEq` answers no to both, so if this arm
+      // were ever missed the failure would be a loud *"expected a line break
+      // after the statement"* rather than a silent misparse.
+      if self.check(&TokenKind::ColonEq) {
+        self.advance();
+        StmtKind::Assign {
           target: value,
-          op,
+          op: None,
           value: parse_expr(self, 0)?,
-        },
-        None => StmtKind::Expr(value),
+        }
+      } else {
+        match compound_assign(self) {
+          Some(op) => StmtKind::Assign {
+            target: value,
+            op: Some(op),
+            value: parse_expr(self, 0)?,
+          },
+          None => StmtKind::Expr(value),
+        }
       }
     };
 

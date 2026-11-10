@@ -5,7 +5,7 @@ use redox_ast::Constructor;
 
 /// One constructor of a `data` declaration — doc 18 §2.4.
 ///
-/// `Click { x :: i32, y :: i32 }`, `Key char`, `Close`. The name is an
+/// `Click { x : i32, y : i32 }`, `Key char`, `Close`. The name is an
 /// ordinary identifier here rather than a checked-uppercase one: doc 18 §5.3
 /// makes case *meaningful* — constructors and types begin uppercase, values
 /// and type variables lowercase — but enforcing it is a diagnostic, and a

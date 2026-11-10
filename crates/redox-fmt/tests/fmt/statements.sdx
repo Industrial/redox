@@ -6,7 +6,7 @@
 -- `with` is inside the closure it generates, so a `return` below one is
 -- `RDX`'s `ReturnInCallbackTail` — doc 03 §7.6, plan 30. The fixture hit it.
 
-everything :: Option<i32> -> i32
+everything : Option<i32> -> i32
 everything o =
   -- A leading comment, on its own line.
 

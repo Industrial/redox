@@ -1,0 +1,9 @@
+-- `newtype` is Haskell's one-constructor-one-field form, and plan 53 leaf 2
+-- is what makes it mean that. Before it the keyword constrained nothing:
+-- `data_decl.rs` set `is_newtype` and never read it again, so this
+-- declaration emitted `struct Span(usize, usize);` and exited 0.
+--
+-- The caret is on the **second** field, which is the first one a `newtype`
+-- cannot hold — the first is the one it is allowed, and blaming the whole
+-- line would accuse it too. `data Span = Span usize usize` is what was meant.
+newtype Span = Span usize usize

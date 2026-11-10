@@ -62,7 +62,7 @@ pub fn check(path: &Path, source: &str) -> Result<CheckOutcome, String> {
   // After the parse, because a warning about a program nobody can compile is
   // noise, and before rustc runs, so Redox's own warnings are not buried under
   // rustc's.
-  let mut diagnostics = crate::lint(path, source);
+  let mut diagnostics = crate::lint(path, source, Some(&program));
 
   let (rust, map) = redox_emit::emit_with_map(&program, source, &sdx_path);
 

@@ -16,21 +16,21 @@
 
 -- Per-field visibility, which is the half doc 01 §22 could not express at
 -- all.
-export data Point = Point { export x :: f64, y :: f64 }
+export data Point = Point { export x : f64, y : f64 }
   deriving (Debug)
 
 export(crate) type Depth = f64
 
 -- The marker belongs to the **declaration**, so it goes on the signature
 -- line and the equations below it carry none.
-export(crate) area :: &Point -> Depth
+export(crate) area : &Point -> Depth
 area p = p.x * p.y
 
 -- No marker is private, which is Rust's default and has no spelling.
-double :: Depth -> Depth
+double : Depth -> Depth
 double d = d * 2.0
 
-main :: ()
+main : ()
 main =
   p = Point { x = 3.0, y = 4.0 }
   print p.x

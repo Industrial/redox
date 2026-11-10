@@ -35,7 +35,7 @@ import redox_lexer::Trivia
 -- each a row of patterns and either a body or a list of guards:
 --
 -- ```text
--- fib :: u64 -> u64            tier :: u64 -> &'static str
+-- fib : u64 -> u64            tier : u64 -> &'static str
 -- fib 0 = 0                    tier spend
 -- fib 1 = 1                      | spend > 10_000 = "platinum"
 -- fib n = fib (n - 1) + …        | otherwise      = "basic"
@@ -46,18 +46,18 @@ import redox_lexer::Trivia
 -- hoisted the disagreement reduces to arity, which `signature_from` reports.
 export data Clause = Clause {
     -- | One pattern per parameter, in order.
-    export patterns :: Vec<Pattern>,
+    export patterns : Vec<Pattern>,
     -- | The clause's body: one block, or a guard ladder.
-    export body :: ClauseBody,
+    export body : ClauseBody,
     -- | `where` locals — doc 18 §2.2.
     --
     -- Emitted **before** the body, which is the only order Rust allows: a
     -- `let` has to precede its use. Haskell's `where` reads the other way
     -- round — the definition follows the expression that uses it — and that
     -- reordering is the whole of the lowering.
-    export wheres :: Vec<crate::Stmt>,
-    export span :: Span,
+    export wheres : Vec<crate::Stmt>,
+    export span : Span,
     -- | A comment that trailed the clause's last line.
-    export trailing :: Option<Trivia>,
+    export trailing : Option<Trivia>,
   }
   deriving (Debug, Clone, PartialEq, Eq)

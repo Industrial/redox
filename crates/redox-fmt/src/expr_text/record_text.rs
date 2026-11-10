@@ -4,10 +4,10 @@ use redox_ast::{Expr, FieldInit};
 
 /// A record literal — `Point { x = 3.0, y = 4.0 }`.
 ///
-/// The field separator is `=` and not `:`, which the corpus settles: `:` would
-/// collide with the `::` that ascribes, and `Point { x :: f64 }` is the
-/// *declaration*. A field with no value is the shorthand — `Point { x }` —
-/// and is printed as the name alone.
+/// The field separator is `=` and not `:`, which the corpus settles: `:`
+/// annotates a type, and `Point { x : f64 }` is the *declaration*. A field
+/// with no value is the shorthand — `Point { x }` — and is printed as the name
+/// alone.
 ///
 /// Braces take one space inside, which is again the corpus's habit made a
 /// rule. An empty record prints as `Head {}`: there is nothing to put a space

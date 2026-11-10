@@ -19,6 +19,34 @@ struct Point {
     y: f64,
 }
 
+// A `deriving` clause on a `newtype`, which is where plan 53's
+// `#[repr(transparent)]` has to slot in. The order is fixed and this golden
+// is the only thing holding it: the `deriving`-derived `#[derive(...)]`
+// first, then `#[repr(transparent)]`, then the struct. The layout attribute
+// sits closest to the struct it describes and the derives stay grouped above
+// it; rustfmt reorders neither.
+//
+// **A native `#[derive(...)]` here as well would not be rustfmt-clean**, and
+// that is why it is not here. Measured: rustfmt's `merge_derives` defaults to
+// true, so
+//
+//     #[derive(PartialEq)]       becomes   #[derive(PartialEq, Debug, Clone)]
+//     #[derive(Debug, Clone)]              #[repr(transparent)]
+//     #[repr(transparent)]                 struct Tally(u32);
+//
+// and `generated_rust_is_rustfmt_clean` goes red. The combination is legal,
+// compiles, and keeps a deterministic order — `crates/redox-emit/tests/attributes.rs`
+// asserts all three attributes in sequence, where rustfmt does not run. It
+// cannot appear in an *example*, because emitting one merged `#[derive]`
+// would mean reading `derive` out of verbatim attribute trivia and splicing
+// the `deriving` names into it, which is exactly the per-attribute work doc
+// 03 §13.2 designed attributes to avoid. Plan 53 criterion 4 asked for this
+// in a golden; the golden it gets is this one, and the native half is a unit
+// test.
+#[derive(Debug, Clone, PartialEq)]
+#[repr(transparent)]
+struct Tally(u32);
+
 // A doc comment, an attribute and the item in that order — three trivia and
 // one declaration, emitted in source order, which is the first thing plan 18
 // §1.3 says trivia buys.
@@ -35,6 +63,15 @@ fn magnitude(p: &Point) -> f64 {
 #[allow(non_upper_case_globals)]
 const threshold: f64 = 2.0;
 
+// `Tally`'s derives are what make this line compile: `PartialEq` for the
+// comparison, `Debug` for the formatting, and `Clone` because the comparison
+// takes one by value. An attribute that reaches the `.xrs` but attaches to
+// the wrong item is still valid Rust, so a *use* is the only thing that
+// distinguishes the two — the same argument this file opens with.
+fn counted(n: u32) -> String {
+    format!("{} {:?}", Tally(n) == Tally(7), Tally(n).clone())
+}
+
 // An attribute with a string and an `=` inside it, which is the form §13.2's
 // own `#[serde(rename = "id")]` example uses. `must_use` is in `core`, so
 // this needs no dependency to prove the shape round-trips.
@@ -47,4 +84,6 @@ fn main() {
     let p = Point { x: 3.0, y: 4.0 };
     println!("{}", magnitude(&p));
     println!("{}", scaled(&p));
+    println!("{}", counted(7));
+    println!("{}", counted(3));
 }

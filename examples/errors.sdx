@@ -12,19 +12,30 @@ errors ConfigError
   Closed                                 "closed"
   from std::num::ParseIntError as Parse  "not a number: #{0}"
 
+-- An `errors` declaration brings its variants into scope under their own
+-- names, as `data` does and as Haskell does — plan 53 leaf 1. Before it,
+-- `errors` was the one declaration that introduced constructors and then hid
+-- them, and writing `Missing` got you `E0425` against a line that reads like
+-- ordinary Haskell.
+--
+-- Both spellings are exercised below, deliberately: `Missing` unqualified and
+-- `ConfigError::Invalid` qualified. The qualified half is not redundant — the
+-- glob must not *replace* the long form, because a program with two error
+-- types in scope needs it.
+--
 -- The generated `From` is what makes `?` work across the boundary, which is
 -- the whole reason the `from` row exists.
-retries :: &str -> Result<u32, ConfigError>
+retries : &str -> Result<u32, ConfigError>
 retries raw = Ok n
   where
     n = raw.parse ()?
 
-describe :: &ConfigError -> String
+describe : &ConfigError -> String
 describe e = e.to_string ()
 
-main :: ()
+main : ()
 main =
-  print (describe (&ConfigError::Missing (String::from "retries")))
+  print (describe (&Missing (String::from "retries")))
   print (describe (&ConfigError::Invalid (String::from "x") 7))
   print (describe (&ConfigError::Closed))
   print ((retries "12").is_ok ())

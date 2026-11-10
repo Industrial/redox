@@ -1,10 +1,10 @@
 -- A type error on a line the emitter copies verbatim, so rustc's column shifts
 -- cleanly and `redox check` points at the exact character: the `+` at line 6,
 -- column 5 below. Keep this header three lines long — `check.rs` asserts 6:5.
-add :: i32 -> i32 -> i32
+add : i32 -> i32 -> i32
 add a b =
   a + "x"
 
-main :: ()
+main : ()
 main =
   print (add 1 2)

@@ -5,9 +5,9 @@ use redox_lexer::{Span, Trivia};
 /// A module-scope `const` or `static` — doc 03 §13.4, plan 16.
 ///
 /// ```text
-/// const MAX :: usize = 1024          const MAX: usize = 1024;
-/// static COUNT :: u32 = 0        →   static COUNT: u32 = 0;
-/// export const LIMIT :: usize = 8    pub const LIMIT: usize = 8;
+/// const MAX : usize = 1024          const MAX: usize = 1024;
+/// static COUNT : u32 = 0        →   static COUNT: u32 = 0;
+/// export const LIMIT : usize = 8    pub const LIMIT: usize = 8;
 /// ```
 ///
 /// Doc 03 §13.4 corrects doc 01 §4.3 on two counts: *"Rust forbids `let` at

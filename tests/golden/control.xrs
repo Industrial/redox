@@ -5,6 +5,10 @@
 // one lowers to the Rust construct of the same name; `until` is the only
 // rewrite.
 //
+// Plus assignment, at the bottom: `:=` and the five compound operators, which
+// belong here because a loop that cannot rebind is the limit plan 20 §10.2
+// disclosed about *this* file.
+//
 // Checked by compiling and **running** with zero rustc output, because the
 // one thing a golden cannot catch here is an `until` parenthesised wrongly.
 
@@ -107,6 +111,92 @@ fn odd_sum() -> i32 {
     total
 }
 
+// Assignment — plan 54's `:=`, and the two shapes plan 20 §10.2 disclosed
+// this file could not write: *"a loop can advance a numeric accumulator and
+// cannot rebind anything else."* Every mutating loop above uses `+=` because
+// that was the only assignment there was.
+//
+// `=` still **binds**: at statement level `x = v` introduces a name, which is
+// why a second token was needed rather than an analysis. `:=` assigns, and is
+// unambiguous wherever it appears.
+//
+// A swap is the case that cannot be faked with a compound operator at all,
+// and it is written as Rust's destructuring assignment — which falls out of
+// the assignment target being a general expression and which plan 54 §6
+// declined before measuring that it was free. `(1 + 2) := 3` is rustc's
+// `E0070`, so what is and is not a place stays rustc's judgement, per
+// AGENTS.md.
+fn swapped() -> String {
+    let mut a = 1;
+    let mut b = 2;
+    (a, b) = (b, a);
+    format!("{}{}", a, b)
+}
+
+// The non-numeric conditional update. `out += "big"` would append rather than
+// replace, and no compound operator replaces — which is the half of the
+// disclosed limit that mattered.
+fn label(n: i32) -> &'static str {
+    let mut out = "small";
+    if n > 10 {
+        out = "big";
+    }
+    out
+}
+
+// A field, an index and a deref target, because `*slot := v` and `row[i] := v`
+// are the shapes a loop actually needs and leaving them out would deliver the
+// row half-way in exactly the manner plan 20 §10.1 describes.
+fn places() -> i32 {
+    let mut v = [1, 2, 3].to_vec();
+    v[0] = 9;
+    let mut n = 0;
+    let r = &mut n;
+    *r = 4;
+    v[0] + n
+}
+
+// All five compound operators. Four of them — everything but `+=` — appeared
+// in no example and no golden before plan 54: they shipped in plan 20 and
+// were asserted only in one emit unit test, which is precisely the
+// undiscoverable-construct shape plan 51's `construct_coverage` exists to
+// report. It reported this one the moment the row was graded.
+//
+// The arithmetic is deliberately order-dependent, so the printed value
+// catches an operator lowered as the wrong one: 20, then +5, -3, ×4, ÷2 and
+// finally mod 7 gives 2, and any transposition of the five gives something
+// else.
+fn compounded() -> i32 {
+    let mut n = 20;
+    n += 5;
+    n -= 3;
+    n *= 4;
+    n /= 2;
+    n %= 7;
+    n
+}
+
+// Shadowing, which is what `=` keeps meaning and what makes `:=` necessary
+// rather than merely tidy. The inner `n = 2` is a **new binding** in a nested
+// statement list, not an assignment to the outer one, so the outer `n` is
+// still `1` after the block — which is why plan 54's lint deliberately does
+// not fire here. An author who meant to assign writes `n := 2`.
+//
+// Nothing in the corpus shadowed anything before this function.
+// `docs/GRAMMAR.md` graded shadowing `PASSTHROUGH` against
+// `examples/expressions.sdx`, which holds exactly one binding; the nearest
+// candidate elsewhere was two bindings of `a` in two *different* functions.
+// A construct graded reachable and witnessed by nothing is what plan 51's
+// `construct_coverage` exists to catch, and this is one it would have caught.
+fn shadowed() -> i32 {
+    let n = 1;
+    let inner = {
+        let n = 2;
+        n * 10
+    };
+    n + inner
+}
+
 fn main() {
     classify(3);
     classify(0 - 3);
@@ -119,4 +209,10 @@ fn main() {
     println!("{}", first_square_over(30));
     println!("{}", first_divisor(91));
     println!("{}", odd_sum());
+    println!("{}", swapped());
+    println!("{}", label(50));
+    println!("{}", label(1));
+    println!("{}", places());
+    println!("{}", compounded());
+    println!("{}", shadowed());
 }

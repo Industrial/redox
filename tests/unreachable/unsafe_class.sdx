@@ -9,8 +9,8 @@
 -- rustc cannot check has no safe spelling, by design.
 
 unsafe class Raw t
-  size :: &t -> usize
+  size : &t -> usize
 
-main :: ()
+main : ()
 main =
   print 1

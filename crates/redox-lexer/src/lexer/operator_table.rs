@@ -27,6 +27,7 @@ pub(crate) const OPERATOR_TABLE: &[(&str, TokenKind)] = &[
   ("&:", TokenKind::AmpColon),
   ("@@", TokenKind::AtAt),
   ("::", TokenKind::ColonColon),
+  (":=", TokenKind::ColonEq),
   ("->", TokenKind::Arrow),
   ("<-", TokenKind::DrawArrow),
   ("=>", TokenKind::FatArrow),

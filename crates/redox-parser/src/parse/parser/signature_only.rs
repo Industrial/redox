@@ -4,7 +4,7 @@ use redox_diag::Span;
 /// Build a [`Signature`] from a spine **with no equation** — doc 18 §2.5.
 ///
 /// A required method is a signature and nothing else:
-/// `area :: &t -> f64` becomes `fn area(&self) -> f64;`. There is no pattern
+/// `area : &t -> f64` becomes `fn area(&self) -> f64;`. There is no pattern
 /// row to take parameter names from, so each parameter takes the generated
 /// name doc 02 reserves — `__rdx_a0` — exactly as a *testing* pattern's
 /// parameter does in `signature_from`.
@@ -13,7 +13,7 @@ use redox_diag::Span;
 /// because the two disagree about what an empty row means: there it is an
 /// arity error worth reporting with both counts, here it is the normal case.
 /// Folding them together would have made a genuinely wrong equation —
-/// `area = …` under `area :: &t -> f64` — silently acquire a parameter.
+/// `area = …` under `area : &t -> f64` — silently acquire a parameter.
 pub(crate) fn signature_only(spine: &[TypeExpr], span: Span) -> Signature {
   let (ret, params) = spine
     .split_last()

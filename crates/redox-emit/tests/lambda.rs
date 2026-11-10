@@ -8,7 +8,7 @@ use redox_emit::emit;
 use redox_parser::parse_source;
 
 fn body(src: &str) -> String {
-  emit(&parse_source(&format!("main :: ()\nmain =\n  {src}\n")).expect("should parse"))
+  emit(&parse_source(&format!("main : ()\nmain =\n  {src}\n")).expect("should parse"))
 }
 
 #[test]
@@ -24,7 +24,7 @@ fn a_lambda_is_a_closure() {
 /// ascription use — one notation for a type, not three.
 #[test]
 fn a_typed_binder_keeps_its_type() {
-  let out = body("f = \\x :: i32 -> x + 1");
+  let out = body("f = \\x : i32 -> x + 1");
   assert!(out.contains("let f = |x: i32| x + 1;"), "{out}");
 }
 
@@ -74,7 +74,7 @@ fn dollar_extends_to_the_end_of_the_expression() {
 /// against an even looser `::`.
 #[test]
 fn ascription_binds_looser_than_dollar() {
-  let out = body("r = f $ x :: u64");
+  let out = body("r = f $ x : u64");
   assert!(
     out.contains("let __rdx_t: u64 = f(x);"),
     "the whole application is ascribed:\n{out}"

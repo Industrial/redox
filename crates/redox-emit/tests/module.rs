@@ -58,7 +58,7 @@ fn a_bodiless_module_emits_a_semicolon() {
 /// `ModuleDecl::items` is an `Option` and not a possibly-empty `Vec`.
 #[test]
 fn a_module_body_emits_braces() {
-  let out = xrs("module inner\n  f :: u32\n  f = 1\n");
+  let out = xrs("module inner\n  f : u32\n  f = 1\n");
   assert!(out.contains("mod inner {"), "{out}");
   assert!(out.contains("    fn f() -> u32 {"), "{out}");
   assert!(out.contains("        1\n"), "{out}");
@@ -69,7 +69,7 @@ fn a_module_body_emits_braces() {
 /// level.
 #[test]
 fn modules_nest() {
-  let out = xrs("module a\n  module b\n    f :: u32\n    f = 1\n");
+  let out = xrs("module a\n  module b\n    f : u32\n    f = 1\n");
   assert!(out.contains("mod a {"), "{out}");
   assert!(out.contains("    mod b {"), "{out}");
   assert!(out.contains("        fn f() -> u32 {"), "{out}");
@@ -112,7 +112,7 @@ fn items_keep_source_order() {
 /// `fn write_ok<FMT>(…) -> FMT::Result`, which rustc rejects.
 #[test]
 fn a_lowercase_path_segment_is_not_a_type_variable() {
-  let out = xrs("write_ok :: &mut String -> fmt::Result\nwrite_ok s = s.write_str \"ok\"\n");
+  let out = xrs("write_ok : &mut String -> fmt::Result\nwrite_ok s = s.write_str \"ok\"\n");
   assert!(
     out.contains("fn write_ok(s: &mut String) -> fmt::Result {"),
     "{out}"
@@ -125,7 +125,7 @@ fn a_lowercase_path_segment_is_not_a_type_variable() {
 /// whole until the lexer stopped treating it as an operator.
 #[test]
 fn a_glob_import_does_not_swallow_the_next_item() {
-  let out = xrs("import crate::models::*\n\nmain :: ()\nmain =\n  print \"x\"\n");
+  let out = xrs("import crate::models::*\n\nmain : ()\nmain =\n  print \"x\"\n");
   assert!(out.contains("use crate::models::*;"), "{out}");
   assert!(out.contains("fn main() {"), "{out}");
 }

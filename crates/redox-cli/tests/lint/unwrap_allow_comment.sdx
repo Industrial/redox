@@ -1,0 +1,25 @@
+-- Plan 53 criterion 6's witness: the **comment** pragma still suppresses
+-- `RDX1001`, and now also raises `RDX1002` naming the attribute to write
+-- instead. Two spellings coexist for the rest of the milestone (plan 53 §6);
+-- plan 64 removes this one with the rest of the comment-carried semantics.
+--
+-- It lives here and not in `examples/` on purpose. An example must compile
+-- under rustc with **zero output** and is the corpus that shows the language
+-- off; a deliberate deprecation belongs in the corpus whose whole job is to
+-- record what Redox said. `tests/lint/` asserts the build **succeeds** and
+-- compares its stderr as exact text, which is both halves of criterion 6 in
+-- one case.
+main : ()
+main =
+  raw = Some 7
+  -- The trailing form, keyed on the pragma's own line since plan 38.
+  port = raw.unwrap ()  -- redox: allow unwrap
+  print port
+  -- The **leading** form, which silently suppressed nothing before plan 53:
+  -- the key was the trivium's own line, and this one is not the statement's.
+  -- It works now because suppression is keyed on the span of the construct
+  -- the pragma leads. An improvement rather than a side effect, so it is
+  -- witnessed here.
+  -- redox: allow unwrap
+  other = (Some 1).expect ("set by construction")
+  print other

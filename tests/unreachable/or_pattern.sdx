@@ -10,11 +10,11 @@
 -- What has no spelling is Rust's *binding* case, where one arm body serves
 -- several patterns.
 
-small :: i32 -> bool
+small : i32 -> bool
 small n = case n of
   1 | 2 -> true
   _ -> false
 
-main :: ()
+main : ()
 main =
   print (small 2)

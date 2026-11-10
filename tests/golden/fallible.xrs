@@ -16,6 +16,7 @@
 // never clones" — and this is what makes that a tested fact rather than a
 // claim: a lowering that cloned would print exactly the same thing and fail
 // to compile here.
+#[repr(transparent)]
 struct Tag(String);
 
 struct Profile {
@@ -151,11 +152,13 @@ fn main() {
     println!("{}", first_name(&empty).is_some());
     // `u` is `Some` by construction, so these three unwraps cannot panic. Doc
     // 03 §12.7's lint fires on the name alone — it has no types and so cannot
-    // know that — and the pragma is how an author says they do.
-    println!("{}", describe_tag(first_tag(&u).unwrap())); // redox: allow unwrap
-    println!("{}", nickname_of(&u).unwrap().is_none()); // redox: allow unwrap
+    // know that — and the attribute is how an author says they do. It is
+    // consumed rather than emitted, so the generated Rust carries no trace of
+    // it and rustc never sees a `redox` it cannot resolve.
+    println!("{}", describe_tag(first_tag(&u).unwrap()));
+    println!("{}", nickname_of(&u).unwrap().is_none());
 
-    println!("{}", attempt("1", "2").unwrap()); // redox: allow unwrap
+    println!("{}", attempt("1", "2").unwrap());
     println!("{}", attempt("1", "no").is_err());
     println!("{}", after_a_failed_try());
 }

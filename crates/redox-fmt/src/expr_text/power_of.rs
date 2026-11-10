@@ -28,6 +28,15 @@ use redox_ast::Expr;
 pub(crate) fn power_of(expr: &Expr) -> Option<u8> {
   match expr {
     Expr::Binary { op, .. } => Some(op.power()),
+    // An application spelled with `$` is the exception to the line below, and
+    // the opposite of it: doc 18 §2.1 puts `$` *looser* than every operator,
+    // and right-associatively, so `(f $ x) |> g` and `(f $ x) + 1` both need
+    // the parenthesis the author wrote. Power 0 says exactly that — redundant
+    // only where nothing at all is required, which is a statement's own
+    // expression.
+    Expr::Call {
+      is_dollar: true, ..
+    } => Some(0),
     // Tighter than every binary operator. Doc 18 §2.1 makes application the
     // primary and the parser consumes postfix inside it, so these are a single
     // group rather than a ladder.
@@ -59,7 +68,7 @@ pub(crate) fn power_of(expr: &Expr) -> Option<u8> {
     // Bracket-terminated, so nothing after them can be absorbed: a record
     // ends at `}`, a comprehension at `]`, a section at `)`. They were
     // declining with the open-ended forms below, which parenthesised
-    // `[ n * 2 | n in xs ] :: Vec<i32>` — a spelling `examples/comprehension.sdx`
+    // `[ n * 2 | n in xs ] : Vec<i32>` — a spelling `examples/comprehension.sdx`
     // writes without parentheses, correctly.
     Expr::Record { .. } | Expr::Comprehension { .. } | Expr::Section { .. } => Some(u8::MAX),
     // Open-ended: each extends as far right as it can, so a surrounding

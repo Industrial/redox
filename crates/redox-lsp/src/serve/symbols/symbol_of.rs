@@ -24,7 +24,13 @@ pub(crate) fn symbol_of(item: &Item, source: &str) -> DocumentSymbol {
     Item::Data(decl) => (
       decl.name.text.clone(),
       // A `newtype` is one constructor over one field, which is a struct; a
-      // `data` with alternatives is an enum. Taken from the declaration's own
+      // `data` with alternatives is an enum. Plan 53 leaf 2 is what makes the
+      // `newtype` half an invariant rather than a convention — before it the
+      // keyword was unvalidated and `newtype Multi = A | B` reached here as
+      // an enum. Reading the shape rather than the keyword was already the
+      // right thing to do and is why this symbol was never wrong.
+      //
+      // Taken from the declaration's own
       // shape rather than from the keyword, because a single-constructor
       // `data` lowers to a struct too.
       if decl.constructors.len() > 1 {

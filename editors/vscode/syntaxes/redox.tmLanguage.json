@@ -106,7 +106,12 @@
 		},
 		"operator": {
 			"patterns": [
-				{ "name": "keyword.operator.ascription.redox", "match": "::" },
+				{
+					"comment": "Plan 52's two tokens, longest first: `::` separates path segments and nothing else, and `:` introduces a type wherever there is one. Ordered, because TextMate takes the first pattern that matches and a leading `:` rule would halve every path.",
+					"name": "keyword.operator.namespace.redox",
+					"match": "::"
+				},
+				{ "name": "punctuation.separator.type.redox", "match": ":" },
 				{
 					"name": "keyword.operator.redox",
 					"match": "->|=>|\\\\|\\?\\?|\\?\\.|<\\||\\|>|<<|>>|[-+*/%<>=!&|^~]"

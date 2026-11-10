@@ -17,7 +17,7 @@ fn xrs(src: &str) -> String {
 /// public.
 #[test]
 fn no_marker_is_private_with_no_prefix() {
-  let out = xrs("f :: i32 -> i32\nf n = n\n");
+  let out = xrs("f : i32 -> i32\nf n = n\n");
   assert!(out.starts_with("fn f("), "{out}");
 }
 
@@ -29,14 +29,14 @@ fn every_scope_has_its_spelling() {
     ("export(super)", "pub(super) fn f("),
     ("export(in crate::deep)", "pub(in crate::deep) fn f("),
   ] {
-    let out = xrs(&format!("{marker} f :: i32 -> i32\nf n = n\n"));
+    let out = xrs(&format!("{marker} f : i32 -> i32\nf n = n\n"));
     assert!(out.contains(want), "{marker}:\n{out}");
   }
 }
 
 #[test]
 fn a_data_declaration_takes_a_marker() {
-  let as_struct = xrs("export data P = P { x :: f64 }\n");
+  let as_struct = xrs("export data P = P { x : f64 }\n");
   assert!(as_struct.contains("pub struct P {"), "{as_struct}");
   let as_enum = xrs("export(crate) data E\n  = A\n  | B\n");
   assert!(as_enum.contains("pub(crate) enum E {"), "{as_enum}");
@@ -46,7 +46,7 @@ fn a_data_declaration_takes_a_marker() {
 /// declaration body." This is the half doc 01 §22 could not express at all.
 #[test]
 fn a_record_field_takes_its_own_marker() {
-  let out = xrs("export data P = P { export x :: f64, y :: f64 }\n");
+  let out = xrs("export data P = P { export x : f64, y : f64 }\n");
   assert!(out.contains("pub x: f64,"), "{out}");
   assert!(out.contains("    y: f64,"), "{out}");
   assert!(!out.contains("pub y"), "{out}");
@@ -56,7 +56,7 @@ fn a_record_field_takes_its_own_marker() {
 fn an_alias_and_a_class_take_a_marker() {
   let alias = xrs("export(crate) type D = f64\n");
   assert!(alias.contains("pub(crate) type D = f64;"), "{alias}");
-  let class = xrs("export(super) class S t\n  area :: &t -> f64\n");
+  let class = xrs("export(super) class S t\n  area : &t -> f64\n");
   assert!(class.contains("pub(super) trait S {"), "{class}");
 }
 
@@ -76,6 +76,6 @@ fn an_errors_declaration_obeys_the_marker() {
 /// answer: there is one declaration and it has one visibility.
 #[test]
 fn an_equation_may_not_carry_a_marker() {
-  let failed = parse_source("export f :: i32 -> i32\nexport f n = n\n");
+  let failed = parse_source("export f : i32 -> i32\nexport f n = n\n");
   assert!(failed.is_err(), "an equation's marker should be rejected");
 }

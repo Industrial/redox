@@ -65,6 +65,7 @@ module.exports = grammar({
 		[$.record_pattern_field, $.record_literal_field],
 		[$.section, $.parenthesized],
 		[$.signature, $._expression_part],
+		[$.signature, $._pattern, $._expression_part],
 		[$.slice_pattern, $.list],
 		[$.type_expression],
 	],
@@ -195,11 +196,14 @@ module.exports = grammar({
 		record_fields: ($) =>
 			seq("{", optional(sep1($.field_declaration, ",")), "}"),
 
+		// Plan 52: `:` declares the type and `=` supplies the value, which makes
+		// `data Point = Point { x : f64, y : f64 }` Rust's struct syntax with the
+		// token unchanged.
 		field_declaration: ($) =>
 			seq(
 				optional($.visibility),
 				field("name", $.identifier),
-				"::",
+				":",
 				field("type", $.type_expression),
 			),
 
@@ -264,10 +268,10 @@ module.exports = grammar({
 				// SCREAMING_CASE, so it lexes as a `type_identifier`. A rule wanting a
 				// lowercase name rejected every constant in the corpus.
 				field("name", choice($.type_identifier, $.identifier)),
-				"::",
+				":",
 				field("type", $.type_expression),
 				// The value is **optional**: a `class` member declares
-				// `const SIDES :: u32` and an `instance` supplies the `= 4`. rustc
+				// `const SIDES : u32` and an `instance` supplies the `= 4`. rustc
 				// decides which is allowed where, as AGENTS.md prescribes, and a rule
 				// that required one errored on every class in the corpus.
 				optional(seq("=", field("value", $._expression))),
@@ -275,17 +279,22 @@ module.exports = grammar({
 			),
 
 		// A function's type signature line. Told apart from an equation by the
-		// `::`, which is the same single token the parser uses.
+		// `:`, which is the same single token the parser uses — plan 52 made it
+		// `:` in every type position, so this is also what a typed binding and an
+		// ascription are spelled with. The two readings of `total : i32 = 42` are
+		// a declared conflict rather than a precedence, for the reason the header
+		// gives about `f (x) = y`: which one it is depends on a `=` an unknown
+		// distance away.
 		signature: ($) =>
 			seq(
 				optional($.visibility),
 				field("name", $.identifier),
-				"::",
+				":",
 				field("type", $.signature_type),
 				$._newline,
 			),
 
-		// Everything after the `::`, as one node. Not decomposed into parameter
+		// Everything after the `:`, as one node. Not decomposed into parameter
 		// and return types: a signature's arrows, constraints and markers are a
 		// type-level language of their own, and §1.2's answer is that a highlight
 		// query wants the tokens rather than the shape.
@@ -296,14 +305,14 @@ module.exports = grammar({
 					$.identifier,
 					$.lifetime,
 					// An array's length is a literal or a constant's name, so a
-					// signature holds numbers too — `zeros :: [u8; 4]`.
+					// signature holds numbers too — `zeros : [u8; 4]`.
 					$.number,
 					"->",
 					"=>",
 					"async",
 					"const",
 					// Plan 45 leaf 2's `unsafe fn` marker, in the signature for
-					// `async`'s reason: it sits inside the `::` run.
+					// `async`'s reason: it sits inside the type run.
 					"unsafe",
 					$._type_punctuation,
 				),
@@ -362,9 +371,33 @@ module.exports = grammar({
 						$._dedent,
 						optional($.where_clause),
 					),
+					// The receiver on the `=` line and the pipeline's stages indented
+					// beneath it — `examples/application.sdx`'s multi-line `|>` chain,
+					// and the one layout it says parses.
+					//
+					// A **pre-existing** gap, found by this row's sweep and not caused
+					// by it: the example arrived in plan 51, after the grammar's last
+					// change, and the same file fails identically when its signatures
+					// are written back as `::`. Without this branch the scanner's
+					// INDENT (preferred over NEWLINE, `scanner.c` line 322) had only
+					// `where_clause` to land in, so the body came out as an ERROR
+					// reaching into the next line.
+					seq(
+						"=",
+						field("body", $._expression),
+						$._indent,
+						repeat1($.continuation),
+						$._dedent,
+						optional($.where_clause),
+					),
 					seq($._indent, $.guard_ladder, $._dedent, optional($.where_clause)),
 				),
 			),
+
+		// One indented continuation line of the expression above it. A run of
+		// `_expression_part`s like any other — a stage opens with `|>`, which is
+		// in the `operator` token — so it needs no shape beyond the line.
+		continuation: ($) => seq($._expression, $._newline),
 
 		guard_ladder: ($) => repeat1($.guard),
 
@@ -427,16 +460,30 @@ module.exports = grammar({
 				),
 			),
 
+		// Plan 54 made `:=` the assignment operator and left `=` as a binding,
+		// so this rule now takes six operators rather than five. `:=` is in
+		// `assignment_operator` beside the compound forms because Rust spells
+		// all six with `=` and the compiler's own AST holds them in one node
+		// with an optional `BinaryOp` — one rule here keeps the two parsers
+		// agreeing on the shape.
+		//
+		// No precedence is needed against `:` or `::`: tree-sitter's lexer
+		// takes the longest match, and `:=` is longer than `:` while neither
+		// it nor `::` is a prefix of the other.
 		assignment: ($) =>
 			seq(
 				field("target", $._expression),
-				field("operator", $.compound_operator),
+				field("operator", $.assignment_operator),
 				field("value", $._expression),
 				$._newline,
 			),
 
-		compound_operator: (_) =>
-			token(choice("+=", "-=", "*=", "/=", "%=", "??=")),
+		// `??=` is listed and accepted by no rule in the compiler — doc 18 §7
+		// retires it in favour of its expanded form, and the token survives
+		// only so the grammar does not report an ERROR on source the lexer
+		// still produces a token for.
+		assignment_operator: (_) =>
+			token(choice(":=", "+=", "-=", "*=", "/=", "%=", "??=")),
 
 		if_statement: ($) =>
 			seq(
@@ -723,12 +770,12 @@ module.exports = grammar({
 		// A comma list, so `(a, b)` and `x.m (a, b)` both land here. The comma
 		// used to ride in the `operator` token, which is how removing the
 		// separators from that list took two more files down with it.
-		// `:: T` — doc 18 §6's ascription, and a **real rule** rather than a `::`
+		// `: T` — doc 18 §6's ascription, and a **real rule** rather than a `:`
 		// operator followed by whatever comes next. The type is a type:
-		// `:: Result<i32, core::num::ParseIntError>` has commas inside angle
+		// `: Result<i32, core::num::ParseIntError>` has commas inside angle
 		// brackets, and the flat expression run has no comma in it since the
 		// separators left the `operator` token.
-		ascription: ($) => seq("::", $.type_expression),
+		ascription: ($) => seq(":", $.type_expression),
 
 		parenthesized: ($) =>
 			seq("(", optional(sep1($._expression, ",")), optional(","), ")"),

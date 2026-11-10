@@ -14,9 +14,9 @@ use redox_lexer::{Keyword, TokenKind};
 ///
 /// ```text
 /// type Unit               an associated type
-/// const SIDES :: u32      an associated constant
-/// area :: &t -> f64       a method signature, with no body
-/// describe :: &t -> String
+/// const SIDES : u32      an associated constant
+/// area : &t -> f64       a method signature, with no body
+/// describe : &t -> String
 /// describe self = "…"     a signature and its default body
 /// ```
 ///
@@ -44,10 +44,7 @@ pub(crate) fn class_member(p: &mut Parser, ctx: &MethodContext) -> Result<ClassM
   if p.check(&TokenKind::Kw(Keyword::Const)) {
     p.advance();
     let name = p.ident("expected a name after `const`")?;
-    p.expect(
-      &TokenKind::ColonColon,
-      "expected `::` after the constant's name",
-    )?;
+    p.expect(&TokenKind::Colon, "expected `:` after the constant's name")?;
     let ty = capture_type(p, "expected the constant's type", TypeStop::Greedy)?;
     // A `class` declares the constant and an `instance` supplies it, so the
     // value is optional here and rustc decides which was required.

@@ -1,0 +1,6 @@
+error[RDX0110]: `::` joins a path, so it takes no space before it — write `:` to annotate a type, or close up the `::` to name a path
+  --> spaced_path_separator.sdx:4:9
+  |
+4 |   y = x :: u64
+  |         ^^
+

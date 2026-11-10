@@ -11,7 +11,7 @@ use redox_ast::DataDecl;
 /// and `examples/data.sdx`'s:
 ///
 /// ```text
-/// data Square = Square { side :: f64 }
+/// data Square = Square { side : f64 }
 ///
 /// data Event
 ///   = Click
@@ -27,8 +27,15 @@ use redox_ast::DataDecl;
 /// form: `examples/visibility.sdx` writes `export data Point = Point { … }`
 /// and then `  deriving (Debug)` below it.
 ///
-/// A `newtype` has exactly one alternative by construction, so it never takes
-/// the multi-line shape.
+/// A `newtype` has exactly one alternative, so it never takes the multi-line
+/// shape.
+///
+/// "By construction" is what this said, and it was not true: nothing
+/// validated a `newtype`'s shape at all, and `newtype Multi = A | B` parsed
+/// and emitted an `enum`. Plan 53 leaf 2 is what makes the invariant real —
+/// the parser now refuses a `newtype` with anything other than one
+/// constructor over one field — so this printer may rely on it, and could
+/// not before.
 pub(crate) fn data_text(decl: &DataDecl, indent: usize, source: &str) -> String {
   // Plan 45 leaf 4 added a third keyword to this family. Getting it wrong
   // here is not a cosmetic bug: the formatter wrote `union Word` back as
@@ -50,11 +57,11 @@ pub(crate) fn data_text(decl: &DataDecl, indent: usize, source: &str) -> String 
 
   let mut out = match decl.constructors.as_slice() {
     // One alternative has **two** layouts and the corpus writes both:
-    // `data Square = Square { side :: f64 }` in `class.sdx`, and
+    // `data Square = Square { side : f64 }` in `class.sdx`, and
     //
     // ```text
     // data Profile
-    //   = Profile { name :: String, tag :: Tag }
+    //   = Profile { name : String, tag : Tag }
     // ```
     //
     // in `fallible.sdx`. §3 row 9 only distinguishes one alternative from

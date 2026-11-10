@@ -186,7 +186,7 @@ fn a_syntax_error_publishes_an_rdx_diagnostic() {
   let session = Session::start();
   // `main =` with nothing indented under it: the body is missing, which is a
   // parse error rather than a lex one.
-  session.open(&uri(), "main :: ()\nmain =\n");
+  session.open(&uri(), "main : ()\nmain =\n");
   let published = session.diagnostics();
 
   assert_eq!(published.uri, uri());
@@ -215,12 +215,17 @@ fn a_syntax_error_publishes_an_rdx_diagnostic() {
 ///
 /// Plan 38 built both halves. This asserts they survive the trip through the
 /// protocol, where a severity is an integer and an off-by-one is invisible.
+///
+/// Plan 53 made it three cases rather than two. The attribute silences the
+/// warning outright and is consumed, so the document is clean; the comment
+/// silences it and raises `RDX1002` in its place, which is the deprecation
+/// replacing what used to be a silent no-op.
 #[test]
 fn the_unwrap_lint_is_a_warning_and_the_pragma_silences_it() {
   let session = Session::start();
   session.open(
     &uri(),
-    "main :: ()\nmain =\n  x = (Some 1).unwrap ()\n  print x\n",
+    "main : ()\nmain =\n  x = (Some 1).unwrap ()\n  print x\n",
   );
   let published = session.diagnostics();
   let warnings: Vec<_> = published
@@ -238,11 +243,31 @@ fn the_unwrap_lint_is_a_warning_and_the_pragma_silences_it() {
   let pragma = Session::start();
   pragma.open(
     &uri(),
-    "main :: ()\nmain =\n  x = (Some 1).unwrap ()  -- redox: allow unwrap\n  print x\n",
+    "main : ()\nmain =\n  #[redox::allow(unwrap)]\n  x = (Some 1).unwrap ()\n  print x\n",
   );
   assert!(
     pragma.diagnostics().diagnostics.is_empty(),
-    "the pragma should suppress it"
+    "the attribute should suppress it, and is consumed rather than reported"
+  );
+
+  let deprecated = Session::start();
+  deprecated.open(
+    &uri(),
+    "main : ()\nmain =\n  x = (Some 1).unwrap ()  -- redox: allow unwrap\n  print x\n",
+  );
+  let published = deprecated.diagnostics();
+  let codes: Vec<String> = published
+    .diagnostics
+    .iter()
+    .map(|d| match d.code.as_ref().expect("a code") {
+      lsp_types::NumberOrString::String(text) => text.clone(),
+      lsp_types::NumberOrString::Number(n) => n.to_string(),
+    })
+    .collect();
+  assert_eq!(
+    codes,
+    vec!["RDX1002".to_string()],
+    "the comment should suppress `RDX1001` and deprecate itself: {published:?}"
   );
 }
 
@@ -288,7 +313,7 @@ fn formatting_edits_only_what_is_not_canonical() {
   let session = Session::start();
   // Two blank lines where one is canonical, which is leaf 1's rule and needs
   // no construct to demonstrate.
-  session.open(&uri(), "main :: ()\nmain =\n  print 1\n\n\n");
+  session.open(&uri(), "main : ()\nmain =\n  print 1\n\n\n");
   let edits = formatting_of(&session, 1);
   assert_eq!(edits.len(), 1, "one full-range edit");
   assert!(
@@ -326,7 +351,7 @@ fn formatting_of(session: &Session, id: i32) -> Vec<lsp_types::TextEdit> {
 #[test]
 fn semantic_tokens_decode_to_the_right_places() {
   let session = Session::start();
-  let source = "main :: ()\nmain =\n  print 1\n";
+  let source = "main : ()\nmain =\n  print 1\n";
   session.open(&uri(), source);
 
   let tokens: SemanticTokens =
@@ -384,7 +409,7 @@ fn semantic_tokens_decode_to_the_right_places() {
 #[test]
 fn a_broken_document_answers_everything() {
   let session = Session::start();
-  session.open(&uri(), "main :: ()\nmain =\n  print (((\n");
+  session.open(&uri(), "main : ()\nmain =\n  print (((\n");
   // The diagnostics come first and prove the document is genuinely broken.
   assert!(!session.diagnostics().diagnostics.is_empty());
 
@@ -434,7 +459,7 @@ fn a_broken_document_answers_everything() {
 fn a_document_that_lexes_still_colours() {
   let session = Session::start();
   // A signature with no equation under it: lexes cleanly, fails to parse.
-  session.open(&uri(), "main :: ()\nmain =\n");
+  session.open(&uri(), "main : ()\nmain =\n");
   assert!(!session.diagnostics().diagnostics.is_empty());
 
   let tokens: SemanticTokens =
@@ -464,7 +489,7 @@ fn tokens_of(session: &Session, id: i32) -> serde_json::Value {
 #[test]
 fn an_unknown_method_is_answered_with_null() {
   let session = Session::start();
-  session.open(&uri(), "main :: ()\nmain =\n  print 1\n");
+  session.open(&uri(), "main : ()\nmain =\n  print 1\n");
   let _ = session.diagnostics();
   let value = session.request(1, "textDocument/hover", &serde_json::Value::Null);
   assert_eq!(value, serde_json::Value::Null);

@@ -4,25 +4,26 @@
 -- lines, and until this file existed nothing checked that it spanned them at
 -- the right column.
 
-main :: ()
+main : ()
 main =
-  -- `e :: T` states a type without naming a path.
-  n = 1 :: u64
+  -- `e : T` states a type without naming a path.
+  n = 1 : u64
   print n
   -- Ascription is the loosest thing in an expression: the sum is ascribed,
   -- not the `2`.
-  total = 1 + 2 :: u64
+  total = 1 + 2 : u64
   print total
   -- A tight `::` is still a path, which is the half that would break every
   -- existing program if it went wrong.
   print (i32::max 1 9)
   -- A generic type survives verbatim — doc 03 §14.1 — and the value is an
   -- application, because `Some 1` is juxtaposition like everything else.
-  wide = Some 1 :: Option<u8>
+  wide = Some 1 : Option<u8>
   -- `wide` is `Some` by construction two lines up, so the panic is
-  -- unreachable — doc 03 §12.7's lint is suppressed per line rather than
-  -- argued with.
-  print (wide.unwrap ())  -- redox: allow unwrap
+  -- unreachable — doc 03 §12.7's lint is suppressed rather than argued with,
+  -- and the attribute is consumed, so the `.xrs` below carries no trace of it.
+  #[redox::allow(unwrap)]
+  print (wide.unwrap ())
   -- A multi-line lowering as a macro argument: `println!` keeps the call on
   -- one line and lets the block hang, which is the form rustfmt writes.
-  print (1 + 1 :: u64)
+  print (1 + 1 : u64)

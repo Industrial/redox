@@ -140,7 +140,7 @@ fn reparse(text: &str) -> Option<Pattern> {
   // The signature takes a parameter because the clause does. A signature of
   // `()` beside a one-parameter clause does not parse, which cost a confusing
   // `n did not re-parse` on the simplest pattern in the corpus.
-  let whole = format!("__rdx_probe :: T -> i32\n__rdx_probe t = case t of\n  {text} -> 0\n");
+  let whole = format!("__rdx_probe : T -> i32\n__rdx_probe t = case t of\n  {text} -> 0\n");
   let program = redox_parser::parse_source(&whole).ok()?;
   patterns(&program).first().map(|p| (*p).clone())
 }

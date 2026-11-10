@@ -20,12 +20,12 @@ import std::collections::BTreeMap as Sorted
 -- near-universal test-module convention". Members need `export` to be
 -- reachable from outside, exactly as in Rust.
 module inner
-  export hello :: &'static str
+  export hello : &'static str
   hello = "hi"
 
   -- Modules nest, because nothing in Rust stops them either.
   export module deeper
-    export deep :: u32
+    export deep : u32
     deep = 1
 
   -- A `test` block inside a module body lands in **that** module's test
@@ -36,23 +36,23 @@ module inner
 -- The imports are used, so rustc has nothing to say about them. Each map is
 -- bound by a `where` local first: `.len ()` on an ascription block would put
 -- a brace in a method chain's receiver, which rustfmt reformats.
-sizes :: usize
+sizes : usize
 sizes = a.len () + b.len ()
   where
-    a = HashMap::new () :: HashMap<String, u32>
-    b = Sorted::new () :: Sorted<String, u32>
+    a = HashMap::new () : HashMap<String, u32>
+    b = Sorted::new () : Sorted<String, u32>
 
-write_ok :: &mut String -> fmt::Result
+write_ok : &mut String -> fmt::Result
 write_ok s = s.write_str "ok"
 
-main :: ()
+main : ()
 main =
   print (sizes ())
   print (inner::hello ())
   print (inner::deeper::deep ())
   -- The `fmt` import is used by `write_ok`'s return type, and `write_ok` is
   -- called here so rustc has nothing to say about either.
-  mut buffer = String::new () :: String
+  mut buffer = String::new () : String
   print ((write_ok (&mut buffer)).is_ok ())
 
 test "the file has its own test module"

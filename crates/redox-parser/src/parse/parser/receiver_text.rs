@@ -24,7 +24,7 @@ pub(crate) fn receiver_text(ty: &str, names: &[String]) -> Option<String> {
 
   // Several spellings name the implementing type — `Self`, the class
   // variable, and an `instance`'s own target — so this is a list rather than
-  // one comparison. `instance Shape Square` writes `area :: &Square -> f64`,
+  // one comparison. `instance Shape Square` writes `area : &Square -> f64`,
   // and that `&Square` is as much the receiver as `&t` is.
   let bare = bare.trim();
   if !names.iter().any(|n| n == bare) {

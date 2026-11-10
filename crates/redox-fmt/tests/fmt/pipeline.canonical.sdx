@@ -1,0 +1,37 @@
+-- Doc 03 §5.3's pipeline, at both widths. `pipeline.canonical.sdx` is this
+-- file formatted, compared as whole files — so every comment here reaches both
+-- halves of the pair, trivia being the one thing a formatter may never lose.
+--
+-- The layout is not a style choice among several: the lexer continues a line
+-- that *opens* with `|>`, and only `|>`, so one stage per continuation line
+-- indented beneath the receiver is the only multi-line spelling of a pipeline
+-- that parses.
+
+doubled : Vec<i32> -> usize
+doubled numbers = numbers.iter ()
+  |> filter (\n -> *n % 2 == 0)
+  |> map (\n -> n * 2)
+  |> count
+
+main : ()
+main =
+  -- Short enough to fit, so it stays on the one line it was written on —
+  -- `examples/lexical.sdx` and `examples/section.sdx` are full of these and
+  -- none of them may be reflowed.
+  short = items |> map (+ 1) |> filter (> 0)
+  -- A short pipeline the author broke anyway. The width is the rule, so this
+  -- joins.
+  rejoined = items |> map (+ 1)
+  -- Wider than `PIPELINE_WIDTH`, so every stage takes a continuation line one
+  -- level in from the statement.
+  long = numbers.iter ()
+    |> filter (\n -> *n % 2 == 0)
+    |> map (\n -> n * 2)
+    |> count
+  -- Already broken, and wide enough to stay broken — which is the idempotence
+  -- half of the rule.
+  kept = numbers.iter ()
+    |> filter (\n -> *n % 2 == 0)
+    |> map (\n -> n * 2)
+    |> count
+  print short

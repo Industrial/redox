@@ -14,7 +14,7 @@ fn xrs(src: &str) -> String {
 
 /// The body of `fn main`, dedented.
 fn body(src: &str) -> String {
-  xrs(&format!("main :: ()\nmain =\n{src}"))
+  xrs(&format!("main : ()\nmain =\n{src}"))
     .lines()
     .skip(1)
     .take_while(|l| *l != "}")
@@ -27,7 +27,7 @@ fn body(src: &str) -> String {
 
 #[test]
 fn the_marker_emits_async_fn() {
-  let out = xrs("f :: async i32 -> i32\nf n = n\n");
+  let out = xrs("f : async i32 -> i32\nf n = n\n");
   assert!(out.starts_with("async fn f(n: i32) -> i32 {"), "{out}");
 }
 
@@ -37,7 +37,7 @@ fn the_marker_emits_async_fn() {
 /// exactly what happened to `const` before plan 16 consumed it.
 #[test]
 fn the_marker_does_not_leak_into_the_first_type() {
-  let out = xrs("f :: async i32 -> i32\nf n = n\n");
+  let out = xrs("f : async i32 -> i32\nf n = n\n");
   assert!(!out.contains("async i32"), "{out}");
   assert!(!out.contains("ASYNC"), "{out}");
 }
@@ -46,7 +46,7 @@ fn the_marker_does_not_leak_into_the_first_type() {
 /// consumed before the spine is read and touches nothing after.
 #[test]
 fn the_marker_composes_with_the_rest_of_a_signature() {
-  let out = xrs("export f :: Ord t => async Option<t> -> t\nf xs = xs.unwrap ()\n");
+  let out = xrs("export f : Ord t => async Option<t> -> t\nf xs = xs.unwrap ()\n");
   assert!(out.contains("pub async fn f"), "{out}");
   // Doc 18 §5.3 uppercases a lowercase type variable, so the bound reads
   // `T: Ord` — and the marker survives in front of `fn` rather than being
@@ -59,7 +59,7 @@ fn the_marker_composes_with_the_rest_of_a_signature() {
 /// check Redox cannot make better than rustc does.
 #[test]
 fn both_markers_emit_and_rustc_objects() {
-  let out = xrs("f :: const async i32 -> i32\nf n = n\n");
+  let out = xrs("f : const async i32 -> i32\nf n = n\n");
   assert!(out.starts_with("const async fn f"), "{out}");
 }
 
@@ -97,7 +97,7 @@ fn an_async_block_is_not_a_try_block() {
 /// exist before doc 30's conversion could be proved by running.
 #[test]
 fn an_await_outside_async_still_emits_and_rustc_objects() {
-  let out = xrs("f :: i32 -> i32\nf n =\n  m <- g n\n  m\n");
+  let out = xrs("f : i32 -> i32\nf n =\n  m <- g n\n  m\n");
   assert!(out.starts_with("fn f(n: i32) -> i32 {"), "{out}");
   assert!(out.contains("let m = g(n).await;"), "{out}");
 }

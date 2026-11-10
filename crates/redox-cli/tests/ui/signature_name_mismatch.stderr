@@ -4,7 +4,7 @@ error[RDX0103]: this equation defines `subtract`, but the signature above it is 
 2 | subtract a =
   | ^^^^^^^^
 
-error[RDX0101]: expected `::` after the name, to begin the signature
+error[RDX0101]: expected `:` after the name, to begin the signature
   --> signature_name_mismatch.sdx:2:12
   |
 2 | subtract a =

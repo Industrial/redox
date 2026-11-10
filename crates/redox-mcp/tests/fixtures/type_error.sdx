@@ -5,11 +5,11 @@
 -- checker — so `redox_check`'s value is reporting a foreign code against the
 -- `.sdx`, and a fixture carrying an `RDX` code would not exercise that at all.
 --
--- The first attempt did exactly that. `let n :: u32 = "not a number"` came back
+-- The first attempt did exactly that. `let n : u32 = "not a number"` came back
 -- `RDX0101`, Redox's own, which looked like a type error and was not one.
-double :: u32 -> u32
+double : u32 -> u32
 double n = n * 2
 
-main :: ()
+main : ()
 main =
   print (double "two")

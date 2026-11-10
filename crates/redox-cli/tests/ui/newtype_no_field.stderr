@@ -1,0 +1,6 @@
+error[RDX0111]: a `newtype` wraps exactly one field, and this declaration wraps none — write `data` for a type with no payload
+  --> newtype_no_field.sdx:9:16
+  |
+9 | newtype Zero = Zero
+  |                ^^^^
+

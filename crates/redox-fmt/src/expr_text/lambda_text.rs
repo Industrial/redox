@@ -7,7 +7,7 @@ use redox_ast::{Expr, Param};
 /// A lambda — `\n -> n + 1`, doc 18 §4.
 ///
 /// A parameter carries an optional type and a `mut` marker, both printed where
-/// the parser reads them. A typed parameter is spelled `(n :: u64)`: the
+/// the parser reads them. A typed parameter is spelled `(n : u64)`: the
 /// parentheses are not grouping, they are what separates one parameter's type
 /// from the next parameter, and doc 18 §5.2's rule that a spaced `::` ascribes
 /// applies inside them.

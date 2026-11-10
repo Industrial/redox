@@ -2,7 +2,6 @@ use crate::ParseError;
 use crate::parse::parser::Parser;
 use crate::parse::parser::capture_type::capture_type;
 use crate::parse::parser::parse_expr::parse_expr;
-use crate::parse::parser::spaced_colon_colon::spaced_colon_colon;
 use crate::parse::parser::type_stop::TypeStop;
 use redox_ast::{Expr, Param};
 use redox_lexer::{Keyword, TokenKind};
@@ -11,13 +10,13 @@ use redox_lexer::{Keyword, TokenKind};
 ///
 /// ```text
 /// \n -> n * n              |n| n * n
-/// \x :: i32 -> x + 1       |x: i32| x + 1
+/// \x : i32 -> x + 1        |x: i32| x + 1
 /// move \x -> x + captured  move |x| x + captured
 /// \ -> 0                   || 0
 /// ```
 ///
-/// The binder's type uses the **same spaced `::`** as a signature line and an
-/// ascription (doc 18 §5.2), which is why the type is captured with
+/// The binder's type uses the **same `:`** as a signature line and an
+/// ascription (plan 52), which is why the type is captured with
 /// `capture_type` rather than a second notation: there is one way to write a
 /// type in Redox and this is it.
 ///
@@ -32,11 +31,11 @@ pub(crate) fn lambda(p: &mut Parser) -> Result<Expr, ParseError> {
   let mut params = Vec::new();
   while !p.check(&TokenKind::Arrow) && !p.at_eof() {
     let name = p.ident("expected a lambda parameter name")?;
-    let ty = if spaced_colon_colon(p) {
+    let ty = if p.check(&TokenKind::Colon) {
       p.advance();
       Some(capture_type(
         p,
-        "expected a type after `::`",
+        "expected a type after `:`",
         TypeStop::Greedy,
       )?)
     } else {

@@ -164,7 +164,7 @@ fn meaning(expr: &Expr) -> String {
 ///
 /// A top-level strip is not enough, and the shape of why is the point: the
 /// printer **adds** parentheses where a form would otherwise be misread —
-/// `-(a + b)`, `f (g x)`, `(\x -> x) :: T` — and those land at whatever depth
+/// `-(a + b)`, `f (g x)`, `(\x -> x) : T` — and those land at whatever depth
 /// the form sits at. So the two trees legitimately differ by `Paren` nodes
 /// anywhere, and a comparison that tolerated them only at the root reported
 /// the printer had changed the program when it had not.
@@ -345,7 +345,7 @@ fn printing_preserves_meaning() {
 /// `name =  ()),.to_string ()` — a harness defect reported as a printer
 /// defect, which is the third time in this plan (§10.5, §10.20).
 fn reparse(text: &str) -> Option<(Expr, String)> {
-  let whole = format!("__rdx_probe :: ()\n__rdx_probe =\n  __rdx_it = {text}\n");
+  let whole = format!("__rdx_probe : ()\n__rdx_probe =\n  __rdx_it = {text}\n");
   let program = redox_parser::parse_source(&whole).ok()?;
   let found = binding_values(&program).first().map(|e| (*e).clone())?;
   Some((found, whole))

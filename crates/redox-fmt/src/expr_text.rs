@@ -2,9 +2,11 @@ pub(crate) mod argument;
 pub(crate) mod can_drop_paren;
 pub(crate) mod comma_list;
 pub(crate) mod comprehension_text;
+pub(crate) mod dollar_text;
 pub(crate) mod lambda_text;
 pub(crate) mod literal_text;
 pub(crate) mod operand;
+pub(crate) mod pipeline_text;
 pub(crate) mod power_of;
 pub(crate) mod receiver;
 pub(crate) mod record_text;
@@ -14,16 +16,18 @@ use crate::expr_text::argument::argument;
 use crate::expr_text::can_drop_paren::can_drop_paren;
 use crate::expr_text::comma_list::comma_list;
 use crate::expr_text::comprehension_text::comprehension_text;
+use crate::expr_text::dollar_text::dollar_text;
 use crate::expr_text::lambda_text::lambda_text;
 use crate::expr_text::literal_text::literal_text;
 use crate::expr_text::operand::operand;
+use crate::expr_text::pipeline_text::pipeline_text;
 use crate::expr_text::receiver::receiver;
 use crate::expr_text::record_text::record_text;
 use crate::expr_text::section_text::section_text;
 use crate::stmt_text::block_text::block_text;
 use crate::stmt_text::case_arm_text::case_arm_text;
 use crate::stmt_text::condition_text::condition_text;
-use redox_ast::Expr;
+use redox_ast::{BinaryOp, Expr};
 
 /// One expression in canonical Redox — plan 34, leaf 3.
 ///
@@ -64,6 +68,16 @@ use redox_ast::Expr;
 /// cannot guard it.
 pub fn expr_text(expr: &Expr, required: u8, indent: usize, source: &str) -> String {
   match expr {
+    // Doc 18 §2.1's `$`, which is the same `Call` spelled without the
+    // parenthesis — `dollar_text` is where the spelling is put back, and the
+    // arity guard is the parser's invariant restated rather than a case it
+    // can produce.
+    Expr::Call {
+      callee,
+      args,
+      is_dollar: true,
+      ..
+    } if args.len() == 1 => dollar_text(callee, &args[0], indent, source),
     // Doc 18 §2.1: juxtaposition is the call form, parentheses are grouping.
     // So the arguments are separated by spaces and each is parenthesised only
     // if it would otherwise read as more application.
@@ -92,6 +106,15 @@ pub fn expr_text(expr: &Expr, required: u8, indent: usize, source: &str) -> Stri
       receiver(recv, indent, source),
       expr_text(index, 0, indent, source)
     ),
+    // The pipeline is the one operator with a layout of its own, because it is
+    // the one the lexer continues across lines — `pipeline_text` records why,
+    // and owns the width decision for the whole chain rather than per node.
+    Expr::Binary {
+      op: BinaryOp::Pipeline,
+      lhs,
+      rhs,
+      ..
+    } => pipeline_text(lhs, rhs, indent, source),
     Expr::Binary { op, lhs, rhs, .. } => {
       // Left-associative, so the right operand must bind one rung tighter for
       // its parentheses to be redundant.
@@ -159,13 +182,13 @@ pub fn expr_text(expr: &Expr, required: u8, indent: usize, source: &str) -> Stri
     //
     // The inner expression is an **operand** and not an argument: `::` binds
     // looser than every binary operator, which the parser settles —
-    // `1 + 2 :: u64` is `Ascribe { inner: Binary { .. } }` with no parenthesis
+    // `1 + 2 : u64` is `Ascribe { inner: Binary { .. } }` with no parenthesis
     // in the source. Printing it as an argument added one, and the corpus
     // property reported the program had changed. `operand` at power 0 keeps
     // the parentheses only around the forms `power_of` declines on, which is
     // the right set: a lambda or a second ascription does need them.
     Expr::Ascribe { inner, ty, .. } => {
-      format!("{} :: {}", operand(inner, 0, indent, source), ty.text)
+      format!("{} : {}", operand(inner, 0, indent, source), ty.text)
     }
     // Every literal is sliced verbatim, and `literal_text` records why the
     // stored text is not enough: a block string is kept **cooked**, so

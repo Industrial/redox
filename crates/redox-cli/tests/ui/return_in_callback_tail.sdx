@@ -9,7 +9,7 @@
 --
 -- `?` is unaffected and must stay so: it propagates out of the closure, which
 -- is what the construct exists for.
-run :: Result<(), Error>
+run : Result<(), Error>
 run =
   with conn = pool.with_connection
   return Err Error::Bad

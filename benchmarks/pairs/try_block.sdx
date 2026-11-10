@@ -14,7 +14,7 @@
 -- function rather than by anything the `try` lowering costs. `?` on a
 -- parameter leaves the closure as the only variable.
 
-attempt :: Result<i32, String> -> Result<i32, String>
+attempt : Result<i32, String> -> Result<i32, String>
 attempt r = try
   a = r?
   Ok (a + 1)

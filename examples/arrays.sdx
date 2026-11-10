@@ -14,38 +14,38 @@
 -- The signature is what makes the distinction load-bearing rather than
 -- stylistic: `[u8; 4]` is a type `vec![…]` does not inhabit, so a wrong
 -- lowering fails to compile here and not merely to match a golden.
-zeros :: [u8; 4]
+zeros : [u8; 4]
 zeros = [0u8; 4]
 
 -- A `const` count, which Rust allows and a lowering that only handled a
 -- literal would have passed a narrower test for.
-const WIDTH :: usize = 3
+const WIDTH : usize = 3
 
-row :: [i32; 3]
+row : [i32; 3]
 row = [7; WIDTH]
 
 -- A list literal beside them, so both bracket forms are exercised in one
 -- file and the `;` is shown to be what separates them. `:: Vec<i32>` is what
 -- makes it growable; the bare literal is an array.
-growable :: Vec<i32>
-growable = [1, 2, 3] :: Vec<i32>
+growable : Vec<i32>
+growable = [1, 2, 3] : Vec<i32>
 
 -- Neither nesting needs a special case, and asserting it is how plan 22 found
 -- its three-operand chain bug.
-grid :: [[u8; 2]; 2]
+grid : [[u8; 2]; 2]
 grid = [[1u8; 2]; 2]
 
-lists :: Vec<[u8; 2]>
-lists = [[0u8; 2], [1u8; 2]] :: Vec<[u8; 2]>
+lists : Vec<[u8; 2]>
+lists = [[0u8; 2], [1u8; 2]] : Vec<[u8; 2]>
 
 -- `vec![0; n]` stays available as an ordinary macro call for a growable
--- repeat. This plan gives that no spelling of its own: `[v; n] :: Vec<T>`
+-- repeat. This plan gives that no spelling of its own: `[v; n] : Vec<T>`
 -- already reaches it through the ascribed-literal form, since `Vec::from`
 -- takes an array.
-total :: usize
+total : usize
 total = (zeros ()).len () + (row ()).len () + (growable ()).len ()
 
-main :: ()
+main : ()
 main =
   print ((zeros ()).len ())
   print (row ())[0]

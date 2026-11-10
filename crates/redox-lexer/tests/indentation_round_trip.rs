@@ -76,6 +76,31 @@ fn line_indent(source: &str, offset: usize) -> Option<usize> {
 /// first token on each new line should then sit at a width consistent with the
 /// token depth — monotone in the same direction as the text, which is the
 /// strongest statement that holds without assuming a fixed indent unit.
+///
+/// # A **logical** line, which is not every line of text
+///
+/// "Each new line" means the first token after a `Newline`, `Indent` or
+/// `Dedent` — deliberately not every token that happens to come first on a
+/// line of text. A **continuation** line is the difference. `lexer.rs`'s
+/// newline path returns early when the previous token continues the line or
+/// the next one opens with `|>`, eating that line's indentation so the
+/// off-side rule never sees it: no `Newline` is emitted and no level is
+/// pushed, so a continuation sits at its parent's token depth while its text
+/// is indented. That is doc 03 §5.3's leading-`|>` pipeline layout working.
+///
+/// Sampling every token made that design read as a contradiction. In
+///
+/// ```text
+/// evens_doubled xs = xs.iter ()
+///   |> filter (n -> *n % 2 == 0)
+/// ```
+///
+/// the second line is token depth 0 at text width 2, against the width 0 that
+/// every other top-level line in the file records for depth 0. It passed for
+/// as long as it did only because no corpus file had an indented
+/// continuation; `examples/application.sdx` added the first and this
+/// assertion failed on it, naming a byte inside the `filter` call. The
+/// property is sound — the sampling was wider than the sentence above it.
 #[test]
 fn token_depth_tracks_the_texts_indentation() {
   for path in sources() {
@@ -89,19 +114,29 @@ fn token_depth_tracks_the_texts_indentation() {
     // The text width seen at each token depth, so a later line at the same
     // depth can be checked against it.
     let mut width_at: Vec<usize> = Vec::new();
+    // Whether the next ordinary token opens a **logical** line: true at the
+    // start of the stream and after every line-boundary token. A continuation
+    // line produces none of those, which is exactly how it is excluded.
+    let mut opens_a_line = true;
 
     for token in &tokens {
       match token.kind {
         TokenKind::Indent => {
           depth += 1;
           width_at.truncate(depth as usize);
+          opens_a_line = true;
         }
         TokenKind::Dedent => {
           depth = (depth - 1).max(0);
           width_at.truncate(depth as usize + 1);
+          opens_a_line = true;
         }
-        TokenKind::Newline | TokenKind::Eof => {}
+        TokenKind::Newline => opens_a_line = true,
+        TokenKind::Eof => {}
         _ => {
+          if !std::mem::take(&mut opens_a_line) {
+            continue;
+          }
           let Some(width) = line_indent(&source, token.span.0) else {
             continue;
           };
@@ -144,7 +179,7 @@ fn inconsistent_indentation_is_rejected() {
   // then three — and it lexed fine, correctly: a deeper line opens a block.
   // `RDX0002` is about a **dedent** landing between two levels, which is the
   // only way the width stack can be asked for a level it does not hold.
-  let source = "main :: ()\nmain =\n    print 1\n  print 2\n";
+  let source = "main : ()\nmain =\n    print 1\n  print 2\n";
   let failed = lex(source);
   assert!(
     failed.is_err(),
@@ -157,12 +192,12 @@ fn inconsistent_indentation_is_rejected() {
 /// some unrelated reason.
 #[test]
 fn consistent_indentation_is_accepted() {
-  let flat = "main :: ()\nmain =\n  print 1\n  print 2\n";
+  let flat = "main : ()\nmain =\n  print 1\n  print 2\n";
   assert!(lex(flat).is_ok(), "two lines at one level should lex");
 
   // A deeper line opens a block, and dedenting back to a level the stack
   // holds closes it. This is the case the first negative attempt used, and it
   // is *correct* Redox — which is why it belongs here instead.
-  let nested = "main :: ()\nmain =\n  if c\n    print 1\n  print 2\n";
+  let nested = "main : ()\nmain =\n  if c\n    print 1\n  print 2\n";
   assert!(lex(nested).is_ok(), "a nested block should lex");
 }

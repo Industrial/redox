@@ -61,10 +61,15 @@ mod tests {
   /// The narrowed span must cover a whole character, not a byte of one.
   #[test]
   fn narrows_to_a_whole_multibyte_character() {
-    // `x :: ()\n` is 8 bytes and `x =\n` is 4, so the body's two spaces are
-    // at 12 and 13 and `é` — two bytes — is 14..16, on line 3 column 3.
-    let src = "x :: ()\nx =\n  é\n";
-    let span = (14, 16);
+    // `x : ()\n` is 7 bytes and `x =\n` is 4, so the body's two spaces are
+    // at 11 and 12 and `é` — two bytes — is 13..15, on line 3 column 3.
+    //
+    // Every number in those two lines moved by one when plan 52 made the
+    // type marker `:` rather than `::`, which is the hazard of deriving an
+    // offset in a comment: the arithmetic is only checked by the assertion
+    // two lines down, and that assertion is the one that caught it.
+    let src = "x : ()\nx =\n  é\n";
+    let span = (13, 15);
     assert_eq!(&src[span.0..span.1], "é", "the premise of this test");
     let got = narrow(span, src, 3, 3);
     assert_eq!(&src[got.0..got.1], "é");

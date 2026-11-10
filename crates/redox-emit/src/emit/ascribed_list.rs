@@ -2,12 +2,12 @@ use crate::emit::expr_list::expr_list;
 use crate::emit::unparen::unparen;
 use redox_ast::{Expr, TypeExpr};
 
-/// Doc 18 §6's third disclosed lowering: `[a, b] :: C<_>` becomes
+/// Doc 18 §6's third disclosed lowering: `[a, b] : C<_>` becomes
 /// `C::from([a, b])`.
 ///
 /// ```text
-/// seen = [1, 2] :: HashSet<i32>    HashSet::from([1, 2])
-/// xs   = [1, 2] :: Vec<i32>        Vec::from([1, 2])
+/// seen = [1, 2] : HashSet<i32>    HashSet::from([1, 2])
+/// xs   = [1, 2] : Vec<i32>        Vec::from([1, 2])
 /// ```
 ///
 /// Type-free, and §6 says why: **the container is named in the ascription**,
@@ -26,8 +26,8 @@ use redox_ast::{Expr, TypeExpr};
 ///
 /// **This is the ascription's value, not a replacement for it.** §6's table
 /// writes the whole lowering as `C::from([a, b])`, and that drops the type's
-/// generic arguments: `[] :: Vec<i32>` becomes `Vec::from([])` with nothing
-/// to infer the element from, and `[1, 2] :: Vec<i64>` becomes a `Vec<i32>`
+/// generic arguments: `[] : Vec<i32>` becomes `Vec::from([])` with nothing
+/// to infer the element from, and `[1, 2] : Vec<i64>` becomes a `Vec<i32>`
 /// because an unsuffixed integer literal defaults. Emitting it *inside* the
 /// ascription block keeps the type exactly as written and still converts —
 /// `{ let __rdx_t: Vec<i64> = Vec::from([1, 2]); __rdx_t }` — so the two

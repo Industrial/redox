@@ -6,6 +6,6 @@
 -- An unterminated group was tried next and is a *lexer* error (`RDX0012`),
 -- not a parse one. A statement that begins with a binary operator has
 -- nowhere left to go: `+` is not a prefix operator in any reading.
-main :: ()
+main : ()
 main =
   + 1

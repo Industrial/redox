@@ -39,7 +39,7 @@ pub fn build(request: &BuildRequest) -> Result<BuildResponse, String> {
     }
   };
 
-  let diagnostics = redox_driver::lint(path, &source);
+  let diagnostics = redox_driver::lint(path, &source, Some(&program));
   let (rust, map) = redox_emit::emit_with_map(&program, &source, &request.path);
 
   let output = path.with_extension("xrs");

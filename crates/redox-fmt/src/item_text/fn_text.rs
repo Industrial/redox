@@ -11,7 +11,7 @@ use redox_ast::FnDecl;
 ///
 /// The visibility is **not** printed here. It is part of the signature line,
 /// which is sliced, so printing it as well would double it — `export export
-/// hello :: …`. For a declaration with no signature line the marker is in the
+/// hello : …`. For a declaration with no signature line the marker is in the
 /// equation line instead, which the parser also puts inside the clause's own
 /// text, so neither shape needs it from the tree. Written down because the
 /// asymmetry with every other item kind looks like an omission.

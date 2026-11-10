@@ -5,15 +5,15 @@
 -- collided would not compile, and an assertion lowered to the wrong macro
 -- would pass when it should fail.
 
-add :: i32 -> i32 -> i32
+add : i32 -> i32 -> i32
 add a b = a + b
 
-halve :: i32 -> Option<i32>
+halve : i32 -> Option<i32>
 halve n
   | n % 2 == 0 = Some (n / 2)
   | otherwise = None
 
-main :: ()
+main : ()
 main =
   print (add 1 2)
   print ((halve 4).is_some ())

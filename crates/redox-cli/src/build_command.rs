@@ -25,7 +25,7 @@ pub(crate) fn build_command(args: &[String]) -> Result<(), String> {
   // After the parse, because a warning about a program nobody can compile is
   // noise, and before the write, so the author sees it with the build they
   // asked for rather than on the next one.
-  let warnings = redox_driver::lint(&args.input, &source);
+  let warnings = redox_driver::lint(&args.input, &source, Some(&program));
   if !warnings.is_empty() {
     eprint!("{}", redox_diag::render(&warnings, args.plain));
   }

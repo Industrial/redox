@@ -2,10 +2,10 @@
 -- running the generated Rust — an update lowered to the wrong order prints
 -- the wrong number.
 
-data Point = Point { x :: i32, y :: i32 }
+data Point = Point { x : i32, y : i32 }
   deriving (Debug, Clone, PartialEq)
 
-main :: ()
+main : ()
 main =
   -- Construction. `=` for a value, against `::` for a type.
   p = Point { x = 10, y = 20 }

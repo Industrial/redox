@@ -67,4 +67,10 @@
 (attribute) @attribute
 
 [ "(" ")" "[" "]" "{" "}" ] @punctuation.bracket
-[ "," ";" "|" "=" "->" "=>" "\\" "::" ] @punctuation.delimiter
+; `:` and not `::` since plan 52: `:` introduces a type in every position that
+; has one, and `::` is a path separator that never stands alone — a path lexes
+; as one `(path)` token and the `_type_punctuation` run inside a signature is
+; hidden, so `"::"` is no longer a node this query could name. A query naming a
+; node the grammar does not have is an error rather than a no-op, which is what
+; `the_highlight_query_loads_and_matches` catches.
+[ "," ";" "|" "=" ":" "->" "=>" "\\" ] @punctuation.delimiter

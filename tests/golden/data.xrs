@@ -11,7 +11,8 @@
 //
 // `crates/redox-emit/tests/data.rs` covers the record variant. This file
 // covers what runs: unit variants, a constructor in scope under its own name,
-// a tuple struct whose field *is* read, an alias, and `deriving`.
+// a tuple struct whose field *is* read — one spelled `newtype` and one
+// spelled `data`, which is plan 53's distinction — an alias, and `deriving`.
 
 // Several constructors make an `enum`, and a constructor is in scope under
 // its own name as it is in Haskell — which is what keeps the `case` arm
@@ -23,9 +24,20 @@ enum Event {
 }
 use Event::*;
 
-// A single-field tuple struct. `newtype` and `data` lower identically here,
-// because Rust has one such form and not two.
+// A single-field tuple struct, twice, because the two keywords no longer
+// agree — plan 53 leaf 3. `newtype` is the single-field case, so it carries
+// `#[repr(transparent)]`; `data` promises nothing about layout and does not.
+//
+// This comment used to say they "lower identically here, because Rust has one
+// such form and not two". The second half is true and the first was the
+// reason to stop: a keyword that means exactly what another keyword means is
+// a keyword with nothing to say, and three further doc comments described the
+// distinction as meaningful while the emitter ignored it. `tests/golden/data.xrs`
+// is where the difference is now visible.
+#[repr(transparent)]
 struct Meters(f64);
+
+struct Celsius(f64);
 
 // The one declaration form that is already Rust.
 type Depth = f64;
@@ -42,9 +54,17 @@ fn depth(m: Meters) -> Depth {
     m.0
 }
 
+// The `data` half of the contrast. Its field is read for the same reason
+// every other declared thing here is used: this corpus requires rustc to emit
+// nothing, so an unread field is a `dead_code` warning and a red gate.
+fn warmer(c: Celsius) -> f64 {
+    c.0 + 1.0
+}
+
 fn main() {
     println!("{}", describe(Close));
     println!("{}", describe(Click));
     println!("{}", depth(Meters(5.0)));
     println!("{}", depth(Meters(1.5)));
+    println!("{}", warmer(Celsius(20.0)));
 }

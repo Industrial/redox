@@ -98,6 +98,52 @@ pub enum Code {
   /// is a handful.
   NestingTooDeep,
 
+  /// A `::` with whitespace before it — plan 52 criterion 2.
+  ///
+  /// `::` joins a path, and a path is written tight in both Rust and Redox.
+  /// Before plan 52 a *spaced* `::` ascribed a type, which made this the one
+  /// place in the language where a space changed meaning; plan 52 gave
+  /// ascription its own token and retired the rule.
+  ///
+  /// What it did not retire was the old spelling in anybody's fingers. Left
+  /// alone, `y = x :: u64` is consumed as the path `x::u64` — `u64` is a
+  /// perfectly good segment — and the first sign of trouble is rustc
+  /// reporting an unresolved path against a line the author did not write.
+  /// That is the exact failure mode doc 18 §5.2's whitespace rule existed to
+  /// prevent, so retiring the rule has to come with this diagnostic rather
+  /// than with silence.
+  ///
+  /// Detected from spans alone: a gap between the previous token's end and
+  /// the `::`'s start is whitespace. The rule is positional, not a guess
+  /// about what the author meant.
+  SpacedPathSeparator,
+
+  /// `RDX0111` — a `newtype` that is not one constructor over one field.
+  ///
+  /// Plan 53 leaf 2. `newtype` is `data` narrowed to Haskell's shape, and
+  /// before this code the narrowing was nowhere: `data_decl.rs` set
+  /// `is_newtype` and never read it again, so `newtype Bad = Bad f64 f64`
+  /// emitted a two-field tuple struct and `newtype Multi = A | B` emitted an
+  /// **enum**, both silently and both exit 0. A keyword that constrains
+  /// nothing is doc 02 §5.2's failure mode spelled as vocabulary.
+  ///
+  /// **One code, three messages** — no field, two-or-more fields,
+  /// two-or-more constructors. A code names a *rule*, and there is one rule
+  /// here: the shape `newtype` promises. The remedy is also one word in all
+  /// three cases, `data`, so three codes would publish three rules a reader
+  /// then has to work out are the same one. `UnterminatedString` and
+  /// `UnterminatedRawString` are two codes because they are two constructs
+  /// with two different closing delimiters; these are three readings of one
+  /// arity.
+  ///
+  /// **rustc is not a backstop for most of it.** Plan 53 §6 claimed a bad
+  /// payload was *"rejected by rustc, not by Redox"*; §11.3 measured it and
+  /// only the multi-field case gets `E0690` —
+  /// `#[repr(transparent)] pub struct Unit;` compiles clean. So for
+  /// `newtype Foo = Foo` this check is the only thing between the author and
+  /// a keyword that quietly meant nothing.
+  NewtypeShape,
+
   // ---- lints: RDX1000+ ----
   /// `unwrap` or `expect` used — doc 03 §12.7, plan 38.
   ///
@@ -110,6 +156,22 @@ pub enum Code {
   /// `unwrap` warns too. Plan 38 §1.5 takes that trade: the warning is
   /// suppressible, and the alternative needs a type checker AGENTS.md forbids.
   UnwrapUsed,
+  /// `RDX1002` — `RDX1001` suppressed by the **comment** pragma, which is
+  /// deprecated in favour of `#[redox::allow(unwrap)]`.
+  ///
+  /// Plan 53 leaf 5. Plan 38 §1.3 put the pragma in a comment on the
+  /// argument that a comment *"reaches nothing downstream"*; plan 53 §1.3
+  /// reverses it on evidence plan 38 did not have — plan 48 found `redox fmt`
+  /// **deleting** four doc comments from a `.sdx`, so a comment is not safe
+  /// *upstream*. A suppression a formatter run can silently remove turns a
+  /// deliberate pragma into a surprise `RDX1001`, or removes the record of
+  /// why a panic was acceptable.
+  ///
+  /// A **warning about a warning's spelling**, so it is in the lint band and
+  /// not the syntactic one: the comment still suppresses, the build still
+  /// succeeds, and the author is told what to write instead. Removal is plan
+  /// 64's, with the rest of the comment-carried semantics.
+  CommentAllowPragma,
 
   // ---- doc 03 §17's published surface codes: RDX0040-RDX0099 ----
   /// `return` inside a `with` callback's tail — doc 03 §7.6, plan 30.
@@ -162,8 +224,11 @@ impl Code {
       Self::PatternUntil => 107,
       Self::EllipsisRestPattern => 108,
       Self::NestingTooDeep => 109,
+      Self::SpacedPathSeparator => 110,
+      Self::NewtypeShape => 111,
       // Doc 03 §17's published number, and the first in the lint band.
       Self::UnwrapUsed => 1001,
+      Self::CommentAllowPragma => 1002,
       // Doc 03 §17's published assignment, not the next free number.
       Self::ReturnInCallbackTail => 44,
     }
@@ -199,7 +264,10 @@ impl Code {
       Self::PatternUntil,
       Self::EllipsisRestPattern,
       Self::NestingTooDeep,
+      Self::SpacedPathSeparator,
+      Self::NewtypeShape,
       Self::UnwrapUsed,
+      Self::CommentAllowPragma,
       Self::ReturnInCallbackTail,
     ]
   }

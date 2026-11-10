@@ -7,7 +7,7 @@ use redox_ast::{Constraint, Signature};
 /// doc 18 §§2.2 and 5.3.
 ///
 /// ```text
-/// largest :: Ord t => &[t] -> &t     fn largest<T>(xs: &[T]) -> &T
+/// largest : Ord t => &[t] -> &t     fn largest<T>(xs: &[T]) -> &T
 ///                                    where
 ///                                        T: Ord,
 /// ```
@@ -24,11 +24,11 @@ use redox_ast::{Constraint, Signature};
 ///    throughout the parameter and return types.
 ///
 /// A signature with no variables is left exactly as it was, which is what
-/// keeps `add :: i32 -> i32 -> i32` emitting the Rust it emitted before any
+/// keeps `add : i32 -> i32 -> i32` emitting the Rust it emitted before any
 /// of this existed.
 ///
 /// `reserved` names variables that are **not** the method's own: inside a
-/// `class Shape t`, the `t` in `area :: &t -> f64` is the implementing type,
+/// `class Shape t`, the `t` in `area : &t -> f64` is the implementing type,
 /// so making it a generic parameter of `area` produces
 /// `fn area<T>(__rdx_a0: &T)` where the trait wanted `fn area(&self)`. Found
 /// exactly that way — the class example stopped compiling the moment

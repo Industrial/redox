@@ -8,7 +8,7 @@
 ///   class variable". More than one spelling names that type, so
 ///   `receiver_names` is a list: `Self` always, the class variable when there
 ///   is one, and the target's own name in an `instance`, because
-///   `instance Shape Square` writes `area :: &Square -> f64`.
+///   `instance Shape Square` writes `area : &Square -> f64`.
 /// - **what the class variable means in Rust** — `Self` inside a class, where
 ///   the variable *is* the implementing type, and the impl's generic
 ///   parameter inside an instance, where it is a type parameter.

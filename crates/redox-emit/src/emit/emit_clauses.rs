@@ -20,7 +20,7 @@ use redox_ast::FnDecl;
 /// **Anything else** emits one `match` over the parameters:
 ///
 /// ```text
-/// fib :: u64 -> u64            fn fib(__rdx_a0: u64) -> u64 {
+/// fib : u64 -> u64            fn fib(__rdx_a0: u64) -> u64 {
 /// fib 0 = 0                        match __rdx_a0 {
 /// fib 1 = 1                            0 => 0,
 /// fib n = fib (n - 1) + …              1 => 1,
