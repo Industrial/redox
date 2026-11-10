@@ -21,7 +21,7 @@ main =
   -- One generator. `collect` carries no turbofish, so the type comes from the
   -- ascription — which is §3.2's own spelling.
   doubled = [ n * 2 | n in xs ] : Vec<i32>
-  print (doubled |> .iter |> sum : i32)
+  print (doubled |> .iter |> .sum : i32)
 
   -- A guard. `filter_map` hands the closure the *value*, so the guard reads
   -- as written — §3.2's own lowering uses `filter`, whose closure receives a

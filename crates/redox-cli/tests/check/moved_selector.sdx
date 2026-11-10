@@ -22,7 +22,7 @@ data Profile
   = Profile { tag : Tag }
 
 tags : &Vec<Profile> -> Vec<Tag>
-tags ps = ps |> iter |> map (.tag) |> collect
+tags ps = ps |> .iter |> .map (.tag) |> .collect
 
 main : ()
 main =

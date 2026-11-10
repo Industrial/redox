@@ -1,57 +1,81 @@
 use crate::emit::expr::emit_expr;
 use crate::emit::expr_list::expr_list;
+use crate::emit::pipeline::callable::callable;
 use crate::emit::receiver::receiver;
 use crate::emit::unparen::unparen;
 use redox_ast::Expr;
 
-/// Lower doc 18 §4's receiver pipeline: `a |> f` becomes `a.f()`.
+pub(crate) mod callable;
+
+/// Lower `|>` as **reverse application**: `x |> f` is `f x`, for any `f`.
 ///
 /// ```text
-/// numbers |> iter |> map f |> sum   numbers.iter().map(f).sum()
+/// raw |> normalise |> parse        parse(normalise(raw))
+/// xs |> .map f |> .sum             xs.map(f).sum()
+/// 5 |> double >>> bump             (|__rdx_1| bump(double(__rdx_1)))(5)
 /// ```
 ///
-/// The right operand is an **application** (doc 18 §2.1), and the lowering
-/// takes it apart: its head becomes the method name and its arguments become
-/// the call's arguments, with the left operand inserted as the receiver. So
-/// `xs |> map f` is `xs.map(f)` — one method call, not a call of a call.
+/// Plan 58 (`docs/52 - 58 - The Reverse Pipeline.md`). Before this row the
+/// operator was *receiver sugar* — `x |> f` emitted `x.f()` — which is not
+/// what the token means anywhere else it exists, and the difference was not
+/// cosmetic: **you could not pipe into your own functions.** `5 |> double`
+/// emitted `5.double()` and earned `E0599: no method named `double` found for
+/// `{integer}``, and the dangerous case was quieter still — if any trait in
+/// scope happened to have a method of that name, the pipeline compiled and
+/// called the method instead, so adding an import could change what an
+/// existing pipeline meant.
 ///
-/// This is the pipeline doc 03 §8.3 specified and doc 18 §4 keeps unchanged.
-/// Doc 18 explains why it is `|>` and not Haskell's spelling: composition is
-/// `.`, which in Redox is field access — the one Haskell token that cannot be
-/// had at any price — and reverse application is `&`, which is Rust's
-/// reference sigil. So the pipeline keeps Elm's and F#'s spelling.
+/// # The piped value is the **last** argument
 ///
-/// Nesting falls out of recursion, because the left operand of a `|>` is
-/// itself whatever the previous `|>` produced.
+/// Plan 57 §1.2 is the reason, and it is the only order that lets reverse
+/// application and partial application share one spelling: a method is a
+/// function whose receiver is its last argument, and partial application
+/// supplies arguments from the left. So `a |> f x` is `f(x, a)` and not
+/// `f(a, x)` — which is also what makes `a |> f x` and `f x a` the same
+/// program, as reverse application requires.
+///
+/// # Why two of the four arms did not change
+///
+/// `.name` and `.name args` already put their receiver last, so plan 57's
+/// lowering *is* reverse application for a method and needed nothing here.
+/// What changed is the two arms that read a bare name as a method: those are
+/// now ordinary calls, which is the whole of this row's output.
+///
+/// This is also the row that made plan 66's composition usable. `5 |> double
+/// >>> bump` fell to the bare-name arm and emitted
+/// `5.|__rdx_1| bump(double(__rdx_1))()` — not valid Rust at all — because a
+/// closure is not a method name. Composition landed first and was unreachable
+/// through a pipeline until now.
 pub(crate) fn pipeline(lhs: &Expr, rhs: &Expr, indent: usize) -> String {
-  // Parenthesised when `.` would bind tighter than the left operand does:
-  // `1 .. 3 |> count` is `(1..3).count()`, not `1..3.count()`. The defect
-  // was here from the day the pipeline landed and went unexercised because
-  // no example piped from an operator expression.
-  let left = receiver(lhs, indent);
-
   match unparen(rhs) {
     // `a |> .name args` and `a |> .name` — plan 57's method-as-function,
-    // matched **before** the two arms below. §11.1 is the trap: the `other =>`
-    // arm appends `()`, so a zero-argument `x |> .name` falling through to it
-    // lowers to `x.(|__rdx_1| __rdx_1.name())()`. The two readings agree on
-    // the text — the pipeline inserts the receiver, and under plan 58's
-    // reverse application `.name args` awaits its last argument — which is
-    // why 57 need not assume either meaning of `|>`.
-    Expr::MethodRef { name, .. } => format!("{left}.{}()", name.text),
+    // matched **before** the two arms below. §11.1 is the trap: the bare-name
+    // arm appends the piped value as an argument, so a zero-argument
+    // `x |> .name` falling through to it would lower to a call of a closure.
+    //
+    // `receiver` rather than `emit_expr` for the left operand here, and only
+    // here: `1 .. 3 |> .count` is `(1..3).count()`, not `1..3.count()`, which
+    // is a question a method call asks and a function call does not.
+    Expr::MethodRef { name, .. } => format!("{}.{}()", receiver(lhs, indent), name.text),
     Expr::Call { callee, args, .. } if let Expr::MethodRef { name, .. } = unparen(callee) => {
-      format!("{left}.{}({})", name.text, expr_list(args, indent))
-    }
-    // `a |> f x y` — the head names the method, the arguments come after.
-    Expr::Call { callee, args, .. } => {
       format!(
-        "{left}.{}({})",
-        emit_expr(unparen(callee), indent),
+        "{}.{}({})",
+        receiver(lhs, indent),
+        name.text,
         expr_list(args, indent)
       )
     }
-    // `a |> f` — a bare name is a no-argument method call. This is the case
-    // that makes a pipeline read like a chain: `xs |> iter |> sum`.
-    other => format!("{left}.{}()", emit_expr(other, indent)),
+    // `a |> f x y` — the piped value joins the argument list, last.
+    Expr::Call { callee, args, .. } => {
+      let mut supplied: Vec<String> = args.iter().map(|a| emit_expr(a, indent)).collect();
+      supplied.push(emit_expr(lhs, indent));
+      format!(
+        "{}({})",
+        callable(unparen(callee), indent),
+        supplied.join(", ")
+      )
+    }
+    // `a |> f` — reverse application proper, and the case the row exists for.
+    other => format!("{}({})", callable(other, indent), emit_expr(lhs, indent)),
   }
 }

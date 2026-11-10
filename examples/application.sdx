@@ -57,9 +57,9 @@ chained = .len (show 3)
 evens_doubled : Vec<i32> -> usize
 evens_doubled xs = xs
   |> .iter
-  |> filter (\n -> *n % 2 == 0)
-  |> map (\n -> n * 2)
-  |> count
+  |> .filter (\n -> *n % 2 == 0)
+  |> .map (\n -> n * 2)
+  |> .count
 
 main : ()
 main =

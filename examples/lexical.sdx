@@ -19,7 +19,7 @@ main =
     indented
       relative
   """
-  chain = items |> map (+1) |> filter (> 0)
+  chain = items |> .map (+1) |> .filter (> 0)
   maybe = lookup id ?? "none"
   guarded = parse s catch 0
   spread = [0, ...rest, 9]

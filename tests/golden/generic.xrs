@@ -12,6 +12,11 @@
 // correction.
 // Written over an `Option` rather than a slice because an array literal is
 // not parsed yet, and this corpus requires the program to *run*.
+// `.unwrap` became **visible to `RDX1001`** when plan 58 marked it as a
+// method: a bare `unwrap` at the end of a pipeline was a method name the lint
+// could not see, and the same program now reads as the unwrap it always was.
+// A true positive, suppressed rather than hidden — the `Option` is this
+// function's whole subject.
 fn largest<T>(xs: Option<T>) -> T
 where
     T: Ord,

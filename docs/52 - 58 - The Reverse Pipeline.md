@@ -379,7 +379,60 @@ is gone, it builds the collision deliberately and asserts both spellings resolve
 
 ## 10. Result
 
-*Not yet executed.*
+**Done 2026-11-10.** `|>` is reverse application: `x |> f` is `f x` for any `f`, and the piped
+value is the **last** argument per plan 57 §1.2. The composition half of this row had already
+shipped with plan 66, so what landed here is the half that makes it usable.
+
+### 10.1 Composition was unreachable through a pipeline, and nothing said so
+
+Plan 66 landed `>>>` and `<<<` complete — tokens, precedence, `compose_chain`, sections,
+`capture_type`, continuation. But `|>` was still receiver sugar, so a composition reached
+through a pipeline fell to the bare-name arm and emitted:
+
+```text
+5 |> double >>> bump   ->   5.|__rdx_1| bump(double(__rdx_1))()
+```
+
+Not valid Rust at all — a closure is not a method name. Measured at `36a7309`, after 66 was
+`done` and green. The gate could not see it because **no corpus file piped into a composition**,
+which is plan 51's subject arriving in the row that depends on it. Both operators were in the
+language and one of their two use sites was broken.
+
+That is the argument for this row's ordering being wrong rather than for its content being
+wrong: 66 was shippable without 58 only because nothing exercised the combination.
+
+### 10.2 Two of the four arms did not change, and that is why the migration was free
+
+`.name` and `.name args` already put their receiver last — plan 57's lowering *is* reverse
+application for a method — so only the two arms that read a bare name as a method moved. The
+corpus's pipelines are all iterator methods (§1.1 counted them), so the migration is the dot
+plan 57 introduced, applied 21 times across 9 files.
+
+**No `.xrs` moved.** Every corpus pipeline emits byte-identical Rust before and after, which is
+plan 52's definition of correctness for a surface row and the strongest evidence that reverse
+application and receiver sugar agree wherever the receiver is marked.
+
+### 10.3 The migration made a lint visible, which is a true positive
+
+`examples/generic.sdx` ends a pipeline in `.unwrap`. As a bare `unwrap` it was a method name
+`RDX1001` could not see; marked, it reads as the unwrap it always was. Suppressed with plan 53's
+`#[redox::allow(unwrap)]` and a reason, because the `Option` is that function's whole subject.
+
+One UI fixture was **not** migrated: `tests/ui/retired_pipeline_section.sdx` exists to assert
+that `(|> name)` still fails, so dotting it would have changed what it tests. A mechanical sweep
+caught it; reading the sweep's output is what kept it.
+
+### 10.4 What is outstanding
+
+**The emitter still cannot break a long chain.** `examples/application.sdx` records the defect
+and names this row as its owner: the emitter joins a chain onto one line whatever its width, and
+rustfmt breaks one wider than `chain_width` across lines, so a fifth stage turns
+`generated_rust_is_rustfmt_clean` red. That example still stays inside 60 characters
+deliberately. This row did not take it, because reverse application turned out not to widen any
+existing chain — the dot is one character per stage and no corpus chain crossed the limit. It is
+owed and it is now the only thing between the corpus and arbitrarily long pipelines.
+
+`$` is unchanged and stays, per §1.4 and §9 decision 4.
 
 ---
 

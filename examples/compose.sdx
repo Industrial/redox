@@ -26,7 +26,7 @@ shout s = .to_uppercase s
 -- `<` tokens. And `>>>` deliberately does not continue a line, for the reason
 -- `>` and `>>` do not: it closes a type far more often than it dangles.
 wide : Vec<Vec<Vec<i32>>> -> usize
-wide rows = rows |> iter |> map (\r -> .len r) |> sum
+wide rows = rows |> .iter |> .map (\r -> .len r) |> .sum
 
 deep : Vec<Vec<Vec<i32>>>
 deep = .to_vec ([.to_vec ([.to_vec ([1, 2])])])
@@ -35,7 +35,7 @@ deep = .to_vec ([.to_vec ([.to_vec ([1, 2])])])
 -- The lowering is one method chain rather than two closures called in place:
 -- `|__rdx_1| __rdx_1.trim().len()`.
 lengths : Vec<&str> -> usize
-lengths xs = xs |> iter |> map (.trim >>> .len) |> sum
+lengths xs = xs |> .iter |> .map (.trim >>> .len) |> .sum
 
 -- A mixed chain, which is legal and left-associative: `a >>> b <<< c` reads
 -- as `(a >>> b) <<< c`, so `c` applies first. Refusing a mixed chain would be
@@ -45,7 +45,7 @@ lengths xs = xs |> iter |> map (.trim >>> .len) |> sum
 -- It is also the token run `construct_coverage` indexes the pair with, for a
 -- reason the witness records: `>>>` on its own is a type's triple closer too.
 best : Option<&str> -> Option<usize>
-best v = v |> map (.trim >>> .len <<< .to_string)
+best v = v |> .map (.trim >>> .len <<< .to_string)
 
 main : ()
 main =
