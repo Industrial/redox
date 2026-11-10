@@ -1,31 +1,46 @@
+/// One juxtaposed argument, or a call's callee, parenthesised unless it can stand alone.
 pub(crate) mod argument;
 
+/// Whether a parenthesis is redundant at the surrounding binding power.
 pub(crate) mod can_drop_paren;
 
+/// A comma-separated run of expressions, with no trailing comma.
 pub(crate) mod comma_list;
 
+/// A comprehension — `[ n * 2 | n in xs, n > 0 ]`.
 pub(crate) mod comprehension_text;
 
+/// An application the author spelled with `$`.
 pub(crate) mod dollar_text;
 
+/// A lambda — `\n -> n + 1`.
 pub(crate) mod lambda_text;
 
+/// A literal, verbatim from the source.
 pub(crate) mod literal_text;
 
+/// A macro invocation — `name! \-> e`.
 pub(crate) mod macro_call_text;
 
+/// One side of a binary expression, parenthesised only where precedence needs it.
 pub(crate) mod operand;
 
+/// A receiver pipeline, on one line or one stage per line.
 pub(crate) mod pipeline_text;
 
+/// How tightly an expression binds, where the question applies.
 pub(crate) mod power_of;
 
+/// One expression in receiver position, parenthesised only when it cannot take a postfix.
 pub(crate) mod receiver;
 
+/// A record literal — `Point { x = 3.0, y = 4.0 }`.
 pub(crate) mod record_text;
 
+/// A `rust` escape hatch, printed in the layout spelling.
 pub(crate) mod rust_hatch_text;
 
+/// An operator or accessor section — `(> 0)`, `(+ 1)`, `(.age)`.
 pub(crate) mod section_text;
 
 use crate::expr_text::argument::argument;

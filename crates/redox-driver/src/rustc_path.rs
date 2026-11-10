@@ -1,3 +1,4 @@
+/// Whether a candidate answers `--version` the way rustc itself does.
 pub(crate) mod is_real_rustc;
 
 use crate::rustc_path::is_real_rustc::is_real_rustc;

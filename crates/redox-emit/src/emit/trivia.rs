@@ -1,3 +1,4 @@
+/// One comment line, with its marker and no trailing space when empty.
 pub(crate) mod line;
 
 use crate::emit::pad::pad;

@@ -1,3 +1,4 @@
+/// What a piece of [`crate::Trivia`] is.
 pub(crate) mod kind;
 
 use crate::{Span, TriviaKind};
@@ -17,6 +18,7 @@ pub struct Trivia {
 }
 
 impl Trivia {
+  /// A comment of the given form, with its text and span.
   pub(crate) fn comment(kind: TriviaKind, text: String, span: Span) -> Self {
     Self { kind, text, span }
   }

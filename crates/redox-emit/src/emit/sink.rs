@@ -13,16 +13,19 @@ use redox_diag::{Origin, SourceMap, Span};
 /// lines it will produce — which it generally cannot know, since a nested
 /// construct may add some.
 pub(crate) struct Sink<'a> {
+  /// The generated Rust so far.
   out: String,
   /// The source text, needed to resolve a span to a line and column. Borrowed
   /// rather than copied because the emitter already outlives it.
   source: &'a str,
+  /// The span every line begun from now on is attributed to.
   current: Option<Span>,
   /// One entry per *completed* line; the line being built is still `current`.
   origins: Vec<Option<Origin>>,
 }
 
 impl<'a> Sink<'a> {
+  /// An empty sink over a source, attributing nothing yet.
   pub(crate) fn new(source: &'a str) -> Self {
     Self {
       out: String::new(),
@@ -42,14 +45,17 @@ impl<'a> Sink<'a> {
     self.current = None;
   }
 
+  /// Append one character.
   pub(crate) fn push(&mut self, ch: char) {
     self.write_text(&ch.to_string());
   }
 
+  /// Append a string.
   pub(crate) fn push_str(&mut self, s: &str) {
     self.write_text(s);
   }
 
+  /// Remove the last character, un-recording its line if it ended one.
   pub(crate) fn pop(&mut self) -> Option<char> {
     let ch = self.out.pop();
     if ch == Some('\n') {
@@ -58,10 +64,12 @@ impl<'a> Sink<'a> {
     ch
   }
 
+  /// Whether the output so far ends with a string.
   pub(crate) fn ends_with(&self, s: &str) -> bool {
     self.out.ends_with(s)
   }
 
+  /// Whether nothing has been emitted yet.
   pub(crate) fn is_empty(&self) -> bool {
     self.out.is_empty()
   }

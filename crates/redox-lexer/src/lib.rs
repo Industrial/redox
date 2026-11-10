@@ -25,11 +25,16 @@
 //! file, grouped into a module tree, modules private, public items
 //! re-exported here so callers see a flat namespace.
 
+/// Tokenize a source.
 mod lex;
+/// The off-side-rule scanner.
 mod lexer;
 
+/// A token, its span, and the trivia preceding it.
 mod token;
+/// Non-semantic source text that must survive to the emitter.
 mod trivia;
+/// The body of a `"""…"""` literal, undecoded.
 mod verbatim_triple;
 
 pub use lex::error::LexError;

@@ -1,3 +1,4 @@
+/// One tool's answer as structured JSON.
 pub(crate) mod content;
 
 use crate::build::request::BuildRequest;

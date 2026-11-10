@@ -1,3 +1,4 @@
+/// A diagnostic for something that failed outside the source text.
 pub(crate) mod io_diagnostic;
 
 use redox_diag::Diagnostic;

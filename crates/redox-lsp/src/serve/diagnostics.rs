@@ -1,4 +1,6 @@
+/// One Redox diagnostic as the protocol's.
 pub(crate) mod convert;
+/// A filesystem path for a `file:` URI.
 pub(crate) mod path_of;
 
 use crate::serve::diagnostics::convert::convert;

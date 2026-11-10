@@ -6,6 +6,8 @@
 /// point nowhere while looking exactly like one that pointed somewhere.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Cached {
+  /// The generated Rust.
   pub(crate) rust: String,
+  /// The source map that goes with it.
   pub(crate) map: String,
 }

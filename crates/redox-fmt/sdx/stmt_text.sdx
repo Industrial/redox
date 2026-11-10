@@ -1,11 +1,20 @@
+-- | A binding — `n = 0`, `mut n = 0`, `n : u64 = 0`.
 export(crate) module binding_text
+-- | A block's statements, one per line.
 export(crate) module block_text
+-- | One `case` arm — `pattern -> body`, with an optional guard.
 export(crate) module case_arm_text
+-- | A block element's code, with its first line unindented.
 export(crate) module code_text
+-- | A condition — operands joined by `&&`, each an expression or a pattern test.
 export(crate) module condition_text
+-- | An `if` statement's `else` branch, or nothing.
 export(crate) module else_text
+-- | The leading whitespace for a given depth.
 export(crate) module indent_text
+-- | A loop label, with its trailing space — or nothing.
 export(crate) module label_text
+-- | One trivium as Redox source: a comment, an attribute, or a blank line.
 export(crate) module trivia_text
 
 import crate::item_text::item_text

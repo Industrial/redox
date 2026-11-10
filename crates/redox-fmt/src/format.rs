@@ -1,3 +1,4 @@
+/// A formatted file's text with exactly one final newline.
 pub(crate) mod trimmed_tail;
 
 use crate::format::trimmed_tail::trimmed_tail;

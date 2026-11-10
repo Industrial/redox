@@ -1,11 +1,20 @@
+-- | A binary operator, named rather than spelled.
 export(crate) module binary_op
+-- | One arm of a `case … of`.
 export(crate) module case_arm
+-- | One `name = value` field of a record literal.
 export(crate) module field_init
+-- | An identifier and where it came from.
 export(crate) module ident
+-- | One qualifier to the right of a comprehension's bar.
 export(crate) module qualifier
+-- | A section: an operator with one side supplied.
 export(crate) module section
+-- | One piece of an interpolated string.
 export(crate) module str_interp_part
+-- | A type, captured as its verbatim source text.
 export(crate) module type_expr
+-- | A unary prefix operator.
 export(crate) module unary_op
 
 import crate::expr::case_arm::CaseArm

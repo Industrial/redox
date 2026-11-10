@@ -1,32 +1,62 @@
+-- | A `class` declaration — Rust's `trait`.
 export(crate) module class_decl
+-- | One member of a `class` or `instance` body.
 export(crate) module class_member
+-- | One equation of a function.
 export(crate) module clause
+-- | A clause's right-hand side.
 export(crate) module clause_body
+-- | A module-scope `const` or `static`.
 export(crate) module const_decl
+-- | One `Trait t` constraint, from a `=>` clause.
 export(crate) module constraint
+-- | One constructor of a `data` declaration.
 export(crate) module constructor
+-- | What a constructor carries.
 export(crate) module constructor_fields
+-- | A `data` or `newtype` declaration.
 export(crate) module data_decl
+-- | One row of an `errors` declaration.
 export(crate) module error_variant
+-- | An `errors` declaration.
 export(crate) module errors_decl
+-- | An `extern` block.
 export(crate) module extern_block
+-- | One `name : Type` field of a record constructor.
 export(crate) module field_decl
+-- | A signature line and the equations that define it.
 export(crate) module fn_decl
+-- | One declaration inside an `extern` block.
 export(crate) module foreign_fn
+-- | One `| cond = body` row of a guard ladder.
 export(crate) module r#guard
+-- | An `import` declaration.
 export(crate) module import_decl
+-- | The inline Rust escape hatch.
 export(crate) module inline_rust
+-- | An `instance` declaration — Rust's `impl`.
 export(crate) module instance_decl
+-- | An item's leading trivia — its comments and attributes.
 export(crate) module leading
+-- | A `module` declaration.
 export(crate) module module_decl
+-- | One parameter in a signature.
 export(crate) module param
+-- | A pattern in an equation's binder position.
 export(crate) module pattern
+-- | Whether a lowercase name is one of Rust's primitive type names.
 export(crate) module primitive_type
+-- | One field of a record pattern — `x` or `x = 0`.
 export(crate) module record_pattern_field
+-- | A function's parameters and return type.
 export(crate) module signature
+-- | A `test` block.
 export(crate) module test_decl
+-- | A `type` alias.
 export(crate) module type_alias
+-- | A type written by juxtaposition: `Wrapper t`, `Pair k v`.
 export(crate) module type_app
+-- | An item's or field's visibility.
 export(crate) module visibility
 
 import crate::FnDecl

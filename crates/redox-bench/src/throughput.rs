@@ -1,3 +1,4 @@
+/// Parse and emit — what `redox build` does between the two file operations.
 pub(crate) mod transpile;
 
 use crate::throughput::transpile::transpile;

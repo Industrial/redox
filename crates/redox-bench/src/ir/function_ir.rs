@@ -1,6 +1,10 @@
+/// Renumber a body's local value names by first appearance.
 pub(crate) mod alpha_renamed;
+/// The `define` block for a symbol, with line-level noise dropped.
 pub(crate) mod body_of;
+/// Mark the compared function so rustc must emit it.
 pub(crate) mod mark_target;
+/// Drop one line's `!dbg` attachment.
 pub(crate) mod strip_debug;
 
 use crate::ir::function_ir::alpha_renamed::alpha_renamed;

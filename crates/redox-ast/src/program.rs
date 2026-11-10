@@ -1,3 +1,4 @@
+/// A top-level declaration.
 pub(crate) mod item;
 
 use crate::Item;

@@ -1,3 +1,4 @@
+/// Post-order depth-first, which is what makes the result a topological order.
 pub(crate) mod visit;
 
 use crate::emit::where_order::visit::visit;

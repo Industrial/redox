@@ -1,3 +1,4 @@
+/// One Redox macro argument as the Rust arguments it supplies.
 pub(crate) mod macro_argument;
 
 use crate::emit::assert_call::assert_call;

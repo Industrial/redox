@@ -1,4 +1,5 @@
 import crate::Item
+-- | `name = value`, and its `mut`, annotated and destructuring forms.
 export(crate) module binding
 
 import crate::Expr

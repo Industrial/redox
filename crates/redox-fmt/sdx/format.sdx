@@ -1,3 +1,4 @@
+-- | A formatted file's text with exactly one final newline.
 export(crate) module trimmed_tail
 
 import crate::format::trimmed_tail::trimmed_tail

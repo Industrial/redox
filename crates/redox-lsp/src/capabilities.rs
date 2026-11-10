@@ -1,3 +1,4 @@
+/// The legend the server's token indices refer into.
 pub(crate) mod token_types;
 
 use crate::capabilities::token_types::token_types;

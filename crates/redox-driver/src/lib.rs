@@ -27,11 +27,17 @@
 //! file, modules private, public items re-exported from here.
 
 mod cache;
+/// Transpile, compile the generated Rust, and report rustc against the `.sdx`.
 mod check;
+/// Compile every `.sdx` in a directory to a `.rs` in another.
 mod compile_dir;
+/// Turn a parse failure into the diagnostics that represent it.
 mod diagnose;
+/// Every lint, as warnings.
 mod lint;
+/// Turn one of rustc's diagnostics into one against the `.sdx`.
 mod remap;
+/// A rustc that behaves like rustc, resolved at run time.
 mod rustc_path;
 
 pub use cache::fingerprint::Fingerprint;

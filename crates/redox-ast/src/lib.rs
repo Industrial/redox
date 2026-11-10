@@ -54,16 +54,22 @@
 //! subexpression are the same type and the statement/expression fork is gone
 //! from the tree. [`Stmt`] survives as the trivia carrier and records why.
 
+/// An indented sequence of statements.
 mod block;
 
+/// An `if`, `while` or `case`-arm-guard condition.
 mod condition;
 
+/// An expression.
 mod expr;
 
+/// A whole source file.
 mod program;
 
+/// The names in one dependency cycle among a `where` group's bindings.
 mod where_cycle;
 
+/// Which of a `where` group's bindings each entry's value mentions.
 mod where_edges;
 
 pub use block::Block;

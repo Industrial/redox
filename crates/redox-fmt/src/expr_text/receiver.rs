@@ -1,3 +1,4 @@
+/// Whether a `.` can attach to an expression's printed form directly.
 pub(crate) mod takes_a_postfix;
 
 use crate::expr_text::expr_text;

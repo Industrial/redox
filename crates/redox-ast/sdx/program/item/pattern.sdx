@@ -219,6 +219,7 @@ instance Pattern
     .collect_binders (&mut names) self
     names
 
+  -- | Append this pattern's bound names, and its sub-patterns', to a list.
   collect_binders : &self -> &mut Vec<String> -> ()
   collect_binders self into =
     case self of

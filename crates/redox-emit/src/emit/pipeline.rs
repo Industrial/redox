@@ -5,6 +5,7 @@ use crate::emit::receiver::receiver;
 use crate::emit::unparen::unparen;
 use redox_ast::Expr;
 
+/// A pipeline callee's text, parenthesised when it is not a name.
 pub(crate) mod callable;
 
 /// Lower `|>` as **reverse application**: `x |> f` is `f x`, for any `f`.

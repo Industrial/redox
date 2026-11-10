@@ -1,3 +1,4 @@
+/// One item as a document symbol.
 pub(crate) mod symbol_of;
 
 use crate::serve::symbols::symbol_of::symbol_of;

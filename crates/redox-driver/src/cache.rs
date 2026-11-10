@@ -17,7 +17,11 @@
 //! the fingerprint, the store and the reporter are four independent concerns
 //! that `compile_dir` composes.
 
+/// The cache key for one source file.
 pub(crate) mod cache_key;
+/// A hash of the compiler that produced a cached result.
 pub(crate) mod fingerprint;
+/// Where the cache reports hits and misses.
 pub(crate) mod reporter;
+/// The on-disk cache under `<out>/.redox-cache/`.
 pub(crate) mod store;

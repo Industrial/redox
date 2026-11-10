@@ -1,3 +1,4 @@
+/// One operand of a condition.
 pub(crate) mod operand;
 
 use crate::{ConditionOperand, Expr};

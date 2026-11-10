@@ -1,3 +1,4 @@
+-- | One operand of a condition.
 export(crate) module operand
 
 import crate::{ConditionOperand, Expr}

@@ -14,30 +14,29 @@ moon run :build          # cargo build
 moon run :test           # cargo nextest run, then the doctests
 moon run :lint           # cargo fmt --check && cargo clippy -D warnings
 moon run :format         # treefmt (Rust, Nix, shell, JS/TS, YAML, TOML)
-moon run :audit :coverage :docs :check-docs
+moon run :audit :coverage :docs
 ```
 
-**`:check-docs` is red, and has been for a long time.** Measured 2026-11-10:
-**495** `missing_docs_in_private_items` errors across eleven crates — 121 in
-`redox-parser`, 98 in `redox-emit`, 56 in `redox-driver`, 54 in `redox-fmt`,
-46 in `redox-ast`, 42 in `redox-lexer`, then the rest. The task opts into the
-lint deliberately (`-W clippy::missing_docs_in_private_items` under
-`-D warnings`), so this is a convention the project chose and then stopped
-running: `:check-docs` is in no gate, and nothing else runs it.
+**`:check-docs` is gone, and the private-items doc lint with it.** The target
+opted into `clippy::missing_docs_in_private_items` under `-D warnings` and had
+been red for a long time — **514** errors across ten crates when it was last
+measured, on 2026-11-10, which is also the day it was found to be *in the
+push gate* (`devenv.nix`'s `prePushTargets`) while this file claimed it was in
+no gate. Every push was therefore blocked by it.
 
-`redox-diag` was brought to zero at plan 56 — 23 module declarations, six
-struct fields and one associated function — because its declaration lists are
-the first thing a reader of that crate meets, and a grouping module with no
-doc comment contradicts the layout rule below.
+**396 of the 514 were documented rather than discarded**, one line per
+construct in the style `redox-diag` set at plan 56: `redox-lexer`,
+`redox-driver`, `redox-emit`, `redox-lsp`, `redox-mcp`, `redox-bench` and
+`redox-fuzz` in Rust, and `redox-ast` and `redox-fmt` **in their `.sdx`**, then
+regenerated. Those doc comments stay.
 
-**The remaining 468 are a decision, not a chore.** Filling them thinly would
-be worse than leaving them: most are private fields and helpers whose names
-already say what they are, and "match the surrounding comment density" is a
-rule in this file. The two honest options are to document them properly, crate
-by crate, or to stop listing `:check-docs` as a command. Picking one is owed;
-until then this paragraph is why the target fails.
-
-```bash
+What retired the lint is the **118 that could not be written**: all of them are
+module declarations in `crates/redox-parser/src/parse/parser.rs`, which is
+1,478 lines, and one `///` line each takes it to ~1,596 — past the 1,500-line
+cap `crates/redox-cli/tests/line_cap.rs` enforces from doc 02 §5.4. Two
+load-bearing rules in this file could not both hold for that one file, and a
+lint nothing can satisfy is worse than no lint. `:docs` still builds the
+documentation; `moon run :lint` is still `-D warnings`.
 
 **Moon runs cargo. blaze is for development.** That is the standard: blaze is
 the inner loop you drive by hand while writing a feature, and cargo is what
@@ -51,7 +50,7 @@ targets that used to exist to double-check blaze are gone — `:check` and
 `.moon/tasks/tag-crate.yml` and inherited by each crate through its `tags: ['crate']`. So
 `moon run :check` is eleven `cargo check -p <crate>` runs, not one `--workspace` run, and
 moon skips the crates whose inputs have not changed. Only workspace-wide work —
-`:format`, `:ci-format`, `:audit`, `:coverage`, `:docs`, `:check-docs`, `:fix`, `:bench` —
+`:format`, `:ci-format`, `:audit`, `:coverage`, `:docs`, `:fix`, `:bench` —
 still lives on the root project in `moon.yml`.
 
 They all used to be `blaze … --workspace` with `cache: false`, which meant a one-line edit

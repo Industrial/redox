@@ -11,7 +11,9 @@ use redox_diag::{Lint, Span};
 /// hard-coded name, so `#[redox::allow(unwrap)]` silences `RDX1001` and
 /// nothing else.
 pub(crate) struct PragmaWalk {
+  /// The lint whose suppressions are being collected.
   pub(crate) lint: Lint,
+  /// The spans it is suppressed over, one per pragma-carrying construct.
   pub(crate) found: Vec<Span>,
 }
 

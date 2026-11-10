@@ -18,6 +18,7 @@ thread_local! {
 /// borrows it across a call. `thread_local!` for `ArityScope`'s reason: the
 /// suite's parallel tests must not see each other's blocks.
 pub(crate) struct BindScope {
+  /// The mode to put back when the guard drops.
   previous: BindMode,
 }
 

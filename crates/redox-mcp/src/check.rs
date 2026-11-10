@@ -1,4 +1,6 @@
+/// `redox_check`'s parameters.
 pub(crate) mod request;
+/// `redox_check`'s result.
 pub(crate) mod response;
 
 use crate::check::request::CheckRequest;

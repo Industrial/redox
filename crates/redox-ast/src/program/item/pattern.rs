@@ -236,6 +236,7 @@ impl Pattern {
     names
   }
 
+  /// Append this pattern's bound names, and its sub-patterns', to a list.
   fn collect_binders(&self, into: &mut Vec<String>) {
     match self {
       Binding(name) | NamedRest { name, .. } => into.push(name.text.clone()),

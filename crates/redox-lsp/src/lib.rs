@@ -26,7 +26,9 @@
 //! over an in-process `Connection` — the same protocol path with no process
 //! management, which is plan 40 decision 6.
 
+/// What this server tells the editor it can do.
 mod capabilities;
+/// Run the server over a connection until the editor says to stop.
 mod serve;
 
 pub use capabilities::capabilities;

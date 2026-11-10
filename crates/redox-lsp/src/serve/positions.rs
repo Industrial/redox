@@ -15,5 +15,7 @@
 //!
 //! `examples/strings.sdx` has non-ASCII content, so the corpus does reach it.
 
+/// One byte offset as a `(line, utf16 character)` position.
 pub(crate) mod position_of;
+/// A byte span in the source, as an LSP range.
 pub(crate) mod range_of;

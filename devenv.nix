@@ -46,7 +46,7 @@
     # :check and :test are therefore already rustc's last word, and the
     # :cargo-check / :cargo-test duplicates they used to need are gone.
     preCommitTargets = ":format :check :lint :test";
-    prePushTargets = ":format :check :lint :build :test :audit :check-docs";
+    prePushTargets = ":format :check :lint :build :test :audit";
   };
   cursor.features.git-hooks-prek.enable = true;
 

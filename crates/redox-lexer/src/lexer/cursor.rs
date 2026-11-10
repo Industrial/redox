@@ -17,20 +17,24 @@ use crate::Span;
 /// Every scanner takes `&mut Cursor` and nothing else, so each is testable
 /// without constructing a whole [`super::Lexer`].
 pub(crate) struct Cursor<'a> {
+  /// The whole source text the offsets index into.
   src: &'a str,
   /// Byte offset of the next unconsumed character.
   pos: usize,
 }
 
 impl<'a> Cursor<'a> {
+  /// A cursor at the start of a source.
   pub(crate) fn new(src: &'a str) -> Self {
     Self { src, pos: 0 }
   }
 
+  /// The byte offset of the next unconsumed character.
   pub(crate) fn pos(&self) -> usize {
     self.pos
   }
 
+  /// Whether the whole source has been consumed.
   pub(crate) fn is_eof(&self) -> bool {
     self.pos >= self.src.len()
   }
@@ -97,6 +101,7 @@ impl<'a> Cursor<'a> {
     n
   }
 
+  /// The source text a span covers.
   pub(crate) fn slice(&self, span: Span) -> &'a str {
     &self.src[span.0..span.1]
   }

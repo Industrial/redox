@@ -1,22 +1,42 @@
+/// Whether one trivium suppresses a lint, in either spelling.
 pub(crate) mod allow_pragma;
+/// The lint one trivium suppresses as an attribute.
 pub(crate) mod attribute_pragma;
+/// The one name a binding contributes to `RDX1003`, if it contributes one.
 pub(crate) mod binding_name;
+/// The lint one trivium suppresses as a deprecated comment.
 pub(crate) mod comment_pragma;
+/// The message `RDX1002` carries.
 pub(crate) mod comment_pragma_message;
+/// Every comment-form suppression pragma in a source file, for `RDX1002`.
 pub(crate) mod comment_pragma_sites;
+/// The 1-based line a byte offset falls on.
 pub(crate) mod line_of;
+/// Collects the byte ranges one lint is suppressed over.
 pub(crate) mod pragma_walk;
+/// What a lint wants to see as the walk descends a program.
 pub(crate) mod program_walk;
+/// The help `RDX1003` carries.
 pub(crate) mod shadow_help;
+/// The message `RDX1003` carries.
 pub(crate) mod shadow_message;
+/// Every unsuppressed shadowing `=` in a program — `RDX1003`.
 pub(crate) mod shadow_sites;
+/// Collects every bare `=` that rebinds a name bound earlier in the same statement list.
 pub(crate) mod shadow_walk;
+/// The byte ranges a lint is suppressed over.
 pub(crate) mod suppressed_spans;
+/// Every unsuppressed `unwrap`/`expect` call site in a source file.
 pub(crate) mod unwrap_call_sites;
+/// The message `RDX1001` carries.
 pub(crate) mod unwrap_message;
+/// Walk one item.
 pub(crate) mod walk_item;
+/// Walk one class or instance member.
 pub(crate) mod walk_member;
+/// Walk a whole program.
 pub(crate) mod walk_program;
+/// Walk a statement run and the blocks its statements own.
 pub(crate) mod walk_stmts;
 
 use crate::lint::comment_pragma_message::comment_pragma_message;

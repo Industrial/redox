@@ -20,6 +20,7 @@
 //! Layout follows `docs/06 - Redox Code Architecture.md`: every per-node
 //! emitter sits under `emit/`, headed by the entry point.
 
+/// Emit a program as Rust source text.
 mod emit;
 
 pub use emit::emit;

@@ -1,3 +1,4 @@
+/// One step of the dependency search's depth-first walk.
 pub(crate) mod walk;
 
 use crate::where_cycle::walk::walk;

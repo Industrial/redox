@@ -1,3 +1,4 @@
+/// Reports nothing.
 pub(crate) mod silent;
 
 /// Where the cache reports hits and misses.

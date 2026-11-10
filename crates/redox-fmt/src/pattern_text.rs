@@ -1,9 +1,13 @@
+/// One pattern where the next token is a keyword or an arrow.
 pub(crate) mod beside_a_keyword;
 
+/// A comma-separated run of patterns, with no trailing comma.
 pub(crate) mod joined;
 
+/// One pattern where the next token could extend it, parenthesised unless it cannot be.
 pub(crate) mod pattern_argument;
 
+/// One field of a record pattern — `x = 0`, or `y` for the shorthand.
 pub(crate) mod record_field_text;
 
 use crate::pattern_text::beside_a_keyword::beside_a_keyword;

@@ -1,3 +1,4 @@
+/// One parameter: a name, optionally `mut`, optionally typed.
 pub(crate) mod param_text;
 
 use crate::expr_text::expr_text;

@@ -1,3 +1,4 @@
+/// Which semantic token type a lexical token is, as a legend index.
 pub(crate) mod token_index;
 
 use crate::serve::positions::position_of::position_of as to_position;

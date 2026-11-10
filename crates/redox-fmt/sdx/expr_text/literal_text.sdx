@@ -1,3 +1,4 @@
+-- | The lexer's own text for a literal, for the no-source case.
 export(crate) module stored
 
 import crate::expr_text::literal_text::stored::stored

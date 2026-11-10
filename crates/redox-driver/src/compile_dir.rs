@@ -1,6 +1,10 @@
+/// Compile one `.sdx` into `<out>/<stem>.rs`, with its map beside it.
 pub(crate) mod compile_file;
+/// What a [`super::compile_dir`] run produced.
 pub(crate) mod compiled;
+/// Every `.sdx` directly in a directory, sorted.
 pub(crate) mod sdx_in;
+/// [`crate::compile_dir`], reporting each file's cache outcome.
 pub(crate) mod with;
 
 use crate::cache::reporter::silent::Silent;

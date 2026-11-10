@@ -1,6 +1,10 @@
+/// Byte offset of a 1-based line and column, if it is in the text.
 pub(crate) mod char_offset;
+/// Byte offset of a position in the generated file, clamped into range.
 pub(crate) mod generated_offset;
+/// Narrow a span to the single character at a line and column.
 pub(crate) mod narrow;
+/// One diagnostic as rustc's `--error-format=short` prints it.
 pub(crate) mod rustc_message;
 
 use crate::remap::generated_offset::generated_offset;

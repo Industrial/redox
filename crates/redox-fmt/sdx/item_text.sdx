@@ -1,15 +1,28 @@
+-- | A `class` declaration and its members.
 export(crate) module class_text
+-- | One equation, or a guard ladder, with its `where`.
 export(crate) module clause_text
+-- | A `const` or `static` item.
 export(crate) module const_text
+-- | One `data` alternative — `Click`, `Meters f64`, `Square { side : f64 }`.
 export(crate) module constructor_text
+-- | A `data` or `newtype` declaration, with its `deriving` clause.
 export(crate) module data_text
+-- | An `errors` declaration — a table of variants and their messages.
 export(crate) module errors_text
+-- | A function — its signature line, then one line per equation.
 export(crate) module fn_text
+-- | An `instance` declaration and its members.
 export(crate) module instance_text
+-- | An item's leading trivia, as complete lines — or nothing.
 export(crate) module leading_text
+-- | One member of a `class` or `instance`.
 export(crate) module member_text
+-- | Whether two byte offsets fall on the same source line.
 export(crate) module same_line
+-- | A function's signature line, verbatim from the source.
 export(crate) module signature_line
+-- | A visibility marker, with its trailing space — or nothing.
 export(crate) module visibility_text
 
 import crate::item_text::class_text::class_text

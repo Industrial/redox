@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 pub(crate) struct ScratchDir(PathBuf);
 
 impl ScratchDir {
+  /// A fresh directory, named for the tag, this process and a counter.
   pub(crate) fn new(tag: &str) -> Result<Self, String> {
     use std::sync::atomic::{AtomicUsize, Ordering};
     static NEXT: AtomicUsize = AtomicUsize::new(0);
@@ -23,6 +24,7 @@ impl ScratchDir {
     Ok(Self(dir))
   }
 
+  /// The directory itself.
   pub(crate) fn path(&self) -> &Path {
     &self.0
   }

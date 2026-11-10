@@ -1,6 +1,7 @@
 use crate::emit::annotated_binding::selects_a_container::selects_a_container;
 use redox_ast::{Binding, Expr};
 
+/// Whether an ascription chooses what to build rather than annotating what is there.
 pub(crate) mod selects_a_container;
 
 /// A binding's type annotation and the value to emit under it.

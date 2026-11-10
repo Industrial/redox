@@ -20,6 +20,7 @@ thread_local! {
 /// return cannot leave a stale table behind. `ArityScope`'s shape exactly —
 /// two guards over two tables, entered side by side in `emit_with_map`.
 pub(crate) struct BindingScope {
+  /// The table to put back when the guard drops.
   previous: BindingTable,
 }
 

@@ -1,3 +1,4 @@
+/// Whether an expression is safe as a juxtaposed argument unparenthesised.
 pub(crate) mod stands_alone;
 
 use crate::expr_text::argument::stands_alone::stands_alone;

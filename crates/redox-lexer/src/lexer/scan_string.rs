@@ -1,3 +1,4 @@
+/// Split a string body into literal text and interpolations.
 pub(crate) mod split_parts;
 
 use crate::lexer::cursor::Cursor;

@@ -51,14 +51,19 @@
 //! are printed rather than sliced, which is what §10.15 said leaf 4 owed. No
 //! expression form reads the source any more.
 
+/// One expression in canonical Redox.
 mod expr_text;
 
+/// Format a parsed program back into canonical Redox.
 mod format;
 
+/// One item in canonical Redox, with its leading trivia.
 mod item_text;
 
+/// One pattern in canonical Redox.
 mod pattern_text;
 
+/// One statement in canonical Redox, with its trivia.
 mod stmt_text;
 
 pub use expr_text::expr_text;

@@ -1,3 +1,4 @@
+-- | One step of the dependency search's depth-first walk.
 export(crate) module walk
 
 import crate::where_cycle::walk::walk

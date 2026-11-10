@@ -1,3 +1,4 @@
+-- | The widest pipeline written on one line.
 export(crate) module pipeline_width
 
 import crate::expr_text::operand::operand

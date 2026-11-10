@@ -9,7 +9,11 @@
 //! generated Rust so the sweep can check plan 42 §1.4's invariant — that the
 //! emitter never produces Rust which does not parse.
 
+/// Parse arbitrary bytes and, if that succeeds, emit.
 pub(crate) mod emit_program;
+/// Lex arbitrary bytes.
 pub(crate) mod lex_source;
+/// Parse arbitrary bytes.
 pub(crate) mod parse_program;
+/// Parse, emit, and hand the generated Rust back to the oracle.
 pub(crate) mod roundtrip;

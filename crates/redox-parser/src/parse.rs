@@ -1,9 +1,15 @@
+/// A parse error, carrying enough to report against the `.sdx`.
 pub(crate) mod error;
+/// Everything that can go wrong turning source text into a program.
 pub(crate) mod failure;
+/// How deeply the input may nest brackets before the parser refuses it.
 pub(crate) mod max_nesting;
+/// The deepest bracket nesting in a token stream.
 pub(crate) mod nesting_depth;
+/// The recursive-descent parser.
 pub(crate) mod parser;
 pub(crate) mod precedence;
+/// Lex and parse a source.
 pub(crate) mod source;
 
 use crate::ParseError;

@@ -15,6 +15,7 @@ use redox_diag::{Lint, Span};
 /// Redox growing; this is the same question answered within one list, where
 /// it costs a `Vec` of names and no resolution.
 pub(crate) struct ShadowWalk {
+  /// Each shadowing `=`, with the name it rebinds.
   pub(crate) found: Vec<(Span, String)>,
 }
 

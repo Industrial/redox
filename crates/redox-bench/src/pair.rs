@@ -1,3 +1,4 @@
+/// Every pair under `benchmarks/pairs/`, sorted by stem.
 pub(crate) mod pairs;
 
 use std::path::PathBuf;

@@ -1,5 +1,6 @@
 use crate::Item;
 
+/// `name = value`, and its `mut`, annotated and destructuring forms.
 pub(crate) mod binding;
 
 use crate::Expr;

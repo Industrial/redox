@@ -1,3 +1,4 @@
+/// A body that sits on the equation line, with no indentation of its own.
 pub(crate) mod inline_body;
 
 use crate::expr_text::expr_text;

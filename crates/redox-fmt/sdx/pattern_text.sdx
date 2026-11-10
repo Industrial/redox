@@ -1,6 +1,10 @@
+-- | One pattern where the next token is a keyword or an arrow.
 export(crate) module beside_a_keyword
+-- | A comma-separated run of patterns, with no trailing comma.
 export(crate) module joined
+-- | One pattern where the next token could extend it, parenthesised unless it cannot be.
 export(crate) module pattern_argument
+-- | One field of a record pattern — `x = 0`, or `y` for the shorthand.
 export(crate) module record_field_text
 
 import crate::pattern_text::beside_a_keyword::beside_a_keyword

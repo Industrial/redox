@@ -1,19 +1,28 @@
+/// A binary operator, named rather than spelled.
 pub(crate) mod binary_op;
 
+/// One arm of a `case … of`.
 pub(crate) mod case_arm;
 
+/// One `name = value` field of a record literal.
 pub(crate) mod field_init;
 
+/// An identifier and where it came from.
 pub(crate) mod ident;
 
+/// One qualifier to the right of a comprehension's bar.
 pub(crate) mod qualifier;
 
+/// A section: an operator with one side supplied.
 pub(crate) mod section;
 
+/// One piece of an interpolated string.
 pub(crate) mod str_interp_part;
 
+/// A type, captured as its verbatim source text.
 pub(crate) mod type_expr;
 
+/// A unary prefix operator.
 pub(crate) mod unary_op;
 
 use crate::expr::case_arm::CaseArm;

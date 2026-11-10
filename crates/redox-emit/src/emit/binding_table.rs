@@ -3,7 +3,9 @@ use crate::emit::binding_table::classify::classify;
 use redox_ast::Item;
 use std::collections::BTreeMap;
 
+/// A declaration's binding kind, or none when it is not a parameterless binding.
 pub(crate) mod classify;
+/// Whether a name is spelled the way Rust spells a constant.
 pub(crate) mod is_upper_case;
 
 /// Every **parameterless** binding a file declares, and which Rust item it
@@ -41,6 +43,7 @@ pub(crate) mod is_upper_case;
 /// unknown name already gets.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct BindingTable {
+  /// Each indexed binding's kind, by bare name and by path.
   kinds: BTreeMap<String, BindingKind>,
 }
 
@@ -57,6 +60,7 @@ impl BindingTable {
     table
   }
 
+  /// Index one item list under a module prefix, recording any name whose kind clashes.
   fn gather(&mut self, items: &[Item], prefix: &[String], ambiguous: &mut Vec<String>) {
     for item in items {
       match item {
@@ -85,6 +89,7 @@ impl BindingTable {
     }
   }
 
+  /// Record one name's kind, noting it as ambiguous if it already had another.
   fn insert(&mut self, key: String, kind: BindingKind, ambiguous: &mut Vec<String>) {
     if self
       .kinds

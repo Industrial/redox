@@ -16,10 +16,12 @@ use std::collections::HashMap;
 /// line numbers, which is worse than reporting nothing.
 #[derive(Debug, Default)]
 pub(crate) struct Documents {
+  /// The text of each open document, as the editor currently holds it.
   open: HashMap<Uri, String>,
 }
 
 impl Documents {
+  /// An empty store, holding no open document.
   pub(crate) fn new() -> Self {
     Self::default()
   }

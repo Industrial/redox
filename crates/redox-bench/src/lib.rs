@@ -26,6 +26,7 @@
 
 pub mod ir;
 pub mod pair;
+/// How long transpiling a source takes, averaged over several runs.
 mod throughput;
 
 pub use ir::function_ir::function_ir;

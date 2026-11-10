@@ -1,27 +1,40 @@
+/// A `class` declaration and its members.
 pub(crate) mod class_text;
 
+/// One equation, or a guard ladder, with its `where`.
 pub(crate) mod clause_text;
 
+/// A `const` or `static` item.
 pub(crate) mod const_text;
 
+/// One `data` alternative — `Click`, `Meters f64`, `Square { side : f64 }`.
 pub(crate) mod constructor_text;
 
+/// A `data` or `newtype` declaration, with its `deriving` clause.
 pub(crate) mod data_text;
 
+/// An `errors` declaration — a table of variants and their messages.
 pub(crate) mod errors_text;
 
+/// A function — its signature line, then one line per equation.
 pub(crate) mod fn_text;
 
+/// An `instance` declaration and its members.
 pub(crate) mod instance_text;
 
+/// An item's leading trivia, as complete lines — or nothing.
 pub(crate) mod leading_text;
 
+/// One member of a `class` or `instance`.
 pub(crate) mod member_text;
 
+/// Whether two byte offsets fall on the same source line.
 pub(crate) mod same_line;
 
+/// A function's signature line, verbatim from the source.
 pub(crate) mod signature_line;
 
+/// A visibility marker, with its trailing space — or nothing.
 pub(crate) mod visibility_text;
 
 use crate::item_text::class_text::class_text;

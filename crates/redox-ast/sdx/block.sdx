@@ -1,3 +1,4 @@
+-- | One element of a block: an expression, and the trivia around it.
 export(crate) module stmt
 
 import crate::{Expr, Stmt}

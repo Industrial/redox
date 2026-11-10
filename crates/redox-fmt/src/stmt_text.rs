@@ -1,19 +1,28 @@
+/// A binding — `n = 0`, `mut n = 0`, `n : u64 = 0`.
 pub(crate) mod binding_text;
 
+/// A block's statements, one per line.
 pub(crate) mod block_text;
 
+/// One `case` arm — `pattern -> body`, with an optional guard.
 pub(crate) mod case_arm_text;
 
+/// A block element's code, with its first line unindented.
 pub(crate) mod code_text;
 
+/// A condition — operands joined by `&&`, each an expression or a pattern test.
 pub(crate) mod condition_text;
 
+/// An `if` statement's `else` branch, or nothing.
 pub(crate) mod else_text;
 
+/// The leading whitespace for a given depth.
 pub(crate) mod indent_text;
 
+/// A loop label, with its trailing space — or nothing.
 pub(crate) mod label_text;
 
+/// One trivium as Redox source: a comment, an attribute, or a blank line.
 pub(crate) mod trivia_text;
 
 use crate::item_text::item_text;

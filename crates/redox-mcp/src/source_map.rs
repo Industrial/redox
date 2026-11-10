@@ -1,4 +1,6 @@
+/// `redox_source_map`'s parameters.
 pub(crate) mod request;
+/// `redox_source_map`'s result.
 pub(crate) mod response;
 
 use crate::source_map::request::SourceMapRequest;

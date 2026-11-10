@@ -1,4 +1,6 @@
+-- | Every index in a group whose name appears as a bare identifier.
 export(crate) module mentions
+-- | Every sub-expression of an expression that is an operand.
 export(crate) module operands
 
 import crate::where_edges::mentions::mentions

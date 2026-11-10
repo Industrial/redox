@@ -3,4 +3,5 @@
 //! A grouping module (doc 06 §1.2): finding rustc and reading its output are
 //! peers with no natural head.
 
+/// One function's optimised LLVM IR, as emitted for a source.
 pub(crate) mod function_ir;

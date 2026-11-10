@@ -46,6 +46,7 @@ thread_local! {
 /// cannot see each other's files; a guard rather than a setter, so an early
 /// return cannot leave a stale table behind.
 pub(crate) struct ArityScope {
+  /// The table to put back when the guard drops.
   previous: ArityTable,
 }
 

@@ -1,17 +1,32 @@
+-- | One juxtaposed argument, or a call's callee, parenthesised unless it can stand alone.
 export(crate) module argument
+-- | Whether a parenthesis is redundant at the surrounding binding power.
 export(crate) module can_drop_paren
+-- | A comma-separated run of expressions, with no trailing comma.
 export(crate) module comma_list
+-- | A comprehension — `[ n * 2 | n in xs, n > 0 ]`.
 export(crate) module comprehension_text
+-- | An application the author spelled with `$`.
 export(crate) module dollar_text
+-- | A lambda — `\n -> n + 1`.
 export(crate) module lambda_text
+-- | A literal, verbatim from the source.
 export(crate) module literal_text
+-- | A macro invocation — `name! \-> e`.
 export(crate) module macro_call_text
+-- | One side of a binary expression, parenthesised only where precedence needs it.
 export(crate) module operand
+-- | A receiver pipeline, on one line or one stage per line.
 export(crate) module pipeline_text
+-- | How tightly an expression binds, where the question applies.
 export(crate) module power_of
+-- | One expression in receiver position, parenthesised only when it cannot take a postfix.
 export(crate) module receiver
+-- | A record literal — `Point { x = 3.0, y = 4.0 }`.
 export(crate) module record_text
+-- | A `rust` escape hatch, printed in the layout spelling.
 export(crate) module rust_hatch_text
+-- | An operator or accessor section — `(> 0)`, `(+ 1)`, `(.age)`.
 export(crate) module section_text
 
 import crate::expr_text::argument::argument

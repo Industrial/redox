@@ -1,5 +1,7 @@
+/// Every index in a group whose name appears as a bare identifier.
 pub(crate) mod mentions;
 
+/// Every sub-expression of an expression that is an operand.
 pub(crate) mod operands;
 
 use crate::where_edges::mentions::mentions;

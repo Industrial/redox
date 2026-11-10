@@ -1,3 +1,4 @@
+/// Whether rustfmt would break this condition across lines.
 pub(crate) mod breaks;
 
 use crate::emit::condition_head::breaks::breaks;

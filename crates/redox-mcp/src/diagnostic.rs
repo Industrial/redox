@@ -1,4 +1,6 @@
+/// Project a compiler diagnostic onto the wire shape.
 pub(crate) mod from_redox;
+/// One byte offset as a 1-based `(line, column)` in characters.
 pub(crate) mod line_and_column;
 
 /// One diagnostic, as an MCP client receives it.

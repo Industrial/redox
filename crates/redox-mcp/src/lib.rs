@@ -36,11 +36,17 @@
 //! Layout follows `docs/06 - Redox Code Architecture.md`: one construct per
 //! file, one module per tool, public items re-exported from here.
 
+/// `redox_build` — transpile a `.sdx` to `.xrs` and its source-map sidecar.
 mod build;
+/// `redox_check` — transpile, run rustc, report against the `.sdx`.
 mod check;
+/// One diagnostic, as an MCP client receives it.
 mod diagnostic;
+/// `redox_fmt` — the canonical form of a `.sdx`, returned and not written.
 mod format;
+/// The Redox MCP server: four tools over the driver.
 mod server;
+/// `redox_source_map` — which `.sdx` line an `.xrs` line came from.
 mod source_map;
 
 pub use build::build;

@@ -1,3 +1,4 @@
+/// A `"""` block's body: delimiter lines dropped, common indentation removed.
 pub(crate) mod dedent_triple_body;
 
 use crate::verbatim_triple::dedent_triple_body::dedent_triple_body;

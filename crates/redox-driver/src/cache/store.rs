@@ -1,3 +1,4 @@
+/// What a cache hit returns: the generated Rust and its map, as text.
 pub(crate) mod cached;
 
 use crate::cache::store::cached::Cached;
@@ -18,6 +19,7 @@ use std::path::{Path, PathBuf};
 /// together. A key with only one of the two present is treated as absent,
 /// which is what makes an interrupted write harmless.
 pub(crate) struct Store {
+  /// The cache directory this store reads and writes under.
   dir: PathBuf,
 }
 
@@ -33,6 +35,7 @@ impl Store {
     }
   }
 
+  /// The `<hash>.rs` and `<hash>.rs.map` paths one key names.
   fn paths(&self, key: &blake3::Hash) -> (PathBuf, PathBuf) {
     let rust = self.dir.join(format!("{key}.rs"));
     let map = self.dir.join(format!("{key}.rs.map"));

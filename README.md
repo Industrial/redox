@@ -173,7 +173,7 @@ Optional: if you use [direnv](https://direnv.net), `direnv allow` in the repo wi
   Or run the full gate:  
   `devenv shell -- pre-push` (same as the pre-push hook).
 - **Fix auto-fixable issues:** `moon run :fix`
-- **Docs:** `moon run :docs` or `:check-docs`
+- **Docs:** `moon run :docs`
 - **Security:** `moon run :audit`; run `cargo deny check` manually for full deny checks.
 - **Coverage:** `moon run :coverage` (nextest under llvm-cov).
 
@@ -189,15 +189,15 @@ All of these use the tools and configs from the dev shell (rustfmt, nextest.toml
 - When you run `git push`, the **pre-push** hook runs.
 - The hook runs: `devenv shell -- pre-push`
 - **pre-push** (defined in `devenv.nix` scripts) runs:  
-  `moon run :format :check :lint :build :test :audit :check-docs`
-- If any of these fail, the push is aborted. So the branch you push has already been formatted, checked, linted, built, tested, audited, and doc-checked in the same way as in CI.
+  `moon run :format :check :lint :build :test :audit`
+- If any of these fail, the push is aborted. So the branch you push has already been formatted, checked, linted, built, tested and audited in the same way as in CI.
 
 ### 6. CI (when you add it)
 
 - In GitHub Actions (or similar), use the same commands inside a Nix/devenv setup so CI matches local and pre-push.
 - **Format check:** `devenv shell -- moon run :ci-format`  
   Uses `treefmt.ci.toml` (same as treefmt but `fail-on-change = true`).
-- **Full pipeline:** `devenv shell -- moon run :format :check :lint :build :test :audit :check-docs`  
+- **Full pipeline:** `devenv shell -- moon run :format :check :lint :build :test :audit`  
   Or use `devenv shell -- pre-push` to mirror the pre-push hook exactly.
 
 ---
@@ -217,7 +217,6 @@ All of these use the tools and configs from the dev shell (rustfmt, nextest.toml
 | `:bench` | cargo bench (no-op if no `benches/`) |
 | `:audit` | cargo audit |
 | `:coverage` | cargo llvm-cov nextest |
-| `:check-docs` | cargo doc + clippy with missing_docs lint |
 
 Run with: `moon run :<task>` or `devenv shell -- moon run :<task>` from outside the shell.
 

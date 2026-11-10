@@ -22,7 +22,10 @@ pub(crate) struct SignatureHead {
   pub types: Vec<TypeExpr>,
   /// Doc 18 §2.2's `=>` clause.
   pub bounds: Vec<Constraint>,
+  /// Whether the signature was marked `const`.
   pub is_const: bool,
+  /// Whether the signature was marked `async`.
   pub is_async: bool,
+  /// Whether the signature was marked `unsafe`.
   pub is_unsafe: bool,
 }

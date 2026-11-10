@@ -38,6 +38,7 @@ impl Fingerprint {
     Self(blake3::hash(bytes))
   }
 
+  /// The hash's 32 raw bytes, for mixing into a cache key.
   pub(crate) fn as_bytes(&self) -> &[u8; 32] {
     self.0.as_bytes()
   }

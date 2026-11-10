@@ -1,3 +1,4 @@
+/// The implemented type, in Redox's spelling.
 pub(crate) mod target_text;
 
 use crate::item_text::instance_text::target_text::target_text;

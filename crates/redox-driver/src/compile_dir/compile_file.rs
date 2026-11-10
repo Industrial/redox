@@ -1,4 +1,6 @@
+/// What compiling one file produced.
 pub(crate) mod outcome;
+/// Write the generated Rust and its map, whatever their provenance.
 pub(crate) mod write_outputs;
 
 use crate::cache::cache_key::cache_key;

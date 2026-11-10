@@ -1,3 +1,4 @@
+-- | A body that sits on the equation line, with no indentation of its own.
 export(crate) module inline_body
 
 import crate::expr_text::expr_text

@@ -1,3 +1,4 @@
+/// Whether a pattern is safe beside another without parentheses.
 pub(crate) mod stands_alone;
 
 use crate::pattern_text::pattern_argument::stands_alone::stands_alone;

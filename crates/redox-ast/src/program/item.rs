@@ -1,61 +1,91 @@
+/// A `class` declaration — Rust's `trait`.
 pub(crate) mod class_decl;
 
+/// One member of a `class` or `instance` body.
 pub(crate) mod class_member;
 
+/// One equation of a function.
 pub(crate) mod clause;
 
+/// A clause's right-hand side.
 pub(crate) mod clause_body;
 
+/// A module-scope `const` or `static`.
 pub(crate) mod const_decl;
 
+/// One `Trait t` constraint, from a `=>` clause.
 pub(crate) mod constraint;
 
+/// One constructor of a `data` declaration.
 pub(crate) mod constructor;
 
+/// What a constructor carries.
 pub(crate) mod constructor_fields;
 
+/// A `data` or `newtype` declaration.
 pub(crate) mod data_decl;
 
+/// One row of an `errors` declaration.
 pub(crate) mod error_variant;
 
+/// An `errors` declaration.
 pub(crate) mod errors_decl;
 
+/// An `extern` block.
 pub(crate) mod extern_block;
 
+/// One `name : Type` field of a record constructor.
 pub(crate) mod field_decl;
 
+/// A signature line and the equations that define it.
 pub(crate) mod fn_decl;
 
+/// One declaration inside an `extern` block.
 pub(crate) mod foreign_fn;
 
+/// One `| cond = body` row of a guard ladder.
 pub(crate) mod r#guard;
 
+/// An `import` declaration.
 pub(crate) mod import_decl;
 
+/// The inline Rust escape hatch.
 pub(crate) mod inline_rust;
 
+/// An `instance` declaration — Rust's `impl`.
 pub(crate) mod instance_decl;
 
+/// An item's leading trivia — its comments and attributes.
 pub(crate) mod leading;
 
+/// A `module` declaration.
 pub(crate) mod module_decl;
 
+/// One parameter in a signature.
 pub(crate) mod param;
 
+/// A pattern in an equation's binder position.
 pub(crate) mod pattern;
 
+/// Whether a lowercase name is one of Rust's primitive type names.
 pub(crate) mod primitive_type;
 
+/// One field of a record pattern — `x` or `x = 0`.
 pub(crate) mod record_pattern_field;
 
+/// A function's parameters and return type.
 pub(crate) mod signature;
 
+/// A `test` block.
 pub(crate) mod test_decl;
 
+/// A `type` alias.
 pub(crate) mod type_alias;
 
+/// A type written by juxtaposition: `Wrapper t`, `Pair k v`.
 pub(crate) mod type_app;
 
+/// An item's or field's visibility.
 pub(crate) mod visibility;
 
 use crate::FnDecl;

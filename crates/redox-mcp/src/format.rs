@@ -1,4 +1,6 @@
+/// `redox_fmt`'s parameters.
 pub(crate) mod request;
+/// `redox_fmt`'s result.
 pub(crate) mod response;
 
 use crate::diagnostic::from_redox::diagnostic_from_redox;

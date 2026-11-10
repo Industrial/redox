@@ -1,3 +1,4 @@
+/// The name in a Rust source's first `pub fn NAME(`.
 pub(crate) mod first_public_function;
 
 use crate::pair::Pair;

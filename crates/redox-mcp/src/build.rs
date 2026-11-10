@@ -1,4 +1,6 @@
+/// `redox_build`'s parameters.
 pub(crate) mod request;
+/// `redox_build`'s result.
 pub(crate) mod response;
 
 use crate::build::request::BuildRequest;

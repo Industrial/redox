@@ -1,3 +1,4 @@
+-- | A comment line, with no trailing space when the comment is empty.
 export(crate) module with_marker
 
 import crate::stmt_text::indent_text::indent_text

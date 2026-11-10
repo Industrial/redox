@@ -1,3 +1,4 @@
+/// A comment line, with no trailing space when the comment is empty.
 pub(crate) mod with_marker;
 
 use crate::stmt_text::indent_text::indent_text;

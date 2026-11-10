@@ -1,4 +1,6 @@
+/// What [`crate::check`] found.
 pub(crate) mod outcome;
+/// A temporary directory that removes itself.
 pub(crate) mod scratch_dir;
 
 use crate::check::outcome::CheckOutcome;

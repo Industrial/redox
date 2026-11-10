@@ -1,3 +1,4 @@
+-- | The implemented type, in Redox's spelling.
 export(crate) module target_text
 
 import crate::item_text::instance_text::target_text::target_text

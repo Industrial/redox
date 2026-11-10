@@ -1,5 +1,8 @@
+/// A reserved word.
 pub(crate) mod keyword;
+/// Every token Redox's lexical surface produces.
 pub(crate) mod kind;
+/// One piece of a string literal: literal text, or an interpolation.
 pub(crate) mod str_part;
 
 use crate::{Span, TokenKind, Trivia};

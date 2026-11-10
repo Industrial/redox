@@ -1,6 +1,7 @@
 use crate::emit::ascribed_arm::sole_binder::sole_binder;
 use redox_ast::Pattern;
 
+/// The one name a pattern binds, when it binds exactly one.
 pub(crate) mod sole_binder;
 
 /// The `let` that gives an arm's ascription somewhere to live, or `None`.

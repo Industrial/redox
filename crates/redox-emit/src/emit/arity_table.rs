@@ -45,6 +45,7 @@ use std::collections::BTreeMap;
 /// cannot be wrong is the one this crate already gives every unknown name.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct ArityTable {
+  /// Each indexed function's declared parameter count, by name.
   arities: BTreeMap<String, usize>,
 }
 
@@ -60,6 +61,7 @@ impl ArityTable {
     table
   }
 
+  /// Index one item list, recording any name whose arity clashes.
   fn gather(&mut self, items: &[Item], ambiguous: &mut Vec<String>) {
     for item in items {
       match item {

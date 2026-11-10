@@ -1,13 +1,23 @@
+/// Fold a notification into the document store.
 pub(crate) mod absorb;
+/// Answer one request.
 pub(crate) mod answer;
+/// Deserialise a request's parameters for a known method.
 pub(crate) mod cast;
+/// Every diagnostic Redox itself can report for one document.
 pub(crate) mod diagnostics;
+/// The open documents, keyed by URI.
 pub(crate) mod documents;
+/// The edit that makes a document canonical, or none.
 pub(crate) mod formatting;
 pub(crate) mod positions;
+/// Send the current diagnostics for one document.
 pub(crate) mod publish;
+/// Turn a handler's output into a response.
 pub(crate) mod reply;
+/// The document's tokens, delta-encoded as the protocol wants them.
 pub(crate) mod semantic_tokens;
+/// The document's items, as a symbol tree.
 pub(crate) mod symbols;
 
 use crate::serve::absorb::absorb;

@@ -1,3 +1,4 @@
+/// The widest pipeline written on one line.
 pub(crate) mod pipeline_width;
 
 use crate::expr_text::operand::operand;

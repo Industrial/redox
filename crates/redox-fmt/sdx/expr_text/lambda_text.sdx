@@ -1,3 +1,4 @@
+-- | One parameter: a name, optionally `mut`, optionally typed.
 export(crate) module param_text
 
 import crate::expr_text::expr_text

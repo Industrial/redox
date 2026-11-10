@@ -29,6 +29,7 @@
 //! Layout follows `docs/06 - Redox Code Architecture.md`: everything parsing
 //! owns sits under `parse/`, headed by the entry point.
 
+/// Parse an already-lexed token stream.
 mod parse;
 
 pub use parse::error::ParseError;

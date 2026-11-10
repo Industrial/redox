@@ -1,22 +1,42 @@
+/// A character cursor over the source text.
 pub(crate) mod cursor;
+/// Strip the common leading indentation from a `"""` block's body.
 pub(crate) mod dedent_block;
+/// Whether a byte may continue an identifier already begun.
 pub(crate) mod is_ident_continue;
+/// Whether a byte may begin an identifier.
 pub(crate) mod is_ident_start;
+/// Lex an expression fragment, offsetting every span by a base.
 pub(crate) mod lex_fragment;
+/// Every operator and punctuation token, longest match first.
 pub(crate) mod operator_table;
+/// Scan a `b`-prefixed literal: `b'x'` or `b"…"`.
 pub(crate) mod scan_byte;
+/// Which comment form a `--` run opens.
 pub(crate) mod scan_comment;
+/// Scan a `c"…"` nul-terminated string literal.
 pub(crate) mod scan_cstring;
+/// Decode one escape sequence, the backslash already consumed.
 pub(crate) mod scan_escape;
+/// Scan a numeric literal, the cursor on its first digit.
 pub(crate) mod scan_number;
+/// Scan an operator at the cursor, if one is there.
 pub(crate) mod scan_operator;
+/// Scan a `'`: a char literal, or a lifetime or label.
 pub(crate) mod scan_quote;
+/// Scan a raw identifier `r#type`, the cursor on the `r`.
 pub(crate) mod scan_raw_ident;
+/// Scan a raw string `r"…"` or `r#"…"#`, the cursor on the `r`.
 pub(crate) mod scan_raw_string;
+/// The layout-delimited body of a `rust` block, taken verbatim.
 pub(crate) mod scan_rust_block;
+/// Scan a `"…"` or `"""…"""` literal, the cursor on the opening quote.
 pub(crate) mod scan_string;
+/// Advance past an interpolation's body, to just after its `}`.
 pub(crate) mod skip_interpolation;
+/// Split an interpolation body into its expression and its format spec.
 pub(crate) mod split_format_spec;
+/// Strip the single optional space after a comment's introducer.
 pub(crate) mod trim_comment;
 
 use crate::lexer::cursor::Cursor;
@@ -55,9 +75,13 @@ use redox_diag::Code;
 /// §3.1 prescribes four spaces while every example in docs 01–05 uses two; see
 /// `docs/COMPILER.md` §4.
 pub(crate) struct Lexer<'a> {
+  /// The cursor the scanners advance over the source.
   cur: Cursor<'a>,
+  /// The tokens emitted so far, in source order.
   toks: Vec<Token>,
+  /// The indentation width of each open block, outermost first.
   indents: Vec<usize>,
+  /// Trivia seen since the last token, waiting for the token that carries it.
   pending: Vec<Trivia>,
   /// Each currently-open `(`, `[` or `{`, as its byte offset paired with the
   /// `indents` depth it opened at.
@@ -105,6 +129,7 @@ pub(crate) struct Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
+  /// A lexer over a source, with only the base indentation level open.
   pub(crate) fn new(src: &'a str) -> Self {
     Self {
       cur: Cursor::new(src),

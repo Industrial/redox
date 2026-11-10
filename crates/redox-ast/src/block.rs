@@ -1,3 +1,4 @@
+/// One element of a block: an expression, and the trivia around it.
 pub(crate) mod stmt;
 
 use crate::{Expr, Stmt};

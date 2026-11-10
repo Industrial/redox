@@ -55,11 +55,17 @@
 -- ! subexpression are the same type and the statement/expression fork is gone
 -- ! from the tree. [`Stmt`] survives as the trivia carrier and records why.
 
+-- | An indented sequence of statements.
 module block
+-- | An `if`, `while` or `case`-arm-guard condition.
 module condition
+-- | An expression.
 module expr
+-- | A whole source file.
 module program
+-- | The names in one dependency cycle among a `where` group's bindings.
 module where_cycle
+-- | Which of a `where` group's bindings each entry's value mentions.
 module where_edges
 
 export import block::Block

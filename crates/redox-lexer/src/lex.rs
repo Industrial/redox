@@ -1,6 +1,7 @@
 use crate::lexer::Lexer;
 use crate::{LexError, Token};
 
+/// A lexical error, carrying enough to report against the `.sdx`.
 pub(crate) mod error;
 
 /// Tokenize `src`.
