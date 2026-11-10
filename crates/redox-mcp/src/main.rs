@@ -13,6 +13,20 @@ use rmcp::ServiceExt;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+  // Plan 71 leaf 1, and the same argument as `redox-lsp`'s: stdin belongs to
+  // the protocol, so without this the only answer to "what version is this"
+  // was `cannot start: connection closed: initialize request`. Checked before
+  // the transport is taken, and printed to **stdout** — which is the one
+  // `println!` in this binary that is correct, because no protocol stream
+  // exists yet.
+  if std::env::args()
+    .skip(1)
+    .any(|arg| arg == "--version" || arg == "-V")
+  {
+    println!("redox-mcp {}", env!("CARGO_PKG_VERSION"));
+    return Ok(());
+  }
+
   let service = redox_mcp::Server::new()
     .serve(rmcp::transport::stdio())
     .await

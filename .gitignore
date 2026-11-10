@@ -86,18 +86,45 @@ benchmarks/pairs/*.xrs.map
 crates/*/sdx/**/*.xrs
 crates/*/sdx/**/*.xrs.map
 
-# Plan 49. `editors/vscode/` is a VSCode extension, so an `npm install` for
-# `vscode-languageclient` lands here; the VSIX payload is an explicit list
-# rather than a walk for exactly this reason. A built VSIX is an artifact —
-# `editors.rs` writes one into a temp directory on every run, and
-# `REDOX_VSIX_OUT` is how a reader asks for a copy.
+# Plan 49, amended by plan 71. `editors/vscode/` is a VSCode extension, so an
+# `npm install` for `vscode-languageclient` lands here. Plan 49 ignored the
+# lockfile too, and gave as its reason that "the VSIX payload is an explicit
+# list rather than a walk for exactly this reason" — which is the decision
+# plan 71 §1.2 reversed, because an extension shipped without that closure
+# throws on `require` before `activate` is entered and degrades silently to
+# TextMate highlighting.
+#
+# So `node_modules/` stays ignored — it is `npm ci`'s output — and
+# **`package-lock.json` is now tracked**, because it is what makes that output
+# reproducible from a clone. `every_path_a_config_names_is_tracked` asserts it.
+#
+# A built VSIX is still an artifact: `editors.rs` writes one into a temp
+# directory on every run, and `REDOX_VSIX_OUT` is how a reader asks for a copy.
 editors/vscode/node_modules/
-editors/vscode/package-lock.json
 *.vsix
+
+# Plan 71 leaf 1. `nix build` drops a `result` symlink into the working tree
+# pointing at its store output. It is an artifact of a command, like the VSIX
+# above, and it is a *symlink* — committing one would pin a store path that is
+# valid on exactly one machine until the next garbage collection.
+/result
+/result-*
 # The compiled tree-sitter parser each client's README builds. Not committed:
 # five platforms' binaries is a release problem, not an editor one (plan 49 §6).
 tree-sitter-redox/redox.so
-Cargo.lock
+# Plan 71 leaf 1 tracks `Cargo.lock`, which this line used to ignore with no
+# comment. Two reasons, and the first is a hard requirement:
+#
+#   - `flake.nix` builds the binaries with `rustPlatform.buildRustPackage`,
+#     whose `cargoLock.lockFile` must be *in the source*. An ignored
+#     lockfile is absent from a `git+file://` or `github:` flake input, so
+#     the build cannot resolve a single dependency.
+#   - cargo's own guidance is to commit the lockfile for a workspace that
+#     produces binaries, which this one does — `redox`, `redox-lsp` and
+#     `redox-mcp`.
+#
+# `examples/*/Cargo.lock` above stays ignored: those are fixture projects a
+# test generates, not this workspace.
 Thumbs.db
 charts/
 config.json

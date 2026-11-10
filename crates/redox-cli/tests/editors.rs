@@ -23,7 +23,6 @@
 //! So a missing tool prints a line naming what was skipped and why, and the
 //! test returns.
 
-use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -302,176 +301,14 @@ print('in-comment group: ' .. group(2, 26))
 "#;
 
 // --------------------------------------------------------- VSCode / Cursor
+//
+// In `editors/vsix.rs`: two rungs and the packager. Plan 71 leaf 2 took this
+// file past `line_cap.rs`'s 1,500 lines, so the section moved rather than
+// losing the comments that say why each check is the strength it is.
+#[path = "editors/vsix.rs"]
+mod vsix;
 
-/// Criterion 3 — the second rung: the editor installs the extension.
-///
-/// A VSIX is an OPC zip, and `vsce` is absent and unfetchable here, so plan 49
-/// §1.3 declined the packaging dependency. The implementation is the `zip`
-/// crate rather than a hand-written archive writer, because AGENTS.md is
-/// explicit that no plan implements a library function.
-///
-/// `REDOX_VSIX_OUT` keeps a copy, which is how `editors/vscode/README.md`
-/// tells a reader to build one for a real install.
-#[test]
-fn the_vsix_installs_into_cursor() {
-  let dir = scratch("vsix");
-  let vsix = build_vsix(&dir.join("redox.vsix"));
-  if let Ok(out) = std::env::var("REDOX_VSIX_OUT") {
-    std::fs::copy(&vsix, &out).expect("should write REDOX_VSIX_OUT");
-    println!("wrote {out}");
-  }
-
-  if !available("cursor") {
-    skip(
-      "cursor install",
-      "no `cursor` on PATH — the VSIX was built and checked, not installed",
-    );
-    return;
-  }
-
-  // An explicit throwaway directory, so the developer's own extensions are
-  // never touched. Criterion 8.
-  let ext_dir = dir.join("extensions");
-  std::fs::create_dir_all(&ext_dir).expect("should create an extensions dir");
-
-  let install = Command::new("cursor")
-    .arg("--extensions-dir")
-    .arg(&ext_dir)
-    .arg("--install-extension")
-    .arg(&vsix)
-    .arg("--force")
-    .output()
-    .expect("cursor should run");
-  let said = format!(
-    "{}{}",
-    String::from_utf8_lossy(&install.stdout),
-    String::from_utf8_lossy(&install.stderr)
-  );
-  assert!(
-    install.status.success(),
-    "cursor should install the VSIX. A hand-built manifest gets none of \
-     `vsce`'s validation, so a mistake in it surfaces here:\n{said}"
-  );
-
-  let listed = Command::new("cursor")
-    .arg("--extensions-dir")
-    .arg(&ext_dir)
-    .arg("--list-extensions")
-    .output()
-    .expect("cursor should run");
-  let text = String::from_utf8_lossy(&listed.stdout);
-  assert!(
-    text.contains("redox-lang.redox"),
-    "and should list it back as `redox-lang.redox`, which is the half of the \
-     check that proves the install rather than the exit code:\n{text}"
-  );
-}
-
-/// Write a VSIX from `editors/vscode/`.
-///
-/// The OPC layout: `[Content_Types].xml`, `extension.vsixmanifest`, and the
-/// extension's own files under `extension/`.
-fn build_vsix(path: &Path) -> PathBuf {
-  let manifest: serde_json::Value = serde_json::from_str(
-    &std::fs::read_to_string(editors_dir().join("vscode/package.json"))
-      .expect("should read the extension's package.json"),
-  )
-  .expect("package.json should be JSON");
-  let publisher = manifest["publisher"].as_str().expect("a publisher");
-  let name = manifest["name"].as_str().expect("a name");
-  let version = manifest["version"].as_str().expect("a version");
-
-  let file = std::fs::File::create(path).expect("should create the VSIX");
-  let mut zip = zip::ZipWriter::new(file);
-  // Stored rather than deflated. A VSIX does not need to be small, and the
-  // compression features pull flate2, zlib-rs and a wasm-bindgen tree into the
-  // dev graph to save kilobytes nobody transfers.
-  let options: zip::write::FileOptions<()> =
-    zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Stored);
-
-  zip
-    .start_file("[Content_Types].xml", options)
-    .expect("should start a file");
-  zip
-    .write_all(CONTENT_TYPES.as_bytes())
-    .expect("should write");
-
-  zip
-    .start_file("extension.vsixmanifest", options)
-    .expect("should start a file");
-  zip
-    .write_all(
-      VSIX_MANIFEST
-        .replace("@@ID@@", name)
-        .replace("@@PUBLISHER@@", publisher)
-        .replace("@@VERSION@@", version)
-        .as_bytes(),
-    )
-    .expect("should write");
-
-  for relative in vsix_payload() {
-    let from = editors_dir().join("vscode").join(&relative);
-    zip
-      .start_file(format!("extension/{relative}"), options)
-      .expect("should start a file");
-    zip
-      .write_all(
-        &std::fs::read(&from)
-          .unwrap_or_else(|e| panic!("the extension should contain {}: {e}", from.display())),
-      )
-      .expect("should write");
-  }
-  zip.finish().expect("should finish the VSIX");
-  path.to_path_buf()
-}
-
-/// Every file the extension needs, relative to `editors/vscode/`.
-///
-/// Listed rather than walked: `node_modules` lives in this directory after an
-/// `npm install`, and a walk would put it in the VSIX. The install test is what
-/// proves the list is complete.
-fn vsix_payload() -> Vec<String> {
-  [
-    "package.json",
-    "README.md",
-    "language-configuration.json",
-    "syntaxes/redox.tmLanguage.json",
-    "src/extension.js",
-  ]
-  .into_iter()
-  .map(str::to_string)
-  .collect()
-}
-
-const CONTENT_TYPES: &str = r#"<?xml version="1.0" encoding="utf-8"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-  <Default Extension=".json" ContentType="application/json" />
-  <Default Extension=".js" ContentType="application/javascript" />
-  <Default Extension=".md" ContentType="text/markdown" />
-  <Default Extension=".vsixmanifest" ContentType="text/xml" />
-</Types>
-"#;
-
-const VSIX_MANIFEST: &str = r#"<?xml version="1.0" encoding="utf-8"?>
-<PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011">
-  <Metadata>
-    <Identity Language="en-US" Id="@@ID@@" Version="@@VERSION@@" Publisher="@@PUBLISHER@@" />
-    <DisplayName>Redox</DisplayName>
-    <Description xml:space="preserve">Redox language support.</Description>
-    <Tags>redox,rust</Tags>
-    <Categories>Programming Languages</Categories>
-    <GalleryFlags>Public</GalleryFlags>
-  </Metadata>
-  <Installation>
-    <InstallationTarget Id="Microsoft.VisualStudio.Code" />
-  </Installation>
-  <Dependencies />
-  <Assets>
-    <Asset Type="Microsoft.VisualStudio.Code.Manifest" Path="extension/package.json" Addressable="true" />
-    <Asset Type="Microsoft.VisualStudio.Services.Content.Details" Path="extension/README.md" Addressable="true" />
-  </Assets>
-</PackageManifest>
-"#;
+use vsix::vsix_payload;
 
 // ------------------------------------------------------------- Helix, Zed
 
@@ -1182,9 +1019,25 @@ fn every_path_a_config_names_is_tracked() {
     tracked.len()
   );
 
+  // `node_modules` is **not** tracked, and must not be: it is `npm ci`'s
+  // output, reproducible from a lockfile that is tracked. Plan 71 leaf 2 put
+  // that closure in `vsix_payload()`, so the payload is no longer a list of
+  // files a clone is expected to contain — it is the extension's own files
+  // plus a generated closure. This test keeps its premise ("a fresh clone
+  // would have them") by checking the former and checking that the latter is
+  // *derivable*: `package-lock.json` is what makes `npm ci` reproduce it.
+  assert!(
+    tracked.contains(&"editors/vscode/package-lock.json".to_string()),
+    "`editors/vscode/package-lock.json` must be tracked. It is what makes the \
+     `node_modules` closure in `vsix_payload()` reproducible from a clone — \
+     without it `npm ci` has nothing to pin and the VSIX's contents depend on \
+     whatever the registry served that day."
+  );
+
   let mut untracked = Vec::new();
   for relative in vsix_payload()
     .into_iter()
+    .filter(|p| !p.starts_with("node_modules/"))
     .map(|p| format!("vscode/{p}"))
     .chain(
       [

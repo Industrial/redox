@@ -25,7 +25,7 @@ were the strongest. `crates/redox-cli/tests/editors.rs` therefore runs a
 | Client | What the gate actually does | Strength |
 |---|---|---|
 | **Neovim** | runs `nvim --headless`: loads the parser, parses every `examples/*.sdx` with no `ERROR` node, compiles all three queries, matches the highlight query | the editor runs it |
-| **Cursor** | builds a VSIX and installs it with `--install-extension` into a throwaway `--extensions-dir`, then reads it back from `--list-extensions` | the editor installs it |
+| **Cursor** | builds a VSIX, installs it with `--install-extension` into a throwaway `--extensions-dir`, reads it back from `--list-extensions`, **and has `node` load the installed entry module** | the editor installs it, and the module loads |
 | **VSCode** | nothing — **inherited** from Cursor, which is a VSCode fork consuming the same contribution points | a claim, not a measurement |
 | **Vim** | `nvim` sources `syntax/sdx.vim` as legacy vimscript and reports the highlight group at a keyword | a compatible editor runs it — not vim |
 | **Helix** | `languages.toml` parses and every key is one Helix documents | the file is well-formed |
@@ -33,6 +33,24 @@ were the strongest. `crates/redox-cli/tests/editors.rs` therefore runs a
 
 A test called `helix_config_parses` is not a test called `helix_works`, and the
 difference is the point.
+
+**Plan 71 found that the Cursor rung was itself over-read, which is the same
+mistake one level up.** `the_vsix_installs_into_cursor` is a true name, and an
+install is not an activation: VSCode does not run `activate` during
+`--install-extension`, so an extension whose entry module throws on `require`
+installs cleanly and lists back. Plan 49's VSIX excluded `node_modules` by
+design, so that is what it did — and the surviving behaviour, TextMate
+highlighting with no server, is byte-identical to the documented
+`redox.server.enable: false`. A second rung now loads the module, and the row
+above says so rather than leaving *"the editor installs it"* to carry a claim
+it cannot.
+
+The install instructions were also wrong in a way no test could catch, because
+no test followed them: on a Nix-managed Cursor the wrapper forces
+`--extensions-dir` to a read-only store path, so the documented
+`cursor --install-extension` cannot write. The gate passed because it supplies
+its own. `editors/vscode/README.md` says this now, and the Nix declaration is
+the supported path on that machine.
 
 Every check **skips with a reason** when its tool is absent, so the gate passes
 on a machine with no editors and says which rungs did not run. A silently

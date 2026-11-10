@@ -4,11 +4,31 @@
 //! the tests drive `serve` over an in-process `Connection` — the same protocol
 //! path with no process to spawn — and what is left here is the part a test
 //! cannot exercise without a terminal.
+//!
+//! # `--version`, and why a protocol server needs one
+//!
+//! Plan 71 leaf 1. Everything else here speaks JSON-RPC on stdin, so until
+//! this existed the only way to ask the binary what it was was to start a
+//! server and watch it fail: `redox-lsp --version` answered
+//! `Error: "disconnected channel"`, because the flag was not a flag and the
+//! empty stdin was the error. A packaged binary has to answer — the Nix
+//! derivation, `editors/vscode`'s `redox.server.path` setting and anyone
+//! debugging a version skew all ask the same question first.
 
 use lsp_server::Connection;
 use lsp_types::InitializeParams;
 
 fn main() -> Result<(), String> {
+  // Before the transport: `Connection::stdio()` takes the handles and the
+  // handshake blocks, so a flag checked after it would never be reached.
+  if std::env::args()
+    .skip(1)
+    .any(|arg| arg == "--version" || arg == "-V")
+  {
+    println!("redox-lsp {}", env!("CARGO_PKG_VERSION"));
+    return Ok(());
+  }
+
   let (connection, threads) = Connection::stdio();
 
   // The handshake has to come before the loop: an editor sends no request

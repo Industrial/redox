@@ -1,0 +1,569 @@
+# Plan 71 — Cursor Support
+
+Status: planned
+Depends on: 40 (the language server), 49 (the editor clients), 50 (the MCP server)
+
+> **Numbering.** This row takes plan **71** and doc index **65**, not 70. `AGENTS.md`
+> in the working tree already cites *"plan 70 §1 is the survey of what every other
+> self-hosting language does instead"*, and no `docs/64 - 70 - …` exists yet — plan 70
+> is in-flight work this plan does not own. If that turns out to be wrong the fix is a
+> `git mv` and one register cell.
+
+---
+
+## 1. What this plan is
+
+### 1.1 The ask is not what it looks like
+
+The request was *"how do we get Redox supported in Cursor IDE"*. Cursor support
+**already exists**, and plan 49 made it the only one of the five editor clients whose
+gate is an editor actually accepting the artifact: `the_vsix_installs_into_cursor`
+builds a VSIX and installs it, where Helix and Zed get *"the file is well-formed"* and
+VSCode gets, in `editors/README.md`'s own words, *"a claim, not a measurement"*.
+
+So this plan is not *add Cursor support*. It is: **three things plan 49 claims are not
+true on the machine Redox is developed on, and the delivery mechanism is Nix rather
+than a VSIX.** Every number below was measured 2026-11-10, not inferred.
+
+### 1.2 Three defects, each measured
+
+**Defect 1 — the installed extension cannot start the server.**
+`editors/vscode/src/extension.js:18` requires `vscode-languageclient/node` at **module
+top level**, so it throws before `activate` is entered. `vsix_payload()`
+(`crates/redox-cli/tests/editors.rs:433`) lists five files and excludes `node_modules`
+deliberately, with a comment explaining that a walk would otherwise vacuum up an
+`npm install`. Measured, by building the VSIX through the gate and installing it:
+
+```
+VSIX                 7 entries: [Content_Types].xml, extension.vsixmanifest,
+                     extension/{package.json, README.md, language-configuration.json,
+                                syntaxes/redox.tmLanguage.json, src/extension.js}
+installed tree       .tmp/extcheck/redox-lang.redox-0.1.0/ — the same five files
+node resolution      walked src/ → / looking for node_modules/vscode-languageclient:
+                     no hit at any level
+```
+
+What survives is exactly the declarative half — the `redox` language id, the `.sdx`
+association, TextMate colour, bracket pairs, 2-space indent. Diagnostics, formatting,
+document symbols and semantic tokens never arrive. That is byte-identical to
+`redox.server.enable: false`, which `editors/vscode/README.md` calls *"the useful
+degraded mode"* — **so the failure presents as a supported configuration.** The README's
+step 3 (`cd editors/vscode && npm install`) cannot fix it: it populates the source tree,
+which is not where an installed extension resolves from, and which `vsix_payload()`
+excludes regardless.
+
+**Defect 2 — the documented install command cannot work here.**
+`cursor` on this machine is Nix-managed and the wrapper hardcodes the extensions
+directory **before** user arguments:
+
+```
+/run/current-system/sw/bin/cursor
+  → /nix/store/i29i5qr…-cursor-with-extensions-3.25.9/bin/cursor
+  → exec …/cursor-3.25.9/bin/cursor \
+      --extensions-dir /nix/store/q70gzw…-vscode-extensions/share/vscode/extensions "$@"
+```
+
+That directory is a **read-only** store path holding 25 extensions, among them
+`emerald-lang.emerald-lang` and no redox. So `cursor --install-extension redox.vsix`
+from README step 2 has nowhere to write.
+
+The gate passes only because it supplies its own `--extensions-dir`. Cursor says so
+out loud, and this line is the whole finding:
+
+```
+Option 'extensions-dir' is defined more than once. Using value '…/.tmp/extcheck'.
+```
+
+Nothing in the suite exercises the path a user follows. `the_vsix_installs_into_cursor`
+is a true name for a check that proves install into *a* directory, and VSCode does not
+run `activate` during install, so defect 1 hides behind it.
+
+**Defect 3 — neither binary is installed.** `redox-lsp`: absent from `PATH`. `redox`:
+absent. A correct extension would still report *"could not start the language server"*.
+
+### 1.3 Why Nix, and why Emerald decides the shape
+
+`~/.dotfiles` has already solved this problem for a sibling language that is also not on
+any marketplace. Four files, and three of them transfer by shape:
+
+| Step | Emerald | Redox today |
+|---|---|---|
+| Flake input | `flake.nix:54` `emerald = github:Industrial/emerald` | **no flake, no repo** |
+| Binaries on `PATH` | `features/programming/emerald/default.nix` → `inputs.emerald.packages.${system}.emerald` | no Nix package |
+| Extension derivation | `features/programming/emerald/vscode-extension.nix` → `buildNpmPackage` | **no `package-lock.json`** |
+| Registration | `features/programming/cursor/default.nix` → `vscodeExtensions = [ … ]` | absent |
+| Profile | `profiles/development.nix:21` | absent |
+| Colocated tests | `*.assay.nix`, string-level guards | absent |
+
+Emerald's derivation copies `dist/` after `npmBuildScript = "build"`. Redox's extension
+has **no build step** — plan 49 §1.3 chose plain JavaScript on purpose, so that a
+checkout is a working editor. So the shape transfers but two fields invert:
+`dontNpmBuild = true`, and the install phase copies `node_modules` rather than `dist`.
+**Copying `node_modules` is what fixes defect 1 for the Nix path.**
+
+```mermaid
+flowchart TB
+  subgraph src["crates/ + editors/vscode/ (this repo)"]
+    LSP["redox-lsp<br/>4 capabilities"]
+    EXT["editors/vscode/<br/>plain JS, no build"]
+    MCP["redox-mcp<br/>build/check/fmt/source_map"]
+  end
+
+  subgraph nix["~/.dotfiles (the delivery path)"]
+    FLAKE["flake input<br/>path: → github:"]
+    PKG["features/programming/redox/default.nix<br/>redox + redox-lsp on PATH"]
+    VEXT["vscode-extension.nix<br/>buildNpmPackage + node_modules"]
+    CUR["cursor/default.nix<br/>vscodeExtensions"]
+  end
+
+  subgraph vsix["the VSIX path (leaf 2)"]
+    ZIP["editors.rs build_vsix<br/>+ node_modules + activation test"]
+  end
+
+  LSP --> FLAKE --> PKG --> CUR
+  EXT --> FLAKE --> VEXT --> CUR
+  EXT --> ZIP
+  MCP -.->|"leaf 0, no blockers"| CURMCP["Cursor mcp.json"]
+  CUR --> OUT["Cursor opens .sdx with diagnostics,<br/>formatting, symbols, semantic tokens"]
+  ZIP --> OUT
+```
+
+---
+
+## 2. Verified preconditions
+
+Measured 2026-11-10. Each line is a thing a leaf depends on being true.
+
+| Claim | Check | Result |
+|---|---|---|
+| Cursor's extensions dir is read-only store | `[ -w … ]` | `READ-ONLY`, 25 extensions |
+| The baked flag is overridden, not honoured | Cursor's own stderr | *"defined more than once"* |
+| The VSIX omits `node_modules` | `unzip -l` | 7 entries, none of them a module |
+| `vscode-languageclient` is unresolvable from the installed tree | walk `src/` → `/` | no hit |
+| `editors/vscode` has no lockfile | `ls -A` | `package.json` only |
+| `redox-lsp` / `redox` on `PATH` | `command -v` | both **ABSENT** |
+| Redox is not a flake | `ls flake.nix flake.lock` | both absent |
+| Redox has no CI | `ls -d .github` | **absent** |
+| `Industrial/redox` exists | `gh repo view` | *"Could not resolve to a Repository"* |
+| `git remote` | `git remote -v` | `Industrial/_project-template` |
+| The gate currently passes | `cargo test … --test editors vsix` | `1 passed` |
+| `redox-mcp` is in Cursor's registry | three `mcp.json` files | **absent from both Cursor ones** |
+| Emerald's feature is composed explicitly | `profiles/development.nix:21` | explicit import list |
+| Register vocabulary admits a planned row | `status.rs:233` | `["done","superseded","not-started","planned","partial"]` |
+
+Two that constrain scope rather than enable a leaf:
+
+- **`crates.io` cannot have the names.** `redox` is **taken** — a bittorrent library,
+  `created_at` 2015-05-26, `updated_at` 2015-12-11, dead for eleven years. `redox-lsp` is
+  **taken and alive**: v0.3.0, created 2026-09-06, updated **2026-10-23**, repository
+  `github.com/JackDerksen/redox`. Someone else's Redox is actively publishing the exact
+  crate name this project's language server wants. Every other name in the workspace —
+  `redox-cli`, `-ast`, `-parser`, `-lexer`, `-emit`, `-fmt`, `-diag`, `-driver`, `-mcp` —
+  is free. §6 is where this goes.
+- **The manifest is not publishable and the licence disagrees with itself.**
+  `[workspace.package]` carries `version`, `edition`, `license` and no `description` or
+  `repository`; `license = "CC-BY-SA-4.0"`, a content licence, while
+  `editors/vscode/package.json` says `MIT`.
+
+---
+
+## 3. Concrete proof this plan targets
+
+The thing a successor should be able to re-run. Not *"Cursor supports Redox"* — that is
+unfalsifiable — but these four, in order of strength:
+
+1. `nix build` in this repo produces `redox` and `redox-lsp` binaries that answer
+   `--version`.
+2. `nixos-rebuild switch` on `drakkar` puts `redox-lang.redox` in
+   `cursor --list-extensions`, beside `emerald-lang.emerald-lang`.
+3. The installed extension's entry module **loads** — the assertion defect 1 needs, and
+   the one plan 49's gate structurally cannot make.
+4. Opening `examples/hello.sdx` in Cursor shows an `RDX` diagnostic for a syntax error
+   and reformats on `shift+alt+f`. This rung is a human looking at a screen; it is named
+   as such and not dressed up as a test.
+
+---
+
+## 4. Leaves
+
+Six leaves, two waves. Leaf 0 is independent of every Nix question and should land first.
+
+### Leaf 0 — `leaf-cursor-agent-surface`
+
+**Wave 0, parallel with leaf 1 and leaf 2.** No blockers.
+
+Cursor is a VSCode fork **plus** an AI layer, and the AI layer is untouched. `redox-mcp`
+already speaks `redox_build`, `redox_check`, `redox_fmt` and `redox_source_map` with
+diagnostics mapped back to the `.sdx` — and it is registered only in the repo's
+`.mcp.json`, which is Claude Code's. Cursor cannot see it.
+
+- Add `redox` to `features/programming/cursor/.config/Cursor/mcp.json` in `~/.dotfiles`
+  (5 servers today), mirroring the repo's entry but **not** `cargo run` — point it at the
+  Nix-built binary once leaf 3 lands, and at `cargo run --quiet --package redox-mcp`
+  until then.
+- Confirm Cursor reads the root `AGENTS.md`. It already carries the two facts that matter
+  most to an agent in this tree — `.sdx` is the source, and
+  `crates/redox-{ast,fmt}/src/**` is **generated and must not be edited** — so if Cursor
+  honours it, the rules work is already done and this reduces to a check.
+
+**Explicitly declined: `.cursorignore` over the generated `src/` trees.** The decision log
+has the reasoning; briefly, plans 68 and 69 derived their entire yield from *reading
+generated output*, so hiding it from the agent would remove the capability this project
+most recently paid for.
+
+**AC.** `redox` appears in Cursor's MCP server list and `redox_check` answers for
+`examples/hello.sdx`. A note in `editors/vscode/README.md` names the MCP surface as the
+agent-facing half.
+
+### Leaf 1 — `leaf-flake`
+
+**Wave 0.** Create `flake.nix` + `flake.lock` exposing
+`packages.${system}.{default,redox,redox-lsp}` via `rustPlatform.buildRustPackage`.
+
+No bootstrap hazard: `redox-lsp → redox-fmt → redox-ast`, and both self-hosted crates keep
+their generated `src/*.rs` **committed** per doc 02 §4.8, so Nix compiles ordinary Rust
+with no Redox compiler among the build inputs. This is the first time that decision pays
+off for something other than `git checkout`.
+
+**Risk, and the reason this leaf is not trivial:** devenv already owns the root
+(`devenv.nix`, `devenv.yaml`, and the `.cursor/nix` submodule's module tree). A top-level
+`flake.nix` must not break `devenv shell`, which every gate in this repo runs through.
+Verify both before and after; if they conflict, devenv's flake integration
+(`.devenv.flake.nix`) is the escape and must be recorded here rather than discovered
+twice.
+
+**AC.** `nix build .#redox` and `nix build .#redox-lsp` succeed from a clean checkout;
+both binaries answer `--version`; `devenv shell -- moon run :check` is unchanged.
+
+### Leaf 2 — `leaf-vsix-self-contained`
+
+**Wave 0.** Fix defect 1 on the VSIX path, or retire the path. **Recommendation: fix**,
+because it is the only route to a non-Nix machine and because retiring it would delete
+the one rung in plan 49's ladder where an editor accepts an artifact.
+
+- `npm install` once in `editors/vscode/` to produce **`package-lock.json`**; commit it.
+  This is also what leaf 3's `npmDepsHash` needs, so the two leaves share it.
+- Add `node_modules/**` to `vsix_payload()`, by explicit walk of the *installed* closure
+  rather than by listing files — and keep the existing comment's intent by walking
+  `node_modules` deliberately instead of walking the directory.
+- **Add the assertion the gate is missing:** after installing into the throwaway
+  `--extensions-dir`, assert `node_modules/vscode-languageclient` exists in the installed
+  tree. Stronger, if cheap: `node --input-type=commonjs` with a `vscode` stub on the
+  module path, requiring the installed `src/extension.js` and asserting it does not throw.
+  Name the test for what it checks — `the_installed_extension_can_load_its_entry_module`.
+- Fix `editors/vscode/README.md` steps 2–3: step 3's `npm install` currently points at the
+  source tree and cannot affect an installed extension. Say what defect 1 was.
+
+**AC.** The new test fails against today's `vsix_payload()` and passes after. The VSIX
+grows by the `vscode-languageclient` closure, and the README no longer documents a step
+that cannot work.
+
+### Leaf 3 — `leaf-dotfiles-cursor`
+
+**Wave 1.** Blocked by leaves 1 and 2. **This leaf writes to `~/.dotfiles`, not this
+repo** — a second worktree, a second commit, a second gate. Say so in the commit.
+
+```
+features/programming/redox/
+├── default.nix                  # redox + redox-lsp → environment.systemPackages
+├── default.assay.nix
+├── vscode-extension.nix         # buildNpmPackage, dontNpmBuild, copies node_modules
+└── vscode-extension.assay.nix
+```
+
+Then three edits: `profiles/development.nix` gains `../features/programming/redox`;
+`features/programming/cursor/default.nix` imports the extension and adds it to
+`vscodeExtensions` beside `emeraldVscodeExtension`; and
+`features/programming/cursor/.config/Cursor/User/settings.json` sets
+`redox.server.path` to the store path rather than trusting `PATH` — defect 3 is what
+happens when you trust `PATH`.
+
+The flake input starts as `path:/home/tom/Code/rust/redox` and becomes
+`github:Industrial/redox` at leaf 4. Both assay suites follow the Emerald pattern
+exactly — string-level guards over identity, the pinned `npmDepsHash`, the
+publisher-qualified install path, and the `passthru` metadata.
+
+**AC.** `nixos-rebuild build` succeeds; `assay run features/programming/redox` passes;
+after a switch, `cursor --list-extensions` prints `redox-lang.redox`; opening
+`examples/hello.sdx` shows an `RDX` diagnostic and formats.
+
+### Leaf 4 — `leaf-publish-repo`
+
+**Wave 1.** Create `Industrial/redox`, push `feat/dogfood` and `main`, swap the flake
+input from `path:` to `github:`. The `git remote` still points at
+`Industrial/_project-template`, so this also stops the repo pushing to a template.
+
+Decide here, not later, whether CI exists: there is **no `.github/` at all**, so every
+gate this project owns runs only on a developer's machine. That is a larger question than
+Cursor support and §6 defers it rather than smuggling it in.
+
+**AC.** `gh repo view Industrial/redox` resolves; `nix flake metadata` in `~/.dotfiles`
+shows the `github:` input; `nixos-rebuild build` still succeeds.
+
+### Leaf 5 — `leaf-lsp-navigation`
+
+**Wave 1, parallel with 3 and 4.** `capabilities.rs` advertises exactly four, guarded by
+`capabilities_are_exactly_the_four_implemented`, and the doc comment's reasoning is
+correct and worth keeping: *"an editor told a capability exists stops looking for another
+source for it"*. So this leaf adds capabilities **and** the handlers, together, and
+updates that test's count rather than weakening it.
+
+Three, chosen because each is a span lookup over an AST that already carries spans on
+every node — `AGENTS.md`'s *"every AST node carries a byte span"* is the precondition:
+
+| Capability | Why first |
+|---|---|
+| `hover` | the first thing anyone tries |
+| `definition` | ctrl-click; drives Cursor's symbol navigation |
+| `foldingRange` | an off-side-rule language, and the lexer already emits indentation |
+
+`references`, `completion`, `rename`, `codeAction`, `inlayHint` and `workspaceSymbol` are
+named in §6 as the follow-on, in that order.
+
+**AC.** `capabilities_are_exactly_the_seven_implemented` passes; one session test per
+capability, each asserting a position in a fixture under `crates/redox-lsp/tests/`
+— never a string literal, per `AGENTS.md`.
+
+---
+
+## 5. Acceptance criteria
+
+1. The gate contains a test that **fails** against today's `vsix_payload()` because the
+   installed extension cannot load its entry module, and passes after leaf 2.
+2. `nix build .#redox-lsp` produces a binary that answers `--version`, from a clean
+   checkout, with no `cargo install` step.
+3. `cursor --list-extensions` lists `redox-lang.redox` after a `nixos-rebuild switch`,
+   with no `--extensions-dir` override and no imperative install.
+4. Opening a `.sdx` with a syntax error in Cursor shows an `RDX`-coded diagnostic on the
+   `.sdx` line and column; `shift+alt+f` reformats. **Witness: a human, named as such.**
+5. `redox_check` is callable from Cursor's agent and reports against the `.sdx`.
+6. `editors/README.md`'s ladder table is rewritten so that no row claims more than its
+   test measures — specifically, the Cursor row must stop implying activation.
+7. `devenv shell -- moon run :check :test :lint` is green in this repo, and
+   `assay run features/programming/redox` is green in `~/.dotfiles`.
+8. The register gains row 71 and `docs/STATUS.md` is reblessed in the same commit.
+
+---
+
+## 6. Out of scope, and what it discloses
+
+- **crates.io, and the token.** Nothing in this plan needs it. The Nix path builds from a
+  flake input and `cargo install --path` is local, so **no `CARGO_REGISTRY_TOKEN` is
+  required at any leaf.** If publishing is wanted anyway it is a separate row, and it
+  starts blocked: `redox-lsp` is taken by an **active** crate (v0.3.0, updated
+  2026-10-23, `github.com/JackDerksen/redox`) and `redox` by a dead one from 2015. The
+  options are different crate names, a different language name, or no crates.io. That
+  decision also wants `description` and `repository` in `[workspace.package]` and a
+  resolution of `CC-BY-SA-4.0` (a content licence) against the extension's `MIT`.
+- **CI.** There is no `.github/`. Publishing the repo (leaf 4) makes Actions possible but
+  this plan does not design them; `AGENTS.md` already describes what CI would run.
+- **Marketplace publication** (OpenVSX / Cursor's registry) — the only route to other
+  people's machines, and unnecessary while this is a single-developer tool. Unverified.
+- **`:check-docs`.** `redox-lsp` is not among the eleven crates `AGENTS.md` tallies, but
+  this plan adds files to it; the 468 outstanding items stay a decision, not this row's
+  chore.
+- **The remaining LSP capabilities**, in order: `references`, `completion`, `rename`,
+  `codeAction`, `inlayHint`, `workspaceSymbol`, `signatureHelp`, `documentHighlight`.
+- **The other four editors.** Neovim, Vim, Helix and Zed are plan 49's and unchanged.
+  Note that leaf 5's new capabilities benefit all of them for free, which is the point of
+  the server being editor-agnostic.
+
+---
+
+## 7. Gate
+
+| Gate | Command | Pass | Witness |
+|---|---|---|---|
+| Editors | `devenv shell -- cargo test -p redox-cli --test editors` | 0 failures | agent, locally |
+| LSP | `devenv shell -- cargo test -p redox-lsp` | 0 failures | agent, locally |
+| Workspace | `devenv shell -- moon run :check :test :lint` | exit 0 | agent, locally |
+| Nix build | `nix build .#redox .#redox-lsp` | exit 0 | agent, locally |
+| Dotfiles | `assay run features/programming/redox` | exit 0 | agent, in `~/.dotfiles` |
+| Host build | `nixos-rebuild build --flake ~/.dotfiles#drakkar` | exit 0 | agent, locally |
+| Install | `cursor --list-extensions` after switch | lists `redox-lang.redox` | the editor |
+| Behaviour | open `examples/hello.sdx` in Cursor | diagnostic + format | **a human** |
+
+The last two rungs are the ones plan 49 could not reach, and the ladder in
+`editors/README.md` must be rewritten to say which is which.
+
+---
+
+## 8. Emerald reuse
+
+The largest reuse in the project since plan 48, and unusually it is reuse of Emerald's
+*packaging* rather than its compiler work. `features/programming/emerald/` is a working,
+tested answer to *"a language that is on no marketplace, in a Nix-managed Cursor"* — four
+files, two of them assay suites. Two fields invert (`dontNpmBuild`, and `node_modules`
+instead of `dist`) because Redox's extension has no build step by plan 49's choice.
+
+What does **not** transfer: Emerald is a published flake at `github:Industrial/emerald`,
+and Redox is neither published nor a flake. That gap is leaves 1 and 4, and it is the
+reason this plan is six leaves rather than one.
+
+---
+
+## 9. Decision log
+
+1. **Nix is the delivery mechanism; the VSIX is kept as the portable path, not retired.**
+   Retiring it would delete the only rung where an editor accepts an artifact.
+2. **`node_modules` ships inside the extension.** The alternative — dropping
+   `vscode-languageclient` and speaking JSON-RPC from `extension.js` by hand — trades a
+   dependency for a protocol implementation, which is the wrong direction for a file
+   whose job is to start a process.
+3. **The flake input starts as `path:`.** It makes leaf 3 testable before leaf 4, and the
+   swap is one line.
+4. **`.cursorignore` over the generated `src/` trees is declined.** Plans 68 and 69
+   derived their whole yield from reading generated output; `AGENTS.md` plus
+   `.gitattributes` already carry the do-not-edit rule, and hiding those trees from the
+   agent would remove the capability this project most recently paid for.
+5. **Capabilities are added with their handlers, never ahead of them.** `capabilities.rs`
+   is right, and the test that pins the count gets a new number rather than a loosening.
+6. **The register row is not written in PLAN mode.** `status.rs` counts rows by status and
+   compares against `docs/STATUS.md`, so adding row 71 turns the gate red until
+   `REDOX_BLESS=1 cargo test -p redox-cli --test status` is run. Row and rebless land
+   together, as leaf 0's first action. Note `status.rs`'s `rfind` trap while writing the
+   cell: a cell that opens `planned` and later contains the word `done` is counted as
+   done — plan 49 §10.7 paid for that once.
+7. **Plan number 71, doc index 65.** Leaving `64 - 70` for the in-flight plan 70.
+
+---
+
+## 10. Result
+
+Partial, and §10.5 is the part that is not done. Leaves 0 (repo half), 1 and 2
+shipped; leaf 3 is authored but unapplied; leaves 4 and 5 are outstanding.
+
+### 10.1 What shipped
+
+| Leaf | State | Evidence |
+|---|---|---|
+| 2 `leaf-vsix-self-contained` | **done** | `cargo test -p redox-cli --test editors` — 12 passed, both Cursor rungs |
+| 1 `leaf-flake` | **done** | `nix build .#redox` — `redox 0.1.0`, `redox-lsp 0.1.0`, `redox-mcp 0.1.0` |
+| 0 `leaf-cursor-agent-surface` | **half** | repo half done; the `mcp.json` edit is in leaf 3's patch |
+| 3 `leaf-dotfiles-cursor` | **authored, not applied** | §10.5 |
+| 4 `leaf-publish-repo` | outstanding | §10.5 |
+| 5 `leaf-lsp-navigation` | outstanding | — |
+
+Criteria 1, 2, 6 and 7 of §5 are met. Criteria 3, 4 and 5 are not, and all
+three are downstream of §10.5.
+
+### 10.2 The defect, and the test that now names it
+
+Criterion 1 was satisfiable only after the fix, which is the right order and
+was checked in that order: `the_installed_extension_can_load_its_entry_module`
+failed against the payload plan 49 shipped, and passes against this one.
+
+It took two attempts, and the first failure is the finding. A stub enumerating
+the four `vscode` calls `activate` makes — `getConfiguration`,
+`createFileSystemWatcher`, `showErrorMessage`, and `get` on the config — died
+at
+
+```
+class ProtocolCompletionItem extends code.CompletionItem
+TypeError: Class extends value undefined is not a constructor or null
+```
+
+because `vscode-languageclient` subclasses a dozen editor types **at module
+load time**, and the extension's own API usage is not the API surface the
+module graph touches. So the stub is one self-referential `Proxy` whose every
+property is itself and which is callable, constructible and extendable. That
+is also more honest about the rung: the test asserts **the module graph loads**,
+not that the editor's API behaves, and the name says `can_load_its_entry_module`
+rather than `activates`.
+
+### 10.3 Two corrections the work forced, neither in the plan
+
+**`every_path_a_config_names_is_tracked` had the wrong premise.** It asserted
+that every path in `vsix_payload()` is git-tracked, on the reasoning that *"a
+fresh clone would not have them"* — correct while the payload was five listed
+files, and false the moment it walked a generated closure. It failed on 20
+`node_modules` paths. Keeping the premise meant splitting it: the extension's
+own files must be tracked, and the closure must be *derivable*, which is now
+an assertion that `editors/vscode/package-lock.json` is tracked.
+
+That in turn required amending `.gitignore`, whose comment named the decision
+being reversed — *"the VSIX payload is an explicit list rather than a walk for
+exactly this reason"*. Both the rule and its reason are rewritten rather than
+quietly deleted.
+
+**`Cargo.lock` was ignored with no comment, and that blocks Nix outright.**
+`cargoLock.lockFile` must resolve inside the source, and an ignored lockfile is
+simply **absent** from a `git+file://` or `github:` flake input — not stale,
+absent. It is tracked now, with the reason written at the ignore site.
+
+And a stale figure found while reading for that: **`docs/COMPILER.md` §5 says
+`Cargo.lock` "holds 8 packages, all first-party. No build script".** It holds
+**186, of which 174 are third-party**, and there are two build scripts
+(`redox-cli` and `redox-bench`, the pair plan 50 §1.2 consolidated the logic of
+but not the scripts). The row's argument — Redox's setup cost against a parser
+generator's — is unaffected in direction and wrong in magnitude. Not fixed
+here, because that table is making a historical comparison and amending one
+cell of it is a different row's work.
+
+### 10.4 `--version`, and what the flake measured
+
+§3's first proof is *"binaries that answer `--version`"*, and two of the three
+did not:
+
+```
+redox       redox 0.1.0
+redox-lsp   Error: "disconnected channel"
+redox-mcp   redox-mcp: cannot start: connection closed: initialize request
+```
+
+Both servers speak JSON-RPC on stdin, so the flag was not a flag and the empty
+stdin was the error — each had started a server and failed. Checked **before**
+the transport is taken, because `Connection::stdio()` claims the handles and
+the handshake blocks. Worth having beyond the criterion: a packager, the
+`redox.server.path` setting and anyone chasing a version skew all ask this
+first.
+
+The flake itself needed one decision worth recording. **The input must be
+`git+file://` and never `path:`**: a `path:` input copies the whole directory
+into the store, and this repository's `target/` is **42 GB**. The git fetcher
+respects `.gitignore` and copies the tracked tree.
+
+`doCheck = false`, stated rather than silently skipped: `editors.rs` wants
+`cursor`, `nvim`, `node` and `npm`, `watch.rs` wants a watcher and twenty
+seconds, and `status.rs` reads the git tree. Those gates are
+`moon run :test`'s, on a developer's machine.
+
+### 10.5 What is not done, and why
+
+**Leaf 3 is authored and unapplied.** The four `~/.dotfiles` files and an
+idempotent installer for the four wiring edits are in `.tmp/dotfiles/`, and
+`.tmp/dotfiles/apply.sh --dry-run` is clean. They were not installed because
+**this session's harness denies writes outside the repository**
+(`plugins/id-workflow/hooks/guard-write-paths.sh`), which an agent cannot lift
+for its own session. Routing around a deliberate guard with a different tool
+would have been the wrong answer to it.
+
+So three rungs of §7's gate are unmet, and they are the three that matter
+most: `nixos-rebuild build`, `cursor --list-extensions` listing
+`redox-lang.redox`, and the human opening a `.sdx`. **Nothing here has been
+seen working inside Cursor.** The flake builds, the extension packages, the
+module loads under `node` — and the end-to-end claim is still unverified.
+
+Leaf 4 is untouched. `Industrial/redox` does not exist and `git remote` still
+points at `Industrial/_project-template`; publishing is also an outward-facing
+action this session had no standing authorisation for, independent of the write
+guard.
+
+Leaf 5 is untouched, and `capabilities.rs` still advertises exactly four.
+
+### 10.6 Owed to successors
+
+- **Apply leaf 3 and run the deploy.** Until then this row's own §3 is three
+  rungs short, and `editors/vscode/README.md` points at a Nix feature that does
+  not exist yet.
+- **`crates.io` is blocked on a name, not a token**, and nothing in this row
+  needs one. `redox-lsp` is **taken by an active crate** — v0.3.0, updated
+  2026-10-23, `github.com/JackDerksen/redox` — and `redox` by a bittorrent
+  library abandoned in 2015. The other nine workspace names are free. Publishing
+  would also want `description` and `repository` in `[workspace.package]`, and a
+  resolution of `license = "CC-BY-SA-4.0"` — a *content* licence — against
+  `editors/vscode/package.json`'s `MIT`.
+- **There is no `.github/` in this repository.** Seventy register rows, and
+  every gate runs only on a developer's machine. Out of scope here and named
+  because leaf 4 makes it possible.
+- **`docs/COMPILER.md` §5's dependency figures**, per §10.3.
