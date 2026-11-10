@@ -59,8 +59,8 @@ this row needs no analysis Redox does not already perform.
 An under-applied call emits a `move` closure capturing the supplied arguments:
 
 ```
-inc = add 1               ->  let inc = move |__rdx_1| add(1, __rdx_1);
-xs |> map (add 1)         ->  xs.map(move |__rdx_1| add(1, __rdx_1))
+inc = add 1               ->  let inc = |__rdx_1| add(1, __rdx_1);
+xs |> map (add 1)         ->  xs.map(|__rdx_1| add(1, __rdx_1))
 ```
 
 Uniform, with no exceptions to remember. A capture that outlives its borrow, or a non-`Copy`
@@ -165,19 +165,44 @@ application is not currying and must not pay for it.
 
 ### Leaf 1 — `leaf-arity-table`
 
-Collect declared arity per function from the signatures visible in the file and in the modules
-`module` loads. Reuses the existing top-level-arrow split; adds no resolution.
+Collect declared arity per function from the signatures visible **in the file**. Reuses the
+existing top-level-arrow split; adds no resolution.
+
+Arity already exists per function — `FnDecl.sig.params.len()`, split off the signature's arrow
+spine by `parse_spine`. What is missing is the index and where the pass that reads it lives, and
+§11.3 settles the placement: the **check** rides `parse()`, the declared chokepoint, which
+already returns a `Result<Program, Vec<ParseError>>` and so needs no plumbing; the **rewrite**
+lives at the emitter's entry. Not in `parse()` — `redox_fmt::format` consumes the same
+`Program`, so a `Call`→`Lambda` rewrite there makes `redox fmt` rewrite the author's `add 1`
+into `move \__rdx_1 -> add 1 __rdx_1`. And **not** threaded through `emit_expr`, which has 24
+importers and 36 consumers.
+
+The table's scope is the file: signatures at module scope, plus those inside an **inline**
+`module` with a body, reachable as `inner::name`. This leaf's first draft said "and in the
+modules `module` loads", which §11.8 withdraws: `ModuleDecl.items` is `None` for a bodiless
+`module` and `emit_module` writes `;`, so nothing is loaded and there is nothing to add.
+
+Everything **not** in the table is emitted as a call, exactly as today, and that is the whole of
+the row's safety argument: a name whose arity is unknowable behaves as it always has.
 
 ### Leaf 2 — `leaf-partial-application`
 
 Emit the `move` closure for an under-applied call. Handles n-of-m for any m, which case 2 of §3
 is the test for.
 
-### Leaf 3 — `leaf-unknown-arity-diagnostic`
+### Leaf 3 — *withdrawn*
 
-The §1.4 boundary: an under-applied call to a name with no signature in this file is a named
-code, with a help line stating that currying needs the signature in the same file and suggesting
-the explicit lambda.
+This leaf was the unknown-arity diagnostic, and §11.1 found it undecidable.
+Under-application is detectable only where arity is known, and arity is known
+only for a bare `Expr::Ident` naming a signature in this file; every `Path`,
+every `where` local, every equation binder, every lambda parameter and every
+imported bare name is unknown-arity, and for those Redox cannot tell an
+under-applied call from a saturated one. A diagnostic there is a
+false-positive generator.
+
+The number is kept rather than closed up, because §5's criteria and §7's
+sequencing both cite leaf numbers. What replaces it is leaf 1's last paragraph:
+a name outside the arity table is emitted as a call and rustc judges it.
 
 ### Leaf 4 — `leaf-sections-unified`
 
@@ -205,10 +230,37 @@ compose, which is plan 58's premise. Doc 03 §5.1 and `docs/GRAMMAR.md` updated.
 2. n-of-m partial application for m ≥ 3, exercised.
 3. A borrowed capture produces a **rustc** error, with the message captured in `tests/ui/`.
 4. `$` composes with under-application, exercised in a running example.
-5. An unknown-arity under-application is a named Redox diagnostic with a `tests/ui/` fixture.
+5. An under-application of a name whose **signature is visible in this file** and whose arity
+   is therefore known is lowered to a closure; one whose arity is *not* knowable is emitted as
+   a call exactly as today, and rustc judges it. Asserted both ways.
+
+   Amended from *"an unknown-arity under-application is a named Redox diagnostic"*, which §11.1
+   found undecidable: a bare name with no visible signature may be a `where` local, an equation
+   binder, a lambda parameter or an import, and Redox cannot tell an under-applied one from a
+   saturated one. A diagnostic there is a false-positive generator; the restatement is §1.5's
+   own argument.
 6. Operator sections and function partial application share one lowering path, asserted by a
-   test that the emitted closure shape is identical for `(+ 1)` and a one-of-two `add`.
-7. `map String::from` works; `String::from` under-applied is the §1.4 diagnostic, not a closure.
+   test that the emitted closure shape is identical for `(+ 1)` and a one-of-two `add` — and
+   neither carries `move`.
+
+   **§1.3's `move` is withdrawn**, which §11.2 is the finding for. The two halves of this
+   criterion could not both hold: `emit/section.rs` emits `|__rdx_1| __rdx_1 + 1` with no
+   capture annotation and has since plan 29, while §1.3's table writes
+   `move |__rdx_1| add(1, __rdx_1)`.
+
+   Sections are the side that should not move. `move` on a closure that captures a borrowed
+   argument turns a borrow error into a *move* error, which is a worse message about the same
+   mistake, and §3 case 3 wants rustc's borrow error specifically. It is also the side with a
+   golden and a benchmark pair already pinning its text — `tests/golden/section.xrs` and
+   `benchmarks/pairs/section.sdx` — so changing it would re-bless two corpora to make a new
+   construct match an old one, rather than the other way round.
+
+   So the shared path emits a plain closure, and §1.3's table is amended rather than left to
+   contradict the emitter.
+7. `map String::from` works — already true at HEAD, so this is an assertion and an example
+   rather than an implementation. A `Path` callee is **never curried**: its arity is unknowable,
+   so `String::from` under-applied emits a call and rustc answers. Not a diagnostic, because
+   there is no trigger to hang one on — §11.1 settles this, and §1.5 argues it.
 8. All examples green, no rustc output, stdout asserted; `construct_coverage` green.
 9. Doc 18 §4's no-currying sentence is amended and the amendment cites this row.
 
@@ -348,8 +400,15 @@ operand into the body. From `tests/golden/section.xrs`:
 | `(> 1)` | `\|__rdx_1\| __rdx_1.gt(&1)` |
 
 So "the emitted closure shape is identical for `(+ 1)` and a one-of-two `add`"
-cannot hold unless one side changes. Decide which; adding `move` to sections
-re-blesses `tests/golden/section.xrs` and `benchmarks/pairs/section.sdx`.
+cannot hold unless one side changes.
+
+**Decided, in §5 criterion 6: partial application drops the `move`.** Sections
+are the side that should not change, for two reasons. `move` on a closure that
+captures a borrowed argument turns a borrow error into a *move* error — a worse
+message about the same mistake — and §3 case 3 wants rustc's borrow error
+specifically. And sections already have a golden and a benchmark pair pinning
+their text, so moving them would re-bless two corpora to make a new construct
+match an old one rather than the other way round. §1.3's table is amended.
 
 Related, for leaf 4: `SECTION_PARAM` is a single constant, `"__rdx_1"`, so
 n-of-m for m ≥ 3 needs an indexed generator. Use the `__rdx_N` family and
