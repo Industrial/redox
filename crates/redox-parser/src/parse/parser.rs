@@ -76,6 +76,7 @@ pub(crate) mod scan_run;
 pub(crate) mod section;
 pub(crate) mod signature_from;
 pub(crate) mod signature_only;
+pub(crate) mod starts_a_declaration;
 pub(crate) mod starts_a_field_type;
 pub(crate) mod starts_a_pattern_argument;
 pub(crate) mod starts_argument;
@@ -88,6 +89,7 @@ pub(crate) mod type_app;
 pub(crate) mod type_stop;
 pub(crate) mod type_vars;
 pub(crate) mod unary_op;
+pub(crate) mod unit_tail;
 pub(crate) mod visibility;
 pub(crate) mod walk_item_for_tails;
 pub(crate) mod walk_member_for_tails;
@@ -116,10 +118,12 @@ use crate::parse::parser::pattern_alt::pattern_alt;
 use crate::parse::parser::patterns::patterns;
 use crate::parse::parser::signature_from::signature_from;
 use crate::parse::parser::signature_only::signature_only;
+use crate::parse::parser::starts_a_declaration::starts_a_declaration;
 use crate::parse::parser::test_decl::test_decl;
 use crate::parse::parser::try_await::try_await;
 use crate::parse::parser::type_alias::type_alias;
 use crate::parse::parser::type_stop::TypeStop;
+use crate::parse::parser::unit_tail::unit_tail;
 use crate::parse::parser::visibility::visibility;
 use redox_ast::Visibility;
 use redox_ast::{Binding, Block, Expr, FnDecl, Ident, Item, Program, Stmt, TypeExpr};
@@ -435,11 +439,15 @@ impl<'a> Parser<'a> {
       // Every clause is checked against the same spine, so a row of the wrong
       // length is reported per clause rather than once for the function.
       let built = signature_from(&spine, &row, (again.span.0, self.prev_span().1))?;
+      // Plan 55 §1.6's unit rule needs the declared return type, which only
+      // this knows, and the body's *shape*, which only `clause` knows — so
+      // the bit travels down rather than the block coming back up.
+      let returns_unit = built.returns_unit();
       if sig.is_none() {
         sig = Some(built);
       }
 
-      clauses.push(self.clause(row)?);
+      clauses.push(self.clause(row, &name, returns_unit)?);
       self.skip_separators();
     }
 
@@ -478,7 +486,17 @@ impl<'a> Parser<'a> {
   /// the *next* line, indented, so the newline and `Indent` are consumed
   /// before the `|` can be seen — which is why the two forms are told apart
   /// after the layout tokens rather than before them.
-  fn clause(&mut self, patterns: Vec<redox_ast::Pattern>) -> Result<redox_ast::Clause, ParseError> {
+  ///
+  /// `name` and `returns_unit` are the function's, carried in for plan 55
+  /// §1.6's unit rule: the rule is decided by the declared return type and
+  /// applies to an **indented** body only, so the one place that can ask it is
+  /// the branch below that reads one.
+  fn clause(
+    &mut self,
+    patterns: Vec<redox_ast::Pattern>,
+    name: &Ident,
+    returns_unit: bool,
+  ) -> Result<redox_ast::Clause, ParseError> {
     let start = patterns.first().map_or(self.peek_span().0, |p| p.span().0);
 
     if self.opens_a_guard_list() {
@@ -525,7 +543,17 @@ impl<'a> Parser<'a> {
       "expected an indented body",
     )?;
 
+    let reported = self.errors.len();
     let block = self.statements()?;
+    // Plan 55 §1.6's unit rule, and only of a block that parsed cleanly. The
+    // error count is how that is told: `statements` recovers a bad element
+    // into `self.errors` and carries on, so a body with a fault already
+    // reported still has a last element — and doc 05 §4's rule is that the
+    // first error names the actual defect, not that the second one names the
+    // tail of a body nobody has fixed yet.
+    if returns_unit && self.errors.len() == reported {
+      unit_tail(name, &block)?;
+    }
 
     let wheres = self.where_locals()?;
     Ok(redox_ast::Clause {
@@ -846,6 +874,52 @@ impl<'a> Parser<'a> {
     // nested `#[test]`. `RDX0112` rather than a lowering — see
     // [`local_test`](local_test::local_test).
     local_test(self)?;
+
+    // Plan 55 leaf 5: a declaration is a block element. Asked before control
+    // flow because every declaration keyword is reserved and none of them can
+    // begin an expression or a control form, so this costs one comparison and
+    // cannot shadow anything.
+    //
+    // `item` is reused rather than reimplemented, so a local `data` and a
+    // module-scope one are the same parse and cannot drift — visibility,
+    // `deriving`, generics, the lot.
+    if starts_a_declaration(self) {
+      let item = self.item()?;
+      let end = self.prev_span().1;
+      // **No separator is demanded**, unlike every other statement. `item`
+      // leaves the stream ready for the next one — which is why
+      // `items_until_dedent` calls `skip_separators` *before* each item and
+      // not after — so a single-line `const K : i32 = 2` has already taken
+      // its `Newline`, and asking for one again read the next statement's
+      // first token. A multi-line declaration ends on a `Dedent` instead,
+      // which is why the two forms behaved differently and why the one-line
+      // one was the failure.
+      let trailing = if self.check(&TokenKind::Newline) {
+        let trailing = self.peek().trailing.clone();
+        self.advance();
+        trailing
+      } else {
+        None
+      };
+      return Ok(Stmt {
+        expr: Expr::Item {
+          item: Box::new(item),
+          span: (start, end),
+        },
+        span: (start, end),
+        // **Empty, deliberately.** `peek_leading` peeks rather than consumes,
+        // so `Parser::item` captured this same trivia a moment ago and the
+        // declaration owns it — `emit_data`, `emit_import` and the rest have
+        // always printed an item's leading comments, because a module-scope
+        // declaration needs them. Keeping a copy here printed every comment
+        // in a local declaration **twice**.
+        //
+        // Duplicated comments are still present, so nothing that checks for
+        // *loss* notices; `generated_rust_is_rustfmt_clean` is what caught it.
+        leading: Vec::new(),
+        trailing,
+      });
+    }
 
     // Plan 20's control flow comes first: every one of its forms begins with
     // a keyword or a label, none of which can begin an expression, so asking

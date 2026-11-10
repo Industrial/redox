@@ -86,4 +86,5 @@ fn main() {
     println!("{}", scaled(&p));
     println!("{}", counted(7));
     println!("{}", counted(3));
+    ();
 }

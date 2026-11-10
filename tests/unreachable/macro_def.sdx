@@ -13,3 +13,4 @@ macro twice
 main : ()
 main =
   print 1
+  ()

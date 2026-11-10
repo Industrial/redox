@@ -20,13 +20,18 @@ fn xrs(src: &str) -> String {
 /// file's business: these assert the **lowering**, and the `async` marker is
 /// row 39's.
 fn body(src: &str) -> String {
-  xrs(&format!("main : ()\nmain =\n{src}"))
+  // Plan 55 §1.6 requires a `()`-returning body to end in `()`, so the wrapper
+  // writes one and the `();` it emits is dropped again — these assertions are
+  // about `src`.
+  let out = xrs(&format!("main : ()\nmain =\n{src}  ()\n"));
+  let mut lines: Vec<&str> = out
     .lines()
     .skip(1)
     .take_while(|l| *l != "}")
     .map(|l| l.strip_prefix("    ").unwrap_or(l))
-    .collect::<Vec<_>>()
-    .join("\n")
+    .collect();
+  assert_eq!(lines.pop(), Some("();"), "{out}");
+  lines.join("\n")
 }
 
 // --- the three forms ------------------------------------------------------

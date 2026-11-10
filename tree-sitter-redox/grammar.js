@@ -429,6 +429,28 @@ module.exports = grammar({
 
 		_statement: ($) =>
 			choice(
+				// Plan 55 leaf 5: a declaration is a block element. The set is the
+				// Rust parser's `starts_a_declaration` rather than `_item` —
+				// `test_declaration` and `module` are absent on purpose, because
+				// `RDX0112` refuses a local `test` (rustc does not collect a nested
+				// `#[test]`) and a bodiless `module` loads a file. Accepting here
+				// what the compiler refuses is exactly the drift this grammar is
+				// cross-checked to prevent.
+				//
+				// Listed inline rather than behind a hidden helper, so the
+				// ambiguity against a `module` body is literally the already
+				// declared `[$._item, $._statement]` conflict. A helper rule put a
+				// third symbol in between, which that pair does not cover and no
+				// precedence can settle — it is a reduce/reduce between two
+				// containing rules, and the Rust parser answers it by which
+				// function called: `items_until_dedent` or `statement_block`.
+				$.import,
+				$.data_declaration,
+				$.type_alias,
+				$.class_declaration,
+				$.instance_declaration,
+				$.errors_declaration,
+				$.const_declaration,
 				$.binding,
 				$.assignment,
 				$.if_statement,

@@ -70,6 +70,7 @@ checked against the host language instead of against this project's history.
 | Impls, inherent and trait | `SUGARED` | `examples/class.sdx` — `instance` |
 | `unsafe impl` | `UNREACHABLE` | `tests/unreachable/unsafe_class.sdx` — same row, same fixture |
 | Modules, inline and nested | `SUGARED` | `examples/module.sdx` — `module` |
+| Items in a function body | `SUGARED` | `examples/local.sdx` — plan 55 leaf 5. A `data`, `errors`, `class`, `instance`, `import`, `const` or `type` is a block element and lowers to the nested Rust item. `test` is refused (`RDX0112`: rustc does not collect a nested `#[test]`) and `module` is out of scope, a bodiless one loading a file |
 | `use` declarations, groups, globs, aliases | `SUGARED` | `examples/module.sdx` — `import` |
 | `extern` blocks | `SUGARED` | `examples/reachability.sdx` — plan 45 leaf 3; `unsafe extern` is emitted because edition 2024 requires it |
 | Macro definitions | `UNREACHABLE` | `tests/unreachable/macro_def.sdx` — **declined** under doc 03 §23 item 3. Alternative: inline Rust |

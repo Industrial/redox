@@ -63,3 +63,4 @@ main =
   ak = f (\q -> q + 1)
   al = f ((x))
   print a
+  ()

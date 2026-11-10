@@ -2114,6 +2114,10 @@
 						"named": true
 					},
 					{
+						"type": "class_declaration",
+						"named": true
+					},
+					{
 						"type": "comprehension",
 						"named": true
 					},
@@ -2122,7 +2126,15 @@
 						"named": true
 					},
 					{
+						"type": "const_declaration",
+						"named": true
+					},
+					{
 						"type": "continue_statement",
+						"named": true
+					},
+					{
+						"type": "data_declaration",
 						"named": true
 					},
 					{
@@ -2131,6 +2143,10 @@
 					},
 					{
 						"type": "draw_statement",
+						"named": true
+					},
+					{
+						"type": "errors_declaration",
 						"named": true
 					},
 					{
@@ -2151,6 +2167,14 @@
 					},
 					{
 						"type": "if_statement",
+						"named": true
+					},
+					{
+						"type": "import",
+						"named": true
+					},
+					{
+						"type": "instance_declaration",
 						"named": true
 					},
 					{
@@ -2211,6 +2235,10 @@
 					},
 					{
 						"type": "try_block",
+						"named": true
+					},
+					{
+						"type": "type_alias",
 						"named": true
 					},
 					{
@@ -4346,11 +4374,27 @@
 					"named": true
 				},
 				{
+					"type": "class_declaration",
+					"named": true
+				},
+				{
+					"type": "const_declaration",
+					"named": true
+				},
+				{
 					"type": "continue_statement",
 					"named": true
 				},
 				{
+					"type": "data_declaration",
+					"named": true
+				},
+				{
 					"type": "draw_statement",
+					"named": true
+				},
+				{
+					"type": "errors_declaration",
 					"named": true
 				},
 				{
@@ -4370,11 +4414,23 @@
 					"named": true
 				},
 				{
+					"type": "import",
+					"named": true
+				},
+				{
+					"type": "instance_declaration",
+					"named": true
+				},
+				{
 					"type": "loop_statement",
 					"named": true
 				},
 				{
 					"type": "return_statement",
+					"named": true
+				},
+				{
+					"type": "type_alias",
 					"named": true
 				},
 				{
@@ -4544,11 +4600,27 @@
 					"named": true
 				},
 				{
+					"type": "class_declaration",
+					"named": true
+				},
+				{
+					"type": "const_declaration",
+					"named": true
+				},
+				{
 					"type": "continue_statement",
 					"named": true
 				},
 				{
+					"type": "data_declaration",
+					"named": true
+				},
+				{
 					"type": "draw_statement",
+					"named": true
+				},
+				{
+					"type": "errors_declaration",
 					"named": true
 				},
 				{
@@ -4568,11 +4640,23 @@
 					"named": true
 				},
 				{
+					"type": "import",
+					"named": true
+				},
+				{
+					"type": "instance_declaration",
+					"named": true
+				},
+				{
 					"type": "loop_statement",
 					"named": true
 				},
 				{
 					"type": "return_statement",
+					"named": true
+				},
+				{
+					"type": "type_alias",
 					"named": true
 				},
 				{

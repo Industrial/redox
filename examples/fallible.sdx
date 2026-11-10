@@ -132,3 +132,4 @@ main =
   print ((attempt "1" "2").unwrap ())
   print ((attempt "1" "no").is_err ())
   print (after_a_failed_try ())
+  ()

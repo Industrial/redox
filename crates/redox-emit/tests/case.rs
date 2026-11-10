@@ -51,8 +51,9 @@ fn an_exclusive_range_is_not_made_inclusive() {
 /// clause body — no statement form, and no second lowering.
 #[test]
 fn a_case_is_an_expression() {
-  let out =
-    xrs("main : ()\nmain =\n  r = case 1 of\n    1 -> \"one\"\n    _ -> \"other\"\n  print r\n");
+  let out = xrs(
+    "main : ()\nmain =\n  r = case 1 of\n    1 -> \"one\"\n    _ -> \"other\"\n  print r\n  ()\n",
+  );
   assert!(out.contains("let r = match 1 {"), "{out}");
   assert!(out.contains("1 => \"one\","), "{out}");
 }
@@ -117,7 +118,8 @@ fn an_assignment_is_an_arm_body() {
        case n of\n    \
          0 -> n += 1\n    \
          _ -> n := 2\n  \
-       print n\n",
+       print n\n  \
+       ()\n",
   );
   assert!(out.contains("0 => n += 1,"), "{out}");
   assert!(out.contains("_ => n = 2,"), "{out}");

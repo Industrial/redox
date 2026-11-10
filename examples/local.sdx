@@ -1,0 +1,67 @@
+-- Declarations in a body position — plan 55 leaf 5.
+--
+-- Rust lets a `fn` body hold items, and doc 03 §8.3 presumed it. Redox could
+-- not express one: there was no AST carrier, `Parser::stmt` never called
+-- `item`, and a declaration keyword in a body reached the expression parser
+-- and became `RDX0102`. Plan 55 §1.4 said Rust's acceptance made this
+-- reachable; it made it *lowerable*, which is not the same thing.
+--
+-- Checked by compiling and **running** with zero rustc output, because the
+-- shapes that break here are the ones a golden cannot see: a local `class`
+-- whose `impl` lands outside the function, or a glob that reaches the wrong
+-- scope, is still valid-looking Rust.
+--
+-- Every declaration keyword a block may hold is here. `test` is **not** —
+-- `RDX0112` refuses it, because rustc does not collect a nested `#[test]` and
+-- a local one would compile and silently never run. `module` is absent too: a
+-- bodiless `module` loads a file, which a block cannot do.
+describe : i32 -> String
+describe n =
+  -- A local `import` scopes the name to this function, which is the one thing
+  -- a module-scope `import` cannot do.
+  import std::cmp::max
+
+  -- `deriving` works unchanged, and the glob plan 53 added reaches the
+  -- function body rather than the module — which is what lets `Deep` and
+  -- `Pale` be written bare below.
+  data Shade
+    = Pale
+    | Deep
+    deriving (Debug)
+
+  -- A local `errors`, with its `Display` impl and its variant glob. Three
+  -- generated items from one declaration, all nested.
+  errors Bad
+    Negative u32  "negative: #{0}"
+
+  -- A `class` and an `instance` for it, which is the pair that proves the
+  -- `impl` lands in the right place: an `impl` emitted at module scope for a
+  -- type declared in a function body does not compile at all.
+  class Named t
+    name : &t -> &'static str
+
+  instance Named Shade
+    name : &Shade -> &'static str
+    name self = case self of
+      Deep -> "deep"
+      _ -> "pale"
+
+  const LIMIT : i32 = 5
+
+  type Level = i32
+
+  -- And the alias is usable as a type immediately, in plan 52's `:`.
+  lifted : Level = max n LIMIT
+
+  shade = if lifted > LIMIT
+    Deep
+  else
+    Pale
+
+  "#{shade.name ()} #{LIMIT} #{Negative 2} #{shade:?}"
+
+main : ()
+main =
+  print (describe 9)
+  print (describe 1)
+  ()

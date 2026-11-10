@@ -128,4 +128,5 @@ fn main() {
     println!("{}", describe(&Rect { w: 3, h: 4 }));
     println!("{}", first_of((8, 9)));
     println!("{}", has_origin(&None));
+    ();
 }

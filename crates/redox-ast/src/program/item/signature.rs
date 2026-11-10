@@ -3,12 +3,30 @@ use redox_lexer::Span;
 
 /// A function's parameters and return type.
 ///
-/// Both are optional: doc 01 §5.1 makes the return type optional, and a
-/// zero-parameter function writes no list at all (`main : ()` / `main =`), which is the
-/// form plan 01 shipped.
+/// A zero-parameter function writes no list at all (`main : ()` / `main =`),
+/// which is the form plan 01 shipped.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Signature {
   pub params: Vec<Param>,
+  /// The declared return type, **verbatim and including `()`**.
+  ///
+  /// `None` is unreachable from the parser — doc 18 §2.2 makes the signature
+  /// line mandatory and `parse_spine` always yields a last type — so it means
+  /// only *this was built by [`Default`]*. [`returns_unit`](Self::returns_unit)
+  /// reads it as `()` accordingly, which is also what Rust means by a missing
+  /// return type.
+  ///
+  /// **`main : ()` arrives here as `Some("()")`**, and plan 55 leaf 4 is why.
+  /// The parser used to drop a unit return on the floor —
+  /// `(ret.text != "()").then(…)` — because the emitter must not write
+  /// `-> ()`; rustfmt removes it and plan 04's rustfmt-clean guarantee would
+  /// have to defend the noise. But that made a declared `()` indistinguishable
+  /// from no declaration at all, and §1.6's rule — *a block whose value would
+  /// be unit must say `()`* — is decidable only from the declared type. So the
+  /// omission moved to where it belongs, `emit::signature`, and the tree
+  /// records what the author wrote. That is the same correction
+  /// `redox-fmt`'s `signature_line` asks for in the general case: the AST keeps
+  /// the source spelling and the emitter applies Rust's convention.
   pub ret: Option<TypeExpr>,
   /// The generic parameters, **already in Rust's spelling** and in Rust's
   /// required order: lifetimes first, then type variables, each in order of
@@ -54,4 +72,18 @@ pub struct Signature {
   /// escape hatch — so it is spelled rather than deferred.
   pub is_unsafe: bool,
   pub span: Span,
+}
+
+impl Signature {
+  /// Whether this function's value is `()` — a declared `()` return type, or
+  /// no declaration at all.
+  ///
+  /// The one question two unrelated readers of [`ret`](Self::ret) both ask:
+  /// `emit::signature` to decide whether to write `-> T`, and
+  /// `emit_clauses` to decide whether the body's last element is a tail. Both
+  /// used to spell it `ret.is_some()`, which was the same question only for as
+  /// long as a unit return was discarded at parse time (plan 55 leaf 4).
+  pub fn returns_unit(&self) -> bool {
+    self.ret.as_ref().is_none_or(|ret| ret.text == "()")
+  }
 }

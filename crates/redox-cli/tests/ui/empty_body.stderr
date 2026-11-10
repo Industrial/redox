@@ -1,6 +1,6 @@
 error[RDX0105]: expected an indented body
-  --> empty_body.sdx:7:1
+  --> empty_body.sdx:8:1
   |
-6 | empty =
+7 | empty =
   |        ^
 

@@ -64,4 +64,5 @@ fn main() {
     println!("{}", grid()[1][0]);
     println!("{}", lists().len());
     println!("{}", total());
+    ();
 }

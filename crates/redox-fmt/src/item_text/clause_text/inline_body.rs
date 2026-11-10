@@ -1,3 +1,4 @@
+use crate::stmt_text::indent_text::indent_text;
 use crate::stmt_text::stmt_text;
 use redox_ast::Block;
 
@@ -19,11 +20,24 @@ use redox_ast::Block;
 /// inline, and if one ever is, joining on a newline produces something that
 /// fails to re-parse — which the round-trip property reports — rather than
 /// quietly dropping the rest.
-pub(crate) fn inline_body(block: &Block, source: &str) -> String {
+pub(crate) fn inline_body(block: &Block, indent: usize, source: &str) -> String {
+  let pad = indent_text(indent);
   block
     .stmts
     .iter()
-    .map(|stmt| stmt_text(stmt, 0, source))
+    .map(|stmt| {
+      let text = stmt_text(stmt, indent, source);
+      // The first line follows `" = "` on the caller's line, so it must not be
+      // padded; every continuation line must be. `stmt_text` threads one
+      // indent for both, so the pad is written and then taken back off the
+      // front — the same trade `code_text` makes, and for the same reason.
+      //
+      // This argument used to be made by passing **0**, which suppressed the
+      // first pad and flattened the continuations with it. At module scope the
+      // two are the same and nothing noticed; inside a local `instance` they
+      // are not, and a `case`'s arms printed a level too shallow.
+      text.strip_prefix(&pad).unwrap_or(&text).to_string()
+    })
     .collect::<Vec<_>>()
     .join("\n")
 }

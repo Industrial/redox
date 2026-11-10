@@ -323,7 +323,9 @@ fn printing_preserves_meaning() {
 /// `name =  ()),.to_string ()` — a harness defect reported as a printer
 /// defect, which is the third time in this plan (§10.5, §10.20).
 fn reparse(text: &str) -> Option<(Expr, String)> {
-  let whole = format!("__rdx_probe : ()\n__rdx_probe =\n  __rdx_it = {text}\n");
+  // The trailing `()` is plan 55 §1.6's unit tail, which the probe's `()`
+  // return type now requires of an indented body.
+  let whole = format!("__rdx_probe : ()\n__rdx_probe =\n  __rdx_it = {text}\n  ()\n");
   let program = redox_parser::parse_source(&whole).ok()?;
   let found = binding_values(&program).first().map(|e| (*e).clone())?;
   Some((found, whole))

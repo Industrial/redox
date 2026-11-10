@@ -64,6 +64,7 @@ announce : async ()
 announce =
   <- noop ()
   print "announced"
+  ()
 
 -- **The case the run catches.** Two awaits whose results are combined, so
 -- dropping either or reordering them compiles and prints a different number.
@@ -94,3 +95,4 @@ main =
   print (block_on (combined ()))
   print (block_on (deferred ()))
   block_on (announce ())
+  ()

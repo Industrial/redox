@@ -17,6 +17,7 @@ main : ()
 main =
   print (add 1 2)
   print ((halve 4).is_some ())
+  ()
 
 -- `==` becomes `assert_eq!`, which prints both values when they differ.
 -- `assert!` prints only the expression's text, which tells the author

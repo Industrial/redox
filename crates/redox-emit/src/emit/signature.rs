@@ -37,7 +37,13 @@ pub(crate) fn signature(sig: &Signature, indent: usize) -> String {
     .collect();
 
   let mut out = format!("{generics}({})", params.join(", "));
-  if let Some(ret) = &sig.ret {
+  // **A unit return is omitted**, not written `-> ()`: rustfmt removes the
+  // arrow, so writing it would be output rustfmt rewrites. The decision lives
+  // here rather than in the parser since plan 55 leaf 4 — the tree records
+  // what the author declared, and §1.6's unit rule needs that.
+  if let Some(ret) = &sig.ret
+    && !sig.returns_unit()
+  {
     out.push_str(" -> ");
     out.push_str(&ret.text);
   }

@@ -1,0 +1,29 @@
+-- RDX0113: a `()`-returning function whose body does not end in `()`.
+--
+-- Plan 55 §1.6's rule — *a block whose value would be unit must say `()`* —
+-- and §9 decision 3's cost, which is one line per `()`-returning function and
+-- is paid visibly. What it buys is the case below: `tally` accumulates into
+-- `total`, binds the accumulator to a second name, and then **ends**. Its
+-- value is whatever the last line left behind, which is nothing, and the
+-- function type-checks as `()` because `()` is what a binding evaluates to.
+--
+-- This fixture exists because rustc does not object here. It objects at the
+-- *call site*, if there is one, and says nothing at all if nobody uses the
+-- value — so the author who meant to return `total` finds out somewhere else
+-- or not at all. Doc 05 §4's rule is that a diagnostic names the line that is
+-- wrong, and that line is `reported = total`.
+--
+-- The remedy is the help line's: write `()` where the value is. An author who
+-- meant to return the total writes `total` instead and the signature was the
+-- mistake, which is the other half of what the rule surfaces.
+tally : ()
+tally =
+  mut total = 0
+  for c in 1 .. 4
+    total += c
+  reported = total
+
+main : ()
+main =
+  tally ()
+  ()

@@ -45,3 +45,4 @@ main =
   print LIMIT
   print (square 7)
   print (scaled 4)
+  ()

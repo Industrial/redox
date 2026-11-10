@@ -50,3 +50,4 @@ main =
   print (first "borrowed")
   print (area 3.0 4.0)
   print (largest (Some 3))
+  ()

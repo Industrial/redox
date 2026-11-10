@@ -1,4 +1,5 @@
 use crate::expr_text::expr_text;
+use crate::item_text::item_text;
 use crate::pattern_text::pattern_text;
 use crate::stmt_text::binding_text::binding_text;
 use crate::stmt_text::block_text::block_text;
@@ -32,6 +33,17 @@ pub(crate) fn code_text(expr: &Expr, indent: usize, source: &str) -> String {
   let inner = indent + 1;
   match expr {
     Expr::Binding(binding) => binding_text(binding, indent, source),
+    // Plan 55 leaf 5. `item_text` is reused rather than reimplemented, so a
+    // local `data` round-trips through exactly the printer a module-scope one
+    // does — which is the property `formatting_preserves_meaning` would
+    // otherwise catch the hard way.
+    //
+    // Reached only through `expr_text`, which delegates every promoted form
+    // here. `stmt_text` handles an item itself, before it writes the pad —
+    // see the note there, and `emit_stmt`'s matching one. An item in a nested
+    // *expression* position is refused by the emitter (`unlowerable`), so this
+    // arm exists to keep the match exhaustive rather than to be used.
+    Expr::Item { item, .. } => item_text(item, indent, source),
     Expr::Return { value: None, .. } => "return".to_string(),
     Expr::Return {
       value: Some(value), ..

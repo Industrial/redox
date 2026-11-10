@@ -108,3 +108,4 @@ main =
   print (describe (&Rect { w = 3, h = 4 }))
   print (first_of (8, 9))
   print (has_origin (&None))
+  ()

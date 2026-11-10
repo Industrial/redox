@@ -133,7 +133,7 @@ fn a_type_alias_is_already_rust() {
 /// break if `data` consumed the line break the next item needs.
 #[test]
 fn a_declaration_does_not_swallow_the_next_item() {
-  let out = xrs("newtype Meters = Meters f64\n\nmain : ()\nmain =\n  print \"x\"\n");
+  let out = xrs("newtype Meters = Meters f64\n\nmain : ()\nmain =\n  print \"x\"\n  ()\n");
   assert!(out.contains("struct Meters(f64);"), "{out}");
   assert!(out.contains("fn main() {"), "{out}");
 }

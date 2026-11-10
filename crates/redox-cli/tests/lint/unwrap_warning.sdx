@@ -12,3 +12,4 @@ main =
   raw = Some 7
   port = raw.unwrap ()
   print port
+  ()

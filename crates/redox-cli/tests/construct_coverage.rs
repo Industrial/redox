@@ -662,6 +662,71 @@ fn has_shadowing(file: &Source) -> bool {
   seen.values().any(|count| *count > 1)
 }
 
+/// Whether any declaration keyword begins a line inside a **function body**.
+///
+/// Plan 55 leaf 5's witness, and it took three tries, each hollow in a
+/// different way and each proved so by moving `examples/local.sdx` aside and
+/// watching this gate stay green:
+///
+/// 1. `Toks(["import", "«id»"])` — matched a **module-scope** `import`.
+/// 2. "a declaration keyword at depth above zero" — matched an inline
+///    `module`'s items, which the inventory grades as *Modules, inline and
+///    nested*.
+/// 3. the same, excluding `module` bodies — matched `examples/class.sdx`'s
+///    `const SIDES : u32`, an **associated constant**, graded as *Associated
+///    types and constants*.
+///
+/// The lesson is in the pattern: "a declaration keyword, indented" is not what
+/// distinguishes a local declaration. What distinguishes it is **what opened
+/// the block**. A function body is opened by an equation, whose line begins
+/// with a *name*; every other indented block in the language is opened by a
+/// line beginning with a declaration keyword. So this is one test rather than
+/// a growing list of exclusions — which is also what makes it survive a row
+/// that adds a new kind of block.
+///
+/// Depth comes from `Indent`/`Dedent` rather than from the text, for the
+/// reason `indentation_round_trip` records: a continuation line is indented
+/// text at its parent's token depth.
+///
+/// `test` and `module` are absent from the keyword list, matching the parser.
+/// `RDX0112` refuses a local `test`, because rustc does not collect a nested
+/// `#[test]`; a bodiless `module` loads a file, which a block cannot do.
+fn has_a_local_declaration(file: &Source) -> bool {
+  const KEYWORDS: &[&str] = &[
+    "data", "newtype", "union", "type", "class", "instance", "errors", "import", "const", "static",
+  ];
+  /// Heads of every line that opens a block which is *not* a function body.
+  const OPENS_A_NON_BODY: &[&str] = &[
+    "module", "class", "instance", "errors", "data", "newtype", "union", "extern", "test",
+  ];
+
+  // One entry per open block: true when the block is a function body.
+  let mut is_body: Vec<bool> = Vec::new();
+  let mut line_head: Option<&str> = None;
+
+  for index in 0..file.tokens.len() {
+    match file.tokens[index].kind {
+      TokenKind::Indent => {
+        let opener = line_head.unwrap_or("");
+        is_body.push(!OPENS_A_NON_BODY.contains(&opener));
+      }
+      TokenKind::Dedent => {
+        is_body.pop();
+      }
+      _ => {
+        if starts_a_line(file, index) {
+          let head = file.spellings[index].as_str();
+          line_head = Some(head);
+          if is_body.last() == Some(&true) && KEYWORDS.contains(&head) {
+            return true;
+          }
+        }
+      }
+    }
+  }
+  false
+}
+
 /// Every reachable row of `docs/GRAMMAR.md`, and what witnesses it.
 ///
 /// Ordered as the document orders them, so the two can be read side by side.
@@ -825,6 +890,14 @@ const WITNESSES: &[Covers] = &[
     row: "Impls, inherent and trait",
     spelling: "`instance Shape Square`",
     witness: Witness::Toks(&["instance"]),
+  },
+  Covers {
+    row: "Items in a function body",
+    spelling: "a declaration keyword beginning a line inside a function body",
+    witness: Witness::Shape(
+      "a declaration keyword beginning a line in a block an equation opened",
+      has_a_local_declaration,
+    ),
   },
   Covers {
     row: "Modules, inline and nested",

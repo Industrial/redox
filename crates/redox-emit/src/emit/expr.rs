@@ -331,6 +331,7 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
     // which they are, why `compile_error!` is the refusal, and why this is
     // not a Redox diagnostic.
     Expr::Binding(_) => unlowerable("a binding"),
+    Expr::Item { .. } => unlowerable("a declaration"),
     Expr::Guard { .. } => unlowerable("a `guard`"),
     Expr::Draw { .. } => unlowerable("a `with` binder"),
     Expr::Await {

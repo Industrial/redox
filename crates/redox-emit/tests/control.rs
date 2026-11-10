@@ -15,14 +15,18 @@ fn xrs(src: &str) -> String {
 /// The body of `fn main`, dedented, so an assertion reads as the statements it
 /// is about rather than as a whole file.
 fn body(src: &str) -> String {
-  let out = xrs(&format!("main : ()\nmain =\n{src}"));
-  out
+  // Plan 55 §1.6 requires a `()`-returning body to end in `()`, so the wrapper
+  // writes one and the `();` it emits is dropped again — these assertions are
+  // about `src`.
+  let out = xrs(&format!("main : ()\nmain =\n{src}  ()\n"));
+  let mut lines: Vec<&str> = out
     .lines()
     .skip(1)
     .take_while(|l| *l != "}")
     .map(|l| l.strip_prefix("    ").unwrap_or(l))
-    .collect::<Vec<_>>()
-    .join("\n")
+    .collect();
+  assert_eq!(lines.pop(), Some("();"), "{out}");
+  lines.join("\n")
 }
 
 // --- §5.1 and §5.2: the two `if` forms ------------------------------------

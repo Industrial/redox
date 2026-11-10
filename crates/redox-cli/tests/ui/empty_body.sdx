@@ -1,6 +1,7 @@
 main : ()
 main =
   print 1
+  ()
 
 empty : ()
 empty =

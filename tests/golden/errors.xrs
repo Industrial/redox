@@ -63,4 +63,5 @@ fn main() {
     println!("{}", describe(&ConfigError::Closed));
     println!("{}", retries("12").is_ok());
     println!("{}", retries("nope").is_err());
+    ();
 }

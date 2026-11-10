@@ -53,3 +53,4 @@ main =
   print (grid ())[1][0]
   print ((lists ()).len ())
   print (total ())
+  ()

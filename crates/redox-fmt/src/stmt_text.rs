@@ -8,9 +8,11 @@ pub(crate) mod indent_text;
 pub(crate) mod label_text;
 pub(crate) mod trivia_text;
 
+use crate::item_text::item_text;
 use crate::stmt_text::code_text::code_text;
 use crate::stmt_text::indent_text::indent_text;
 use crate::stmt_text::trivia_text::trivia_text;
+use redox_ast::Expr;
 use redox_ast::Stmt;
 
 /// One statement in canonical Redox, with its trivia — plan 34, leaf 4,
@@ -36,6 +38,20 @@ use redox_ast::Stmt;
 /// does not — counted rather than inspected, because a comment that survives
 /// into the wrong place is still a comment the count finds.
 pub fn stmt_text(stmt: &Stmt, indent: usize, source: &str) -> String {
+  // Plan 55 leaf 5. A declaration writes its own padding and its own leading
+  // trivia — `item_text` does both, because a module-scope declaration has no
+  // caller to do it — so it is written here rather than through `code_text`,
+  // which runs *after* the pad below. `emit_stmt` routes an item before its
+  // own `pad` call for the identical reason.
+  //
+  // Going through `code_text` and stripping the pad was the first attempt. It
+  // works only for an item with no leading trivia: with any, the output starts
+  // with the trivia's newline, the strip misses, and a blank line between two
+  // nested declarations comes out as the pad alone.
+  if let Expr::Item { item, .. } = &stmt.expr {
+    return item_text(item, indent, source);
+  }
+
   let mut lines: Vec<String> = Vec::new();
   for trivium in &stmt.leading {
     lines.push(trivia_text(trivium, indent));

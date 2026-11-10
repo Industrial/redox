@@ -40,7 +40,11 @@ use redox_ast::FnDecl;
 /// function, one level in for a `trait` or `impl` member. The body goes one
 /// level inside that.
 pub(crate) fn emit_clauses(out: &mut Sink<'_>, f: &FnDecl, base: usize) {
-  let tail = f.sig.ret.is_some();
+  // A `()`-returning function's body is not a tail position: its last element
+  // is §1.6's written `()`, and the elements before it are statements. Spelled
+  // `ret.is_some()` until plan 55 leaf 4 recorded a declared `()` in the tree,
+  // which made that spelling mean something else.
+  let tail = !f.sig.returns_unit();
 
   let simple = f.clauses.len() == 1
     && f.clauses[0]

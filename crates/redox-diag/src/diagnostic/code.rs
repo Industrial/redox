@@ -168,6 +168,40 @@ pub enum Code {
   /// §10.2 found the position rule it was meant for had no trigger.
   LocalTest,
 
+  /// `RDX0113` — a `()`-returning function whose body does not end in `()`.
+  ///
+  /// Plan 55 §1.6's rule, and §9 decision 3 priced it before it was built:
+  /// *"The cost is one line per `()`-returning function and it is paid
+  /// visibly."* What it buys is the removal of positional silence — a body
+  /// whose last line is a loop, a binding or an assignment has **no value**,
+  /// and today it becomes `()` by arriving last rather than by saying so.
+  ///
+  /// **rustc does catch the mistake, at the call site rather than the
+  /// definition.** A function that falls off the end of a `for` type-checks as
+  /// `()` where it stands; the complaint arrives wherever somebody tried to
+  /// use the value, which is a different file as often as not. This code moves
+  /// it to the line that is wrong, which is doc 05 §4's rule and the whole
+  /// argument for Redox naming anything rustc also names.
+  ///
+  /// **Decidable without a type checker**, which is why it may exist at all
+  /// (AGENTS.md: *every check rustc can make, rustc makes* — and this is one
+  /// rustc makes elsewhere). Two syntactic facts settle it: the **declared**
+  /// return type, which doc 18 §2.2 makes mandatory, and whether the body's
+  /// last element is the literal `()`. Nothing is inferred — `print x` is not
+  /// *known* to be unit, and does not have to be, because the signature
+  /// already said so.
+  ///
+  /// **Scoped to a declared `()`, and not to "the last element has no
+  /// value".** The wider reading was measured and declined twice over: for a
+  /// non-unit return type a valueless tail is already `E0308` *at the
+  /// definition*, with a better message than a suggestion to write `()` —
+  /// which is the wrong remedy there — and `Expr::is_statement_form()` is not
+  /// the predicate it looks like, since `return`, `break` and `continue` are
+  /// `!` and a block ending in one has no value *and no defect*. Those three
+  /// are therefore accepted as a unit body's last element: they state the
+  /// function's value outright, and a `()` after one is unreachable code.
+  UnitTail,
+
   // ---- lints: RDX1000+ ----
   /// `unwrap` or `expect` used — doc 03 §12.7, plan 38.
   ///
@@ -272,6 +306,7 @@ impl Code {
       Self::SpacedPathSeparator => 110,
       Self::NewtypeShape => 111,
       Self::LocalTest => 112,
+      Self::UnitTail => 113,
       // Doc 03 §17's published number, and the first in the lint band.
       Self::UnwrapUsed => 1001,
       Self::CommentAllowPragma => 1002,
@@ -314,6 +349,7 @@ impl Code {
       Self::SpacedPathSeparator,
       Self::NewtypeShape,
       Self::LocalTest,
+      Self::UnitTail,
       Self::UnwrapUsed,
       Self::CommentAllowPragma,
       Self::ShadowedBinding,

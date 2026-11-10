@@ -22,6 +22,7 @@ classify n =
     print "negative"
   else
     print "zero"
+  ()
 
 -- `if c then a else b` is an expression. Plan 55 leaf 1 made it the **same
 -- node** as the indented form, so this comment's previous claim — *"one
@@ -88,6 +89,7 @@ count_up : ()
 count_up =
   for c in 1 .. 4
     print c
+  ()
 
 -- A label goes before the keyword and reaches a `break` in a nested loop —
 -- the one thing an unlabelled `break` cannot do, since it leaves the inner
@@ -239,3 +241,4 @@ main =
   print (places ())
   print (compounded ())
   print (shadowed ())
+  ()

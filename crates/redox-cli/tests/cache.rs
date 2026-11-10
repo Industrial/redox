@@ -82,7 +82,7 @@ impl Drop for Project {
   }
 }
 
-const SOURCE: &str = "-- A cached program.\nmain : ()\nmain =\n  print 1\n";
+const SOURCE: &str = "-- A cached program.\nmain : ()\nmain =\n  print 1\n  ()\n";
 
 /// Criterion 1: the second compile of an unchanged file is a hit, and produces
 /// byte-identical output.

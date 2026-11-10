@@ -61,3 +61,4 @@ main =
   print (depth (Meters 5.0))
   print (depth (Meters 1.5))
   print (warmer (Celsius 20.0))
+  ()

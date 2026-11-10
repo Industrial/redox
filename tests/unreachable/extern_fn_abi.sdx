@@ -16,3 +16,4 @@ callme n = n + 1
 main : ()
 main =
   print (callme 1)
+  ()

@@ -1593,6 +1593,34 @@
 			"members": [
 				{
 					"type": "SYMBOL",
+					"name": "import"
+				},
+				{
+					"type": "SYMBOL",
+					"name": "data_declaration"
+				},
+				{
+					"type": "SYMBOL",
+					"name": "type_alias"
+				},
+				{
+					"type": "SYMBOL",
+					"name": "class_declaration"
+				},
+				{
+					"type": "SYMBOL",
+					"name": "instance_declaration"
+				},
+				{
+					"type": "SYMBOL",
+					"name": "errors_declaration"
+				},
+				{
+					"type": "SYMBOL",
+					"name": "const_declaration"
+				},
+				{
+					"type": "SYMBOL",
 					"name": "binding"
 				},
 				{

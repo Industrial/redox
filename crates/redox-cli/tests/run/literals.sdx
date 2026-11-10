@@ -11,3 +11,4 @@ main =
   print 0b1010         -- binary
   print 2.5e-3         -- a float with an exponent
   print 42u8           -- a type suffix, passed straight through
+  ()

@@ -299,6 +299,7 @@ pub fn expr_text(expr: &Expr, required: u8, indent: usize, source: &str) -> Stri
       is_inline: false, ..
     }
     | Expr::Binding(_)
+    | Expr::Item { .. }
     | Expr::Return { .. }
     | Expr::Draw { .. }
     | Expr::Await { .. }

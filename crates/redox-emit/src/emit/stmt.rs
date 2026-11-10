@@ -3,6 +3,7 @@ use crate::emit::emit_await::emit_await;
 use crate::emit::emit_control::emit_control;
 use crate::emit::expr::emit_expr;
 use crate::emit::inline_comment::emit_inline_comment;
+use crate::emit::item::emit_item;
 use crate::emit::pad::pad;
 use crate::emit::sink::Sink;
 use crate::emit::trivia::emit_trivia;
@@ -37,6 +38,15 @@ pub(crate) fn emit_stmt(out: &mut Sink<'_>, stmt: &Stmt, indent: usize, tail: bo
   // reuse the line its `}` is on.
   if stmt.expr.is_control_flow() {
     emit_control(out, &stmt.expr, indent, tail);
+    return;
+  }
+
+  // Plan 55 leaf 5. A declaration writes its own padding — `emit_item`'s
+  // callees all take an `indent` and pad from it, because a module body has
+  // always needed that — so it is routed before the pad for the same reason
+  // control flow is.
+  if let Expr::Item { item, .. } = &stmt.expr {
+    emit_item(out, item, indent);
     return;
   }
 

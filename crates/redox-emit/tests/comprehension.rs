@@ -9,7 +9,8 @@ use redox_emit::emit;
 use redox_parser::parse_source;
 
 fn body(src: &str) -> String {
-  emit(&parse_source(&format!("main : ()\nmain =\n  {src}\n")).expect("should parse"))
+  // The trailing `()` is plan 55 §1.6's unit tail, which `main` now needs.
+  emit(&parse_source(&format!("main : ()\nmain =\n  {src}\n  ()\n")).expect("should parse"))
 }
 
 /// A list literal is Rust's array literal, unchanged — a spelling, not a

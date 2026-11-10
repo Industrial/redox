@@ -38,3 +38,4 @@ main =
   -- A set, which is the whole of what doc 03's deleted set literal did.
   seen = [ c | c in xs ] : std::collections::HashSet<i32>
   print (seen.len ())
+  ()

@@ -1,4 +1,5 @@
 use crate::emit::emit_control::emit_control;
+use crate::emit::one_line_if::one_line_if;
 use crate::emit::sink::Sink;
 use redox_ast::Expr;
 
@@ -45,6 +46,21 @@ use redox_ast::Expr;
 /// `else`-less `if` all ignore it, which is right — every one of them is `()`
 /// in Rust.
 pub(crate) fn control_text(expr: &Expr, indent: usize) -> String {
+  // rustfmt collapses a narrow two-armed if-else, so ask before writing the
+  // multi-line form — `one_line_if` is the same decision `two_armed` makes for
+  // a guard ladder.
+  if let Expr::If {
+    condition,
+    then_block,
+    otherwise,
+    is_inline: false,
+    ..
+  } = expr
+    && let Some(text) = one_line_if(condition, then_block, otherwise.as_ref(), indent)
+  {
+    return text;
+  }
+
   let mut inner = Sink::new("");
   emit_control(&mut inner, expr, indent, true);
   let (text, _) = inner.finish("");

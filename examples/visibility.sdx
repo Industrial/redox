@@ -36,3 +36,4 @@ main =
   print p.x
   print (area (&p))
   print (double (area (&p)))
+  ()

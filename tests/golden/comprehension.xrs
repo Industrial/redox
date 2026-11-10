@@ -65,4 +65,5 @@ fn main() {
         __rdx_t
     };
     println!("{}", seen.len());
+    ();
 }

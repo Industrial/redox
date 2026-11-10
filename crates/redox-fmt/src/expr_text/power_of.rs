@@ -89,6 +89,7 @@ pub(crate) fn power_of(expr: &Expr) -> Option<u8> {
     // this function's doc argues for — and none of these can reach an
     // expression position through today's grammar anyway.
     | Expr::Binding(_)
+    | Expr::Item { .. }
     | Expr::Return { .. }
     | Expr::Draw { .. }
     | Expr::Await { .. }

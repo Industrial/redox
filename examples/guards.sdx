@@ -32,3 +32,4 @@ main =
   print (step 0)
   print (step 500)
   print (step 7)
+  ()

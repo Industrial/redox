@@ -11,3 +11,4 @@
 main : ()
 main =
   print "case x of |> $ dyn move ref *const \\n -> n @name"
+  ()

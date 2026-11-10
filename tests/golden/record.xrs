@@ -31,4 +31,5 @@ fn main() {
     };
     println!("{}", r.x);
     println!("{}", r.y);
+    ();
 }

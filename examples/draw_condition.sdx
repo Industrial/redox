@@ -100,3 +100,4 @@ main =
   print (label None)
   print (doubled (Some 6))
   print (doubled None)
+  ()

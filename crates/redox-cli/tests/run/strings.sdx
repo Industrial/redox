@@ -15,3 +15,4 @@ main =
   print "brace: \#{"      -- prints `brace: #{`
   print "see {this}"       -- prints `see {this}`, not a format placeholder
   print "100% of {n} done" -- both hazards at once
+  ()

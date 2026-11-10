@@ -1,6 +1,6 @@
 error[RDX0101]: inline Rust needs a `"""` block: a single-quoted string cannot hold Rust's own quotes
-  --> inline_rust_needs_a_block.sdx:12:6
+  --> inline_rust_needs_a_block.sdx:13:6
    |
-12 | rust "let x = 1;"
+13 | rust "let x = 1;"
    |      ^^^^^^^^^^^^
 

@@ -413,6 +413,34 @@ pub enum Expr {
   /// above exists: `let x = 1` has no expression spelling, so a nested one is
   /// refused rather than lowered to something plausible.
   Binding(Box<crate::Binding>),
+  /// A **declaration** in a body position — `data`, `newtype`, `union`,
+  /// `type`, `class`, `instance`, `errors`, `import`, `const`, `static` —
+  /// plan 55 leaf 5.
+  ///
+  /// Rust accepts a nested item in a block, so this lowers to exactly the
+  /// declaration it is, written one indent in. That much §1.4 had; what it
+  /// understated is that **nothing carried one before this leaf**. There was
+  /// no variant, `Parser::stmt` never called `item()`, and a declaration
+  /// keyword in a body reached `prefix`'s default arm and became `RDX0102`.
+  /// Rust accepting the output was necessary and not sufficient — the carrier
+  /// had to be built.
+  ///
+  /// Boxed because `Item` reaches back here: an item holds an `FnDecl`, which
+  /// holds a `Clause`, which holds a `Block` of `Stmt`, which holds an `Expr`.
+  /// Without the indirection the enum has no size.
+  ///
+  /// `test` is **not** among the keywords, and that is leaf 6's refusal rather
+  /// than an omission: a nested `#[test]` is not collected, so it would
+  /// compile and silently never run. `module` is absent too — a bodiless
+  /// `module` loads a file, which a block cannot do.
+  ///
+  /// It is a statement form, so a nested expression position refuses it the
+  /// same way a `let` is refused. There is no Rust expression that is a
+  /// declaration.
+  Item {
+    item: Box<crate::Item>,
+    span: Span,
+  },
   /// `return` with an optional value.
   ///
   /// A Rust expression of type `!` — `let x = return;` compiles — so this one
@@ -629,6 +657,7 @@ impl Expr {
       | Expr::Section { span, .. }
       | Expr::Unit { span }
       | Expr::Try { span, .. }
+      | Expr::Item { span, .. }
       | Expr::If { span, .. }
       | Expr::Do { span, .. }
       | Expr::List { span, .. }
@@ -670,6 +699,7 @@ impl Expr {
     matches!(
       self,
       Expr::Binding(_)
+        | Expr::Item { .. }
         | Expr::Return { .. }
         | Expr::Draw { .. }
         | Expr::Await { .. }
@@ -721,6 +751,18 @@ impl Expr {
   /// so a caller asking this question gets the set it can safely recurse
   /// into rather than every block in the tree.
   ///
+  /// **Not `Item` either**, for the stronger version of the same reason. A
+  /// local declaration (leaf 5) does hold blocks — a nested `fn`'s clause
+  /// bodies, a local `instance`'s methods — but each of those is *a different
+  /// function*, so a walk that descended into one would silently leave the
+  /// function it started in, which is exactly what this method's contract
+  /// promises it will not do.
+  ///
+  /// The consequence is worth naming rather than discovering: a walk that
+  /// wants a nested item's insides — `redox-driver`'s pragma walk, so that
+  /// `#[redox::allow(unwrap)]` works inside a local declaration — has to call
+  /// `walk_item` on it, not recurse through here.
+  ///
   /// The match is **exhaustive with no wildcard** and lives here rather than
   /// in each of its two callers: a new form that owns a statement block has
   /// to be considered once, and both walks inherit the answer.
@@ -737,7 +779,10 @@ impl Expr {
       },
       Expr::While { body, .. } | Expr::For { body, .. } | Expr::Loop { body, .. } => vec![body],
       Expr::Guard { otherwise, .. } => vec![otherwise],
-      Expr::If {
+      // A local declaration's blocks belong to a different function; see the
+      // note above.
+      Expr::Item { .. }
+      | Expr::If {
         is_inline: true, ..
       }
       | Expr::Call { .. }

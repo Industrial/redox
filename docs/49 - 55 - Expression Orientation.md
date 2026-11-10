@@ -142,6 +142,25 @@ with `()`, written. That costs one line in `main` and in every `()`-returning fu
 removes the case where a function falls off the end of a loop and silently type-checks as `()`
 when something else was meant.
 
+> **Corrected after building it: the second half of that sentence is false, and
+> the first half was priced at a tenth of the real bill.** §10.14 has the
+> measurement. `RDX0113` fires on **93 of 93** correct `()`-returning functions
+> in the corpus and on **0** incorrect ones, and no program could be
+> constructed that it rejects and that is wrong. If something other than `()`
+> was *declared*, falling off a loop is `E0308` **at the definition**, remapped
+> onto the author's own line by plan 07 — which is the argument §10.12 used to
+> retire criterion 7. If `()` was declared, there is nothing to catch. Rust
+> itself chose positional silence here.
+>
+> The rule's value is **uniformity** — the last line of a body always states
+> the value — and that is what §9 decision 3 should be read as pricing. The
+> price was 61 `.sdx` files **and 225 red Rust tests**, because roughly 150
+> Redox programs live as string literals inside test modules.
+>
+> It is kept, because §9 decision 3 chose it deliberately and uniformity is a
+> real property. But a reader deciding whether to keep it should know it
+> detects nothing.
+
 Discarding a value is unmarked, as in Rust — a non-final expression in a block is discarded.
 `RDX1001`-style lints cover the shapes that bite: a discarded `Result`, a discarded `Effect`, a
 discarded `must_use`.
@@ -437,8 +456,8 @@ string-literal fixtures to miss, because `no_literal_expectations.rs` forbids th
 
 ## 10. Result
 
-**Leaves 0, 1, 2, 3 and 6 done; criterion 7 withdrawn; leaves 4, 5, 7, 8, 9
-outstanding.** Criterion 1 is green. The
+**Leaves 0-6 done; criterion 7 withdrawn; leaves 7, 8 and 9 outstanding.**
+Criterion 1 is green. The
 statement/expression fork is gone: `StmtKind` is deleted, `Expr` has 46
 variants, and leaf 1 moved no golden at all — `git status tests/ examples/`
 empty, which is the strongest check available on a refactor across 62 files.
@@ -731,7 +750,164 @@ value` are **dropped**. The author gets the position and never the remedy. That
 is true of every remapped rustc diagnostic, not just this one, and fixing it
 would move `tests/check/` expectations across the board.
 
-### 10.13 Open
+### 10.13 Leaf 5 — the carrier, and three bugs in two formatters
+
+§4's own correction was right: this is net-new in both the AST and the parser.
+`Expr` gains an `Item`-carrying variant, `Parser::stmt` calls `item()`, and the
+set of keywords is the Rust parser's rather than `Parser::item`'s whole list —
+`test` is leaf 6's refusal, and `module` is out of scope because a bodiless one
+loads a *file*.
+
+The emitter's machinery existed and was **not reusable as it stood**:
+`emit_items` held the per-item dispatch inline, so a single item had no way to
+be written. Extracted to `emit_item`, which both callers read — the same
+factoring leaf 3 used for `assign_tail`, and for the same reason: a local
+declaration and a module-scope one are the same parse, so a reader who found
+them differing would reasonably assume the difference was deliberate.
+
+`examples/local.sdx` exercises all seven keywords in one function and compiles
+with zero rustc output. It is also where plan 53's `errors` glob, plan 52's `:`
+ascription and leaf 2's indented `if` first compose inside a body.
+
+**Three bugs, and the formatter owns two of them.**
+
+1. **Every comment came out twice.** `peek_leading` peeks rather than consumes,
+   so `Parser::stmt` and `Parser::item` both captured the same trivia and both
+   printed it. The `Stmt` gives its copy up, because an item's emitters have
+   always printed its leading comments — a module-scope declaration has no
+   caller to do it. Worth recording *how* it failed: duplicated comments are
+   still **present**, so nothing that checks for loss notices, and
+   `generated_rust_is_rustfmt_clean` was what caught it.
+
+2. **A local declaration printed a level too deep.** `code_text`'s contract is
+   that its first line comes back **unindented** — `stmt_text` writes the pad —
+   and `item_text` pads unconditionally, a module-scope declaration having no
+   caller to do it. One of the two had to give; the pad is written and then
+   taken back off the front.
+
+3. **An inline clause body flattened its continuation lines.** `inline_body`
+   passed `stmt_text(stmt, 0, source)`. The zero is there for a real reason —
+   an inline body follows `" = "` on the same line, so its first line must not
+   be padded — but `stmt_text` threads that same indent onward, so every
+   *continuation* line went to module depth too. At module scope the two
+   coincide and nothing noticed. Inside a local `instance` they do not:
+   `name self = case self of` at depth 2 printed its arms at depth 1.
+
+   This one was reachable before leaf 5 — `examples/module.sdx` has an inline
+   `module` whose items reach `indent + 1` — and needed an inline clause body
+   with a *continuation* inside one, which the corpus had none of.
+
+**And the fourth reader, a third time.** `tree_sitter` and `editors` went red
+because `_statement` had no production for a declaration. The set listed there
+is `starts_a_declaration`'s rather than `_item`'s, deliberately: accepting in
+the highlighter what the compiler refuses is the drift this grammar is
+cross-checked to prevent.
+
+The conflict it produced is worth recording, because `prec` could not fix it.
+Inside a `module`'s indented body an `import` is an item; inside a clause body
+it is a statement; both open with `_indent`, and the Rust parser tells them
+apart by **which function called** — `items_until_dedent` or
+`statement_block`. A hidden `_local_declaration` helper put a *third* symbol
+between `_item` and `_statement`, so the already-declared
+`[$._item, $._statement]` conflict did not cover it and no precedence could
+settle a reduce/reduce between two containing rules. Listing the seven rules
+inline makes the ambiguity literally the declared one.
+
+`docs/GRAMMAR.md` gains a row — *"Items in a function body"* — because this is
+a Rust construct the inventory had no grade for.
+
+**And its witness was hollow three times**, which is a finding about plan 51's
+gate rather than about this leaf. Each version passed with
+`examples/local.sdx` *and* without it, proved by moving the file aside:
+
+1. `Toks(["import", "«id»"])` — matched a **module-scope** `import`.
+2. "a declaration keyword at token depth above zero" — matched an inline
+   `module`'s items, which the inventory grades as *Modules, inline and
+   nested*.
+3. the same, excluding `module` bodies — matched `examples/class.sdx`'s
+   `const SIDES : u32`, an **associated constant**, graded as *Associated
+   types and constants*.
+
+The pattern is the lesson. "A declaration keyword, indented" is not what
+distinguishes a local declaration; **what opened the block** is. A function
+body is opened by an equation, whose line begins with a *name*, and every other
+indented block in the language is opened by a line beginning with a declaration
+keyword. The fourth version tests that instead — one rule rather than a growing
+list of exclusions, which is also what makes it survive a row that adds a new
+kind of block.
+
+Worth generalising, because plan 51's §10 already recorded that it took a
+*left*-section witness to prove the method-call row could fail: **a witness
+built from the construct's own spelling tends to be satisfied by a neighbour
+that shares it.** The ones that hold are built from what makes the construct
+*different*. `construct_coverage`'s step-5 proof — move the example aside and
+watch — is what finds the difference, and it should be run per row rather than
+once per gate.
+
+### 10.14 Leaf 4 — the rule is built, and it detects nothing
+
+`RDX0113` refuses a `()`-returning function whose **indented** body does not
+end in a written `()`. Green, and behaviour-preserving in the emitter: `tail`
+is still exactly `ret.is_some()`'s old meaning, spelled `!returns_unit()`, so
+the 29-golden diff is pure insertion.
+
+**The declared `()` had to be recovered, and `Some("()")` is why.**
+`signature_from` ended with `ret: (ret.text != "()").then(…)`, so `main : ()`
+arrived as `ret: None` — indistinguishable from a function that declared no
+return type. A `TypeExpr` is verbatim source text by design, so discarding `()`
+made the type list lossy at exactly one point; and a separate flag beside `ret`
+can disagree with `ret`, where `Some("()")` cannot. Omitting `-> ()` is an
+*emission* decision and now lives in `emit/signature.rs`, where rustfmt-shaped
+decisions already do. It is also the correction `redox-fmt`'s
+`signature_line.rs` asks for in the general case — *"the AST keeping the source
+spelling and the emitter applying it when it writes"*.
+
+**Three exemptions, each a measurement rather than a shortcut.**
+
+`Return`, `Break` and `Continue` are type `!`, so a `()` after one is
+unreachable code rustc warns about — which the corpus's no-rustc-output rule
+would then have to defend. `examples/control.sdx`'s `first_divisor` is the
+shape.
+
+`while` and `for` bodies are always unit, and `examples/control.sdx` has loop
+bodies ending in `n += 1`. So criterion 6 cannot be read as "every block"; it
+is scoped to a function's **declared** `()` return.
+
+Inline bodies and guard rows are exempt because requiring `()` there changes a
+construct's *shape* rather than adding a line: a guard row's body is one
+expression with nowhere to put a second, so it would force `| c = do` plus an
+indented block. That is more than §9 decision 3 priced. Neither form can
+exhibit §1.6's failure mode anyway, because last-line-wins needs a statement
+list — which is why the check sits in `clause`'s indented branch rather than
+over the whole `Clause`.
+
+**And `Expr::is_statement_form()` is not the predicate**, which is the trap
+here: it includes `Return`, `Break` and `Continue`, so using it would have
+fired on correct programs. It is a *statement-printer* predicate, as its own
+doc comment says.
+
+### 10.15 The bill was 225 red tests, and AGENTS.md named it in advance
+
+61 `.sdx` files gained a `()`. But **225 Rust tests went red**, because roughly
+150 Redox programs live as string literals inside Rust test modules.
+
+AGENTS.md forbids exactly that shape and quotes this exact invoice: *"Emerald's
+one syntax cutover missed 113 fixtures that lived as string literals inside
+test modules; that cost is paid once per syntax change, forever."*
+`no_literal_expectations.rs` only polices *expectations*, not sources — which
+is the hole, and plan 52 §10.3 found the same one from the other direction when
+three `watch` tests timed out.
+
+Paid: 72 literals rewritten by script, 19 shared `body()`/`tail()`/`reparse()`
+helpers edited — most files funnel every case through one — and 7 assertions by
+hand. Eight of those helpers now assert the unit tail rather than tolerate it.
+
+The migration itself was compiler-driven rather than hand-written: build, read
+the reported position, insert, repeat until clean. Worth recording as the
+technique, because it is how a 61-file surface change gets made without a
+reviewer having to trust a regex.
+
+### 10.16 Open
 
 - **Leaves 2-9.** Criterion 1 is green from leaf 0 and the fork is gone; the
   remaining criteria — `.then` as a method, a `case` arm's indented block, local

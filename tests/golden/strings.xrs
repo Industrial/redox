@@ -108,4 +108,5 @@ fn main() {
     println!("{}", block());
     // A string with no interpolation takes the path it always took.
     println!("plain, unchanged");
+    ();
 }

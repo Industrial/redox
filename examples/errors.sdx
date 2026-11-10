@@ -40,3 +40,4 @@ main =
   print (describe (&ConfigError::Closed))
   print ((retries "12").is_ok ())
   print ((retries "nope").is_err ())
+  ()

@@ -75,4 +75,5 @@ fn main() {
     println!("{}", escaped().len());
     let d = unsafe { abs(-7) };
     println!("{}", d);
+    ();
 }

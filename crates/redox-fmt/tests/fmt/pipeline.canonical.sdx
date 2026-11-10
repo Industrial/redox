@@ -35,3 +35,4 @@ main =
     |> map (\n -> n * 2)
     |> count
   print short
+  ()

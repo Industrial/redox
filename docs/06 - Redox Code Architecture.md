@@ -165,7 +165,7 @@ So `token/token_kind.rs` is wrong: it stutters, and the directory has bought not
 source/span.rs              → Span              stem matches
 token/kind.rs               → TokenKind         parent + stem
 lex/error.rs                → LexError          parent + stem
-block/stmt/kind.rs          → StmtKind          parent + stem
+block/stmt/binding.rs       → Binding           parent + stem
 lexer/is_ident_start.rs     → is_ident_start    stem matches
 ```
 
@@ -212,7 +212,7 @@ crates/redox-ast/src/         # mirrors the containment hierarchy
   lib.rs
   block.rs                    Block
   block/stmt.rs               Stmt
-  block/stmt/kind.rs          StmtKind
+  block/stmt/binding.rs       Binding
   expr.rs                     Expr
   expr/ident.rs               Ident
   program.rs                  Program

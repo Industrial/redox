@@ -6,3 +6,4 @@ add a b =
 main : ()
 main =
   print (add 1 2)
+  ()

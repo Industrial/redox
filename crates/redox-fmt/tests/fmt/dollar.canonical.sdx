@@ -44,3 +44,4 @@ main =
   -- And in receiver position, for the same reason.
   measured = (twice $ show 7).len ()
   print $ add 1 2
+  ()

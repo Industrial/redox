@@ -18,3 +18,4 @@ small n = case n of
 main : ()
 main =
   print (small 2)
+  ()

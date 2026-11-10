@@ -125,7 +125,7 @@ fn a_lowercase_path_segment_is_not_a_type_variable() {
 /// whole until the lexer stopped treating it as an operator.
 #[test]
 fn a_glob_import_does_not_swallow_the_next_item() {
-  let out = xrs("import crate::models::*\n\nmain : ()\nmain =\n  print \"x\"\n");
+  let out = xrs("import crate::models::*\n\nmain : ()\nmain =\n  print \"x\"\n  ()\n");
   assert!(out.contains("use crate::models::*;"), "{out}");
   assert!(out.contains("fn main() {"), "{out}");
 }

@@ -9,3 +9,4 @@ add a b =
 main : ()
 main =
   print (add "x" 2)
+  ()

@@ -55,4 +55,5 @@ fn main() {
     println!("{}", first("borrowed"));
     println!("{}", area(3.0, 4.0));
     println!("{}", largest(Some(3)));
+    ();
 }

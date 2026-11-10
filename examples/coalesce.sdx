@@ -18,6 +18,7 @@ main =
   -- The fallback's laziness is explicit in the generated code, which is the
   -- third of §12.1's reasons: the `None` arm is only evaluated when taken.
   print (missing ?? expensive ())
+  ()
 
 -- `f ()` is doc 18 §7's replacement for doc 03 §5.2's `!` zero-argument
 -- suffix, so the unit expression is what makes a no-argument call writable at

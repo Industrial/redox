@@ -225,7 +225,7 @@ fn the_unwrap_lint_is_a_warning_and_the_pragma_silences_it() {
   let session = Session::start();
   session.open(
     &uri(),
-    "main : ()\nmain =\n  x = (Some 1).unwrap ()\n  print x\n",
+    "main : ()\nmain =\n  x = (Some 1).unwrap ()\n  print x\n  ()\n",
   );
   let published = session.diagnostics();
   let warnings: Vec<_> = published
@@ -243,7 +243,7 @@ fn the_unwrap_lint_is_a_warning_and_the_pragma_silences_it() {
   let pragma = Session::start();
   pragma.open(
     &uri(),
-    "main : ()\nmain =\n  #[redox::allow(unwrap)]\n  x = (Some 1).unwrap ()\n  print x\n",
+    "main : ()\nmain =\n  #[redox::allow(unwrap)]\n  x = (Some 1).unwrap ()\n  print x\n  ()\n",
   );
   assert!(
     pragma.diagnostics().diagnostics.is_empty(),
@@ -253,7 +253,7 @@ fn the_unwrap_lint_is_a_warning_and_the_pragma_silences_it() {
   let deprecated = Session::start();
   deprecated.open(
     &uri(),
-    "main : ()\nmain =\n  x = (Some 1).unwrap ()  -- redox: allow unwrap\n  print x\n",
+    "main : ()\nmain =\n  x = (Some 1).unwrap ()  -- redox: allow unwrap\n  print x\n  ()\n",
   );
   let published = deprecated.diagnostics();
   let codes: Vec<String> = published
@@ -313,11 +313,11 @@ fn formatting_edits_only_what_is_not_canonical() {
   let session = Session::start();
   // Two blank lines where one is canonical, which is leaf 1's rule and needs
   // no construct to demonstrate.
-  session.open(&uri(), "main : ()\nmain =\n  print 1\n\n\n");
+  session.open(&uri(), "main : ()\nmain =\n  print 1\n  ()\n\n\n");
   let edits = formatting_of(&session, 1);
   assert_eq!(edits.len(), 1, "one full-range edit");
   assert!(
-    edits[0].new_text.ends_with("print 1\n"),
+    edits[0].new_text.ends_with("  ()\n"),
     "and it is the canonical text: {:?}",
     edits[0].new_text
   );
@@ -351,7 +351,7 @@ fn formatting_of(session: &Session, id: i32) -> Vec<lsp_types::TextEdit> {
 #[test]
 fn semantic_tokens_decode_to_the_right_places() {
   let session = Session::start();
-  let source = "main : ()\nmain =\n  print 1\n";
+  let source = "main : ()\nmain =\n  print 1\n  ()\n";
   session.open(&uri(), source);
 
   let tokens: SemanticTokens =
@@ -489,7 +489,7 @@ fn tokens_of(session: &Session, id: i32) -> serde_json::Value {
 #[test]
 fn an_unknown_method_is_answered_with_null() {
   let session = Session::start();
-  session.open(&uri(), "main : ()\nmain =\n  print 1\n");
+  session.open(&uri(), "main : ()\nmain =\n  print 1\n  ()\n");
   let _ = session.diagnostics();
   let value = session.request(1, "textDocument/hover", &serde_json::Value::Null);
   assert_eq!(value, serde_json::Value::Null);

@@ -46,4 +46,5 @@ fn main() {
     println!("{}", LIMIT);
     println!("{}", square(7));
     println!("{}", scaled(4));
+    ();
 }

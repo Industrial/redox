@@ -67,4 +67,5 @@ fn main() {
     println!("{}", depth(Meters(5.0)));
     println!("{}", depth(Meters(1.5)));
     println!("{}", warmer(Celsius(20.0)));
+    ();
 }

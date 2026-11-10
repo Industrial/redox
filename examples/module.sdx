@@ -54,6 +54,7 @@ main =
   -- called here so rustc has nothing to say about either.
   mut buffer = String::new () : String
   print ((write_ok (&mut buffer)).is_ok ())
+  ()
 
 test "the file has its own test module"
   assert sizes () == 0

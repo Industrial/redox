@@ -14,3 +14,4 @@ unsafe class Raw t
 main : ()
 main =
   print 1
+  ()

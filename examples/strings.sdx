@@ -101,3 +101,4 @@ main =
   print (block ())
   -- A string with no interpolation takes the path it always took.
   print "plain, unchanged"
+  ()

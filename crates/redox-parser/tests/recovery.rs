@@ -48,7 +48,8 @@ fn two_bad_statements_in_one_body_are_both_reported() {
 
 #[test]
 fn a_well_formed_file_reports_nothing() {
-  let src = "add : i32 -> i32 -> i32\nadd a b =\n  a + b\n\nmain : ()\nmain =\n  print (add 1 2)\n";
+  let src =
+    "add : i32 -> i32 -> i32\nadd a b =\n  a + b\n\nmain : ()\nmain =\n  print (add 1 2)\n  ()\n";
   assert!(parse_source(src).is_ok(), "should parse cleanly");
 }
 
@@ -82,7 +83,7 @@ fn a_stray_closer_in_a_type_terminates() {
     // Through a typed binding — the spelling plan 52 did not change.
     "main : ()\nmain =\n  n : i32 !> i32 = 1\n  print n\n",
     // Through an ascription.
-    "main : ()\nmain =\n  n = 1 : i32 !> i32\n  print n\n",
+    "main : ()\nmain =\n  n = 1 : i32 !> i32\n  print n\n  ()\n",
     // The original fuzz mutation: a `-` flipped to a carriage return.
     "add : i32 \r> i32\nadd a =\n  a\n",
     // And the closers that are not `>`.

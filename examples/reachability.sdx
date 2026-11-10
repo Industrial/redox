@@ -76,3 +76,4 @@ main =
   d = unsafe
     abs (-7)
   print d
+  ()

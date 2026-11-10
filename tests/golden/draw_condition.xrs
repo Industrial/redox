@@ -111,4 +111,5 @@ fn main() {
     println!("{}", label(None));
     println!("{}", doubled(Some(6)));
     println!("{}", doubled(None));
+    ();
 }

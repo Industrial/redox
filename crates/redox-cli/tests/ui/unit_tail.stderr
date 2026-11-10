@@ -1,0 +1,7 @@
+error[RDX0113]: `tally` returns `()`, so its body must end with `()`
+  --> unit_tail.sdx:24:3
+   |
+24 |   reported = total
+   |   ^^^^^^^^^^^^^^^^
+  = help: write `()` as the body's last line — plan 55 §1.6 spells a unit value rather than implying it, so a body ending in a loop, a binding or an assignment cannot become `()` by arriving last
+

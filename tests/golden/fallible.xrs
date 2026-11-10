@@ -161,4 +161,5 @@ fn main() {
     println!("{}", attempt("1", "2").unwrap());
     println!("{}", attempt("1", "no").is_err());
     println!("{}", after_a_failed_try());
+    ();
 }

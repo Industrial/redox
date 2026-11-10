@@ -30,3 +30,4 @@ main : ()
 main =
   pair = (String::from "x", 1)
   print (first_of (&pair))
+  ()

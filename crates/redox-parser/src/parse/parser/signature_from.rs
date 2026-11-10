@@ -10,10 +10,14 @@ use redox_diag::{Code, Span};
 /// `load : &str -> Result<Config, Error>` plus `load p =` gives
 /// `fn load(p: &str) -> Result<Config, Error>`.
 ///
-/// **A unit return type is omitted**, not emitted as `-> ()`. `main : ()`
+/// **A unit return type is recorded, and omitted at emission.** `main : ()`
 /// becomes `fn main()`, which is what Rust writes and what rustfmt would
 /// produce; emitting the arrow would be byte-stable noise that plan 04's
-/// rustfmt-clean guarantee would then have to defend.
+/// rustfmt-clean guarantee would then have to defend. Until plan 55 leaf 4
+/// this function made that decision by storing `ret: None`, which also threw
+/// away the one fact §1.6's unit rule needs — so the omission moved to
+/// `emit::signature` and `()` is stored like any other type. See
+/// [`Signature::ret`](redox_ast::Signature::ret).
 ///
 /// An arity mismatch is reported here, with both counts, because it is the
 /// one thing the two-line form can get wrong that the one-line form could
@@ -66,7 +70,7 @@ pub(crate) fn signature_from(
         span: pattern.span(),
       })
       .collect(),
-    ret: (ret.text != "()").then(|| ret.clone()),
+    ret: Some(ret.clone()),
     generics: Vec::new(),
     is_const: false,
     is_async: false,
@@ -110,12 +114,15 @@ mod tests {
     assert_eq!(sig.ret.expect("a return type").text, "i32");
   }
 
-  /// `main : ()` is `fn main()`, not `fn main() -> ()`.
+  /// `main : ()` keeps its `()` in the tree — plan 55 leaf 4. The emitter is
+  /// what declines to write `-> ()`, so `returns_unit` is the question a
+  /// reader asks rather than `ret.is_some()`.
   #[test]
-  fn a_unit_return_is_omitted() {
+  fn a_unit_return_is_recorded_and_not_discarded() {
     let sig = signature_from(&[ty("()")], &[], (0, 0)).expect("should build");
     assert!(sig.params.is_empty());
-    assert_eq!(sig.ret, None);
+    assert_eq!(sig.ret.as_ref().expect("a return type").text, "()");
+    assert!(sig.returns_unit());
   }
 
   #[test]
@@ -139,6 +146,7 @@ mod tests {
   fn a_zero_parameter_function_can_still_return_something() {
     let sig = signature_from(&[ty("u32")], &[], (0, 0)).expect("should build");
     assert!(sig.params.is_empty());
-    assert_eq!(sig.ret.expect("a return type").text, "u32");
+    assert_eq!(sig.ret.as_ref().expect("a return type").text, "u32");
+    assert!(!sig.returns_unit());
   }
 }

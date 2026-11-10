@@ -37,4 +37,5 @@ fn main() {
         let __rdx_t: u64 = 1 + 1;
         __rdx_t
     });
+    ();
 }

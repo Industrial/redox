@@ -60,4 +60,5 @@ fn main() {
     // `(- 1)` is negation, always. Doc 18 §4 declines the subtraction section,
     // which retires doc 03 decision 50's adjacency rule.
     println!("{}", -1);
+    ();
 }

@@ -33,19 +33,19 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 
 | Crate | `src` | `tests` |
 |---|---:|---:|
-| `redox-ast` | 2741 | 0 |
+| `redox-ast` | 2818 | 0 |
 | `redox-bench` | 588 | 217 |
-| `redox-cli` | 1372 | 7259 |
-| `redox-diag` | 1600 | 0 |
+| `redox-cli` | 1372 | 7333 |
+| `redox-diag` | 1636 | 0 |
 | `redox-driver` | 2897 | 0 |
-| `redox-emit` | 4496 | 4110 |
-| `redox-fmt` | 2747 | 1454 |
+| `redox-emit` | 4610 | 4238 |
+| `redox-fmt` | 2791 | 1459 |
 | `redox-fuzz` | 120 | 268 |
 | `redox-lexer` | 2708 | 910 |
 | `redox-lsp` | 889 | 496 |
 | `redox-mcp` | 777 | 776 |
-| `redox-parser` | 6718 | 591 |
-| **total** | **27653** | **16081** |
+| `redox-parser` | 6919 | 598 |
+| **total** | **28125** | **16295** |
 
 ---
 
@@ -53,13 +53,13 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 
 | Corpus | Files | What it asserts |
 |---|---:|---|
-| `examples/*.sdx` | 30 | the CI-checked source of truth for what works |
-| `tests/golden/*.xrs` | 29 | the generated Rust, as exact text |
-| `crates/redox-cli/tests/ui/*.sdx` | 33 | the diagnostic a bad program gets |
+| `examples/*.sdx` | 31 | the CI-checked source of truth for what works |
+| `tests/golden/*.xrs` | 30 | the generated Rust, as exact text |
+| `crates/redox-cli/tests/ui/*.sdx` | 34 | the diagnostic a bad program gets |
 | `tests/unreachable/*.sdx` | 7 | the gaps below, asserted to **still fail** |
 | `benchmarks/pairs/*.sdx` | 9 | generated and hand-written Rust, as identical IR |
 
-**30 examples and 29 goldens is not an error.** `examples/lexical.sdx` deliberately does not parse — it is the error-path example, and `benchmarks/REPORT.md` excludes it from the throughput sweep for the same reason. Reporting "30 examples, all green" would be rounding up by exactly one file.
+**31 examples and 30 goldens is not an error.** `examples/lexical.sdx` deliberately does not parse — it is the error-path example, and `benchmarks/REPORT.md` excludes it from the throughput sweep for the same reason. Reporting "31 examples, all green" would be rounding up by exactly one file.
 
 ---
 

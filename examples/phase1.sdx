@@ -7,3 +7,4 @@ add a b =
 main : ()
 main =
   print (add 10 20)
+  ()

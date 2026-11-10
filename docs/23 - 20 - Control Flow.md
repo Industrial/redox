@@ -54,6 +54,37 @@ Both lower to Rust's `if`, which is itself an expression. Keeping two surface fo
 Rust construct is the one place this plan adds a spelling rather than a lowering, and the
 reason is that `then` is otherwise a keyword with no use, which would be worse.
 
+> **Superseded by plan 55, in three steps, and the first paragraph above was
+> never true of the code.** Recorded here rather than rewritten, because the
+> distance between what this section claimed and what shipped is the useful
+> part.
+>
+> **`then` never decided anything.** `Parser::stmt` asks `control_flow` before
+> it reads an expression at all, and `control_flow` claims `Kw(If)`
+> unconditionally with no lookahead whatsoever — `if_expression` was reachable
+> only from `prefix`. So **position** decided, and the consequence was that
+> `if c then a else b` as a bare statement could not parse while an indented
+> `if` could not be a value. Neither limit was intended and neither was
+> written down.
+>
+> **There are no longer two nodes.** Plan 55 leaf 1 merged them; what survives
+> of the distinction is `Expr::If`'s `is_inline` flag, which records the
+> *spelling* and nothing else. Leaf 2 then gave `prefix` the indented
+> production, so both forms are usable as a value — and that is where a
+> lookahead for `then` finally appeared, in the position where both really are
+> legal.
+>
+> **And the `if` statement was not an expression in the emitter either.** Plan
+> 22 recorded the consequence as a gap belonging to this plan: a branch written
+> as a bare value emitted `"big";` and rustc answered `E0308`. The cause was
+> eight hardcoded `false`s — `emit_control` took no `tail` parameter at all —
+> which plan 55 leaf 0 threaded through. **Plan 22's gap is resolved.**
+>
+> The sentence about `then` being a keyword with no use otherwise still holds,
+> and plan 55 leaf 7 proposes retiring it. Leaf 2 found the cost: layout is
+> suppressed inside brackets, so `print (if c then a else b)` is the only way
+> to write a conditional in argument position.
+
 ### 1.3 `until` is `while` with a negation, and `not` is why it reads
 
 `until c` is `while !(c)`. Doc 03 §7.7 keeps it from doc 01 §8, and doc 18 §2.3 freed `not`

@@ -27,3 +27,4 @@ main =
   -- A multi-line lowering as a macro argument: `println!` keeps the call on
   -- one line and lets the block hang, which is the form rustfmt writes.
   print (1 + 1 : u64)
+  ()

@@ -33,7 +33,7 @@ fn an_attribute_above_a_function_stays_above_it() {
 /// plan 14 decision 3 declined those without cause.
 #[test]
 fn an_inner_attribute_keeps_its_bang() {
-  let out = xrs("#![no_std]\nmain : ()\nmain =\n  print \"x\"\n");
+  let out = xrs("#![no_std]\nmain : ()\nmain =\n  print \"x\"\n  ()\n");
   assert!(out.starts_with("#![no_std]\n"), "{out}");
 }
 
@@ -77,7 +77,7 @@ fn an_attribute_and_a_doc_comment_keep_their_order() {
 /// A statement carries `leading` too, so this needed nothing of its own.
 #[test]
 fn an_attribute_above_a_statement_stays_above_it() {
-  let out = xrs("main : ()\nmain =\n  #[allow(unused)]\n  x = 1\n  print x\n");
+  let out = xrs("main : ()\nmain =\n  #[allow(unused)]\n  x = 1\n  print x\n  ()\n");
   assert!(
     out.contains("    #[allow(unused)]\n    let x = 1;"),
     "{out}"

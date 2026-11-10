@@ -16,6 +16,7 @@ fn halve(n: i32) -> Option<i32> {
 fn main() {
     println!("{}", add(1, 2));
     println!("{}", halve(4).is_some());
+    ();
 }
 
 #[cfg(test)]

@@ -25,3 +25,4 @@ main =
   r = p { x = 99 }
   print r.x
   print r.y
+  ()

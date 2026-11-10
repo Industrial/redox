@@ -31,7 +31,8 @@ fn xrs(src: &str) -> String {
 }
 
 fn body(src: &str) -> String {
-  xrs(&format!("main : ()\nmain =\n  {src}\n"))
+  // The trailing `()` is plan 55 §1.6's unit tail, which `main` now needs.
+  xrs(&format!("main : ()\nmain =\n  {src}\n  ()\n"))
 }
 
 #[test]

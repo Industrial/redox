@@ -40,4 +40,5 @@ fn main() {
     println!("{}", p.x);
     println!("{}", area(&p));
     println!("{}", double(area(&p)));
+    ();
 }

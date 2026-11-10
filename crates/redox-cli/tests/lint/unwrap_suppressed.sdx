@@ -24,6 +24,7 @@ main =
   port = (Some 7).unwrap ()
   print port
   print (port_of (Some 9))
+  ()
 
 #[redox::allow(unwrap)]
 port_of : Option<u64> -> u64

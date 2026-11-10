@@ -22,6 +22,7 @@ fn classify(n: i32) {
     } else {
         println!("zero");
     }
+    ();
 }
 
 // `if c then a else b` is an expression. Plan 55 leaf 1 made it the **same
@@ -93,6 +94,7 @@ fn count_up() {
     for c in 1..4 {
         println!("{}", c);
     }
+    ();
 }
 
 // A label goes before the keyword and reaches a `break` in a nested loop —
@@ -257,4 +259,5 @@ fn main() {
     println!("{}", places());
     println!("{}", compounded());
     println!("{}", shadowed());
+    ();
 }

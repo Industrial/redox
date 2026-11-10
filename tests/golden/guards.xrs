@@ -45,4 +45,5 @@ fn main() {
     println!("{}", step(0));
     println!("{}", step(500));
     println!("{}", step(7));
+    ();
 }

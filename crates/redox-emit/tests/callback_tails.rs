@@ -20,7 +20,10 @@ fn xrs(src: &str) -> String {
 /// `main`'s body, with a draw arrow at the top so everything after it is a
 /// tail.
 fn tail(src: &str) -> String {
-  format!("main : ()\nmain =\n  with conn = pool.with_connection\n{src}")
+  // The second `()` is plan 55 §1.6's unit tail, which `main` now needs — and
+  // `RDX0113` is deliberately exempt where `src` ends in a `return`, so the
+  // rejection cases below still report exactly `RDX0044`.
+  format!("main : ()\nmain =\n  with conn = pool.with_connection\n  ()\n{src}  ()\n")
 }
 
 fn codes(src: &str) -> Vec<Code> {
@@ -117,8 +120,7 @@ fn a_return_inside_a_try_in_a_tail_is_accepted() {
 /// A `return` **before** the arrow is not in the closure at all.
 #[test]
 fn a_return_before_the_arrow_is_accepted() {
-  let src =
-    "main : ()\nmain =\n  if early\n    return ()\n  with conn = pool.with_connection\n  Ok ()\n";
+  let src = "main : ()\nmain =\n  if early\n    return ()\n  with conn = pool.with_connection\n  Ok ()\n  ()\n";
   assert!(codes(src).is_empty());
 }
 
@@ -146,7 +148,7 @@ fn a_nested_arrows_tail_is_checked_too() {
 /// the wrong time could have perturbed it.
 #[test]
 fn the_flattening_is_unchanged() {
-  let out = xrs("main : ()\nmain =\n  with conn = pool.with_connection\n  use_it conn\n");
+  let out = xrs("main : ()\nmain =\n  with conn = pool.with_connection\n  use_it conn\n  ()\n");
   assert!(out.contains("pool.with_connection(|conn| {"), "{out}");
   assert!(out.contains("use_it(conn);"), "{out}");
 }

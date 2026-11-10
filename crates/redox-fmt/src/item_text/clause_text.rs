@@ -44,7 +44,7 @@ pub(crate) fn clause_text(clause: &Clause, name: &str, indent: usize, source: &s
             None => "otherwise".to_string(),
           };
           let arm = if same_line(source, guard.span.0, guard.body.span.0) {
-            format!(" = {}", inline_body(&guard.body, source))
+            format!(" = {}", inline_body(&guard.body, indent + 1, source))
           } else {
             format!(" =\n{}", block_text(&guard.body, indent + 2, source))
           };
@@ -55,7 +55,7 @@ pub(crate) fn clause_text(clause: &Clause, name: &str, indent: usize, source: &s
     }
     ClauseBody::Plain(block) => {
       if same_line(source, clause.span.0, block.span.0) {
-        format!(" = {}", inline_body(block, source))
+        format!(" = {}", inline_body(block, indent, source))
       } else {
         format!(" =\n{}", block_text(block, indent + 1, source))
       }

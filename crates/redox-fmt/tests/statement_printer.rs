@@ -210,7 +210,10 @@ fn matching_brace(text: &str, open: usize) -> Option<usize> {
 /// indented block is a change `redox fmt` would make silently and rustc would
 /// never see, because the file would stop parsing as Redox first.
 fn reparse(text: &str) -> Option<(Stmt, String)> {
-  let indented = format!("__rdx_probe : ()\n__rdx_probe =\n{text}\n");
+  // The trailing `()` is plan 55 §1.6's unit tail: the probe's return type is
+  // `()`, so an indented body needs one and the statement under test stays
+  // first either way. The tail form needs none — §1.6's rule is about a block.
+  let indented = format!("__rdx_probe : ()\n__rdx_probe =\n{text}\n  ()\n");
   let tail = format!("__rdx_probe : ()\n__rdx_probe = {}\n", text.trim_start());
   for whole in [indented, tail] {
     let Ok(program) = redox_parser::parse_source(&whole) else {
