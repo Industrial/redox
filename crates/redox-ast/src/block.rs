@@ -1,6 +1,7 @@
 pub(crate) mod stmt;
 
 use crate::{Expr, Stmt};
+
 use redox_lexer::Span;
 
 /// An indented sequence of statements.
@@ -29,7 +30,7 @@ impl Block {
   /// adds the test and the callers that do not are not made to.
   pub fn sole_expression(&self) -> Option<&Expr> {
     match self.stmts.as_slice() {
-      [stmt] if !stmt.expr.is_statement_form() => Some(&stmt.expr),
+      [stmt] if !(stmt.expr.is_statement_form()) => Some(&stmt.expr),
       _ => None,
     }
   }

@@ -1,6 +1,9 @@
 use crate::Ident;
+
 use crate::program::item::error_variant::ErrorVariant;
+
 use crate::program::item::visibility::Visibility;
+
 use redox_lexer::{Span, Trivia};
 
 /// An `errors` declaration — doc 03 §12.5, kept unchanged by doc 18 §8.

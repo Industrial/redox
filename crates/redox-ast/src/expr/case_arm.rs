@@ -1,4 +1,5 @@
 use crate::{Expr, Pattern};
+
 use redox_lexer::Span;
 
 /// One arm of doc 18 §2.3's `case … of`.
@@ -42,7 +43,7 @@ pub struct CaseArm {
   /// this is one condition, not a list, because Rust has the construct
   /// already — the `match` arm guard — and doc 18 §1 holds the lowerings
   /// fixed wherever Rust already has the shape.
-  pub guard: Option<crate::Condition>,
+  pub r#guard: Option<crate::Condition>,
   /// The arm's value, after the `->`.
   ///
   /// An **expression**, and since plan 55 leaf 3 an indented block is one:

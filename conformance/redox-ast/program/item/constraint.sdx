@@ -1,0 +1,20 @@
+import crate::Ident
+import redox_lexer::Span
+
+-- | One `Trait t` constraint, from a `=>` clause — doc 18 §2.5.
+-- |
+-- | `class Debug t => Shape t` makes `Debug` a supertrait of `Shape`;
+-- | `instance Display t => Describe (Wrapper t)` makes it a bound on the
+-- | impl's generic parameter. The same shape serves both, because in Haskell
+-- | it *is* the same shape.
+-- |
+-- | `=>` means this and nothing else. Doc 18 §7 retires it as an arm arrow
+-- | precisely so it can take up its Haskell job here, which is why `case` arms
+-- | use `->`.
+export data Constraint = Constraint {
+  export trait_name : Ident,
+  -- | The variable constrained — the `t` in `Debug t`.
+  export var : Ident,
+  export span : Span,
+}
+  deriving (Debug, Clone, PartialEq, Eq)

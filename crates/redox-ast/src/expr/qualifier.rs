@@ -26,3 +26,5 @@ pub enum Qualifier {
   /// `x != y` — a guard, filtering what the generators produced.
   Guard(Expr),
 }
+#[allow(unused_imports)]
+use Qualifier::*;

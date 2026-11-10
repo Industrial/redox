@@ -124,3 +124,5 @@ yarn-error.log*
 tree-sitter-redox/*.so
 tree-sitter-redox/*.dylib
 tree-sitter-redox/*.wasm
+conformance/redox-ast/**/*.xrs
+conformance/redox-ast/**/*.xrs.map

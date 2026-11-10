@@ -12,15 +12,17 @@ pub enum UnaryOp {
   /// `*x`
   Deref,
 }
+#[allow(unused_imports)]
+use UnaryOp::*;
 
 impl UnaryOp {
   pub fn rust_text(self) -> &'static str {
     match self {
-      Self::Neg => "-",
-      Self::Not => "!",
-      Self::Ref => "&",
-      Self::RefMut => "&mut ",
-      Self::Deref => "*",
+      Neg => "-",
+      Not => "!",
+      Ref => "&",
+      RefMut => "&mut ",
+      Deref => "*",
     }
   }
 }

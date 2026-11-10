@@ -1,5 +1,7 @@
 use crate::Ident;
+
 use crate::program::item::visibility::Visibility;
+
 use redox_lexer::{Span, Trivia};
 
 /// A `module` declaration — doc 18 §7's replacement for `mod`, plan 14 §1.2.

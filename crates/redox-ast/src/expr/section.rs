@@ -31,3 +31,5 @@ pub enum Section {
   /// `(.name)` — GHC's record dot, selecting a field.
   Field(Ident),
 }
+#[allow(unused_imports)]
+use Section::*;

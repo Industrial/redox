@@ -1,0 +1,27 @@
+import crate::{Expr, FnDecl, Ident, TypeExpr}
+
+-- | One member of a `class` or `instance` body — doc 18 §2.5.
+export data ClassMember
+  -- | `type Unit` → `type Unit;`
+  = AssocType Ident
+  -- | `const SIDES : u32` → `const SIDES: u32;`, and
+  -- | `const SIDES : u32 = 4` → `const SIDES: u32 = 4;`.
+  -- |
+  -- | The same `::` as everywhere else a type is written, and the same `=` as
+  -- | everywhere else a value is (doc 18 §5.2, §2.4). The value is absent in a
+  -- | `class`, which declares the constant, and present in an `instance`,
+  -- | which supplies it — but Redox does not enforce that pairing, because
+  -- | rustc does and AGENTS.md says every check rustc can make, rustc makes.
+  | AssocConst {
+    name : Ident,
+    ty : TypeExpr,
+    value : Option<Expr>,
+  }
+  -- | A method, with or without a body.
+  -- |
+  -- | No clauses is a *required* method — `fn area(&self) -> f64;`. One or
+  -- | more is a default method, and the clauses are the same equations a
+  -- | top-level function has (§2.3), so a default method may have several of
+  -- | them and a guard ladder without anything new being needed.
+  | Method FnDecl
+  deriving (Debug, Clone, PartialEq, Eq)

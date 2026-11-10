@@ -1,6 +1,9 @@
 use crate::program::item::class_member::ClassMember;
+
 use crate::program::item::constraint::Constraint;
+
 use crate::program::item::type_app::TypeApp;
+
 use redox_lexer::{Span, Trivia};
 
 /// An `instance` declaration — doc 18 §2.5's `impl`.
@@ -30,7 +33,7 @@ pub struct InstanceDecl {
   /// `instance Convert f64 Meters` is `impl Convert<f64> for Meters`, so the
   /// class carries arguments of its own and the **last** name in the head is
   /// the implementing type.
-  pub class: Option<TypeApp>,
+  pub r#class: Option<TypeApp>,
   pub target: TypeApp,
   /// `Display t =>` — bounds on the generic parameters.
   pub constraints: Vec<Constraint>,

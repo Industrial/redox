@@ -1,4 +1,5 @@
 use crate::{Param, TypeExpr};
+
 use redox_lexer::Span;
 
 /// A function's parameters and return type.

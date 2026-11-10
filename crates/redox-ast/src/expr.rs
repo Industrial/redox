@@ -1,18 +1,31 @@
 pub(crate) mod binary_op;
+
 pub(crate) mod case_arm;
+
 pub(crate) mod field_init;
+
 pub(crate) mod ident;
+
 pub(crate) mod qualifier;
+
 pub(crate) mod section;
+
 pub(crate) mod str_interp_part;
+
 pub(crate) mod type_expr;
+
 pub(crate) mod unary_op;
 
 use crate::expr::case_arm::CaseArm;
+
 use crate::expr::field_init::FieldInit;
+
 use crate::expr::qualifier::Qualifier;
+
 use crate::expr::section::Section;
+
 use crate::{BinaryOp, Ident, TypeExpr, UnaryOp};
+
 use redox_lexer::Span;
 
 /// An expression.
@@ -299,7 +312,7 @@ pub enum Expr {
   If {
     condition: crate::Condition,
     then_block: crate::Block,
-    otherwise: Option<crate::Block>,
+    r#otherwise: Option<crate::Block>,
     span: Span,
   },
   /// An indented block as an expression, and `'label` on one — plan 55 leaf
@@ -566,7 +579,7 @@ pub enum Expr {
   Guard {
     pattern: crate::Pattern,
     source: Box<Expr>,
-    otherwise: crate::Block,
+    r#otherwise: crate::Block,
     span: Span,
   },
   /// `while c` and `until c` — doc 03 §7.7, plan 20.
@@ -647,57 +660,59 @@ pub enum Expr {
     span: Span,
   },
 }
+#[allow(unused_imports)]
+use Expr::*;
 
 impl Expr {
   pub fn span(&self) -> Span {
     match self {
-      Expr::Call { span, .. }
-      | Expr::Field { span, .. }
-      | Expr::Index { span, .. }
-      | Expr::Binary { span, .. }
-      | Expr::Unary { span, .. }
-      | Expr::Paren { span, .. }
-      | Expr::Path { span, .. }
-      | Expr::Lambda { span, .. }
-      | Expr::MethodRef { span, .. }
-      | Expr::AsyncBlock { span, .. }
-      | Expr::UnsafeBlock { span, .. }
-      | Expr::TryBlock { span, .. }
-      | Expr::Ascribe { span, .. }
-      | Expr::StrLit { span, .. }
-      | Expr::StrInterp { span, .. }
-      | Expr::Tuple { span, .. }
-      | Expr::ArrayRepeat { span, .. }
-      | Expr::RawLit { span, .. }
-      | Expr::Case { span, .. }
-      | Expr::Record { span, .. }
+      Call { span, .. }
+      | Field { span, .. }
+      | Index { span, .. }
+      | Binary { span, .. }
+      | Unary { span, .. }
+      | Paren { span, .. }
+      | Path { span, .. }
+      | Lambda { span, .. }
+      | MethodRef { span, .. }
+      | AsyncBlock { span, .. }
+      | UnsafeBlock { span, .. }
+      | TryBlock { span, .. }
+      | Ascribe { span, .. }
+      | StrLit { span, .. }
+      | StrInterp { span, .. }
+      | Tuple { span, .. }
+      | ArrayRepeat { span, .. }
+      | RawLit { span, .. }
+      | Case { span, .. }
+      | Record { span, .. }
       | Expr::Section { span, .. }
-      | Expr::Unit { span }
-      | Expr::Try { span, .. }
-      | Expr::Item { span, .. }
-      | Expr::If { span, .. }
-      | Expr::Block { span, .. }
-      | Expr::List { span, .. }
-      | Expr::Comprehension { span, .. }
-      | Expr::Num { span, .. }
-      | Expr::Bool { span, .. }
-      | Expr::Char { span, .. }
-      | Expr::SelfField { span, .. }
-      | Expr::SelfType { span, .. }
-      | Expr::Return { span, .. }
-      | Expr::Draw { span, .. }
-      | Expr::Await { span, .. }
-      | Expr::Assign { span, .. }
-      | Expr::Guard { span, .. }
-      | Expr::While { span, .. }
-      | Expr::For { span, .. }
-      | Expr::Loop { span, .. }
-      | Expr::Break { span, .. }
-      | Expr::Continue { span, .. }
-      | Expr::MacroCall { span, .. }
-      | Expr::RustHatch { span, .. } => *span,
-      Expr::Ident(i) => i.span,
-      Expr::Binding(b) => b.span,
+      | Try { span, .. }
+      | Item { span, .. }
+      | If { span, .. }
+      | Block { span, .. }
+      | List { span, .. }
+      | Comprehension { span, .. }
+      | Num { span, .. }
+      | Bool { span, .. }
+      | Char { span, .. }
+      | SelfField { span, .. }
+      | SelfType { span, .. }
+      | Return { span, .. }
+      | Draw { span, .. }
+      | Await { span, .. }
+      | Assign { span, .. }
+      | Guard { span, .. }
+      | While { span, .. }
+      | For { span, .. }
+      | Loop { span, .. }
+      | Break { span, .. }
+      | Continue { span, .. }
+      | MacroCall { span, .. }
+      | RustHatch { span, .. }
+      | Unit { span } => *span,
+      Ident(i) => i.span,
+      Binding(b) => b.span,
     }
   }
 
@@ -712,16 +727,17 @@ impl Expr {
   /// `If` is in the set unconditionally since leaf 7 retired the one-line
   /// spelling. While both existed the answer split on `is_inline`, which is
   /// what the old `StmtKind::If`/`Expr::If` pair said with two types.
+  /// Inlined rather than split into a `where` helper, and `E0434` is why: a
+  /// `where` entry that is a function becomes a **nested `fn`**, which
+  /// captures nothing — so a helper reading `self` cannot work. Plan 61
+  /// leaf 0 says as much from the other side, since the nested `fn` is what
+  /// makes its types available without inference.
   pub fn is_statement_form(&self) -> bool {
-    matches!(
-      self,
-      Expr::Binding(_)
-        | Expr::Item { .. }
-        | Expr::Return { .. }
-        | Expr::Draw { .. }
-        | Expr::Await { .. }
-        | Expr::Assign { .. }
-    ) || self.is_control_flow()
+    let own = match self {
+      Binding(_) | Item { .. } | Return { .. } | Draw { .. } | Await { .. } | Assign { .. } => true,
+      _ => false,
+    };
+    own || self.is_control_flow()
   }
 
   /// Whether this is one of doc 01 §8 and doc 03 §7.7's control-flow forms.
@@ -734,16 +750,16 @@ impl Expr {
   /// was not — it fitted on the line it was on — and that exception is what
   /// the retired `is_inline` bit selected.
   pub fn is_control_flow(&self) -> bool {
-    matches!(
-      self,
-      Expr::If { .. }
-        | Expr::While { .. }
-        | Expr::For { .. }
-        | Expr::Loop { .. }
-        | Expr::Break { .. }
-        | Expr::Continue { .. }
-        | Expr::Guard { .. }
-    )
+    match self {
+      If { .. }
+      | While { .. }
+      | For { .. }
+      | Loop { .. }
+      | Break { .. }
+      | Continue { .. }
+      | Guard { .. } => true,
+      _ => false,
+    }
   }
 
   /// The blocks this form owns as **indented statement lists in the same
@@ -759,77 +775,75 @@ impl Expr {
   /// closure of their own — so a caller asking this question gets the set it
   /// can safely recurse into rather than every block in the tree.
   ///
-  /// **Not `Item` either**, for the stronger version of the same reason. A
-  /// local declaration (leaf 5) does hold blocks — a nested `fn`'s clause
-  /// bodies, a local `instance`'s methods — but each of those is *a different
-  /// function*, so a walk that descended into one would silently leave the
-  /// function it started in, which is exactly what this method's contract
-  /// promises it will not do.
-  ///
-  /// The consequence is worth naming rather than discovering: a walk that
-  /// wants a nested item's insides — `redox-driver`'s pragma walk, so that
-  /// `#[redox::allow(unwrap)]` works inside a local declaration — has to call
-  /// `walk_item` on it, not recurse through here.
-  ///
   /// The match is **exhaustive with no wildcard** and lives here rather than
   /// in each of its two callers: a new form that owns a statement block has
   /// to be considered once, and both walks inherit the answer.
   pub fn statement_blocks(&self) -> Vec<&crate::Block> {
     match self {
-      Expr::If {
+      If {
         then_block,
-        otherwise,
+        r#otherwise,
         ..
-      } => match otherwise {
-        Some(other) => vec![then_block, other],
-        None => vec![then_block],
+      } => match r#otherwise {
+        Some(other) => {
+          let __rdx_t: Vec<&crate::Block> = Vec::from([then_block, other]);
+          __rdx_t
+        }
+        None => {
+          let __rdx_t: Vec<&crate::Block> = Vec::from([then_block]);
+          __rdx_t
+        }
       },
-      Expr::While { body, .. } | Expr::For { body, .. } | Expr::Loop { body, .. } => vec![body],
-      Expr::Guard { otherwise, .. } => vec![otherwise],
-      // A local declaration's blocks belong to a different function; see the
-      // note above.
-      Expr::Item { .. }
-      | Expr::Call { .. }
-      | Expr::Field { .. }
-      | Expr::Index { .. }
-      | Expr::Binary { .. }
-      | Expr::Unary { .. }
-      | Expr::Paren { .. }
-      | Expr::Path { .. }
-      | Expr::Lambda { .. }
-      | Expr::MethodRef { .. }
-      | Expr::AsyncBlock { .. }
-      | Expr::UnsafeBlock { .. }
-      | Expr::TryBlock { .. }
-      | Expr::Ascribe { .. }
-      | Expr::StrLit { .. }
-      | Expr::StrInterp { .. }
-      | Expr::Tuple { .. }
-      | Expr::ArrayRepeat { .. }
-      | Expr::RawLit { .. }
-      | Expr::Record { .. }
-      | Expr::List { .. }
-      | Expr::Comprehension { .. }
-      | Expr::Block { .. }
-      | Expr::Try { .. }
-      | Expr::Unit { .. }
+      While { body, .. } | For { body, .. } | Loop { body, .. } => {
+        let __rdx_t: Vec<&crate::Block> = Vec::from([body]);
+        __rdx_t
+      }
+      Guard { r#otherwise, .. } => {
+        let __rdx_t: Vec<&crate::Block> = Vec::from([r#otherwise]);
+        __rdx_t
+      }
+      Item { .. }
+      | Call { .. }
+      | Field { .. }
+      | Index { .. }
+      | Binary { .. }
+      | Unary { .. }
+      | Paren { .. }
+      | Path { .. }
+      | Lambda { .. }
+      | MethodRef { .. }
+      | AsyncBlock { .. }
+      | UnsafeBlock { .. }
+      | TryBlock { .. }
+      | Ascribe { .. }
+      | StrLit { .. }
+      | StrInterp { .. }
+      | Tuple { .. }
+      | ArrayRepeat { .. }
+      | RawLit { .. }
+      | Record { .. }
+      | List { .. }
+      | Comprehension { .. }
+      | Block { .. }
+      | Try { .. }
+      | Unit { .. }
       | Expr::Section { .. }
-      | Expr::Case { .. }
-      | Expr::Num { .. }
-      | Expr::Bool { .. }
-      | Expr::Char { .. }
-      | Expr::SelfField { .. }
-      | Expr::SelfType { .. }
-      | Expr::Ident(_)
-      | Expr::Binding(_)
-      | Expr::Return { .. }
-      | Expr::Draw { .. }
-      | Expr::Await { .. }
-      | Expr::Assign { .. }
-      | Expr::Break { .. }
-      | Expr::Continue { .. }
-      | Expr::MacroCall { .. }
-      | Expr::RustHatch { .. } => Vec::new(),
+      | Case { .. }
+      | Num { .. }
+      | Bool { .. }
+      | Char { .. }
+      | SelfField { .. }
+      | SelfType { .. }
+      | Return { .. }
+      | Draw { .. }
+      | Await { .. }
+      | Assign { .. }
+      | Break { .. }
+      | Continue { .. }
+      | MacroCall { .. }
+      | RustHatch { .. }
+      | Ident(_)
+      | Binding(_) => Vec::new(),
     }
   }
 }

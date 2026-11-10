@@ -1,7 +1,9 @@
 pub(crate) mod mentions;
+
 pub(crate) mod operands;
 
 use crate::where_edges::mentions::mentions;
+
 use crate::{Expr, Stmt};
 
 /// For each entry of a `where` group, the indices of the group's **bindings**
@@ -49,9 +51,9 @@ pub fn where_edges(entries: &[Stmt]) -> Vec<Vec<usize>> {
   let named: Vec<(usize, String)> = entries
     .iter()
     .enumerate()
-    .filter_map(|(i, entry)| match &entry.expr {
+    .filter_map(|pair| match &pair.1.expr {
       Expr::Binding(b) => match b.pattern.binders().as_slice() {
-        [one] => Some((i, one.clone())),
+        [one] => Some((pair.0, one.clone())),
         _ => None,
       },
       _ => None,
@@ -60,15 +62,15 @@ pub fn where_edges(entries: &[Stmt]) -> Vec<Vec<usize>> {
 
   entries
     .iter()
-    .map(|entry| {
-      let Expr::Binding(b) = &entry.expr else {
-        return Vec::new();
-      };
-      let mut found = Vec::new();
-      mentions(&b.value, &named, &mut found);
-      found.sort_unstable();
-      found.dedup();
-      found
+    .map(|entry| match &entry.expr {
+      Expr::Binding(b) => {
+        let mut found = Vec::new();
+        mentions(&b.value, &named, &mut found);
+        found.sort_unstable();
+        found.dedup();
+        found
+      }
+      _ => Vec::new(),
     })
     .collect()
 }

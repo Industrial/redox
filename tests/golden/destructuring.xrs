@@ -19,6 +19,7 @@ enum Shape {
     Circle { radius: i32 },
     Rect { w: i32, h: i32 },
 }
+#[allow(unused_imports)]
 use Shape::*;
 
 // §6.5's tuple destructuring. Both bindings are used, so a lowering that

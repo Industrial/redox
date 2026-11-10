@@ -94,6 +94,11 @@ pub(crate) fn emit_data(out: &mut Sink<'_>, d: &DataDecl, indent: usize) {
   ));
   for c in &d.constructors {
     out.mark(c.span);
+    // Plan 68: the constructor's own doc comments, which had nowhere to be
+    // written until this row gave `Constructor` a `leading` field. Emitted
+    // **before** the padding for the reason `emit_trivia` takes an indent —
+    // a comment writes its own, and a `pad` here would double it.
+    emit_trivia(out, &c.leading, indent + RUST_INDENT);
     pad(out, indent + RUST_INDENT);
     out.push_str(&c.name.text);
     emit_fields(out, &c.fields, indent + RUST_INDENT, false);
@@ -117,6 +122,21 @@ pub(crate) fn emit_data(out: &mut Sink<'_>, d: &DataDecl, indent: usize) {
   // Two names colliding is rustc's error to give, which is the same division
   // of labour Haskell has: both languages reject the collision, neither
   // resolves it.
+  //
+  // **`#[allow(unused_imports)]`, because a file may only declare the type.**
+  // Plan 68 found it porting `redox-ast`: four of its modules declare an
+  // `enum` and never name a constructor, so the glob is an `unused_imports`
+  // warning — and `moon run :lint` makes that an error. No example caught it,
+  // because an example that declares a type also uses it.
+  //
+  // The alternative was to emit the glob only when the program names a
+  // constructor, and it is refused rather than deferred: that needs a
+  // program-wide walk over every identifier-shaped reference, and
+  // **under-inclusion is a silent miscompile** — the irrefutable-binding
+  // failure this glob exists to prevent, reintroduced by the attempt to tidy
+  // it away. An `allow` cannot be wrong in that direction.
+  pad(out, indent);
+  out.push_str("#[allow(unused_imports)]\n");
   pad(out, indent);
   out.push_str(&format!("use {}::*;\n", d.name.text));
 }

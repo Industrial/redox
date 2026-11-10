@@ -29,6 +29,17 @@ use redox_lexer::{Keyword, TokenKind};
 /// `ctx` carries what the enclosing declaration knows about its own subject
 /// — see [`MethodContext`].
 pub(crate) fn class_member(p: &mut Parser, ctx: &MethodContext) -> Result<ClassMember, ParseError> {
+  // **Peeked before anything is consumed**, which plan 68 found the hard way:
+  // this was read further down, after `visibility(p)` had taken the `export`
+  // the trivia was attached to, so every doc comment on a member with a
+  // visibility marker was silently discarded. `FnDecl` has carried a
+  // `leading` field all along and `emit_member` has always printed it — the
+  // capture was one token too late.
+  //
+  // The same shape as plan 68's fix to `constructor`, where the doc comment
+  // sits above the `=` or `|` rather than above the name. Peek first.
+  let leading = p.peek_leading();
+
   // A trait's members take their visibility from the trait, and an inherent
   // `impl`'s may each have their own — so the marker is read here and rustc
   // rejects it where it is meaningless, which is the division of labour
@@ -75,7 +86,6 @@ pub(crate) fn class_member(p: &mut Parser, ctx: &MethodContext) -> Result<ClassM
   // the name-mismatch guard fires — `RDX0103: this equation defines `x`, but
   // the signature above it is for `y``. Reading the name here, and branching
   // before the loop starts, is what keeps the two apart.
-  let leading = p.peek_leading();
   let start = p.peek_span().0;
   // The name is **peeked**, not consumed, and that is load-bearing rather
   // than fussy: `Parser::equations`'s loop reads the name once per equation,

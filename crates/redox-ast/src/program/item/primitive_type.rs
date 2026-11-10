@@ -16,26 +16,18 @@
 /// primitive out of a function's generic list, and [`TypeApp::is_var`] keeps
 /// `instance Convert f64 Meters` from emitting `Convert<F64>`.
 ///
+/// A `case` ladder where the Rust it replaces wrote `matches!`. Plan 64 made
+/// macros callable as `name! \-> e`, and `matches!`'s second argument is a
+/// **pattern** rather than an expression — so it is one of the macros §6 of
+/// that plan discloses as out of reach for a value-passing shape. The `or`
+/// ladder is the same closed list and needs no macro at all.
+///
 /// [`TypeApp::is_var`]: crate::TypeApp::is_var
 pub fn primitive_type(name: &str) -> bool {
-  matches!(
-    name,
-    "i8"
-      | "i16"
-      | "i32"
-      | "i64"
-      | "i128"
-      | "isize"
-      | "u8"
-      | "u16"
-      | "u32"
-      | "u64"
-      | "u128"
-      | "usize"
-      | "f32"
-      | "f64"
-      | "bool"
-      | "char"
-      | "str"
-  )
+  match name {
+    "i8" | "i16" | "i32" | "i64" | "i128" | "isize" => true,
+    "u8" | "u16" | "u32" | "u64" | "u128" | "usize" => true,
+    "f32" | "f64" | "bool" | "char" | "str" => true,
+    _ => false,
+  }
 }

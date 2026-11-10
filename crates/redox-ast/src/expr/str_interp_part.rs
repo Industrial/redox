@@ -30,3 +30,5 @@ pub enum StrInterpPart {
     spec: Option<String>,
   },
 }
+#[allow(unused_imports)]
+use StrInterpPart::*;

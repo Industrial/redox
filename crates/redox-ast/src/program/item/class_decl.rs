@@ -1,6 +1,9 @@
 use crate::Ident;
+
 use crate::program::item::class_member::ClassMember;
+
 use crate::program::item::visibility::Visibility;
+
 use redox_lexer::{Span, Trivia};
 
 /// A `class` declaration — doc 18 §2.5's `trait`.

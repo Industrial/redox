@@ -1,5 +1,7 @@
 use crate::program::item::visibility::Visibility;
+
 use crate::{Expr, Ident, TypeExpr};
+
 use redox_lexer::{Span, Trivia};
 
 /// A module-scope `const` or `static` — doc 03 §13.4, plan 16.

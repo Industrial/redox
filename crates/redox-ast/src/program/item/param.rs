@@ -1,4 +1,5 @@
 use crate::{Ident, TypeExpr};
+
 use redox_lexer::Span;
 
 /// One parameter in a signature.

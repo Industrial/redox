@@ -1,6 +1,7 @@
 pub(crate) mod walk;
 
 use crate::where_cycle::walk::walk;
+
 use crate::{Stmt, where_edges};
 
 /// The names in one dependency cycle among a `where` group's bindings, if
@@ -38,9 +39,15 @@ use crate::{Stmt, where_edges};
 /// have no children — and a recursive search needs a file for its helper.
 pub fn where_cycle(entries: &[Stmt]) -> Option<Vec<String>> {
   let graph = where_edges(entries);
-  let mut state = vec![0u8; entries.len()];
+  // `repeat_n` where the Rust wrote `vec![0u8; n]`. Plan 64 made macros
+  // callable as `name! \-> e`, which reaches `vec!(a, b)` — a two-element
+  // vector — and **not** `vec![elem; n]`, a different arm of the macro taking
+  // a `;`. `[0u8; n]` is the array-repeat form Redox does have and it needs a
+  // const length, which `E0435` says. This is what the macro expands to.
+  let mut state: Vec<u8> = std::iter::repeat_n(0u8, entries.len()).collect();
   let mut path = Vec::new();
-  for start in 0..entries.len() {
+  let n = entries.len();
+  for start in 0..n {
     if state[start] == 0
       && let Some(found) = walk(start, &graph, &mut state, &mut path)
     {

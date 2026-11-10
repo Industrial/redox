@@ -13,20 +13,42 @@ use crate::{Expr, StrInterpPart};
 pub(crate) fn operands(e: &Expr) -> Vec<&Expr> {
   match e {
     Expr::Call { callee, args, .. } => {
-      let mut out = vec![callee.as_ref()];
+      let mut out = {
+        let __rdx_t: Vec<&Expr> = Vec::from([callee.as_ref()]);
+        __rdx_t
+      };
       out.extend(args.iter());
       out
     }
-    Expr::Binary { lhs, rhs, .. } => vec![lhs.as_ref(), rhs.as_ref()],
-    Expr::Unary { operand, .. } => vec![operand.as_ref()],
-    Expr::Paren { inner, .. } | Expr::Ascribe { inner, .. } | Expr::Try { inner, .. } => {
-      vec![inner.as_ref()]
+    Expr::Binary { lhs, rhs, .. } => {
+      let __rdx_t: Vec<&Expr> = Vec::from([lhs.as_ref(), rhs.as_ref()]);
+      __rdx_t
     }
-    Expr::Field { recv, .. } => vec![recv.as_ref()],
-    Expr::Index { recv, index, .. } => vec![recv.as_ref(), index.as_ref()],
-    Expr::Lambda { body, .. } => vec![body.as_ref()],
+    Expr::Unary { operand, .. } => {
+      let __rdx_t: Vec<&Expr> = Vec::from([operand.as_ref()]);
+      __rdx_t
+    }
+    Expr::Paren { inner, .. } | Expr::Ascribe { inner, .. } | Expr::Try { inner, .. } => {
+      let __rdx_t: Vec<&Expr> = Vec::from([inner.as_ref()]);
+      __rdx_t
+    }
+    Expr::Field { recv, .. } => {
+      let __rdx_t: Vec<&Expr> = Vec::from([recv.as_ref()]);
+      __rdx_t
+    }
+    Expr::Index { recv, index, .. } => {
+      let __rdx_t: Vec<&Expr> = Vec::from([recv.as_ref(), index.as_ref()]);
+      __rdx_t
+    }
+    Expr::Lambda { body, .. } => {
+      let __rdx_t: Vec<&Expr> = Vec::from([body.as_ref()]);
+      __rdx_t
+    }
     Expr::Tuple { items, .. } | Expr::List { items, .. } => items.iter().collect(),
-    Expr::ArrayRepeat { value, count, .. } => vec![value.as_ref(), count.as_ref()],
+    Expr::ArrayRepeat { value, count, .. } => {
+      let __rdx_t: Vec<&Expr> = Vec::from([value.as_ref(), count.as_ref()]);
+      __rdx_t
+    }
     Expr::MacroCall { args, .. } => args.iter().collect(),
     Expr::StrInterp { parts, .. } => parts
       .iter()
@@ -35,10 +57,6 @@ pub(crate) fn operands(e: &Expr) -> Vec<&Expr> {
         StrInterpPart::Text(_) => None,
       })
       .collect(),
-    // A **punned** field — `Point { x, y }` — carries `None` and is a
-    // reference to `x`, which this does not see. A group binding mentioned
-    // solely as a pun is therefore not an edge; disclosed rather than fixed,
-    // because the entry then stays in source order.
     Expr::Record { fields, .. } => fields.iter().filter_map(|f| f.value.as_ref()).collect(),
     _ => Vec::new(),
   }

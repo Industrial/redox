@@ -1,6 +1,7 @@
 pub(crate) mod item;
 
 use crate::Item;
+
 use redox_lexer::{Span, Trivia};
 
 /// A whole source file.

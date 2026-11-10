@@ -1,4 +1,5 @@
 use crate::Expr;
+
 use crate::where_edges::operands::operands;
 
 /// Every index in `named` whose name appears as a bare identifier in `e`.
@@ -8,11 +9,12 @@ use crate::where_edges::operands::operands;
 /// a real reference.
 pub(crate) fn mentions(e: &Expr, named: &[(usize, String)], into: &mut Vec<usize>) {
   if let Expr::Ident(name) = e
-    && let Some((i, _)) = named.iter().find(|(_, n)| *n == name.text)
+    && let Some(found) = named.iter().find(|pair| pair.1 == name.text)
   {
-    into.push(*i);
+    into.push(found.0);
   }
   for child in operands(e) {
     mentions(child, named, into);
   }
+  ();
 }

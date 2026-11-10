@@ -1,5 +1,7 @@
 use crate::Pattern;
+
 use crate::program::item::clause_body::ClauseBody;
+
 use redox_lexer::{Span, Trivia};
 
 /// One equation of a function.

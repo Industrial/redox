@@ -1,0 +1,13 @@
+export(crate) module item
+
+import crate::Item
+import redox_lexer::{Span, Trivia}
+
+-- | A whole source file.
+export data Program = Program {
+  export items : Vec<Item>,
+  export span : Span,
+  -- | Trivia after the last item — a trailing comment at end of file.
+  export trailing : Vec<Trivia>,
+}
+  deriving (Debug, Clone, PartialEq, Eq)

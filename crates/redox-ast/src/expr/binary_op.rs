@@ -56,38 +56,43 @@ pub enum BinaryOp {
   /// a later row may drop it on evidence.
   ComposeBack,
 }
+#[allow(unused_imports)]
+use BinaryOp::*;
 
 impl BinaryOp {
   /// The Rust spelling, for operators that pass straight through.
   ///
   /// `None` for the two that need a lowering rather than a spelling: `??`
   /// becomes a `match` and `|>` a receiver call, both in later plans.
+  ///
+  /// The `None` arm comes **first**, where the Rust wrote
+  /// `Some(match self { … _ => return None })`. One arm per answer rather
+  /// than an early `return` inside a constructor call — the same function,
+  /// and it puts the operators this is about at the top.
   pub fn rust_text(self) -> Option<&'static str> {
-    Some(match self {
-      Self::Add => "+",
-      Self::Sub => "-",
-      Self::Mul => "*",
-      Self::Div => "/",
-      Self::Rem => "%",
-      Self::Eq => "==",
-      Self::Ne => "!=",
-      Self::Lt => "<",
-      Self::Gt => ">",
-      Self::Le => "<=",
-      Self::Ge => ">=",
-      Self::And => "&&",
-      Self::Or => "||",
-      Self::BitAnd => "&",
-      Self::BitOr => "|",
-      Self::BitXor => "^",
-      Self::Shl => "<<",
-      Self::Shr => ">>",
-      Self::Range => "..",
-      Self::RangeInclusive => "..=",
-      Self::Coalesce | Self::Catch | Self::Pipeline | Self::Compose | Self::ComposeBack => {
-        return None;
-      }
-    })
+    match self {
+      Coalesce | Catch | Pipeline | Compose | ComposeBack => None,
+      Add => Some("+"),
+      Sub => Some("-"),
+      Mul => Some("*"),
+      Div => Some("/"),
+      Rem => Some("%"),
+      Eq => Some("=="),
+      Ne => Some("!="),
+      Lt => Some("<"),
+      Gt => Some(">"),
+      Le => Some("<="),
+      Ge => Some(">="),
+      And => Some("&&"),
+      Or => Some("||"),
+      BitAnd => Some("&"),
+      BitOr => Some("|"),
+      BitXor => Some("^"),
+      Shl => Some("<<"),
+      Shr => Some(">>"),
+      Range => Some(".."),
+      RangeInclusive => Some("..="),
+    }
   }
 
   /// The Redox spelling — every operator has one, unlike `rust_text`.
@@ -98,18 +103,15 @@ impl BinaryOp {
   /// have no Rust equivalent.
   pub fn redox_text(self) -> &'static str {
     match self {
-      Self::Coalesce => "??",
-      Self::Catch => "catch",
-      Self::Pipeline => "|>",
-      Self::Compose => ">>>",
-      Self::ComposeBack => "<<<",
-      // The remaining operators are spelled as Rust spells them, which is
-      // doc 02 §5.2's rule restated: an expression that reads like Rust and
-      // binds differently is the worst available failure mode, so neither the
-      // spelling nor the precedence diverges.
-      other => other
-        .rust_text()
-        .expect("every operator but the three above has a Rust spelling"),
+      Coalesce => "??",
+      Catch => "catch",
+      Pipeline => "|>",
+      Compose => ">>>",
+      ComposeBack => "<<<",
+      other => match other.rust_text() {
+        Some(text) => text,
+        None => unreachable!(),
+      },
     }
   }
 
@@ -136,26 +138,19 @@ impl BinaryOp {
   /// with no collisions.
   pub fn power(self) -> u8 {
     match self {
-      Self::Pipeline => 1,
-      // Doc 03 §4.5 places `catch` *at `??`'s level*, so they share a rung.
-      Self::Coalesce | Self::Catch => 3,
-      Self::Range | Self::RangeInclusive => 5,
-      Self::Or => 7,
-      Self::And => 9,
-      // Comparison is non-associative in Rust. Equal powers let `a < b < c`
-      // parse so that rustc rejects it — doc 02 §6.2's division of labour.
-      Self::Eq | Self::Ne | Self::Lt | Self::Gt | Self::Le | Self::Ge => 11,
-      Self::BitOr => 13,
-      Self::BitXor => 15,
-      Self::BitAnd => 17,
-      Self::Shl | Self::Shr => 19,
-      Self::Add | Self::Sub => 21,
-      Self::Mul | Self::Div | Self::Rem => 23,
-      // Plan 66: Haskell's `.` sits at its tightest operator level and `>>>`
-      // is reached the same way, so composition binds above `*` — which is
-      // what makes `xs |> f >>> g` read as `(f >>> g) xs`. 25 is the next
-      // odd rung above the table's top, so nothing below is renumbered.
-      Self::Compose | Self::ComposeBack => 25,
+      Pipeline => 1,
+      Coalesce | Catch => 3,
+      Range | RangeInclusive => 5,
+      Or => 7,
+      And => 9,
+      Eq | Ne | Lt | Gt | Le | Ge => 11,
+      BitOr => 13,
+      BitXor => 15,
+      BitAnd => 17,
+      Shl | Shr => 19,
+      Add | Sub => 21,
+      Mul | Div | Rem => 23,
+      Compose | ComposeBack => 25,
     }
   }
 
@@ -166,7 +161,10 @@ impl BinaryOp {
   /// operator takes its spaces, so the emitter asks here rather than
   /// carrying two spelling tables.
   pub fn is_range(self) -> bool {
-    matches!(self, Self::Range | Self::RangeInclusive)
+    match self {
+      Range | RangeInclusive => true,
+      _ => false,
+    }
   }
 
   /// The `PartialOrd`/`PartialEq` method this comparison is, if it is one.
@@ -177,15 +175,15 @@ impl BinaryOp {
   /// closure an iterator adaptor receives is handed a reference, and
   /// `&i32 > i32` does not compile while `(&i32).gt(&0)` does.
   pub fn compare_method(self) -> Option<&'static str> {
-    Some(match self {
-      Self::Eq => "eq",
-      Self::Ne => "ne",
-      Self::Lt => "lt",
-      Self::Gt => "gt",
-      Self::Le => "le",
-      Self::Ge => "ge",
-      _ => return None,
-    })
+    match self {
+      Eq => Some("eq"),
+      Ne => Some("ne"),
+      Lt => Some("lt"),
+      Gt => Some("gt"),
+      Le => Some("le"),
+      Ge => Some("ge"),
+      _ => None,
+    }
   }
 
   /// This comparison with its operands exchanged.
@@ -194,14 +192,14 @@ impl BinaryOp {
   /// doc 18 §4 gives them the same lowering — which this is what makes
   /// possible: flip the operator and the left section becomes a right one.
   pub fn flipped(self) -> Option<Self> {
-    Some(match self {
-      Self::Eq => Self::Eq,
-      Self::Ne => Self::Ne,
-      Self::Lt => Self::Gt,
-      Self::Gt => Self::Lt,
-      Self::Le => Self::Ge,
-      Self::Ge => Self::Le,
-      _ => return None,
-    })
+    match self {
+      Eq => Some(Eq),
+      Ne => Some(Ne),
+      Lt => Some(Gt),
+      Gt => Some(Lt),
+      Le => Some(Ge),
+      Ge => Some(Le),
+      _ => None,
+    }
   }
 }

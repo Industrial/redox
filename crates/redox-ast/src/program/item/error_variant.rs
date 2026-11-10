@@ -1,4 +1,5 @@
 use crate::{Ident, TypeExpr};
+
 use redox_lexer::Span;
 
 /// One row of an `errors` declaration — doc 03 §12.5.

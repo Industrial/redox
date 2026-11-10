@@ -1,4 +1,5 @@
 use crate::program::item::foreign_fn::ForeignFn;
+
 use redox_lexer::{Span, Trivia};
 
 /// An `extern` block — plan 45 leaf 3.

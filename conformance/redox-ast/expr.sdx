@@ -1,0 +1,723 @@
+export(crate) module binary_op
+export(crate) module case_arm
+export(crate) module field_init
+export(crate) module ident
+export(crate) module qualifier
+export(crate) module section
+export(crate) module str_interp_part
+export(crate) module type_expr
+export(crate) module unary_op
+
+import crate::expr::case_arm::CaseArm
+import crate::expr::field_init::FieldInit
+import crate::expr::qualifier::Qualifier
+import crate::expr::section::Section
+import crate::{BinaryOp, Ident, TypeExpr, UnaryOp}
+import redox_lexer::Span
+
+-- | An expression.
+-- |
+-- | Plan 03 (`docs/08 - 03 - Parser Core.md`) grew this from plan 01's three
+-- | forms to the full expression surface, parsed by a Pratt loop over Rust's
+-- | precedence table — doc 02 §5.2 fixes the table as Rust's unchanged, because
+-- | an expression that reads like Rust and binds differently is the worst
+-- | available failure mode.
+export data Expr
+  -- | A call. Plan 19 generalises the parenless form to doc 03 §5.1's full
+  -- | grammar; until then only the parenthesized form and plan 01's
+  -- | single-argument statement-initial form are produced.
+  = Call {
+    callee : Box<Expr>,
+    args : Vec<Expr>,
+    -- | Whether the author spelled this application with doc 18 §2.1's `$`.
+    -- |
+    -- | `$` is low-precedence right-associative application, and it **lowers
+    -- | to nothing**: `f $ x` and `f (x)` are the same call, so the emitter
+    -- | cannot tell them apart and does not need to. A *formatter* does. One
+    -- | that reprints `f $ x` as `f (x)` makes `$` unusable in a formatted
+    -- | codebase, which is what formatting `examples/application.sdx` found.
+    -- |
+    -- | The bit sits here, on the node `$` produces, rather than on a `Paren`
+    -- | wrapping the argument: the parser builds no `Paren` for `$` today, so
+    -- | adding one would hand the emitter a tree it has never seen, while a
+    -- | field no lowering reads cannot change a single byte of output.
+    -- |
+    -- | Always exactly one argument when set. `$` takes the whole rest of the
+    -- | expression as its argument, so `f $ g x` is `f (g x)` and never a
+    -- | two-argument call.
+    is_dollar : bool,
+    span : Span,
+  }
+  -- | `recv.name`
+  | Field {
+    recv : Box<Expr>,
+    name : Ident,
+    span : Span,
+  }
+  -- | `recv[index]`
+  | Index {
+    recv : Box<Expr>,
+    index : Box<Expr>,
+    span : Span,
+  }
+  | Binary {
+    op : BinaryOp,
+    lhs : Box<Expr>,
+    rhs : Box<Expr>,
+    span : Span,
+  }
+  | Unary {
+    op : UnaryOp,
+    operand : Box<Expr>,
+    span : Span,
+  }
+  -- | `(inner)` — kept in the tree so the emitter reproduces the grouping the
+  -- | author wrote rather than re-deriving it from precedence.
+  | Paren {
+    inner : Box<Expr>,
+    span : Span,
+  }
+  -- | `a::b::c` — a path, carried verbatim (doc 03 §13.1).
+  | Path {
+    text : String,
+    span : Span,
+  }
+  -- | `\x -> e`, doc 18 §4's lambda.
+  -- |
+  -- | Lowers to a Rust closure: `|x| e`, with `move` and per-parameter types
+  -- | carried through. Doc 18 §8 declines currying, so the parameters are a
+  -- | list rather than nested single-parameter lambdas — `\x y -> e` is one
+  -- | closure of two arguments, matching how application works.
+  | Lambda {
+    params : Vec<crate::Param>,
+    body : Box<Expr>,
+    is_move : bool,
+    span : Span,
+  }
+  -- | `.name` — a method as a function, plan 57.
+  -- |
+  -- | The receiver is the **last** argument (§1.2), so this node is the
+  -- | function and `Expr::Call` over it is the call: `.cmp y x` is one
+  -- | `Call` with two arguments, of which `x` is the receiver, and lowers to
+  -- | `x.cmp(y)`.
+  -- |
+  -- | Alone — applied to nothing — it is a value awaiting its receiver and
+  -- | lowers to `|__rdx_1| __rdx_1.name()`, which is the text `(|> name)`
+  -- | emitted before plan 57 retired that spelling.
+  | MethodRef {
+    name : Ident,
+    span : Span,
+  }
+  -- | `async` with an indented block — doc 03 §14.3, plan 39.
+  -- |
+  -- | ```text
+  -- | work = async          let work = async {
+  -- |   <- flush ()     →       flush().await;
+  -- |                       };
+  -- | ```
+  -- |
+  -- | An expression, so it is reached from `prefix` exactly as plan 20's `do`
+  -- | and plan 28's `try` are — the third construct of that shape, and the
+  -- | reason none of them needed a statement form.
+  -- |
+  -- | Distinct from `try` by one word and nothing else in the lowering, which
+  -- | is why both are blocks and neither is a closure: `try` wraps its block in
+  -- | `(|| … )()` and this prefixes `async`.
+  | AsyncBlock {
+    body : crate::Block,
+    span : Span,
+  }
+  -- | `unsafe` with an indented block — Rust's `unsafe { … }`, plan 45 leaf 2.
+  -- |
+  -- | The fourth construct of [`AsyncBlock`](Self::AsyncBlock)'s shape, and
+  -- | the one with the least in its lowering: the block is emitted with
+  -- | `unsafe` in front and nothing else changes.
+  -- |
+  -- | Doc 01 §26 names Unsafe Rust as something that must remain possible and
+  -- | doc 03 §23 item 2 forbids reaching it through the escape hatch, so this
+  -- | is a construct rather than a passage of inline Rust.
+  | UnsafeBlock {
+    body : crate::Block,
+    span : Span,
+  }
+  -- | `try` with an indented block — doc 03 §12.4, plan 28.
+  -- |
+  -- | A block in which `?` returns from the **block** rather than the
+  -- | enclosing function, lowered to an immediately-invoked closure. Rust has
+  -- | wanted this for years and has it only unstably, so this is the one row
+  -- | that makes an unavailable Rust construct available rather than an
+  -- | available one nicer to spell.
+  -- |
+  -- | Distinct from plan 20's `Do` by exactly the `(|| … )()` wrapper: a `try`
+  -- | lowered to a bare block compiles, and its `?` then returns from the
+  -- | function. That is why plan 28 §3 proves it by running.
+  | TryBlock {
+    body : crate::Block,
+    span : Span,
+  }
+  -- | `e : T`, doc 18 §6's ascription.
+  -- |
+  -- | Lowers to `{ let __rdx_t: T = e; __rdx_t }` — a block, because Rust has
+  -- | no expression-level ascription and a `let` is the only way to state a
+  -- | type without naming a path. One of doc 18's three new lowerings, and the
+  -- | one that replaces doc 03's `into` clause and most turbofish needs.
+  -- |
+  -- | Type-free by construction: the type is **written**, never inferred.
+  | Ascribe {
+    inner : Box<Expr>,
+    ty : TypeExpr,
+    span : Span,
+  }
+  -- | A string literal with **no** interpolation, stored raw, including its
+  -- | delimiters — which is what plan 02 carried `raw` for, and why an
+  -- | interpolated string is a different node rather than a flag on this one.
+  -- |
+  -- | A `"""` block is **not** stored raw: Rust has no triple-quoted string,
+  -- | so the lexer's dedented value arrives as a [`StrLit`](Self::StrLit)
+  -- | holding an ordinary escaped Rust string. Plan 23 §1.3.
+  | StrLit {
+    value : String,
+    span : Span,
+  }
+  -- | An interpolated string — doc 03 §11.1, plan 23.
+  -- |
+  -- | ```text
+  -- | "hello #{name}"           format!("hello {}", name)
+  -- | "total: #{amount:.2}"  →  format!("total: {:.2}", amount)
+  -- | ```
+  -- |
+  -- | Separate from `StrLit` so that every string without an interpolation
+  -- | takes exactly the path it took before this plan — which plan 23's
+  -- | criterion 6 asserts, because one node for both would have made every
+  -- | existing golden a diff.
+  | StrInterp {
+    parts : Vec<crate::StrInterpPart>,
+    span : Span,
+  }
+  -- | `(3, 4)` — a tuple expression, plan 33.
+  -- |
+  -- | **No row owned this.** Doc 03 §6.5's destructuring example is
+  -- | `(a, b) = get_coordinates!`, so a tuple *value* was always assumed, and
+  -- | §10.4's literal table lists arrays, maps, sets and word arrays and no
+  -- | tuple at all. Plan 33 found it by needing to pass a tuple to the function
+  -- | whose parameter it destructures: without this, `(a, b) = p` can only be
+  -- | reached through a Rust function that already returns one.
+  -- |
+  -- | Pure passthrough, and told from a parenthesised group by its **comma** —
+  -- | exactly as the tuple *pattern* is. One rule, two positions.
+  | Tuple {
+    items : Vec<Expr>,
+    span : Span,
+  }
+  -- | `[0u8; 1024]` — Rust's array-repeat expression, doc 03 §10.4 and §18,
+  -- | plan 29.
+  -- |
+  -- | **Pure passthrough**, and a node of its own rather than a flag on
+  -- | [`List`](Self::List) for a reason plan 29 §1.3 states: a list literal
+  -- | lowers to `vec![…]`, so a list is growable by default, and a repeat
+  -- | expression is a **fixed-size array** — which is the only reason to write
+  -- | one. Emitting `vec![0u8; 1024]` would compile, run, and silently
+  -- | allocate on the heap where the author asked for a stack array.
+  -- |
+  -- | The two share a bracket and nothing else; the `;` tells them apart.
+  | ArrayRepeat {
+    value : Box<Expr>,
+    count : Box<Expr>,
+    span : Span,
+  }
+  -- | A literal passed through **verbatim and never used as a format string** —
+  -- | `r"…"`, `r#"…"#`, `b'x'`, `b"…"`, `c"…"`. Doc 03 §11.2, plan 23.
+  -- |
+  -- | §11.2 calls all four *"pure passthrough"*, and the reason they are one
+  -- | node is that nothing downstream needs to tell them apart: none may be
+  -- | escaped, brace-doubled or treated as a template. Keeping them out of
+  -- | `StrLit` is what stops `print b"x"` emitting `println!(b"x")`.
+  -- |
+  -- | §11.3 declines regex literals **on condition** that `r"…"` exists, so
+  -- | this node is what makes that decline honest.
+  | RawLit {
+    text : String,
+    span : Span,
+  }
+  -- | `Point { x = 10 }` and `p { x = 99 }`, doc 18 §2.4's record literal.
+  -- |
+  -- | One node for both construction and update, because the source is one
+  -- | form: `head { fields }`. Which it *means* is decided by the case of the
+  -- | head — doc 18 §5.3 makes case meaningful, and §2.4 says that is "why the
+  -- | update form is admissible at all". An uppercase head names a
+  -- | constructor and builds; anything else names a value and updates.
+  -- |
+  -- | Update is one of doc 18 §6's disclosed lowerings:
+  -- | `{ let mut __rdx_r = p; __rdx_r.x = 99; __rdx_r }`. Rust's own
+  -- | `Point { x: 99, ..p }` would need the type's *path*, which the source
+  -- | does not give — only the value's name.
+  | Record {
+    head : Box<Expr>,
+    fields : Vec<FieldInit>,
+    span : Span,
+  }
+  -- | `[a, b, c]` — a list literal, which is Rust's array literal unchanged.
+  -- |
+  -- | A spelling rather than a lowering. It is here because doc 18 §3.2's
+  -- | comprehension shares its brackets, so the two are told apart by what
+  -- | follows the first expression — a `|` opens a comprehension, a `,` or a
+  -- | `]` closes a literal — and reading one without the other would have
+  -- | left `[` ambiguous.
+  | List {
+    items : Vec<Expr>,
+    span : Span,
+  }
+  -- | `[ e | x <- xs, cond ]` — doc 18 §3.2's comprehension.
+  | Comprehension {
+    element : Box<Expr>,
+    qualifiers : Vec<Qualifier>,
+    span : Span,
+  }
+  -- | `if c` with an indented block — doc 01 §8, plan 20.
+  -- |
+  -- | **One spelling since plan 55 leaf 7.** Leaf 1 merged two nodes —
+  -- | `Expr::If` for `if c then a else b` and `StmtKind::If` for the indented
+  -- | form — into one carrying an `is_inline` bit, because the two surface
+  -- | forms had to be told apart by something and position could not do it.
+  -- | Leaf 7 retired `then`, so there is nothing left to tell apart and the
+  -- | bit is gone with it: an `if` is the indented form, wherever it stands.
+  -- |
+  -- | What paid for that is plan 65. An indented `if` could not be a
+  -- | parenthesised argument while the lexer suppressed layout inside
+  -- | brackets, so `print (if c then a else b)` was the only spelling there;
+  -- | a bracket now opens a layout context, and `examples/control.sdx`'s
+  -- | `bracketed_block` is the witness.
+  -- |
+  -- | Narrow enough branches still *lower* to one line of Rust — `one_line_if`
+  -- | is that decision, and it is rustfmt's rather than the author's.
+  -- |
+  -- | `otherwise` is `None` for an `else`-less `if`. Rust's `if` without an
+  -- | `else` has type `()`, so only the two-armed form carries a value — and
+  -- | `else if` is an `else` whose block holds a single `If`, which is how
+  -- | Rust reads it too.
+  | If {
+    condition : crate::Condition,
+    then_block : crate::Block,
+    r#otherwise : Option<crate::Block>,
+    span : Span,
+  }
+  -- | An indented block as an expression, and `'label` on one — plan 55 leaf
+  -- | 7.
+  -- |
+  -- | ```text
+  -- | inner =                 found = 'search
+  -- |   n = 2                   for c in candidates
+  -- |   n * 10                    if c.matches q
+  -- |                               break 'search Some c
+  -- |                           None
+  -- | ```
+  -- |
+  -- | Spelled `do` and `do 'label` until leaf 7 (doc 03 §7.2, plan 20). §1.7
+  -- | retired the keyword rather than the construct: if an indented block is
+  -- | an expression, nothing needs to announce one, and `do` stays **reserved**
+  -- | for plan 60's sake (`RDX0114`).
+  -- |
+  -- | The label makes it Rust's labelled block, native since 1.65, which is
+  -- | what *"permitting early exit with a value"* needs — and the one
+  -- | capability the keyword carried that nothing else provides.
+  | Block {
+    label : Option<String>,
+    body : crate::Block,
+    span : Span,
+  }
+  -- | `e?` — Rust's try operator, unchanged.
+  -- |
+  -- | A spelling, not a lowering. It is here because doc 03 §12.5's `from`
+  -- | row exists to make `?` work across an error boundary, and a generated
+  -- | `From` impl with no `?` to use it would be a feature with no caller.
+  | Try {
+    inner : Box<Expr>,
+    span : Span,
+  }
+  -- | `()` — the unit value.
+  -- |
+  -- | Doc 18 §7 retires doc 03 §5.2's `!` zero-argument suffix in favour of
+  -- | `f ()`, which makes the unit expression load-bearing rather than
+  -- | decorative: without it a no-argument call has no spelling at all, since
+  -- | juxtaposition needs something to juxtapose.
+  | Unit {
+    span : Span,
+  }
+  -- | A section — an operator with one side supplied, doc 18 §4.
+  -- |
+  -- | Always a one-parameter closure over the reserved `__rdx_1`, so a section
+  -- | is a value and needs no special call site.
+  | Section {
+    section : Section,
+    span : Span,
+  }
+  -- | `case e of` with `->` arms, doc 18 §2.3.
+  -- |
+  -- | Lowers to Rust's `match`, which it already was in all but spelling: the
+  -- | arms, the guards and the alternation are Rust's, and what changes is the
+  -- | arrow. `switch` leaves the language with this.
+  | Case {
+    scrutinee : Box<Expr>,
+    arms : Vec<CaseArm>,
+    span : Span,
+  }
+  -- | An integer or float literal, carried verbatim with any suffix.
+  | Num {
+    text : String,
+    span : Span,
+  }
+  | Bool {
+    value : bool,
+    span : Span,
+  }
+  | Char {
+    value : char,
+    span : Span,
+  }
+  -- | `@field` → `self.field` (doc 01 §16.1).
+  | SelfField {
+    name : Ident,
+    span : Span,
+  }
+  -- | `@@name` → `Self::name` (doc 01 §16.2).
+  | SelfType {
+    name : Ident,
+    span : Span,
+  }
+  | Ident Ident
+
+  -- ---- The forms plan 55 leaf 1 promoted out of `StmtKind` ----
+  --
+  -- Every body position is an expression, so there is one node kind and the
+  -- statement/expression fork is gone from the tree. What survives is a
+  -- *position* rule rather than a second enum: some of these have a Rust
+  -- expression spelling (`return`, `break`, `x = 1`, a loop, an `if`) and
+  -- four do not (a binding, a `guard`, a `with` binder, an `await` that
+  -- binds). The second set is refused where it cannot be written, by the
+  -- emitter rather than by the type.
+  -- | A binding — `x = e`, `mut x = e`, `(a, b) = e` — doc 01 §4.3.
+  -- |
+  -- | Boxed because [`Binding`](crate::Binding) holds an `Expr` of its own,
+  -- | and an enum cannot contain itself by value.
+  -- |
+  -- | **A statement in Rust**, which is the whole of why the position rule
+  -- | above exists: `let x = 1` has no expression spelling, so a nested one is
+  -- | refused rather than lowered to something plausible.
+  | Binding Box<crate::Binding>
+  -- | A **declaration** in a body position — `data`, `newtype`, `union`,
+  -- | `type`, `class`, `instance`, `errors`, `import`, `const`, `static` —
+  -- | plan 55 leaf 5.
+  -- |
+  -- | Rust accepts a nested item in a block, so this lowers to exactly the
+  -- | declaration it is, written one indent in. That much §1.4 had; what it
+  -- | understated is that **nothing carried one before this leaf**. There was
+  -- | no variant, `Parser::stmt` never called `item()`, and a declaration
+  -- | keyword in a body reached `prefix`'s default arm and became `RDX0102`.
+  -- | Rust accepting the output was necessary and not sufficient — the carrier
+  -- | had to be built.
+  -- |
+  -- | Boxed because `Item` reaches back here: an item holds an `FnDecl`, which
+  -- | holds a `Clause`, which holds a `Block` of `Stmt`, which holds an `Expr`.
+  -- | Without the indirection the enum has no size.
+  -- |
+  -- | `test` is **not** among the keywords, and that is leaf 6's refusal rather
+  -- | than an omission: a nested `#[test]` is not collected, so it would
+  -- | compile and silently never run. `module` is absent too — a bodiless
+  -- | `module` loads a file, which a block cannot do.
+  -- |
+  -- | It is a statement form, so a nested expression position refuses it the
+  -- | same way a `let` is refused. There is no Rust expression that is a
+  -- | declaration.
+  | Item {
+    item : Box<crate::Item>,
+    span : Span,
+  }
+  -- | `return` with an optional value.
+  -- |
+  -- | A Rust expression of type `!` — `let x = return;` compiles — so this one
+  -- | needs no position rule at all.
+  | Return {
+    value : Option<Box<Expr>>,
+    span : Span,
+  }
+  -- | `with name = expr` — doc 30 §3.3's callback bind, doc 03 §7.6's
+  -- | lowering.
+  -- |
+  -- | Its lowering is a **callback**: `expr` is called with a closure whose
+  -- | parameter is `name` and whose body is **every statement after this
+  -- | one**. So this is the one form whose meaning depends on its successors,
+  -- | which is why the emitter handles a block rather than one element at a
+  -- | time.
+  -- |
+  -- | ```text
+  -- | with conn = pool.with_connection      pool.with_connection(|conn| {
+  -- | print conn                       →       println!("{}", conn);
+  -- |                                       })
+  -- | ```
+  -- |
+  -- | **Refused in a nested expression position**, and not because Rust could
+  -- | not express it: a nested one has no successors, so the callback body
+  -- | would be empty and the lowering would silently mean something else.
+  | Draw {
+    name : Ident,
+    -- | The callback-taking expression.
+    value : Box<Expr>,
+    span : Span,
+  }
+  -- | `user <- fetch id` — doc 30's await-bind.
+  -- |
+  -- | ```text
+  -- | user <- fetch id          let user = fetch(id).await;
+  -- | <- flush ()           →   flush().await;
+  -- | (a, b) <- load id         let (a, b) = load(id).await;
+  -- | ```
+  -- |
+  -- | **The only thing `<-` means.** Haskell's monadic bind for the monad
+  -- | Redox has: `do` binds an effect's result to a name and this binds a
+  -- | future's. Doc 30 §1.1 is the argument; doc 18 §3.1's four positions were
+  -- | given other spellings to free the token for it.
+  -- |
+  -- | `pattern` is `None` for the effect-only form — `<- flush ()` — which
+  -- | binds nothing. An `Option` rather than a `Pattern::Wildcard`, because
+  -- | *there is no binder* and *there is one and it discards* lower
+  -- | differently: the first emits `f().await;` and the second would emit
+  -- | `let _ = f().await;`.
+  -- |
+  -- | That difference is also where the position rule falls: the effect-only
+  -- | form **is** a Rust expression (`f().await`), and the binding form is a
+  -- | `let` statement, so only the second is refused when nested.
+  -- |
+  -- | Legal only inside an `async` function or block, and **rustc enforces
+  -- | that** — doc 03 §14.3 provides no executor, so `async` passes through and
+  -- | the error for an await outside one is rustc's, landed on the `.sdx` by
+  -- | plan 07's remapping.
+  | Await {
+    pattern : Option<crate::Pattern>,
+    value : Box<Expr>,
+    span : Span,
+  }
+  -- | Assignment to a place — `counter := 2` and `counter += 1`, one node.
+  -- |
+  -- | Doc 01 §4.3's compound assignment arrived with plan 20 and the plain
+  -- | `:=` with plan 54.
+  -- |
+  -- | # Why `:=` exists at all
+  -- |
+  -- | `=` is a **binding**. At body level `x = v` introduces a name, and
+  -- | telling a rebinding from a binding by looking at it needs the scope
+  -- | tracking AGENTS.md forbids Redox growing. Plan 20 therefore shipped the
+  -- | five compound operators and no more, and disclosed the consequence
+  -- | instead of designing around it (§10.2): *"a loop can advance a numeric
+  -- | accumulator and cannot rebind anything else."*
+  -- |
+  -- | Plan 54 retires that limit with a second token rather than with
+  -- | analysis. `:=` is unambiguous wherever it appears, so the two meanings
+  -- | stop competing for one spelling and nothing has to be inferred.
+  -- |
+  -- | # Why one node and not two
+  -- |
+  -- | `a += b` *is* `a = a + b`, so a plain assignment and a compound one are
+  -- | one construct with a modifier. Spelling that as `Option<BinaryOp>`
+  -- | rather than as a second variant is also what keeps that change small:
+  -- | `emit/stmt.rs`, `redox-fmt`'s printer and two test matches are all
+  -- | exhaustive with no wildcard, and none of them gains an arm.
+  -- |
+  -- | # The target is an expression, and rustc judges it
+  -- |
+  -- | Not a name: doc 18 §2.5's example assigns to `self.value`, and `v[0]`,
+  -- | `*r` and `(a, b)` are all reachable through the same general `Expr`.
+  -- | That last one is destructuring assignment, stable Rust since 1.59, and
+  -- | it falls out for free — plan 54 §6 declined it and §10 amends that,
+  -- | because refusing it would mean Redox deciding what is a place
+  -- | expression. `(1 + 2) := 3` is rustc's `E0070`, and *"every check rustc
+  -- | can make, rustc makes"* is the rule that settles which side of the line
+  -- | that sits on.
+  | Assign {
+    target : Box<Expr>,
+    -- | `Some(op)` is `+=` and the other four; `None` is a plain `:=`.
+    -- |
+    -- | One of `Add`, `Sub`, `Mul`, `Div`, `Rem`. Reusing `BinaryOp` rather
+    -- | than a second enum keeps the spelling in one place — the operator's
+    -- | Rust text plus `=`.
+    op : Option<BinaryOp>,
+    value : Box<Expr>,
+    span : Span,
+  }
+  -- | `guard P = e else <diverging>` — doc 03 §7.1's early-exit binding,
+  -- | plan 22.
+  -- |
+  -- | ```text
+  -- | guard Ok raw = read p else        let Ok(raw) = read(p) else {
+  -- |   return Err Error::Unreadable        return Err(Error::Unreadable)
+  -- |                                   };
+  -- | ```
+  -- |
+  -- | Doc 18 §3.1 kept the keyword — *"`let`-`else` has no Haskell analogue and
+  -- | no other spelling"* — and gave it `<-`. Doc 30 §3.1 gives it `=`, which
+  -- | is what the lowering reads anyway: Rust's let-else without the `let`.
+  -- |
+  -- | The else branch must **diverge**, and Redox does not check that: it is a
+  -- | check rustc can make, so rustc makes it, and plan 07's remapping reports
+  -- | it against the `guard` line. AGENTS.md's rule, applied.
+  -- |
+  -- | **A statement in Rust**, like the binding it is a refutable form of, so
+  -- | a nested one is refused for `Binding`'s reason.
+  | Guard {
+    pattern : crate::Pattern,
+    source : Box<Expr>,
+    r#otherwise : crate::Block,
+    span : Span,
+  }
+  -- | `while c` and `until c` — doc 03 §7.7, plan 20.
+  -- |
+  -- | One node with a flag, because `until` is `while` with a negation and
+  -- | nothing else. Plan 16 made the same call for `const` and `static`.
+  | While {
+    condition : crate::Condition,
+    -- | `until` rather than `while`. The emitted condition is **parenthesised**
+    -- | when set: `until a && b` is `while !(a && b)`, and `while !a && b`
+    -- | would be a different loop that differs on the second iteration and
+    -- | nowhere else — doc 02 §5.2's worst failure mode.
+    negated : bool,
+    body : crate::Block,
+    label : Option<String>,
+    span : Span,
+  }
+  -- | `for x in xs` — doc 30 §3.2's `for`, plan 20.
+  | For {
+    binder : Ident,
+    source : Box<Expr>,
+    body : crate::Block,
+    label : Option<String>,
+    span : Span,
+  }
+  -- | `loop` — doc 03 §7.7, *"required by the break-with-value idiom"*.
+  | Loop {
+    body : crate::Block,
+    label : Option<String>,
+    span : Span,
+  }
+  -- | `break`, `break v`, `break 'l`, `break 'l v` — doc 03 §7.2, plan 20.
+  | Break {
+    label : Option<String>,
+    value : Option<Box<Expr>>,
+    span : Span,
+  }
+  -- | `continue` and `continue 'l`.
+  | Continue {
+    label : Option<String>,
+    span : Span,
+  }
+  -- | A `rust` escape hatch in **expression** position — plan 64 leaf 4.
+  -- |
+  -- | ```text
+  -- | markup = rust
+  -- |   html! { <div class="x">{ name }</div> }
+  -- | ```
+  -- |
+  -- | Holds the body verbatim and nothing else, because Redox never parsed it:
+  -- | a token-stream DSL's input is not a Redox expression, and no
+  -- | value-passing shape can carry it (plan 64 §1.4). Plan 45 leaf 1 shipped
+  -- | the same hatch as an **item**, which is a separate node — `InlineRust` —
+  -- | because an item is emitted into the sink directly where an expression
+  -- | has to compose.
+  | RustHatch {
+    code : String,
+    span : Span,
+  }
+  -- | A macro invocation — `name! \-> e`, plan 64.
+  -- |
+  -- | `!` marks the name and a nullary lambda opens each argument, so no
+  -- | bracket of any kind appears: `bail! \-> "no route for #{id}"` is one
+  -- | argument and `write! \-> f \-> "#{n} rows"` is two. Layout closes a
+  -- | multi-line one, which plan 55 leaf 1 made writable by making an indented
+  -- | block an expression.
+  -- |
+  -- | `args` holds the **argument expressions**, not the lambdas that spell
+  -- | them: `\->` is the argument's opening bracket and nothing survives of it
+  -- | in the tree. Whether the macro evaluates an argument once, twice or
+  -- | never is the macro's business — plan 64 §6.
+  -- |
+  -- | `name` is the head verbatim, so a path reaches here whole and
+  -- | `id_effect::effect!` needs no second production.
+  | MacroCall {
+    name : String,
+    args : Vec<Expr>,
+    span : Span,
+  }
+  deriving (Debug, Clone, PartialEq, Eq)
+instance Expr
+  export span : &self -> Span
+  -- One line, because `or` does not continue a line. Exhaustive with no
+  -- wildcard: a new variant must be considered here, because AGENTS.md
+  -- records what a node with no span cost Emerald — found twenty-one plans
+  -- after its diagnostics row shipped, by which point the fix was judged too
+  -- large.
+  span self = case self of
+    Call { span, .. } or Field { span, .. } or Index { span, .. } or Binary { span, .. } or Unary { span, .. } or Paren { span, .. } or Path { span, .. } or Lambda { span, .. } or MethodRef { span, .. } or AsyncBlock { span, .. } or UnsafeBlock { span, .. } or TryBlock { span, .. } or Ascribe { span, .. } or StrLit { span, .. } or StrInterp { span, .. } or Tuple { span, .. } or ArrayRepeat { span, .. } or RawLit { span, .. } or Case { span, .. } or Record { span, .. } or Expr::Section { span, .. } or Try { span, .. } or Item { span, .. } or If { span, .. } or Block { span, .. } or List { span, .. } or Comprehension { span, .. } or Num { span, .. } or Bool { span, .. } or Char { span, .. } or SelfField { span, .. } or SelfType { span, .. } or Return { span, .. } or Draw { span, .. } or Await { span, .. } or Assign { span, .. } or Guard { span, .. } or While { span, .. } or For { span, .. } or Loop { span, .. } or Break { span, .. } or Continue { span, .. } or MacroCall { span, .. } or RustHatch { span, .. } or Unit { span } -> *span
+    Ident i -> i.span
+    Binding b -> b.span
+
+  -- | Whether this form is written by a **statement** printer rather than an
+  -- | expression one — plan 55 leaf 1.
+  -- |
+  -- | Exactly the thirteen forms a block element can be that `Parser::stmt`
+  -- | reads from its own productions rather than from `parse_expr`. Before
+  -- | leaf 1 the question was `matches!(stmt.kind, StmtKind::Expr(_))` and the
+  -- | *type* answered it; one node kind means the node answers it instead.
+  -- |
+  -- | `If` is in the set unconditionally since leaf 7 retired the one-line
+  -- | spelling. While both existed the answer split on `is_inline`, which is
+  -- | what the old `StmtKind::If`/`Expr::If` pair said with two types.
+  -- | Inlined rather than split into a `where` helper, and `E0434` is why: a
+  -- | `where` entry that is a function becomes a **nested `fn`**, which
+  -- | captures nothing — so a helper reading `self` cannot work. Plan 61
+  -- | leaf 0 says as much from the other side, since the nested `fn` is what
+  -- | makes its types available without inference.
+  export is_statement_form : &self -> bool
+  is_statement_form self =
+    own = case self of
+      Binding _ or Item { .. } or Return { .. } or Draw { .. } or Await { .. } or Assign { .. } -> true
+      _ -> false
+    own || .is_control_flow self
+
+  -- | Whether this is one of doc 01 §8 and doc 03 §7.7's control-flow forms.
+  -- |
+  -- | The seven that span lines and write their own braces, their own padding
+  -- | and their own trailing newline, which is why the emitter routes them to
+  -- | `emit_control` before it pads anything itself.
+  -- |
+  -- | Every `if` is one of them since leaf 7. The one-line `if c then a else b`
+  -- | was not — it fitted on the line it was on — and that exception is what
+  -- | the retired `is_inline` bit selected.
+  export is_control_flow : &self -> bool
+  is_control_flow self = case self of
+    If { .. } or While { .. } or For { .. } or Loop { .. } or Break { .. } or Continue { .. } or Guard { .. } -> true
+    _ -> false
+
+  -- | The blocks this form owns as **indented statement lists in the same
+  -- | scope**.
+  -- |
+  -- | Five forms own one: an `if`'s branches, the three loops' bodies and a
+  -- | `guard`'s else. Nothing in any of them opens a closure, so a walk over
+  -- | statements may descend into them and stay in the function it started in.
+  -- |
+  -- | **Not** a bare [`Block`](Self::Block), `try`, `async`, `unsafe` or a
+  -- | lambda, each of which also holds a block. Those are expression forms,
+  -- | reaching them needs an expression walk, and `try` and a lambda open a
+  -- | closure of their own — so a caller asking this question gets the set it
+  -- | can safely recurse into rather than every block in the tree.
+  -- |
+  -- | The match is **exhaustive with no wildcard** and lives here rather than
+  -- | in each of its two callers: a new form that owns a statement block has
+  -- | to be considered once, and both walks inherit the answer.
+  export statement_blocks : &self -> Vec<&crate::Block>
+  statement_blocks self = case self of
+    If { then_block, r#otherwise, .. } -> case r#otherwise of
+      Some other -> [then_block, other] : Vec<&crate::Block>
+      None -> [then_block] : Vec<&crate::Block>
+    While { body, .. } or For { body, .. } or Loop { body, .. } -> [body] : Vec<&crate::Block>
+    Guard { r#otherwise, .. } -> [r#otherwise] : Vec<&crate::Block>
+    -- A local declaration's blocks belong to a different function; see the
+    -- note above.
+    Item { .. } or Call { .. } or Field { .. } or Index { .. } or Binary { .. } or Unary { .. } or Paren { .. } or Path { .. } or Lambda { .. } or MethodRef { .. } or AsyncBlock { .. } or UnsafeBlock { .. } or TryBlock { .. } or Ascribe { .. } or StrLit { .. } or StrInterp { .. } or Tuple { .. } or ArrayRepeat { .. } or RawLit { .. } or Record { .. } or List { .. } or Comprehension { .. } or Block { .. } or Try { .. } or Unit { .. } or Expr::Section { .. } or Case { .. } or Num { .. } or Bool { .. } or Char { .. } or SelfField { .. } or SelfType { .. } or Return { .. } or Draw { .. } or Await { .. } or Assign { .. } or Break { .. } or Continue { .. } or MacroCall { .. } or RustHatch { .. } or Ident _ or Binding _ -> Vec::new ()

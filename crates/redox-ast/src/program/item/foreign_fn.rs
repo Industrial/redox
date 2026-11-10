@@ -1,4 +1,5 @@
 use crate::{Ident, Signature};
+
 use redox_lexer::{Span, Trivia};
 
 /// One declaration inside an `extern` block — plan 45 leaf 3.

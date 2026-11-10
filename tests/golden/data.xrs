@@ -22,6 +22,7 @@ enum Event {
     Click,
     Close,
 }
+#[allow(unused_imports)]
 use Event::*;
 
 // A single-field tuple struct, twice, because the two keywords no longer

@@ -1,0 +1,31 @@
+-- | One piece of an interpolated string — doc 03 §11.1, plan 23.
+-- |
+-- | `"total: #{amount:.2}"` is two parts: the text `total: `, and an
+-- | interpolation of `amount` with the spec `.2`.
+export data StrInterpPart
+  -- | Literal text, **ready to paste into a Rust string**.
+  -- |
+  -- | The lexer decodes escapes, so this has been re-escaped by the parser —
+  -- | one implementation that also serves the `"""` block and the byte and
+  -- | C-string literals. The emitter adds only the brace doubling, which is
+  -- | not an escaping concern but a format-string one.
+  = Text String
+  -- | `#{expr}` or `#{expr:spec}`.
+  | Interp {
+    -- | An ordinary expression. The lexer lexes the interpolation's body with
+    -- | the ordinary scanners, and plan 23 runs the ordinary expression parser
+    -- | over those tokens — so `#{a + b}`, `#{user.name}` and `#{f x}` work
+    -- | without a second grammar. Emerald accepted only an identifier here for
+    -- | eleven plans and paid to widen it; this plan's §8 records that.
+    expr : crate::Expr,
+    -- | Rust format-spec text, **carried verbatim and never interpreted**.
+    -- |
+    -- | Doc 03 §11.1: *"text after `:` up to the closing brace is spec text,
+    -- | passed through unchanged. A malformed spec is reported by rustc against
+    -- | the interpolation's own location through the source map."* That is
+    -- | AGENTS.md's rule applied to a grammar Rust already owns, and it is what
+    -- | makes "every Rust format spec reachable" true with no list to fall
+    -- | behind.
+    spec : Option<String>,
+  }
+  deriving (Debug, Clone, PartialEq, Eq)

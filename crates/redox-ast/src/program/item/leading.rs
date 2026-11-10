@@ -1,4 +1,5 @@
 use crate::program::item::Item;
+
 use redox_lexer::Trivia;
 
 /// An item's leading trivia — its comments and attributes.

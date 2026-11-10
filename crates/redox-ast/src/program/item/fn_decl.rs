@@ -1,5 +1,7 @@
 use crate::program::item::visibility::Visibility;
+
 use crate::{Clause, Ident, Signature};
+
 use redox_lexer::{Span, Trivia};
 
 /// A signature line and the equations that define it.

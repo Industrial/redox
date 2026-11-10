@@ -1,5 +1,7 @@
 use crate::Ident;
+
 use crate::program::item::visibility::Visibility;
+
 use redox_lexer::{Span, Trivia};
 
 /// An `import` declaration — doc 03 §13.1, plan 14.

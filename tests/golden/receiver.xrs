@@ -34,6 +34,14 @@ trait Tally: Debug {
     // No `self` in any type, so no receiver at all: an associated function,
     // reached through the type rather than through a value.
     fn start(__rdx_a0: u32) -> Self;
+    // A body that **applies** something to `self`, which is the one position
+    // plan 68 found unreachable: `starts_argument` listed every token that can
+    // begin a juxtaposed argument and `self` was not among them, so
+    // `.to_string self.label` stopped the application after `.to_string` and
+    // left `self.label` a stray expression. Every other `self` in this file is
+    // a whole body or an operand, which is why nothing caught it until a crate
+    // full of methods was ported.
+    fn label(&self) -> String;
 }
 
 impl Tally for Counter {
@@ -55,6 +63,9 @@ impl Tally for Counter {
     }
     fn start(n: u32) -> Self {
         Counter { value: n }
+    }
+    fn label(&self) -> String {
+        self.value.to_string()
     }
 }
 
@@ -93,6 +104,7 @@ fn main() {
     println!("{}", c.minus(1));
     // `total : self -> u32` takes the receiver by value, so this is `c`'s last
     // use and rustc is the one that knows it.
+    println!("{}", (&c).label());
     println!("{}", c.total());
     let m = Meters(4.0);
     // Which `Scale` impl applies is chosen by the argument's type, which is

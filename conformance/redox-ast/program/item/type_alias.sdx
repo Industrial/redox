@@ -1,0 +1,21 @@
+import crate::program::item::visibility::Visibility
+import crate::{Ident, TypeExpr}
+import redox_lexer::{Span, Trivia}
+
+-- | `type Handler = Box<dyn Fn(Req) -> Res + Send>` — doc 18 §2.4.
+-- |
+-- | The one declaration form that is already Rust: the keyword, the `=` and
+-- | the type are unchanged, and the type is carried verbatim as every type in
+-- | Redox is (doc 03 §14.1). It sits beside `data` rather than inside it
+-- | because an alias has no constructors and no `deriving`, and giving it a
+-- | `DataDecl` with both empty would make every reader check.
+export data TypeAlias = TypeAlias {
+  export name : Ident,
+  export ty : TypeExpr,
+  -- | Doc 03 §9.6's visibility. Private when the author wrote no marker,
+  -- | which is Rust's default and has no spelling.
+  export visibility : Visibility,
+  export span : Span,
+  export leading : Vec<Trivia>,
+}
+  deriving (Debug, Clone, PartialEq, Eq)

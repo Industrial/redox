@@ -1,4 +1,5 @@
 use redox_lexer::Span;
+
 use redox_lexer::Trivia;
 
 /// Doc 01 §23.1's inline Rust escape hatch — plan 45 leaf 1.

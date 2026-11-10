@@ -26,3 +26,5 @@ pub enum ClassMember {
   /// them and a guard ladder without anything new being needed.
   Method(FnDecl),
 }
+#[allow(unused_imports)]
+use ClassMember::*;

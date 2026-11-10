@@ -1,0 +1,18 @@
+import crate::{Block, Expr}
+import redox_lexer::Span
+
+-- | One `| cond = body` row of doc 18 §2.3's guard ladder.
+export data Guard = Guard {
+  -- | The condition, or `None` for `otherwise`.
+  -- |
+  -- | `otherwise` is Haskell's name for the final catch-all and lowers to a
+  -- | bare `else` — not to `if true`, which would leave rustc unable to see
+  -- | that the ladder is total, and would cost every guarded function with a
+  -- | return type a `return` its author did not write.
+  export condition : Option<Expr>,
+  -- | The row's value, as a block of one tail statement — so the emitter has
+  -- | one body shape to handle rather than two.
+  export body : Block,
+  export span : Span,
+}
+  deriving (Debug, Clone, PartialEq, Eq)

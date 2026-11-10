@@ -1,0 +1,42 @@
+import crate::{Expr, StrInterpPart}
+
+-- | Every sub-expression of `e` that is an **operand**.
+-- |
+-- | [`Expr::blocks`] answers a different question — the *block-bearing*
+-- | children, for the tail walk — so this cannot reuse it: a binding's value is
+-- | an ordinary expression and its parts are operands, arguments and receivers.
+-- |
+-- | A form carrying a **block** is a leaf here. A block introduces its own
+-- | scope, so a name inside one is not necessarily this group's, and declining
+-- | to look is the conservative answer: a missed edge leaves the entry in
+-- | source order, where it already worked.
+export(crate) operands : &Expr -> Vec<&Expr>
+operands e = case e of
+  Expr::Call { callee, args, .. } ->
+    mut out = [.as_ref callee] : Vec<&Expr>
+    .extend (.iter args) out
+    out
+  Expr::Binary { lhs, rhs, .. } -> [.as_ref lhs, .as_ref rhs] : Vec<&Expr>
+  Expr::Unary { operand, .. } -> [.as_ref operand] : Vec<&Expr>
+  Expr::Paren { inner, .. } or Expr::Ascribe { inner, .. } or Expr::Try { inner, .. } ->
+    [.as_ref inner] : Vec<&Expr>
+  Expr::Field { recv, .. } -> [.as_ref recv] : Vec<&Expr>
+  Expr::Index { recv, index, .. } -> [.as_ref recv, .as_ref index] : Vec<&Expr>
+  Expr::Lambda { body, .. } -> [.as_ref body] : Vec<&Expr>
+  Expr::Tuple { items, .. } or Expr::List { items, .. } -> .collect (.iter items)
+  Expr::ArrayRepeat { value, count, .. } -> [.as_ref value, .as_ref count] : Vec<&Expr>
+  Expr::MacroCall { args, .. } -> .collect (.iter args)
+  Expr::StrInterp { parts, .. } ->
+    parts
+      |> .iter
+      |> .filter_map (\p -> case p of
+        StrInterpPart::Interp { expr, .. } -> Some expr
+        StrInterpPart::Text _ -> None)
+      |> .collect
+  -- A **punned** field — `Point { x, y }` — carries `None` and is a
+  -- reference to `x`, which this does not see. A group binding mentioned
+  -- solely as a pun is therefore not an edge; disclosed rather than fixed,
+  -- because the entry then stays in source order.
+  Expr::Record { fields, .. } ->
+    fields |> .iter |> .filter_map (\f -> .as_ref f.value) |> .collect
+  _ -> Vec::new ()

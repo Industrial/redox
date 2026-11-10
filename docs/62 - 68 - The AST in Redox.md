@@ -3,7 +3,7 @@
 Plan ID: `ast-in-redox`
 Depends on: 48 (`conformance-and-self-hosting`), 64 (`macro-invocation`), 09 (`cargo-integration`)
 Milestone: 10 — *self-hosting*
-Status: `planned`
+Status: `done`
 
 ---
 
@@ -326,4 +326,161 @@ priority, and nothing but a count would have.
 
 ## 10. Result
 
-*Not yet executed.*
+**Done 2026-11-10. `crates/redox-ast` is written in Redox.** 53 `.sdx` files,
+3,052 lines of Redox generating 3,487 lines of Rust, committed in `src/` where
+the hand-written Rust was. `cargo check --workspace` compiles against it, all
+**849 tests pass**, and `moon run :check :lint :test` is green.
+
+**1,694 doc comments in, 1,694 out.** No escape hatch anywhere in the source —
+the one `rust """` in the tree is a doc comment quoting it.
+
+And the number that says how close the emitter already was: **50 of 53 files
+changed against the hand-written Rust, by 630 insertions and 383 deletions**
+over 3,487 lines. The generated crate is not a translation that happens to
+compile; it is very nearly what a person wrote.
+
+### 10.1 Three defects of one class, on three nodes, found three ways
+
+**This is the row's headline, and it is the argument for porting a crate
+rather than a module.** AGENTS.md calls comment preservation load-bearing —
+*"comments are trivia, never discarded; they must reach the generated
+`.xrs`"* — and the rule was broken in three places:
+
+| Node | Mechanism | Found by |
+|---|---|---|
+| `FieldDecl` | no `leading` field at all | **plan 48**, porting `clause.rs` |
+| `Constructor` | no `leading` field at all | plan 68, porting `expr/unary_op.rs` |
+| `ClassMember` | `leading` captured **one token too late** | plan 68, by leaf 4's count |
+
+Plan 48 recorded that *"no corpus file had a field doc comment, so nothing
+caught it"*. The module it chose, `clause.rs`, is a **struct** — so it has no
+enum variants, and a constructor doc comment appeared in no corpus file
+either. `examples/class.sdx` and `examples/receiver.sdx` have **zero** member
+doc comments between them, so that one was invisible too.
+
+The third is the interesting one, because the field existed and the emitter
+printed it: `class_member` read `p.peek_leading()` **after** `visibility(p)`
+had consumed the `export` the trivia was attached to. The constructor's fix
+turned out to be the same shape — the doc comment sits above the `=` or `|`,
+not above the name — so the lesson is one line and is now written in both
+places: **peek the leading trivia before consuming anything.**
+
+Leaf 4 is what found the third, and it is the only test in the gate that
+could: a demoted or dropped doc comment keeps nothing that a
+comment-preservation check looks at. It reported eleven files at once, with
+`block.sdx` keeping 1 of 17.
+
+### 10.2 Nine surface gaps, each measured
+
+None was known before the port and each was reported against the `.sdx`:
+
+1. **`self` could not be a parenless argument.** `starts_argument` listed
+   every token that may begin one and `self` was not among them, so
+   `.len self.xs` stopped the application and left `self.xs` stray.
+   `examples/receiver.sdx` writes `self` eight times and every one is a whole
+   body or an operand — not one is an argument. **Fixed**, with a corpus
+   witness, and it changed no existing parse.
+2. **An open-ended range `a..` has no spelling**, because `..` demands a right
+   operand. Worse, `..` also *continues a line*, so `r = 2..` silently
+   swallows the statement below it and rustc then complains about `()` — a
+   **fifth deferred case**, found after milestone 9 declared that class empty.
+3. **`for` binds a name, not a pattern**: `for &n in xs` and `for (k, v) in m`
+   are `RDX0103`. Both have workarounds the port uses.
+4. **A `where` clause after a *block* body is unreachable** — only an inline
+   `f x = expr` carries one. Plan 61 shipped `where` independence an hour
+   before this port began and its own examples never exercised the position.
+5. **A constructor pattern's path must start uppercase.** `Event::Close d`
+   works; `crate::Item::Fn decl` does not. An `import` is the workaround and
+   better style anyway.
+6. **`Self::name` as a path expression is unreachable** — `Self` lexes as a
+   keyword and `path_or_ident`'s `::` loop starts from an `Ident`. The type's
+   own name is the same path.
+7. **`matches!` cannot be called**, because its second argument is a pattern —
+   plan 64 §6 disclosed the shape and this is it in use, six times.
+8. **`vec![elem; n]` cannot be called** for the same reason: `name! \-> e`
+   reaches `vec!(a, b)`, a two-element vector, not the `;` arm.
+9. **A multi-line `or` alternation does not parse**, because `or` does not
+   continue a line. `Expr::span`'s forty-five-way alternation is one very long
+   line as a result.
+
+And one that is **not** a gap: `(.name)` is plan 57's field selector, so
+`.map (.rust_text)` is `E0615`, and `.` cannot join `starts_argument` the way
+`self` did because `f .name` *is* a field access on `f`. A lambda is the
+spelling, and the ambiguity is real rather than an omission.
+
+### 10.3 Two rules of this project contradict each other
+
+**Plan 55 §1.6's unit tail is `clippy::no_effect`.** `RDX0113` requires a
+`()`-returning body to end in a written `()`, so that a unit return is visible
+rather than inferred, and the `();` that generates is what clippy calls
+*"statement with no effect"*. Under `-D warnings` no Redox a person could
+write satisfies both.
+
+It has never bitten because no crate was written in Redox: `examples/` is not
+clippy'd, and `generated_rust_is_rustfmt_clean` asks a different question.
+
+The allow is at the port's crate root with the reason, and the fix is owed to
+a successor where it is small and needs no type knowledge: **`emit_clauses`
+can drop a trailing `()` statement from a `()`-returning body**, because it
+contributes nothing and the signature already says the function returns unit.
+§1.6 governs what the author writes, not what the emitter passes through. It
+moves every golden, which is why it is a row and not a line.
+
+`clippy::match_like_matches_macro` is the same shape and cannot be fixed at
+all while `matches!` is unreachable: the lint asks for a macro this language
+cannot call. That allow is a statement of fact.
+
+### 10.4 Blessing broke the bootstrap, and the recovery is why it is committed
+
+A generation with three rustc errors in it was written into
+`crates/redox-ast/src/`, and `redox-ast` is the dependency root — so
+`cargo run -p redox-cli` could no longer build the compiler that would
+regenerate it. The recovery is `git checkout -- crates/redox-ast/src/`, which
+works **only because the generated Rust is committed**: doc 02 §4.8's *"commit
+the generated `.xrs` so the bootstrap never breaks"* earning its keep within
+the hour of being quoted.
+
+The recovery also reverted a hand-made change the row needed, which is the
+second half of the lesson: a source edit to a ported crate has to go through
+its `.sdx`.
+
+The harness now **stages** a generation and runs `cargo check -p redox-ast`
+against it before replacing anything. A generation that does not compile is
+reported and discarded, and `src/` is untouched.
+
+### 10.5 What the emitter gained, and one thing it cannot
+
+Three changes beyond the trivia fixes:
+
+- **The constructor glob carries `#[allow(unused_imports)]`.** A file that
+  only declares an `enum` never uses the `use X::*;` that plan 53 leaf 1
+  emits, and four of this crate's modules are such files. The conditional glob
+  — emit it only where a constructor is named — was **refused** rather than
+  deferred: it needs a program-wide walk over every identifier-shaped
+  reference, and under-inclusion is a silent miscompile, which is the
+  irrefutable-binding failure the glob exists to prevent.
+- **`support::rustfmt_in_place`**, because Redox's output targets rustfmt's
+  defaults and this repository is two-space. A generated file committed into
+  `src/` is graded by the repository's config, so the pipeline is `redox
+  build` and then rustfmt *in* the tree — with `skip_children`, or a `mod x;`
+  sends rustfmt looking for a file the scratch directory does not have.
+- **Three keyword collisions, four sites.** `guard` and `otherwise` as field
+  names and `guard` as a module name are Redox keywords, and `r#guard` *is*
+  `guard` in Rust, so the API is unchanged. An earlier count of *"2 of 55"*
+  was wrong — the grep covered struct fields at one indentation only, missing
+  record-variant fields and module declarations — and `module guard` failing
+  to parse is how the undercount surfaced.
+
+### 10.6 How the port was made
+
+38 of the 53 files are pure data types, and those shapes are regular enough to
+translate mechanically; `.tmp/p68tr.py` did them and then emitted the
+declaration half of the other 15 and stopped. Every file it wrote was read
+against its original before it was kept, and it asserts rather than guesses
+when it meets a shape it has no rule for.
+
+Worth saying plainly rather than implying 3,000 lines were typed: the doc
+comments are the bulk and are mechanical, and the bodies — which are the
+interesting part, and where all nine gaps above were found — are hand-written.
+
+---

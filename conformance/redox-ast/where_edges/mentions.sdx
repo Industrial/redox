@@ -1,0 +1,15 @@
+import crate::Expr
+import crate::where_edges::operands::operands
+
+-- | Every index in `named` whose name appears as a bare identifier in `e`.
+-- |
+-- | Walks the **tree** and not the source text, which is what makes a name
+-- | inside an interpolation count: `#{total}` holds a real expression, so it is
+-- | a real reference.
+export(crate) mentions : &Expr -> &[(usize, String)] -> &mut Vec<usize> -> ()
+mentions e named into =
+  if e is Expr::Ident name && .find (\pair -> pair.1 == name.text) (.iter named) is Some found
+    .push (found.0) into
+  for child in operands e
+    mentions child named into
+  ()

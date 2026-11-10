@@ -1,5 +1,7 @@
 use crate::Ident;
+
 use crate::program::item::primitive_type::primitive_type;
+
 use redox_lexer::Span;
 
 /// A type written by **juxtaposition**: `Wrapper t`, `Pair k v`, `Counter`.
@@ -34,7 +36,11 @@ impl TypeApp {
     if self.args.is_empty() {
       return self.head.text.clone();
     }
-    let args: Vec<String> = self.args.iter().map(|a| Self::rust_name(&a.text)).collect();
+    let args: Vec<String> = self
+      .args
+      .iter()
+      .map(|a| TypeApp::rust_name(&a.text))
+      .collect();
     format!("{}<{}>", self.head.text, args.join(", "))
   }
 
@@ -48,7 +54,7 @@ impl TypeApp {
   pub fn vars(&self) -> Vec<&str> {
     let mut seen: Vec<&str> = Vec::new();
     for a in &self.args {
-      if Self::is_var(&a.text) && !seen.contains(&a.text.as_str()) {
+      if TypeApp::is_var(&a.text) && !(seen.contains(&(a.text.as_str()))) {
         seen.push(&a.text);
       }
     }
@@ -63,13 +69,13 @@ impl TypeApp {
   /// `impl Convert<f64> for Meters`, and the case of the first letter alone
   /// made it `Convert<F64>`.
   pub fn is_var(text: &str) -> bool {
-    text.chars().next().is_some_and(char::is_lowercase) && !primitive_type(text)
+    text.chars().next().is_some_and(char::is_lowercase) && !(primitive_type(text))
   }
 
   /// A type argument's Rust spelling: a variable uppercased, a concrete type
   /// left alone.
   pub fn rust_name(text: &str) -> String {
-    if Self::is_var(text) {
+    if TypeApp::is_var(text) {
       return text.to_uppercase();
     }
     text.to_string()

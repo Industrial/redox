@@ -169,6 +169,51 @@ pub fn rustfmt(rust: &str) -> String {
   formatted
 }
 
+/// Format `rust` with **this repository's** config, for a file that will live
+/// in the tree.
+///
+/// The opposite question from [`rustfmt`] above, and deliberately a second
+/// function rather than a flag on the first. That one grades the **emitter**,
+/// so it formats outside the tree where rustfmt's defaults apply; this one
+/// produces a file that will be **committed into `src/`** and graded by
+/// `cargo fmt --check` like every other file there, so the repository's
+/// `rustfmt.toml` is the right config and not the wrong one.
+///
+/// Plan 68 leaf 0. Redox's output is four-space and this repo is two-space, so
+/// without this step every generated file in `crates/redox-ast/src/` would
+/// fail the lint gate on indentation alone.
+pub fn rustfmt_in_place(rust: &str) -> String {
+  let fmt = rustfmt_path().expect("caller should check rustfmt_available");
+  let dir = workspace_root().join("target/redox-port-fmt");
+  std::fs::create_dir_all(&dir).expect("should create the scratch directory");
+  let file = dir.join("generated.rs");
+  std::fs::write(&file, rust).expect("should write the generated Rust");
+
+  let config = workspace_root().join("rustfmt.toml");
+  let out = Command::new(&fmt)
+    .arg("--config-path")
+    .arg(&config)
+    // **`skip_children`, or a `mod x;` sends rustfmt looking for the file.**
+    // The port writes one module per file and nine of them declare
+    // submodules, so without this rustfmt reports *"failed to resolve mod
+    // `binding`"* against a scratch directory holding only the one file.
+    // Formatting one file is the whole job here.
+    //
+    // A `--config` override rather than the `--skip-children` flag, which
+    // this rustfmt does not have: it is a config key, and `--config` sets one
+    // without disturbing the `rustfmt.toml` the repository commits.
+    .args(["--config", "skip_children=true"])
+    .arg(&file)
+    .output()
+    .expect("should run rustfmt");
+  assert!(
+    out.status.success(),
+    "rustfmt failed on the port's output:\n{}",
+    String::from_utf8_lossy(&out.stderr)
+  );
+  std::fs::read_to_string(&file).expect("should read the formatted file")
+}
+
 /// A scratch directory unique to this call.
 ///
 /// Keyed by a counter as well as the pid: keying on the tag alone let two

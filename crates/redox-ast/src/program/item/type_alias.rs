@@ -1,5 +1,7 @@
 use crate::program::item::visibility::Visibility;
+
 use crate::{Ident, TypeExpr};
+
 use redox_lexer::{Span, Trivia};
 
 /// `type Handler = Box<dyn Fn(Req) -> Res + Send>` — doc 18 §2.4.

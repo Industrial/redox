@@ -1,4 +1,5 @@
 use crate::TypeExpr;
+
 use crate::program::item::field_decl::FieldDecl;
 
 /// What a constructor carries — doc 18 §2.4.
@@ -24,3 +25,5 @@ pub enum ConstructorFields {
   /// type, `=` introduces a value, in a declaration and a literal alike.
   Record(Vec<FieldDecl>),
 }
+#[allow(unused_imports)]
+use ConstructorFields::*;

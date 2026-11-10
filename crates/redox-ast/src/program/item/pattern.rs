@@ -117,27 +117,28 @@ pub enum Pattern {
   /// cannot be misread as a guard, and `Teen | PreTeen -> …` could.
   Or(Vec<Pattern>),
 }
+#[allow(unused_imports)]
+use Pattern::*;
 
 impl Pattern {
   pub fn span(&self) -> Span {
     match self {
-      Self::Binding(ident) => ident.span,
-      Self::Literal { span, .. }
-      | Self::Wildcard(span)
-      | Self::Range { span, .. }
-      | Self::Apply { span, .. }
-      | Self::Tuple { span, .. }
-      | Self::Slice { span, .. }
-      | Self::Record { span, .. }
-      | Self::As { span, .. }
-      | Self::Rest(span)
-      | Self::NamedRest { span, .. } => *span,
-      // An alternation's span is its ends', and it is never empty: the
-      // parser builds one only after reading a first pattern.
-      Self::Or(alts) => (
-        alts.first().map_or(0, |a| a.span().0),
-        alts.last().map_or(0, |a| a.span().1),
-      ),
+      Binding(ident) => ident.span,
+      Literal { span, .. }
+      | Wildcard(span)
+      | Range { span, .. }
+      | Apply { span, .. }
+      | Tuple { span, .. }
+      | Slice { span, .. }
+      | Record { span, .. }
+      | As { span, .. }
+      | Rest(span)
+      | NamedRest { span, .. } => *span,
+      Or(alts) => {
+        let lo = alts.first().map_or(0, |a| a.span().0);
+        let hi = alts.last().map_or(0, |a| a.span().1);
+        (lo, hi)
+      }
     }
   }
 
@@ -147,90 +148,69 @@ impl Pattern {
   /// what keeps the common one-clause function emitting exactly the Rust it
   /// emitted before doc 18 §2.3 existed.
   pub fn is_irrefutable(&self) -> bool {
-    // **Only a bare name or `_`.** A destructuring pattern — `(a, b)`,
-    // `[a, b]`, `Point { x }` — is treated as refutable even where it matches
-    // everything, and plan 33 §10 records why: this answer decides whether an
-    // equation's row needs a `match` *and* whether the row's bindings are in
-    // scope in the body.
-    //
-    // `signature_from` lends a parameter its name only for a `Binding`, so a
-    // tuple pattern's parameter is `__rdx_a0` and `a` and `b` come from the
-    // `match` arm. Calling such a pattern irrefutable suppressed the `match`
-    // and left the body referring to names nothing bound — which rustc caught
-    // as `cannot find value \`a\``, against a line the author wrote.
-    //
-    // The cost is a `match` where a `let` would have done. rustc accepts one
-    // with a single irrefutable arm, and one rule that cannot produce an
-    // unbound name is worth more than a second lowering that could.
-    matches!(self, Self::Binding(_) | Self::Wildcard(_))
+    match self {
+      Binding(_) | Wildcard(_) => true,
+      _ => false,
+    }
   }
 
   /// The text to write in a `match` arm.
   pub fn rust_text(&self) -> String {
     match self {
-      Self::Binding(ident) => ident.text.clone(),
-      Self::Literal { text, .. } => text.clone(),
-      Self::Wildcard(_) => "_".to_string(),
-      Self::Range {
+      Binding(ident) => ident.text.clone(),
+      Literal { text, .. } => text.clone(),
+      Wildcard(_) => "_".to_string(),
+      Range {
         lo, hi, inclusive, ..
-      } => format!("{lo}{}{hi}", if *inclusive { "..=" } else { ".." }),
-      // **A one-element tuple keeps Rust's trailing comma.** `(a)` is a
-      // parenthesised group and `(a,)` is a tuple, so dropping the comma
-      // turns a destructuring of a `(T,)` into a binding of the whole value —
-      // which rustc catches, but only because the types differ. Caught here by
-      // asserting the group and the tuple side by side.
-      Self::Tuple { items, .. } => {
-        let inner = items
-          .iter()
-          .map(Self::rust_text)
-          .collect::<Vec<_>>()
-          .join(", ");
+      } => {
+        let marker = if *inclusive { "..=" } else { ".." };
+        format!("{}{}{}", lo, marker, hi)
+      }
+      Tuple { items, .. } => {
+        let inner = ({
+          let __rdx_t: Vec<String> = items.iter().map(|p| p.rust_text()).collect();
+          __rdx_t
+        })
+        .join(", ");
         if items.len() == 1 {
-          format!("({inner},)")
+          format!("({},)", inner)
         } else {
-          format!("({inner})")
+          format!("({})", inner)
         }
       }
-      Self::Slice { items, .. } => format!(
-        "[{}]",
-        items
-          .iter()
-          .map(Self::rust_text)
-          .collect::<Vec<_>>()
-          .join(", ")
-      ),
-      // `=` becomes `:`, which is the one character this form changes.
-      Self::Record {
+      Slice { items, .. } => {
+        let inner = ({
+          let __rdx_t: Vec<String> = items.iter().map(|p| p.rust_text()).collect();
+          __rdx_t
+        })
+        .join(", ");
+        format!("[{}]", inner)
+      }
+      Record {
         path, fields, rest, ..
       } => {
-        let mut parts: Vec<String> = fields
-          .iter()
-          .map(crate::RecordPatternField::rust_text)
-          .collect();
+        let mut parts: Vec<String> = fields.iter().map(|p| p.rust_text()).collect();
         if *rest {
           parts.push("..".to_string());
         }
-        format!("{path} {{ {} }}", parts.join(", "))
+        format!("{} {{ {} }}", path, parts.join(", "))
       }
-      Self::As { name, inner, .. } => format!("{} @ {}", name.text, inner.rust_text()),
-      Self::Rest(_) => "..".to_string(),
-      Self::NamedRest { name, .. } => format!("{} @ ..", name.text),
-      // `Some v` is `Some(v)`. A nullary constructor never reaches here: it
-      // parses as a `Binding`, which emits the bare path — and that is right
-      // either way, because doc 18 §2.4 emits `use T::*;` beside the enum.
-      Self::Apply { path, args, .. } => format!(
-        "{path}({})",
-        args
-          .iter()
-          .map(Self::rust_text)
-          .collect::<Vec<_>>()
-          .join(", ")
-      ),
-      Self::Or(alts) => alts
-        .iter()
-        .map(Self::rust_text)
-        .collect::<Vec<_>>()
-        .join(" | "),
+      As { name, inner, .. } => format!("{} @ {}", name.text, inner.rust_text()),
+      Rest(_) => "..".to_string(),
+      NamedRest { name, .. } => format!("{} @ ..", name.text),
+      Apply { path, args, .. } => {
+        let inner = ({
+          let __rdx_t: Vec<String> = args.iter().map(|p| p.rust_text()).collect();
+          __rdx_t
+        })
+        .join(", ");
+        format!("{}({})", path, inner)
+      }
+      Or(alts) => ({
+        let __rdx_t: Vec<String> = alts.iter().map(|p| p.rust_text()).collect();
+        __rdx_t
+      })
+      .join(" | "),
     }
   }
 }
@@ -258,36 +238,39 @@ impl Pattern {
 
   fn collect_binders(&self, into: &mut Vec<String>) {
     match self {
-      Pattern::Binding(name) | Pattern::NamedRest { name, .. } => into.push(name.text.clone()),
-      Pattern::As { name, inner, .. } => {
+      Binding(name) | NamedRest { name, .. } => into.push(name.text.clone()),
+      As { name, inner, .. } => {
         into.push(name.text.clone());
-        inner.collect_binders(into);
+        inner.collect_binders(into)
       }
-      Pattern::Apply { args, .. } => {
+      Apply { args, .. } => {
         for arg in args {
           arg.collect_binders(into);
         }
       }
-      Pattern::Tuple { items, .. } | Pattern::Slice { items, .. } => {
+      Tuple { items, .. } | Slice { items, .. } => {
         for item in items {
           item.collect_binders(into);
         }
       }
-      Pattern::Or(items) => {
+      Or(items) => {
         for item in items {
           item.collect_binders(into);
         }
       }
-      Pattern::Record { fields, .. } => {
+      Record { fields, .. } => {
         for field in fields {
           match &field.pattern {
             Some(pattern) => pattern.collect_binders(into),
             None => into.push(field.name.text.clone()),
-          }
+          };
         }
       }
-      Pattern::Literal { .. } | Pattern::Wildcard(_) | Pattern::Range { .. } | Pattern::Rest(_) => {
-      }
-    }
+      Literal { .. } | Wildcard(_) | Range { .. } | Rest(_) => (),
+    };
+    // `RDX0113` requires this, and `clippy::no_effect` objects to the `();`
+    // it generates — see the crate root for the allow and the successor the
+    // conflict is owed to.
+    ();
   }
 }

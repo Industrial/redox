@@ -1,6 +1,9 @@
 use crate::Ident;
+
 use crate::program::item::constructor::Constructor;
+
 use crate::program::item::visibility::Visibility;
+
 use redox_lexer::{Span, Trivia};
 
 /// A `data` or `newtype` declaration — doc 18 §2.4.

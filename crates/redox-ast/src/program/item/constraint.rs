@@ -1,4 +1,5 @@
 use crate::Ident;
+
 use redox_lexer::Span;
 
 /// One `Trait t` constraint, from a `=>` clause — doc 18 §2.5.

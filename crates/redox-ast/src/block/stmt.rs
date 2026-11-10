@@ -1,6 +1,9 @@
+use crate::Item;
+
 pub(crate) mod binding;
 
 use crate::Expr;
+
 use redox_lexer::{Span, Trivia};
 
 /// One element of a [`Block`](crate::Block): an expression, and the trivia
@@ -56,7 +59,7 @@ impl Stmt {
         _ => None,
       },
       Expr::Item { item, .. } => match item.as_ref() {
-        crate::Item::Fn(decl) => Some(decl.name.text.clone()),
+        Item::Fn(decl) => Some(decl.name.text.clone()),
         _ => None,
       },
       _ => None,

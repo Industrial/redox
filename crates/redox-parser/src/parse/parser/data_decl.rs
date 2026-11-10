@@ -73,8 +73,13 @@ pub(crate) fn data_decl(
     }
 
     if p.check(&TokenKind::Eq) || p.check(&TokenKind::Or) {
+      // **Before the separator is eaten**, which is plan 68's finding: a
+      // constructor's doc comment goes on its own line above the variant, so
+      // the trivia attaches to the `=` or `|` that opens that line and
+      // `peek_leading` at the *name* looks one token too late.
+      let leading = p.peek_leading();
       p.advance();
-      constructors.push(constructor(p)?);
+      constructors.push(constructor(p, leading)?);
       continue;
     }
 

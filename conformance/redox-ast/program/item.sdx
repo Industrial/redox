@@ -1,0 +1,92 @@
+export(crate) module class_decl
+export(crate) module class_member
+export(crate) module clause
+export(crate) module clause_body
+export(crate) module const_decl
+export(crate) module constraint
+export(crate) module constructor
+export(crate) module constructor_fields
+export(crate) module data_decl
+export(crate) module error_variant
+export(crate) module errors_decl
+export(crate) module extern_block
+export(crate) module field_decl
+export(crate) module fn_decl
+export(crate) module foreign_fn
+export(crate) module r#guard
+export(crate) module import_decl
+export(crate) module inline_rust
+export(crate) module instance_decl
+export(crate) module leading
+export(crate) module module_decl
+export(crate) module param
+export(crate) module pattern
+export(crate) module primitive_type
+export(crate) module record_pattern_field
+export(crate) module signature
+export(crate) module test_decl
+export(crate) module type_alias
+export(crate) module type_app
+export(crate) module visibility
+
+import crate::FnDecl
+import crate::program::item::class_decl::ClassDecl
+import crate::program::item::const_decl::ConstDecl
+import crate::program::item::data_decl::DataDecl
+import crate::program::item::errors_decl::ErrorsDecl
+import crate::program::item::extern_block::ExternBlock
+import crate::program::item::import_decl::ImportDecl
+import crate::program::item::inline_rust::InlineRust
+import crate::program::item::instance_decl::InstanceDecl
+import crate::program::item::module_decl::ModuleDecl
+import crate::program::item::test_decl::TestDecl
+import crate::program::item::type_alias::TypeAlias
+import redox_lexer::Span
+
+-- | A top-level declaration.
+-- |
+-- | Doc 18 §§2.4–2.5 collapsed six of doc 03's declaration keywords into four.
+-- | `struct`, `enum`, `union` and the tuple-struct spelling are all `data`;
+-- | `class` means `trait` rather than doc 01 §17.7's "struct plus impl"; and
+-- | `instance` means `impl`, trait or inherent.
+export data Item
+  = Fn FnDecl
+  | Data DataDecl
+  | Type TypeAlias
+  | Class ClassDecl
+  | Instance InstanceDecl
+  -- | Doc 03 §12.5's `errors`, kept by doc 18 §8 — the one declaration that
+  -- | generates more than one Rust item.
+  | Errors ErrorsDecl
+  -- | Doc 03 §15's `test`, kept by doc 18 §8. The only item that is **not**
+  -- | emitted where it appears: §15 asks for one module per file, so the
+  -- | tests are gathered and written together.
+  | Test TestDecl
+  -- | Doc 03 §13.1's `import` — plan 14.
+  | Import ImportDecl
+  -- | Doc 18 §7's `module`, which is Rust's `mod` — plan 14. The only item
+  -- | that **contains** items, and so the only one the emitter recurses on.
+  | Module ModuleDecl
+  -- | Doc 03 §13.4's module-scope `const` or `static` — plan 16.
+  | Const ConstDecl
+  -- | Doc 01 §23.1's inline Rust — plan 45. The only item whose contents are
+  -- | never parsed.
+  | InlineRust InlineRust
+  -- | An `extern` block — plan 45 leaf 3, and doc 01 §26's FFI requirement.
+  | Extern ExternBlock
+  deriving (Debug, Clone, PartialEq, Eq)
+instance Item
+  export span : &self -> Span
+  span self = case self of
+    Item::Fn f -> f.span
+    Item::Data d -> d.span
+    Item::Type a -> a.span
+    Item::Class c -> c.span
+    Item::Instance i -> i.span
+    Item::Errors e -> e.span
+    Item::Test t -> t.span
+    Item::Import i -> i.span
+    Item::Module m -> m.span
+    Item::Const c -> c.span
+    Item::InlineRust r -> r.span
+    Item::Extern e -> e.span

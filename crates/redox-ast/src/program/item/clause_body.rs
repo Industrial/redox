@@ -1,4 +1,5 @@
 use crate::Block;
+
 use crate::program::item::guard::Guard;
 
 /// A clause's right-hand side.
@@ -16,13 +17,15 @@ pub enum ClauseBody {
   /// with them.
   Guarded(Vec<Guard>),
 }
+#[allow(unused_imports)]
+use ClauseBody::*;
 
 impl ClauseBody {
   /// The block a plain clause holds, if it is plain.
   pub fn plain(&self) -> Option<&Block> {
     match self {
-      Self::Plain(block) => Some(block),
-      Self::Guarded(_) => None,
+      Plain(block) => Some(block),
+      Guarded(_) => None,
     }
   }
 }

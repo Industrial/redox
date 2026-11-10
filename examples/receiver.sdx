@@ -31,6 +31,14 @@ class Debug => Tally
   -- No `self` in any type, so no receiver at all: an associated function,
   -- reached through the type rather than through a value.
   start : u32 -> Self
+  -- A body that **applies** something to `self`, which is the one position
+  -- plan 68 found unreachable: `starts_argument` listed every token that can
+  -- begin a juxtaposed argument and `self` was not among them, so
+  -- `.to_string self.label` stopped the application after `.to_string` and
+  -- left `self.label` a stray expression. Every other `self` in this file is
+  -- a whole body or an operand, which is why nothing caught it until a crate
+  -- full of methods was ported.
+  label : &self -> String
 
 instance Tally Counter
   current : &self -> u32
@@ -47,6 +55,8 @@ instance Tally Counter
   minus n self = self.value - n
   start : u32 -> Self
   start n = Counter { value = n }
+  label : &self -> String
+  label self = .to_string self.value
 
 -- A class with a parameter of its own, which is `trait From<T>`'s shape and
 -- was unreachable until plan 67: the one slot a class head had was spent on
@@ -79,6 +89,7 @@ main =
   println! \-> "#{(.minus 1 c)}"
   -- `total : self -> u32` takes the receiver by value, so this is `c`'s last
   -- use and rustc is the one that knows it.
+  println! \-> "#{(.label (&c))}"
   println! \-> "#{(.total c)}"
   m = Meters 4.0
   -- Which `Scale` impl applies is chosen by the argument's type, which is

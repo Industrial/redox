@@ -28,6 +28,8 @@ pub enum Visibility {
   /// Redox is (doc 03 §13.1).
   In(String),
 }
+#[allow(unused_imports)]
+use Visibility::*;
 
 impl Visibility {
   /// The Rust spelling, **including its trailing space** when there is one.
@@ -37,11 +39,11 @@ impl Visibility {
   /// difference the golden corpus notices and a reader does not.
   pub fn rust_text(&self) -> String {
     match self {
-      Self::Private => String::new(),
-      Self::Public => "pub ".to_string(),
-      Self::Crate => "pub(crate) ".to_string(),
-      Self::Super => "pub(super) ".to_string(),
-      Self::In(path) => format!("pub(in {path}) "),
+      Private => String::new(),
+      Public => "pub ".to_string(),
+      Crate => "pub(crate) ".to_string(),
+      Super => "pub(super) ".to_string(),
+      In(path) => format!("pub(in {}) ", path),
     }
   }
 }

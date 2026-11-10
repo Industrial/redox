@@ -1,5 +1,7 @@
 use crate::program::item::visibility::Visibility;
+
 use crate::{Ident, TypeExpr};
+
 use redox_lexer::{Span, Trivia};
 
 /// One `name : Type` field of a record constructor — doc 18 §2.4.

@@ -1,5 +1,7 @@
 pub(crate) mod operand;
 
+use crate::{ConditionOperand, Expr};
+
 /// An `if`, `while` or `case`-arm-guard condition — plan 22.
 ///
 /// Doc 30 §3.1's pattern test: **Rust's `if let` with `let` dropped.**
@@ -33,9 +35,15 @@ pub struct Condition {
 
 impl Condition {
   /// The ordinary, pattern-free condition — one expression operand.
-  pub fn plain(expr: crate::Expr) -> Self {
-    Self {
-      operands: vec![crate::ConditionOperand::Expr(expr)],
+  ///
+  /// An **associated function**: no `self` appears in the type, so plan 67's
+  /// marked receiver reads it as one and emits `fn plain(expr: Expr) -> Self`.
+  pub fn plain(expr: Expr) -> Self {
+    Condition {
+      operands: {
+        let __rdx_t: Vec<ConditionOperand> = Vec::from([ConditionOperand::Expr(expr)]);
+        __rdx_t
+      },
     }
   }
 
@@ -44,10 +52,14 @@ impl Condition {
   /// Asked by one caller only: `until`, which lowers to `while !(c)` and so
   /// cannot hold one — `while !(let Some(v) = x)` is not Rust, and there is
   /// no honest alternative to reporting it. Plan 22 §1.3.
+  ///
+  /// A `case` ladder where the Rust wrote `matches!`, for the reason
+  /// `primitive_type` records: `matches!`'s second argument is a pattern and
+  /// plan 64 §6 discloses that a value-passing shape cannot carry one.
   pub fn has_pattern(&self) -> bool {
-    self
-      .operands
-      .iter()
-      .any(|o| matches!(o, crate::ConditionOperand::Pattern { .. }))
+    self.operands.iter().any(|o| match o {
+      ConditionOperand::Pattern { .. } => true,
+      _ => false,
+    })
   }
 }
