@@ -377,6 +377,34 @@ result, which is why they are written down rather than rediscovered.
   `collapsible_if` errors were live, caught only when the moon gate ran. **Check exit
   codes, not output text**, when deciding whether a gate passed.
 
+- **"I could not find it" is not "it does not exist", and this repository's own layout rules
+  put things where a careless search will not look.** Twice in one session a plan document
+  gained a confidently wrong claim this way, and both were committed before being caught:
+
+  - *A test asserted to be missing.* `operator_table.rs`'s doc comment states
+    *"longest match first"*, and a search of that file plus `crates/redox-lexer/tests/`
+    found nothing enforcing it — so a criterion was amended to say the check had to be
+    built. It exists: `longer_operators_are_tried_before_their_prefixes`, an inline
+    `#[test]` in `scan_operator.rs`. It **has** to be inline, because `OPERATOR_TABLE` is
+    private and the rule above says inline tests are for private constructs only. The
+    layout rule put it exactly outside the search.
+  - *A behaviour read off a doc comment.* `power_of`'s comment said sections *decline*;
+    line 72 gives `Expr::Section` `u8::MAX`. The listing had been truncated before that arm
+    and the comment was quoted as the behaviour. The comment was simply stale.
+
+  Two habits follow, and they are cheap:
+
+  **For anything private, look in `crates/**/src/**`.** `crates/*/tests/` structurally
+  cannot hold its test — an integration test cannot reach a private const — so a search
+  that covers only `tests/` is guaranteed to miss it.
+
+  **When a doc comment names a test or a function, grep the name before concluding the
+  reference is dangling.** That is what made the first case findable: the name was in the
+  comment all along. And conversely, **a doc comment is not an oracle for its own code** —
+  read the arms. Both of these files had a comment and a body that disagreed, which is also
+  why `every_coloured_keyword_is_still_in_the_grammar` asks the lexer rather than
+  `grammar.js`.
+
 ## See also
 
 - `.maestro/MAESTRO.md` — read order, lane policy, daily commands
