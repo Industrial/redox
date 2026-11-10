@@ -140,15 +140,30 @@ fn a_clone_without_the_generated_rust_bootstraps_from_the_seed() {
 /// The generated trees really are untracked here.
 ///
 /// The other half of leaf 5: the test above proves a tree *without* them can be
-/// rebuilt, and this proves this tree is that kind of tree. `git check-ignore`
-/// rather than `git ls-files`, because the question is whether the rule exists
-/// — a file can be absent from the index for many reasons and only one of them
-/// is deliberate.
+/// rebuilt, and this proves this tree is that kind of tree.
+///
+/// # Both halves, because the first one alone lied
+///
+/// This asked only `git check-ignore` at first, on the reasoning that the
+/// question is whether the rule exists. It is not. `check-ignore` answers
+/// *"does a rule match this path"* and says nothing about the index — and git
+/// deliberately ignores `.gitignore` for a path that is **already tracked**,
+/// which is the entire reason `git rm --cached` exists.
+///
+/// So when leaf 5's flip half-failed — the rules committed, the 110 files
+/// still in the index, because a `prek` hook's stash-and-restore cycle reset
+/// the staged deletions — this test passed. It asserted the state it could see
+/// most easily rather than the state it cared about.
+///
+/// Both now have to hold. A rule with tracked files is a flip that did not
+/// finish; untracked files with no rule would come back on the next `git add`.
 #[test]
 fn the_generated_trees_are_ignored() {
   let root = workspace_root();
   for crate_name in PORTED {
-    let path = format!("crates/{crate_name}/src/lib.rs");
+    let dir = format!("crates/{crate_name}/src");
+    let path = format!("{dir}/lib.rs");
+
     let checked = Command::new("git")
       .args(["check-ignore", "-q", &path])
       .current_dir(&root)
@@ -159,6 +174,23 @@ fn the_generated_trees_are_ignored() {
       "{path} should be gitignored: its crate is written in Redox and the `.rs` is \
        generated. If this fails the ignore flip has been reverted, and the repository is \
        committing ~32,000 lines of output with no author (plan 72 §1.3)."
+    );
+
+    let tracked = Command::new("git")
+      .args(["ls-files", "--", &dir])
+      .current_dir(&root)
+      .output()
+      .expect("should run git ls-files");
+    let listed = String::from_utf8_lossy(&tracked.stdout);
+    let count = listed.lines().filter(|l| !l.trim().is_empty()).count();
+    assert_eq!(
+      count,
+      0,
+      "{dir} still has {count} file(s) in the index. A `.gitignore` rule does not \
+       untrack anything — git ignores the rule for a path it already tracks — so the \
+       flip needs `git rm -r --cached {dir}` and a commit that actually carries the \
+       deletions. First listed: {}",
+      listed.lines().next().unwrap_or("<none>")
     );
   }
 }
