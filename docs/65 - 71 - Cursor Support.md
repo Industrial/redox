@@ -544,10 +544,26 @@ most: `nixos-rebuild build`, `cursor --list-extensions` listing
 seen working inside Cursor.** The flake builds, the extension packages, the
 module loads under `node` — and the end-to-end claim is still unverified.
 
-Leaf 4 is untouched. `Industrial/redox` does not exist and `git remote` still
-points at `Industrial/_project-template`; publishing is also an outward-facing
-action this session had no standing authorisation for, independent of the write
-guard.
+**Leaf 4's publish half is done**, by the author rather than by this session —
+publishing is outward-facing and the session had no standing authorisation for
+it, independent of the write guard. `Industrial/redox` is public, default branch
+`main`, and `git remote` now points at it rather than at
+`Industrial/_project-template`.
+
+That makes the consumption path verifiable without the dotfiles, and it was
+verified:
+
+```
+nix flake metadata github:Industrial/redox   locks d945524, description correct
+nix build github:Industrial/redox#redox      exit 0
+  redox 0.1.0 / redox-lsp 0.1.0 / redox-mcp 0.1.0
+prefetch-npm-deps on the *published* lockfile
+  sha256-WhyyboeEswhnEisJnt4YQDcZi4jKYQrpzma8oJf1FGw=  — matches the pin
+```
+
+So the flake input in leaf 3's patch is `github:Industrial/redox` rather than
+the `git+file://` the plan expected to need. What remains of leaf 4 is nothing:
+there is no `path:` to swap.
 
 Leaf 5 is untouched, and `capabilities.rs` still advertises exactly four.
 
@@ -555,7 +571,8 @@ Leaf 5 is untouched, and `capabilities.rs` still advertises exactly four.
 
 - **Apply leaf 3 and run the deploy.** Until then this row's own §3 is three
   rungs short, and `editors/vscode/README.md` points at a Nix feature that does
-  not exist yet.
+  not exist yet. Everything upstream of it is now verified from the *published*
+  source, so what is left is six file edits and a switch.
 - **`crates.io` is blocked on a name, not a token**, and nothing in this row
   needs one. `redox-lsp` is **taken by an active crate** — v0.3.0, updated
   2026-10-23, `github.com/JackDerksen/redox` — and `redox` by a bittorrent
