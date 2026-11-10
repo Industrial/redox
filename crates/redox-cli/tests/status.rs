@@ -134,17 +134,7 @@ fn plan_counts(root: &Path) -> (usize, usize, usize) {
   let (mut done, mut superseded, mut other) = (0, 0, 0);
 
   for line in text.lines() {
-    // A register row opens with `| NN | `slug` |`.
-    let Some(rest) = line.strip_prefix("| ") else {
-      continue;
-    };
-    let Some((number, after)) = rest.split_once(" | ") else {
-      continue;
-    };
-    if number.trim().is_empty() || !number.trim().chars().all(|c| c.is_ascii_digit()) {
-      continue;
-    }
-    if !after.trim_start().starts_with('`') {
+    if !is_register_row(line) {
       continue;
     }
 
@@ -200,6 +190,28 @@ fn split_cells(line: &str) -> Vec<String> {
 /// register is actually written.
 fn row_status(line: &str) -> Option<&'static str> {
   first_status(status_cell(line))
+}
+
+/// Whether a line is a register row: `| NN | `slug` | …`.
+///
+/// Extracted so the counter and
+/// [`every_register_row_opens_its_status_cell_with_its_status`] cannot drift.
+/// They did: the test was written calling [`row_status`] directly, which
+/// applies no shape check at all — it takes the last cell of *whatever* it is
+/// given — and it matched this document's own prose, a numbered convention
+/// reading *"Mark it `superseded` and name what replaced it"*. A rule about
+/// statuses is not a status, and that is the third time that sentence has had
+/// to be written in this file.
+fn is_register_row(line: &str) -> bool {
+  let Some(rest) = line.strip_prefix("| ") else {
+    return false;
+  };
+  let Some((number, after)) = rest.split_once(" | ") else {
+    return false;
+  };
+  !number.trim().is_empty()
+    && number.trim().chars().all(|c| c.is_ascii_digit())
+    && after.trim_start().starts_with('`')
 }
 
 /// The register's last column.
@@ -342,6 +354,66 @@ fn status_is_current() {
     "docs/STATUS.md is out of date. Its numbers are measured from the working tree, so a \
      commit that changes them must update it: REDOX_BLESS=1 cargo test -p redox-cli --test \
      status"
+  );
+}
+
+/// Every register row's status cell **opens** with its status.
+///
+/// `row_status`'s doc comment states this rule and three corrections that led
+/// to it. What it did not do was enforce it, and an unenforced invariant in a
+/// generated document is a number that can go wrong quietly.
+///
+/// Found by going wrong quietly. Row 65's cell was written with the outcome
+/// text ahead of the status word, and that text contained `` `Newline \| Indent
+/// \| Dedent` `` — a literal ` \| ` — which reassigned what `status_cell`
+/// reads to a fragment of the prose. `first_status` then found `planned` later
+/// in the line, counted a finished row as outstanding, and the gate passed.
+///
+/// That is the same hazard the comment above describes twice over: a status
+/// cell is **prose about statuses**, so any marker in it that is not the first
+/// one is somebody else's. Plan 47 §10 is the rule for the pipe — write it
+/// `` `\|` `` with no surrounding spaces — and this test is what notices when
+/// it is not followed.
+#[test]
+fn every_register_row_opens_its_status_cell_with_its_status() {
+  const MARKERS: [&str; 5] = ["done", "superseded", "not-started", "planned", "partial"];
+
+  let root = workspace_root();
+  let text = std::fs::read_to_string(root.join("docs/04 - Redox Plan of Plans.md"))
+    .expect("should read the register");
+
+  let mut checked = 0;
+  for line in text.lines() {
+    if !is_register_row(line) {
+      continue;
+    }
+    let Some(status) = row_status(line) else {
+      continue;
+    };
+    let cell = status_cell(line).trim_start();
+
+    // A status cell opens with its own marker, optionally emphasised.
+    let opens = MARKERS.iter().any(|m| {
+      let tick = format!("`{m}`");
+      cell.starts_with(&tick) || cell.starts_with(&format!("**{tick}**"))
+    });
+    assert!(
+      opens,
+      "the status cell of\n  {}\ndoes not open with a status marker. It was read as \
+       `{status}`, which is whichever marker happens to come first in\n  {}\n— and that is \
+       a guess, not a status. Two ways this happens: the outcome text was written ahead of \
+       the marker, or the row contains a literal ` | ` that moved the cell boundary (plan \
+       47 §10: write an in-cell pipe as `\\|` with no surrounding spaces).",
+      &line[..line.len().min(60)],
+      &cell[..cell.len().min(80)],
+    );
+    checked += 1;
+  }
+
+  assert!(
+    checked > 60,
+    "only {checked} register rows were checked, which means the row predicate stopped \
+     matching rather than that the register shrank"
   );
 }
 
