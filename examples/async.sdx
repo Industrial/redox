@@ -36,7 +36,7 @@ block_on fut =
   waker = Waker::noop ()
   mut cx = Context::from_waker waker
   loop
-    if Poll::Ready v = .poll (&mut cx) (.as_mut boxed)
+    if .poll (&mut cx) (.as_mut boxed) is Poll::Ready v
       break v
 
 -- The marker goes between `::` and the spine, which is plan 16's `const fn`

@@ -5,7 +5,7 @@ use crate::parse::parser::holds_a_pattern_test::holds_a_pattern_test;
 use crate::parse::parser::parse_expr::parse_expr;
 use redox_ast::Condition;
 use redox_diag::Code;
-use redox_lexer::TokenKind;
+use redox_lexer::{Keyword, TokenKind};
 
 /// An `if`, `while` or arm-guard condition — plan 22, doc 18 §3's third and
 /// fourth positions for `<-`.
@@ -31,7 +31,24 @@ pub(crate) fn condition(p: &mut Parser) -> Result<Condition, ParseError> {
   // Does the **whole** condition hold a pattern test? This scan runs past
   // `&&`, unlike the per-operand one below: a chain's pattern test may be any
   // operand, and `if n > 0 && Some v <- x` is as legal as `if Some v <- x`.
-  if !holds_a_pattern_test(p, false) {
+  if !holds_a_pattern_test(p, false, &TokenKind::Kw(Keyword::Is)) {
+    // Plan 60 leaf 2. Every program written before this row spells a pattern
+    // test with `=`, so the diagnostic **is** the migration guide — plan 52's
+    // and plan 59's choice, applied a third time.
+    //
+    // Detected with the same scanner the `is` form uses, given the other
+    // marker, so the message cannot describe a shape the detection does not
+    // find. A record literal's `=` sits inside its braces and the depth rule
+    // is what keeps `if p { x = 1 }.valid` an ordinary condition.
+    if holds_a_pattern_test(p, false, &TokenKind::Eq) {
+      return Err(ParseError::with(
+        Code::ExpectedToken,
+        "a pattern test is written `scrutinee is pattern` — plan 60 moved it off `=`, which \
+         now means definition and nothing else"
+          .to_string(),
+        p.peek_span(),
+      ));
+    }
     return Ok(Condition::plain(parse_expr(p, 0)?));
   }
 

@@ -9,7 +9,7 @@
   total += 2
   print "x"  -- a trailing comment
   {- a fenced comment -}
-  if n > 0 && Some v = o
+  if n > 0 && o is Some v
     print "both"
   else if n < 0
     print "negative"
@@ -27,7 +27,7 @@
       continue 'outer
   for c in 1 .. 4
     print c
-  guard Some v = o else
+  guard o is Some v else
     return 0
   assert total > 0
   kind = case o of

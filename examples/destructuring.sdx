@@ -90,7 +90,7 @@ first_of (a, _) = a
 -- the point.
 has_origin : &Option<Point> -> bool
 has_origin o =
-  if Some (Point { x = 0, y = 0, .. }) = o
+  if o is Some (Point { x = 0, y = 0, .. })
     return true
   false
 

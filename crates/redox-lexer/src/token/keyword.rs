@@ -84,6 +84,16 @@ pub enum Keyword {
   Continue,
   Return,
   Guard,
+  /// Plan 60's pattern test — `if slot is Some n`.
+  ///
+  /// **Restored, not added.** Doc 03 §5.5 specified `is`; doc 18 §7 retired it
+  /// among eleven words, and `leaves_ordinary_identifiers_alone` asserts the
+  /// retired ones stay unreserved because *"a retired keyword that stayed
+  /// reserved would reject a program that is now legal"*. So `is = 5` compiled
+  /// until this row and does not now — a breaking change, taken deliberately.
+  /// `With` is the precedent: same retired list, back in this enum by doc 30
+  /// §3.3.
+  Is,
   Try,
   Catch,
   Where,
@@ -175,6 +185,7 @@ impl Keyword {
       "continue" => Self::Continue,
       "return" => Self::Return,
       "guard" => Self::Guard,
+      "is" => Self::Is,
       "try" => Self::Try,
       "catch" => Self::Catch,
       "where" => Self::Where,
@@ -239,6 +250,7 @@ impl Keyword {
       Self::Continue => "continue",
       Self::Return => "return",
       Self::Guard => "guard",
+      Self::Is => "is",
       Self::Try => "try",
       Self::Catch => "catch",
       Self::Where => "where",
@@ -309,8 +321,12 @@ mod tests {
   #[test]
   fn leaves_ordinary_identifiers_alone() {
     for text in [
-      "main", "print", "iff", "switched", "island", "notable", "Selfish", "is", "and", "use",
-      "defer", "cond", "into", "derive", "mod", "unless", "switch", "withhold", "then",
+      // `is` left this list in plan 60, which restored it as the pattern-test
+      // keyword — doc 03 §5.5's original spelling. `island` and `notable`
+      // stay, and they are the cases that matter: a keyword must not swallow
+      // an identifier that merely begins with it.
+      "main", "print", "iff", "switched", "island", "notable", "Selfish", "and", "use", "defer",
+      "cond", "into", "derive", "mod", "unless", "switch", "withhold", "then",
     ] {
       assert!(
         Keyword::from_text(text).is_none(),

@@ -684,10 +684,12 @@ module.exports = grammar({
 		guard_statement: ($) =>
 			seq(
 				"guard",
-				// A **run**: `guard Some v = o else` is two patterns juxtaposed.
-				field("pattern", $.pattern_run),
-				"=",
+				// Plan 60: scrutinee first — `guard o is Some v else`. The pattern
+				// is still a **run**, two patterns juxtaposed, and it now follows
+				// the keyword that ends the scrutinee.
 				field("source", $._expression),
+				"is",
+				field("pattern", $.pattern_run),
 				"else",
 				$.statement_block,
 			),
@@ -719,14 +721,18 @@ module.exports = grammar({
 		// pattern test introduces.
 		condition: ($) => sep1(choice($.pattern_test, $._expression), "&&"),
 
-		// The pattern is a **run**: `Some v` and `Poll::Ready v` are two
-		// patterns juxtaposed, and a rule wanting one failed at the `=`.
+		// Plan 60: **scrutinee first**, joined by `is`. The pattern is still a
+		// run — `Some v` and `Poll::Ready v` are two patterns juxtaposed — and
+		// it now sits after the keyword, where `is` is what ends the
+		// scrutinee's expression.
 		//
-		// No `prec`, for the reason `section` lost its own: a static
-		// resolution discards the reading the parser needs when the `=`
-		// arrives. A real ambiguity is a declared conflict.
+		// `is` makes this cheaper than the `=` form was, not dearer: a keyword
+		// cannot be mistaken for the `=` of a binding or of a record literal
+		// field, so the comment this replaces — about a static resolution
+		// discarding the reading the parser needs — no longer has a case to
+		// describe.
 		pattern_test: ($) =>
-			seq(field("pattern", $.pattern_run), "=", field("source", $._expression)),
+			seq(field("source", $._expression), "is", field("pattern", $.pattern_run)),
 
 		// ------------------------------------------------------------- patterns
 

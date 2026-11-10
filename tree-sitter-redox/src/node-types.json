@@ -4711,6 +4711,10 @@
     "named": false
   },
   {
+    "type": "is",
+    "named": false
+  },
+  {
     "type": "loop",
     "named": false
   },

@@ -23,8 +23,8 @@ errors Oops
 -- lose its type to it. An arm is unambiguous because `->` ends the type.
 explain : Result<i32, Oops> -> String
 explain parsed = case parsed of
-  Ok v          -> "ok #{v}"
-  Err e : Oops  -> "error: #{e}"
+  Ok v -> "ok #{v}"
+  Err e : Oops -> "error: #{e}"
 
 parse_one : &str -> Result<usize, Oops>
 parse_one raw = Ok (.len raw)

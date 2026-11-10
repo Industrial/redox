@@ -77,7 +77,7 @@ fn dollar_extends_to_the_end_of_the_expression() {
 fn ascription_binds_looser_than_dollar() {
   let out = body("r = f $ x : u64");
   assert!(
-    out.contains("let __rdx_t: u64 = f(x);"),
+    out.contains("let r: u64 = f(x);"),
     "the whole application is ascribed:\n{out}"
   );
 }

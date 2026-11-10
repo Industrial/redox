@@ -176,15 +176,13 @@ pub(crate) fn control_flow(p: &mut Parser) -> Result<Option<Expr>, ParseError> {
   // lexer entry since plan 02 and no parser until plan 22.
   if p.check(&TokenKind::Kw(Keyword::Guard)) {
     p.advance();
-    let pattern = pattern_alt(p)?;
-    // Doc 30 §3.1: Rust's let-else with `let` dropped, which is what §7.1's
-    // lowering already was.
-    p.expect(
-      &TokenKind::Eq,
-      "expected `=` after a `guard` pattern — doc 30 §3.1 writes it as Rust's let-else \
-       without the `let`",
-    )?;
+    // Plan 60: scrutinee first here too — `guard slot is Some n else`.
     let source = Box::new(parse_expr(p, 0)?);
+    p.expect(
+      &TokenKind::Kw(Keyword::Is),
+      "expected `is` before a `guard` pattern",
+    )?;
+    let pattern = pattern_alt(p)?;
     p.expect(
       &TokenKind::Kw(Keyword::Else),
       "expected `else` — a `guard` without one is a binding, and let-else requires it",

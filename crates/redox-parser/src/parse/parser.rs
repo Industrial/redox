@@ -373,7 +373,7 @@ impl<'a> Parser<'a> {
 
     let name = self.ident("expected a name to begin a declaration")?;
     let head = self.signature_head(&name)?;
-    return self.equations(name, leading, start, &head, reserved, false);
+    self.equations(name, leading, start, &head, reserved, false)
   }
 
   /// A signature line, from the `:` to the line break.

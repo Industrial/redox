@@ -98,10 +98,7 @@ fn a_guard_lands_at_the_innermost_level() {
 #[test]
 fn an_ascribed_comprehension_types_its_collect() {
   let out = body("r = [ c | c in cs ] : Vec<char>");
-  assert!(
-    out.contains("let __rdx_t: Vec<char> = cs.into_iter()"),
-    "{out}"
-  );
+  assert!(out.contains("let r: Vec<char> = cs.into_iter()"), "{out}");
   assert!(out.contains(".collect();"), "{out}");
 }
 

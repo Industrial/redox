@@ -1,0 +1,12 @@
+error[RDX0101]: a pattern test is written `scrutinee is pattern` — plan 60 moved it off `=`, which now means definition and nothing else
+  --> pattern_test_on_equals.sdx:14:6
+   |
+14 |   if Some v = o
+   |      ^^^^
+
+error[RDX0102]: expected an expression
+  --> pattern_test_on_equals.sdx:15:5
+   |
+15 |     return v
+   |     ^
+

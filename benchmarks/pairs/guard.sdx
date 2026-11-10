@@ -3,6 +3,6 @@
 
 halve : Option<i32> -> i32
 halve o =
-  guard Some v = o else
+  guard o is Some v else
     return 0
   v / 2

@@ -1,0 +1,16 @@
+-- Plan 60 leaf 2: the retired `=` pattern test, and the diagnostic that is
+-- the migration guide.
+--
+-- Every program written before that row spells a pattern test `P = e`, so the
+-- error message has to say what to write instead — plan 52's and plan 59's
+-- choice, applied a third time.
+--
+-- Detected with the same scanner the `is` form uses, given the other marker,
+-- so the message cannot describe a shape the detection does not find. The
+-- depth rule is what keeps a record literal's `=` out of it.
+
+check : Option<i32> -> i32
+check o =
+  if Some v = o
+    return v
+  0

@@ -24,7 +24,7 @@
   "import" "module" "data" "newtype" "type" "class" "instance" "errors"
   "test" "const" "static" "deriving" "from" "as" "where" "otherwise"
   "if" "else" "while" "until" "for" "in" "loop" "break" "continue"
-  "return" "assert" "guard" "with" "case" "of" "async" "try" "catch"
+  "return" "assert" "guard" "is" "with" "case" "of" "async" "try" "catch"
   "mut" "move" "or"
   "rust" "unsafe" "extern" "union"
 ] @keyword

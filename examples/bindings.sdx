@@ -60,5 +60,5 @@ main =
   print inner::depth
   -- The case only a run catches. `built` prints once per call, so this prints
   -- `built` **twice** and then 14; a memoised binding would print it once.
-  print (twice (\-> built))
+  print (twice (\ -> built))
   ()

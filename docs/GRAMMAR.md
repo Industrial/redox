@@ -145,7 +145,7 @@ checked against the host language instead of against this project's history.
 | Compound assignment | `SUGARED` | `examples/control.sdx` — all five of `+=`, `-=`, `*=`, `/=`, `%=`. Shipped in plan 20 and graded here for the first time |
 | Shadowing | `PASSTHROUGH` | `examples/control.sdx` — an inner `n = 1` inside a nested block over an outer `n`, which is the contrast that makes `:=` necessary. Cited `examples/expressions.sdx` until plan 54; that file holds exactly one binding, and nothing in the corpus shadowed anything |
 | `if` / `else` | `SUGARED` | `examples/control.sdx` — an expression, with layout, and **one spelling** since plan 55 leaf 7 retired `then`. A conditional in argument position is written indented inside the brackets (plan 65); inside a `#{…}` interpolation it cannot be written at all, and `bracketed` calls one instead |
-| `if let` | `SUGARED` | `examples/control.sdx` — `if P = e` |
+| `if let` | `SUGARED` | `examples/draw_condition.sdx` — `if e is P`, plan 60. Spelled `if P = e` until that row moved the pattern test onto `is` and put the scrutinee first |
 | `let` chains | `SUGARED` | `examples/draw_condition.sdx` — the draw arrow in a condition (doc 30) |
 | `while`, `while let` | `SUGARED` | `examples/control.sdx` |
 | `loop` | `SUGARED` | `examples/control.sdx` |

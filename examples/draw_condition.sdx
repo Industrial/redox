@@ -15,7 +15,7 @@
 -- plan's §10.
 first_or : Option<i32> -> i32 -> i32
 first_or o fallback =
-  if Some v = o
+  if o is Some v
     return v
   fallback
 
@@ -33,9 +33,9 @@ first_or o fallback =
 -- rung is the function's tail.
 describe : Option<i32> -> &'static str
 describe o =
-  if Some v = o && v > 2
+  if o is Some v && v > 2
     "big"
-  else if Some _ = o
+  else if o is Some _
     "small"
   else
     "nothing"
@@ -47,7 +47,7 @@ total : Vec<i32> -> i32
 total xs =
   mut stack = xs
   mut sum = 0
-  while Some v = .pop stack
+  while .pop stack is Some v
     sum += v
   sum
 
@@ -57,7 +57,7 @@ total xs =
 -- it is a check rustc can make.
 halve : Option<i32> -> i32
 halve o =
-  guard Some v = o else
+  guard o is Some v else
     return 0
   v / 2
 
@@ -70,8 +70,8 @@ halve o =
 -- AGENTS.md states — but the parentheses are the spelling.
 unwrap_nested : Option<Option<i32>> -> i32
 unwrap_nested o = case o of
-  y | Some (Some v) = y -> v
-  y | Some _ = y -> -1
+  y | y is Some (Some v) -> v
+  y | y is Some _ -> -1
   _ -> -2
 
 -- A pattern test carries a **value** out of an `if`, not only an effect.
@@ -83,7 +83,7 @@ unwrap_nested o = case o of
 -- at the line break, which is where the condition ended anyway.
 label : Option<i32> -> &'static str
 label o =
-  if Some _ = o
+  if o is Some _
     "present"
   else
     "absent"

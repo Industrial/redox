@@ -6,8 +6,11 @@
 //!
 //! ```text
 //! n = 1 : u64         let n = {
-//!                         let __rdx_t: u64 = 1;
-//!                 →       __rdx_t
+//!                 →       let n: u64 = 1;
+//!
+//! Plan 62 leaf 1 replaced the block in **binding position** with Rust's own
+//! annotated `let`. The block survives where the ascription is genuinely
+//! nested, which is what the four tests below now split on.
 //!                     };
 //! ```
 //!
@@ -38,10 +41,7 @@ fn body(src: &str) -> String {
 #[test]
 fn a_colon_ascribes() {
   let out = body("n = 1 : u64");
-  assert!(
-    out.contains("let n = {\n        let __rdx_t: u64 = 1;\n        __rdx_t\n    };"),
-    "{out}"
-  );
+  assert!(out.contains("let n: u64 = 1;"), "{out}");
 }
 
 /// The other half of plan 52, and the one that would break every existing
@@ -62,7 +62,7 @@ fn a_colon_colon_is_still_a_path() {
 fn ascription_binds_looser_than_every_operator() {
   let out = body("total = 1 + 2 : u64");
   assert!(
-    out.contains("let __rdx_t: u64 = 1 + 2;"),
+    out.contains("let total: u64 = 1 + 2;"),
     "the sum is ascribed, not the `2`:\n{out}"
   );
 }
@@ -72,7 +72,7 @@ fn ascription_binds_looser_than_every_operator() {
 #[test]
 fn a_generic_type_survives_verbatim() {
   let out = body("set = xs : HashSet<i32>");
-  assert!(out.contains("let __rdx_t: HashSet<i32> = xs;"), "{out}");
+  assert!(out.contains("let set: HashSet<i32> = xs;"), "{out}");
 }
 
 /// A path *inside* an ascribed type must not end the type — doc 03 §14.1's
@@ -80,7 +80,7 @@ fn a_generic_type_survives_verbatim() {
 #[test]
 fn a_path_inside_an_ascribed_type_is_kept() {
   let out = body("e = x : fmt::Result");
-  assert!(out.contains("let __rdx_t: fmt::Result = x;"), "{out}");
+  assert!(out.contains("let e: fmt::Result = x;"), "{out}");
 }
 
 /// `::` no longer ascribes, however it is spaced — plan 52 criterion 2.

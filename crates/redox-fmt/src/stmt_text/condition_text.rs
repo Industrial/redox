@@ -31,9 +31,12 @@ pub(crate) fn condition_text(condition: &Condition, indent: usize, source: &str)
         pattern,
         source: from,
       } => format!(
-        "{} = {}",
-        pattern_text(pattern),
-        expr_text(from, required, indent, source)
+        // Plan 60: scrutinee first, joined by `is`. The node kept its field
+        // order — `pattern` then `source` — so only the printing reversed,
+        // which is the same shape the parser's change took.
+        "{} is {}",
+        expr_text(from, required, indent, source),
+        pattern_text(pattern)
       ),
     })
     .collect::<Vec<_>>()

@@ -41,11 +41,15 @@ pub(crate) mod callable;
 /// What changed is the two arms that read a bare name as a method: those are
 /// now ordinary calls, which is the whole of this row's output.
 ///
-/// This is also the row that made plan 66's composition usable. `5 |> double
-/// >>> bump` fell to the bare-name arm and emitted
+/// This is also the row that made plan 66's composition usable. A composition
+/// piped into fell to the bare-name arm and emitted
 /// `5.|__rdx_1| bump(double(__rdx_1))()` — not valid Rust at all — because a
 /// closure is not a method name. Composition landed first and was unreachable
 /// through a pipeline until now.
+///
+/// (The wrapping above avoids starting a line with the forward operator:
+/// rustdoc reads a leading `>` as a blockquote marker and `rustdoc::…`'s
+/// quote-line lint then fires on every line after it.)
 pub(crate) fn pipeline(lhs: &Expr, rhs: &Expr, indent: usize) -> String {
   match unparen(rhs) {
     // `a |> .name args` and `a |> .name` — plan 57's method-as-function,

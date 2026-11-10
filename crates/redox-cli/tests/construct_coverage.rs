@@ -787,20 +787,23 @@ const WITNESSES: &[Covers] = &[
   },
   Covers {
     row: "if let",
-    spelling: "`if Some v = o`",
-    witness: Witness::Toks(&["if", "«id»", "«id»", "="]),
+    spelling: "`if o is Some v`",
+    witness: Witness::Toks(&["if", "«id»", "is", "«id»"]),
   },
   Covers {
     row: "let chains",
-    spelling: "`if Some v = o && v > 2`",
-    witness: Witness::Toks(&["if", "«any»", "«any»", "=", "«any»", "&&"]),
+    spelling: "`if o is Some v && v > 2`",
+    witness: Witness::Toks(&["if", "«any»", "is", "«any»", "«any»", "&&"]),
   },
   Covers {
     row: "while, while let",
-    spelling: "`while c` and `while Some v = stack.pop ()`",
+    spelling: "`while c` and `while .pop stack is Some v`",
     witness: Witness::All(&[
       Witness::Toks(&["while"]),
-      Witness::Toks(&["while", "«id»", "«id»", "="]),
+      // `while .pop stack is Some v` — the scrutinee is a method call, so it
+      // is three tokens rather than one. Counted rather than wildcarded,
+      // because a lone `is` would match the keyword anywhere.
+      Witness::Toks(&["while", "«any»", "«any»", "«any»", "is"]),
     ]),
   },
   Covers {

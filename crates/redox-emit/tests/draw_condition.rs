@@ -34,7 +34,7 @@ fn body(src: &str) -> String {
 #[test]
 fn a_pattern_test_in_an_if_emits_if_let() {
   assert_eq!(
-    body("  if Some v = x\n    print v\n"),
+    body("  if x is Some v\n    print v\n"),
     "if let Some(v) = x {\n    println!(\"{}\", v);\n}"
   );
 }
@@ -43,7 +43,7 @@ fn a_pattern_test_in_an_if_emits_if_let() {
 /// which is why doc 18 §3.1 could replace `is` without touching the lowering.
 #[test]
 fn the_pattern_stays_on_the_left() {
-  let out = body("  if Ok raw = read p\n    print raw\n");
+  let out = body("  if read p is Ok raw\n    print raw\n");
   assert!(out.starts_with("if let Ok(raw) = read(p) {"), "{out}");
 }
 
@@ -59,7 +59,7 @@ fn the_pattern_stays_on_the_left() {
 #[test]
 fn a_let_chain_is_one_flat_condition() {
   assert_eq!(
-    body("  if Some v = x && v > 2\n    print v\n"),
+    body("  if x is Some v && v > 2\n    print v\n"),
     "if let Some(v) = x\n    && v > 2\n{\n    println!(\"{}\", v);\n}"
   );
 }
@@ -69,7 +69,7 @@ fn a_let_chain_is_one_flat_condition() {
 #[test]
 fn a_let_chain_takes_an_else() {
   assert_eq!(
-    body("  if Some v = x && v > 2\n    print v\n  else\n    print 0\n"),
+    body("  if x is Some v && v > 2\n    print v\n  else\n    print 0\n"),
     "if let Some(v) = x\n    && v > 2\n{\n    println!(\"{}\", v);\n} else {\n    println!(\"{}\", 0);\n}"
   );
 }
@@ -79,7 +79,7 @@ fn a_let_chain_takes_an_else() {
 #[test]
 fn a_chain_may_hold_a_pattern_test_anywhere() {
   assert_eq!(
-    body("  if n > 0 && Some v = x && v > n\n    print v\n"),
+    body("  if n > 0 && x is Some v && v > n\n    print v\n"),
     "if n > 0\n    && let Some(v) = x\n    && v > n\n{\n    println!(\"{}\", v);\n}"
   );
 }
@@ -90,7 +90,7 @@ fn a_chain_may_hold_a_pattern_test_anywhere() {
 #[test]
 fn a_two_operand_chain_with_the_let_last_stays_on_one_line() {
   assert_eq!(
-    body("  if n > 0 && Some v = x\n    print v\n"),
+    body("  if n > 0 && x is Some v\n    print v\n"),
     "if n > 0 && let Some(v) = x {\n    println!(\"{}\", v);\n}"
   );
 }
@@ -100,14 +100,14 @@ fn a_two_operand_chain_with_the_let_last_stays_on_one_line() {
 #[test]
 fn a_pattern_test_in_a_while_emits_while_let() {
   assert_eq!(
-    body("  while Some v = .pop stack\n    print v\n"),
+    body("  while .pop stack is Some v\n    print v\n"),
     "while let Some(v) = stack.pop() {\n    println!(\"{}\", v);\n}"
   );
 }
 
 #[test]
 fn a_while_let_chain_emits_as_rusts() {
-  let out = body("  while Some v = q && v > 0\n    print v\n");
+  let out = body("  while q is Some v && v > 0\n    print v\n");
   assert!(
     out.starts_with("while let Some(v) = q\n    && v > 0\n{"),
     "{out}"
@@ -122,7 +122,7 @@ fn a_while_let_chain_emits_as_rusts() {
 /// lowering to something plausible.
 #[test]
 fn until_with_a_pattern_is_an_error() {
-  let failure = parse_source("main : ()\nmain =\n  until Some v = x\n    print v\n")
+  let failure = parse_source("main : ()\nmain =\n  until x is Some v\n    print v\n")
     .expect_err("`until` cannot hold a pattern test");
   let redox_parser::ParseFailure::Parse(errors) = failure else {
     panic!("expected a parse failure, not a lex one");
@@ -153,7 +153,7 @@ fn until_without_a_pattern_still_works() {
 #[test]
 fn guard_emits_let_else() {
   assert_eq!(
-    body("  guard Ok raw = read p else\n    return 0\n"),
+    body("  guard read p is Ok raw else\n    return 0\n"),
     "let Ok(raw) = read(p) else {\n    return 0;\n};"
   );
 }
@@ -168,7 +168,7 @@ fn a_guards_else_takes_any_diverging_form() {
     ("continue", "continue;"),
     ("panic \"no\"", "panic!(\"no\");"),
   ] {
-    let out = body(&format!("  guard Some v = o else\n    {sdx}\n"));
+    let out = body(&format!("  guard o is Some v else\n    {sdx}\n"));
     assert_eq!(
       out,
       format!("let Some(v) = o else {{\n    {want}\n}};"),
@@ -181,7 +181,7 @@ fn a_guards_else_takes_any_diverging_form() {
 /// that cannot exit is a `let`.
 #[test]
 fn a_guard_without_an_else_is_an_error() {
-  assert!(parse_source("main : ()\nmain =\n  guard Some v = o\n  print v\n").is_err());
+  assert!(parse_source("main : ()\nmain =\n  guard o is Some v\n  print v\n").is_err());
 }
 
 // --- §5.6: an arm guard ----------------------------------------------------
@@ -191,7 +191,7 @@ fn a_guard_without_an_else_is_an_error() {
 /// that promises an unstable lowering cannot ship.
 #[test]
 fn an_arm_guard_may_be_a_pattern_test() {
-  let out = xrs("f : Option<i32> -> i32\nf o = case o of\n  y | Some v = y -> v\n  _ -> 0\n");
+  let out = xrs("f : Option<i32> -> i32\nf o = case o of\n  y | y is Some v -> v\n  _ -> 0\n");
   assert!(out.contains("y if let Some(v) = y => v,"), "{out}");
 }
 
@@ -206,14 +206,14 @@ fn an_expression_arm_guard_still_works() {
 
 /// A pattern test in an `if` used as a **value**.
 ///
-/// Written `t = if Some _ = o then "yes" else "no"` until plan 55 leaf 7
+/// Written `t = if o is Some _ then "yes" else "no"` until plan 55 leaf 7
 /// retired `then`, and the asserted Rust is unchanged: `holds_a_pattern_test`
 /// stopped its scan at `then` and now stops at the line break, which is
 /// where the condition ended either way.
 #[test]
 fn the_if_expression_takes_a_pattern_test() {
   assert_eq!(
-    body("  t = if Some _ = o\n    \"yes\"\n  else\n    \"no\"\n"),
+    body("  t = if o is Some _\n    \"yes\"\n  else\n    \"no\"\n"),
     "let t = if let Some(_) = o { \"yes\" } else { \"no\" };"
   );
 }
@@ -262,7 +262,7 @@ fn a_constructor_pattern_applies_by_juxtaposition() {
     ("Some (Some v)", "Some(Some(v))"),
     ("Event::Close d", "Event::Close(d)"),
   ] {
-    let out = body(&format!("  if {sdx} = x\n    print 1\n"));
+    let out = body(&format!("  if x is {sdx}\n    print 1\n"));
     assert!(out.starts_with(&format!("if let {want} = x {{")), "{out}");
   }
 }
@@ -273,7 +273,7 @@ fn a_constructor_pattern_applies_by_juxtaposition() {
 /// resolve.
 #[test]
 fn a_nullary_constructor_emits_no_parentheses() {
-  let out = body("  if Close = e\n    print 1\n");
+  let out = body("  if e is Close\n    print 1\n");
   assert!(out.starts_with("if let Close = e {"), "{out}");
 }
 

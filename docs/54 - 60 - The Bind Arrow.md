@@ -401,7 +401,66 @@ and §6 is where the bills are listed before they arrive.
 
 ## 10. Result
 
-*Not yet executed.*
+**Done 2026-11-10.** `is` is the pattern test with the scrutinee first, `=` means definition and
+nothing else, and `<-` is read by the enclosing block modifier rather than meaning `await`
+unconditionally.
+
+### 10.1 Leaf 3 was fixing a miscompile, not adding a spelling
+
+The plan presents leaf 3 as re-siting today's lowering onto the modified-context rule. Measured,
+it was repairing output rustc rejects:
+
+```text
+attempt x = try          fn attempt(x: &str) -> Result<i32, String> {
+  a <- parse_it x    ->      (|| {
+  Ok (a + 1)                     let a = parse_it(x).await;
+```
+
+`.await` inside a non-async closure. The token meant `await` whatever block it sat in, and **no
+corpus file had a `<-` inside a `try`**, so nothing caught it — the same undiscoverable-construct
+shape plan 51 exists to report, in the row that would have fixed it.
+
+`emit_await` is `emit_bind` now. A function called `emit_await` that sometimes writes `?` is the
+stale-name hazard this project keeps recording, and the mode it reads is a property of the
+*context* rather than of the token: `BindScope` is entered by `try` with `Question` and by an
+`async` block with `Await`, so the two nest in both directions.
+
+### 10.2 The node did not change, which is what made the reversal cheap
+
+`ConditionOperand::Pattern { pattern, source }` is untouched, so `emit_condition` and every
+lowering are untouched: only the **parse order** and the token moved. Doc 30 §7 decision 3 chose
+`=` partly to avoid reversing the operands; this row takes the reversal as the improvement and
+pays nothing downstream for it.
+
+The grammar got *simpler*, not harder. The old `pattern_test` rule carried a comment explaining
+why it could take no `prec` — a static resolution would discard the reading the parser needs
+when the `=` arrives. A keyword cannot be mistaken for the `=` of a binding or of a record
+field, so that comment no longer has a case to describe.
+
+### 10.3 `is` cost five highlighters and one count
+
+Leaf 1 said the `=` token is consumed at two sites. True, and the row's real surface is wider:
+`is` had to reach `grammar.js`'s `pattern_test` **and** `guard_statement`, the tree-sitter
+highlight query, the Vim syntax file, the TextMate grammar, and the Zed copy of the query — which
+is checked byte-for-byte against the grammar's and whose test names its own fix.
+
+And `construct_coverage` holds **token patterns** for three rows: `if let`, `let chains` and
+`while let`. Each described the `=` spelling, so each went stale the moment the surface moved.
+The `while` one needed counting rather than wildcarding — `while .pop stack is Some v` has a
+three-token scrutinee, and a lone `is` would match the keyword anywhere.
+
+### 10.4 Ten corpus sites, not the seven a careful grep found
+
+Two were missed by a pattern looking for `«Upper» «lower» =`: a nested record pattern
+(`if Some (Point { x = 0, y = 0, .. }) = o`) and an `else if`. Two more were **arm guards**
+inside a `case`. The compiler found all four; the grep found six of ten.
+
+### 10.5 The breaking change, taken deliberately
+
+`is` is reserved again. §11.2 is right that this is a break rather than an addition — `is = 5`
+compiled until this row — and `leaves_ordinary_identifiers_alone` is the test that said so. `is`
+has left that array with the reason in a comment; `island` and `notable` stay, because they are
+the cases that matter: a keyword must not swallow an identifier that merely begins with it.
 
 ---
 

@@ -69,7 +69,7 @@ fn a_field_section_selects() {
 }
 
 /// A **bare** `.name` is the method reference — plan 57, which retired the
-/// `(|> name)` section that spelled it: a method is a function whose last
+/// `(|> .name)` section that spelled it: a method is a function whose last
 /// argument is its receiver, so applied to nothing it is a value awaiting
 /// that argument and lowers to the closure the section lowered to, byte for
 /// byte.
@@ -84,7 +84,7 @@ fn a_bare_dot_name_is_a_method_reference() {
   assert!(out.contains("let f = |__rdx_1| __rdx_1.len();"), "{out}");
   assert_ne!(body("f = (.len)"), out, "a field is not a method");
   let refused =
-    parse_source("main : ()\nmain =\n  f = (|> len)\n  ()\n").expect_err("`(|> name)` is retired");
+    parse_source("main : ()\nmain =\n  f = (|> len)\n  ()\n").expect_err("`(|> .name)` is retired");
   assert!(
     format!("{refused:?}").contains("PipelineSection"),
     "{refused:?}"
@@ -143,7 +143,7 @@ fn a_grouping_is_still_a_grouping() {
 /// A section is a value, so it is an argument with nothing added.
 #[test]
 fn a_section_is_an_argument() {
-  let out = body("r = xs |> filter (> 0) |> count");
+  let out = body("r = xs |> .filter (> 0) |> .count");
   assert!(
     out.contains("xs.filter(|__rdx_1| __rdx_1.gt(&0)).count()"),
     "{out}"
@@ -155,6 +155,6 @@ fn a_section_is_an_argument() {
 /// rustfmt rewrites.
 #[test]
 fn a_range_is_written_tight() {
-  let out = body("r = (1 .. 4) |> count");
+  let out = body("r = (1 .. 4) |> .count");
   assert!(out.contains("(1..4).count()"), "{out}");
 }

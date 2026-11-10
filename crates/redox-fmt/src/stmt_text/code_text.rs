@@ -88,9 +88,10 @@ pub(crate) fn code_text(expr: &Expr, indent: usize, source: &str) -> String {
       otherwise,
       ..
     } => format!(
-      "guard {} = {} else\n{}",
-      pattern_text(pattern),
+      // Plan 60: scrutinee first here too.
+      "guard {} is {} else\n{}",
       expr_text(from, 0, indent, source),
+      pattern_text(pattern),
       block_text(otherwise, inner, source)
     ),
     Expr::If {

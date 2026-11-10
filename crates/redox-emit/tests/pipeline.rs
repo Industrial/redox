@@ -1,6 +1,6 @@
 //! Doc 18 §4's receiver pipeline.
 //!
-//! `a |> f` becomes `a.f()`. It was parsed from plan 03 onward and emitted a
+//! `a |> .f` becomes `a.f()`. It was parsed from plan 03 onward and emitted a
 //! `compile_error!` placeholder until now — an honest hole rather than
 //! something that merely looked plausible, which is why this could sit
 //! unimplemented without anyone shipping wrong code against it.
@@ -18,15 +18,15 @@ fn body(src: &str) -> String {
 #[test]
 fn a_bare_name_is_a_method_call() {
   assert!(
-    body("r = xs |> iter").contains("let r = xs.iter();"),
+    body("r = xs |> .iter").contains("let r = xs.iter();"),
     "{}",
-    body("r = xs |> iter")
+    body("r = xs |> .iter")
   );
 }
 
 #[test]
 fn a_chain_nests_left_to_right() {
-  let out = body("r = numbers |> iter |> map f |> sum");
+  let out = body("r = numbers |> .iter |> .map f |> .sum");
   assert!(
     out.contains("let r = numbers.iter().map(f).sum();"),
     "{out}"
@@ -37,7 +37,7 @@ fn a_chain_nests_left_to_right() {
 /// its arguments as the call's — one method call, not a call of a call.
 #[test]
 fn an_application_becomes_one_method_call() {
-  let out = body("r = xs |> fold 0 f");
+  let out = body("r = xs |> .fold 0 f");
   assert!(out.contains("xs.fold(0, f)"), "{out}");
   assert!(!out.contains("fold(0, f)("), "not a call of a call:\n{out}");
 }
@@ -46,7 +46,7 @@ fn an_application_becomes_one_method_call() {
 /// uses.
 #[test]
 fn a_lambda_argument_survives() {
-  let out = body("r = xs |> map (\\n -> n * n)");
+  let out = body("r = xs |> .map (\\n -> n * n)");
   assert!(out.contains("xs.map(|n| n * n)"), "{out}");
 }
 
@@ -59,7 +59,7 @@ fn a_lambda_argument_survives() {
 /// which is what the placeholder is for.
 #[test]
 fn no_operator_emits_the_placeholder() {
-  for src in ["r = xs |> iter", "r = a ?? b"] {
+  for src in ["r = xs |> .iter", "r = a ?? b"] {
     assert!(
       !body(src).contains("compile_error!"),
       "`{src}` is lowered now:\n{}",

@@ -1,6 +1,8 @@
 use crate::emit::application::emit_application;
 use crate::emit::ascribed_list::ascribed_list;
 use crate::emit::assert_call::assert_call;
+use crate::emit::bind_mode::BindMode;
+use crate::emit::bind_scope::BindScope;
 use crate::emit::binding_scope::BindingScope;
 use crate::emit::binding_text::binding_text;
 use crate::emit::case::emit_case;
@@ -125,12 +127,23 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
     Expr::MethodRef { name, .. } => method_ref(name, &[], indent),
     // Doc 03 §12.4's `try` block — plan 28, and a block *modifier* since plan
     // 55 leaf 7.
-    Expr::TryBlock { body, .. } => try_block(body, indent),
+    // Plan 60 leaf 3: inside a `try`, `<-` is the `?`. The guard lives for
+    // the body's emission and restores the outer meaning after it, because
+    // the modifiers nest in both directions.
+    Expr::TryBlock { body, .. } => {
+      let _bind = BindScope::enter(BindMode::Question);
+      try_block(body, indent)
+    }
     // Doc 03 §14.3's `async` block — plan 39. `emit_block` already writes a
     // block expression, so this is that block with one word in front, which
     // is what plan 55 §1.7 means by a **modifier**: the lowering was always
     // a block plus an adjective.
-    Expr::AsyncBlock { body, .. } => format!("async {}", emit_block(&None, body, indent)),
+    Expr::AsyncBlock { body, .. } => {
+      // And inside an `async` block it is `await` again, even when that block
+      // sits inside a `try`.
+      let _bind = BindScope::enter(BindMode::Await);
+      format!("async {}", emit_block(&None, body, indent))
+    }
     // Plan 45 leaf 2. Delegated because a one-expression body collapses to a
     // single line, which is what rustfmt does and what the gate compares
     // against.
