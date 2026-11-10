@@ -1,0 +1,35 @@
+# Redox for Helix. Plan 49 leaf 4.
+#
+# Merge this into `~/.config/helix/languages.toml`; Helix merges, it does not
+# replace, so the two stanzas can be appended to an existing file.
+#
+# Every key below is one Helix documents, and
+# `crates/redox-cli/tests/editors.rs` checks that against an allow-list — there
+# is no `hx` on the machine this was developed on, so a typo in a key Helix
+# would silently ignore is the failure mode this file actually has.
+
+[[language]]
+name = "redox"
+scope = "source.redox"
+injection-regex = "redox"
+file-types = ["sdx"]
+comment-tokens = ["--"]
+block-comment-tokens = []
+indent = { tab-width = 2, unit = "  " }
+language-servers = ["redox-lsp"]
+auto-format = false
+roots = ["Cargo.toml"]
+
+# `.xrs` is deliberately absent. It is ordinary Rust — the compiler's whole
+# premise — so Helix's own `rust` language handles it, and claiming it here
+# would take highlighting away from the file rather than add it.
+
+[[grammar]]
+name = "redox"
+# Built from this checkout rather than fetched: the grammar is in this
+# repository, not published. `hx --grammar build` compiles whatever `source`
+# points at.
+source = { path = "../../tree-sitter-redox" }
+
+[language-server.redox-lsp]
+command = "redox-lsp"

@@ -1,0 +1,25 @@
+# Redox for Zed. Plan 49 leaf 4.
+#
+# A Zed extension is a manifest plus `languages/<name>/` holding a config and
+# the tree-sitter queries. `crates/redox-cli/tests/editors.rs` checks that
+# every key here is one Zed documents and that every path named below exists —
+# there is no `zed` on the machine this was developed on, so a manifest
+# pointing at a moved file is the failure mode this directory actually has.
+
+id = "redox"
+name = "Redox"
+description = "Redox language support — highlighting, diagnostics and formatting via redox-lsp."
+version = "0.1.0"
+schema_version = 1
+authors = ["Redox"]
+repository = "https://github.com/redox-lang/redox"
+
+[grammars.redox]
+# Built from this checkout rather than fetched: the grammar is in this
+# repository and is not published. Replace with a `repository`/`rev` pair if
+# you vendor it elsewhere.
+path = "../../tree-sitter-redox"
+
+[language_servers.redox-lsp]
+name = "Redox Language Server"
+languages = ["Redox"]

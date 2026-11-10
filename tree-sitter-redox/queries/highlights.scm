@@ -9,12 +9,17 @@
 
 ; ------------------------------------------------------------------ keywords
 
+; Plan 49 added the last four. They were in `grammar.js` from plan 45 and in
+; no highlighter, because nothing compared the two lists — `editors.rs`'s
+; `every_grammar_keyword_is_coloured` now does, for this file and for the Vim
+; and TextMate copies of the same list.
 [
   "import" "module" "data" "newtype" "type" "class" "instance" "errors"
   "test" "const" "static" "deriving" "from" "as" "where" "otherwise"
   "if" "then" "else" "while" "until" "for" "in" "loop" "break" "continue"
   "return" "assert" "guard" "with" "case" "of" "do" "async" "try" "catch"
   "mut" "move" "or"
+  "rust" "unsafe" "extern" "union"
 ] @keyword
 
 (visibility) @keyword

@@ -152,7 +152,7 @@ fn plan_counts(root: &Path) -> (usize, usize, usize) {
     // doc 04's *other* tables — the `Plan | Document` index has the same
     // `| NN | `slug` |` opening and no status, and counting those four rows
     // put the total at 54 for a 50-row register.
-    match last_status(line) {
+    match row_status(line) {
       None => continue,
       Some("superseded") => superseded += 1,
       Some("done") => done += 1,
@@ -179,12 +179,49 @@ fn split_cells(line: &str) -> Vec<String> {
     .collect()
 }
 
-/// The last status marker on a register row, or `None`.
-fn last_status(line: &str) -> Option<&'static str> {
+/// A register row's status: the **first** marker in its **last cell**.
+///
+/// Both halves are corrections, each made after the generator got a count
+/// wrong, and the third one is why this is not simply `rfind`:
+///
+/// 1. Scanning the whole line counted doc 04's `Plan | Document` index as four
+///    extra rows and totalled 54 for a register of 50 (plan 47 §10).
+/// 2. Taking the *last* marker on the line fixed that, because a status cell
+///    like row 44's opens `` `done` `` and then writes paragraphs that mention
+///    other plans.
+/// 3. But a status cell is **prose about statuses**, so the last marker in it
+///    need not be its own. Plan 49's cell opens `` `done` `` and later says
+///    *"rows 40–44 … gained a trailing `done`"* and *"this cell opens
+///    `planned`"* — so `rfind` read the row as outstanding and `STATUS.md`
+///    reported 44 done when 45 were (plan 49 §10.7).
+///
+/// The status **column** is the last one and a status **cell** opens with its
+/// status, so first-marker-in-last-cell is the rule that matches how the
+/// register is actually written.
+fn row_status(line: &str) -> Option<&'static str> {
+  first_status(status_cell(line))
+}
+
+/// The register's last column.
+///
+/// Cells are separated by `" | "`. An escaped pipe inside a cell is written
+/// `` `\|` `` with no surrounding spaces — plan 47 §10 — so it does not split
+/// here, which is the assumption this makes and the reason to state it.
+fn status_cell(line: &str) -> &str {
+  line
+    .trim_end()
+    .trim_end_matches('|')
+    .trim_end()
+    .rsplit(" | ")
+    .next()
+    .unwrap_or("")
+}
+
+fn first_status(cell: &str) -> Option<&'static str> {
   ["done", "superseded", "not-started", "planned", "partial"]
     .into_iter()
-    .filter_map(|s| line.rfind(&format!("`{s}`")).map(|at| (at, s)))
-    .max_by_key(|(at, _)| *at)
+    .filter_map(|s| cell.find(&format!("`{s}`")).map(|at| (at, s)))
+    .min_by_key(|(at, _)| *at)
     .map(|(_, s)| s)
 }
 

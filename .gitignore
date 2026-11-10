@@ -77,12 +77,30 @@ benchmarks/pairs/*.xrs.map
 # the point of the port is that its generated Rust can be read. Its source map
 # is still an artifact.
 conformance/*.xrs.map
+
+# Plan 49. `editors/vscode/` is a VSCode extension, so an `npm install` for
+# `vscode-languageclient` lands here; the VSIX payload is an explicit list
+# rather than a walk for exactly this reason. A built VSIX is an artifact —
+# `editors.rs` writes one into a temp directory on every run, and
+# `REDOX_VSIX_OUT` is how a reader asks for a copy.
+editors/vscode/node_modules/
+editors/vscode/package-lock.json
+*.vsix
+# The compiled tree-sitter parser each client's README builds. Not committed:
+# five platforms' binaries is a release problem, not an editor one (plan 49 §6).
+tree-sitter-redox/redox.so
 Cargo.lock
 Thumbs.db
 charts/
 config.json
 config.toml
 config.yaml
+# Plan 49: `config.toml` above is a bare pattern from the initial template, so
+# it matches at **any** depth — and it swallowed Zed's language config, which a
+# fresh clone would then not have. Criterion 6's path sweep did not catch it
+# because the file was on disk; `every_path_a_config_names_is_tracked` now asks
+# git rather than the filesystem.
+!editors/zed/languages/redox/config.toml
 dev-debug.log
 devenv.local.nix
 devenv.local.nix

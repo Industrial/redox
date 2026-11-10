@@ -1,0 +1,60 @@
+{
+	"name": "redox",
+	"displayName": "Redox",
+	"description": "Redox language support — highlighting, diagnostics and formatting via redox-lsp.",
+	"publisher": "redox-lang",
+	"version": "0.1.0",
+	"license": "MIT",
+	"engines": {
+		"vscode": "^1.75.0"
+	},
+	"categories": [
+		"Programming Languages",
+		"Formatters",
+		"Linters"
+	],
+	"main": "./src/extension.js",
+	"activationEvents": [
+		"onLanguage:redox"
+	],
+	"contributes": {
+		"languages": [
+			{
+				"id": "redox",
+				"aliases": [
+					"Redox",
+					"redox"
+				],
+				"extensions": [
+					".sdx"
+				],
+				"configuration": "./language-configuration.json"
+			}
+		],
+		"grammars": [
+			{
+				"language": "redox",
+				"scopeName": "source.redox",
+				"path": "./syntaxes/redox.tmLanguage.json"
+			}
+		],
+		"configuration": {
+			"title": "Redox",
+			"properties": {
+				"redox.server.path": {
+					"type": "string",
+					"default": "redox-lsp",
+					"description": "Path to the redox-lsp binary."
+				},
+				"redox.server.enable": {
+					"type": "boolean",
+					"default": true,
+					"description": "Start redox-lsp for .sdx files. Turn this off to keep TextMate highlighting only."
+				}
+			}
+		}
+	},
+	"dependencies": {
+		"vscode-languageclient": "^9.0.1"
+	}
+}
