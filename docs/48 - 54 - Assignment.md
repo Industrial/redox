@@ -3,7 +3,7 @@
 Plan ID: `assignment`
 Depends on: 52 (`type-colon`)
 Milestone: 9 — *surface coherence*
-Status: `in progress` — leaf 3 outstanding
+Status: `done`
 
 ---
 
@@ -276,9 +276,9 @@ than discovering it at the gate. The disclosure plan 20 wrote is why.
 
 ## 10. Result
 
-**Leaves 1, 2, 4 and 5 done; leaf 3 outstanding.** `:=` assigns, `=` still
-binds, and the limit plan 20 §10.2 disclosed is gone. The shadow lint has not
-been built — §10.6 says what it needs and why it was deferred.
+**Done.** `:=` assigns, `=` still binds, the limit plan 20 §10.2 disclosed is
+gone, and `RDX1003` warns on a bare `=` that rebinds a name already bound in
+the same statement list.
 
 ### 10.1 One node, not two, and no new match arm anywhere
 
@@ -373,35 +373,68 @@ of the other.
 Also as predicted, the formatter is a *writer* of the token and not only a
 reader. `kind_text.rs` is in §10.1 above.
 
-### 10.6 Leaf 3 — the shadow lint — is outstanding
+### 10.6 Leaf 3 — the shadow lint, and the two decisions it needed
 
-Deferred rather than attempted, for two measured reasons:
+Deferred until plan 53 had landed, for the reason §11.2 gives: leaf 3 says the
+lint is *"one list, in the parser"*, and `lint.rs`'s own module doc had already
+settled that a lint cannot live there — `ParseFailure` has no notion of a
+warning, and `Diagnostic` is the type that carries a `Severity`. It is in
+`crates/redox-driver/src/lint/`, over the AST.
 
-1. **Leaf 3 names the wrong crate.** It says the lint is *"one list, in the
-   parser"*. `crates/redox-driver/src/lint.rs`'s own module doc already
-   settled that a lint cannot live in the parser — `ParseFailure` has no notion
-   of a warning, and `Diagnostic` is the type that carries a `Severity`. The
-   lint belongs in `redox-driver/src/lint/`, over the AST.
-2. **Plan 53 landed the machinery it needs, in the same files, in this same
-   push.** `lint` now takes an `Option<&Program>` and
-   `redox-driver/src/lint/suppressed_spans.rs` already walks items, clauses,
-   `where` locals, statements and statement-owned blocks for pragmas. A shadow
-   lint is a second consumer of that walk, not a new one — and building it
-   concurrently with the walk itself would have meant two agents in one file.
+**Detection is lexical and suppression walks the tree**, which is plan 53's
+split reused rather than re-derived. And reused literally: plan 53's three
+`walk_*_for_pragmas.rs` files became a shared `ProgramWalk` parameterised by
+payload, so there is **one** statement descent in the crate with two consumers
+instead of two descents. That matters beyond tidiness — plan 55 leaf 1's AST
+collapse had exactly one place to migrate.
 
-What it still owes when it is built: `RDX1003` (plan 53 took `RDX1002`), a
-`tests/lint/` fixture because `code_coverage`'s `NOT_YET_REACHABLE` is `&[]`,
-a decision about what counts as "a name" when `Binding.pattern` is a
-`Pattern` rather than an `Ident`, and **a way for an author to say a shadow is
-meant** — `allow_pragma` is hard-coded to `unwrap`, so an intentional shadow
-would warn forever. Plan 53 parametrising the pragma is the cheaper order.
+**A destructuring binding contributes no name**, and the reason is the
+suggestion. `:=` assigns to *every* place on its left, so the rewrite is sound
+only when the statement rebinds exactly the names already bound. Partial
+overlap is the ordinary case for destructuring, and there the advice is a
+program that does not compile: `(a, c) := other` after `(a, b) = point` assigns
+to a `c` nothing bound, which is rustc's `E0425`. The alternative would also
+have needed a judgement on `Pattern::Or`, where a name is bound on *some*
+branch and "already bound" stops being a yes-or-no question. The narrow rule
+errs only toward silence, which is this lint's documented residue anyway.
 
-Measured, for whoever builds it: scanning every `.sdx` under `examples/`,
-`tests/` and `crates/` for two bindings of one name in the same statement list
-found **zero** hits before this row, and the one deliberate shadow added here
-is in a *nested* block, where criterion 5 says the lint must stay silent. So
-it will fire on nothing that exists, which is the right starting point and
-also means the corpus proves very little about it.
+It is narrow by statement kind too, for the same reason. Only a `Binding`
+counts: `for x in xs` scopes its binder to the body and is not a shadow, while
+`n <- f`, `guard P = e` and the draw arrow do bind into the rest of the list but
+have **no `:=` form**, so a warning there would name a problem and offer no fix.
+
+**The pragma is parametrised by a type, not a second string.** A `Lint` enum in
+`redox-diag` holds each lint's name once and derives both spellings from it, so
+`Lint::all()` makes recognition total and the producer cannot drift from the
+recogniser — `emit/trivia.rs`'s consume test is now
+`Lint::from_allow_attribute(…).is_some()`, so a lint added in `redox-diag` is
+consumed without that file being touched. `#[redox::allow(unwrap)]` is
+unchanged byte for byte, and whitespace inside the brackets is still not
+normalised. A pragma now silences the lint it names and no other.
+
+`RDX1003` carries **two** fixes in its help, because there are two intentions
+and the lint cannot tell them apart:
+
+```text
+warning[RDX1003]: `cursor` is already bound in this block — a bare `=` binds a
+second name rather than reassigning the first (plan 54 §1.1)
+  = help: to reassign instead, write `:=` and `mut` on the first binding; if the
+    shadow is meant, say so on the line above: `#[redox::allow(shadow)]`
+```
+
+`mut` is in there because without it the advice fails — `:=` on a non-`mut`
+binding is the `E0384` that `tests/check/immutable_assignment.sdx` pins. The
+span is the identifier's rather than the statement's, and sits inside the
+statement span so a leading pragma still suppresses it.
+
+**It fires on nothing that existed.** A throwaway probe ran `redox build` over
+all 108 `.sdx` files in the repository and found one hit: the fixture written
+for it. `examples/control.sdx`'s deliberate nested shadow stays silent, which is
+criterion 5.
+
+One note for whoever writes the next such probe: matching bare `"RDX1003"`
+reported a spurious second hit, because `RDX1002`'s *help text contains the
+string*. Match `warning[RDX1003]`.
 
 ### 10.7 Smaller findings
 
