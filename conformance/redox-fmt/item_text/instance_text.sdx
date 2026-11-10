@@ -34,4 +34,26 @@ import redox_ast::InstanceDecl
 -- | tree where a signature cannot.
 export(crate) instance_text : &InstanceDecl -> usize -> &str -> String
 instance_text decl indent source =
-  -- TODO plan 69: body
+  constraints = if .is_empty decl.constraints
+    String::new ()
+  else
+    printed : Vec<String> = decl.constraints
+      |> .iter
+      |> .map (\c -> format! \-> "#{c.trait_name.text} #{c.var.text}")
+      |> .collect
+    format! \-> "#{(.join ", " printed)} => "
+  r#class = case &decl.r#class of
+    Some r#class -> format! \-> "#{(target_text r#class)} "
+    None -> String::new ()
+  target = if .is_empty decl.target.args
+    target_text (&decl.target)
+  else
+    format! \-> "(#{(target_text (&decl.target))})"
+  header = format! \-> "instance #{constraints}#{r#class}#{target}"
+  if .is_empty decl.members
+    return header
+  printed : Vec<String> = decl.members
+    |> .iter
+    |> .map (\member -> member_text member (indent + 1) source)
+    |> .collect
+  format! \-> "#{header}\n#{(.join "\n" printed)}"

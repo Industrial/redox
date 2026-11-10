@@ -1,4 +1,5 @@
 use crate::pattern_text::pattern_text;
+
 use redox_ast::Pattern;
 
 /// One pattern in a position whose next token is a **keyword or an arrow**,

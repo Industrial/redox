@@ -13,4 +13,7 @@
 -- | not.
 export(crate) trimmed_tail : String -> String
 trimmed_tail text =
-  -- TODO plan 69: body
+  mut text = text
+  while .ends_with "\n\n" text
+    .pop text
+  text

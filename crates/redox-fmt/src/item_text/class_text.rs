@@ -1,5 +1,7 @@
 use crate::item_text::member_text::member_text;
+
 use crate::item_text::visibility_text::visibility_text;
+
 use redox_ast::ClassDecl;
 
 /// A `class` declaration and its members.
@@ -26,15 +28,12 @@ pub(crate) fn class_text(decl: &ClassDecl, indent: usize, source: &str) -> Strin
   let supers = if decl.supers.is_empty() {
     String::new()
   } else {
-    let printed: Vec<&str> = decl.supers.iter().map(|s| s.text.as_str()).collect();
-    format!("{} => ", printed.join(", "))
+    let names: Vec<&str> = decl.supers.iter().map(|s| s.text.as_str()).collect();
+    format!("{} => ", names.join(", "))
   };
   let params: String = decl.params.iter().map(|p| format!(" {}", p.text)).collect();
-  let header = format!(
-    "{}class {supers}{}{params}",
-    visibility_text(&decl.visibility),
-    decl.name.text,
-  );
+  let vis = visibility_text(&decl.visibility);
+  let header = format!("{}class {}{}{}", vis, supers, decl.name.text, params);
   if decl.members.is_empty() {
     return header;
   }
@@ -43,5 +42,5 @@ pub(crate) fn class_text(decl: &ClassDecl, indent: usize, source: &str) -> Strin
     .iter()
     .map(|member| member_text(member, indent + 1, source))
     .collect();
-  format!("{header}\n{}", printed.join("\n"))
+  format!("{}\n{}", header, printed.join("\n"))
 }

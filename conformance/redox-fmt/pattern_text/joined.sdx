@@ -9,4 +9,8 @@ import redox_ast::Pattern
 -- | and that is written at the call site rather than hidden in here.
 export(crate) joined : &[Pattern] -> String
 joined items =
-  -- TODO plan 69: body
+  -- `pattern_text` passed straight to `.map`, with no lambda: it is a **free
+  -- function**, and plan 68's `(.name)` problem was specific to a *method*
+  -- reference, where `(.name)` is the field selector.
+  parts : Vec<String> = items |> .iter |> .map pattern_text |> .collect
+  .join ", " parts

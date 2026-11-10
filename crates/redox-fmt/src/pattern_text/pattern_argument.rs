@@ -1,7 +1,9 @@
 pub(crate) mod stands_alone;
 
 use crate::pattern_text::pattern_argument::stands_alone::stands_alone;
+
 use crate::pattern_text::pattern_text;
+
 use redox_ast::Pattern;
 
 /// One pattern in a position where the next token could extend it —

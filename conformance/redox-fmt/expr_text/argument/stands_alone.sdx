@@ -28,5 +28,11 @@ import redox_ast::Expr
 -- | `f (self.x)` keeps its parentheses. Conservative, and the conservative
 -- | direction here adds a parenthesis rather than changing a program.
 export(crate) stands_alone : &Expr -> bool
-stands_alone expr =
-  -- TODO plan 69: body
+stands_alone expr = case expr of
+  Expr::Ident _ or Expr::Path { .. } or Expr::Num { .. } or Expr::Bool { .. } or Expr::Char { .. } or Expr::StrLit { .. } or Expr::StrInterp { .. } or Expr::RawLit { .. } -> true
+  Expr::Unit { .. } or Expr::Tuple { .. } or Expr::Section { .. } -> true
+  Expr::Paren { .. } -> true
+  Expr::Field { .. } or Expr::Index { .. } or Expr::Try { .. } -> true
+  Expr::MethodRef { .. } -> true
+  Expr::List { .. } or Expr::ArrayRepeat { .. } -> false
+  _ -> false

@@ -9,7 +9,7 @@
 /// The stored label excludes the quote, as the token's does.
 pub(crate) fn label_text(label: &Option<String>) -> String {
   match label {
-    Some(name) => format!("'{name} "),
+    Some(name) => format!("'{} ", name),
     None => String::new(),
   }
 }

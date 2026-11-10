@@ -1,8 +1,13 @@
 use crate::expr_text::expr_text;
+
 use crate::pattern_text::pattern_text;
+
 use crate::stmt_text::block_text::block_text;
+
 use crate::stmt_text::condition_text::condition_text;
+
 use crate::stmt_text::indent_text::indent_text;
+
 use redox_ast::{CaseArm, Expr};
 
 /// One `case` arm — `pattern -> body`, with an optional guard.
@@ -29,7 +34,7 @@ use redox_ast::{CaseArm, Expr};
 /// carried that survives (§1.7) — and it is `expr_text`'s arm, not this
 /// one's, because a labelled arm body is not a shape the surface has.
 pub(crate) fn case_arm_text(arm: &CaseArm, indent: usize, source: &str) -> String {
-  let guard = match &arm.guard {
+  let r#guard = match &arm.r#guard {
     Some(condition) => format!(" | {}", condition_text(condition, indent, source)),
     None => String::new(),
   };
@@ -41,19 +46,13 @@ pub(crate) fn case_arm_text(arm: &CaseArm, indent: usize, source: &str) -> Strin
     Some(ty) => format!(" : {}", ty.text),
     None => String::new(),
   };
-  let head = format!(
-    "{}{}{}{} ->",
-    indent_text(indent),
-    pattern_text(&arm.pattern),
-    ty,
-    guard
-  );
+  let pad = indent_text(indent);
+  let pattern = pattern_text(&arm.pattern);
+  let head = format!("{}{}{}{} ->", pad, pattern, ty, r#guard);
   match &arm.body {
     Expr::Block {
       label: None, body, ..
-    } => {
-      format!("{head}\n{}", block_text(body, indent + 1, source))
-    }
-    body => format!("{head} {}", expr_text(body, 0, indent, source)),
+    } => format!("{}\n{}", head, block_text(body, indent + 1, source)),
+    body => format!("{} {}", head, expr_text(body, 0, indent, source)),
   }
 }

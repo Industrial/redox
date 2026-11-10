@@ -15,4 +15,12 @@ import redox_lexer::{Trivia, TriviaKind}
 -- | whitespace, which leaf 1 already made a thing this formatter removes.
 export(crate) trivia_text : &Trivia -> usize -> String
 trivia_text trivium indent =
-  -- TODO plan 69: body
+  pad = indent_text indent
+  case trivium.kind of
+    TriviaKind::BlankLines -> String::new ()
+    TriviaKind::LineComment -> with_marker (&pad) "--" (&trivium.text)
+    TriviaKind::DocComment -> with_marker (&pad) "-- |" (&trivium.text)
+    TriviaKind::InnerDocComment -> with_marker (&pad) "-- !" (&trivium.text)
+    TriviaKind::FencedComment -> format! \-> "#{pad}{- #{trivium.text} -}"
+    TriviaKind::Attribute -> format! \-> "#{pad}#[#{trivium.text}]"
+    TriviaKind::InnerAttribute -> format! \-> "#{pad}#![#{trivium.text}]"

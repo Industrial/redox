@@ -1,12 +1,19 @@
 pub(crate) mod inline_body;
 
 use crate::expr_text::expr_text;
+
 use crate::item_text::clause_text::inline_body::inline_body;
+
 use crate::item_text::same_line::same_line;
+
 use crate::pattern_text::pattern_argument::pattern_argument;
+
 use crate::stmt_text::block_text::block_text;
+
 use crate::stmt_text::indent_text::indent_text;
+
 use crate::stmt_text::stmt_text;
+
 use redox_ast::{Clause, ClauseBody};
 
 /// One equation — `add a b = a + b`, or a guard ladder, with its `where`.
@@ -26,29 +33,28 @@ pub(crate) fn clause_text(clause: &Clause, name: &str, indent: usize, source: &s
     head.push(' ');
     head.push_str(&pattern_argument(pattern));
   }
-
   let body = match &clause.body {
-    // §3 row 10: one `|` per line, which is doc 18 §2.3's own example. A
-    // ladder is always indented, so there is no inline shape to preserve.
     ClauseBody::Guarded(guards) => {
       let pad = indent_text(indent + 1);
+      // `r#guard` because `guard` is plan 59's keyword and this is a lambda
+      // *parameter* — the half of the keyword surface plan 68's survey missed,
+      // which covered fields and modules only.
       let printed: Vec<String> = guards
         .iter()
-        .map(|guard| {
-          let test = match &guard.condition {
+        .map(|r#guard| {
+          // bare `test = …` earns `RDX0112` for being a nested one. Third
+          // site of plan 69's keyword finding, and the first on a plain
+          // local rather than a field or a parameter.
+          let r#test = match &r#guard.condition {
             Some(condition) => expr_text(condition, 0, indent + 1, source),
-            // The catch-all. In Haskell `otherwise` is an ordinary binding;
-            // here it is the spelling the parser reads, and both
-            // `examples/guards.sdx` and `examples/testing.sdx` end their
-            // ladders with it.
-            None => "otherwise".to_string(),
+            None => String::from("otherwise"),
           };
-          let arm = if same_line(source, guard.span.0, guard.body.span.0) {
-            format!(" = {}", inline_body(&guard.body, indent + 1, source))
+          let arm = if same_line(source, r#guard.span.0, r#guard.body.span.0) {
+            format!(" = {}", inline_body(&r#guard.body, indent + 1, source))
           } else {
-            format!(" =\n{}", block_text(&guard.body, indent + 2, source))
+            format!(" =\n{}", block_text(&r#guard.body, indent + 2, source))
           };
-          format!("{pad}| {test}{arm}")
+          format!("{}| {}{}", pad, r#test, arm)
         })
         .collect();
       format!("\n{}", printed.join("\n"))
@@ -61,7 +67,6 @@ pub(crate) fn clause_text(clause: &Clause, name: &str, indent: usize, source: &s
       }
     }
   };
-
   let wheres = if clause.wheres.is_empty() {
     String::new()
   } else {
@@ -72,6 +77,5 @@ pub(crate) fn clause_text(clause: &Clause, name: &str, indent: usize, source: &s
       .collect();
     format!("\n{}where\n{}", indent_text(indent + 1), printed.join("\n"))
   };
-
-  format!("{head}{body}{wheres}")
+  format!("{}{}{}", head, body, wheres)
 }

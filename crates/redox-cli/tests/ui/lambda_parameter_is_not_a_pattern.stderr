@@ -1,0 +1,30 @@
+error[RDX0103]: expected a lambda parameter name
+  --> lambda_parameter_is_not_a_pattern.sdx:17:13
+   |
+17 |   |> .map (\(i, n) -> format! \-> "#{i}:#{n}")
+   |             ^
+
+error[RDX0101]: expected `:` after the name, to begin the signature
+  --> lambda_parameter_is_not_a_pattern.sdx:17:15
+   |
+17 |   |> .map (\(i, n) -> format! \-> "#{i}:#{n}")
+   |               ^
+
+error[RDX0101]: expected `:` after the name, to begin the signature
+  --> lambda_parameter_is_not_a_pattern.sdx:17:18
+   |
+17 |   |> .map (\(i, n) -> format! \-> "#{i}:#{n}")
+   |                  ^
+
+error[RDX0101]: expected `:` after the name, to begin the signature
+  --> lambda_parameter_is_not_a_pattern.sdx:17:29
+   |
+17 |   |> .map (\(i, n) -> format! \-> "#{i}:#{n}")
+   |                             ^
+
+error[RDX0101]: expected `:` after the name, to begin the signature
+  --> lambda_parameter_is_not_a_pattern.sdx:19:1
+   |
+18 |   |> .collect
+   |              ^
+

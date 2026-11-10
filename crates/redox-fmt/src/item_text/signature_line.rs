@@ -32,19 +32,21 @@ use redox_ast::FnDecl;
 /// line is a signature.
 pub(crate) fn signature_line(decl: &FnDecl, source: &str) -> Option<String> {
   let start = decl.span.0;
-  let end = source[start..]
-    .find('\n')
-    .map_or(source.len(), |at| start + at);
+  // `source[start..n]` with `n` bound first, where the Rust wrote
+  // `source[start..]`. An **open-ended range has no spelling** — plan 68's
+  // second gap, and this crate's second sighting of it.
+  let n = source.len();
+  let end = source[start..n].find('\n').map_or(n, |at| start + at);
   let line = source[start..end].trim_end().to_string();
+  // A signature with **no equation**: a `class` member's declaration, like
+  // `area : &t -> f64` above a default-less method. The whole declaration
+  // is the signature line.
+  //
+  // The first version bailed here, because it read the first clause's span
+  // to find out where the signature ended. That dropped the member
+  // entirely — `examples/class.sdx` lost `area : &t -> f64` and emitted a
+  // line of bare indentation in its place.
   let Some(clause) = decl.clauses.first() else {
-    // A signature with **no equation**: a `class` member's declaration, like
-    // `area : &t -> f64` above a default-less method. The whole declaration
-    // is the signature line.
-    //
-    // The first version bailed here, because it read the first clause's span
-    // to find out where the signature ended. That dropped the member
-    // entirely — `examples/class.sdx` lost `area : &t -> f64` and emitted a
-    // line of bare indentation in its place.
     return Some(line);
   };
   if clause.span.0 <= end {

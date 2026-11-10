@@ -71,5 +71,98 @@ import redox_ast::{BinaryOp, Expr}
 -- | and not a normalisation — and the property that guards this formatter
 -- | cannot guard it.
 export expr_text : &Expr -> u8 -> usize -> &str -> String
-expr_text expr required indent source =
-  -- TODO plan 69: body
+expr_text expr required indent source = case expr of
+  Expr::Call { callee, args, is_dollar = true, .. } | .len args == 1 ->
+    dollar_text callee (&args[0]) indent source
+  Expr::Call { callee, args, .. } ->
+    mut out = argument callee indent source
+    for arg in args
+      .push ' ' out
+      .push_str (&argument arg indent source) out
+    out
+  Expr::MethodRef { name, .. } -> format! \-> ".#{name.text}"
+  Expr::Field { recv, name, .. } ->
+    head = receiver recv indent source
+    gap = if .ends_with '?' head
+      " "
+    else
+      ""
+    format! \-> "#{head}#{gap}.#{name.text}"
+  Expr::Index { recv, index, .. } ->
+    format! \-> "#{(receiver recv indent source)}[#{(expr_text index 0 indent source)}]"
+  Expr::Binary { op = BinaryOp::Pipeline, lhs, rhs, .. } ->
+    pipeline_text lhs rhs indent source
+  Expr::Binary { op, lhs, rhs, .. } ->
+    -- Left-associative, so the right operand must bind one rung tighter for
+    -- its parentheses to be redundant.
+    power = .power op
+    format! \-> "#{(operand lhs power indent source)} #{(.redox_text op)} #{(operand rhs (power + 1) indent source)}"
+  Expr::Unary { op, operand = inner, .. } ->
+    -- Look **through** a parenthesis before asking whether the operand is
+    -- itself a unary. Asking the node instead gave `redox fmt` a two-cycle:
+    -- this arm parenthesised `*x` to keep `**x` from lexing as one token,
+    -- `can_drop_paren` judged that parenthesis redundant because its content
+    -- binds at `u8::MAX`, and the two rules undid each other forever —
+    -- `**inner` -> `*(*inner)` -> `**inner`, measured over four passes of
+    -- this very file. `*(*x)` is now a fixed point and `**x` reaches it in
+    -- one pass.
+    --
+    -- `Expr::Field` above records the same lesson in the same words: the
+    -- question is about the **printed text**, not the tree. This arm asked
+    -- the tree, and its comment said no corpus case reached it — plan 69's
+    -- port is that case.
+    naked = case .as_ref inner of
+      Expr::Paren { inner = within, .. } -> within
+      _ -> inner
+    printed = case .as_ref naked of
+      Expr::Unary { .. } -> format! \-> "(#{(expr_text inner 0 indent source)})"
+      _ -> operand inner u8::MAX indent source
+    format! \-> "#{(.rust_text op)}#{printed}"
+  Expr::Paren { inner, .. } ->
+    if can_drop_paren inner required
+      expr_text inner required indent source
+    else
+      format! \-> "(#{(expr_text inner 0 indent source)})"
+  Expr::Path { text, .. } -> .clone text
+  Expr::Lambda { params, body, is_move, .. } ->
+    lambda_text params body (*is_move) indent source
+  Expr::MacroCall { name, args, .. } -> macro_call_text name args indent source
+  Expr::RustHatch { code, .. } -> rust_hatch_text code indent
+  Expr::Ascribe { inner, ty, .. } ->
+    format! \-> "#{(operand inner 0 indent source)} : #{ty.text}"
+  Expr::StrLit { .. } or Expr::RawLit { .. } or Expr::Num { .. } or Expr::Char { .. } or Expr::StrInterp { .. } -> literal_text expr source
+  Expr::Tuple { items, .. } ->
+    if .len items == 1
+      format! \-> "(#{(expr_text (&items[0]) 0 indent source)},)"
+    else
+      format! \-> "(#{(comma_list items indent source)})"
+  Expr::List { items, .. } -> format! \-> "[#{(comma_list items indent source)}]"
+  Expr::ArrayRepeat { value, count, .. } ->
+    format! \-> "[#{(expr_text value 0 indent source)}; #{(expr_text count 0 indent source)}]"
+  Expr::Record { head, fields, .. } -> record_text head fields indent source
+  Expr::Comprehension { element, qualifiers, .. } ->
+    comprehension_text element qualifiers indent source
+  Expr::Try { inner, .. } -> format! \-> "#{(receiver inner indent source)}?"
+  Expr::Unit { .. } -> String::from "()"
+  Expr::Section { section, .. } -> section_text section indent source
+  Expr::Bool { value, .. } -> .to_string value
+  Expr::SelfField { name, .. } -> format! \-> "self.#{name.text}"
+  Expr::SelfType { name, .. } -> format! \-> "Self::#{name.text}"
+  Expr::Ident ident -> .clone ident.text
+  Expr::Block { label, body, .. } -> case label of
+    Some name -> format! \-> "'#{name}\n#{(block_text body (indent + 1) source)}"
+    None -> block_text body (indent + 1) source
+  Expr::AsyncBlock { body, .. } ->
+    format! \-> "async\n#{(block_text body (indent + 1) source)}"
+  Expr::UnsafeBlock { body, .. } ->
+    format! \-> "unsafe\n#{(block_text body (indent + 1) source)}"
+  Expr::TryBlock { body, .. } ->
+    format! \-> "try\n#{(block_text body (indent + 1) source)}"
+  Expr::Case { scrutinee, arms, .. } ->
+    printed : Vec<String> = arms
+      |> .iter
+      |> .map (\arm -> case_arm_text arm (indent + 1) source)
+      |> .collect
+    format! \-> "case #{(expr_text scrutinee 0 indent source)} of\n#{(.join "\n" printed)}"
+  Expr::If { .. } or Expr::Binding _ or Expr::Item { .. } or Expr::Return { .. } or Expr::Draw { .. } or Expr::Await { .. } or Expr::Assign { .. } -> code_text expr indent source
+  Expr::Guard { .. } or Expr::While { .. } or Expr::For { .. } or Expr::Loop { .. } or Expr::Break { .. } or Expr::Continue { .. } -> code_text expr indent source

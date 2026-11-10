@@ -17,4 +17,12 @@ import redox_ast::FnDecl
 -- | asymmetry with every other item kind looks like an omission.
 export(crate) fn_text : &FnDecl -> usize -> &str -> String
 fn_text decl indent source =
-  -- TODO plan 69: body
+  pad = indent_text indent
+  mut lines : Vec<String> = Vec::new ()
+  if signature_line decl source is Some signature
+    .push signature lines
+  for clause in &decl.clauses
+    .push (clause_text clause (&decl.name.text) indent source) lines
+  -- Every line but the first carries the item's own indentation; the first is
+  -- placed by the caller, which is `item_text`'s convention throughout.
+  .join (&format! \-> "\n#{pad}") lines

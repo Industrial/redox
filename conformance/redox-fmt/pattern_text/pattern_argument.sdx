@@ -27,4 +27,7 @@ import redox_ast::Pattern
 -- | needs nothing, which is why the arity is checked rather than the variant.
 export(crate) pattern_argument : &Pattern -> String
 pattern_argument pattern =
-  -- TODO plan 69: body
+  if stands_alone pattern
+    pattern_text pattern
+  else
+    format! \-> "(#{(pattern_text pattern)})"

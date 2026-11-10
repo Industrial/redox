@@ -46,4 +46,12 @@ import redox_ast::Expr
 -- | string. Recorded rather than left to be noticed.
 export(crate) literal_text : &Expr -> &str -> String
 literal_text expr source =
-  -- TODO plan 69: body
+  span = .span expr
+  start = span.0
+  end = span.1
+  if start < end && end <= .len source
+    return .to_string source[start .. end]
+  -- A span outside the source means the node did not come from this text —
+  -- which happens only in a test that built a tree by hand. Falling back to
+  -- the stored form keeps that case printable instead of panicking.
+  stored expr

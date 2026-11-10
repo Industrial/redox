@@ -1,4 +1,5 @@
 use crate::expr_text::expr_text;
+
 use redox_ast::Expr;
 
 /// A macro invocation — `name! \-> e`, plan 64.
@@ -36,10 +37,36 @@ use redox_ast::Expr;
 /// their own first line and so take the ordinary spacing. Only the unlabelled
 /// block has nothing to put there.
 pub(crate) fn macro_call_text(name: &str, args: &[Expr], indent: usize, source: &str) -> String {
-  let mut out = format!("{name}!");
+  let mut out = format!("{}!", name);
   for arg in args {
-    let hangs = matches!(arg, Expr::Block { label: None, .. });
-    out.push_str(if hangs { " \\->\n" } else { " \\-> " });
+    // A `case` where the Rust wrote `matches!` — plan 64 §6, the second of
+    // this crate's three.
+    let hangs = match arg {
+      Expr::Block { label: None, .. } => true,
+      _ => false,
+    };
+    // The one string literal in this crate carrying Redox syntax as **data**,
+    // and it needs nothing special: `\\` is an ordinary escape in both
+    // languages.
+    //
+    // Pushed **inside the branches** where the Rust bound a separator and
+    // pushed it after. Plan 69 found why: a binding whose value is a block
+    // swallows a following statement that opens with `.name`, reading the `.`
+    // as a **postfix on the block** — `(if hangs … else …).push_str(…)` —
+    // which is method-call syntax, so `RDX0115` refuses it.
+    //
+    // The `if` below is a *statement*, and the `.push_str` after it parses
+    // fine. That contrast is what pins the rule to the binding rather than to
+    // the dedent; `tests/ui/block_valued_binding_eats_the_next_statement`
+    // is the fixture. A blank line does not help. Three spellings do: this
+    // one, a
+    // parenthesis round the statement, and `recv |> .name args`, which is
+    // what `format.sdx` uses.
+    if hangs {
+      out.push_str(" \\->\n");
+    } else {
+      out.push_str(" \\-> ");
+    }
     out.push_str(&expr_text(arg, 0, indent, source));
   }
   out

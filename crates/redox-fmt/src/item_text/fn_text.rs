@@ -1,6 +1,9 @@
 use crate::item_text::clause_text::clause_text;
+
 use crate::item_text::signature_line::signature_line;
+
 use crate::stmt_text::indent_text::indent_text;
+
 use redox_ast::FnDecl;
 
 /// A function — its signature line, then one line per equation.
@@ -26,5 +29,5 @@ pub(crate) fn fn_text(decl: &FnDecl, indent: usize, source: &str) -> String {
   }
   // Every line but the first carries the item's own indentation; the first is
   // placed by the caller, which is `item_text`'s convention throughout.
-  lines.join(&format!("\n{pad}"))
+  lines.join(&format!("\n{}", pad))
 }

@@ -3,7 +3,7 @@
 Plan ID: `fmt-in-redox`
 Depends on: 68 (`ast-in-redox`), 64 (`macro-invocation`), 34 (`formatter`)
 Milestone: 10 — *self-hosting*
-Status: `planned`
+Status: `done` 2026-11-10
 
 ---
 
@@ -291,4 +291,273 @@ rather than a measurement to make.
 
 ## 10. Result
 
-*Not yet executed.*
+**Done 2026-11-10.** `crates/redox-fmt` is written in Redox: 57 `.sdx` files
+under `conformance/redox-fmt/`, 2,355 lines of Redox generating **2,907 lines
+of Rust** committed in `src/`, with the whole workspace compiled against it and
+**851 tests passing**. 1,045 `-- |` in and 1,045 `///` out, 37 `-- !` in and 37
+`//!` out, no escape hatch anywhere, and `redox fmt --check` clean over all 57.
+51 of 57 generated files differ from the hand-written Rust by **545 insertions
+and 548 deletions** — a crate a person could have written, which is the same
+reading plan 68 got.
+
+All 125 `format!` calls survive. (A count of the generated source says 126; the
+extra is the word `format!` inside a comment this port added.)
+
+### 10.1 The yield: seven findings, two of them defects in the crate being ported
+
+Criterion 10 exists because a row whose purpose is to measure has to report the
+measurement even when it is zero. It is not zero.
+
+| # | Finding | Kind | Sites |
+|---|---|---|---|
+| 1 | Plan 68's keyword survey covered **fields and module names** and missed every other kind of name | method defect | 5 |
+| 2 | A binding whose **value is a block** swallows a following `.name` statement | surface | 4 |
+| 3 | A **lambda parameter is a name, not a pattern**, so `.enumerate()` and `.zip(…)` have no idiomatic consumer | surface | 2 |
+| 4 | A **comment between two pipeline stages** breaks the pipeline | **defect** | 2 |
+| 5 | A prefix `*` in **argument** position reads as binary multiplication, silently | surface | 1 |
+| 6 | `redox fmt` **corrupts** a lambda with a block body | **defect, fixed** | 5 files |
+| 7 | `redox fmt` has **no fixed point** for a nested unary — a two-cycle | **defect, fixed** | 1 |
+
+Findings 6 and 7 are what §1.3 was hoping for and did not expect to get: the
+formatter, reading its own ported source, mis-printed it. Both are fixed **in
+Redox** — the edits are to `conformance/redox-fmt/expr_text/lambda_text.sdx`
+and `conformance/redox-fmt/expr_text.sdx`, and the `.rs` is regenerated. They
+are the first defects in this project fixed in Redox source rather than Rust.
+
+### 10.2 Finding 1 — the survey, not the language
+
+Plan 68 surveyed Redox's keywords against `redox-fmt`'s identifiers and
+reported three names colliding across four sites. It counted **fields and
+module names**. It did not look at parameters, locals, lambda parameters or
+pattern binders, and four of the five collisions this port actually hit are in
+those four categories:
+
+| Name | Kind of name | Where |
+|---|---|---|
+| `otherwise` | function parameter | `stmt_text/else_text.sdx` |
+| `guard` | lambda parameter | `item_text/clause_text.sdx` |
+| `test` | plain local | `item_text/clause_text.sdx` |
+| `from` | pattern binder | `stmt_text/code_text.sdx` |
+| `otherwise` | record-pattern **field name** | `stmt_text/code_text.sdx` |
+
+`r#name` handles all five, and `r#foo` and `foo` are the same identifier in
+Rust, so the escape costs nothing downstream. The last row needed a probe to
+establish that `r#name` is accepted in a record pattern's *field-name* position
+as well as its binder position.
+
+The lesson is about measurement rather than syntax, and it generalises past
+keywords: **a survey of one syntactic category reads as a survey of the
+language.** Plan 68's number was not wrong about fields; it was quoted as a
+number about names.
+
+One diagnostic is worth a row of its own. `Expr::Guard { pattern, source =
+from, otherwise, .. }` reports `RDX0103` with its caret on **`from`**, the
+renamed binder *before* the offending field. Moving the rename later moved the
+caret onto `otherwise` and revealed it. Three attempts went into a two-keyword
+pattern because the span pointed at the wrong one.
+
+### 10.3 Finding 2 — a block-valued binding eats the next statement
+
+```text
+arrow = if hangs
+  " \\->\n"
+else
+  " \\-> "
+.push_str arrow out
+->  RDX0115: method-call syntax is retired
+```
+
+The `.push_str` is read as a **postfix on the `if`**, so plan 57's
+`RDX0115` refuses `(if hangs … else …).push_str(…)`. Two narrower statements of
+this were written and both were wrong, which is why the probes exist:
+
+* *"a statement beginning with `.name` is read as a postfix on the preceding
+  expression"* — too broad. `target_text.sdx` has `.push ' ' out` then
+  `.push_str (&arg.text) out` and parses; a `Newline` terminates the first.
+* *"after a block-bearing expression, because a `Dedent` does not terminate the
+  statement"* — wrong, and `expr_text/macro_call_text.sdx` holds the
+  counterexample three lines below the comment that claimed it: an `if`/`else`
+  **statement** followed by `.push_str (…) out`, which parses.
+
+The pair that settles it is four lines each — the `if` as a statement, which
+is clean, and the same `if` as a binding's value, which is `RDX0115`. The
+second is committed as
+`tests/ui/block_valued_binding_eats_the_next_statement`; the first needs no
+fixture, because every passing file in the corpus is one. It is
+the **binding** path: a value expression goes through the Pratt loop, which
+tries `postfix` once the value ends, and a block-bearing value ends on a
+`Dedent` that does not stop the loop. A block in statement position never
+reaches `postfix`.
+
+Three spellings work, and the port uses all three: push inside the branches,
+parenthesise the statement, or `recv |> .name args` — which is what `RDX0115`'s
+own help text offers, and which reads better anyway when two consecutive lines
+are about the same receiver.
+
+### 10.4 Finding 3 — a lambda parameter is a name
+
+```text
+|> .map (\(i, constructor) -> …)
+->  RDX0103: expected a lambda parameter name
+```
+
+This is the finding with the widest reach, and the one least about printers.
+Rust closures take patterns, and `|(i, x)|` is how `.enumerate()` and
+`.zip(…)` are consumed — two of the most common adapters there are. The port
+takes the pair whole and splits it with `.0` / `.1`, twice.
+`tests/ui/lambda_parameter_is_not_a_pattern` is the fixture.
+
+### 10.5 Finding 4 — a comment between pipeline stages, which is a defect
+
+```text
+  xs
+    |> .iter
+    -- A comment between two stages.
+    |> .map (\n -> n * 2)
+    |> .collect
+->  RDX0102: expected an expression, on the `|>` after the comment
+```
+
+Four lines, committed as `tests/ui/comment_between_pipeline_stages` — the one
+fixture of the three that records a **defect**, so fixing it must fail there and
+be reviewed. Remove the comment and the same five lines parse, and a
+multi-statement lambda in a pipeline stage is fine on its own, so the comment
+is the whole of it.
+
+Unlike findings 2, 3 and 5 this is not a surface decision. *"Comments are
+trivia, never discarded"* is a load-bearing rule in `AGENTS.md`, and a trivium
+that makes its neighbour fail to parse is the strongest form of discarding it.
+Both sites moved their comment above the binding, which reads acceptably and is
+not the point.
+
+### 10.6 Finding 5 — a prefix operator in argument position, decided silently
+
+```text
+lambda_text params body *is_move indent source
+->  lambda_text(params, body) * is_move(indent, source)
+```
+
+Both readings parse, so **nothing is diagnosed**. rustc caught it, through the
+staging guard plan 68 built after breaking the bootstrap: the generated
+`redox-fmt` failed to compile, nothing was written, and `crates/redox-fmt/src/`
+was untouched. That is the first defect the guard has stopped, and it was not
+written for this one.
+
+The ambiguity is not about `*`. **Juxtaposition application and infix operators
+collide wherever an operator is also a prefix**, and Redox resolves it towards
+the infix reading. `&` and `-` have the same shape. A parenthesis is the fix —
+`(*is_move)` — and `if *inclusive` elsewhere in this crate is safe only because
+nothing precedes the `*`.
+
+### 10.7 Findings 6 and 7 — the formatter, read through itself
+
+§1.3 asked whether running `redox fmt --check` over the formatter's own Redox
+source would find anything. It found two defects, and neither could have been
+found any other way, because **no corpus file had the shapes the port wrote**.
+
+**A lambda with a block body was corrupted.** `redox fmt` turned
+
+```text
+    |> .map (\stmt ->
+      text = stmt_text stmt indent source
+      …)
+```
+
+into `|> .map (\stmt ->     text = stmt_text stmt indent source`, which does
+not parse. Five of 57 files — every one that maps a multi-statement lambda over
+a collection. The cause is that `lambda_text` writes `" -> "` and then the body,
+but an unlabelled `Expr::Block` has **nothing on its own first line**:
+`expr_text` returns `block_text(body, indent + 1, …)`, whose text begins with
+the block's first statement already padded. `binding_text` knows this and
+chooses between `"= "` and `"=\n"` on exactly that pattern, with a comment
+saying why. `lambda_text` never got the same choice, because until this port no
+corpus file had a lambda with a block body.
+
+**And a nested unary has no fixed point.** Measured over
+`conformance/redox-fmt/expr_text.sdx`:
+
+```text
+pass 1:  **inner    ->  *(*inner)
+pass 2:  *(*inner)  ->  **inner
+pass 3:  **inner    ->  *(*inner)
+pass 4:  *(*inner)  ->  **inner
+```
+
+A two-cycle, so `redox fmt --check` can never pass on a file containing one,
+whichever spelling is committed. Two rules in `expr_text` disagree: the `Unary`
+arm parenthesises a `Unary` operand to stop `-(-x)` printing as `--x`, and
+`can_drop_paren` then judges that parenthesis redundant because its content
+binds at `u8::MAX`. Each is right alone.
+
+The arm is what is wrong, and **this crate had already learned why once**.
+`Expr::Field`'s comment says *"the question is about the printed text and not
+the tree: a `Paren` around the `?` is dropped by `can_drop_paren`, so asking
+the node would miss `(x?).name`."* The `Unary` arm asks the node. Looking
+through a parenthesis makes `*(*x)` a fixed point and `**x` converge to it in
+one pass.
+
+That arm's own comment read *"No corpus case reaches it, so it is guarded here
+rather than found later."* The port is the corpus case and this is later — which
+is the general argument for this row, stated by the code it was porting.
+
+### 10.8 What did not happen
+
+**No new defect in the emitter, parser or lexer beyond finding 4.** Findings 2,
+3 and 5 are surface gaps — spellings the language does not have, or resolves
+one way without saying so — and each has a workaround in the port with the
+reason beside it.
+
+**Plan 68's nine gaps were re-sighted, not rediscovered.** The open-ended range
+(`item_text/signature_line.sdx`), the multi-line `or` alternation
+(`expr_text/argument/stands_alone.sdx`, `power_of.sdx`, `expr_text.sdx`) and
+`matches!` (three sites) all cost a comment rather than an investigation, which
+is what §2 predicted and the first measurable return on plan 68 having written
+them down.
+
+The multi-line `or` was the most expensive: `power_of`'s `match` listed
+nineteen alternatives one per line with comments between them, and an `or`
+alternation cannot be broken across lines. Flattening it would have been a
+380-column line with the comments lost, so **one Rust arm became five**, split
+along the reasons the comments already gave. `expr_text`'s thirteen-alternative
+fallthrough split into two the same way.
+
+**`clippy` needed one allow, not two.** `match_like_matches_macro`, for plan 64
+§6's reason and with the same wording `redox-ast` carries. `no_effect` was not
+needed: no `()`-returning function in this crate wanted plan 55 §1.6's unit
+tail, so the rule contradiction plan 68 found did not recur here. It is still
+owed a fix.
+
+Six `needless_borrow` warnings were the partial translator being literal —
+copying the Rust's own `&source[a..b]` into argument position where the method
+would borrow for itself. Not a port finding.
+
+One stale `-- TODO plan 68` survived above `PIPELINE_WIDTH` and only `clippy`
+noticed it, as `empty line after doc comment`. The TODO sweep searched for
+`TODO plan 69`.
+
+### 10.9 Does the effort continue?
+
+§1 said this row decides, because plan 68's value was its gaps rather than
+self-hosting itself and a second port of the same shape would measure nothing.
+The shapes were as different as claimed — 57 one-function files, no data
+declarations, 125 `format!` calls against two — and the yield was **seven
+findings against plan 68's twelve**, with two of them defects in the crate under
+port and two of them fixed in Redox.
+
+So the answer is yes, and the shape of the argument has changed. Plan 68's case
+was *porting finds defects*. This row's case is narrower and stronger: **porting
+a crate makes that crate's own corpus include shapes its authors never wrote**,
+and findings 6 and 7 were unreachable without it. The next row should be chosen
+for a shape neither of these two had — `redox-emit`, which is 98 files of
+`match` over the same AST, or `redox-lexer`, which is the only crate with a
+mutable state machine at its centre.
+
+### 10.10 Owed to successors
+
+| Owed | Why it is not here |
+|---|---|
+| A diagnostic for finding 2 — `.name` after a block-valued binding | `RDX0115` is correct about what it saw; the fix is a *parse* decision about whether a `Dedent` terminates a binding, which wants a row |
+| A spelling for finding 3 — a pattern as a lambda parameter | Grammar, `redox-fmt`, tree-sitter and five editor clients, by plan 52's four-readers rule |
+| Finding 4, the pipeline comment | A genuine defect, small, and in the lexer's continuation logic rather than here |
+| A diagnostic for finding 5 — prefix operator in argument position | Silent today. An ambiguity resolved without a word is the class `AGENTS.md` keeps a section about |
+| The `no_effect` / plan 55 §1.6 contradiction | Plan 68 found it; this row did not reach it, and it is still true |

@@ -9,5 +9,22 @@ import redox_ast::{Constructor, ConstructorFields}
 -- | values; and a record field uses `::`, which is the declaration separator
 -- | and not the single `:` a local binding takes.
 export(crate) constructor_text : &Constructor -> String
-constructor_text constructor =
-  -- TODO plan 69: body
+constructor_text constructor = case &constructor.fields of
+  ConstructorFields::Unit -> .clone constructor.name.text
+  ConstructorFields::Tuple types ->
+    mut out = .clone constructor.name.text
+    for ty in types
+      .push ' ' out
+      .push_str (&ty.text) out
+    out
+  ConstructorFields::Record fields ->
+    printed : Vec<String> = fields
+      |> .iter
+      |> .map (\field ->
+      vis = visibility_text (&field.visibility)
+      format! \-> "#{vis}#{field.name.text} : #{field.ty.text}")
+      |> .collect
+    if .is_empty printed
+      format! \-> "#{constructor.name.text} {}"
+    else
+      format! \-> "#{constructor.name.text} { #{(.join ", " printed)} }"

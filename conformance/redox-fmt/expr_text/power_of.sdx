@@ -40,5 +40,17 @@ import redox_ast::Expr
 -- | *another* parenthesis, where dropping the outer pair is right. The same
 -- | holds for `{…}` and a comprehension's `[…]`.
 export(crate) power_of : &Expr -> Option<u8>
-power_of expr =
-  -- TODO plan 69: body
+power_of expr = case expr of
+  Expr::Binary { op, .. } -> Some (.power op)
+  Expr::Call { is_dollar = true, .. } -> Some 0
+  Expr::Call { .. } -> Some u8::MAX
+  Expr::MacroCall { .. } or Expr::RustHatch { .. } -> Some u8::MAX
+  Expr::Field { .. } or Expr::Index { .. } or Expr::Unary { .. } or Expr::Try { .. } or Expr::MethodRef { .. } -> Some u8::MAX
+  Expr::Path { .. } or Expr::Ident _ or Expr::SelfField { .. } or Expr::SelfType { .. } -> Some u8::MAX
+  Expr::StrLit { .. } or Expr::StrInterp { .. } or Expr::RawLit { .. } or Expr::Num { .. } or Expr::Bool { .. } or Expr::Char { .. } -> Some u8::MAX
+  Expr::Tuple { .. } or Expr::List { .. } or Expr::ArrayRepeat { .. } or Expr::Unit { .. } -> Some u8::MAX
+  Expr::Paren { inner, .. } -> power_of inner
+  Expr::Record { .. } or Expr::Comprehension { .. } or Expr::Section { .. } -> Some u8::MAX
+  Expr::Lambda { .. } or Expr::Ascribe { .. } or Expr::If { .. } or Expr::Block { .. } or Expr::Case { .. } or Expr::AsyncBlock { .. } or Expr::UnsafeBlock { .. } or Expr::TryBlock { .. } -> None
+  Expr::Binding _ or Expr::Item { .. } or Expr::Return { .. } or Expr::Draw { .. } or Expr::Await { .. } or Expr::Assign { .. } -> None
+  Expr::Guard { .. } or Expr::While { .. } or Expr::For { .. } or Expr::Loop { .. } or Expr::Break { .. } or Expr::Continue { .. } -> None

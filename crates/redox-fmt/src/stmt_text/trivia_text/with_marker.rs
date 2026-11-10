@@ -5,8 +5,8 @@
 /// whitespace, which leaf 1 established this formatter removes.
 pub(crate) fn with_marker(pad: &str, marker: &str, text: &str) -> String {
   if text.is_empty() {
-    format!("{pad}{marker}")
+    format!("{}{}", pad, marker)
   } else {
-    format!("{pad}{marker} {text}")
+    format!("{}{} {}", pad, marker, text)
   }
 }

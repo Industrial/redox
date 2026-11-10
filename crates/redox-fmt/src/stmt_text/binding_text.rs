@@ -1,5 +1,7 @@
 use crate::expr_text::expr_text;
+
 use crate::pattern_text::pattern_text;
+
 use redox_ast::{Binding, Expr};
 
 /// A binding — `n = 0`, `mut n = 0`, `n : u64 = 0`.
@@ -46,9 +48,7 @@ pub(crate) fn binding_text(binding: &Binding, indent: usize, source: &str) -> St
     Expr::Block { label: None, .. } => "=\n",
     _ => "= ",
   };
-  format!(
-    "{prefix}{}{ty} {separator}{}",
-    pattern_text(&binding.pattern),
-    expr_text(&binding.value, 0, indent, source)
-  )
+  let pattern = pattern_text(&binding.pattern);
+  let value = expr_text(&binding.value, 0, indent, source);
+  format!("{}{}{} {}{}", prefix, pattern, ty, separator, value)
 }

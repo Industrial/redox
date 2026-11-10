@@ -18,6 +18,6 @@ pub(crate) fn visibility_text(visibility: &Visibility) -> String {
     Visibility::Public => "export ".to_string(),
     Visibility::Crate => "export(crate) ".to_string(),
     Visibility::Super => "export(super) ".to_string(),
-    Visibility::In(path) => format!("export(in {path}) "),
+    Visibility::In(path) => format!("export(in {}) ", path),
   }
 }

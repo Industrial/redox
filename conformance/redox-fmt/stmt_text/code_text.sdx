@@ -30,4 +30,47 @@ import redox_ast::Expr
 -- | about which one the author wrote.
 export(crate) code_text : &Expr -> usize -> &str -> String
 code_text expr indent source =
-  -- TODO plan 69: body
+  -- Every nested block is one level deeper than the element that owns it,
+  -- which is the whole of §3 row 11 as far as statements are concerned.
+  inner = indent + 1
+  case expr of
+    Expr::Binding binding -> binding_text binding indent source
+    Expr::Item { item, .. } -> item_text item indent source
+    Expr::Return { value = None, .. } -> String::from "return"
+    Expr::Return { value = Some value, .. } ->
+      format! \-> "return #{(expr_text value 0 indent source)}"
+    Expr::Draw { name, value, .. } ->
+      format! \-> "with #{name.text} = #{(expr_text value 0 indent source)}"
+    Expr::Await { pattern, value, .. } -> case pattern of
+      Some pattern ->
+        format! \-> "#{(pattern_text pattern)} <- #{(expr_text value 0 indent source)}"
+      None -> format! \-> "<- #{(expr_text value 0 indent source)}"
+    Expr::Assign { target, op, value, .. } ->
+      sigil = op |> .map_or ":" (\o -> .redox_text o)
+      format! \-> "#{(expr_text target 0 indent source)} #{sigil}= #{(expr_text value 0 indent source)}"
+    Expr::Guard { pattern, source = r#from, r#otherwise, .. } ->
+      format! \-> "guard #{(expr_text r#from 0 indent source)} is #{(pattern_text pattern)} else\n#{(block_text r#otherwise inner source)}"
+    Expr::If { condition, then_block, r#otherwise, .. } ->
+      format! \-> "if #{(condition_text condition indent source)}\n#{(block_text then_block inner source)}#{(else_text r#otherwise indent source)}"
+    Expr::While { condition, negated, body, label, .. } ->
+      keyword = if *negated
+        "until"
+      else
+        "while"
+      format! \-> "#{(label_text label)}#{keyword} #{(condition_text condition indent source)}\n#{(block_text body inner source)}"
+    Expr::For { binder, source = r#from, body, label, .. } ->
+      format! \-> "#{(label_text label)}for #{binder.text} in #{(expr_text r#from 0 indent source)}\n#{(block_text body inner source)}"
+    Expr::Loop { body, label, .. } ->
+      format! \-> "#{(label_text label)}loop\n#{(block_text body inner source)}"
+    Expr::Break { label, value, .. } ->
+      mut out = String::from "break"
+      if label is Some name
+        .push_str (&format! \-> " '#{name}") out
+      if value is Some value
+        .push ' ' out
+        .push_str (&expr_text value 0 indent source) out
+      out
+    Expr::Continue { label, .. } -> case label of
+      Some name -> format! \-> "continue '#{name}"
+      None -> String::from "continue"
+    value -> expr_text value 0 indent source

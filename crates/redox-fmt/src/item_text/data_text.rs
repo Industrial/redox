@@ -1,7 +1,11 @@
 use crate::item_text::constructor_text::constructor_text;
+
 use crate::item_text::same_line::same_line;
+
 use crate::item_text::visibility_text::visibility_text;
+
 use crate::stmt_text::indent_text::indent_text;
+
 use redox_ast::DataDecl;
 
 /// A `data` or `newtype` declaration, with its `deriving` clause.
@@ -50,42 +54,47 @@ pub(crate) fn data_text(decl: &DataDecl, indent: usize, source: &str) -> String 
   };
   let pad = indent_text(indent + 1);
   let header = format!(
-    "{}{keyword} {}",
+    "{}{} {}",
     visibility_text(&decl.visibility),
+    keyword,
     decl.name.text
   );
-
   let mut out = match decl.constructors.as_slice() {
-    // One alternative has **two** layouts and the corpus writes both:
-    // `data Square = Square { side : f64 }` in `class.sdx`, and
-    //
-    // ```text
-    // data Profile
-    //   = Profile { name : String, tag : Tag }
-    // ```
-    //
-    // in `fallible.sdx`. §3 row 9 only distinguishes one alternative from
-    // several, so the choice between these is the author's — and the span
-    // records it, exactly as it records an equation's inline body.
     [only] if same_line(source, decl.span.0, only.span.0) => {
-      format!("{header} = {}", constructor_text(only))
+      format!("{} = {}", header, constructor_text(only))
     }
     many => {
+      // Two things the Rust wrote differently, both forced.
+      //
+      // One parameter and two bindings, where the Rust wrote the pattern
+      // `|(i, constructor)|`: a **lambda parameter is a name, not a
+      // pattern**, so `\(i, constructor) ->` earns `RDX0103`. Plan 69's
+      // third finding, and the one with the widest reach — every
+      // `.enumerate()` and every `.zip(…)` meets it —
+      // `tests/ui/lambda_parameter_is_not_a_pattern` is the fixture.
+      //
+      // And this comment sits above the binding rather than beside the stage
+      // it describes, because **a comment between two pipeline stages breaks
+      // the pipeline** — `RDX0102` on the `|>` after it, probe
+      // `tests/ui/comment_between_pipeline_stages`, which is graded a
+      // **defect** rather than a decision: comments are trivia, and
+      // `AGENTS.md` says trivia is never discarded.
       let printed: Vec<String> = many
         .iter()
         .enumerate()
-        .map(|(i, constructor)| {
+        .map(|pair| {
+          let i = pair.0;
+          let constructor = pair.1;
           let lead = if i == 0 { '=' } else { '|' };
-          format!("{pad}{lead} {}", constructor_text(constructor))
+          format!("{}{} {}", pad, lead, constructor_text(constructor))
         })
         .collect();
-      format!("{header}\n{}", printed.join("\n"))
+      format!("{}\n{}", header, printed.join("\n"))
     }
   };
-
   if !decl.derives.is_empty() {
     let names: Vec<&str> = decl.derives.iter().map(|d| d.text.as_str()).collect();
-    out.push_str(&format!("\n{pad}deriving ({})", names.join(", ")));
+    out.push_str(&format!("\n{}deriving ({})", pad, names.join(", ")));
   }
   out
 }

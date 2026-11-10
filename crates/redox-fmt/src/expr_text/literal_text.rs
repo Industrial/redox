@@ -1,6 +1,7 @@
 pub(crate) mod stored;
 
 use crate::expr_text::literal_text::stored::stored;
+
 use redox_ast::Expr;
 
 /// A literal, **verbatim from the source**.
@@ -45,7 +46,9 @@ use redox_ast::Expr;
 /// parts, which puts the block-string defect back for any interpolated block
 /// string. Recorded rather than left to be noticed.
 pub(crate) fn literal_text(expr: &Expr, source: &str) -> String {
-  let (start, end) = expr.span();
+  let span = expr.span();
+  let start = span.0;
+  let end = span.1;
   if start < end && end <= source.len() {
     return source[start..end].to_string();
   }

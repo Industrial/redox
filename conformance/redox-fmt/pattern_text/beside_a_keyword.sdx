@@ -22,5 +22,6 @@ import redox_ast::Pattern
 -- | follows, so an alternative that is itself an alternation would be read at
 -- | the outer level.
 export(crate) beside_a_keyword : &Pattern -> String
-beside_a_keyword pattern =
-  -- TODO plan 69: body
+beside_a_keyword pattern = case pattern of
+  Pattern::Or _ -> format! \-> "(#{(pattern_text pattern)})"
+  other -> pattern_text other

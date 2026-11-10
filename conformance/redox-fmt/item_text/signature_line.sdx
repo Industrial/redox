@@ -32,4 +32,26 @@ import redox_ast::FnDecl
 -- | line is a signature.
 export(crate) signature_line : &FnDecl -> &str -> Option<String>
 signature_line decl source =
-  -- TODO plan 69: body
+  start = decl.span.0
+  -- `source[start..n]` with `n` bound first, where the Rust wrote
+  -- `source[start..]`. An **open-ended range has no spelling** — plan 68's
+  -- second gap, and this crate's second sighting of it.
+  n = .len source
+  end = source[start .. n]
+    |> .find '\n'
+    |> .map_or n (\at -> start + at)
+  line = .to_string (.trim_end source[start .. end])
+  -- A signature with **no equation**: a `class` member's declaration, like
+  -- `area : &t -> f64` above a default-less method. The whole declaration
+  -- is the signature line.
+  --
+  -- The first version bailed here, because it read the first clause's span
+  -- to find out where the signature ended. That dropped the member
+  -- entirely — `examples/class.sdx` lost `area : &t -> f64` and emitted a
+  -- line of bare indentation in its place.
+  guard .first decl.clauses is Some clause else
+    return Some line
+  if clause.span.0 <= end
+    -- The equation is on the first line, so there is no separate signature.
+    return None
+  Some line

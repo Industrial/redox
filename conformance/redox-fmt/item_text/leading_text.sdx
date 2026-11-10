@@ -12,4 +12,8 @@ import redox_ast::Item
 -- | eleven-arm match over item kinds lives there and not once per caller.
 export(crate) leading_text : &Item -> usize -> String
 leading_text item indent =
-  -- TODO plan 69: body
+  mut out = String::new ()
+  for trivium in redox_ast::leading item
+    .push_str (&trivia_text trivium indent) out
+    .push '\n' out
+  out

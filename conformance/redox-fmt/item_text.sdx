@@ -53,4 +53,51 @@ import redox_ast::Item
 -- | spacing, and the fix is a change to the AST, not to this file.
 export item_text : &Item -> usize -> &str -> String
 item_text item indent source =
-  -- TODO plan 69: body
+  mut out = leading_text item indent
+  .push_str (&indent_text indent) out
+  -- Bound, where the Rust wrote `out.push_str(&match item { … })`. The
+  -- `case` then has to be piped into the push rather than dotted onto it,
+  -- for the reason `format.sdx` records: a binding whose value is a block
+  -- swallows a following statement that opens with `.name`.
+  body = case item of
+    Item::Fn decl -> fn_text decl indent source
+    Item::Data decl -> data_text decl indent source
+    Item::Type decl -> format! \-> "#{(visibility_text (&decl.visibility))}type #{decl.name.text} = #{decl.ty.text}"
+    Item::Class decl -> class_text decl indent source
+    Item::Instance decl -> instance_text decl indent source
+    Item::Errors decl -> errors_text decl indent
+    Item::Test decl -> format! \-> "test #{decl.description}\n#{(block_text (&decl.body) (indent + 1) source)}"
+    Item::Import decl ->
+      alias = decl.alias
+        |> .as_ref
+        |> .map_or (String::new ()) (\name -> format! \-> " as #{name.text}")
+      format! \-> "#{(visibility_text (&decl.visibility))}import #{decl.path}#{alias}"
+    Item::Module decl ->
+      header = format! \-> "#{(visibility_text (&decl.visibility))}module #{decl.name.text}"
+      case &decl.items of
+        None -> header
+        Some items ->
+          printed : Vec<String> = items
+            |> .iter
+            |> .map (\inner -> item_text inner (indent + 1) source)
+            |> .collect
+          format! \-> "#{header}\n#{(.join "\n" printed)}"
+    Item::Const decl -> const_text decl source
+    Item::InlineRust decl ->
+      body : String = decl.code
+        |> .lines
+        |> .map (\line ->
+        if .is_empty (.trim line)
+          String::from "\n"
+        else
+          format! \-> "#{(indent_text (indent + 1))}#{line}\n")
+        |> .collect
+      format! \-> "rust \"\"\"\n#{body}#{(indent_text indent)}\"\"\""
+    Item::Extern decl ->
+      body : String = decl.decls
+        |> .iter
+        |> .map (\d -> format! \-> "#{(indent_text (indent + 1))}#{(.trim source[d.span.0..d.span.1])}\n")
+        |> .collect
+      format! \-> "extern #{decl.abi}\n#{(.trim_end body)}"
+  out |> .push_str (&body)
+  out

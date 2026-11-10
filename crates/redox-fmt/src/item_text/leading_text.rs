@@ -1,4 +1,5 @@
 use crate::stmt_text::trivia_text::trivia_text;
+
 use redox_ast::Item;
 
 /// An item's leading trivia, as complete lines each ending in a newline — or

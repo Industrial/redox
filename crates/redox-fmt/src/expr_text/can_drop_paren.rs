@@ -1,4 +1,5 @@
 use crate::expr_text::power_of::power_of;
+
 use redox_ast::Expr;
 
 /// Whether the parenthesis around `inner` is redundant, given the binding

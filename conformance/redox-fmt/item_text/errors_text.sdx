@@ -34,4 +34,42 @@ import redox_ast::ErrorsDecl
 -- | one table instead of two.
 export(crate) errors_text : &ErrorsDecl -> usize -> String
 errors_text decl indent =
-  -- TODO plan 69: body
+  pad = indent_text (indent + 1)
+  header = format! \-> "#{(visibility_text (&decl.visibility))}errors #{decl.name.text}"
+  if .is_empty decl.variants
+    return header
+  heads : Vec<String> = decl.variants
+    |> .iter
+    |> .map (\variant ->
+    mut head = if variant.from
+      -- The path is the first field's text and the name is the variant's,
+      -- which is how the parser stores `from P as N`.
+      path = variant.fields
+        |> .first
+        |> .map_or (String::new ()) (\ty -> .clone ty.text)
+      format! \-> "from #{path} as #{variant.name.text}"
+    else
+      .clone variant.name.text
+    if !variant.from
+      for ty in &variant.fields
+        .push ' ' head
+        .push_str (&ty.text) head
+    head)
+    |> .collect
+  width = heads |> .iter |> .map String::len |> .max |> .unwrap_or 0
+  -- `variant.message` is stored **with** its quotes, like every other literal
+  -- the lexer keeps verbatim; adding a pair gave `""missing key: #{0}""`. And
+  -- one lambda parameter rather than the Rust's `(head, variant)` pattern, as
+  -- `data_text` explains — as does this comment's position, above the binding
+  -- rather than beside its stage, because a comment between two pipeline
+  -- stages does not parse.
+  rows : Vec<String> = heads
+    |> .iter
+    |> .zip (&decl.variants)
+    |> .map (\row ->
+    head = row.0
+    variant = row.1
+    gap = .repeat (width - .len head) " "
+    format! \-> "#{pad}#{head}#{gap}  #{variant.message}")
+    |> .collect
+  format! \-> "#{header}\n#{(.join "\n" rows)}"

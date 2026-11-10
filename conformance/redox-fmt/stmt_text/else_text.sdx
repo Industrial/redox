@@ -40,7 +40,7 @@ else_text r#otherwise indent source =
   -- A four-term let-chain: a slice pattern, then three predicates. The
   -- `matches!` in the middle is a nested `case`, which plan 64 §6 explains —
   -- its second argument is a pattern, so no macro call can carry it.
-  sole_if = case (.as_slice block.stmts) of
+  sole_if = case .as_slice block.stmts of
     [only] -> case only.expr of
       Expr::If { .. } -> .is_empty only.leading && .is_none only.trailing
       _ -> false

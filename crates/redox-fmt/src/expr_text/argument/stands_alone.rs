@@ -29,7 +29,6 @@ use redox_ast::Expr;
 /// direction here adds a parenthesis rather than changing a program.
 pub(crate) fn stands_alone(expr: &Expr) -> bool {
   match expr {
-    // Opens with a literal or a name.
     Expr::Ident(_)
     | Expr::Path { .. }
     | Expr::Num { .. }
@@ -38,40 +37,10 @@ pub(crate) fn stands_alone(expr: &Expr) -> bool {
     | Expr::StrLit { .. }
     | Expr::StrInterp { .. }
     | Expr::RawLit { .. } => true,
-    // Opens with `(`. A `Section` carries its own parentheses and `Unit` and
-    // `Tuple` are parentheses.
     Expr::Unit { .. } | Expr::Tuple { .. } | Expr::Section { .. } => true,
-    // Also opens with `(` — though `argument` intercepts both `Paren` cases
-    // before it asks, so this arm answers the question for nobody but a
-    // future caller.
     Expr::Paren { .. } => true,
-    // A postfix form always prints safely, because its receiver is itself
-    // printed through `argument` — so the receiver either stands alone or
-    // comes out wrapped in parentheses, and either way the postfix form opens
-    // with a token the parser accepts.
-    //
-    // Asking about the **receiver** instead, which is what this did first, is
-    // not idempotent: `[1, 2, 3].to_vec ()` has a receiver that does not
-    // stand alone, so the whole thing was wrapped — giving
-    // `(([1, 2, 3]).to_vec ())`. On the next pass the receiver carried its own
-    // parentheses, so the same test said yes and the outer pair came off. The
-    // corpus caught it in `examples/draw_condition.sdx`.
-    //
-    // The lesson generalises: this predicate is a question about the text the
-    // printer **emits**, not about the tree it was handed.
     Expr::Field { .. } | Expr::Index { .. } | Expr::Try { .. } => true,
-    // Plan 57's `.name`, and the one entry here that is **not** a mirror of
-    // `starts_argument`: a `Dot` cannot begin a parenless argument, because
-    // `postfix` would have consumed it as a field access on the callee.
-    //
-    // It is `true` anyway, because the only caller that reaches a `MethodRef`
-    // is [`argument`] printing a **callee** — the parser produces no
-    // `MethodRef` in argument position — and a callee must print bare:
-    // `(.len) xs` is the field *selector* applied to `xs`, a different
-    // program. Parenthesising here would be the one normalisation §3 row 3
-    // forbids.
     Expr::MethodRef { .. } => true,
-    // Opens with `[`, which is indexing after a name.
     Expr::List { .. } | Expr::ArrayRepeat { .. } => false,
     _ => false,
   }

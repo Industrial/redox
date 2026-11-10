@@ -15,4 +15,11 @@ import redox_ast::{Expr, Qualifier}
 -- | canonical form: there is no second spelling here to normalise *from*.
 export(crate) comprehension_text : &Expr -> &[Qualifier] -> usize -> &str -> String
 comprehension_text element qualifiers indent source =
-  -- TODO plan 69: body
+  printed : Vec<String> = qualifiers
+    |> .iter
+    |> .map (\qualifier -> case qualifier of
+    Qualifier::Draw { name, source = from } ->
+      format! \-> "#{name.text} in #{(expr_text from 0 indent source)}"
+    Qualifier::Guard r#guard -> expr_text r#guard 0 indent source)
+    |> .collect
+  format! \-> "[ #{(expr_text element 0 indent source)} | #{(.join ", " printed)} ]"

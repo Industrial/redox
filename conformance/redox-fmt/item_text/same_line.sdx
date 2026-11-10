@@ -29,4 +29,4 @@ same_line source left right =
   lo = .min left right
   hi = .max left right
   n = .len source
-  !(.contains '\n' (&source[(.min lo n)..(.min hi n)]))
+  !.contains '\n' source[.min lo n .. .min hi n]

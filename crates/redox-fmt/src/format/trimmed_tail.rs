@@ -11,7 +11,8 @@
 /// the file whose subject is comments. So the decision is made on the output,
 /// where the difference is visible, rather than on the trivium, where it is
 /// not.
-pub(crate) fn trimmed_tail(mut text: String) -> String {
+pub(crate) fn trimmed_tail(text: String) -> String {
+  let mut text = text;
   while text.ends_with("\n\n") {
     text.pop();
   }

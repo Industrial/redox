@@ -41,4 +41,30 @@ import redox_ast::{BinaryOp, Expr}
 -- | receiver at the operator's own power, every stage one rung tighter.
 export(crate) pipeline_text : &Expr -> &Expr -> usize -> &str -> String
 pipeline_text lhs rhs indent source =
-  -- TODO plan 69: body
+  power = .power BinaryOp::Pipeline
+  mut stages = vec! \-> operand rhs (power + 1) indent source
+  mut head = lhs
+  -- The crate's one `while let`. `guard … is … else` does not replace it:
+  -- this walks a left-leaning `Binary` chain to its receiver and has to keep
+  -- going, not leave.
+  while head is Expr::Binary { op = BinaryOp::Pipeline, lhs = left, rhs = right, .. }
+    .push (operand right (power + 1) indent source) stages
+    head := left
+  .reverse stages
+  receiver = operand head power indent source
+  one_line = format! \-> "#{receiver} |> #{(.join " |> " stages)}"
+  -- A stage that is already multi-line forces the break too, which is what
+  -- the emitter's `chain` does with a multi-line segment and for the same
+  -- reason: there is no joined form left to keep.
+  if .len (indent_text indent) + .len one_line <= PIPELINE_WIDTH && !.contains '\n' one_line
+    return one_line
+  -- One level in from the statement, which is the indentation
+  -- `examples/application.sdx` writes and doc 03 §5.3's own example before it.
+  pad = indent_text (indent + 1)
+  mut out = receiver
+  for stage in &stages
+    .push '\n' out
+    .push_str (&pad) out
+    .push_str "|> " out
+    .push_str stage out
+  out

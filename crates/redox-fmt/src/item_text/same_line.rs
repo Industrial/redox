@@ -25,10 +25,8 @@
 /// Counting newlines rather than keeping a line table: this is asked once per
 /// clause, and a table would be a cache to invalidate.
 pub(crate) fn same_line(source: &str, left: usize, right: usize) -> bool {
-  let (lo, hi) = if left <= right {
-    (left, right)
-  } else {
-    (right, left)
-  };
-  !source[lo.min(source.len())..hi.min(source.len())].contains('\n')
+  let lo = right.min(left);
+  let hi = right.max(left);
+  let n = source.len();
+  !source[n.min(lo)..n.min(hi)].contains('\n')
 }

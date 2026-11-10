@@ -1,5 +1,7 @@
 use crate::stmt_text::indent_text::indent_text;
+
 use crate::stmt_text::stmt_text;
+
 use redox_ast::Block;
 
 /// A body that sits on the equation line, with no indentation of its own.
@@ -22,7 +24,7 @@ use redox_ast::Block;
 /// quietly dropping the rest.
 pub(crate) fn inline_body(block: &Block, indent: usize, source: &str) -> String {
   let pad = indent_text(indent);
-  block
+  let parts: Vec<String> = block
     .stmts
     .iter()
     .map(|stmt| {
@@ -38,6 +40,6 @@ pub(crate) fn inline_body(block: &Block, indent: usize, source: &str) -> String 
       // are not, and a `case`'s arms printed a level too shallow.
       text.strip_prefix(&pad).unwrap_or(&text).to_string()
     })
-    .collect::<Vec<_>>()
-    .join("\n")
+    .collect();
+  parts.join("\n")
 }

@@ -42,55 +42,30 @@ use redox_ast::Expr;
 pub(crate) fn power_of(expr: &Expr) -> Option<u8> {
   match expr {
     Expr::Binary { op, .. } => Some(op.power()),
-    // An application spelled with `$` is the exception to the line below, and
-    // the opposite of it: doc 18 §2.1 puts `$` *looser* than every operator,
-    // and right-associatively, so `(f $ x) |> g` and `(f $ x) + 1` both need
-    // the parenthesis the author wrote. Power 0 says exactly that — redundant
-    // only where nothing at all is required, which is a statement's own
-    // expression.
     Expr::Call {
       is_dollar: true, ..
     } => Some(0),
-    // Tighter than every binary operator. Doc 18 §2.1 makes application the
-    // primary and the parser consumes postfix inside it, so these are a single
-    // group rather than a ladder.
-    Expr::Call { .. }
-    // Tighter for the same reason the group below is: the `!` and the arrows
-    // are part of the call's own syntax, so there is no ladder for a
-    // parenthesis to disambiguate. A `rust` hatch is self-delimiting too.
-    | Expr::MacroCall { .. }
-    | Expr::RustHatch { .. }
-    | Expr::Field { .. }
+    Expr::Call { .. } => Some(u8::MAX),
+    Expr::MacroCall { .. } | Expr::RustHatch { .. } => Some(u8::MAX),
+    Expr::Field { .. }
     | Expr::Index { .. }
     | Expr::Unary { .. }
     | Expr::Try { .. }
-    | Expr::MethodRef { .. }
-    | Expr::Path { .. }
-    | Expr::StrLit { .. }
+    | Expr::MethodRef { .. } => Some(u8::MAX),
+    Expr::Path { .. } | Expr::Ident(_) | Expr::SelfField { .. } | Expr::SelfType { .. } => {
+      Some(u8::MAX)
+    }
+    Expr::StrLit { .. }
     | Expr::StrInterp { .. }
     | Expr::RawLit { .. }
     | Expr::Num { .. }
     | Expr::Bool { .. }
-    | Expr::Char { .. }
-    | Expr::Tuple { .. }
-    | Expr::List { .. }
-    | Expr::ArrayRepeat { .. }
-    | Expr::Unit { .. }
-    | Expr::SelfField { .. }
-    | Expr::SelfType { .. }
-    | Expr::Ident(_) => Some(u8::MAX),
-    // A parenthesis inside a parenthesis is decided by what *it* holds, so the
-    // question passes straight through. `((x)) + 1` reduces to `x + 1` by this
-    // line, which is also what makes the normalisation idempotent.
+    | Expr::Char { .. } => Some(u8::MAX),
+    Expr::Tuple { .. } | Expr::List { .. } | Expr::ArrayRepeat { .. } | Expr::Unit { .. } => {
+      Some(u8::MAX)
+    }
     Expr::Paren { inner, .. } => power_of(inner),
-    // Bracket-terminated, so nothing after them can be absorbed: a record
-    // ends at `}`, a comprehension at `]`, a section at `)`. They were
-    // declining with the open-ended forms below, which parenthesised
-    // `[ n * 2 | n in xs ] : Vec<i32>` — a spelling `examples/comprehension.sdx`
-    // writes without parentheses, correctly.
     Expr::Record { .. } | Expr::Comprehension { .. } | Expr::Section { .. } => Some(u8::MAX),
-    // Open-ended: each extends as far right as it can, so a surrounding
-    // parenthesis is doing real work whatever a precedence table says.
     Expr::Lambda { .. }
     | Expr::Ascribe { .. }
     | Expr::If { .. }
@@ -98,21 +73,14 @@ pub(crate) fn power_of(expr: &Expr) -> Option<u8> {
     | Expr::Case { .. }
     | Expr::AsyncBlock { .. }
     | Expr::UnsafeBlock { .. }
-    | Expr::TryBlock { .. }
-    // And the forms plan 55 leaf 1 promoted out of `StmtKind`, every one of
-    // which is open-ended in the same way: `return e`, `break e`, `x += e`,
-    // `assert e` and a binding all extend as far right as the expression
-    // after them does, and the three loops and a `guard` carry a block.
-    // A decline keeps the author's parentheses, which is the safe default
-    // this function's doc argues for — and none of these can reach an
-    // expression position through today's grammar anyway.
-    | Expr::Binding(_)
+    | Expr::TryBlock { .. } => None,
+    Expr::Binding(_)
     | Expr::Item { .. }
     | Expr::Return { .. }
     | Expr::Draw { .. }
     | Expr::Await { .. }
-    | Expr::Assign { .. }
-    | Expr::Guard { .. }
+    | Expr::Assign { .. } => None,
+    Expr::Guard { .. }
     | Expr::While { .. }
     | Expr::For { .. }
     | Expr::Loop { .. }

@@ -28,4 +28,17 @@ import redox_ast::ClassMember
 -- | not reserved.
 export(crate) member_text : &ClassMember -> usize -> &str -> String
 member_text member indent source =
-  -- TODO plan 69: body
+  pad = indent_text indent
+  case member of
+    ClassMember::AssocType name -> format! \-> "#{pad}type #{name.text}"
+    ClassMember::AssocConst { name, ty, value } ->
+      assigned = case value of
+        Some v -> format! \-> " = #{(expr_text v 0 indent source)}"
+        None -> String::new ()
+      format! \-> "#{pad}const #{name.text} : #{ty.text}#{assigned}"
+    ClassMember::Method decl ->
+      mut out = String::new ()
+      for trivium in &decl.leading
+        .push_str (&trivia_text trivium indent) out
+        .push '\n' out
+      format! \-> "#{out}#{pad}#{(fn_text decl indent source)}"

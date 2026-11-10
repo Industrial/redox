@@ -38,4 +38,16 @@ import redox_ast::{Binding, Expr}
 -- | so it takes the ordinary separator.
 export(crate) binding_text : &Binding -> usize -> &str -> String
 binding_text binding indent source =
-  -- TODO plan 69: body
+  prefix = if binding.is_mut
+    "mut "
+  else
+    ""
+  ty = case &binding.ty of
+    Some ty -> format! \-> " : #{ty.text}"
+    None -> String::new ()
+  separator = case &binding.value of
+    Expr::Block { label = None, .. } -> "=\n"
+    _ -> "= "
+  pattern = pattern_text (&binding.pattern)
+  value = expr_text (&binding.value) 0 indent source
+  format! \-> "#{prefix}#{pattern}#{ty} #{separator}#{value}"

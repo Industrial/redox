@@ -1,8 +1,11 @@
 pub(crate) mod pipeline_width;
 
 use crate::expr_text::operand::operand;
+
 use crate::expr_text::pipeline_text::pipeline_width::PIPELINE_WIDTH;
+
 use crate::stmt_text::indent_text::indent_text;
+
 use redox_ast::{BinaryOp, Expr};
 
 /// Doc 03 §5.3's receiver pipeline, on one line or one stage per line.
@@ -43,6 +46,9 @@ pub(crate) fn pipeline_text(lhs: &Expr, rhs: &Expr, indent: usize, source: &str)
   let power = BinaryOp::Pipeline.power();
   let mut stages = vec![operand(rhs, power + 1, indent, source)];
   let mut head = lhs;
+  // The crate's one `while let`. `guard … is … else` does not replace it:
+  // this walks a left-leaning `Binary` chain to its receiver and has to keep
+  // going, not leave.
   while let Expr::Binary {
     op: BinaryOp::Pipeline,
     lhs: left,
@@ -55,15 +61,13 @@ pub(crate) fn pipeline_text(lhs: &Expr, rhs: &Expr, indent: usize, source: &str)
   }
   stages.reverse();
   let receiver = operand(head, power, indent, source);
-
-  let one_line = format!("{receiver} |> {}", stages.join(" |> "));
+  let one_line = format!("{} |> {}", receiver, stages.join(" |> "));
   // A stage that is already multi-line forces the break too, which is what
   // the emitter's `chain` does with a multi-line segment and for the same
   // reason: there is no joined form left to keep.
   if indent_text(indent).len() + one_line.len() <= PIPELINE_WIDTH && !one_line.contains('\n') {
     return one_line;
   }
-
   // One level in from the statement, which is the indentation
   // `examples/application.sdx` writes and doc 03 §5.3's own example before it.
   let pad = indent_text(indent + 1);

@@ -1,4 +1,5 @@
 use crate::pattern_text::pattern_text;
+
 use redox_ast::RecordPatternField;
 
 /// One field of a record pattern — `x = 0`, or `y` for the shorthand.

@@ -5,5 +5,7 @@ import redox_ast::Pattern
 -- | An `Apply` with **no** arguments — `None`, `Close` — is a bare name and
 -- | needs nothing, which is why the arity is tested rather than the variant.
 export(crate) stands_alone : &Pattern -> bool
-stands_alone pattern =
-  -- TODO plan 69: body
+stands_alone pattern = case pattern of
+  Pattern::Apply { args, .. } -> .is_empty args
+  Pattern::Binding _ or Pattern::Literal { .. } or Pattern::Wildcard _ or Pattern::Tuple { .. } or Pattern::Slice { .. } or Pattern::Rest _ or Pattern::NamedRest { .. } -> true
+  Pattern::Range { .. } or Pattern::Record { .. } or Pattern::As { .. } or Pattern::Or _ -> false

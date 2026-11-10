@@ -1,7 +1,9 @@
 pub(crate) mod target_text;
 
 use crate::item_text::instance_text::target_text::target_text;
+
 use crate::item_text::member_text::member_text;
+
 use redox_ast::InstanceDecl;
 
 /// An `instance` declaration and its members.
@@ -43,16 +45,16 @@ pub(crate) fn instance_text(decl: &InstanceDecl, indent: usize, source: &str) ->
       .collect();
     format!("{} => ", printed.join(", "))
   };
-  let class = decl
-    .class
-    .as_ref()
-    .map_or(String::new(), |class| format!("{} ", target_text(class)));
+  let r#class = match &decl.r#class {
+    Some(r#class) => format!("{} ", target_text(r#class)),
+    None => String::new(),
+  };
   let target = if decl.target.args.is_empty() {
     target_text(&decl.target)
   } else {
     format!("({})", target_text(&decl.target))
   };
-  let header = format!("instance {constraints}{class}{target}");
+  let header = format!("instance {}{}{}", constraints, r#class, target);
   if decl.members.is_empty() {
     return header;
   }
@@ -61,5 +63,5 @@ pub(crate) fn instance_text(decl: &InstanceDecl, indent: usize, source: &str) ->
     .iter()
     .map(|member| member_text(member, indent + 1, source))
     .collect();
-  format!("{header}\n{}", printed.join("\n"))
+  format!("{}\n{}", header, printed.join("\n"))
 }

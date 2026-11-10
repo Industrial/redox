@@ -22,4 +22,15 @@ import redox_ast::{Condition, ConditionOperand}
 -- | where no operand is singled out as the rightmost.
 export(crate) condition_text : &Condition -> usize -> &str -> String
 condition_text condition indent source =
-  -- TODO plan 69: body
+  required = if .len condition.operands == 1
+    0
+  else
+    10
+  parts : Vec<String> = condition.operands
+    |> .iter
+    |> .map (\operand -> case operand of
+    ConditionOperand::Expr expr -> expr_text expr required indent source
+    ConditionOperand::Pattern { pattern, source = from } ->
+      format! \-> "#{(expr_text from required indent source)} is #{(pattern_text pattern)}")
+    |> .collect
+  .join " && " parts

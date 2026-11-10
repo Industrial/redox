@@ -1,4 +1,5 @@
 use crate::expr_text::expr_text;
+
 use redox_ast::Expr;
 
 /// An application the author spelled with doc 18 §2.1's `$`.
@@ -37,9 +38,7 @@ use redox_ast::Expr;
 /// follows: `power_of` reports power 0 for this form, so `operand`, `argument`
 /// and `receiver` all wrap it.
 pub(crate) fn dollar_text(callee: &Expr, arg: &Expr, indent: usize, source: &str) -> String {
-  format!(
-    "{} $ {}",
-    expr_text(callee, 0, indent, source),
-    expr_text(arg, 0, indent, source)
-  )
+  let left = expr_text(callee, 0, indent, source);
+  let right = expr_text(arg, 0, indent, source);
+  format!("{} $ {}", left, right)
 }

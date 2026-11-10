@@ -1,5 +1,7 @@
 use crate::expr_text::can_drop_paren::can_drop_paren;
+
 use crate::expr_text::expr_text;
+
 use redox_ast::Expr;
 
 /// One side of a binary expression, parenthesised only where precedence needs
@@ -11,11 +13,7 @@ use redox_ast::Expr;
 /// losing its parentheses while `(a - b) - c` loses them correctly.
 pub(crate) fn operand(expr: &Expr, required: u8, indent: usize, source: &str) -> String {
   match expr {
-    // An author's parenthesis, judged against this position.
     Expr::Paren { .. } => expr_text(expr, required, indent, source),
-    // Anything else already *is* the operand. It needs parentheses when it
-    // binds looser than the position demands — which is the same question
-    // `can_drop_paren` answers, asked of an expression that has none yet.
     _ if can_drop_paren(expr, required) => expr_text(expr, required, indent, source),
     _ => format!("({})", expr_text(expr, 0, indent, source)),
   }

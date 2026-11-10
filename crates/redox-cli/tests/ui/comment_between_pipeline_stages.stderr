@@ -1,0 +1,6 @@
+error[RDX0103]: expected a name to begin a declaration
+  --> comment_between_pipeline_stages.sdx:25:3
+   |
+25 |   |> .map (\n -> n * 2)
+   |   ^
+

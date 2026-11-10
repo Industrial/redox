@@ -43,4 +43,33 @@ import redox_ast::Program
 -- | standing between this formatter and reading no source at all.
 export format : &Program -> &str -> String
 format program source =
-  -- TODO plan 69: body
+  mut out = String::new ()
+  mut first = true
+  for item in &program.items
+    mut text = item_text item 0 source
+    -- A file does not open with a blank line, whatever the author wrote.
+    if first
+      first := false
+      text := String::from (.trim_start_matches '\n' text)
+    -- `mut text` and `:=` where the first port wrote `text = if first …`, and
+    -- the pipelines are the reason for both. Plan 69's second sighting: a
+    -- binding whose **value** is a block — an `if`, a `case` — swallows a
+    -- following statement that opens with `.name`. The value goes through the
+    -- Pratt loop, a block ends on a `Dedent` that does not stop it, and so
+    -- `postfix` reads the `.` as field access on the block; `RDX0115` then
+    -- refuses the method call. An `if` in *statement* position does not do
+    -- this, which is what `expr_text/macro_call_text.sdx` relies on, and the
+    -- fixture is `tests/ui/block_valued_binding_eats_the_next_statement`.
+    --
+    -- Reassigning removes the block value; `recv |> .name args` — the
+    -- spelling `RDX0115`'s own help text offers — then reads better than two
+    -- leading dots for two lines that are both about `out`.
+    out |> .push_str (&text)
+    out |> .push '\n'
+  for trivium in &program.trailing
+    .push_str (&trivia_text trivium 0) out
+    .push '\n' out
+  -- A blank line **before** an end-of-file comment is content and stays;
+  -- blank lines at the very end are not. `trimmed_tail` records why that
+  -- decision is made on the finished text rather than on the trivium.
+  trimmed_tail out

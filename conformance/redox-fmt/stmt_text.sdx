@@ -39,4 +39,30 @@ import redox_ast::Stmt
 -- | into the wrong place is still a comment the count finds.
 export stmt_text : &Stmt -> usize -> &str -> String
 stmt_text stmt indent source =
-  -- TODO plan 69: body
+  -- Plan 55 leaf 5. A declaration writes its own padding and its own leading
+  -- trivia — `item_text` does both, because a module-scope declaration has no
+  -- caller to do it — so it is written here rather than through `code_text`,
+  -- which runs *after* the pad below. `emit_stmt` routes an item before its
+  -- own `pad` call for the identical reason.
+  --
+  -- Going through `code_text` and stripping the pad was the first attempt. It
+  -- works only for an item with no leading trivia: with any, the output starts
+  -- with the trivia's newline, the strip misses, and a blank line between two
+  -- nested declarations comes out as the pad alone.
+  guard &stmt.expr is Expr::Item { item, .. } else
+    mut lines : Vec<String> = Vec::new ()
+    for trivium in &stmt.leading
+      .push (trivia_text trivium indent) lines
+    mut code = format! \-> "#{(indent_text indent)}#{(code_text (&stmt.expr) indent source)}"
+    -- **Two** spaces before a trailing comment. The corpus writes two in four
+    -- places and one in a fifth, and nothing distinguishes the fifth — so the
+    -- majority decides and `examples/comments.sdx` gains a space. Picking one
+    -- the other way was the first attempt, on the reasoning that the file
+    -- about comments should be the authority on comments; four files against
+    -- one is the better argument.
+    if &stmt.trailing is Some trailing
+      .push_str "  " code
+      .push_str (.trim_start (trivia_text trailing 0)) code
+    .push code lines
+    return .join "\n" lines
+  item_text item indent source

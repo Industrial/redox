@@ -24,4 +24,24 @@ import redox_ast::ClassDecl
 -- | reachable — plan 67 §1.4.
 export(crate) class_text : &ClassDecl -> usize -> &str -> String
 class_text decl indent source =
-  -- TODO plan 69: body
+  supers = if .is_empty decl.supers
+    String::new ()
+  else
+    names : Vec<&str> = decl.supers
+      |> .iter
+      |> .map (\s -> .as_str s.text)
+      |> .collect
+    format! \-> "#{(.join ", " names)} => "
+  params : String = decl.params
+    |> .iter
+    |> .map (\p -> format! \-> " #{p.text}")
+    |> .collect
+  vis = visibility_text (&decl.visibility)
+  header = format! \-> "#{vis}class #{supers}#{decl.name.text}#{params}"
+  if .is_empty decl.members
+    return header
+  printed : Vec<String> = decl.members
+    |> .iter
+    |> .map (\member -> member_text member (indent + 1) source)
+    |> .collect
+  format! \-> "#{header}\n#{(.join "\n" printed)}"

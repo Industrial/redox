@@ -1,5 +1,7 @@
 use crate::expr_text::expr_text;
+
 use crate::item_text::visibility_text::visibility_text;
+
 use redox_ast::ConstDecl;
 
 /// A `const` or `static` item — `const MAX : usize = 1024`.
@@ -14,20 +16,19 @@ use redox_ast::ConstDecl;
 /// a function's signature unprintable.
 pub(crate) fn const_text(decl: &ConstDecl, source: &str) -> String {
   let keyword = if decl.is_static { "static" } else { "const" };
+  // Indent 0: a `const` sits at the top of a file, so there is no enclosing
+  // indentation for a block-bearing expression to hang from — and doc 03
+  // does not allow one in a `const` anyway.
+  //
+  // The **source** is passed, unlike the indentation. An empty string here
+  // was the first version and it defeats `literal_text`'s span slice, so a
+  // `static` holding a block string would have been rewritten into a
+  // single-line literal — the same defect leaf 2 had just fixed, reopened
+  // one file away by a parameter that looked unused.
+  let value = expr_text(&decl.value, 0, 0, source);
+  let vis = visibility_text(&decl.visibility);
   format!(
-    "{}{keyword} {} : {} = {}",
-    visibility_text(&decl.visibility),
-    decl.name.text,
-    decl.ty.text,
-    // Indent 0: a `const` sits at the top of a file, so there is no enclosing
-    // indentation for a block-bearing expression to hang from — and doc 03
-    // does not allow one in a `const` anyway.
-    //
-    // The **source** is passed, unlike the indentation. An empty string here
-    // was the first version and it defeats `literal_text`'s span slice, so a
-    // `static` holding a block string would have been rewritten into a
-    // single-line literal — the same defect leaf 2 had just fixed, reopened
-    // one file away by a parameter that looked unused.
-    expr_text(&decl.value, 0, 0, source)
+    "{}{} {} : {} = {}",
+    vis, keyword, decl.name.text, decl.ty.text, value
   )
 }

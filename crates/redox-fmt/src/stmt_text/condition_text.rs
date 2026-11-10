@@ -1,5 +1,7 @@
 use crate::expr_text::expr_text;
+
 use crate::pattern_text::pattern_text;
+
 use redox_ast::{Condition, ConditionOperand};
 
 /// A condition — one or more operands joined by `&&`, each either an
@@ -22,7 +24,7 @@ use redox_ast::{Condition, ConditionOperand};
 /// where no operand is singled out as the rightmost.
 pub(crate) fn condition_text(condition: &Condition, indent: usize, source: &str) -> String {
   let required = if condition.operands.len() == 1 { 0 } else { 10 };
-  condition
+  let parts: Vec<String> = condition
     .operands
     .iter()
     .map(|operand| match operand {
@@ -31,14 +33,11 @@ pub(crate) fn condition_text(condition: &Condition, indent: usize, source: &str)
         pattern,
         source: from,
       } => format!(
-        // Plan 60: scrutinee first, joined by `is`. The node kept its field
-        // order — `pattern` then `source` — so only the printing reversed,
-        // which is the same shape the parser's change took.
         "{} is {}",
         expr_text(from, required, indent, source),
         pattern_text(pattern)
       ),
     })
-    .collect::<Vec<_>>()
-    .join(" && ")
+    .collect();
+  parts.join(" && ")
 }

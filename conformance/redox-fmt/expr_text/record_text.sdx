@@ -19,7 +19,7 @@ record_text head fields indent source =
   printed : Vec<String> = fields
     |> .iter
     |> .map (\field -> case &field.value of
-      Some value -> format! \-> "#{field.name.text} = #{(expr_text value 0 indent source)}"
-      None -> .clone field.name.text)
+    Some value -> format! \-> "#{field.name.text} = #{(expr_text value 0 indent source)}"
+    None -> .clone field.name.text)
     |> .collect
   format! \-> "#{(receiver head indent source)} { #{(.join ", " printed)} }"

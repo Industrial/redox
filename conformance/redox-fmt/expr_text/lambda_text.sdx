@@ -19,4 +19,34 @@ import redox_ast::{Expr, Param}
 -- | reason, which is what keeps a surrounding parenthesis in place.
 export(crate) lambda_text : &[Param] -> &Expr -> bool -> usize -> &str -> String
 lambda_text params body is_move indent source =
-  -- TODO plan 69: body
+  mut out = String::from "\\"
+  if is_move
+    .push_str "move " out
+  mut first = true
+  for param in .iter params
+    if !first
+      .push ' ' out
+    first := false
+    .push_str (&param_text param) out
+  -- An unlabelled block body has **nothing on its own first line** — the
+  -- text `expr_text` returns begins with the block's first statement, already
+  -- padded to `indent + 1` — so the arrow takes the newline and ` -> ` in
+  -- front of it would be trailing whitespace. Exactly `binding_text`'s choice
+  -- between `"= "` and `"=\n"`, and for exactly its reason.
+  --
+  -- A labelled block prints `'name` on the first line, so it stays inline;
+  -- `expr_text`'s own `Block` arm draws the same distinction.
+  --
+  -- Found by plan 69 running `redox fmt --check` over this crate's own ported
+  -- source: five files map a multi-statement lambda over a collection, and
+  -- the formatter rewrote every one of them into source that does not parse.
+  -- No corpus file had a lambda with a block body before the port wrote them,
+  -- which is why `lambda_text` never needed the rule `binding_text` has.
+  separator = case body of
+    Expr::Block { label = None, .. } -> " ->\n"
+    _ -> " -> "
+  -- Piped, because a `case`-valued binding swallows a following `.name`
+  -- statement — `format.sdx` has the rule and the probes.
+  out |> .push_str separator
+  .push_str (&expr_text body 0 indent source) out
+  out

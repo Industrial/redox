@@ -36,5 +36,43 @@ import redox_ast::Pattern
 -- | statement. So there is no `indent` and no `source` here — nothing is
 -- | sliced, and everything is printed.
 export pattern_text : &Pattern -> String
-pattern_text pattern =
-  -- TODO plan 69: body
+pattern_text pattern = case pattern of
+  Pattern::Binding ident -> .clone ident.text
+  Pattern::Literal { text, .. } -> .clone text
+  Pattern::Wildcard _ -> String::from "_"
+  Pattern::Range { lo, hi, inclusive, .. } ->
+    -- Bound, where the Rust put the `if` in `format!`'s argument list: a
+    -- `#{…}` hole takes an expression and the two-arm choice reads better
+    -- with a name on it anyway.
+    dots = if *inclusive
+      "..="
+    else
+      ".."
+    format! \-> "#{lo}#{dots}#{hi}"
+  Pattern::Apply { path, args, .. } ->
+    mut out = .clone path
+    for arg in args
+      .push ' ' out
+      .push_str (&pattern_argument arg) out
+    out
+  Pattern::Tuple { items, .. } ->
+    inner = joined items
+    if .len items == 1
+      format! \-> "(#{inner},)"
+    else
+      format! \-> "(#{inner})"
+  Pattern::Slice { items, .. } -> format! \-> "[#{(joined items)}]"
+  Pattern::Record { path, fields, rest, .. } ->
+    mut parts : Vec<String> = fields |> .iter |> .map record_field_text |> .collect
+    if *rest
+      .push (String::from "..") parts
+    if .is_empty parts
+      format! \-> "#{path} {}"
+    else
+      format! \-> "#{path} { #{(.join ", " parts)} }"
+  Pattern::As { name, inner, .. } -> format! \-> "#{name.text} @ #{(beside_a_keyword inner)}"
+  Pattern::Rest _ -> String::from ".."
+  Pattern::NamedRest { name, .. } -> format! \-> "#{name.text} @ .."
+  Pattern::Or alts ->
+    printed : Vec<String> = alts |> .iter |> .map beside_a_keyword |> .collect
+    .join " or " printed

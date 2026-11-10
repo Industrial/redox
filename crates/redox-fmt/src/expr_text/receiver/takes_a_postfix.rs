@@ -3,7 +3,6 @@ use redox_ast::Expr;
 /// Whether a `.` can attach to this expression's printed form directly.
 pub(crate) fn takes_a_postfix(expr: &Expr) -> bool {
   match expr {
-    // Atoms and bracketed forms: a `.` binds to the whole of each.
     Expr::Ident(_)
     | Expr::Path { .. }
     | Expr::Num { .. }
@@ -21,20 +20,10 @@ pub(crate) fn takes_a_postfix(expr: &Expr) -> bool {
     | Expr::Comprehension { .. }
     | Expr::SelfField { .. }
     | Expr::SelfType { .. } => true,
-    // A postfix chain is itself a receiver — that is what a chain is.
     Expr::Field { .. } | Expr::Index { .. } | Expr::Try { .. } => true,
-    // Plan 57's `.name`. Unreachable through today's grammar — nothing
-    // postfixes a bare method reference — and `true` is the round-trip-safe
-    // answer if it ever is: `(.name)` is the field *selector*, so wrapping it
-    // would change the program.
     Expr::MethodRef { .. } => true,
-    // The author's parenthesis is kept or dropped by what it holds.
     Expr::Paren { inner, .. } => takes_a_postfix(inner),
-    // An application needs its own parentheses: `(f x).a`, because postfix is
-    // consumed inside `application::atom` and would otherwise bind to `x`.
     Expr::Call { .. } => false,
-    // Everything else — a binary or unary expression, a lambda, an
-    // ascription, a block-bearing form — ends somewhere a `.` cannot follow.
     _ => false,
   }
 }

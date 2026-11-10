@@ -2,5 +2,10 @@ import redox_ast::Expr
 
 -- | Whether a `.` can attach to this expression's printed form directly.
 export(crate) takes_a_postfix : &Expr -> bool
-takes_a_postfix expr =
-  -- TODO plan 69: body
+takes_a_postfix expr = case expr of
+  Expr::Ident _ or Expr::Path { .. } or Expr::Num { .. } or Expr::Bool { .. } or Expr::Char { .. } or Expr::StrLit { .. } or Expr::StrInterp { .. } or Expr::RawLit { .. } or Expr::Unit { .. } or Expr::Tuple { .. } or Expr::List { .. } or Expr::ArrayRepeat { .. } or Expr::Record { .. } or Expr::Section { .. } or Expr::Comprehension { .. } or Expr::SelfField { .. } or Expr::SelfType { .. } -> true
+  Expr::Field { .. } or Expr::Index { .. } or Expr::Try { .. } -> true
+  Expr::MethodRef { .. } -> true
+  Expr::Paren { inner, .. } -> takes_a_postfix inner
+  Expr::Call { .. } -> false
+  _ -> false

@@ -58,11 +58,7 @@ fn workspace_root() -> PathBuf {
 /// the order they were ported, which is also dependency order — `redox-fmt`
 /// reads `redox-ast`'s types, so a staged check of the second needs the first
 /// already in place.
-// `redox-fmt` joins this list when plan 69 leaf 1 finishes. A half-written
-// port in it makes the staging guard refuse every bless — correctly — which
-// would leave the gate red for the length of a port rather than at the end
-// of one. Its `.sdx` tree is in `conformance/redox-fmt/` meanwhile.
-const PORTED: &[&str] = &["redox-ast"];
+const PORTED: &[&str] = &["redox-ast", "redox-fmt"];
 
 /// Every `.sdx` of the port, with the `.rs` it generates.
 ///

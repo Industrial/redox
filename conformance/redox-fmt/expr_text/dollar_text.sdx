@@ -38,4 +38,6 @@ import redox_ast::Expr
 -- | and `receiver` all wrap it.
 export(crate) dollar_text : &Expr -> &Expr -> usize -> &str -> String
 dollar_text callee arg indent source =
-  -- TODO plan 69: body
+  left = expr_text callee 0 indent source
+  right = expr_text arg 0 indent source
+  format! \-> "#{left} $ #{right}"

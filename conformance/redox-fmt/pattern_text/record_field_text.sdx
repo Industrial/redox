@@ -8,5 +8,6 @@ import redox_ast::RecordPatternField
 -- | one character this form changes"* — which is the whole reason this is a
 -- | separate printer rather than a reuse.
 export(crate) record_field_text : &RecordPatternField -> String
-record_field_text field =
-  -- TODO plan 69: body
+record_field_text field = case &field.pattern of
+  Some pattern -> format! \-> "#{field.name.text} = #{(pattern_text pattern)}"
+  None -> .clone field.name.text

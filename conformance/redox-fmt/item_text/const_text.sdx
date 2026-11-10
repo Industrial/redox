@@ -14,4 +14,19 @@ import redox_ast::ConstDecl
 -- | a function's signature unprintable.
 export(crate) const_text : &ConstDecl -> &str -> String
 const_text decl source =
-  -- TODO plan 69: body
+  keyword = if decl.is_static
+    "static"
+  else
+    "const"
+  -- Indent 0: a `const` sits at the top of a file, so there is no enclosing
+  -- indentation for a block-bearing expression to hang from — and doc 03
+  -- does not allow one in a `const` anyway.
+  --
+  -- The **source** is passed, unlike the indentation. An empty string here
+  -- was the first version and it defeats `literal_text`'s span slice, so a
+  -- `static` holding a block string would have been rewritten into a
+  -- single-line literal — the same defect leaf 2 had just fixed, reopened
+  -- one file away by a parameter that looked unused.
+  value = expr_text (&decl.value) 0 0 source
+  vis = visibility_text (&decl.visibility)
+  format! \-> "#{vis}#{keyword} #{decl.name.text} : #{decl.ty.text} = #{value}"

@@ -1,8 +1,11 @@
 pub(crate) mod trimmed_tail;
 
 use crate::format::trimmed_tail::trimmed_tail;
+
 use crate::item_text::item_text;
+
 use crate::stmt_text::trivia_text::trivia_text;
+
 use redox_ast::Program;
 
 /// Format a parsed program back into canonical Redox.
@@ -45,14 +48,25 @@ pub fn format(program: &Program, source: &str) -> String {
   let mut out = String::new();
   let mut first = true;
   for item in &program.items {
-    let text = item_text(item, 0, source);
+    let mut text = item_text(item, 0, source);
     // A file does not open with a blank line, whatever the author wrote.
-    let text = if first {
+    if first {
       first = false;
-      text.trim_start_matches('\n').to_string()
-    } else {
-      text
-    };
+      text = String::from(text.trim_start_matches('\n'));
+    }
+    // `mut text` and `:=` where the first port wrote `text = if first …`, and
+    // the pipelines are the reason for both. Plan 69's second sighting: a
+    // binding whose **value** is a block — an `if`, a `case` — swallows a
+    // following statement that opens with `.name`. The value goes through the
+    // Pratt loop, a block ends on a `Dedent` that does not stop it, and so
+    // `postfix` reads the `.` as field access on the block; `RDX0115` then
+    // refuses the method call. An `if` in *statement* position does not do
+    // this, which is what `expr_text/macro_call_text.sdx` relies on, and the
+    // fixture is `tests/ui/block_valued_binding_eats_the_next_statement`.
+    //
+    // Reassigning removes the block value; `recv |> .name args` — the
+    // spelling `RDX0115`'s own help text offers — then reads better than two
+    // leading dots for two lines that are both about `out`.
     out.push_str(&text);
     out.push('\n');
   }

@@ -33,4 +33,7 @@ import redox_ast::Expr
 -- | this function's counterpart on the Rust side.
 export(crate) receiver : &Expr -> usize -> &str -> String
 receiver expr indent source =
-  -- TODO plan 69: body
+  if takes_a_postfix expr
+    expr_text expr 0 indent source
+  else
+    format! \-> "(#{(expr_text expr 0 indent source)})"

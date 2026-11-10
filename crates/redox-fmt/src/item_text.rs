@@ -1,27 +1,49 @@
 pub(crate) mod class_text;
+
 pub(crate) mod clause_text;
+
 pub(crate) mod const_text;
+
 pub(crate) mod constructor_text;
+
 pub(crate) mod data_text;
+
 pub(crate) mod errors_text;
+
 pub(crate) mod fn_text;
+
 pub(crate) mod instance_text;
+
 pub(crate) mod leading_text;
+
 pub(crate) mod member_text;
+
 pub(crate) mod same_line;
+
 pub(crate) mod signature_line;
+
 pub(crate) mod visibility_text;
 
 use crate::item_text::class_text::class_text;
+
 use crate::item_text::const_text::const_text;
+
 use crate::item_text::data_text::data_text;
+
 use crate::item_text::errors_text::errors_text;
+
 use crate::item_text::fn_text::fn_text;
+
 use crate::item_text::instance_text::instance_text;
+
 use crate::item_text::leading_text::leading_text;
+
 use crate::item_text::visibility_text::visibility_text;
+
 use crate::stmt_text::block_text::block_text;
+
 use crate::stmt_text::indent_text::indent_text;
+
 use redox_ast::Item;
 
 /// One item in canonical Redox, with its leading trivia — plan 34, leaf 2.
@@ -53,9 +75,12 @@ use redox_ast::Item;
 /// spacing, and the fix is a change to the AST, not to this file.
 pub fn item_text(item: &Item, indent: usize, source: &str) -> String {
   let mut out = leading_text(item, indent);
-  let pad = indent_text(indent);
-  out.push_str(&pad);
-  out.push_str(&match item {
+  out.push_str(&indent_text(indent));
+  // Bound, where the Rust wrote `out.push_str(&match item { … })`. The
+  // `case` then has to be piped into the push rather than dotted onto it,
+  // for the reason `format.sdx` records: a binding whose value is a block
+  // swallows a following statement that opens with `.name`.
+  let body = match item {
     Item::Fn(decl) => fn_text(decl, indent, source),
     Item::Data(decl) => data_text(decl, indent, source),
     Item::Type(decl) => format!(
@@ -67,7 +92,6 @@ pub fn item_text(item: &Item, indent: usize, source: &str) -> String {
     Item::Class(decl) => class_text(decl, indent, source),
     Item::Instance(decl) => instance_text(decl, indent, source),
     Item::Errors(decl) => errors_text(decl, indent),
-    // The description keeps its quotes, as an error variant's message does.
     Item::Test(decl) => format!(
       "test {}\n{}",
       decl.description,
@@ -79,14 +103,12 @@ pub fn item_text(item: &Item, indent: usize, source: &str) -> String {
         .as_ref()
         .map_or(String::new(), |name| format!(" as {}", name.text));
       format!(
-        "{}import {}{alias}",
+        "{}import {}{}",
         visibility_text(&decl.visibility),
-        decl.path
+        decl.path,
+        alias
       )
     }
-    // A `module` with no items is a file module — `module name` and nothing
-    // else — so the brace-less form is the absence of a body rather than an
-    // empty one.
     Item::Module(decl) => {
       let header = format!(
         "{}module {}",
@@ -100,26 +122,18 @@ pub fn item_text(item: &Item, indent: usize, source: &str) -> String {
             .iter()
             .map(|inner| item_text(inner, indent + 1, source))
             .collect();
-          format!("{header}\n{}", printed.join("\n"))
+          format!("{}\n{}", header, printed.join("\n"))
         }
       }
     }
     Item::Const(decl) => const_text(decl, source),
-    // Plan 45 leaf 1. The formatter reproduces the hatch as written: the
-    // body is Rust that Redox never parsed, so there is nothing here that
-    // could be canonicalised without implementing a Rust formatter — and
-    // `rustfmt` is the tool for that, on the `.xrs`.
-    // Plan 45 leaf 1. The body is re-indented one level inside the block,
-    // which is what makes the construct canonical and round-trip: the lexer
-    // *dedents* a `"""` block, so emitting `decl.code` as-is writes it at
-    // column 0 and the file changes every time it is formatted.
     Item::InlineRust(decl) => {
       let body: String = decl
         .code
         .lines()
         .map(|line| {
           if line.trim().is_empty() {
-            "\n".to_string()
+            String::from("\n")
           } else {
             format!("{}{}\n", indent_text(indent + 1), line)
           }
@@ -127,10 +141,6 @@ pub fn item_text(item: &Item, indent: usize, source: &str) -> String {
         .collect();
       format!("rust \"\"\"\n{}{}\"\"\"", body, indent_text(indent))
     }
-    // Plan 45 leaf 3. The declarations are reproduced from the source slice
-    // for the reason this module's header gives: a signature's own spacing is
-    // not in the AST, so re-rendering one would change text the formatter has
-    // no mandate to change.
     Item::Extern(decl) => {
       let body: String = decl
         .decls
@@ -145,6 +155,7 @@ pub fn item_text(item: &Item, indent: usize, source: &str) -> String {
         .collect();
       format!("extern {}\n{}", decl.abi, body.trim_end())
     }
-  });
+  };
+  out.push_str(&body);
   out
 }

@@ -1,4 +1,5 @@
 use crate::pattern_text::pattern_text;
+
 use redox_ast::Pattern;
 
 /// A comma-separated run of patterns, with no trailing comma.
@@ -8,9 +9,9 @@ use redox_ast::Pattern;
 /// comma. The one comma that survives is the one that makes `(a,)` a tuple,
 /// and that is written at the call site rather than hidden in here.
 pub(crate) fn joined(items: &[Pattern]) -> String {
-  items
-    .iter()
-    .map(pattern_text)
-    .collect::<Vec<_>>()
-    .join(", ")
+  // `pattern_text` passed straight to `.map`, with no lambda: it is a **free
+  // function**, and plan 68's `(.name)` problem was specific to a *method*
+  // reference, where `(.name)` is the field selector.
+  let parts: Vec<String> = items.iter().map(pattern_text).collect();
+  parts.join(", ")
 }

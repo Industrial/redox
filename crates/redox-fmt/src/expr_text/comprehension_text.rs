@@ -1,4 +1,5 @@
 use crate::expr_text::expr_text;
+
 use redox_ast::{Expr, Qualifier};
 
 /// A comprehension — `[ n * 2 | n in xs, n > 0 ]`.
@@ -25,7 +26,7 @@ pub(crate) fn comprehension_text(
       Qualifier::Draw { name, source: from } => {
         format!("{} in {}", name.text, expr_text(from, 0, indent, source))
       }
-      Qualifier::Guard(guard) => expr_text(guard, 0, indent, source),
+      Qualifier::Guard(r#guard) => expr_text(r#guard, 0, indent, source),
     })
     .collect();
   format!(

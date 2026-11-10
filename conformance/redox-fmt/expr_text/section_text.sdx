@@ -11,5 +11,9 @@ import redox_ast::Section
 -- | `(.age)` — which is §1.5's rule, that the hand-written examples are the
 -- | style guide rather than the thing measured against one.
 export(crate) section_text : &Section -> usize -> &str -> String
-section_text section indent source =
-  -- TODO plan 69: body
+section_text section indent source = case section of
+  Section::Right { op, operand } ->
+    format! \-> "(#{(.redox_text (*op))} #{(expr_text operand 0 indent source)})"
+  Section::Left { op, operand } ->
+    format! \-> "(#{(expr_text operand 0 indent source)} #{(.redox_text (*op))})"
+  Section::Field name -> format! \-> "(.#{name.text})"

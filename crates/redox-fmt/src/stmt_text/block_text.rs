@@ -1,4 +1,5 @@
 use crate::stmt_text::stmt_text;
+
 use redox_ast::Block;
 
 /// A block's statements, one per line, each at `indent`.
@@ -11,10 +12,10 @@ use redox_ast::Block;
 /// so it falls out of the `join` rather than being special-cased. A special
 /// case for an unreachable shape is one nobody will ever check.
 pub(crate) fn block_text(block: &Block, indent: usize, source: &str) -> String {
-  block
+  let parts: Vec<String> = block
     .stmts
     .iter()
     .map(|stmt| stmt_text(stmt, indent, source))
-    .collect::<Vec<_>>()
-    .join("\n")
+    .collect();
+  parts.join("\n")
 }

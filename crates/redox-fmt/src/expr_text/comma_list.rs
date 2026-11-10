@@ -1,4 +1,5 @@
 use crate::expr_text::expr_text;
+
 use redox_ast::Expr;
 
 /// A comma-separated run of expressions, with no trailing comma.
@@ -12,9 +13,9 @@ use redox_ast::Expr;
 /// Each element is printed at power 0, because a comma is looser than every
 /// operator.
 pub(crate) fn comma_list(items: &[Expr], indent: usize, source: &str) -> String {
-  items
+  let parts: Vec<String> = items
     .iter()
     .map(|item| expr_text(item, 0, indent, source))
-    .collect::<Vec<_>>()
-    .join(", ")
+    .collect();
+  parts.join(", ")
 }

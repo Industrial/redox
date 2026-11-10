@@ -1,7 +1,11 @@
 use crate::expr_text::expr_text;
+
 use crate::item_text::fn_text::fn_text;
+
 use crate::stmt_text::indent_text::indent_text;
+
 use crate::stmt_text::trivia_text::trivia_text;
+
 use redox_ast::ClassMember;
 
 /// One member of a `class` or `instance`.
@@ -29,24 +33,21 @@ use redox_ast::ClassMember;
 pub(crate) fn member_text(member: &ClassMember, indent: usize, source: &str) -> String {
   let pad = indent_text(indent);
   match member {
-    ClassMember::AssocType(name) => format!("{pad}type {}", name.text),
+    ClassMember::AssocType(name) => format!("{}type {}", pad, name.text),
     ClassMember::AssocConst { name, ty, value } => {
-      let assigned = value.as_ref().map_or(String::new(), |v| {
-        format!(" = {}", expr_text(v, 0, indent, source))
-      });
-      format!("{pad}const {} : {}{assigned}", name.text, ty.text)
+      let assigned = match value {
+        Some(v) => format!(" = {}", expr_text(v, 0, indent, source)),
+        None => String::new(),
+      };
+      format!("{}const {} : {}{}", pad, name.text, ty.text, assigned)
     }
-    // The method's leading trivia is printed here and nowhere else: a member
-    // is not an `Item`, so `item_text`'s `leading_text` never sees it.
-    // `examples/class.sdx` lost the comment above its default method until
-    // this line existed.
     ClassMember::Method(decl) => {
       let mut out = String::new();
       for trivium in &decl.leading {
         out.push_str(&trivia_text(trivium, indent));
         out.push('\n');
       }
-      format!("{out}{pad}{}", fn_text(decl, indent, source))
+      format!("{}{}{}", out, pad, fn_text(decl, indent, source))
     }
   }
 }

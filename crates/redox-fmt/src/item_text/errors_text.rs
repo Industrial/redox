@@ -1,5 +1,7 @@
 use crate::item_text::visibility_text::visibility_text;
+
 use crate::stmt_text::indent_text::indent_text;
+
 use redox_ast::ErrorsDecl;
 
 /// An `errors` declaration — a table of variants and their messages.
@@ -42,7 +44,6 @@ pub(crate) fn errors_text(decl: &ErrorsDecl, indent: usize) -> String {
   if decl.variants.is_empty() {
     return header;
   }
-
   let heads: Vec<String> = decl
     .variants
     .iter()
@@ -54,7 +55,7 @@ pub(crate) fn errors_text(decl: &ErrorsDecl, indent: usize) -> String {
           .fields
           .first()
           .map_or(String::new(), |ty| ty.text.clone());
-        format!("from {path} as {}", variant.name.text)
+        format!("from {} as {}", path, variant.name.text)
       } else {
         variant.name.text.clone()
       };
@@ -67,20 +68,22 @@ pub(crate) fn errors_text(decl: &ErrorsDecl, indent: usize) -> String {
       head
     })
     .collect();
-
   let width = heads.iter().map(String::len).max().unwrap_or(0);
+  // `variant.message` is stored **with** its quotes, like every other literal
+  // the lexer keeps verbatim; adding a pair gave `""missing key: #{0}""`. And
+  // one lambda parameter rather than the Rust's `(head, variant)` pattern, as
+  // `data_text` explains — as does this comment's position, above the binding
+  // rather than beside its stage, because a comment between two pipeline
+  // stages does not parse.
   let rows: Vec<String> = heads
     .iter()
     .zip(&decl.variants)
-    .map(|(head, variant)| {
-      format!(
-        "{pad}{head}{}  {}",
-        " ".repeat(width - head.len()),
-        // Stored **with** its quotes, like every other literal the lexer
-        // keeps verbatim. Adding a pair gave `""missing key: #{0}""`.
-        variant.message
-      )
+    .map(|row| {
+      let head = row.0;
+      let variant = row.1;
+      let gap = " ".repeat(width - head.len());
+      format!("{}{}{}  {}", pad, head, gap, variant.message)
     })
     .collect();
-  format!("{header}\n{}", rows.join("\n"))
+  format!("{}\n{}", header, rows.join("\n"))
 }

@@ -37,4 +37,33 @@ import redox_ast::Expr
 -- | block has nothing to put there.
 export(crate) macro_call_text : &str -> &[Expr] -> usize -> &str -> String
 macro_call_text name args indent source =
-  -- TODO plan 69: body
+  mut out = format! \-> "#{name}!"
+  for arg in args
+    -- A `case` where the Rust wrote `matches!` — plan 64 §6, the second of
+    -- this crate's three.
+    hangs = case arg of
+      Expr::Block { label = None, .. } -> true
+      _ -> false
+    -- The one string literal in this crate carrying Redox syntax as **data**,
+    -- and it needs nothing special: `\\` is an ordinary escape in both
+    -- languages.
+    --
+    -- Pushed **inside the branches** where the Rust bound a separator and
+    -- pushed it after. Plan 69 found why: a binding whose value is a block
+    -- swallows a following statement that opens with `.name`, reading the `.`
+    -- as a **postfix on the block** — `(if hangs … else …).push_str(…)` —
+    -- which is method-call syntax, so `RDX0115` refuses it.
+    --
+    -- The `if` below is a *statement*, and the `.push_str` after it parses
+    -- fine. That contrast is what pins the rule to the binding rather than to
+    -- the dedent; `tests/ui/block_valued_binding_eats_the_next_statement`
+    -- is the fixture. A blank line does not help. Three spellings do: this
+    -- one, a
+    -- parenthesis round the statement, and `recv |> .name args`, which is
+    -- what `format.sdx` uses.
+    if hangs
+      .push_str " \\->\n" out
+    else
+      .push_str " \\-> " out
+    .push_str (&expr_text arg 0 indent source) out
+  out

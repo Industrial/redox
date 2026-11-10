@@ -11,14 +11,6 @@ import redox_ast::Expr
 -- | losing its parentheses while `(a - b) - c` loses them correctly.
 export(crate) operand : &Expr -> u8 -> usize -> &str -> String
 operand expr required indent source = case expr of
-  -- An author's parenthesis, judged against this position.
   Expr::Paren { .. } -> expr_text expr required indent source
-  -- Anything else already *is* the operand. It needs parentheses when it
-  -- binds looser than the position demands — which is the same question
-  -- `can_drop_paren` answers, asked of an expression that has none yet.
-  --
-  -- A **guard on a wildcard**, where the Rust wrote `_ if …`: Redox spells an
-  -- arm guard with the bar, doc 18 §2.3's *"single highest-yield token in the
-  -- redesign"*.
   _ | can_drop_paren expr required -> expr_text expr required indent source
   _ -> format! \-> "(#{(expr_text expr 0 indent source)})"

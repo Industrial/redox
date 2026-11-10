@@ -1,7 +1,9 @@
 pub(crate) mod stands_alone;
 
 use crate::expr_text::argument::stands_alone::stands_alone;
+
 use crate::expr_text::expr_text;
+
 use redox_ast::Expr;
 
 /// One juxtaposed argument, or a call's callee, parenthesised unless it can
@@ -40,7 +42,6 @@ use redox_ast::Expr;
 /// many times the formatter runs. Leaf 5's idempotence property caught it.
 pub(crate) fn argument(expr: &Expr, indent: usize, source: &str) -> String {
   match expr {
-    // Recursing rather than printing collapses `((x))` to `x` in one step.
     Expr::Paren { inner, .. } if stands_alone(inner) => argument(inner, indent, source),
     Expr::Paren { inner, .. } => format!("({})", expr_text(inner, 0, indent, source)),
     _ if stands_alone(expr) => expr_text(expr, 0, indent, source),

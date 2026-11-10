@@ -1,3 +1,15 @@
+// **`matches!` is unreachable from Redox, so a `case` ladder is the spelling.**
+//
+// The same allow redox-ast carries, for the same reason — plan 64 §6: a Redox
+// macro argument is an **expression**, and `matches!`'s second argument is a
+// **pattern**, so the macro cannot be called from this language. Three
+// predicates in this crate ask *is this one of these variants*; in Rust they
+// were `matches!` and here they are a `case` with a `true` arm and a
+// `_ -> false`. `clippy::match_like_matches_macro` then asks for a macro that
+// is out of reach, so the allow states a fact rather than suppressing a
+// defect. The row that would retire it is the one making `matches!` reachable.
+#![allow(clippy::match_like_matches_macro)]
+
 //! `redox-fmt` — the canonical formatter.
 //!
 //! Declared empty by plan 01 leaf 1. Filled by **plan 34** (`formatter`).
@@ -40,13 +52,21 @@
 //! expression form reads the source any more.
 
 mod expr_text;
+
 mod format;
+
 mod item_text;
+
 mod pattern_text;
+
 mod stmt_text;
 
 pub use expr_text::expr_text;
+
 pub use format::format;
+
 pub use item_text::item_text;
+
 pub use pattern_text::pattern_text;
+
 pub use stmt_text::stmt_text;

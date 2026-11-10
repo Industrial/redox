@@ -21,6 +21,4 @@
 -- | `expr_text` does not know whether it is printing after `evens_doubled xs = `
 -- | or after `print (`. That is the honest limit of the measurement, and it errs
 -- | towards leaving a line long rather than breaking one that fits.
-
--- TODO plan 68: hand-port from line 24
 export(crate) const PIPELINE_WIDTH : usize = 60

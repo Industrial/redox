@@ -22,4 +22,20 @@ import redox_ast::Block
 -- | quietly dropping the rest.
 export(crate) inline_body : &Block -> usize -> &str -> String
 inline_body block indent source =
-  -- TODO plan 69: body
+  pad = indent_text indent
+  parts : Vec<String> = block.stmts
+    |> .iter
+    |> .map (\stmt ->
+    text = stmt_text stmt indent source
+    -- The first line follows `" = "` on the caller's line, so it must not be
+    -- padded; every continuation line must be. `stmt_text` threads one
+    -- indent for both, so the pad is written and then taken back off the
+    -- front — the same trade `code_text` makes, and for the same reason.
+    --
+    -- This argument used to be made by passing **0**, which suppressed the
+    -- first pad and flattened the continuations with it. At module scope the
+    -- two are the same and nothing noticed; inside a local `instance` they
+    -- are not, and a `case`'s arms printed a level too shallow.
+    .to_string (.unwrap_or (&text) (.strip_prefix (&pad) text)))
+    |> .collect
+  .join "\n" parts
