@@ -109,6 +109,7 @@ is still identifiable by its row here:
 | 66 | `docs/60 - 66 - The Composition Operator.md` |
 | 67 | `docs/61 - 67 - The Marked Receiver.md` |
 | 68 | `docs/62 - 68 - The AST in Redox.md` |
+| 69 | `docs/63 - 69 - The Formatter in Redox.md` |
 
 **`docs/05 - 01 - Vertical Slice.md` is the authored exemplar** — every subsequent plan
 follows its shape:
@@ -459,8 +460,56 @@ twelve crates, **two are blocker-free** — `redox-ast` at 53 of 53 files and `r
 | Row | Subject | Why it is this row |
 |---|---|---|
 | 68 | `redox-ast` | Clean **and** the dependency root: all eleven other crates name its types, so the whole workspace type-checks the port |
-| — | `redox-fmt` | Equally clean, deliberately *not* row 68: nothing depends on it, so a port of it is type-checked by its own crate alone. The next row decides it on what 68 measures |
-| — | the `as` cast | What stands between the remaining ten crates and a port. 12 occurrences, and a **surface** decision rather than a port: the nearest working thing is `u8::try_from n`, which truncates where `as` does not |
+| 69 | `redox-fmt` | Equally clean, and its shape is the **opposite** — 57 files of one function each, no data declarations, 125 `format!` calls where `redox-ast` had two. A second port of the same shape would measure nothing |
+| — | the rest | Not decided by row 69, *informed* by it. Plan 69's §10 reports the yield, and the sorting below is what the remaining work actually is |
+
+### Milestone 10's real distance, corrected 2026-11-10 by plan 68
+
+**`docs/CONFORMANCE.md`'s "12 blocking occurrences" is honest about its scope and misleading
+about the distance.** It counts the five constructs `docs/GRAMMAR.md` grades `UNREACHABLE`,
+and plan 68 found **nine gaps it does not know about** by porting one crate. Counted across
+the eleven crates still in Rust — 467 files, 28,316 code lines:
+
+| | hits | crates |
+|---|---:|---:|
+| **graded `UNREACHABLE`** — what `CONFORMANCE.md` counts | **29** | 8 |
+| `matches!` | 61 | 7 |
+| inline `#[cfg(test)] mod tests` | 61 | 7 |
+| `for` over a pattern | 19 | 7 |
+| open-ended range | 16 | 7 |
+| `Self::` as a path expression | 7 | 4 |
+| a method passed as a value | 4 | 4 |
+| a declaration-bodied macro | 3 | 1 |
+| `vec![elem; n]` | 2 | 1 |
+| **found by plan 68, counted by nothing** | **173** | |
+| **total** | **202** | |
+
+0.7% of lines, which is close — and the number that decides the milestone is **how many rows**,
+not how many sites. They sort four ways:
+
+- **Reachable today, awkwardly — about 109 sites.** All 61 inline test modules, because
+  item-level `test "…"` already emits `#[cfg(test)] mod __rdx_tests { use super::*; }` and
+  sees the file's private items; plus the ranges, `for` patterns, `Self::` paths,
+  `vec![x; n]` and method-as-value workarounds. Reachable is not the same as fine: 109
+  deliberate uglifications.
+- **Three parser rows the language wants anyway** — `for` over a pattern, open-ended ranges,
+  `Self::` as a path expression. Each small, and the range one closes a **live defect**:
+  `r = 2..` silently swallows the statement below it, a fifth deferred case found after
+  milestone 9 declared that class empty.
+- **Two surface decisions, the expensive kind.** A macro form that can take a **pattern**,
+  for `matches!`'s 61 sites — otherwise `case` ladders and a `match_like_matches_macro`
+  allow in seven crates. And `as`, 29 sites, where the nearest working thing is `try_from`
+  and that is a *different program*, since `as` truncates.
+- **One genuinely hard case.** `thread_local!`, a macro whose body is a **declaration**, which
+  plan 64 §6 disclosed `name! \-> e` cannot carry. Three files, all `redox-emit`, all scope
+  guards from plans 59 and 60. The escape hatch is the answer and plan 68's criterion 7 bans
+  it in a port, so that crate needs the macro form or a stated exemption.
+
+**And 100% cannot mean deleting the Rust.** Doc 02 §4.8 keeps the Rust implementation
+*permanently*, correcting doc 01 §34. The coherent target is what row 68 did once: every
+crate has a `.sdx` source and the committed `.rs` is generated — both representations, with
+a regeneration test, forever. That is a standing cost, and the yield each port reports is
+what it has to be weighed against.
 
 **The test is not that a crate shipped.** It is that `cargo check --workspace` compiles
 against Redox-generated Rust and all 845 tests pass — which is the assertion plan 48's port
@@ -477,6 +526,7 @@ its witness.
 | # | Plan ID | What it adds | Emerald reuse | Depends on | Status |
 |---|---|---|---|---|---|
 | 68 | `ast-in-redox` | **`crates/redox-ast` is written in Redox** — 53 `.sdx` files, the generated Rust committed in `src/` where the hand-written Rust is today, and the workspace compiled against it unchanged. The first time the compiler is compiled from Redox. Chosen because it is clean *and* the dependency root: plan 48's port was 45 lines of 24,159 with `syn` as its oracle, and this one is type-checked by eleven crates and 845 tests. Every shape was **probed before the plan was written** — an enum with struct variants, `Box` recursion, derives, per-field visibility, a type alias, a multi-line doc comment, a crate root, and the one that had to be checked first: an **inherent** `impl`, which `docs/GRAMMAR.md` grades `SUGARED` on a trait-form witness and which `instance Expr` with no class name turns out to emit. Two shapes the corpus would not catch are leaves of their own: a doc comment is **per line**, so `-- |` once and `--` after is valid Redox that silently demotes the rest to ordinary comments and strips most of the crate's rustdoc while passing every test; and a `data` enum emits a `use Expr::*;` glob the hand-written module does not have | — Emerald never attempted it. Doc 02 §4.8 chose the property and plan 48 built the measurement; what transfers is the sequence — plan 45 **found** the gap, plan 48 **priced** it, plan 64 **spelled** it, and this row spends it | 48, 64, 09 | `done` 2026-11-10 — `docs/62 - 68 - The AST in Redox.md`. **`crates/redox-ast` is written in Redox**: 53 `.sdx` files, 3,052 lines of Redox generating 3,487 of Rust committed in `src/`, with `cargo check --workspace` compiling against it and all **849 tests passing**. 1,694 doc comments in and 1,694 out, no escape hatch, and **50 of 53 files changed against the hand-written Rust by 630 insertions and 383 deletions** — the generated crate is very nearly what a person wrote. **The headline is three defects of one class on three nodes, and it is the argument for porting a crate rather than a module**: comment preservation is load-bearing per AGENTS.md, and plan 48 found field doc comments discarded, this row found *constructor* ones discarded for the same reason — `clause.rs` is a struct, so it has no variants and could not have found it — and then found *member* ones discarded for a different reason, `class_member` peeking the trivia **after** `visibility(p)` had consumed the `export` it attached to. The constructor's fix was the same shape, so the lesson is one line and is now in both places: peek the leading trivia before consuming anything. Leaf 4's doc-comment count is the only test in the gate that could have found the third, and it reported eleven files at once. **Nine surface gaps, each measured and none known before**: `self` could not be a parenless argument (fixed, with a witness, changing no existing parse); an open-ended range `a..` has no spelling *and* `..` continues a line, so `r = 2..` swallows the statement below it and rustc complains about `()` — a **fifth deferred case**, after milestone 9 declared that class empty; `for` binds a name and not a pattern; a `where` clause after a **block** body is unreachable, which plan 61's own examples never exercised; a constructor pattern's path must start uppercase; `Self::name` as a path expression is unreachable; and `matches!` and `vec![elem; n]` cannot be called, which is plan 64 §6's disclosure in use. **Two of this project's own rules contradict each other**: plan 55 §1.6's required unit tail is `clippy::no_effect`, and under `-D warnings` no Redox a person could write satisfies both — never seen because no crate was written in Redox. The fix is owed to a successor and is small: `emit_clauses` can drop a trailing `()` from a `()`-returning body. **And blessing broke the bootstrap**, which is how doc 02 §4.8's *"commit the generated `.xrs`"* earned its keep within the hour: a bad generation went into `src/`, `redox-ast` is the dependency root, and the compiler that would regenerate it no longer built. `git checkout -- crates/redox-ast/src/` is the recovery, and the harness now stages a generation and `cargo check`s it before replacing anything |
+| 69 | `fmt-in-redox` | **`crates/redox-fmt` is written in Redox**, on plan 68's harness and terms — and it is the row that **decides whether the other ten happen**, because plan 68's value was nine surface gaps and three comment-loss defects rather than self-hosting itself. Chosen because its shape is the **opposite** of `redox-ast`'s: 57 files of one function each, **no** data declarations and no `impl` blocks, 125 `format!` calls against two, 27 closures against nine. A second port of the same shape would measure nothing. It holds six of the 202 sites above — three `matches!`, one `for` over a pattern, one open-ended range, one method passed as a value — and no `as` casts, inline test modules or declaration macros. Criterion 10 makes the **yield a deliverable**: §10 reports what the port found even if that is nothing, because nothing is the answer that would stop the effort | — Emerald never attempted it; what transfers is plan 68's harness and its nine gaps, the first time a self-hosting row here has had a predecessor to inherit from | 68, 64, 34 | `partial` — `docs/63 - 69 - The Formatter in Redox.md`. **Leaf 0 done**: one harness over a `PORTED` crate list rather than a second copy of its four assertions, which would be the one-predicate-two-positions defect plan 34 §10.31 found five times. **12 of 57 files ported.** One finding so far, and it is about plan 68's method rather than the language: that row's keyword survey covered **fields and modules** and missed **parameters and locals**, so `else_text(otherwise: &Option<Block>, …)` failed on the first batch that reached it. Widened, and `redox-fmt` collides on four names — `otherwise` as a parameter, `class`, `guard` and `test` as locals. **No new language gaps in the first 12 files**, which is consistent with the six-site count and is early evidence that plan 68's yield was concentrated where the trivia-carrying nodes live |
 
 ---
 

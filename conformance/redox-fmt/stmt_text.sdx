@@ -1,0 +1,42 @@
+export(crate) module binding_text
+export(crate) module block_text
+export(crate) module case_arm_text
+export(crate) module code_text
+export(crate) module condition_text
+export(crate) module else_text
+export(crate) module indent_text
+export(crate) module label_text
+export(crate) module trivia_text
+
+import crate::item_text::item_text
+import crate::stmt_text::code_text::code_text
+import crate::stmt_text::indent_text::indent_text
+import crate::stmt_text::trivia_text::trivia_text
+import redox_ast::Expr
+import redox_ast::Stmt
+
+-- | One statement in canonical Redox, with its trivia — plan 34, leaf 4,
+-- | second half.
+-- |
+-- | `indent` is the statement's depth in levels, not spaces. §3 row 11 fixes a
+-- | level at **two spaces**, and `indent_text` is the only place that conversion
+-- | happens.
+-- |
+-- | # What this returns, exactly
+-- |
+-- | Complete lines, each at its own depth, with **no trailing newline**. The
+-- | first line carries this statement's indentation like every other, which
+-- | `code_text` deliberately does not: that function returns its first line
+-- | unindented so a caller can put it after `else ` or `= `, and this function
+-- | is where a statement standing on its own line gets its prefix.
+-- |
+-- | # Trivia is printed, not sliced
+-- |
+-- | Leading trivia becomes its own lines above the statement; a trailing
+-- | comment is appended to the last line. That makes this the first printer in
+-- | the plan that can lose a comment, and criterion 4 is the assertion that it
+-- | does not — counted rather than inspected, because a comment that survives
+-- | into the wrong place is still a comment the count finds.
+export stmt_text : &Stmt -> usize -> &str -> String
+stmt_text stmt indent source =
+  -- TODO plan 69: body

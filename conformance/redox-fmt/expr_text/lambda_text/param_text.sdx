@@ -1,0 +1,12 @@
+import redox_ast::Param
+
+-- | One parameter: a name, optionally `mut`, optionally typed.
+export(crate) param_text : &Param -> String
+param_text param =
+  name = if param.is_mut
+    format! \-> "mut #{param.name.text}"
+  else
+    .clone param.name.text
+  case &param.ty of
+    Some ty -> format! \-> "(#{name} : #{ty.text})"
+    None -> name

@@ -1,0 +1,6 @@
+import redox_ast::Expr
+
+-- | The lexer's own text for a literal, for the no-source case.
+export(crate) stored : &Expr -> String
+stored expr =
+  -- TODO plan 69: body

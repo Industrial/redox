@@ -1,0 +1,26 @@
+import crate::pattern_text::pattern_text
+import redox_ast::Pattern
+
+-- | One pattern in a position whose next token is a **keyword or an arrow**,
+-- | rather than another pattern.
+-- |
+-- | The two such positions: the inner pattern of an `@` binding, and an
+-- | alternative of an `or`. Nothing needs parentheses there except a nested
+-- | `or` itself, and the reason is worth stating because the first version of
+-- | this leaf got it wrong in both places:
+-- |
+-- | `pattern_argument`'s rule — parenthesise anything that could absorb what
+-- | follows — is right for a **constructor argument**, where what follows is
+-- | another pattern and juxtaposition is greedy. After `@` and after `or`, what
+-- | follows is `or`, `->` or `,`, and a pattern cannot absorb any of those:
+-- | they are keywords and punctuation, not arguments. So the two positions take
+-- | different predicates, and `whole @ Rect { w, h }` and `Some 1 or None` —
+-- | both written exactly that way in `examples/` — came out as
+-- | `whole @ (Rect { w, h })` and `(Some 1) or None` until they did.
+-- |
+-- | A nested `or` is the one exception, because `or` *is* one of the tokens that
+-- | follows, so an alternative that is itself an alternation would be read at
+-- | the outer level.
+export(crate) beside_a_keyword : &Pattern -> String
+beside_a_keyword pattern =
+  -- TODO plan 69: body

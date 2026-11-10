@@ -1,0 +1,25 @@
+export(crate) module inline_body
+
+import crate::expr_text::expr_text
+import crate::item_text::clause_text::inline_body::inline_body
+import crate::item_text::same_line::same_line
+import crate::pattern_text::pattern_argument::pattern_argument
+import crate::stmt_text::block_text::block_text
+import crate::stmt_text::indent_text::indent_text
+import crate::stmt_text::stmt_text
+import redox_ast::{Clause, ClauseBody}
+
+-- | One equation — `add a b = a + b`, or a guard ladder, with its `where`.
+-- |
+-- | `name` is passed in because the clause does not hold it: the parser's
+-- | clause span starts *after* the function's name, which belongs to the
+-- | declaration.
+-- |
+-- | The patterns print as **arguments**, for the same reason a call's do —
+-- | juxtaposition is greedy, so `fib (n - 1)` keeps its parentheses.
+-- |
+-- | Whether a body is inline or indented is the author's and is recovered from
+-- | the block's span; `same_line` records why the tree cannot answer it.
+export(crate) clause_text : &Clause -> &str -> usize -> &str -> String
+clause_text clause name indent source =
+  -- TODO plan 69: body

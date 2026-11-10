@@ -1,0 +1,75 @@
+export(crate) module argument
+export(crate) module can_drop_paren
+export(crate) module comma_list
+export(crate) module comprehension_text
+export(crate) module dollar_text
+export(crate) module lambda_text
+export(crate) module literal_text
+export(crate) module macro_call_text
+export(crate) module operand
+export(crate) module pipeline_text
+export(crate) module power_of
+export(crate) module receiver
+export(crate) module record_text
+export(crate) module rust_hatch_text
+export(crate) module section_text
+
+import crate::expr_text::argument::argument
+import crate::expr_text::can_drop_paren::can_drop_paren
+import crate::expr_text::comma_list::comma_list
+import crate::expr_text::comprehension_text::comprehension_text
+import crate::expr_text::dollar_text::dollar_text
+import crate::expr_text::lambda_text::lambda_text
+import crate::expr_text::literal_text::literal_text
+import crate::expr_text::macro_call_text::macro_call_text
+import crate::expr_text::operand::operand
+import crate::expr_text::pipeline_text::pipeline_text
+import crate::expr_text::receiver::receiver
+import crate::expr_text::record_text::record_text
+import crate::expr_text::rust_hatch_text::rust_hatch_text
+import crate::expr_text::section_text::section_text
+import crate::stmt_text::block_text::block_text
+import crate::stmt_text::case_arm_text::case_arm_text
+import crate::stmt_text::code_text::code_text
+import redox_ast::{BinaryOp, Expr}
+
+-- | One expression in canonical Redox — plan 34, leaf 3.
+-- |
+-- | `required` is the binding power the surrounding context demands of this
+-- | expression: 0 at a statement's top level, an operator's power inside a
+-- | binary expression. It is what decides whether a parenthesis the author
+-- | wrote can be dropped, and it is threaded through rather than recomputed
+-- | because only the *parent* knows it.
+-- |
+-- | `indent` is the statement depth this expression sits at, which only the
+-- | five block-bearing forms use — they print their bodies at `indent + 1`.
+-- | Threaded rather than defaulted, because a block printed at the wrong depth
+-- | is the one mistake the off-side rule turns into a different program.
+-- |
+-- | # `source` is no longer read, and the parameter stays
+-- |
+-- | Leaf 3 sliced the block-bearing forms verbatim out of the source, per
+-- | criterion 7. Leaf 4 prints them, so nothing here reads `source` any more —
+-- | every expression form is printed from the tree.
+-- |
+-- | The parameter is kept because leaf 2 will need it the moment an item turns
+-- | out to have a form the printer does not cover, and because removing it
+-- | would churn every call site for no gain. That is a judgement, not an
+-- | oversight, so it is written down.
+-- |
+-- | # What it normalises
+-- |
+-- | §3's rows that live in an expression: juxtaposition for calls (row 1),
+-- | redundant parentheses dropped where precedence allows (row 3), one space
+-- | before a method's arguments (row 6), a `:` ascription (row 8), and
+-- | no trailing comma except the one a single-element tuple needs (row 12).
+-- |
+-- | Rows 2, 4 and 5 are **retired** by §10 rather than implemented. Row 2
+-- | (`f(x, y)` → `f x y`) changes the program: with juxtaposition as the call
+-- | form, `f (x, y)` applies `f` to a **tuple**. Rows 4 and 5 (a method chain
+-- | rewritten to `|>`) replace one construct with another, which is a refactor
+-- | and not a normalisation — and the property that guards this formatter
+-- | cannot guard it.
+export expr_text : &Expr -> u8 -> usize -> &str -> String
+expr_text expr required indent source =
+  -- TODO plan 69: body

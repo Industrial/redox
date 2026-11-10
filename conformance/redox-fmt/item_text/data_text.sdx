@@ -1,0 +1,41 @@
+import crate::item_text::constructor_text::constructor_text
+import crate::item_text::same_line::same_line
+import crate::item_text::visibility_text::visibility_text
+import crate::stmt_text::indent_text::indent_text
+import redox_ast::DataDecl
+
+-- | A `data` or `newtype` declaration, with its `deriving` clause.
+-- |
+-- | §3 row 9: one alternative stays on the declaration line and more than one
+-- | goes one per line with a leading `|`, which is doc 18 §2.4's own example
+-- | and `examples/data.sdx`'s:
+-- |
+-- | ```text
+-- | data Square = Square { side : f64 }
+-- |
+-- | data Event
+-- |   = Click
+-- |   | Close
+-- |   deriving (Debug)
+-- | ```
+-- |
+-- | The first alternative of a multi-line form takes `=` and the rest take
+-- | `|`, so the column of operators lines up — which is why the row says
+-- | *"a leading `|`"* rather than a separator between alternatives.
+-- |
+-- | `deriving` goes on its own line at one level in, even for the single-line
+-- | form: `examples/visibility.sdx` writes `export data Point = Point { … }`
+-- | and then `  deriving (Debug)` below it.
+-- |
+-- | A `newtype` has exactly one alternative, so it never takes the multi-line
+-- | shape.
+-- |
+-- | "By construction" is what this said, and it was not true: nothing
+-- | validated a `newtype`'s shape at all, and `newtype Multi = A | B` parsed
+-- | and emitted an `enum`. Plan 53 leaf 2 is what makes the invariant real —
+-- | the parser now refuses a `newtype` with anything other than one
+-- | constructor over one field — so this printer may rely on it, and could
+-- | not before.
+export(crate) data_text : &DataDecl -> usize -> &str -> String
+data_text decl indent source =
+  -- TODO plan 69: body

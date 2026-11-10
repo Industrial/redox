@@ -1,0 +1,33 @@
+import crate::expr_text::expr_text
+import crate::item_text::item_text
+import crate::pattern_text::pattern_text
+import crate::stmt_text::binding_text::binding_text
+import crate::stmt_text::block_text::block_text
+import crate::stmt_text::condition_text::condition_text
+import crate::stmt_text::else_text::else_text
+import crate::stmt_text::label_text::label_text
+import redox_ast::Expr
+
+-- | A block element's code, with its **first line unindented**.
+-- |
+-- | That convention is what lets `else if` work: `else_text` puts this after
+-- | `else ` on a line it has already indented. Every later line carries its own
+-- | full indentation, computed from `indent` — so a nested block is at
+-- | `indent + 1` and a caller never has to re-indent anything this returns.
+-- |
+-- | # This is the statement position, and that is a choice now rather than a type
+-- |
+-- | Plan 55 leaf 1 deleted `StmtKind`, so a block element and a subexpression
+-- | are the same type. The thirteen forms `Expr::is_statement_form` names are
+-- | printed here and everything else falls through to `expr_text` — which is
+-- | the same split the two printers always had, with the *position* deciding
+-- | where it used to be decided by which enum a node lived in.
+-- |
+-- | `if` used to be the form where the choice showed: reached here it was doc
+-- | 01 §8's **indented** spelling and reached through `expr_text` it was the
+-- | one-line `if c then a else b`. Plan 55 leaf 7 retired the second, so
+-- | `expr_text` delegates every `if` here and the two printers cannot disagree
+-- | about which one the author wrote.
+export(crate) code_text : &Expr -> usize -> &str -> String
+code_text expr indent source =
+  -- TODO plan 69: body

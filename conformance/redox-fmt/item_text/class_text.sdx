@@ -1,0 +1,27 @@
+import crate::item_text::member_text::member_text
+import crate::item_text::visibility_text::visibility_text
+import redox_ast::ClassDecl
+
+-- | A `class` declaration and its members.
+-- |
+-- | ```text
+-- | class Shape
+-- |   const SIDES : u32
+-- |   area : &self -> f64
+-- |   describe self = "a shape"
+-- |
+-- | class Convert t
+-- |   wrap : t -> Self
+-- | ```
+-- |
+-- | A superclass constraint goes before the head with `=>` — `class Eq => Ord`.
+-- | It is a trait name alone since plan 67, because a superclass constrains
+-- | `Self` and there is no variable left to name.
+-- |
+-- | The trait's own parameters follow the name, space-separated and in source
+-- | order. Most classes have none, which is the common shape and the one the
+-- | corpus shows; the parameterised head is what makes `trait From<T>`
+-- | reachable — plan 67 §1.4.
+export(crate) class_text : &ClassDecl -> usize -> &str -> String
+class_text decl indent source =
+  -- TODO plan 69: body

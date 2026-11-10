@@ -1,0 +1,25 @@
+import crate::expr_text::expr_text
+import crate::expr_text::receiver::receiver
+import redox_ast::{Expr, FieldInit}
+
+-- | A record literal — `Point { x = 3.0, y = 4.0 }`.
+-- |
+-- | The field separator is `=` and not `:`, which the corpus settles: `:`
+-- | annotates a type, and `Point { x : f64 }` is the *declaration*. A field
+-- | with no value is the shorthand — `Point { x }` — and is printed as the name
+-- | alone.
+-- |
+-- | Braces take one space inside, which is again the corpus's habit made a
+-- | rule. An empty record prints as `Head {}`: there is nothing to put a space
+-- | around, and `Head { }` would not survive its own idempotence check.
+export(crate) record_text : &Expr -> &[FieldInit] -> usize -> &str -> String
+record_text head fields indent source =
+  if .is_empty fields
+    return format! \-> "#{(receiver head indent source)} {}"
+  printed : Vec<String> = fields
+    |> .iter
+    |> .map (\field -> case &field.value of
+      Some value -> format! \-> "#{field.name.text} = #{(expr_text value 0 indent source)}"
+      None -> .clone field.name.text)
+    |> .collect
+  format! \-> "#{(receiver head indent source)} { #{(.join ", " printed)} }"

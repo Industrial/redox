@@ -1,0 +1,37 @@
+import crate::item_text::visibility_text::visibility_text
+import crate::stmt_text::indent_text::indent_text
+import redox_ast::ErrorsDecl
+
+-- | An `errors` declaration — a table of variants and their messages.
+-- |
+-- | ```text
+-- | errors ConfigError
+-- |   Missing String                        "missing key: #{0}"
+-- |   Invalid String u32                    "invalid value #{0} at line #{1}"
+-- |   Closed                                "closed"
+-- |   from std::num::ParseIntError as Parse  "not a number: #{0}"
+-- | ```
+-- |
+-- | # The messages are aligned, and §3 row 7 says alignment is wrong
+-- |
+-- | Row 7 retires alignment for `case` arms, and the reason it gives — that
+-- | alignment breaks on the next edit — applies here too: add a long variant
+-- | and every message moves.
+-- |
+-- | This aligns anyway, and the distinction is worth stating because it is the
+-- | one place in the plan where the two arguments point different ways. A
+-- | `case`'s arms are **heterogeneous**: each is a different pattern of a
+-- | different length, and padding them is decoration. An `errors` block is a
+-- | **table**: every row is a variant and a message, the columns mean the same
+-- | thing on every line, and that is the shape where alignment is doing work
+-- | rather than looking tidy.
+-- |
+-- | And §1.5 decides it either way: `examples/errors.sdx` is aligned, and the
+-- | corpus is the style guide rather than the thing measured against one.
+-- |
+-- | A `from` variant is a conversion — `from <path> as <Name>` — and sits in
+-- | the same column as an ordinary one, which is what makes the block read as
+-- | one table instead of two.
+export(crate) errors_text : &ErrorsDecl -> usize -> String
+errors_text decl indent =
+  -- TODO plan 69: body

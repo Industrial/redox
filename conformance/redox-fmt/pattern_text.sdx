@@ -1,0 +1,40 @@
+export(crate) module beside_a_keyword
+export(crate) module joined
+export(crate) module pattern_argument
+export(crate) module record_field_text
+
+import crate::pattern_text::beside_a_keyword::beside_a_keyword
+import crate::pattern_text::joined::joined
+import crate::pattern_text::pattern_argument::pattern_argument
+import crate::pattern_text::record_field_text::record_field_text
+import redox_ast::Pattern
+
+-- | One pattern in canonical Redox — plan 34, leaf 4, first half.
+-- |
+-- | # Why this is not `Pattern::rust_text`
+-- |
+-- | `rust_text` exists on the AST and is close enough to be tempting. Three of
+-- | the eleven forms differ, and each difference is one a formatter must get
+-- | right rather than nearly right:
+-- |
+-- | | Redox | Rust | |
+-- | |---|---|---|
+-- | | `Some v` | `Some(v)` | Juxtaposition, doc 18 §2.1 — the same rule as a call |
+-- | | `Point { x = 0, .. }` | `Point { x: 0, .. }` | `=`, because `:` is half of the `::` that ascribes |
+-- | | `13 or 14` | `13 \| 14` | `or`, because `\|` is the guard ladder's separator |
+-- |
+-- | The other eight are spelled identically, including the two that look like
+-- | they would not be: a slice's rest is `..` and a named rest is `name @ ..`,
+-- | exactly as in Rust. `examples/destructuring.sdx` settles both. The `...`
+-- | spread that `lexical.sdx` lexes is a token the pattern grammar does not
+-- | use.
+-- |
+-- | # Patterns carry no indentation and no trivia
+-- |
+-- | Which is why this half of leaf 4 ships before the other: a pattern is
+-- | always one line, and a comment inside one is attached to the enclosing
+-- | statement. So there is no `indent` and no `source` here — nothing is
+-- | sliced, and everything is printed.
+export pattern_text : &Pattern -> String
+pattern_text pattern =
+  -- TODO plan 69: body

@@ -1,0 +1,13 @@
+import crate::item_text::visibility_text::visibility_text
+import redox_ast::{Constructor, ConstructorFields}
+
+-- | One `data` alternative — `Click`, `Meters f64`, `Square { side : f64 }`.
+-- |
+-- | The three field shapes are the three Rust shapes with Redox's spellings: a
+-- | tuple constructor's types are **juxtaposed** rather than parenthesised,
+-- | because juxtaposition is the application form for types as much as for
+-- | values; and a record field uses `::`, which is the declaration separator
+-- | and not the single `:` a local binding takes.
+export(crate) constructor_text : &Constructor -> String
+constructor_text constructor =
+  -- TODO plan 69: body

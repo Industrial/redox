@@ -1,0 +1,18 @@
+export(crate) module with_marker
+
+import crate::stmt_text::indent_text::indent_text
+import crate::stmt_text::trivia_text::with_marker::with_marker
+import redox_lexer::{Trivia, TriviaKind}
+
+-- | One trivium as Redox source: a comment, an attribute, or a blank line.
+-- |
+-- | The inverse of what the emitter does, and the markers are doc 18 §5.1's:
+-- | `--` for a comment, `-- |` and `-- !` for the two doc forms, `{- … -}` for
+-- | a fence. The stored text excludes its marker — and, for a line comment, one
+-- | optional following space — so this writes the marker and one space back.
+-- |
+-- | A blank line is **empty**, not indented. An indented blank line is trailing
+-- | whitespace, which leaf 1 already made a thing this formatter removes.
+export(crate) trivia_text : &Trivia -> usize -> String
+trivia_text trivium indent =
+  -- TODO plan 69: body

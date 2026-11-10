@@ -1,12 +1,19 @@
-//! `crates/redox-ast` is written in Redox — plan 68.
+//! The crates written in Redox — plans 68 and 69.
 //!
-//! `conformance/redox-ast/**/*.sdx` is the **source**; the `.rs` under
-//! `crates/redox-ast/src/` is generated from it and committed, and cargo
+//! `conformance/<crate>/**/*.sdx` is the **source**; the `.rs` under
+//! `crates/<crate>/src/` is generated from it and committed, and cargo
 //! compiles that exactly as it compiled the hand-written Rust. So the whole
-//! workspace and all of its tests run against Redox-generated types, which is
+//! workspace and all of its tests run against Redox-generated code, which is
 //! the assertion plan 48's port could not make: a module lifted out of a crate
 //! cannot resolve `crate::Stmt`, so its oracle had to be `syn::parse_file`
 //! rather than rustc.
+//!
+//! # One harness, a list of crates
+//!
+//! Plan 69 leaf 0. This file hard-coded `redox-ast` in five places, and a
+//! second copy of its four assertions for `redox-fmt` would be the
+//! one-predicate-two-positions defect plan 34 §10.31 found five times and plan
+//! 61 found again. [`PORTED`] is the list; everything below iterates it.
 //!
 //! # Why a test and not a `build.rs`
 //!
@@ -20,7 +27,7 @@
 //! hand edit to the generated Rust.
 //!
 //! ```bash
-//! REDOX_BLESS=1 cargo test -p redox-cli --test ast_port
+//! REDOX_BLESS=1 cargo test -p redox-cli --test port
 //! ```
 //!
 //! # The rustfmt step, and why it is not optional
@@ -45,6 +52,18 @@ fn workspace_root() -> PathBuf {
   PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
+/// Every crate whose `src/` is generated from Redox.
+///
+/// Adding one here is what wires it into all four assertions. The order is
+/// the order they were ported, which is also dependency order — `redox-fmt`
+/// reads `redox-ast`'s types, so a staged check of the second needs the first
+/// already in place.
+// `redox-fmt` joins this list when plan 69 leaf 1 finishes. A half-written
+// port in it makes the staging guard refuse every bless — correctly — which
+// would leave the gate red for the length of a port rather than at the end
+// of one. Its `.sdx` tree is in `conformance/redox-fmt/` meanwhile.
+const PORTED: &[&str] = &["redox-ast"];
+
 /// Every `.sdx` of the port, with the `.rs` it generates.
 ///
 /// The mirror is one file for one file and the same relative path, which is
@@ -53,8 +72,14 @@ fn workspace_root() -> PathBuf {
 /// **generated** tree — correctly, since the rules are about the Rust module
 /// tree — and the `.sdx` tree inherits them through the mirror.
 fn pairs() -> Vec<(PathBuf, PathBuf)> {
+  PORTED.iter().flat_map(|c| pairs_of(c)).collect()
+}
+
+/// One ported crate's `.sdx` sources, each with the `.rs` it generates.
+fn pairs_of(crate_name: &str) -> Vec<(PathBuf, PathBuf)> {
   let root = workspace_root();
-  let from = root.join("conformance/redox-ast");
+  let from = root.join("conformance").join(crate_name);
+  let into = root.join("crates").join(crate_name).join("src");
   let mut found = Vec::new();
   collect(&from, &mut found);
   found.sort();
@@ -63,9 +88,9 @@ fn pairs() -> Vec<(PathBuf, PathBuf)> {
     .map(|sdx| {
       let rel = sdx
         .strip_prefix(&from)
-        .expect("under conformance/redox-ast")
+        .expect("under conformance/")
         .with_extension("rs");
-      (sdx.clone(), root.join("crates/redox-ast/src").join(rel))
+      (sdx.clone(), into.join(rel))
     })
     .collect()
 }
@@ -109,8 +134,8 @@ fn generate(sdx: &Path) -> String {
 /// moved aside and restored whatever the answer is. A `Drop` guard would be
 /// tidier; the explicit restore is here because the failure mode this
 /// protects against is precisely a `src/` left in the wrong state.
-fn staged_crate_compiles(root: &Path, staging: &Path) -> bool {
-  let live = root.join("crates/redox-ast/src");
+fn staged_crate_compiles(root: &Path, crate_name: &str, staging: &Path) -> bool {
+  let live = root.join("crates").join(crate_name).join("src");
   let aside = root.join("target/redox-port-live");
   std::fs::remove_dir_all(&aside).ok();
   if std::fs::rename(&live, &aside).is_err() {
@@ -119,7 +144,7 @@ fn staged_crate_compiles(root: &Path, staging: &Path) -> bool {
   let swapped = std::fs::rename(staging, &live).is_ok();
   let ok = swapped
     && Command::new("cargo")
-      .args(["check", "-p", "redox-ast", "--quiet"])
+      .args(["check", "-p", crate_name, "--quiet"])
       .current_dir(root)
       .status()
       .is_ok_and(|s| s.success());
@@ -143,7 +168,7 @@ fn the_sdx_tree_mirrors_the_rust_tree() {
   let pairs = pairs();
   assert!(
     !pairs.is_empty(),
-    "conformance/redox-ast/ should hold the port's source"
+    "conformance/ should hold the ports' source"
   );
 
   let mut missing = Vec::new();
@@ -158,16 +183,23 @@ fn the_sdx_tree_mirrors_the_rust_tree() {
   }
 
   let mut unported = Vec::new();
-  let src = root.join("crates/redox-ast/src");
-  let mut rust = Vec::new();
-  collect_rs(&src, &mut rust);
-  for path in rust {
-    let rel = path
-      .strip_prefix(&src)
-      .expect("under src")
-      .with_extension("sdx");
-    if !root.join("conformance/redox-ast").join(&rel).exists() {
-      unported.push(format!("  {} has no .sdx source", path.display()));
+  for crate_name in PORTED {
+    let src = root.join("crates").join(crate_name).join("src");
+    let mut rust = Vec::new();
+    collect_rs(&src, &mut rust);
+    for path in rust {
+      let rel = path
+        .strip_prefix(&src)
+        .expect("under src")
+        .with_extension("sdx");
+      if !root
+        .join("conformance")
+        .join(crate_name)
+        .join(&rel)
+        .exists()
+      {
+        unported.push(format!("  {} has no .sdx source", path.display()));
+      }
     }
   }
 
@@ -235,27 +267,36 @@ fn the_port_regenerates_the_committed_rust() {
   // the bootstrap exactly as it was.
   if blessing {
     let root = workspace_root();
-    let staging = root.join("target/redox-port-staging");
-    std::fs::remove_dir_all(&staging).ok();
-    for (rs, text) in &fresh {
-      let rel = rs
-        .strip_prefix(root.join("crates/redox-ast/src"))
-        .expect("under redox-ast/src");
-      let at = staging.join(rel);
-      std::fs::create_dir_all(at.parent().expect("a parent")).expect("should create it");
-      std::fs::write(&at, text).expect("should stage the generated Rust");
-    }
-    assert!(
-      staged_crate_compiles(&root, &staging),
-      "the generated crate does not compile, so nothing was written — \
-       `crates/redox-ast/src/` is untouched and the bootstrap still works. \
-       The staged output is under target/redox-port-staging/."
-    );
-    for (rs, text) in &fresh {
-      if let Some(parent) = rs.parent() {
-        std::fs::create_dir_all(parent).expect("should create the module directory");
+    // **Crate by crate, in `PORTED` order**, which is dependency order: a
+    // staged check of `redox-fmt` reads `redox-ast`'s types, so the first has
+    // to be live before the second is checked. Writing them all and then
+    // checking once would also work and would lose which crate broke.
+    for crate_name in PORTED {
+      let into = root.join("crates").join(crate_name).join("src");
+      let staging = root.join("target/redox-port-staging");
+      std::fs::remove_dir_all(&staging).ok();
+      let mine: Vec<&(PathBuf, String)> = fresh
+        .iter()
+        .filter(|(rs, _)| rs.starts_with(&into))
+        .collect();
+      for (rs, text) in &mine {
+        let rel = rs.strip_prefix(&into).expect("under the crate's src");
+        let at = staging.join(rel);
+        std::fs::create_dir_all(at.parent().expect("a parent")).expect("should create it");
+        std::fs::write(&at, text).expect("should stage the generated Rust");
       }
-      std::fs::write(rs, text).expect("should write the generated Rust");
+      assert!(
+        staged_crate_compiles(&root, crate_name, &staging),
+        "the generated `{crate_name}` does not compile, so nothing was \
+         written — `crates/{crate_name}/src/` is untouched and the bootstrap \
+         still works. The staged output is under target/redox-port-staging/."
+      );
+      for (rs, text) in &mine {
+        if let Some(parent) = rs.parent() {
+          std::fs::create_dir_all(parent).expect("should create the module directory");
+        }
+        std::fs::write(rs, text).expect("should write the generated Rust");
+      }
     }
   }
 
@@ -264,7 +305,7 @@ fn the_port_regenerates_the_committed_rust() {
     "these generated files no longer match their .sdx source:\n  {}\n\
      Either the .sdx was edited without regenerating, or the .rs was edited by \
      hand — the .sdx is the source. Regenerate with:\n  \
-     REDOX_BLESS=1 cargo test -p redox-cli --test ast_port",
+     REDOX_BLESS=1 cargo test -p redox-cli --test port",
     stale.join("\n  ")
   );
   assert!(

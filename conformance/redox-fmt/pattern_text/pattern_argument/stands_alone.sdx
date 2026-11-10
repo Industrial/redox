@@ -1,0 +1,9 @@
+import redox_ast::Pattern
+
+-- | Whether this pattern is safe beside another without parentheses.
+-- |
+-- | An `Apply` with **no** arguments — `None`, `Close` — is a bare name and
+-- | needs nothing, which is why the arity is tested rather than the variant.
+export(crate) stands_alone : &Pattern -> bool
+stands_alone pattern =
+  -- TODO plan 69: body

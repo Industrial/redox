@@ -1,0 +1,56 @@
+export(crate) module class_text
+export(crate) module clause_text
+export(crate) module const_text
+export(crate) module constructor_text
+export(crate) module data_text
+export(crate) module errors_text
+export(crate) module fn_text
+export(crate) module instance_text
+export(crate) module leading_text
+export(crate) module member_text
+export(crate) module same_line
+export(crate) module signature_line
+export(crate) module visibility_text
+
+import crate::item_text::class_text::class_text
+import crate::item_text::const_text::const_text
+import crate::item_text::data_text::data_text
+import crate::item_text::errors_text::errors_text
+import crate::item_text::fn_text::fn_text
+import crate::item_text::instance_text::instance_text
+import crate::item_text::leading_text::leading_text
+import crate::item_text::visibility_text::visibility_text
+import crate::stmt_text::block_text::block_text
+import crate::stmt_text::indent_text::indent_text
+import redox_ast::Item
+
+-- | One item in canonical Redox, with its leading trivia — plan 34, leaf 2.
+-- |
+-- | `indent` is the item's depth: 0 at the top of a file, deeper inside a
+-- | `module`. Leaf 4's `indent_text` is the only place a level becomes spaces.
+-- |
+-- | # `export`, not `pub`
+-- |
+-- | `Visibility::rust_text` gives `pub `, `pub(crate) ` and so on. Redox spells
+-- | the same thing `export` and `export(crate)`, which is why
+-- | `visibility_text` exists beside it rather than reusing it — the third
+-- | printer in this plan to need a Redox spelling where the AST held only the
+-- | Rust one.
+-- |
+-- | # A function's signature is sliced, and that is a recorded defect
+-- |
+-- | Every item here is printed from the tree except a function's **signature
+-- | line**, which is sliced verbatim out of the source. The reason is in §10:
+-- | `parser::generalise` rewrites a signature's types in place, replacing each
+-- | type variable with its uppercase Rust spelling, so the AST no longer knows
+-- | the author wrote `Ord t => Option<t> -> t` rather than
+-- | `Ord T => Option<T> -> T`. Printing from it would rewrite every generic
+-- | signature in the corpus into Rust's convention, which is the opposite of
+-- | doc 18 §5.3's surface.
+-- |
+-- | Criterion 7 exists for exactly this, so the slice is correct rather than a
+-- | shortcut — but it does mean the formatter cannot normalise a signature's
+-- | spacing, and the fix is a change to the AST, not to this file.
+export item_text : &Item -> usize -> &str -> String
+item_text item indent source =
+  -- TODO plan 69: body

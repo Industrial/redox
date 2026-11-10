@@ -1,0 +1,6 @@
+import redox_ast::Expr
+
+-- | Whether a `.` can attach to this expression's printed form directly.
+export(crate) takes_a_postfix : &Expr -> bool
+takes_a_postfix expr =
+  -- TODO plan 69: body
