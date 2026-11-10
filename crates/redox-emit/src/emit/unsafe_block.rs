@@ -1,6 +1,6 @@
 use crate::emit::emit_do::emit_do;
 use crate::emit::expr::emit_expr;
-use redox_ast::{Block, StmtKind};
+use redox_ast::Block;
 
 /// Emit Rust's `unsafe { … }` — plan 45 leaf 2.
 ///
@@ -17,9 +17,7 @@ use redox_ast::{Block, StmtKind};
 /// for anything longer would be a second formatter living in the emitter, and
 /// the gate would catch each wrong guess one example at a time.
 pub(crate) fn emit_unsafe_block(body: &Block, indent: usize) -> String {
-  if let [stmt] = body.stmts.as_slice()
-    && let StmtKind::Expr(e) = &stmt.kind
-  {
+  if let Some(e) = body.sole_expression() {
     return format!("unsafe {{ {} }}", emit_expr(e, indent));
   }
   format!("unsafe {}", emit_do(&None, body, indent))

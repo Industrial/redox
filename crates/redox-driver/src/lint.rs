@@ -1,30 +1,51 @@
 pub(crate) mod allow_pragma;
 pub(crate) mod attribute_pragma;
+pub(crate) mod binding_name;
 pub(crate) mod comment_pragma;
 pub(crate) mod comment_pragma_message;
 pub(crate) mod comment_pragma_sites;
 pub(crate) mod line_of;
+pub(crate) mod pragma_walk;
+pub(crate) mod program_walk;
+pub(crate) mod shadow_help;
+pub(crate) mod shadow_message;
+pub(crate) mod shadow_sites;
+pub(crate) mod shadow_walk;
 pub(crate) mod suppressed_spans;
 pub(crate) mod unwrap_call_sites;
 pub(crate) mod unwrap_message;
-pub(crate) mod walk_item_for_pragmas;
-pub(crate) mod walk_member_for_pragmas;
-pub(crate) mod walk_stmts_for_pragmas;
+pub(crate) mod walk_item;
+pub(crate) mod walk_member;
+pub(crate) mod walk_program;
+pub(crate) mod walk_stmts;
 
-use crate::lint::comment_pragma_message::COMMENT_PRAGMA_MESSAGE;
+use crate::lint::comment_pragma_message::comment_pragma_message;
 use crate::lint::comment_pragma_sites::comment_pragma_sites;
+use crate::lint::shadow_help::SHADOW_HELP;
+use crate::lint::shadow_message::shadow_message;
+use crate::lint::shadow_sites::shadow_sites;
 use crate::lint::unwrap_call_sites::unwrap_call_sites;
 use crate::lint::unwrap_message::UNWRAP_MESSAGE;
 use redox_ast::Program;
 use redox_diag::{Code, Diagnostic, Severity};
 use std::path::Path;
 
-/// Every lint, as warnings — doc 03 §12.7, plan 38 and plan 53 leaves 4–5.
+/// Every lint, as warnings — doc 03 §12.7, plan 38, plan 53 leaves 4–5 and
+/// plan 54 leaf 3.
 ///
-/// Two lints. `RDX1001` is `unwrap` discouragement, which opened the
+/// Three lints. `RDX1001` is `unwrap` discouragement, which opened the
 /// `RDX1000`+ band; `RDX1002` is its suppression pragma written as a comment,
-/// which plan 53 deprecates in favour of `#[redox::allow(unwrap)]`. The
-/// second one's shape is the first one's, as plan 38 predicted it would be.
+/// which plan 53 deprecates in favour of `#[redox::allow(unwrap)]`; `RDX1003`
+/// is a bare `=` rebinding a name already bound in the same statement list,
+/// which plan 54 §1.1 measured as the one defect in the language that nothing
+/// caught. The second one's shape is the first one's, as plan 38 predicted it
+/// would be.
+///
+/// `RDX1003` is the first lint that is **not** lexical, and the first that
+/// cannot be: it is two bindings *in one statement list*, so the list is the
+/// unit and a token scan has no notion of one. It is also the lint that made
+/// the suppression pragma take a lint name — see
+/// [`allow_pragma`](allow_pragma::allow_pragma).
 ///
 /// # Why the driver and not the parser
 ///
@@ -73,16 +94,38 @@ pub fn lint(path: &Path, source: &str, program: Option<&Program>) -> Vec<Diagnos
         "if a panic is intended here, say so on the line above: `#[redox::allow(unwrap)]`",
       )
     })
-    .chain(comment_pragma_sites(source).into_iter().map(|span| {
-      warning(
-        Code::CommentAllowPragma,
-        COMMENT_PRAGMA_MESSAGE,
-        span,
-        "the comment still suppresses `RDX1001` for this milestone; the attribute is what \
-         plan 64 keeps",
-      )
-    }))
+    .chain(
+      comment_pragma_sites(source)
+        .into_iter()
+        .map(|(span, lint)| {
+          warning(
+            Code::CommentAllowPragma,
+            &comment_pragma_message(lint),
+            span,
+            &format!(
+              "the comment still suppresses `{}` for this milestone; the attribute is what \
+           plan 64 keeps",
+              lint.code().text()
+            ),
+          )
+        }),
+    )
     .collect();
+
+  // `RDX1003` is the one lint that needs the tree rather than the text, so it
+  // is the one with nothing to say when there is no tree — which is the right
+  // degradation: a language server lints a document mid-edit, and a shadow
+  // reported from a half-parsed statement list would be a guess.
+  if let Some(program) = program {
+    found.extend(shadow_sites(program).into_iter().map(|(span, name)| {
+      warning(
+        Code::ShadowedBinding,
+        &shadow_message(&name),
+        span,
+        SHADOW_HELP,
+      )
+    }));
+  }
 
   // One file's warnings are rendered in source order whichever lint found
   // them, because a blessed `.stderr` is compared as exact text and two lints

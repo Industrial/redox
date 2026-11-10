@@ -18,7 +18,7 @@ pub enum ConstructorFields {
   Tuple(Vec<TypeExpr>),
   /// `Click { x : i32, y : i32 }` → `Click { x: i32, y: i32 }`
   ///
-  /// Braces for the shape and `::` for the types, which is the same `::` as
+  /// Braces for the shape and `:` for the types, which is the same `::` as
   /// a signature line and an ascription (doc 18 §5.2). Records use `=` for
   /// *values*, which is what makes the pairing legible: `::` introduces a
   /// type, `=` introduces a value, in a declaration and a literal alike.

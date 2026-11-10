@@ -3,7 +3,7 @@
 Plan ID: `expression-orientation`
 Depends on: 52 (`type-colon`), 54 (`assignment`)
 Milestone: 9 — *surface coherence*
-Status: `planned`
+Status: `partial` — leaves 0 and 1 done
 
 ---
 
@@ -257,11 +257,23 @@ grammar simplification rather than a bug fix, and should be judged on that merit
 
 ### Leaf 1 — `leaf-one-expression-node`
 
-Collapse the statement/expression fork in the AST and the parser: `StmtKind`'s 17 variants and
-`Expr`'s 33 become one, and `Block = Vec<Stmt>` gives way to a sequence of expressions whose
-value is the last. Note what this is **not** — leaf 0 has already fixed the observable defect, so
-this leaf's justification is the grammar it deletes and the diagnostics it retires, not `"big";`.
-It remains the leaf the rest depend on and the one that deletes the most code.
+Collapse the statement/expression fork in the AST and the parser: `StmtKind`'s **14** variants
+join `Expr`'s **34**, giving **46** — `StmtKind::Expr` is absorbed, because a block element *is*
+an expression, and `StmtKind::If` merges with `Expr::If`.
+
+**`Block` stays `Vec<Stmt>`, and `Stmt` survives.** This leaf's first draft said it *"gives way
+to a sequence of expressions whose value is the last"*. It cannot: `Expr` carries no trivia and
+`Stmt` carries `leading` and `trailing`, so a `Vec<Expr>` block would either lose comments —
+which AGENTS.md makes load-bearing, doc 02 §10.1 correcting doc 01 §4.1 — or put two trivia
+fields on all 46 forms. A comment attaches to a *line*, not to a subexpression. So `Stmt` becomes
+the trivia carrier and nothing else: `Stmt { expr, span, leading, trailing }`.
+
+"A block's value is its last element" was already true before this leaf — leaf 0 threaded `tail`
+through `emit_stmts`.
+
+Note what this is **not** — leaf 0 has already fixed the observable defect, so this leaf's
+justification is the grammar it deletes and the diagnostics it retires, not `"big";`. It remains
+the leaf the rest depend on and the one that deletes the most code.
 
 ### Leaf 2 — `leaf-if-expression`
 
@@ -417,4 +429,133 @@ string-literal fixtures to miss, because `no_literal_expectations.rs` forbids th
 
 ## 10. Result
 
-*Not yet executed.*
+**Leaves 0 and 1 done; leaves 2-9 outstanding.** Criterion 1 is green. The
+statement/expression fork is gone: `StmtKind` is deleted, `Expr` has 46
+variants, and no golden moved — `git status tests/ examples/` is empty, which
+is the strongest check available on a refactor across 62 files.
+
+### 10.1 Position alone cannot decide the `if` spelling, and a golden caught it
+
+Leaf 1 was specified to merge the two `if` nodes and let **position** choose the
+spelling: statement position indents, expression position stays on one line.
+That is wrong, and `tests/golden/control.xrs` moved to prove it.
+
+`Parser::inline_body` wraps whatever `parse_expr` returns in a block element, so
+
+```text
+tier n = if n > 9 then "big" else "small"
+```
+
+is a one-line `if` **standing exactly where a statement stands**. Position
+cannot tell it from the indented form, and the first implementation emitted four
+lines where the corpus had one.
+
+So the merged node carries `is_inline: bool`. That is the same device
+`Expr::Call`'s `is_dollar` is — a record of the spelling, nothing more — and the
+same thing `item_text/same_line.rs` already recovers from spans for the
+analogous clause-body ambiguity. `is_statement_form()` and `is_control_flow()`
+both answer `false` for the inline form, which reproduces the old type-level
+split exactly.
+
+A second consequence in the formatter: `else_text` has to pin
+`is_inline: false`, or an inline `if` inside an `else` block collapses into an
+`else if` chain — a program rewrite, not a cosmetic slip.
+
+### 10.2 The position rule needed no diagnostic, because it has no trigger
+
+The brief for this leaf asked for `RDX0112` on a statement-only form in a nested
+expression position. There is **nothing to raise it from**: a nested expression
+position is only ever filled by `parse_expr` → `prefix`, and `prefix` has no
+production for `let`, `guard`, `with` or `<-`. A code with no trigger has to go
+into `code_coverage.rs`'s `NOT_YET_REACHABLE`, which is `&[]` precisely to make
+that awkward.
+
+And the brief's premise — *"rustc cannot make this check"* — was already
+defeated in-repo. `emit_expr`'s `BinaryOp` fallthrough emits
+`compile_error!("… is parsed but not yet lowered")` for exactly this situation.
+`emit/unlowerable.rs` follows that precedent: it **is** parsable Rust, so the
+fuzz invariant holds; it fails loudly; and plan 07's remapping lands it on the
+`.sdx`. No new code, so no merge with the concurrent agent and no renumbering.
+
+### 10.3 The statement-only set, established by feeding rustc the output
+
+`Binding`, `Guard`, and `Await` **only when it has a pattern** — each probed by
+emitting the form in expression position and compiling it:
+
+```text
+error: expected expression, found `let` statement
+```
+
+A *parse* error, which is the class the fuzz invariant forbids. `Draw` joins
+them for a different reason: it is a legal Rust expression, but its lowering's
+body is **every element after it**, so a nested one silently becomes an empty
+closure.
+
+The other eight compile clean in expression position — `return 1`, `break 1`,
+`continue`, `x = 1`, `x += 1`, `assert!`, `while`, `for`, `loop`,
+`if … else`, `.await`. So the brief's list was right about `Binding` and `Guard`
+and incomplete in two ways: `Await` splits on its `pattern` field, because the
+effect-only `<- f ()` *is* `f().await` and an expression, while the binding form
+is a `let`; and `Draw` is list-shaped rather than merely statement-positioned.
+
+### 10.4 `do` is not redundant yet, and `Try` is not a block
+
+`Expr::Try` is the **postfix `e?`**; `Expr::TryBlock` is the `try` block. After
+this leaf: `Do{label: None}` → `{ … }`, `TryBlock` → `(|| { … })()`,
+`AsyncBlock` → `async { … }`, `UnsafeBlock` → `unsafe { … }`. None is a synonym
+for another.
+
+In particular `do` is **not** redundant, because Redox has no bare-block
+expression: a `Block` is only ever a *field* of a node, so `Expr::Do` is the
+only spelling of a block expression. Leaf 7 is what makes it redundant, by
+giving an indented block expression status. Leaf 1 does not.
+
+### 10.5 The formatter needed more than the emitter
+
+The emitter can fall back on "unreachable" for a form that cannot appear; the
+formatter cannot, because it is a **writer** — all 46 forms must print, and
+printing the wrong `if` spelling is a program rewrite.
+
+`kind_text` became `code_text`, because `kind` no longer exists and the name was
+a lie. `expr_text` gained 13 arms. `power_of` had to **decline** on all 12
+promoted forms, which is that function's documented safety default: declining
+keeps the author's parentheses.
+
+And the three `redox-fmt` corpus-property tests each had their own duplicate
+block walk. All three now call `Expr::statement_blocks()` — which deliberately
+excludes the inline `if`'s branches, because including them would hand
+`expression_printer` extra statements to assert over and change what the
+property reads.
+
+### 10.6 `redox-driver`'s 26-line exhaustive match became one call
+
+`walk_stmts` listed enough `StmtKind` variants to find the five that own a
+block. Listing 46 to name five is unreadable, so the no-wildcard guarantee moved
+to the AST: `Expr::statement_blocks()` is where a new block-owning form must be
+declared, and the three `redox-fmt` walks plus this one all read it. That is
+four duplicated walks collapsed into one accessor.
+
+### 10.7 Open
+
+- **Leaves 2-9.** Criterion 1 is green from leaf 0 and the fork is gone; the
+  remaining criteria — `.then` as a method, a `case` arm's indented block, local
+  declarations, the `test` carve-out, the explicit `()`, the discarded-`Result`
+  lint, retiring `do` and `then`, the labelled bare block — are untouched.
+- **`StmtKind` is named in documents that no longer describe the code**:
+  `docs/06 - Redox Code Architecture.md`'s two rows for `block/stmt/kind.rs`,
+  plan 20 §§6-7, plan 30 §4, plan 34 §§10.15/11, plan 54 §§10/11.3, plan 60
+  §11.4, and this row's own §4. None is machine-checked. Leaf 8 owns them.
+- `crates/redox-fmt/tests/fmt/statements.sdx` line 1 still says *"every
+  `StmtKind`"*. It is a fixture whose formatted output is compared, so editing
+  the comment means editing an expectation pair for a historical note.
+- `emit_expr`'s cognitive complexity rose from 13 to 21. The twelve new arms are
+  mostly one-liners, and splitting the match would cost the exhaustive
+  no-wildcard property its doc comment argues for. Worth a look if it grows
+  again.
+- **A history muddle, recorded rather than rewritten.** Leaf 1 used `git rm`,
+  which stages; commit `2739b2b` — a docs commit — picked three file deletions
+  out of the index as a result. `block/stmt/kind.rs`,
+  `stmt_text/kind_text.rs` and `parser/blocks_in_the_same_closure.rs` are
+  therefore deleted under a message about orienting plans 59-64. The code is
+  correct and complete; only the attribution is wrong, and fixing it means
+  rewriting a commit that already has four descendants.

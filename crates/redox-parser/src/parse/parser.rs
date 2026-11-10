@@ -3,7 +3,6 @@ pub(crate) mod application;
 pub(crate) mod arguments;
 pub(crate) mod atom;
 pub(crate) mod binary_op;
-pub(crate) mod blocks_in_the_same_closure;
 pub(crate) mod bracketed;
 pub(crate) mod byte_literal;
 pub(crate) mod can_end_a_type;
@@ -119,7 +118,7 @@ use crate::parse::parser::type_alias::type_alias;
 use crate::parse::parser::type_stop::TypeStop;
 use crate::parse::parser::visibility::visibility;
 use redox_ast::Visibility;
-use redox_ast::{Binding, Block, FnDecl, Ident, Item, Program, Stmt, StmtKind, TypeExpr};
+use redox_ast::{Binding, Block, Expr, FnDecl, Ident, Item, Program, Stmt, TypeExpr};
 use redox_diag::Code;
 use redox_lexer::{Keyword, Span, Token, TokenKind, Trivia};
 
@@ -610,17 +609,20 @@ impl<'a> Parser<'a> {
   /// `else if` is read by recursion: the `else` branch is a block holding one
   /// `If` statement, which is how Rust reads it and what lets the emitter
   /// write `} else if … {` without a third node.
-  pub(crate) fn if_statement(&mut self) -> Result<StmtKind, ParseError> {
+  pub(crate) fn if_statement(&mut self) -> Result<Expr, ParseError> {
+    let open = self.peek_span().0;
     self.expect(&TokenKind::Kw(Keyword::If), "expected `if`")?;
     let condition = condition(self)?;
     let then_block = self.statement_block("expected an indented `if` body")?;
 
     self.skip_separators();
     if !self.check(&TokenKind::Kw(Keyword::Else)) {
-      return Ok(StmtKind::If {
+      return Ok(Expr::If {
         condition,
         then_block,
         otherwise: None,
+        is_inline: false,
+        span: (open, self.prev_span().1),
       });
     }
     self.advance();
@@ -631,26 +633,30 @@ impl<'a> Parser<'a> {
       let start = self.peek_span().0;
       let nested = self.if_statement()?;
       let end = self.prev_span().1;
-      return Ok(StmtKind::If {
+      return Ok(Expr::If {
         condition,
         then_block,
         otherwise: Some(Block {
           stmts: vec![Stmt {
-            kind: nested,
+            expr: nested,
             span: (start, end),
             leading: Vec::new(),
             trailing: None,
           }],
           span: (start, end),
         }),
+        is_inline: false,
+        span: (open, end),
       });
     }
 
     let otherwise = self.statement_block("expected an indented `else` body")?;
-    Ok(StmtKind::If {
+    Ok(Expr::If {
       condition,
       then_block,
       otherwise: Some(otherwise),
+      is_inline: false,
+      span: (open, self.prev_span().1),
     })
   }
 
@@ -711,7 +717,7 @@ impl<'a> Parser<'a> {
     let end = self.prev_span().1;
     Ok(Block {
       stmts: vec![Stmt {
-        kind: StmtKind::Expr(value),
+        expr: value,
         span: (start, end),
         leading: Vec::new(),
         trailing: None,
@@ -780,7 +786,13 @@ impl<'a> Parser<'a> {
     Ok(rows)
   }
 
-  /// `Stmt := Binding | "return" Expr? | Expr`, each closed by a `Newline`.
+  /// One block element — `Binding | "return" Expr? | … | Expr`, closed by a
+  /// `Newline`.
+  ///
+  /// Every production here builds an [`Expr`]: plan 55 leaf 1 deleted
+  /// `StmtKind`, so what used to be "a statement kind" is one of the forms
+  /// `Expr` gained, and the [`Stmt`] this returns is the trivia wrapper
+  /// around it.
   fn stmt(&mut self) -> Result<Stmt, ParseError> {
     let leading = self.peek_leading();
     let start = self.peek_span().0;
@@ -788,26 +800,34 @@ impl<'a> Parser<'a> {
     // Plan 20's control flow comes first: every one of its forms begins with
     // a keyword or a label, none of which can begin an expression, so asking
     // here costs one comparison and no backtracking.
-    if let Some(kind) = control_flow(self)? {
+    if let Some(expr) = control_flow(self)? {
       let end = self.prev_span().1;
       let trailing = self.newline_with_trailing("expected a line break after the statement")?;
       return Ok(Stmt {
-        kind,
+        expr,
         span: (start, end),
         leading,
         trailing,
       });
     }
 
-    let kind = if self.check(&TokenKind::Kw(Keyword::Assert)) {
+    let expr = if self.check(&TokenKind::Kw(Keyword::Assert)) {
       self.advance();
-      StmtKind::Assert(parse_expr(self, 0)?)
+      let value = Box::new(parse_expr(self, 0)?);
+      Expr::Assert {
+        value,
+        span: (start, self.prev_span().1),
+      }
     } else if self.check(&TokenKind::Kw(Keyword::Return)) {
       self.advance();
-      if self.check(&TokenKind::Newline) || self.check(&TokenKind::Dedent) || self.at_eof() {
-        StmtKind::Return(None)
+      let value = if self.at_statement_end() {
+        None
       } else {
-        StmtKind::Return(Some(parse_expr(self, 0)?))
+        Some(Box::new(parse_expr(self, 0)?))
+      };
+      Expr::Return {
+        value,
+        span: (start, self.prev_span().1),
       }
     } else if let Some(draw) = self.try_draw()? {
       draw
@@ -818,7 +838,7 @@ impl<'a> Parser<'a> {
       // that reason, so neither claims the other's statement.
       awaited
     } else if let Some(binding) = self.try_binding()? {
-      StmtKind::Binding(binding)
+      Expr::Binding(Box::new(binding))
     } else {
       let value = parse_expr(self, 0)?;
       // Assignment, read after the place expression because every one of its
@@ -831,19 +851,25 @@ impl<'a> Parser<'a> {
       // after the statement"* rather than a silent misparse.
       if self.check(&TokenKind::ColonEq) {
         self.advance();
-        StmtKind::Assign {
-          target: value,
+        let rhs = Box::new(parse_expr(self, 0)?);
+        Expr::Assign {
+          target: Box::new(value),
           op: None,
-          value: parse_expr(self, 0)?,
+          value: rhs,
+          span: (start, self.prev_span().1),
         }
       } else {
         match compound_assign(self) {
-          Some(op) => StmtKind::Assign {
-            target: value,
-            op: Some(op),
-            value: parse_expr(self, 0)?,
-          },
-          None => StmtKind::Expr(value),
+          Some(op) => {
+            let rhs = Box::new(parse_expr(self, 0)?);
+            Expr::Assign {
+              target: Box::new(value),
+              op: Some(op),
+              value: rhs,
+              span: (start, self.prev_span().1),
+            }
+          }
+          None => value,
         }
       }
     };
@@ -851,7 +877,7 @@ impl<'a> Parser<'a> {
     let end = self.prev_span().1;
     let trailing = self.newline_with_trailing("expected a line break after the statement")?;
     Ok(Stmt {
-      kind,
+      expr,
       span: (start, end),
       leading,
       trailing,
@@ -869,10 +895,11 @@ impl<'a> Parser<'a> {
   /// needed one token of it and a hard-won lexer fix: `x <- f` once lexed as
   /// `<` then `-`, parsed as `x < -f`, and emitted valid Rust comparing `x`
   /// against negated `f` with no diagnostic. A keyword cannot do that.
-  fn try_draw(&mut self) -> Result<Option<StmtKind>, ParseError> {
+  fn try_draw(&mut self) -> Result<Option<Expr>, ParseError> {
     if !self.check(&TokenKind::Kw(Keyword::With)) {
       return Ok(None);
     }
+    let start = self.peek_span().0;
     self.advance();
 
     let name = self.ident("expected a name after `with`")?;
@@ -880,8 +907,12 @@ impl<'a> Parser<'a> {
       &TokenKind::Eq,
       "expected `=` after a `with` binder — doc 30 §3.3",
     )?;
-    let value = parse_expr(self, 0)?;
-    Ok(Some(StmtKind::Draw { name, value }))
+    let value = Box::new(parse_expr(self, 0)?);
+    Ok(Some(Expr::Draw {
+      name,
+      value,
+      span: (start, self.prev_span().1),
+    }))
   }
 
   /// A binding, if the cursor is on one.

@@ -15,8 +15,9 @@ use redox_lexer::{Span, Trivia};
 /// regardless of case; and Rust `const` and `static` require an explicit
 /// type, so the specification's `PI = 3.14159` cannot be lowered at all."*
 ///
-/// So the type is written, after the same `::` every other type in Redox uses
-/// (doc 18 §5.2), and *"the uppercase-name convention is a lint, not
+/// So the type is written, after the same `:` every other type in Redox uses —
+/// `::` until plan 52 gave ascription its own token and retired doc 18 §5.2's
+/// spacing rule — and *"the uppercase-name convention is a lint, not
 /// semantics"* — a lowercase one is legal here and rustc's
 /// `non_upper_case_globals` is what an author sees.
 #[derive(Debug, Clone, PartialEq, Eq)]

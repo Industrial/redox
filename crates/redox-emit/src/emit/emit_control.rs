@@ -8,7 +8,7 @@ use crate::emit::pad::pad;
 use crate::emit::rust_indent::RUST_INDENT;
 use crate::emit::sink::Sink;
 use crate::emit::unparen::unparen;
-use redox_ast::StmtKind;
+use redox_ast::Expr;
 
 /// Emit a control-flow statement at `indent` spaces — doc 01 §8 and doc 03
 /// §7.7, plan 20.
@@ -51,12 +51,13 @@ use redox_ast::StmtKind;
 /// at all six body sites. That single omission is what made plan 22 record
 /// `if` as the one control form that is not an expression: a branch written as
 /// a bare value emitted `"big";` and rustc answered `E0308`.
-pub(crate) fn emit_control(out: &mut Sink<'_>, kind: &StmtKind, indent: usize, tail: bool) {
-  match kind {
-    StmtKind::If {
+pub(crate) fn emit_control(out: &mut Sink<'_>, expr: &Expr, indent: usize, tail: bool) {
+  match expr {
+    Expr::If {
       condition,
       then_block,
       otherwise,
+      ..
     } => {
       pad(out, indent);
       out.push_str(&condition_head("if", condition, indent));
@@ -83,12 +84,18 @@ pub(crate) fn emit_control(out: &mut Sink<'_>, kind: &StmtKind, indent: usize, t
       out.unmark();
       pad(out, indent);
       if let [only] = otherwise.stmts.as_slice()
-        && matches!(only.kind, StmtKind::If { .. })
+        && matches!(
+          only.expr,
+          Expr::If {
+            is_inline: false,
+            ..
+          }
+        )
       {
         // The nested `if` writes its own `if … {`, so its leading pad is
         // already on this line.
         out.push_str("} else ");
-        emit_control_inline(out, &only.kind, indent, tail);
+        emit_control_inline(out, &only.expr, indent, tail);
         return;
       }
       out.push_str("} else {\n");
@@ -98,11 +105,12 @@ pub(crate) fn emit_control(out: &mut Sink<'_>, kind: &StmtKind, indent: usize, t
       out.push_str("}\n");
     }
 
-    StmtKind::While {
+    Expr::While {
       condition,
       negated,
       body,
       label,
+      ..
     } => {
       pad(out, indent);
       // A pattern test can never be negated here — the parser rejects
@@ -121,11 +129,12 @@ pub(crate) fn emit_control(out: &mut Sink<'_>, kind: &StmtKind, indent: usize, t
       out.push_str("}\n");
     }
 
-    StmtKind::For {
+    Expr::For {
       binder,
       source,
       body,
       label,
+      ..
     } => {
       pad(out, indent);
       out.push_str(&format!(
@@ -140,7 +149,7 @@ pub(crate) fn emit_control(out: &mut Sink<'_>, kind: &StmtKind, indent: usize, t
       out.push_str("}\n");
     }
 
-    StmtKind::Loop { body, label } => {
+    Expr::Loop { body, label, .. } => {
       pad(out, indent);
       out.push_str(&format!("{}loop {{\n", label_prefix(label)));
       emit_stmts(out, &body.stmts, indent + RUST_INDENT, false);
@@ -152,10 +161,11 @@ pub(crate) fn emit_control(out: &mut Sink<'_>, kind: &StmtKind, indent: usize, t
     // Doc 03 §7.1's `guard`, lowering to let-else — plan 22. Its else body is
     // a statement block like any other, so a `return`, a `break` or a panic
     // form all reach it, and rustc is what insists one of them diverges.
-    StmtKind::Guard {
+    Expr::Guard {
       pattern,
       source,
       otherwise,
+      ..
     } => {
       pad(out, indent);
       out.push_str(&format!(
@@ -171,7 +181,7 @@ pub(crate) fn emit_control(out: &mut Sink<'_>, kind: &StmtKind, indent: usize, t
       out.push_str("};\n");
     }
 
-    StmtKind::Break { label, value } => {
+    Expr::Break { label, value, .. } => {
       pad(out, indent);
       out.push_str("break");
       if let Some(name) = label {
@@ -183,7 +193,7 @@ pub(crate) fn emit_control(out: &mut Sink<'_>, kind: &StmtKind, indent: usize, t
       out.push_str(";\n");
     }
 
-    StmtKind::Continue { label } => {
+    Expr::Continue { label, .. } => {
       pad(out, indent);
       out.push_str("continue");
       if let Some(name) = label {
@@ -192,6 +202,9 @@ pub(crate) fn emit_control(out: &mut Sink<'_>, kind: &StmtKind, indent: usize, t
       out.push_str(";\n");
     }
 
-    _ => unreachable!("`emit_control` is called only for a control-flow statement"),
+    // Not reachable, and a hard error rather than a silent fallthrough: the
+    // callers that route here ask `Expr::is_control_flow` first, and one node
+    // kind means the compiler can no longer check that for them.
+    _ => unreachable!("`emit_control` is called only for a control-flow form"),
   }
 }

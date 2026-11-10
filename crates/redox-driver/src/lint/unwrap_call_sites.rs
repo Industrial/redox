@@ -2,7 +2,7 @@ use crate::lint::allow_pragma::allow_pragma;
 use crate::lint::line_of::line_of;
 use crate::lint::suppressed_spans::suppressed_spans;
 use redox_ast::Program;
-use redox_diag::Span;
+use redox_diag::{Lint, Span};
 use redox_lexer::TokenKind;
 
 /// Every unsuppressed `unwrap`/`expect` call site in a source file — doc 03
@@ -71,13 +71,15 @@ pub(crate) fn unwrap_call_sites(source: &str, program: Option<&Program>) -> Vec<
   let suppressed: Vec<usize> = tokens
     .iter()
     .flat_map(|t| t.leading.iter().chain(t.trailing.as_ref()))
-    .filter(|trivium| allow_pragma(trivium))
+    .filter(|trivium| allow_pragma(trivium, Lint::Unwrap))
     .map(|trivium| line_of(source, trivium.span.0))
     .collect();
 
   // Spans of the constructs a pragma leads, which the lines above cannot
   // reach.
-  let ranges = program.map(suppressed_spans).unwrap_or_default();
+  let ranges = program
+    .map(|program| suppressed_spans(program, Lint::Unwrap))
+    .unwrap_or_default();
 
   tokens
     .windows(2)

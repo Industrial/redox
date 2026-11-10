@@ -3,7 +3,7 @@ use crate::emit::pad::pad;
 use crate::emit::sink::Sink;
 use crate::emit::stmt::emit_stmt;
 use crate::emit::trivia::emit_trivia;
-use redox_ast::{Stmt, StmtKind};
+use redox_ast::{Expr, Stmt};
 
 /// Emit a run of statements, flattening doc 30 §3.3's `with` callbacks.
 ///
@@ -34,7 +34,7 @@ pub(crate) fn emit_stmts(out: &mut Sink<'_>, stmts: &[Stmt], indent: usize, tail
     return;
   };
 
-  let StmtKind::Draw { name, value } = &first.kind else {
+  let Expr::Draw { name, value, .. } = &first.expr else {
     let last = rest.is_empty();
     emit_stmt(out, first, indent, tail && last);
     emit_stmts(out, rest, indent, tail);

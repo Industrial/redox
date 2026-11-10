@@ -4,7 +4,7 @@
 -- §13.4 corrects doc 01 §4.3 twice over: Rust forbids `let` at module scope,
 -- so every top-level binding is `const` or `static`; and both require an
 -- explicit type, so §4.3's `PI = 3.14159` "cannot be lowered at all". The
--- type goes after the same `::` every other type in Redox uses.
+-- type goes after the same `:` every other type in Redox uses.
 --
 -- Checked by compiling and running with **zero** rustc output, so a binding
 -- emitted with the wrong keyword or a missing type does not pass.

@@ -11,7 +11,7 @@
 ///   print "hello"          -- one statement, an expression
 /// ```
 ///
-/// Both are a `Plain(Block)` holding one `StmtKind::Expr`. Nothing in the node
+/// Both are a `Plain(Block)` holding one expression element. Nothing in the node
 /// records which the author wrote, and §3 has no row choosing between them —
 /// so a formatter that picked one would silently rewrite every function of the
 /// other shape in the corpus.

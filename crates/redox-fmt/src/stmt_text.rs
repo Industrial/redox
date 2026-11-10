@@ -1,15 +1,15 @@
 pub(crate) mod binding_text;
 pub(crate) mod block_text;
 pub(crate) mod case_arm_text;
+pub(crate) mod code_text;
 pub(crate) mod condition_text;
 pub(crate) mod else_text;
 pub(crate) mod indent_text;
-pub(crate) mod kind_text;
 pub(crate) mod label_text;
 pub(crate) mod trivia_text;
 
+use crate::stmt_text::code_text::code_text;
 use crate::stmt_text::indent_text::indent_text;
-use crate::stmt_text::kind_text::kind_text;
 use crate::stmt_text::trivia_text::trivia_text;
 use redox_ast::Stmt;
 
@@ -24,7 +24,7 @@ use redox_ast::Stmt;
 ///
 /// Complete lines, each at its own depth, with **no trailing newline**. The
 /// first line carries this statement's indentation like every other, which
-/// `kind_text` deliberately does not: that function returns its first line
+/// `code_text` deliberately does not: that function returns its first line
 /// unindented so a caller can put it after `else ` or `= `, and this function
 /// is where a statement standing on its own line gets its prefix.
 ///
@@ -43,7 +43,7 @@ pub fn stmt_text(stmt: &Stmt, indent: usize, source: &str) -> String {
   let mut code = format!(
     "{}{}",
     indent_text(indent),
-    kind_text(&stmt.kind, indent, source)
+    code_text(&stmt.expr, indent, source)
   );
   if let Some(trailing) = &stmt.trailing {
     // **Two** spaces before a trailing comment. The corpus writes two in four

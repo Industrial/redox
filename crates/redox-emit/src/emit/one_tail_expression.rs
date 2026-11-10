@@ -1,4 +1,4 @@
-use redox_ast::{Clause, Stmt, StmtKind};
+use redox_ast::{Clause, Stmt};
 
 /// A clause's body as one tail expression statement, when that is what it is.
 ///
@@ -15,7 +15,7 @@ pub(crate) fn one_tail_expression(clause: &Clause, tail: bool) -> Option<&Stmt> 
     return None;
   }
   match clause.body.plain()?.stmts.as_slice() {
-    [stmt] if matches!(stmt.kind, StmtKind::Expr(_)) && stmt.leading.is_empty() => Some(stmt),
+    [stmt] if !stmt.expr.is_statement_form() && stmt.leading.is_empty() => Some(stmt),
     _ => None,
   }
 }

@@ -1,6 +1,6 @@
-pub(crate) mod allow_unwrap_attribute;
 pub(crate) mod code;
 pub(crate) mod diagnostic_code;
+pub(crate) mod lint;
 pub(crate) mod severity;
 
 use crate::Span;

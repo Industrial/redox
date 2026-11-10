@@ -172,6 +172,27 @@ pub enum Code {
   /// succeeds, and the author is told what to write instead. Removal is plan
   /// 64's, with the rest of the comment-carried semantics.
   CommentAllowPragma,
+  /// `RDX1003` — a bare `=` rebinding a name already bound in the **same
+  /// statement list**, which binds a second name rather than reassigning.
+  ///
+  /// Plan 54 leaf 3, and the one defect §1.1 measured that nothing caught:
+  /// of sixteen constructs that refuse or reinterpret, fifteen were caught by
+  /// a Redox diagnostic or by rustc, and `i = j` after `mut i = 0` was caught
+  /// by neither. It emits `let i = j;`, which compiles, and the only signal is
+  /// rustc's `unused variable` on the *outer* binding — a warning pointing at
+  /// the declaration rather than at the line that went wrong.
+  ///
+  /// **A warning, because shadowing is legal Rust and sometimes meant.**
+  /// Doc 03 §1.4 keeps `=` binding on purpose, so this names a suspicion and
+  /// not a rule, and `#[redox::allow(shadow)]` is how an author says it was
+  /// deliberate.
+  ///
+  /// **One statement list, deliberately.** Plan 54 decision 4: the lint sees
+  /// a list and never a scope, so a nested block rebinding an outer name is
+  /// silent. Widening it is the first step toward the scope table AGENTS.md
+  /// forbids Redox growing and §1.3 refused on exactly that ground — which is
+  /// why the boundary is asserted by criterion 5 rather than left to drift.
+  ShadowedBinding,
 
   // ---- doc 03 §17's published surface codes: RDX0040-RDX0099 ----
   /// `return` inside a `with` callback's tail — doc 03 §7.6, plan 30.
@@ -229,6 +250,7 @@ impl Code {
       // Doc 03 §17's published number, and the first in the lint band.
       Self::UnwrapUsed => 1001,
       Self::CommentAllowPragma => 1002,
+      Self::ShadowedBinding => 1003,
       // Doc 03 §17's published assignment, not the next free number.
       Self::ReturnInCallbackTail => 44,
     }
@@ -268,6 +290,7 @@ impl Code {
       Self::NewtypeShape,
       Self::UnwrapUsed,
       Self::CommentAllowPragma,
+      Self::ShadowedBinding,
       Self::ReturnInCallbackTail,
     ]
   }

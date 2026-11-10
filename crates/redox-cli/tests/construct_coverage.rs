@@ -744,7 +744,7 @@ const WITNESSES: &[Covers] = &[
     row: "Functions",
     spelling: "`name : T -> U` and an equation",
     witness: Witness::Shape(
-      "a name at the start of a line followed by a spaced `::`",
+      "a name at the start of a line followed by `:`",
       has_signature_line,
     ),
   },

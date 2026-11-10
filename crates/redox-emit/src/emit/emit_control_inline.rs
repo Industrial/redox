@@ -3,7 +3,7 @@ use crate::emit::emit_stmts::emit_stmts;
 use crate::emit::pad::pad;
 use crate::emit::rust_indent::RUST_INDENT;
 use crate::emit::sink::Sink;
-use redox_ast::StmtKind;
+use redox_ast::Expr;
 
 /// An `else if`'s nested `if`, written without its leading pad.
 ///
@@ -15,12 +15,13 @@ use redox_ast::StmtKind;
 /// here too: in `if a then … else if b then … else …` the value can come from
 /// any rung of the chain, so dropping it at the first `else if` would make the
 /// deeper branches statements again.
-pub(crate) fn emit_control_inline(out: &mut Sink<'_>, kind: &StmtKind, indent: usize, tail: bool) {
-  let StmtKind::If {
+pub(crate) fn emit_control_inline(out: &mut Sink<'_>, expr: &Expr, indent: usize, tail: bool) {
+  let Expr::If {
     condition,
     then_block,
     otherwise,
-  } = kind
+    ..
+  } = expr
   else {
     unreachable!("only an `if` is written inline")
   };
@@ -43,10 +44,16 @@ pub(crate) fn emit_control_inline(out: &mut Sink<'_>, kind: &StmtKind, indent: u
   out.unmark();
   pad(out, indent);
   if let [only] = otherwise.stmts.as_slice()
-    && matches!(only.kind, StmtKind::If { .. })
+    && matches!(
+      only.expr,
+      Expr::If {
+        is_inline: false,
+        ..
+      }
+    )
   {
     out.push_str("} else ");
-    emit_control_inline(out, &only.kind, indent, tail);
+    emit_control_inline(out, &only.expr, indent, tail);
     return;
   }
   out.push_str("} else {\n");

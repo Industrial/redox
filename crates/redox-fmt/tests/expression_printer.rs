@@ -30,7 +30,7 @@
 //! stripped trees differ. The property still catches exactly the mistake it
 //! exists for.
 
-use redox_ast::{Expr, Item, Program, Stmt, StmtKind};
+use redox_ast::{Expr, Item, Program, Stmt};
 use std::path::{Path, PathBuf};
 
 fn root() -> PathBuf {
@@ -95,35 +95,13 @@ fn statements(program: &Program) -> Vec<&Stmt> {
 fn collect<'a>(stmts: &'a [Stmt], into: &mut Vec<&'a Stmt>) {
   for stmt in stmts {
     into.push(stmt);
-    for block in blocks_of(&stmt.kind) {
+    // The blocks a form holds, so nesting is not skipped. A control-flow
+    // body is where most of a program's expressions live, and a traversal
+    // that stopped at the top level would make the corpus property look
+    // thorough while reading almost nothing.
+    for block in stmt.expr.statement_blocks() {
       collect(&block.stmts, into);
     }
-  }
-}
-
-/// The blocks a statement kind holds, so nesting is not skipped.
-///
-/// A control-flow statement's body is where most of a program's expressions
-/// live, and a traversal that stopped at the top level would make the corpus
-/// property look thorough while reading almost nothing.
-fn blocks_of(kind: &StmtKind) -> Vec<&redox_ast::Block> {
-  match kind {
-    StmtKind::If {
-      then_block,
-      otherwise,
-      ..
-    } => {
-      let mut found = vec![then_block];
-      found.extend(otherwise.iter());
-      found
-    }
-    StmtKind::While { body, .. } | StmtKind::For { body, .. } | StmtKind::Loop { body, .. } => {
-      vec![body]
-    }
-    // A `guard`'s block is the *else* branch — the one taken when the pattern
-    // does not match — which is why it is named `otherwise` and not `body`.
-    StmtKind::Guard { otherwise, .. } => vec![otherwise],
-    _ => Vec::new(),
   }
 }
 
@@ -131,8 +109,8 @@ fn blocks_of(kind: &StmtKind) -> Vec<&redox_ast::Block> {
 fn binding_values(program: &Program) -> Vec<&Expr> {
   statements(program)
     .into_iter()
-    .filter_map(|stmt| match &stmt.kind {
-      StmtKind::Binding(binding) => Some(&binding.value),
+    .filter_map(|stmt| match &stmt.expr {
+      Expr::Binding(binding) => Some(&binding.value),
       _ => None,
     })
     .collect()

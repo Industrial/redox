@@ -3,7 +3,7 @@ use crate::parse::parser::Parser;
 use crate::parse::parser::parse_expr::parse_expr;
 use crate::parse::parser::pattern_alt::pattern_alt;
 use crate::parse::parser::reaches_a_draw_arrow::reaches_a_draw_arrow;
-use redox_ast::StmtKind;
+use redox_ast::Expr;
 use redox_lexer::TokenKind;
 
 /// An await-bind, if the cursor is on one — doc 30, the whole of it.
@@ -35,13 +35,16 @@ use redox_lexer::TokenKind;
 /// shape `looks_like_a_binding` uses for the same reason — and a lookahead
 /// that advances nothing cannot leave the parser somewhere unexpected when it
 /// answers no.
-pub(crate) fn try_await(p: &mut Parser) -> Result<Option<StmtKind>, ParseError> {
+pub(crate) fn try_await(p: &mut Parser) -> Result<Option<Expr>, ParseError> {
+  let start = p.peek_span().0;
   // The effect-only form: nothing to bind, so nothing to scan past.
   if p.check(&TokenKind::DrawArrow) {
     p.advance();
-    return Ok(Some(StmtKind::Await {
+    let value = Box::new(parse_expr(p, 0)?);
+    return Ok(Some(Expr::Await {
       pattern: None,
-      value: parse_expr(p, 0)?,
+      value,
+      span: (start, p.prev_span().1),
     }));
   }
 
@@ -51,8 +54,10 @@ pub(crate) fn try_await(p: &mut Parser) -> Result<Option<StmtKind>, ParseError> 
 
   let pattern = pattern_alt(p)?;
   p.expect(&TokenKind::DrawArrow, "expected `<-`")?;
-  Ok(Some(StmtKind::Await {
+  let value = Box::new(parse_expr(p, 0)?);
+  Ok(Some(Expr::Await {
     pattern: Some(pattern),
-    value: parse_expr(p, 0)?,
+    value,
+    span: (start, p.prev_span().1),
   }))
 }

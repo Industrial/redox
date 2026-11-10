@@ -1,7 +1,7 @@
 use crate::stmt_text::block_text::block_text;
+use crate::stmt_text::code_text::code_text;
 use crate::stmt_text::indent_text::indent_text;
-use crate::stmt_text::kind_text::kind_text;
-use redox_ast::{Block, StmtKind};
+use redox_ast::{Block, Expr};
 
 /// An `if` statement's `else` branch, or nothing.
 ///
@@ -36,11 +36,17 @@ pub(crate) fn else_text(otherwise: &Option<Block>, indent: usize, source: &str) 
   };
   let pad = indent_text(indent);
   if let [only] = block.stmts.as_slice()
-    && matches!(only.kind, StmtKind::If { .. })
+    && matches!(
+      only.expr,
+      Expr::If {
+        is_inline: false,
+        ..
+      }
+    )
     && only.leading.is_empty()
     && only.trailing.is_none()
   {
-    return format!("\n{pad}else {}", kind_text(&only.kind, indent, source));
+    return format!("\n{pad}else {}", code_text(&only.expr, indent, source));
   }
   format!("\n{pad}else\n{}", block_text(block, indent + 1, source))
 }

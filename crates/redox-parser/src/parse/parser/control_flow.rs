@@ -3,7 +3,7 @@ use crate::parse::parser::Parser;
 use crate::parse::parser::condition::condition;
 use crate::parse::parser::parse_expr::parse_expr;
 use crate::parse::parser::pattern_alt::pattern_alt;
-use redox_ast::StmtKind;
+use redox_ast::Expr;
 use redox_diag::Code;
 use redox_lexer::{Keyword, TokenKind};
 
@@ -23,7 +23,8 @@ use redox_lexer::{Keyword, TokenKind};
 /// A **label** precedes the loop keyword — `'outer while …` — which is Rust's
 /// own order with the colon dropped, and is why the label is read here rather
 /// than inside each loop's parser.
-pub(crate) fn control_flow(p: &mut Parser) -> Result<Option<StmtKind>, ParseError> {
+pub(crate) fn control_flow(p: &mut Parser) -> Result<Option<Expr>, ParseError> {
+  let start = p.peek_span().0;
   // `'name` before a loop keyword. Doc 03 §7.2: *"labels apply equally to
   // loops, so `break 'outer` and `continue 'outer` reach an enclosing loop."*
   let label = match &p.peek().kind {
@@ -60,11 +61,12 @@ pub(crate) fn control_flow(p: &mut Parser) -> Result<Option<StmtKind>, ParseErro
         keyword_span,
       ));
     }
-    return Ok(Some(StmtKind::While {
+    return Ok(Some(Expr::While {
       condition,
       negated,
       body,
       label,
+      span: (start, p.prev_span().1),
     }));
   }
 
@@ -78,20 +80,25 @@ pub(crate) fn control_flow(p: &mut Parser) -> Result<Option<StmtKind>, ParseErro
       &TokenKind::Kw(Keyword::In),
       "expected `in` after the binder — doc 30 §3.2 writes a `for` with Rust's own word",
     )?;
-    let source = parse_expr(p, 0)?;
+    let source = Box::new(parse_expr(p, 0)?);
     let body = p.statement_block("expected an indented loop body")?;
-    return Ok(Some(StmtKind::For {
+    return Ok(Some(Expr::For {
       binder,
       source,
       body,
       label,
+      span: (start, p.prev_span().1),
     }));
   }
 
   if p.check(&TokenKind::Kw(Keyword::Loop)) {
     p.advance();
     let body = p.statement_block("expected an indented loop body")?;
-    return Ok(Some(StmtKind::Loop { body, label }));
+    return Ok(Some(Expr::Loop {
+      body,
+      label,
+      span: (start, p.prev_span().1),
+    }));
   }
 
   // A label with no loop after it is a mistake worth reporting here: the
@@ -121,9 +128,13 @@ pub(crate) fn control_flow(p: &mut Parser) -> Result<Option<StmtKind>, ParseErro
     let value = if p.at_statement_end() {
       None
     } else {
-      Some(parse_expr(p, 0)?)
+      Some(Box::new(parse_expr(p, 0)?))
     };
-    return Ok(Some(StmtKind::Break { label, value }));
+    return Ok(Some(Expr::Break {
+      label,
+      value,
+      span: (start, p.prev_span().1),
+    }));
   }
 
   if p.check(&TokenKind::Kw(Keyword::Continue)) {
@@ -136,7 +147,10 @@ pub(crate) fn control_flow(p: &mut Parser) -> Result<Option<StmtKind>, ParseErro
       }
       _ => None,
     };
-    return Ok(Some(StmtKind::Continue { label }));
+    return Ok(Some(Expr::Continue {
+      label,
+      span: (start, p.prev_span().1),
+    }));
   }
 
   if p.check(&TokenKind::Kw(Keyword::If)) {
@@ -155,16 +169,17 @@ pub(crate) fn control_flow(p: &mut Parser) -> Result<Option<StmtKind>, ParseErro
       "expected `=` after a `guard` pattern — doc 30 §3.1 writes it as Rust's let-else \
        without the `let`",
     )?;
-    let source = parse_expr(p, 0)?;
+    let source = Box::new(parse_expr(p, 0)?);
     p.expect(
       &TokenKind::Kw(Keyword::Else),
       "expected `else` — a `guard` without one is a binding, and let-else requires it",
     )?;
     let otherwise = p.statement_block("expected an indented `else` body after `guard`")?;
-    return Ok(Some(StmtKind::Guard {
+    return Ok(Some(Expr::Guard {
       pattern,
       source,
       otherwise,
+      span: (start, p.prev_span().1),
     }));
   }
 

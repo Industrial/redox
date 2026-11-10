@@ -247,7 +247,7 @@ fn a_triple_quoted_blocks_span_covers_it() {
     .body
     .plain()
     .expect("a plain body, not a guard ladder");
-  let redox_ast::StmtKind::Binding(binding) = &block.stmts[0].kind else {
+  let redox_ast::Expr::Binding(binding) = &block.stmts[0].expr else {
     panic!("expected the binding");
   };
   let redox_ast::Expr::StrLit { span, value } = &binding.value else {

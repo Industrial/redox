@@ -80,6 +80,25 @@ pub(crate) fn power_of(expr: &Expr) -> Option<u8> {
     | Expr::Case { .. }
     | Expr::AsyncBlock { .. }
     | Expr::UnsafeBlock { .. }
-    | Expr::TryBlock { .. } => None,
+    | Expr::TryBlock { .. }
+    // And the forms plan 55 leaf 1 promoted out of `StmtKind`, every one of
+    // which is open-ended in the same way: `return e`, `break e`, `x += e`,
+    // `assert e` and a binding all extend as far right as the expression
+    // after them does, and the three loops and a `guard` carry a block.
+    // A decline keeps the author's parentheses, which is the safe default
+    // this function's doc argues for — and none of these can reach an
+    // expression position through today's grammar anyway.
+    | Expr::Binding(_)
+    | Expr::Return { .. }
+    | Expr::Draw { .. }
+    | Expr::Await { .. }
+    | Expr::Assign { .. }
+    | Expr::Guard { .. }
+    | Expr::While { .. }
+    | Expr::For { .. }
+    | Expr::Loop { .. }
+    | Expr::Break { .. }
+    | Expr::Continue { .. }
+    | Expr::Assert { .. } => None,
   }
 }

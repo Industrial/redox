@@ -126,7 +126,7 @@ fn a_record_pattern_takes_a_rest() {
 }
 
 /// A `::`-joined path, for an enum variant. Tight only, for doc 18 §5.2's
-/// reason — a spaced `::` ascribes.
+/// reason — a spaced `::` ascribed, before plan 52 made the marker `:`.
 #[test]
 fn a_record_pattern_takes_a_path() {
   assert_eq!(arm("Event::Click { x }"), "Event::Click { x } => 1,");

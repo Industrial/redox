@@ -3,7 +3,7 @@
 //! An integration test rather than a `#[cfg(test)]` module, per
 //! `docs/06 - Redox Code Architecture.md` §7.
 
-use redox_ast::{Expr, Ident, Item, Program, StmtKind, TriviaKind};
+use redox_ast::{Expr, Ident, Item, Program, TriviaKind};
 use redox_diag::Code;
 use redox_parser::{ParseFailure, parse_source};
 
@@ -40,7 +40,7 @@ fn parses_the_hello_slice() {
   };
   assert_eq!(f.name.text, "main");
   assert_eq!(stmts(f).len(), 1);
-  let StmtKind::Expr(Expr::Call { callee, args, .. }) = &stmts(f)[0].kind else {
+  let Expr::Call { callee, args, .. } = &stmts(f)[0].expr else {
     panic!("expected a call");
   };
   // 19..24, not 20..25: `main : ()\n` is 10 bytes where `main :: ()\n` was
@@ -68,9 +68,7 @@ fn nodes_carry_spans_that_index_the_source() {
     panic!("expected a function item")
   };
   assert_eq!(&src[f.name.span.0..f.name.span.1], "main");
-  let StmtKind::Expr(e) = &stmts(f)[0].kind else {
-    panic!("expected an expression statement");
-  };
+  let e = &stmts(f)[0].expr;
   assert_eq!(&src[e.span().0..e.span().1], "print \"hello\"");
 }
 
@@ -215,7 +213,7 @@ fn a_typed_binding_still_parses_as_a_binding() {
   let Item::Fn(f) = &p.items[0] else {
     panic!("expected a function item")
   };
-  let StmtKind::Binding(b) = &stmts(f)[0].kind else {
+  let Expr::Binding(b) = &stmts(f)[0].expr else {
     panic!("expected a binding")
   };
   assert_eq!(
@@ -265,7 +263,7 @@ fn a_tight_colon_colon_is_still_a_path() {
   let Item::Fn(f) = &p.items[0] else {
     panic!("expected a function item")
   };
-  let StmtKind::Binding(b) = &stmts(f)[0].kind else {
+  let Expr::Binding(b) = &stmts(f)[0].expr else {
     panic!("expected a binding")
   };
   assert!(

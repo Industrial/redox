@@ -20,9 +20,9 @@ mod render;
 mod source;
 
 pub use diagnostic::Diagnostic;
-pub use diagnostic::allow_unwrap_attribute::ALLOW_UNWRAP_ATTRIBUTE;
 pub use diagnostic::code::Code;
 pub use diagnostic::diagnostic_code::DiagnosticCode;
+pub use diagnostic::lint::Lint;
 pub use diagnostic::severity::Severity;
 pub use render::render;
 pub use source::map::SourceMap;

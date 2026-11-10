@@ -26,8 +26,9 @@ use crate::expr_text::record_text::record_text;
 use crate::expr_text::section_text::section_text;
 use crate::stmt_text::block_text::block_text;
 use crate::stmt_text::case_arm_text::case_arm_text;
+use crate::stmt_text::code_text::code_text;
 use crate::stmt_text::condition_text::condition_text;
-use redox_ast::{BinaryOp, Expr};
+use redox_ast::{BinaryOp, Block, Expr};
 
 /// One expression in canonical Redox — plan 34, leaf 3.
 ///
@@ -57,7 +58,7 @@ use redox_ast::{BinaryOp, Expr};
 ///
 /// §3's rows that live in an expression: juxtaposition for calls (row 1),
 /// redundant parentheses dropped where precedence allows (row 3), one space
-/// before a method's arguments (row 6), a spaced `::` ascription (row 8), and
+/// before a method's arguments (row 6), a `:` ascription (row 8), and
 /// no trailing comma except the one a single-element tuple needs (row 12).
 ///
 /// Rows 2, 4 and 5 are **retired** by §10 rather than implemented. Row 2
@@ -176,7 +177,8 @@ pub fn expr_text(expr: &Expr, required: u8, indent: usize, source: &str) -> Stri
       }
       out
     }
-    // Doc 18 §5.2: a spaced `::` ascribes and a tight one is a path, so the
+    // Doc 18 §5.2 made a spaced `::` ascribe and a tight one a path; plan 52
+    // retired that rule and `:` is the marker, so the
     // spaces here are load-bearing rather than cosmetic — §3 row 8 exists to
     // say the formatter must never tighten one.
     //
@@ -229,23 +231,37 @@ pub fn expr_text(expr: &Expr, required: u8, indent: usize, source: &str) -> Stri
     Expr::Ident(ident) => ident.text.clone(),
     // The block-bearing forms, which §10.15 moved to leaf 4 because their
     // bodies are statement sequences. The first line is unindented and every
-    // later line sits at `indent + 1`, matching `kind_text`'s convention —
+    // later line sits at `indent + 1`, matching `code_text`'s convention —
     // the caller has already written whatever this hangs from.
     //
-    // `if c then a else b` is the **expression** `if`, told apart from the
-    // statement by `then`, and it is the one of the five that stays on one
-    // line.
+    // `if c then a else b` is the **expression** `if`, and since plan 55 leaf
+    // 1 it is the same node as the indented form, told apart by `is_inline`
+    // rather than by which enum it lives in. Its branches are blocks of a
+    // single expression, which is what `if_expression` builds, and the sole
+    // expression of each is what goes beside `then` and `else`.
+    //
+    // An indented `if` reaching this function is one in an expression
+    // position; `code_text` prints it, and that is also the fallback when a
+    // one-line branch is somehow not a single expression — a decline here
+    // would print an `if` with no branches at all.
     Expr::If {
       condition,
-      then,
+      then_block,
       otherwise,
+      is_inline: true,
       ..
-    } => format!(
-      "if {} then {} else {}",
-      condition_text(condition, indent, source),
-      expr_text(then, 0, indent, source),
-      expr_text(otherwise, 0, indent, source)
-    ),
+    } => match (
+      then_block.sole_expression(),
+      otherwise.as_ref().and_then(Block::sole_expression),
+    ) {
+      (Some(then), Some(els)) => format!(
+        "if {} then {} else {}",
+        condition_text(condition, indent, source),
+        expr_text(then, 0, indent, source),
+        expr_text(els, 0, indent, source)
+      ),
+      _ => code_text(expr, indent, source),
+    },
     Expr::Do { label, body, .. } => format!(
       "do{}\n{}",
       label.as_ref().map_or(String::new(), |n| format!(" '{n}")),
@@ -273,5 +289,26 @@ pub fn expr_text(expr: &Expr, required: u8, indent: usize, source: &str) -> Stri
         printed.join("\n")
       )
     }
+    // The forms plan 55 leaf 1 promoted out of `StmtKind`. Each has exactly
+    // one Redox spelling, which `code_text` writes, and none of them can
+    // reach an expression position through today's grammar — `prefix` has no
+    // production for any. Printed rather than declined because a formatter
+    // that drops a form rewrites the program, which is the one failure
+    // `formatting_preserves_meaning` exists to catch.
+    Expr::If {
+      is_inline: false, ..
+    }
+    | Expr::Binding(_)
+    | Expr::Return { .. }
+    | Expr::Draw { .. }
+    | Expr::Await { .. }
+    | Expr::Assign { .. }
+    | Expr::Guard { .. }
+    | Expr::While { .. }
+    | Expr::For { .. }
+    | Expr::Loop { .. }
+    | Expr::Break { .. }
+    | Expr::Continue { .. }
+    | Expr::Assert { .. } => code_text(expr, indent, source),
   }
 }

@@ -12,7 +12,7 @@
 //! a binding's pattern must be irrefutable, and `Some v` is not — so the arm
 //! is the probe, and it is also the position the fixture uses.
 
-use redox_ast::{CaseArm, Expr, Item, Pattern, Program, Stmt, StmtKind};
+use redox_ast::{CaseArm, Expr, Item, Pattern, Program, Stmt};
 use std::path::PathBuf;
 
 fn root() -> PathBuf {
@@ -84,10 +84,11 @@ fn expressions(program: &Program) -> Vec<&Expr> {
 }
 
 fn expression_of(stmt: &Stmt) -> Option<&Expr> {
-  match &stmt.kind {
-    StmtKind::Expr(expr) | StmtKind::Assert(expr) => Some(expr),
-    StmtKind::Binding(binding) => Some(&binding.value),
-    StmtKind::Return(value) => value.as_ref(),
+  match &stmt.expr {
+    Expr::Assert { value, .. } => Some(value),
+    Expr::Binding(binding) => Some(&binding.value),
+    Expr::Return { value, .. } => value.as_deref(),
+    other if !other.is_statement_form() => Some(other),
     _ => None,
   }
 }

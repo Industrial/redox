@@ -1,8 +1,10 @@
-use crate::lint::walk_item_for_pragmas::walk_item_for_pragmas;
+use crate::lint::pragma_walk::PragmaWalk;
+use crate::lint::walk_program::walk_program;
 use redox_ast::Program;
-use redox_diag::Span;
+use redox_diag::{Lint, Span};
 
-/// The byte ranges `RDX1001` is suppressed over — plan 53 leaf 4.
+/// The byte ranges `lint` is suppressed over — plan 53 leaf 4, parametrised
+/// by plan 54 leaf 3.
 ///
 /// One range per construct that carries a suppression pragma in its leading
 /// trivia: a statement's own span, or a declaration's whole span. A call site
@@ -35,10 +37,11 @@ use redox_diag::Span;
 /// **trailing** comment pragma — `port = raw.unwrap ()  -- redox: allow
 /// unwrap` — is not any construct's leading trivia, so it appears in no range
 /// here and is still keyed on its line by the caller.
-pub(crate) fn suppressed_spans(program: &Program) -> Vec<Span> {
-  let mut found = Vec::new();
-  for item in &program.items {
-    walk_item_for_pragmas(item, &mut found);
-  }
-  found
+pub(crate) fn suppressed_spans(program: &Program, lint: Lint) -> Vec<Span> {
+  let mut walk = PragmaWalk {
+    lint,
+    found: Vec::new(),
+  };
+  walk_program(program, &mut walk);
+  walk.found
 }

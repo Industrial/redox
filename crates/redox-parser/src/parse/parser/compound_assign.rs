@@ -13,7 +13,7 @@ use redox_lexer::TokenKind;
 /// **The only assignment spelling the specifications define.** Doc 01 §4.3
 /// shows `mut counter = 0` then `counter += 1`; doc 18 §2.5 uses it on a
 /// field. Plain reassignment appears in neither, because at statement level
-/// `x = v` is a binding — see `StmtKind::Assign` for why telling the two
+/// `x = v` is a binding — see `Expr::Assign` for why telling the two
 /// apart is not Redox's to do.
 ///
 /// `??=` is **not** here: doc 18 §7 retires it in favour of its expanded

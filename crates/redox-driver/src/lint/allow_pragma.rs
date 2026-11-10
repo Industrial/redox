@@ -1,8 +1,9 @@
 use crate::lint::attribute_pragma::attribute_pragma;
 use crate::lint::comment_pragma::comment_pragma;
+use redox_diag::Lint;
 use redox_lexer::Trivia;
 
-/// Whether one trivium is `RDX1001`'s suppression pragma, in either spelling.
+/// Whether one trivium suppresses `lint`, in either spelling.
 ///
 /// ```text
 /// #[redox::allow(unwrap)]                        -- plan 53 leaf 4
@@ -30,6 +31,16 @@ use redox_lexer::Trivia;
 ///
 /// Which spelling a trivium is matters to two callers, so each spelling has
 /// its own predicate: [`attribute_pragma`] and [`comment_pragma`].
-pub(crate) fn allow_pragma(trivium: &Trivia) -> bool {
-  attribute_pragma(trivium) || comment_pragma(trivium)
+///
+/// # Why `lint` is a parameter
+///
+/// Plan 53 wrote `unwrap` into both spellings, because there was one lint to
+/// write. Plan 54 §10.6 names the consequence it would have had: a second
+/// hard-coded name is a second pair of strings in two crates, and an author's
+/// intentional shadow would have warned forever. So the name is a parameter,
+/// and a pragma silences the lint it names and no other —
+/// `#[redox::allow(unwrap)]` above a shadow is not a suppression, which is
+/// right: a suppression is a claim about *one* warning.
+pub(crate) fn allow_pragma(trivium: &Trivia, lint: Lint) -> bool {
+  attribute_pragma(trivium) == Some(lint) || comment_pragma(trivium) == Some(lint)
 }

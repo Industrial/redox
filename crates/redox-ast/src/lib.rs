@@ -17,9 +17,13 @@
 //! Layout follows `docs/06 - Redox Code Architecture.md`. The module tree is
 //! the grammar's containment hierarchy: a `Program` holds `Item`s which hold a
 //! `FnDecl` with its `Signature` and `Param`s; a `Block` holds `Stmt`s which
-//! hold a `StmtKind` or a `Binding`; an `Expr` holds an `Ident`, its operators
-//! and a `TypeExpr`. Per doc 06 §3 rule 1 this crate holds no decisions, only
-//! types.
+//! hold an `Expr`; an `Expr` holds an `Ident`, its operators and a
+//! `TypeExpr`. Per doc 06 §3 rule 1 this crate holds no decisions, only types.
+//!
+//! **There is one node kind for a body position.** Plan 55 leaf 1 deleted
+//! `StmtKind` and moved its forms into [`Expr`], so a block element and a
+//! subexpression are the same type and the statement/expression fork is gone
+//! from the tree. [`Stmt`] survives as the trivia carrier and records why.
 
 mod block;
 mod condition;
@@ -29,7 +33,6 @@ mod program;
 pub use block::Block;
 pub use block::stmt::Stmt;
 pub use block::stmt::binding::Binding;
-pub use block::stmt::kind::StmtKind;
 pub use condition::Condition;
 pub use condition::operand::ConditionOperand;
 pub use expr::Expr;

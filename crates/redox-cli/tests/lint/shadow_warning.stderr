@@ -1,0 +1,20 @@
+warning[RDX1003]: `cursor` is already bound in this block — a bare `=` binds a second name rather than reassigning the first (plan 54 §1.1)
+  --> shadow_warning.sdx:17:3
+   |
+17 |   cursor = 7
+   |   ^^^^^^
+  = help: to reassign instead, write `:=` and `mut` on the first binding; if the shadow is meant, say so on the line above: `#[redox::allow(shadow)]`
+
+warning[RDX1003]: `step` is already bound in this block — a bare `=` binds a second name rather than reassigning the first (plan 54 §1.1)
+  --> shadow_warning.sdx:43:3
+   |
+43 |   step = 2
+   |   ^^^^
+  = help: to reassign instead, write `:=` and `mut` on the first binding; if the shadow is meant, say so on the line above: `#[redox::allow(shadow)]`
+
+warning[RDX1003]: `step` is already bound in this block — a bare `=` binds a second name rather than reassigning the first (plan 54 §1.1)
+  --> shadow_warning.sdx:44:3
+   |
+44 |   step = 3
+   |   ^^^^
+  = help: to reassign instead, write `:=` and `mut` on the first binding; if the shadow is meant, say so on the line above: `#[redox::allow(shadow)]`

@@ -282,19 +282,46 @@ pub enum Expr {
     qualifiers: Vec<Qualifier>,
     span: Span,
   },
-  /// `if c then a else b` — doc 01 §8's conditional **expression**, plan 20.
+  /// `if c` with an indented block, and `if c then a else b` — doc 01 §8,
+  /// plan 20, one node since plan 55 leaf 1.
   ///
-  /// Doc 18 §7 arrives `then` for exactly this construct and nothing else
-  /// uses the word, which is why two surface forms exist for one Rust
-  /// construct: the alternative is a reserved keyword with no use.
+  /// **Two spellings, one node.** Until leaf 1 there were two nodes, told
+  /// apart by which enum they lived in: `Expr::If` for the one-line form and
+  /// `StmtKind::If` for the indented one. Collapsing the enums collapses
+  /// them, and nothing is lost — the one-line form's branches are blocks of a
+  /// single expression, which is what the indented form's branches already
+  /// are when they hold one line.
   ///
-  /// The `else` is not optional. Rust's `if` without one has type `()`, so a
-  /// conditional *expression* that omitted it could only ever be a statement
-  /// — and the statement form is `StmtKind::If`.
+  /// Which spelling the author wrote is `is_inline`, and **position cannot
+  /// recover it**. That was the first design and the golden corpus refused
+  /// it: a clause body written on its `=` line is one block element holding
+  /// whatever `parse_expr` returned (`Parser::inline_body`), so
+  /// `tier n = if n > 9 then "big" else "small"` puts a one-line `if` in
+  /// statement position. Deciding by position emitted it as four lines and
+  /// `tests/golden/control.xrs` moved, which is the check that caught it.
+  ///
+  /// A bit on the node is the same device [`Call`](Self::Call)'s `is_dollar`
+  /// is, for the same reason: two surface spellings of one construct, and a
+  /// printer that picks the wrong one rewrites the author's source.
+  ///
+  /// `otherwise` is `None` only for the indented form. Rust's `if` without an
+  /// `else` has type `()`, so a conditional *expression* must have one — and
+  /// `else if` is an `else` whose block holds a single indented `If`, which is
+  /// how Rust reads it too.
   If {
-    condition: Box<crate::Condition>,
-    then: Box<Expr>,
-    otherwise: Box<Expr>,
+    condition: crate::Condition,
+    then_block: crate::Block,
+    otherwise: Option<crate::Block>,
+    /// The one-line `if c then a else b`, rather than doc 01 §8's indented
+    /// form.
+    ///
+    /// When set, both branches are blocks of a single expression — which is
+    /// all the one-line form can hold, and what `Parser::if_expression`
+    /// builds. It is also what makes this form a **value expression** rather
+    /// than a statement one: [`Self::is_statement_form`] and
+    /// [`Self::is_control_flow`] both answer `false` for it, so it travels
+    /// the path every other expression travels.
+    is_inline: bool,
     span: Span,
   },
   /// `do` and `do 'label` — doc 03 §7.2's block expression, plan 20.
@@ -367,6 +394,212 @@ pub enum Expr {
     span: Span,
   },
   Ident(Ident),
+
+  // ---- The forms plan 55 leaf 1 promoted out of `StmtKind` ----
+  //
+  // Every body position is an expression, so there is one node kind and the
+  // statement/expression fork is gone from the tree. What survives is a
+  // *position* rule rather than a second enum: some of these have a Rust
+  // expression spelling (`return`, `break`, `x = 1`, a loop, an `if`) and
+  // four do not (a binding, a `guard`, a `with` binder, an `await` that
+  // binds). The second set is refused where it cannot be written, by the
+  // emitter rather than by the type.
+  /// A binding — `x = e`, `mut x = e`, `(a, b) = e` — doc 01 §4.3.
+  ///
+  /// Boxed because [`Binding`](crate::Binding) holds an `Expr` of its own,
+  /// and an enum cannot contain itself by value.
+  ///
+  /// **A statement in Rust**, which is the whole of why the position rule
+  /// above exists: `let x = 1` has no expression spelling, so a nested one is
+  /// refused rather than lowered to something plausible.
+  Binding(Box<crate::Binding>),
+  /// `return` with an optional value.
+  ///
+  /// A Rust expression of type `!` — `let x = return;` compiles — so this one
+  /// needs no position rule at all.
+  Return {
+    value: Option<Box<Expr>>,
+    span: Span,
+  },
+  /// `with name = expr` — doc 30 §3.3's callback bind, doc 03 §7.6's
+  /// lowering.
+  ///
+  /// Its lowering is a **callback**: `expr` is called with a closure whose
+  /// parameter is `name` and whose body is **every statement after this
+  /// one**. So this is the one form whose meaning depends on its successors,
+  /// which is why the emitter handles a block rather than one element at a
+  /// time.
+  ///
+  /// ```text
+  /// with conn = pool.with_connection      pool.with_connection(|conn| {
+  /// print conn                       →       println!("{}", conn);
+  ///                                       })
+  /// ```
+  ///
+  /// **Refused in a nested expression position**, and not because Rust could
+  /// not express it: a nested one has no successors, so the callback body
+  /// would be empty and the lowering would silently mean something else.
+  Draw {
+    name: Ident,
+    /// The callback-taking expression.
+    value: Box<Expr>,
+    span: Span,
+  },
+  /// `user <- fetch id` — doc 30's await-bind.
+  ///
+  /// ```text
+  /// user <- fetch id          let user = fetch(id).await;
+  /// <- flush ()           →   flush().await;
+  /// (a, b) <- load id         let (a, b) = load(id).await;
+  /// ```
+  ///
+  /// **The only thing `<-` means.** Haskell's monadic bind for the monad
+  /// Redox has: `do` binds an effect's result to a name and this binds a
+  /// future's. Doc 30 §1.1 is the argument; doc 18 §3.1's four positions were
+  /// given other spellings to free the token for it.
+  ///
+  /// `pattern` is `None` for the effect-only form — `<- flush ()` — which
+  /// binds nothing. An `Option` rather than a `Pattern::Wildcard`, because
+  /// *there is no binder* and *there is one and it discards* lower
+  /// differently: the first emits `f().await;` and the second would emit
+  /// `let _ = f().await;`.
+  ///
+  /// That difference is also where the position rule falls: the effect-only
+  /// form **is** a Rust expression (`f().await`), and the binding form is a
+  /// `let` statement, so only the second is refused when nested.
+  ///
+  /// Legal only inside an `async` function or block, and **rustc enforces
+  /// that** — doc 03 §14.3 provides no executor, so `async` passes through and
+  /// the error for an await outside one is rustc's, landed on the `.sdx` by
+  /// plan 07's remapping.
+  Await {
+    pattern: Option<crate::Pattern>,
+    value: Box<Expr>,
+    span: Span,
+  },
+  /// Assignment to a place — `counter := 2` and `counter += 1`, one node.
+  ///
+  /// Doc 01 §4.3's compound assignment arrived with plan 20 and the plain
+  /// `:=` with plan 54.
+  ///
+  /// # Why `:=` exists at all
+  ///
+  /// `=` is a **binding**. At body level `x = v` introduces a name, and
+  /// telling a rebinding from a binding by looking at it needs the scope
+  /// tracking AGENTS.md forbids Redox growing. Plan 20 therefore shipped the
+  /// five compound operators and no more, and disclosed the consequence
+  /// instead of designing around it (§10.2): *"a loop can advance a numeric
+  /// accumulator and cannot rebind anything else."*
+  ///
+  /// Plan 54 retires that limit with a second token rather than with
+  /// analysis. `:=` is unambiguous wherever it appears, so the two meanings
+  /// stop competing for one spelling and nothing has to be inferred.
+  ///
+  /// # Why one node and not two
+  ///
+  /// `a += b` *is* `a = a + b`, so a plain assignment and a compound one are
+  /// one construct with a modifier. Spelling that as `Option<BinaryOp>`
+  /// rather than as a second variant is also what keeps that change small:
+  /// `emit/stmt.rs`, `redox-fmt`'s printer and two test matches are all
+  /// exhaustive with no wildcard, and none of them gains an arm.
+  ///
+  /// # The target is an expression, and rustc judges it
+  ///
+  /// Not a name: doc 18 §2.5's example assigns to `self.value`, and `v[0]`,
+  /// `*r` and `(a, b)` are all reachable through the same general `Expr`.
+  /// That last one is destructuring assignment, stable Rust since 1.59, and
+  /// it falls out for free — plan 54 §6 declined it and §10 amends that,
+  /// because refusing it would mean Redox deciding what is a place
+  /// expression. `(1 + 2) := 3` is rustc's `E0070`, and *"every check rustc
+  /// can make, rustc makes"* is the rule that settles which side of the line
+  /// that sits on.
+  Assign {
+    target: Box<Expr>,
+    /// `Some(op)` is `+=` and the other four; `None` is a plain `:=`.
+    ///
+    /// One of `Add`, `Sub`, `Mul`, `Div`, `Rem`. Reusing `BinaryOp` rather
+    /// than a second enum keeps the spelling in one place — the operator's
+    /// Rust text plus `=`.
+    op: Option<BinaryOp>,
+    value: Box<Expr>,
+    span: Span,
+  },
+  /// `guard P = e else <diverging>` — doc 03 §7.1's early-exit binding,
+  /// plan 22.
+  ///
+  /// ```text
+  /// guard Ok raw = read p else        let Ok(raw) = read(p) else {
+  ///   return Err Error::Unreadable        return Err(Error::Unreadable)
+  ///                                   };
+  /// ```
+  ///
+  /// Doc 18 §3.1 kept the keyword — *"`let`-`else` has no Haskell analogue and
+  /// no other spelling"* — and gave it `<-`. Doc 30 §3.1 gives it `=`, which
+  /// is what the lowering reads anyway: Rust's let-else without the `let`.
+  ///
+  /// The else branch must **diverge**, and Redox does not check that: it is a
+  /// check rustc can make, so rustc makes it, and plan 07's remapping reports
+  /// it against the `guard` line. AGENTS.md's rule, applied.
+  ///
+  /// **A statement in Rust**, like the binding it is a refutable form of, so
+  /// a nested one is refused for `Binding`'s reason.
+  Guard {
+    pattern: crate::Pattern,
+    source: Box<Expr>,
+    otherwise: crate::Block,
+    span: Span,
+  },
+  /// `while c` and `until c` — doc 03 §7.7, plan 20.
+  ///
+  /// One node with a flag, because `until` is `while` with a negation and
+  /// nothing else. Plan 16 made the same call for `const` and `static`.
+  While {
+    condition: crate::Condition,
+    /// `until` rather than `while`. The emitted condition is **parenthesised**
+    /// when set: `until a && b` is `while !(a && b)`, and `while !a && b`
+    /// would be a different loop that differs on the second iteration and
+    /// nowhere else — doc 02 §5.2's worst failure mode.
+    negated: bool,
+    body: crate::Block,
+    label: Option<String>,
+    span: Span,
+  },
+  /// `for x in xs` — doc 30 §3.2's `for`, plan 20.
+  For {
+    binder: Ident,
+    source: Box<Expr>,
+    body: crate::Block,
+    label: Option<String>,
+    span: Span,
+  },
+  /// `loop` — doc 03 §7.7, *"required by the break-with-value idiom"*.
+  Loop {
+    body: crate::Block,
+    label: Option<String>,
+    span: Span,
+  },
+  /// `break`, `break v`, `break 'l`, `break 'l v` — doc 03 §7.2, plan 20.
+  Break {
+    label: Option<String>,
+    value: Option<Box<Expr>>,
+    span: Span,
+  },
+  /// `continue` and `continue 'l`.
+  Continue {
+    label: Option<String>,
+    span: Span,
+  },
+  /// `assert e`, doc 03 §12.6's assertion spelling.
+  ///
+  /// A construct rather than a call, because `assert` is a reserved word —
+  /// and because the lowering reads the operator the author wrote: `==`
+  /// becomes `assert_eq!` and `!=` becomes `assert_ne!`, which print both
+  /// values when they differ where `assert!` prints only the expression's
+  /// text.
+  Assert {
+    value: Box<Expr>,
+    span: Span,
+  },
 }
 
 impl Expr {
@@ -404,8 +637,150 @@ impl Expr {
       | Expr::Bool { span, .. }
       | Expr::Char { span, .. }
       | Expr::SelfField { span, .. }
-      | Expr::SelfType { span, .. } => *span,
+      | Expr::SelfType { span, .. }
+      | Expr::Return { span, .. }
+      | Expr::Draw { span, .. }
+      | Expr::Await { span, .. }
+      | Expr::Assign { span, .. }
+      | Expr::Guard { span, .. }
+      | Expr::While { span, .. }
+      | Expr::For { span, .. }
+      | Expr::Loop { span, .. }
+      | Expr::Break { span, .. }
+      | Expr::Continue { span, .. }
+      | Expr::Assert { span, .. } => *span,
       Expr::Ident(i) => i.span,
+      Expr::Binding(b) => b.span,
+    }
+  }
+
+  /// Whether this form is written by a **statement** printer rather than an
+  /// expression one — plan 55 leaf 1.
+  ///
+  /// Exactly the thirteen forms a block element can be that `Parser::stmt`
+  /// reads from its own productions rather than from `parse_expr`. Before
+  /// leaf 1 the question was `matches!(stmt.kind, StmtKind::Expr(_))` and the
+  /// *type* answered it; one node kind means the node answers it instead.
+  ///
+  /// The **indented** `if` is in the set and the one-line form is not, which
+  /// is exactly what the old `StmtKind::If`/`Expr::If` split said with two
+  /// types: a block element holding `if c then a else b` is an expression
+  /// statement, and one holding doc 01 §8's indented `if` is not.
+  pub fn is_statement_form(&self) -> bool {
+    matches!(
+      self,
+      Expr::Binding(_)
+        | Expr::Return { .. }
+        | Expr::Draw { .. }
+        | Expr::Await { .. }
+        | Expr::Assign { .. }
+        | Expr::Assert { .. }
+    ) || self.is_control_flow()
+  }
+
+  /// Whether this is one of doc 01 §8 and doc 03 §7.7's control-flow forms.
+  ///
+  /// The seven that span lines and write their own braces, their own padding
+  /// and their own trailing newline, which is why the emitter routes them to
+  /// `emit_control` before it pads anything itself.
+  ///
+  /// The one-line `if c then a else b` is **not** one of them: it fits on the
+  /// line it is on, so it lowers like any other expression.
+  pub fn is_control_flow(&self) -> bool {
+    matches!(
+      self,
+      Expr::If {
+        is_inline: false,
+        ..
+      } | Expr::While { .. }
+        | Expr::For { .. }
+        | Expr::Loop { .. }
+        | Expr::Break { .. }
+        | Expr::Continue { .. }
+        | Expr::Guard { .. }
+    )
+  }
+
+  /// The blocks this form owns as **indented statement lists in the same
+  /// scope**.
+  ///
+  /// Five forms own one: an indented `if`'s branches, the three loops' bodies
+  /// and a `guard`'s else. Nothing in any of them opens a closure, so a walk
+  /// over statements may descend into them and stay in the function it
+  /// started in.
+  ///
+  /// The one-line `if`'s branches are **not** here. They are expression slots
+  /// wearing a `Block` — one element each, built by the parser with no trivia
+  /// — so there is nothing a statement walk could find in one, and omitting
+  /// them keeps every such walk reading exactly what it read before plan 55
+  /// leaf 1 merged the two `if`s.
+  ///
+  /// **Not** `do`, `try`, `async`, `unsafe` or a lambda, each of which also
+  /// holds a block. Those are expression forms, reaching them needs an
+  /// expression walk, and `try` and a lambda open a closure of their own —
+  /// so a caller asking this question gets the set it can safely recurse
+  /// into rather than every block in the tree.
+  ///
+  /// The match is **exhaustive with no wildcard** and lives here rather than
+  /// in each of its two callers: a new form that owns a statement block has
+  /// to be considered once, and both walks inherit the answer.
+  pub fn statement_blocks(&self) -> Vec<&crate::Block> {
+    match self {
+      Expr::If {
+        then_block,
+        otherwise,
+        is_inline: false,
+        ..
+      } => match otherwise {
+        Some(other) => vec![then_block, other],
+        None => vec![then_block],
+      },
+      Expr::While { body, .. } | Expr::For { body, .. } | Expr::Loop { body, .. } => vec![body],
+      Expr::Guard { otherwise, .. } => vec![otherwise],
+      Expr::If {
+        is_inline: true, ..
+      }
+      | Expr::Call { .. }
+      | Expr::MethodCall { .. }
+      | Expr::Field { .. }
+      | Expr::Index { .. }
+      | Expr::Binary { .. }
+      | Expr::Unary { .. }
+      | Expr::Paren { .. }
+      | Expr::Path { .. }
+      | Expr::Lambda { .. }
+      | Expr::OptionalChain { .. }
+      | Expr::AsyncBlock { .. }
+      | Expr::UnsafeBlock { .. }
+      | Expr::TryBlock { .. }
+      | Expr::Ascribe { .. }
+      | Expr::StrLit { .. }
+      | Expr::StrInterp { .. }
+      | Expr::Tuple { .. }
+      | Expr::ArrayRepeat { .. }
+      | Expr::RawLit { .. }
+      | Expr::Record { .. }
+      | Expr::List { .. }
+      | Expr::Comprehension { .. }
+      | Expr::Do { .. }
+      | Expr::Try { .. }
+      | Expr::Unit { .. }
+      | Expr::Section { .. }
+      | Expr::Case { .. }
+      | Expr::Num { .. }
+      | Expr::Bool { .. }
+      | Expr::Char { .. }
+      | Expr::SelfField { .. }
+      | Expr::SelfType { .. }
+      | Expr::Ident(_)
+      | Expr::Binding(_)
+      | Expr::Return { .. }
+      | Expr::Draw { .. }
+      | Expr::Await { .. }
+      | Expr::Assign { .. }
+      | Expr::Break { .. }
+      | Expr::Continue { .. }
+      | Expr::Assert { .. } => Vec::new(),
     }
   }
 }

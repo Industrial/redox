@@ -1,0 +1,31 @@
+-- `shadow_warning.sdx`'s first shadow, said to be deliberate — plan 54 §10.6's
+-- *"a way for an author to say a shadow is meant"*.
+--
+-- Its expectation is **empty**, which is the only way to prove suppression
+-- works: a corpus entry that asserts nothing is printed.
+--
+-- `#[redox::allow(shadow)]` rather than a second hard-coded `unwrap`. Plan 53
+-- wrote one lint's name into both pragma spellings, the driver's two
+-- predicates and the emitter's one; §10.6 named parametrising them as what
+-- this leaf owed, because an intentional shadow would otherwise warn forever
+-- and the author would have nothing to write. The name now comes from
+-- `redox-diag`'s `Lint`, so a pragma silences the lint it names and no other.
+--
+-- Both scopes, because they are different mechanisms: the attribute leading a
+-- **statement** suppresses that statement's span, and one leading a
+-- **declaration** suppresses the whole declaration — signature line to last
+-- clause. The attribute is **consumed** by the emitter either way, so neither
+-- reaches the `.xrs`; one that did would be `error[E0433]`.
+narrow : u64
+narrow =
+  mut cursor = 0
+  #[redox::allow(shadow)]
+  cursor = 7
+  cursor
+
+#[redox::allow(shadow)]
+widen : u64
+widen =
+  mut cursor = 0
+  cursor = 7
+  cursor

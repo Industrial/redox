@@ -7,7 +7,7 @@ use crate::emit::pad::pad;
 use crate::emit::rust_indent::RUST_INDENT;
 use crate::emit::sink::Sink;
 use crate::emit::unparen::unparen;
-use redox_ast::{Clause, StmtKind};
+use redox_ast::Clause;
 
 /// Emit one `match` arm for a clause, at `indent` spaces.
 ///
@@ -31,10 +31,7 @@ pub(crate) fn emit_arm(out: &mut Sink<'_>, clause: &Clause, arm: &str, indent: u
     pad(out, indent);
     out.push_str(arm);
     out.push_str(" => ");
-    let StmtKind::Expr(e) = &stmt.kind else {
-      unreachable!("`one_tail_expression` returns only an expression statement")
-    };
-    out.push_str(&emit_expr(unparen(e), indent));
+    out.push_str(&emit_expr(unparen(&stmt.expr), indent));
     out.push(',');
     emit_inline_comment(out, stmt.trailing.as_ref());
     out.push('\n');

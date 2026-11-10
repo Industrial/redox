@@ -20,7 +20,7 @@ fn a_lambda_is_a_closure() {
   );
 }
 
-/// The binder's type uses the same spaced `::` a signature line and an
+/// The binder's type uses the same `:` a signature line and an
 /// ascription use — one notation for a type, not three.
 #[test]
 fn a_typed_binder_keeps_its_type() {

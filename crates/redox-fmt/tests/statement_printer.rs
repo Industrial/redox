@@ -3,7 +3,7 @@
 //!
 //! Three assertions, matching the two printers before it.
 //!
-//! 1. **The canonical form of every `StmtKind`**, as a fixture pair. The
+//! 1. **The canonical form of every statement form**, as a fixture pair. The
 //!    fixture is one function whose body uses all fourteen kinds plus the
 //!    trivia forms, and the expectation is the printed body — so the pair
 //!    doubles as the readable record of what two-space re-indentation (§3
@@ -26,7 +26,7 @@
 //! markers**, because a comment that survives into the wrong place is still a
 //! comment the count finds.
 
-use redox_ast::{Block, Item, Program, Stmt, StmtKind};
+use redox_ast::{Block, Item, Program, Stmt};
 use std::path::PathBuf;
 
 fn root() -> PathBuf {
@@ -349,29 +349,10 @@ fn count_trivia(stmt: &Stmt) -> usize {
   if stmt.trailing.is_some() {
     n += 1;
   }
-  for block in blocks_of(&stmt.kind) {
+  for block in stmt.expr.statement_blocks() {
     for inner in &block.stmts {
       n += count_trivia(inner);
     }
   }
   n
-}
-
-fn blocks_of(kind: &StmtKind) -> Vec<&Block> {
-  match kind {
-    StmtKind::If {
-      then_block,
-      otherwise,
-      ..
-    } => {
-      let mut found = vec![then_block];
-      found.extend(otherwise.iter());
-      found
-    }
-    StmtKind::While { body, .. } | StmtKind::For { body, .. } | StmtKind::Loop { body, .. } => {
-      vec![body]
-    }
-    StmtKind::Guard { otherwise, .. } => vec![otherwise],
-    _ => Vec::new(),
-  }
 }

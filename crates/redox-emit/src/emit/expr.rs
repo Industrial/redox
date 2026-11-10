@@ -1,8 +1,10 @@
 use crate::emit::ascribed_list::ascribed_list;
+use crate::emit::assert_call::assert_call;
 use crate::emit::case::emit_case;
 use crate::emit::catch_fallback::catch_fallback;
 use crate::emit::coalesce::coalesce;
 use crate::emit::comprehension::emit_comprehension;
+use crate::emit::control_text::control_text;
 use crate::emit::emit_condition::emit_condition;
 use crate::emit::emit_do::emit_do;
 use crate::emit::expr_list::expr_list;
@@ -17,9 +19,10 @@ use crate::emit::rust_escapes::rust_escapes;
 use crate::emit::rust_indent::RUST_INDENT;
 use crate::emit::section::emit_section;
 use crate::emit::try_block::try_block;
+use crate::emit::unlowerable::unlowerable;
 use crate::emit::unparen::unparen;
 use crate::emit::unsafe_block::emit_unsafe_block;
-use redox_ast::{BinaryOp, Expr};
+use redox_ast::{BinaryOp, Block, Expr};
 
 /// Render an expression as Rust, starting at column `indent`.
 ///
@@ -88,20 +91,35 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
     Expr::Case {
       scrutinee, arms, ..
     } => emit_case(scrutinee, arms, indent),
-    // Doc 01 §8's conditional expression — plan 20. One line, because Rust's
-    // own `if` expression is one when its arms are: see
-    // `SINGLE_LINE_IF_ELSE_MAX_WIDTH` for when rustfmt disagrees.
+    // Doc 01 §8's conditional — plan 20, and since plan 55 leaf 1 the same
+    // node as the indented form, told apart by `is_inline`. The one-line
+    // spelling lowers to one line, because Rust's own `if` expression is one
+    // when its arms are: see `SINGLE_LINE_IF_ELSE_MAX_WIDTH` for when rustfmt
+    // disagrees. Its branches are blocks of a single expression, which is all
+    // `if_expression` builds.
+    //
+    // An **indented** `if` reaching here is one in an expression position,
+    // which today's grammar cannot produce — `emit_stmt` claims every one it
+    // can. `control_text` is written for it anyway, like the promoted forms
+    // at the end of this match.
     Expr::If {
       condition,
-      then,
+      then_block,
       otherwise,
+      is_inline: true,
       ..
-    } => format!(
-      "if {} {{ {} }} else {{ {} }}",
-      emit_condition(condition, indent),
-      emit_expr(unparen(then), indent),
-      emit_expr(unparen(otherwise), indent)
-    ),
+    } => match (
+      then_block.sole_expression(),
+      otherwise.as_ref().and_then(Block::sole_expression),
+    ) {
+      (Some(then), Some(els)) => format!(
+        "if {} {{ {} }} else {{ {} }}",
+        emit_condition(condition, indent),
+        emit_expr(unparen(then), indent),
+        emit_expr(unparen(els), indent)
+      ),
+      _ => control_text(e, indent),
+    },
     // Doc 03 §7.2's `do` block — plan 20. A block expression, labelled when
     // the author labelled it.
     Expr::Do { label, body, .. } => emit_do(label, body, indent),
@@ -251,5 +269,72 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
       }
       format!("{}({})", emit_expr(callee, indent), expr_list(args, indent))
     }
+
+    // ---- The forms plan 55 leaf 1 promoted out of `StmtKind` ----
+    //
+    // None is reachable through today's grammar: `prefix` has no production
+    // for any of them, so each arrives only as a block element and
+    // `emit_stmt` claims those first. They are lowered anyway, for the reason
+    // this function's doc gives about `todo!()` and for a second one —
+    // `redox-fuzz` asserts the emitter never writes Rust `syn` cannot parse,
+    // so even the refusals have to be *parsable* refusals.
+    //
+    // Eight of the twelve are genuine Rust expressions and lower to
+    // themselves with no `;`: `return` and `break` have type `!`, `x += 1`
+    // has type `()`, an `assert` is a macro call, a bare `.await` is a
+    // postfix, and the three loops are expressions in Rust exactly as they
+    // are in Redox.
+    Expr::Return { value, .. } => match value {
+      Some(v) => format!("return {}", emit_expr(v, indent)),
+      None => "return".to_string(),
+    },
+    Expr::Break { label, value, .. } => {
+      let mut out = "break".to_string();
+      if let Some(name) = label {
+        out.push_str(&format!(" '{name}"));
+      }
+      if let Some(v) = value {
+        out.push_str(&format!(" {}", emit_expr(unparen(v), indent)));
+      }
+      out
+    }
+    Expr::Continue { label, .. } => match label {
+      Some(name) => format!("continue '{name}"),
+      None => "continue".to_string(),
+    },
+    Expr::Assign {
+      target, op, value, ..
+    } => {
+      let operator = op.map_or("", |op| op.rust_text().unwrap_or("/* unsupported */"));
+      format!(
+        "{} {operator}= {}",
+        emit_expr(unparen(target), indent),
+        emit_expr(unparen(value), indent)
+      )
+    }
+    Expr::Assert { value, .. } => assert_call(value, indent),
+    // The effect-only `<- f ()`, which is Rust's `f().await` and needs no
+    // binder. `receiver` for `emit_await`'s reason: `.await` is a postfix and
+    // binds tighter than every operator.
+    Expr::Await {
+      pattern: None,
+      value,
+      ..
+    } => format!("{}.await", receiver(unparen(value), indent)),
+    Expr::If {
+      is_inline: false, ..
+    }
+    | Expr::While { .. }
+    | Expr::For { .. }
+    | Expr::Loop { .. } => control_text(e, indent),
+    // The four with no expression spelling at all — `unlowerable` records
+    // which they are, why `compile_error!` is the refusal, and why this is
+    // not a Redox diagnostic.
+    Expr::Binding(_) => unlowerable("a binding"),
+    Expr::Guard { .. } => unlowerable("a `guard`"),
+    Expr::Draw { .. } => unlowerable("a `with` binder"),
+    Expr::Await {
+      pattern: Some(_), ..
+    } => unlowerable("an `await` that binds"),
   }
 }
