@@ -108,6 +108,7 @@ is still identifiable by its row here:
 | 65 | `docs/59 - 65 - Layout Inside Brackets.md` |
 | 66 | `docs/60 - 66 - The Composition Operator.md` |
 | 67 | `docs/61 - 67 - The Marked Receiver.md` |
+| 68 | `docs/62 - 68 - The AST in Redox.md` |
 
 **`docs/05 - 01 - Vertical Slice.md` is the authored exemplar** — every subsequent plan
 follows its shape:
@@ -441,6 +442,44 @@ From Milestone 1 onward, additionally: every example `.sdx` transpiles, **its ge
 compiles under real rustc**, runs, and its stdout is asserted. Golden text proves stability;
 compilation proves correctness; neither substitutes for the other (doc 02 §8.1–8.2).
 
+## Milestone 10 — Self-hosting
+
+**Added 2026-11-10, the hour milestone 9 closed**, because closing it changed the answer to
+the one question doc 02 §4.8 calls *"the property actually worth proving"*: can the
+compiler's own source be expressed in Redox, without the inline-Rust escape hatch?
+
+`docs/CONFORMANCE.md` is generated and answers it. It read **952 of 964 blocking
+occurrences** before plan 64 and reads **12** after — all of them `as` casts. The obstacle
+was one construct and it is spelled.
+
+So the milestone exists to spend that, and its sequencing follows from one measurement: of
+twelve crates, **two are blocker-free** — `redox-ast` at 53 of 53 files and `redox-fmt` at
+57 of 57 — and every other one has `as` casts and nothing else.
+
+| Row | Subject | Why it is this row |
+|---|---|---|
+| 68 | `redox-ast` | Clean **and** the dependency root: all eleven other crates name its types, so the whole workspace type-checks the port |
+| — | `redox-fmt` | Equally clean, deliberately *not* row 68: nothing depends on it, so a port of it is type-checked by its own crate alone. The next row decides it on what 68 measures |
+| — | the `as` cast | What stands between the remaining ten crates and a port. 12 occurrences, and a **surface** decision rather than a port: the nearest working thing is `u8::try_from n`, which truncates where `as` does not |
+
+**The test is not that a crate shipped.** It is that `cargo check --workspace` compiles
+against Redox-generated Rust and all 845 tests pass — which is the assertion plan 48's port
+could not make, because a module lifted out of a crate cannot resolve `crate::Stmt` and its
+oracle had to be `syn::parse_file` rather than rustc.
+
+**The Rust implementation stays permanently**, per doc 02 §4.8 correcting doc 01 §34. A
+ported crate's generated `.rs` is **committed** and cargo compiles it with no `build.rs` —
+not timidity, but the only shape available: `compile_dir` lives in `redox-driver`, which
+depends on `redox-ast`, so a `build.rs` there is a dependency cycle cargo rejects. Plan 09
+built that path for a *user's* crate, where no cycle exists, and `examples/cargo-project/` is
+its witness.
+
+| # | Plan ID | What it adds | Emerald reuse | Depends on | Status |
+|---|---|---|---|---|---|
+| 68 | `ast-in-redox` | **`crates/redox-ast` is written in Redox** — 53 `.sdx` files, the generated Rust committed in `src/` where the hand-written Rust is today, and the workspace compiled against it unchanged. The first time the compiler is compiled from Redox. Chosen because it is clean *and* the dependency root: plan 48's port was 45 lines of 24,159 with `syn` as its oracle, and this one is type-checked by eleven crates and 845 tests. Every shape was **probed before the plan was written** — an enum with struct variants, `Box` recursion, derives, per-field visibility, a type alias, a multi-line doc comment, a crate root, and the one that had to be checked first: an **inherent** `impl`, which `docs/GRAMMAR.md` grades `SUGARED` on a trait-form witness and which `instance Expr` with no class name turns out to emit. Two shapes the corpus would not catch are leaves of their own: a doc comment is **per line**, so `-- |` once and `--` after is valid Redox that silently demotes the rest to ordinary comments and strips most of the crate's rustdoc while passing every test; and a `data` enum emits a `use Expr::*;` glob the hand-written module does not have | — Emerald never attempted it. Doc 02 §4.8 chose the property and plan 48 built the measurement; what transfers is the sequence — plan 45 **found** the gap, plan 48 **priced** it, plan 64 **spelled** it, and this row spends it | 48, 64, 09 | `planned` — `docs/62 - 68 - The AST in Redox.md` |
+
+---
+
 ## Completion
 
 - **v1.0** — rows 01–33 `done`.
@@ -455,3 +494,11 @@ compilation proves correctness; neither substitutes for the other (doc 02 §8.1�
   and **silent** classes are empty: no construct reads as one thing and emits another, and no
   construct fails in a language the author did not write. `construct_coverage` green with an
   empty `ALLOW` list is the standing proof that it stays that way.
+- **Self-hosting** — the test is not a row count but a build: `cargo check --workspace`
+  compiling against Redox-generated Rust, with all 845 tests passing. Milestone 10, added
+  2026-11-10 the hour milestone 9 closed, because `docs/CONFORMANCE.md` went from **952 of
+  964** blocking occurrences to **12** — and the twelve are `as` casts, which makes the rest
+  of the compiler a surface decision rather than a port. The Rust implementation stays
+  permanently (doc 02 §4.8); a ported crate's generated `.rs` is committed and cargo
+  compiles it, because `compile_dir` is in `redox-driver` and a `build.rs` in a ported crate
+  would be a dependency cycle.
