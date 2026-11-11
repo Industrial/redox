@@ -95,7 +95,10 @@ type_vars types =
       -- bare closure has nothing to infer its parameter from. An empty word
       -- answers `false` either way, which is the one case the two spellings
       -- could have differed on.
-      lowercase_head = word |> .chars |> .next |> .is_some_and char::is_lowercase
+      lowercase_head = word
+        |> .chars
+        |> .next
+        |> .is_some_and char::is_lowercase
       -- One line, where the Rust wrapped the condition over five: a
       -- continuation is a line *ending* in an operator, so a `||` opening a
       -- line is `RDX0102`.

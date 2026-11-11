@@ -98,7 +98,7 @@ emit_application callee args indent =
       return format! \-> "#{head}(())"
     listed = expr_list args indent
     return format! \-> "#{head}(#{listed})"
-  params : Vec<String> = (0 .. missing) |> .map closure_param |> .collect
+  params : Vec<String> = 0 .. missing |> .map closure_param |> .collect
   listed = expr_list args indent
   joined = .join ", " params
   body = format! \-> "#{head}(#{listed}, #{joined})"

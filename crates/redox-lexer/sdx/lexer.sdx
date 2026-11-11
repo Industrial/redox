@@ -306,7 +306,9 @@ instance (Lexer 'a)
           '[' -> depth += 1
           ']' -> depth -= 1
           _ -> ()
-      text = self.cur |> .slice (body_start, .pos self.cur - 1) |> .to_string
+      text = self.cur
+        |> .slice (body_start, .pos self.cur - 1)
+        |> .to_string
       -- **Trivia, not a token** — plan 18 §1.3. An attribute belongs to the
       -- declaration below it, which is what `leading` already means, and
       -- every item kind and every statement carries one.
@@ -346,7 +348,10 @@ instance (Lexer 'a)
         if .is_none (.bump self.cur)
           return Err (LexError { code = Code::UnterminatedFence, help = Some (.to_string "close it with `-}`"), message = .to_string "unterminated `{- -}` comment", span = (start, .pos self.cur) })
       end = .pos self.cur - 2
-      text = self.cur |> .slice (body_start, end) |> .trim |> .to_string
+      text = self.cur
+        |> .slice (body_start, end)
+        |> .trim
+        |> .to_string
       self.pending
         |> .push (Trivia::comment TriviaKind::FencedComment text (start, .pos self.cur))
       return Ok true
@@ -473,7 +478,9 @@ instance (Lexer 'a)
       trailing = .take self.trailing
       -- Bound, because `:=` wants a place it can name and
       -- `.last_mut(…).expect(…).trailing` is a field of a call's result.
-      last = self.toks |> .last_mut |> .expect "a Newline was just pushed"
+      last = self.toks
+        |> .last_mut
+        |> .expect "a Newline was just pushed"
       last.trailing := trailing
     ()
 

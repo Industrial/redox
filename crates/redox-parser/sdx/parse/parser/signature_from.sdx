@@ -29,7 +29,9 @@ signature_from spine bound span =
   -- `split.0` is the return type and `split.1` the parameter types, where the
   -- Rust destructured the pair. The second is `arrow_types` rather than
   -- `params`, which is the name of the field built from it.
-  split = spine |> .split_last |> .expect "parse_spine returns at least one type"
+  split = spine
+    |> .split_last
+    |> .expect "parse_spine returns at least one type"
   ret = split.0
   arrow_types = split.1
   arrows = .len arrow_types

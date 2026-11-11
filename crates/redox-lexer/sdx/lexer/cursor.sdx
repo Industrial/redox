@@ -44,15 +44,26 @@ instance (Cursor 'a)
   -- | `Span` only ever comes from `eat_while`, so both are char boundaries by
   -- | construction.
   export(crate) peek : &self -> Option<char>
-  peek self = self.src |> .get (self.pos .. .len self.src) |> .unwrap_or "" |> .chars |> .next
+  peek self = self.src
+    |> .get (self.pos .. .len self.src)
+    |> .unwrap_or ""
+    |> .chars
+    |> .next
 
   -- | The character `n` positions ahead without consuming anything.
   export(crate) peek_at : usize -> &self -> Option<char>
-  peek_at n self = self.src |> .get (self.pos .. .len self.src) |> .unwrap_or "" |> .chars |> .nth n
+  peek_at n self = self.src
+    |> .get (self.pos .. .len self.src)
+    |> .unwrap_or ""
+    |> .chars
+    |> .nth n
 
   -- | Whether the text at the cursor begins with `s`.
   export(crate) starts_with : &str -> &self -> bool
-  starts_with s self = self.src |> .get (self.pos .. .len self.src) |> .unwrap_or "" |> .starts_with s
+  starts_with s self = self.src
+    |> .get (self.pos .. .len self.src)
+    |> .unwrap_or ""
+    |> .starts_with s
 
   -- | The unconsumed text, for a scanner that matches on more than one
   -- | character at a time.
@@ -61,7 +72,9 @@ instance (Cursor 'a)
   -- | depends on the character *after* the dashes, so the decision cannot be
   -- | made with `starts_with` alone without enumerating every terminator.
   export(crate) rest : &self -> &'a str
-  rest self = self.src |> .get (self.pos .. .len self.src) |> .unwrap_or ""
+  rest self = self.src
+    |> .get (self.pos .. .len self.src)
+    |> .unwrap_or ""
 
   -- | Consume and return the next character.
   export(crate) bump : &mut self -> Option<char>

@@ -36,6 +36,10 @@ export(crate) ascribed_list : &Expr -> &TypeExpr -> usize -> Option<String>
 ascribed_list inner ty indent =
   guard unparen inner is Expr::List { items, .. } else
     return None
-  head = ty.text |> .split '<' |> .next |> .unwrap_or (&ty.text) |> .trim
+  head = ty.text
+    |> .split '<'
+    |> .next
+    |> .unwrap_or (&ty.text)
+    |> .trim
   listed = expr_list items indent
   Some $ format! \-> "#{head}::from([#{listed}])"

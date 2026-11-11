@@ -122,7 +122,10 @@ render rows total_bytes total_time machine_text =
   -- the `unwrap_or 0.0` cannot mislead: `per_byte` is then zero and the guard
   -- below prints `0.0 MB/s`, so a corpus larger than 4 GB reports nothing
   -- rather than something wrong.
-  bytes_f = u32::try_from total_bytes |> .ok |> .map f64::from |> .unwrap_or 0.0
+  bytes_f = u32::try_from total_bytes
+    |> .ok
+    |> .map f64::from
+    |> .unwrap_or 0.0
   per_byte = if bytes_f > 0.0
     .as_secs_f64 total_time / bytes_f
   else

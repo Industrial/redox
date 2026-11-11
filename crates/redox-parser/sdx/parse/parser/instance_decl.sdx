@@ -81,7 +81,9 @@ instance_decl p leading start =
   var = .map (\v -> .to_string v) (.first (.vars target))
   -- Inside an `instance` a target's type variable is the impl's generic
   -- parameter, so it is that parameter's uppercase name — doc 18 §5.3.
-  subject = var |> .as_deref |> .map_or_else String::new TypeApp::rust_name
+  subject = var
+    |> .as_deref
+    |> .map_or_else String::new TypeApp::rust_name
   mut ctx = MethodContext::for_instance (.as_deref var) (&subject)
   -- Plan 63 leaf 1: the class this instance implements is where an elided
   -- member's signature comes from. `None` for an inherent `instance`, which

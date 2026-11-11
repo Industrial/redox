@@ -83,7 +83,10 @@ check path source =
   out = (.map_err (\e -> format! \-> "error: cannot run #{rustc_shown}: #{e}") invoked)?
 
   stderr = String::from_utf8_lossy (&out.stderr)
-  messages : Vec<RustcMessage> = stderr |> .lines |> .filter_map RustcMessage::parse |> .collect
+  messages : Vec<RustcMessage> = stderr
+    |> .lines
+    |> .filter_map RustcMessage::parse
+    |> .collect
   failed = messages |> .iter |> .any RustcMessage::is_error
   remapped = .map (\m -> remap m (&emitted.1) (&sdx_path) source (&xrs_path) (&emitted.0)) (.iter messages)
   .extend remapped diagnostics

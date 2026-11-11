@@ -107,6 +107,8 @@ instance ServerHandler Server
     -- the deprecated `ServerInfo` in rmcp 3 — both found by plan 50 §1.1's
     -- spike rather than from a version number.
     mut config = ServerConfig::default ()
-    config.capabilities := ServerCapabilities::builder () |> .enable_tools |> .build
+    config.capabilities := ServerCapabilities::builder ()
+      |> .enable_tools
+      |> .build
     config.instructions := Some $ .to_string "Redox transpiles .sdx to .xrs containing ordinary Rust. Diagnostics are reported against the .sdx you wrote, with 1-based line and column in characters. rustc is the authority on types and borrows — Redox has no checker of its own."
     config

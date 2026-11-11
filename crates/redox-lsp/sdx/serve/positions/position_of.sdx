@@ -15,7 +15,9 @@ position_of source offset =
   line_start = .map_or 0 (+ 1) (.rfind '\n' before)
   -- An ascription where the Rust had `sum::<usize>()`: doc 03 §18 has no
   -- turbofish, and a binding's type says the same thing.
-  character : usize = source |> .get (line_start .. at) |> .unwrap_or ""
+  character : usize = source
+    |> .get (line_start .. at)
+    |> .unwrap_or ""
     |> .chars
     |> .map char::len_utf16
     |> .sum

@@ -14,7 +14,9 @@ nest draws guards item base nested =
   -- `head.0` is the first pair and `head.1` the rest; `first.0` and `first.1`
   -- are the name and source inside it. The Rust destructured all four in one
   -- pattern — `((name, source), rest)` — and Redox has no such binding.
-  head = draws |> .split_first |> .expect "the caller checked that there is at least one generator"
+  head = draws
+    |> .split_first
+    |> .expect "the caller checked that there is at least one generator"
   first = head.0
   rest = head.1
   name = first.0
