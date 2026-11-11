@@ -67,8 +67,8 @@ emit_fields out fields indent top =
       .push_str " {\n" out
       for f in decls
         .mark f.span out
-        emit_trivia out (&f.leading) $ indent + RUST_INDENT
-        pad out $ indent + RUST_INDENT
+        emit_trivia out (&f.leading) (indent + RUST_INDENT)
+        pad out (indent + RUST_INDENT)
         vis = .rust_text f.visibility
         .push_str (&format! \-> "#{vis}#{f.name.text}: #{f.ty.text},\n") out
       .unmark out

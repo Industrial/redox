@@ -168,4 +168,4 @@ prefix p =
       Ok (Expr::MethodRef { name, span })
     TokenKind::Ident _ -> macro_call p
     _ ->
-      Err $ ParseError::r#with Code::ExpectedExpression "expected an expression" $ .peek_span p
+      Err $ ParseError::r#with Code::ExpectedExpression "expected an expression" (.peek_span p)

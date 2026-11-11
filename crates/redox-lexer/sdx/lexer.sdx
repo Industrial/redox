@@ -211,7 +211,7 @@ instance (Lexer 'a)
     -- to say the same thing. `scan_rust_block` declines unless the keyword is
     -- alone on its line, which leaves the `"""` spelling untouched.
     if opens_a_rust_block
-      base = *.expect "the base level is never popped" $ .last self.indents
+      base = *.expect "the base level is never popped" (.last self.indents)
       body_start = .pos self.cur
       case scan_rust_block (&mut self.cur) base of
         Some code ->
@@ -553,7 +553,7 @@ instance (Lexer 'a)
     if !.is_empty self.open_delims && closes
       return Ok ()
 
-    top = *.expect "indent stack is never empty" $ .last self.indents
+    top = *.expect "indent stack is never empty" (.last self.indents)
     at = (line_start + width, line_start + width)
 
     if width > top

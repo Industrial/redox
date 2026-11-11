@@ -32,6 +32,6 @@ chain receiver segments base =
   mut out = .to_string receiver
   for segment in segments
     .push '\n' out
-    pad_to (&mut out) $ base + RUST_INDENT
+    pad_to (&mut out) (base + RUST_INDENT)
     .push_str segment out
   out

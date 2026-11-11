@@ -21,7 +21,7 @@ io_diagnostic path message =
   Diagnostic { code = DiagnosticCode::Foreign (.to_string "io"), severity = redox_diag::Severity::Error, message, span = (0, 0), help = None, path = .to_string path, source = String::new () }
 
 test "renders without a snippet"
-  d = io_diagnostic "a.sdx" $ .to_string "cannot read a.sdx: missing"
+  d = io_diagnostic "a.sdx" (.to_string "cannot read a.sdx: missing")
   assert_eq! \-> .text d.code \-> "io"
   assert_eq! \-> d.path \-> "a.sdx"
   -- An empty source means the renderer has no snippet to draw, which it must

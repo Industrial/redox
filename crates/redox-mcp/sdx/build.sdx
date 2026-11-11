@@ -35,7 +35,7 @@ build request =
         |> .map diagnostic_from_redox
         |> .collect })
 
-  diagnostics = redox_driver::lint path (&source) $ Some (&program)
+  diagnostics = redox_driver::lint path (&source) (Some (&program))
   emitted = redox_emit::emit_with_map (&program) (&source) (&request.path)
   -- `generated`, not `rust`: **`rust` is a keyword**, and as a binding name it
   -- earns `RDX0101: expected a """ block of Rust after `rust`` — a diagnostic

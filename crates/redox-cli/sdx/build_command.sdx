@@ -26,7 +26,7 @@ build_command args =
   -- After the parse, because a warning about a program nobody can compile is
   -- noise, and before the write, so the author sees it with the build they
   -- asked for rather than on the next one.
-  warnings = redox_driver::lint (&parsed.input) (&source) $ Some (&program)
+  warnings = redox_driver::lint (&parsed.input) (&source) (Some (&program))
   if !.is_empty warnings
     rendered = redox_diag::render (&warnings) parsed.plain
     eprint! \-> "#{rendered}"

@@ -30,7 +30,7 @@ import redox_ast::{BinaryOp, Expr, Ident}
 export(crate) compose : BinaryOp -> &Expr -> &Expr -> usize -> usize -> String
 compose op lhs rhs param indent =
   mut links = Vec::new ()
-  compose_chain op lhs rhs $ &mut links
+  compose_chain op lhs rhs (&mut links)
   name = closure_param param
   mut applied = Expr::Ident (Ident { text = .clone name, span = .span lhs })
   for function in links

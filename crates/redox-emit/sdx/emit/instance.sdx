@@ -37,7 +37,7 @@ emit_instance out i indent =
   .push_str (&.rust_text i.target) out
   .push_str " {\n" out
   for m in &i.members
-    emit_member out m $ indent + RUST_INDENT
+    emit_member out m (indent + RUST_INDENT)
   .unmark out
   pad out indent
   .push_str "}\n" out

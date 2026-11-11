@@ -47,8 +47,8 @@ test "one changed byte changes the key"
 
 -- | Criterion 3's mechanism: a new compiler invalidates everything.
 test "a different compiler changes the key"
-  a = cache_key "main : ()\nmain =\n" $ &Fingerprint::r#of b"old"
-  b = cache_key "main : ()\nmain =\n" $ &Fingerprint::r#of b"new"
+  a = cache_key "main : ()\nmain =\n" (&Fingerprint::r#of b"old")
+  b = cache_key "main : ()\nmain =\n" (&Fingerprint::r#of b"new")
   assert_ne! \-> a \-> b
 
 -- | The length prefix exists to prevent this: two inputs whose concatenations
@@ -59,6 +59,6 @@ test "the boundary between fields is unambiguous"
 -- | A key is usable as a filename, which is what the bare `blake3::Hash`
 -- | buys and what the store relies on.
 test "renders as hex"
-  hex = .to_string $ cache_key "x" $ &fp ()
+  hex = .to_string $ cache_key "x" (&fp ())
   assert_eq! \-> .len hex \-> 64
   assert! \-> .all (\c -> .is_ascii_hexdigit c) (.chars hex)

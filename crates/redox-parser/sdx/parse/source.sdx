@@ -5,4 +5,4 @@ import redox_ast::Program
 export parse_source : &str -> Result<Program, ParseFailure>
 parse_source src =
   toks = (.map_err ParseFailure::Lex (redox_lexer::lex src))?
-  .map_err ParseFailure::Parse $ parse (&toks) $ .len src
+  .map_err ParseFailure::Parse $ parse (&toks) (.len src)

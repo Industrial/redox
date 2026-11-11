@@ -42,7 +42,7 @@ instance Fingerprint
   export current : Self
   current = case .and_then std::fs::read (std::env::current_exe ()) of
     Ok bytes -> Fingerprint::r#of (&bytes)
-    Err _ -> Fingerprint::r#of $ &.to_le_bytes $ Fingerprint::now ()
+    Err _ -> Fingerprint::r#of $ &.to_le_bytes (Fingerprint::now ())
 
   -- | Nanoseconds since the epoch, or zero if the clock refuses.
   now : u128

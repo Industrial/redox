@@ -43,7 +43,7 @@ nest draws guards item base nested =
     pad_to (&mut text) inner_base
     .push_str (&inner) text
     .push '\n' text
-    pad_to (&mut text) $ base + RUST_INDENT
+    pad_to (&mut text) (base + RUST_INDENT)
     .push '}' text
     text
   else

@@ -28,7 +28,7 @@ import redox_ast::Item
 #[allow(deprecated, reason = "the field is required by the struct literal")]
 export(crate) symbol_of : &Item -> &str -> DocumentSymbol
 symbol_of item source =
-  range = to_range source $ .span item
+  range = to_range source (.span item)
   described = case item of
     Item::Fn decl -> (.clone decl.name.text, SymbolKind::FUNCTION, None)
     Item::Data decl ->

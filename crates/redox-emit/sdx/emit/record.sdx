@@ -38,10 +38,10 @@ emit_record head fields indent =
   if !names_a_constructor head
     -- `p { x = 99 }` — the update lowering. Multi-line, because rustfmt
     -- expands a block of statements unconditionally.
-    base = emit_expr (unparen head) $ indent + RUST_INDENT
+    base = emit_expr (unparen head) (indent + RUST_INDENT)
     mut updated = format! \-> "{\n#{inner_pad}let mut __rdx_r = #{base};\n"
     for f in fields
-      value = field_value f $ indent + RUST_INDENT
+      value = field_value f (indent + RUST_INDENT)
       .push_str (&format! \-> "#{inner_pad}__rdx_r.#{f.name.text} = #{value};\n") updated
     .push_str (&format! \-> "#{inner_pad}__rdx_r\n#{close_pad}}") updated
     return updated
@@ -57,7 +57,7 @@ emit_record head fields indent =
     return format! \-> "#{head_text} { #{joined} }"
   mut text = format! \-> "#{head_text} {\n"
   for f in fields
-    one = one_field f $ indent + RUST_INDENT
+    one = one_field f (indent + RUST_INDENT)
     .push_str (&format! \-> "#{inner_pad}#{one},\n") text
   .push_str (&format! \-> "#{close_pad}}") text
   text

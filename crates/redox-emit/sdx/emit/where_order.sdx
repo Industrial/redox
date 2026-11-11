@@ -76,7 +76,7 @@ where_order entries =
   mut sorted = Vec::with_capacity (.len bindings)
   -- `i` is the reference, where the Rust wrote `for &i in …`.
   for i in &bindings
-    visit (*i) (&graph) (&mut done) (&mut visiting) $ &mut sorted
+    visit (*i) (&graph) (&mut done) (&mut visiting) (&mut sorted)
   -- Each non-binding entry keeps its slot; the bindings fill the rest in
   -- sorted order.
   --

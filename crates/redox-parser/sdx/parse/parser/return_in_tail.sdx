@@ -36,5 +36,5 @@ import redox_ast::Block
 export(crate) return_in_tail : &Block -> Vec<ParseError>
 return_in_tail block =
   mut found = Vec::new ()
-  scan_run (&block.stmts) false $ &mut found
+  scan_run (&block.stmts) false (&mut found)
   found

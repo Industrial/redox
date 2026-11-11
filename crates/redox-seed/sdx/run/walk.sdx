@@ -62,7 +62,7 @@ test "it mirrors a nested tree"
   if !.is_dir root
     -- The crate layout moved; `port.rs` is what grades that, not this.
     return ()
-  pairs = walk root $ std::path::Path::new "/out"
+  pairs = walk root (std::path::Path::new "/out")
   assert! \-> .len pairs > 1 \-> "redox-ast's sdx tree is nested, so walking it must find more than the root"
   -- `pairs[1].1` read in place, where the Rust bound `(_, out)` from a
   -- reference to it.

@@ -809,7 +809,7 @@ instance (Parser 'a)
     if .check kind self
       .advance self
       return Ok ()
-    Err $ ParseError::r#with code message $ .peek_span self
+    Err $ ParseError::r#with code message (.peek_span self)
   -- | Consume `kw` if it is there, reporting whether it was.
   export(crate) eat_keyword : Keyword -> &mut self -> bool
   eat_keyword kw self =
@@ -844,7 +844,7 @@ instance (Parser 'a)
       found = Ident { text = .clone text, span = .peek_span self }
       .advance self
       return Ok found
-    Err $ ParseError::r#with Code::ExpectedName message $ .peek_span self
+    Err $ ParseError::r#with Code::ExpectedName message (.peek_span self)
   -- | Consume a `Newline`, returning any comment that trailed its line.
   newline_with_trailing : &str -> &mut self -> Result<Option<Trivia>, ParseError>
   newline_with_trailing message self =
@@ -857,7 +857,7 @@ instance (Parser 'a)
     -- so is a statement whose expression *was* a block.
     if .at_eof self || .check (&TokenKind::Dedent) self || .just_dedented self
       return Ok None
-    Err $ ParseError::expected message $ .peek_span self
+    Err $ ParseError::expected message (.peek_span self)
   -- | Whether the token just consumed closed an indented block.
   -- |
   -- | Doc 18 §2.3's `case … of` is the first expression with layout of its

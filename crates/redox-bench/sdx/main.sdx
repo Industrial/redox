@@ -45,7 +45,7 @@ main =
   -- and that is the only ordering a reader acts on.
   .sort_by_key (\r -> std::cmp::Reverse r.2) rows
 
-  report = render (&rows) total_bytes total_time $ &machine ()
+  report = render (&rows) total_bytes total_time (&machine ())
   path = .join "benchmarks/REPORT.md" $ root ()
   (.map_err (\e -> .to_string e) (std::fs::write (&path) report))?
   -- `root()` is the manifest directory joined to `../..`, so the path prints

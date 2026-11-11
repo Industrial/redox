@@ -65,7 +65,7 @@ where_edges entries =
     case &entry.expr of
       Expr::Binding b ->
         mut found = Vec::new ()
-        mentions (&b.value) (&named) $ &mut found
+        mentions (&b.value) (&named) (&mut found)
         .sort_unstable found
         .dedup found
         found

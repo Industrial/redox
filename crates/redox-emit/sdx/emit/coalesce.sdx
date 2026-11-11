@@ -33,7 +33,7 @@ coalesce lhs rhs indent =
   arm_pad = .repeat (indent + RUST_INDENT) " "
   close_pad = .repeat indent " "
   scrutinee = emit_expr (unparen lhs) indent
-  fallback = emit_expr (unparen rhs) $ indent + RUST_INDENT
+  fallback = emit_expr (unparen rhs) (indent + RUST_INDENT)
   -- `{` and `}` are literal braces in a Redox string, so the emitter doubles
   -- them for Rust — which is what the Rust's `{{` and `}}` spelled by hand.
   format! \-> "match #{scrutinee} {\n#{arm_pad}Some(__rdx_v) => __rdx_v,\n#{arm_pad}None => #{fallback},\n#{close_pad}}"

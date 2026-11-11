@@ -40,7 +40,7 @@ emit_module out m indent =
     .push_str ";\n" out
     return ()
   .push_str " {\n" out
-  emit_items out items $ indent + RUST_INDENT
+  emit_items out items (indent + RUST_INDENT)
   .unmark out
   pad out indent
   .push_str "}\n" out

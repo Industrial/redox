@@ -49,7 +49,7 @@ emit_class out c indent =
     .push_str (&format! \-> ": #{joined}") out
   .push_str " {\n" out
   for m in &c.members
-    emit_member out m $ indent + RUST_INDENT
+    emit_member out m (indent + RUST_INDENT)
   .unmark out
   pad out indent
   .push_str "}\n" out

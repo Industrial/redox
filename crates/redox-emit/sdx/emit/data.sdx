@@ -95,8 +95,8 @@ emit_data out d indent =
     -- written until this row gave `Constructor` a `leading` field. Emitted
     -- **before** the padding for the reason `emit_trivia` takes an indent —
     -- a comment writes its own, and a `pad` here would double it.
-    emit_trivia out (&c.leading) $ indent + RUST_INDENT
-    pad out $ indent + RUST_INDENT
+    emit_trivia out (&c.leading) (indent + RUST_INDENT)
+    pad out (indent + RUST_INDENT)
     .push_str (&c.name.text) out
     emit_fields out (&c.fields) (indent + RUST_INDENT) false
   .unmark out
