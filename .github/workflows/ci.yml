@@ -36,6 +36,12 @@ env:
   # Rust to compile.
   WASMTIME_VERSION: 47.0.3
   WASMTIME_SHA256: ca1fc56d1afc40c8782e96c297fd182a0da162f9a8f52a1e7b094e1dd648e178
+  # `crates/redox-cli/tests/tree_sitter.rs` shells out to the `tree-sitter` CLI
+  # and panics if it is absent, so it is a build dependency of `:test` rather
+  # than an optional extra. Kept equal to what `devenv.nix` pins, for the reason
+  # that file gives: a generated parser is an artefact of its generator.
+  TREE_SITTER_VERSION: 0.26.9
+  TREE_SITTER_SHA256: 9ce82137caa65864e7ca8b869fd391cef88c9bd2a01c4371b9c4dd26c2585efb
 # Least privilege: every job reads the repository only.
 permissions:
   contents: read
@@ -110,6 +116,16 @@ jobs:
           tar -xJf "$RUNNER_TEMP/$archive" -C "$HOME/.wasmtime/bin" --strip-components=1 \
             "wasmtime-v${WASMTIME_VERSION}-x86_64-linux/wasmtime"
           echo "$HOME/.wasmtime/bin" >> "$GITHUB_PATH"
+      - name: Install tree-sitter (pinned release, sha256-checked)
+        run: |
+          set -euo pipefail
+          curl -fsSLo "$RUNNER_TEMP/tree-sitter.gz" \
+            "https://github.com/tree-sitter/tree-sitter/releases/download/v${TREE_SITTER_VERSION}/tree-sitter-linux-x64.gz"
+          echo "${TREE_SITTER_SHA256}  $RUNNER_TEMP/tree-sitter.gz" | sha256sum -c -
+          mkdir -p "$HOME/.tree-sitter/bin"
+          gunzip -c "$RUNNER_TEMP/tree-sitter.gz" > "$HOME/.tree-sitter/bin/tree-sitter"
+          chmod +x "$HOME/.tree-sitter/bin/tree-sitter"
+          echo "$HOME/.tree-sitter/bin" >> "$GITHUB_PATH"
       - name: Install moon (pinned release, sha256-checked)
         run: |
           set -euo pipefail
