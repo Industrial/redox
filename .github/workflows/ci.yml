@@ -1,0 +1,181 @@
+name: CI
+# Adapted from Industrial/id_effect's CI, with one structural difference that is
+# specific to this repository: **a clean clone has no generated Rust at all.**
+#
+# `crates/*/src/` is `.gitignore`d and not in the index — every crate under
+# `crates/` is written in Redox, and its `.rs` is generated from its `.sdx` by
+# `seed/redox1.wasm` (see `seed/SEED.md` and `AGENTS.md`). So `cargo` cannot
+# build anything here until `./bootstrap.sh` has run, which is why the bootstrap
+# step comes before every gate rather than after checkout as a formality. A CI
+# that skipped it would fail with hundreds of "file not found for module"
+# errors and look like a broken workspace.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  NEXTEST_NO_TESTS: pass
+  # moon's rust toolchain would otherwise download a second rustc that disagrees
+  # with the one installed below.
+  MOON_TOOLCHAIN_FORCE_GLOBALS: rust
+  # Keep equal to what `devenv shell` pins (`cursor.features.languages-rust`
+  # resolves to this today). `crates/redox-cli/tests/ui` snapshots rustc
+  # diagnostics, so a floating `stable` would re-bless them on every release.
+  RUST_TOOLCHAIN: 1.97.1
+  # Pinned releases, downloaded and checked against their sha256 (no `curl | bash`).
+  MOON_VERSION: 2.5.0
+  MOON_SHA256: c5dc6d9665d10ea8233739df5c63232e23acd8f1b3fb897849b71f93e5e97d3b
+  # `./bootstrap.sh` runs the seed blob under wasmtime; without it there is no
+  # Rust to compile.
+  WASMTIME_VERSION: 47.0.3
+  WASMTIME_SHA256: ca1fc56d1afc40c8782e96c297fd182a0da162f9a8f52a1e7b094e1dd648e178
+# Least privilege: every job reads the repository only.
+permissions:
+  contents: read
+jobs:
+  # ──────────────────────────────────────────────────────────────────────────
+  # Bootstrap from the seed, then the gates the pre-push hook runs locally
+  # (devenv.nix `prePushTargets`, minus the two that need Nix — see `format`).
+  # ──────────────────────────────────────────────────────────────────────────
+  gates:
+    name: Bootstrap + gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # Line tables keep backtraces and shrink target/ several-fold.
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
+      CARGO_PROFILE_TEST_DEBUG: line-tables-only
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust (pinned)
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+      - name: Cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
+        with:
+          tool: cargo-nextest
+      - name: Install wasmtime (pinned release, sha256-checked)
+        run: |
+          set -euo pipefail
+          archive=wasmtime-v${WASMTIME_VERSION}-x86_64-linux.tar.xz
+          curl -fsSLo "$RUNNER_TEMP/$archive" \
+            "https://github.com/bytecodealliance/wasmtime/releases/download/v${WASMTIME_VERSION}/$archive"
+          echo "${WASMTIME_SHA256}  $RUNNER_TEMP/$archive" | sha256sum -c -
+          mkdir -p "$HOME/.wasmtime/bin"
+          tar -xJf "$RUNNER_TEMP/$archive" -C "$HOME/.wasmtime/bin" --strip-components=1 \
+            "wasmtime-v${WASMTIME_VERSION}-x86_64-linux/wasmtime"
+          echo "$HOME/.wasmtime/bin" >> "$GITHUB_PATH"
+      - name: Install moon (pinned release, sha256-checked)
+        run: |
+          set -euo pipefail
+          archive=moon_cli-x86_64-unknown-linux-gnu.tar.xz
+          curl -fsSLo "$RUNNER_TEMP/$archive" \
+            "https://github.com/moonrepo/moon/releases/download/v${MOON_VERSION}/$archive"
+          echo "${MOON_SHA256}  $RUNNER_TEMP/$archive" | sha256sum -c -
+          mkdir -p "$HOME/.moon/bin"
+          tar -xJf "$RUNNER_TEMP/$archive" -C "$HOME/.moon/bin" --strip-components=1 \
+            moon_cli-x86_64-unknown-linux-gnu/moon moon_cli-x86_64-unknown-linux-gnu/moonx
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: The generated trees really are absent (the bootstrap is the thing under test)
+        run: |
+          set -euo pipefail
+          while read -r crate _; do
+            [ -n "$crate" ] || continue
+            if [ -d "crates/$crate/src" ]; then
+              echo "::error::crates/$crate/src exists in a fresh checkout — the ignore flip has been reverted"
+              exit 1
+            fi
+          done < <(sed -e 's/#.*//' seed/PORTED | awk 'NF { print $1 }')
+          echo "no generated Rust in the checkout, as expected"
+      - name: Bootstrap the generated Rust from seed/redox1.wasm
+        run: ./bootstrap.sh
+      - name: moon sync
+        run: moon sync
+      - name: 'moon run :check'
+        run: moon run :check
+      - name: 'moon run :lint'
+        run: moon run :lint
+      - name: 'moon run :build'
+        run: moon run :build
+      - name: 'moon run :test'
+        run: moon run :test
+      - name: 'moon run :sdx-format-check (needs the compiler the gates just built)'
+        run: moon run :sdx-format-check
+  # ──────────────────────────────────────────────────────────────────────────
+  # treefmt, whose formatters come from nixpkgs rather than cargo
+  # ──────────────────────────────────────────────────────────────────────────
+  format:
+    name: treefmt
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Nix (formatters for treefmt)
+        uses: cachix/install-nix-action@448cde739abec1eaf0646249e3d25bb8d9bc7702 # v31.11.2
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      - name: Install treefmt toolchain (nixpkgs)
+        run: |
+          nix profile install \
+            nixpkgs#treefmt \
+            nixpkgs#alejandra \
+            nixpkgs#taplo \
+            nixpkgs#deadnix \
+            nixpkgs#actionlint \
+            nixpkgs#beautysh \
+            nixpkgs#yamlfmt
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+      - name: Install Biome (treefmt formatter for JS/JSON)
+        run: npm install -g @biomejs/biome@2.5.15
+      - name: Install Rust (rustfmt is a treefmt formatter)
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt
+      # Exactly what moon's `:ci-format` runs. `fail-on-change = true` and
+      # `walk = "git"` are already in `treefmt.ci.toml`, so repeating them as
+      # flags here would be a second copy free to drift.
+      - name: treefmt (moon :ci-format)
+        run: treefmt --config-file treefmt.ci.toml
+  # ──────────────────────────────────────────────────────────────────────────
+  # Required status check gate
+  # ──────────────────────────────────────────────────────────────────────────
+  ci-pass:
+    name: CI Pass
+    runs-on: ubuntu-latest
+    needs:
+      - gates
+      - format
+    if: always()
+    steps:
+      - name: Check all required jobs passed
+        run: |
+          results='${{ toJSON(needs) }}'
+          failed=$(echo "$results" | jq -r '
+            to_entries[]
+            | select(.value.result != "success" and .value.result != "skipped")
+            | .key
+          ')
+          if [ -n "$failed" ]; then
+            echo "Failed jobs: $failed"
+            exit 1
+          fi
+          echo "All required jobs passed"

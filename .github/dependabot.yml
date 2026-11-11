@@ -1,0 +1,47 @@
+version: 2
+updates:
+  # Keep GitHub Actions up to date. Every `uses:` is pinned by full commit SHA with a `# vX.Y.Z`
+  # comment (AGENTS.md); Dependabot bumps the SHA and the comment
+  # together. `directory: /` covers .github/workflows/.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: UTC
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: "chore(deps)"
+    rebase-strategy: auto
+    # One PR for the patch and minor action bumps; majors stay separate (dependabot-auto-merge.yml
+    # leaves those to a person).
+    groups:
+      github-actions:
+        update-types:
+          - patch
+          - minor
+  # Keep Cargo dependencies up to date
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: UTC
+    labels:
+      - dependencies
+      - rust
+    commit-message:
+      prefix: "chore(deps)"
+    rebase-strategy: auto
+    # Group all patch and minor Cargo updates into a single PR
+    groups:
+      patch-updates:
+        update-types:
+          - patch
+      minor-updates:
+        update-types:
+          - minor

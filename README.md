@@ -1,245 +1,286 @@
-# Project template
+# Redox
 
-Rust + Bun/TypeScript workspace template with Nix (devenv), moon tasks, treefmt, cargo-deny, prek git hooks, and optional Cachix.
+**A Haskell-shaped surface over Rust's semantics.** Redox is a source-to-source compiler: `.sdx`
+in, `.xrs` containing ordinary Rust out. You get equations, guards, pattern rows, type classes,
+pipelines, sections and composition — and then rustc type-checks and borrow-checks the result,
+because Redox has no checker of its own and must never grow one.
+
+[![CI](https://github.com/Industrial/redox/actions/workflows/ci.yml/badge.svg)](https://github.com/Industrial/redox/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Industrial/redox/actions/workflows/codeql.yml/badge.svg)](https://github.com/Industrial/redox/actions/workflows/codeql.yml)
+[![License: CC BY-SA 4.0](https://img.shields.io/badge/License-CC%20BY--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-sa/4.0/)
+
+There is no runtime, no garbage collector and no standard library. There is Rust's, because the
+output *is* Rust — Redox's answer to "where is the `Vec`" is "crates.io".
 
 ---
 
-## Clone (with submodules)
+## The language, in one file
 
-This repo uses git submodules under `.cursor/` (`agency-agents`, `microsoft-rust-training`). Clone with submodules in one go:
+This is `examples/guards.sdx`, unedited:
+
+```redox
+-- A ladder, including `otherwise` as the final catch-all.
+tier : u64 -> &'static str
+tier spend
+  | spend > 10_000 = "platinum"
+  | spend > 1_000 = "gold"
+  | otherwise = "basic"
+
+-- Several equations, each with a short body on the `=` line.
+fib : u64 -> u64
+fib 0 = 0
+fib 1 = 1
+fib n = fib (n - 1) + fib (n - 2)
+```
+
+and this is the `.xrs` it compiles to, also unedited:
+
+```rust
+// A ladder, including `otherwise` as the final catch-all.
+fn tier(spend: u64) -> &'static str {
+    if spend > 10_000 {
+        "platinum"
+    } else if spend > 1_000 {
+        "gold"
+    } else {
+        "basic"
+    }
+}
+
+// Several equations, each with a short body on the `=` line.
+fn fib(__rdx_a0: u64) -> u64 {
+    match __rdx_a0 {
+        0 => 0,
+        1 => 1,
+        n => fib(n - 1) + fib(n - 2),
+    }
+}
+```
+
+Three things in that output are deliberate and load-bearing.
+
+**The comments survived.** Comments are trivia, never discarded — the `.xrs` is a human-facing
+artifact, not an intermediate you are supposed to ignore. You can read it, review it, and step
+through it in a debugger.
+
+**It is boring Rust.** No trait objects you did not ask for, no `Box`, no runtime shim. A guard
+ladder is an `if`/`else` chain; pattern rows are a `match`. If you can read Rust, you can audit
+what Redox did.
+
+**Generated names are namespaced.** Anything Redox invents carries the `__rdx_` prefix, and your
+identifiers may not use it — so a generated binder can never shadow one of yours.
+
+---
+
+## What the surface actually gives you
+
+### Methods are functions, and the receiver is last
+
+A `.name` is a method awaiting its receiver. That one decision is what makes pipelines and
+partial application share a single spelling:
+
+```redox
+.trim raw                     -- raw.trim()
+.insert k v m                 -- m.insert(k, v)
+.trim                         -- |x| x.trim()      — awaiting a receiver
+```
+
+### Pipelines, composition and sections
+
+```redox
+-- `|>` is reverse application: the piped value becomes the last argument.
+doubled numbers = numbers |> .iter |> .copied |> .filter (> 0) |> .map (2 *) |> .sum
+
+-- `>>>` composes forwards, `<<<` backwards.
+lengths xs = xs |> .iter |> .map (.trim >>> .len) |> .sum
+
+-- Sections: an operator with one side supplied, either side.
+--   (+ 1)    |x| x + 1
+--   (2 *)    |x| 2 * x
+--   (> 0)    |x| x.gt(&0)      — the method form, because an adaptor hands you a reference
+--   (.name)  |x| x.name        — GHC's record dot
+```
+
+`(- 1)` is negation and `(* 2)` is a dereference — unary always wins, so those two want the left
+section (`(1 -)`, `(2 *)`) instead.
+
+### `$`, so the nesting goes away
+
+```redox
+.ok $ std::fs::read_to_string path        -- std::fs::read_to_string(path).ok()
+Ok $ Some $ Span { lo = start, hi = end } -- Ok(Some(Span { lo: start, hi: end }))
+```
+
+`$` lowers to *nothing at all* — it is grouping that runs to the end of the expression, and it
+leaves no trace in the output.
+
+### Data, classes and instances
+
+```redox
+data Event
+  = Click
+  | Close
+  deriving (Debug)
+
+newtype Meters = Meters f64        -- single-field, so `#[repr(transparent)]`
+
+class Debug => Tally
+  current : &self -> u32
+  bump    : &mut self -> ()
+  start   : u32 -> Self
+
+instance Tally Counter
+  current : &self -> u32
+  current self = self.value
+  bump : &mut self -> ()
+  bump self =
+    self.value += 1
+    ()
+  start : u32 -> Self
+  start value = Counter { value }
+```
+
+`&self`, `&mut self` and `self` in a signature mean exactly what they mean in Rust. Redox does
+not hide the borrow — it just stops making you write `impl` blocks by hand.
+
+### Off-side rule
+
+Indentation is significant; there are no braces and no semicolons. Blocks are opened by layout,
+which is why a guard ladder and a `where` group read as outlines rather than punctuation.
+
+### String interpolation
+
+```redox
+println! \-> "hello #{name}, you are #{age} years old"
+```
+
+`\->` is a nullary lambda — it is how a macro argument is passed unevaluated.
+
+---
+
+## It compiles itself
+
+**All thirteen crates under `crates/` are written in Redox.** The compiler's lexer, parser,
+emitter, formatter, diagnostics, driver, CLI, LSP server and MCP server are `.sdx` files;
+27,600 lines of them. The Rust under each crate's `src/` is *generated*, `.gitignore`d, and not
+in the index.
+
+So a clean clone has no Rust in it at all. What bridges the gap is `seed/redox1.wasm` — a 906 KB
+WebAssembly build of a previous Redox compiler, which `./bootstrap.sh` runs under `wasmtime` to
+regenerate every crate. Three tests keep that honest:
+
+| Test | What it proves |
+|---|---|
+| `blob.rs` | the committed blob is the one `seed/SEED.md` records (provenance) |
+| `bootstrap.rs` | a clone *without* the generated Rust rebuilds it byte-identically |
+| `fixpoint.rs` | `stage1 == stage2` — the compiler reproduces itself |
+
+The seed is a build artifact rather than a release, so version skew is closed by two commands
+instead of rustc's `cfg(bootstrap)` or Go's version chain. `seed/SEED.md` has the whole story.
+
+---
+
+## Quick start
 
 ```bash
-git clone --recurse-submodules <repo-url>
-cd <repo>
+git clone --recurse-submodules https://github.com/Industrial/redox
+cd redox
+./bootstrap.sh                 # generate every crate's Rust from the seed
+cargo build
 ```
 
-If you already cloned without submodules, init and update them:
+Then:
 
 ```bash
-git submodule update --init --recursive
+cargo run -p redox-cli -- build examples/hello.sdx   # -> examples/hello.xrs
+cargo run -p redox-cli -- check examples/hello.sdx   # run rustc, report against the .sdx
+cargo run -p redox-cli -- fmt   examples/hello.sdx   # the canonical formatter
 ```
 
----
+Diagnostics are reported against the `.sdx` you wrote, with 1-based line and column in
+characters — not against the generated Rust.
 
-## Overview
-
-- **Runtimes:** Rust (stable), JavaScript/TypeScript (Bun).
-- **Environment:** Nix via [devenv](https://devenv.sh); reproducible toolchain and scripts.
-- **Tasks:** [moon](https://moonrepo.dev) for format, check, lint, build, test, docs, audit, coverage, etc.
-- **Git hooks:** [prek](https://github.com/j178/prek) (pre-commit–compatible): pre-push runs the full moon pipeline; commit-msg enforces conventional commits (commitizen).
-- **Formatting:** [treefmt](https://github.com/numtide/treefmt) over Rust, Nix, shell, JS/TS, YAML, TOML.
-- **Rust quality:** cargo-deny (advisories/licenses), cargo-audit, clippy, nextest, optional llvm-cov.
+`examples/*.sdx` is the CI-checked source of truth for what works today: 37 programs, each one
+compiled, run, and compared against its expected output.
 
 ---
 
-## Tooling
+## Layout
 
-| Tool | Purpose | Config |
-|------|--------|--------|
-| **devenv** | Nix dev shell: languages (Rust, Bun, TS), packages, env vars, scripts. Enter with `devenv shell`. | `devenv.nix`, `devenv.yaml` |
-| **moon** | Task runner: format, check, lint, build, test, docs, fix, bench, audit, coverage, ci-format. | `moon.yml` |
-| **prek** | Git hooks (no Python). Installs from `.pre-commit-config.yaml` on `devenv shell`. | `.pre-commit-config.yaml` |
-| **treefmt** | Single CLI to format all supported files (only tracked files by default). | `treefmt.toml`, `treefmt.ci.toml` |
-| **rustfmt** | Rust formatter (invoked by treefmt). | `rustfmt.toml` |
-| **cargo-deny** | Rust: advisories, licenses, duplicate deps. Run manually or in CI. | `deny.toml` |
-| **cargo-audit** | Rust security advisories. Used in moon `:audit` and pre-push. | — |
-| **cargo-nextest** | Fast Rust test runner. Used in moon `:test` and `:coverage`. | `nextest.toml` |
-| **sccache** | Shared compilation cache for Rust (and C/C++) across builds. | env `RUSTC_WRAPPER=sccache` |
-| **mold** | Fast linker for Rust on Linux. | — |
-| **commitizen** | Validates commit messages (conventional commits). Prek hook on commit-msg. | — |
-| **Cachix** | Optional Nix binary cache; pull/push configured in `devenv.nix`. | `cachix.pull` / `cachix.push` |
+The workspace splits along pipeline stages.
 
-### Treefmt formatters (by file type)
+| Crate | Role |
+|---|---|
+| `redox-lexer` | off-side-rule lexer; spans, trivia, whitespace adjacency |
+| `redox-ast` | syntax tree types, no logic |
+| `redox-parser` | hand-written recursive descent (Pratt loop for expressions) |
+| `redox-emit` | the Rust source emitter |
+| `redox-fmt` | the canonical formatter |
+| `redox-diag` | diagnostics and source maps |
+| `redox-driver` | the incremental driver, cache and lints |
+| `redox-cli` | the `redox` binary, plus the end-to-end and golden harnesses |
+| `redox-lsp` | language server |
+| `redox-mcp` | MCP server (`redox_build`, `redox_check`, `redox_fmt`, `redox_source_map`) |
+| `redox-bench`, `redox-fuzz`, `redox-seed` | throughput, fuzzing, and the wasm seed |
 
-- **Nix:** deadnix, alejandra  
-- **GitHub Actions:** actionlint  
-- **Bash:** beautysh  
-- **JS/TS/JSON:** biome  
-- **YAML:** yamlfmt  
-- **TOML:** taplo  
-- **Rust:** rustfmt (edition 2024)
+Within a crate, **one construct per file**, and `src/` is a module tree rather than a flat
+directory — both machine-checked. `docs/06 - Redox Code Architecture.md` has the rules;
+[AGENTS.md](AGENTS.md) has the conventions that are load-bearing rather than stylistic.
 
 ---
 
-## Cachix (with devenv and CI)
+## Development
 
-[Cachix](https://cachix.org) is a Nix binary cache. It stores build results (e.g. devenv shell closure, Nix packages) so you and CI can **pull** instead of rebuilding. Optionally, CI can **push** new build results to the cache so the next run is fast.
-
-### In devenv.nix
-
-In `devenv.nix` the cache is configured as:
-
-```nix
-cachix = {
-  pull = ["project-template"];
-  push = "project-template";
-};
-```
-
-- **pull** — When you run `devenv shell` or any Nix command, Nix will try to fetch store paths from the `project-template` cache (if you’ve trusted it; see below). No account needed for pull.
-- **push** — When a build runs with push enabled and Cachix auth, new store paths can be uploaded to the `project-template` cache. Pushing is typically done only in CI (e.g. on the main branch).
-
-Replace `project-template` with your own cache name if you create one at [cachix.org](https://cachix.org).
-
-### Local use (pull only)
-
-1. **Trust the cache** so Nix uses it when building the dev shell:
-
-   ```bash
-   cachix use project-template
-   ```
-
-   (Use your cache name if different.) This adds the cache to your Nix config and lets `devenv shell` pull binaries instead of building everything.
-
-2. **Enter the shell as usual:** `devenv shell`. If the closure is already on the cache, it will download instead of build.
-
-You do **not** need a Cachix account or auth for pulling. For pushing (e.g. from CI) you need a Cachix auth token.
-
-### CI pipeline
-
-In GitHub Actions (or similar) you want to:
-
-1. **Use the cache on every run** (pull) so CI benefits from previous builds.
-2. **Push to the cache only on selected events** (e.g. push to `main`), so the cache stays up to date and you avoid push failures on PRs.
-
-Example pattern:
-
-1. **Install Nix** (e.g. `DeterminateSystems/nix-installer-action`).
-2. **Configure Cachix** with [cachix/cachix-action](https://github.com/cachix/cachix-action):
-   - `name`: your cache name (e.g. `project-template`).
-   - **Pull:** always enabled when `name` is set.
-   - **Push:** only when you want to update the cache. Pass the auth token only then and set `skipPush: true` otherwise, so the action doesn’t try to start the push daemon on PRs.
-
-   Example (conceptual):
-
-   ```yaml
-   env:
-     CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
-   steps:
-     - uses: cachix/cachix-action@v16
-       with:
-         name: project-template
-         authToken: ${{ github.ref == 'refs/heads/main' && secrets.CACHIX_AUTH_TOKEN }}
-         skipPush: ${{ github.ref != 'refs/heads/main' }}
-   ```
-
-   So: on `main`, push if the token is set; on PRs or other branches, only pull.
-
-3. **Install devenv** and run your pipeline (e.g. `devenv shell -- moon run :ci-format` and the rest of your checks).
-
-Add the Cachix auth token as a repository secret (`CACHIX_AUTH_TOKEN`) if you want CI to push to your cache. If you only want to pull (e.g. from a public cache), you can omit the token and always use `skipPush: true`.
-
----
-
-## Lifecycle: what happens when
-
-### 1. Clone the repo
-
-```bash
-git clone --recurse-submodules <repo-url>
-cd <repo>
-```
-
-- `.cursor/agency-agents` and `.cursor/microsoft-rust-training` are **git submodules**; `--recurse-submodules` pulls them. Without it, run `git submodule update --init --recursive` later.
-
-### 2. Enter the dev shell (first time and daily)
+Everything runs through [moon](https://moonrepo.dev), inside a [devenv](https://devenv.sh) shell:
 
 ```bash
 devenv shell
+moon run :check          # cargo check, per crate, cached
+moon run :lint           # cargo fmt --check && cargo clippy -D warnings
+moon run :test           # 884 tests across 13 crates
+moon run :build :audit :coverage :docs
+moon run :format         # treefmt: Rust, Nix, shell, JS/TS, YAML, TOML
 ```
 
-**On enter, devenv runs:**
+The Rust targets are **per-crate and cached**, defined once in `.moon/tasks/tag-crate.yml`. A
+one-line edit re-checks one crate, not thirteen.
 
-1. **prek-install** — Installs git hooks from `.pre-commit-config.yaml` (pre-push, commit-msg) into `.git/hooks`. Overwrites existing hook files so the repo’s config is always in use.
-2. **moon-sync** — Runs `moon sync` so moon’s toolchain and project graph are up to date.
-3. **sccache** — Ensures `$HOME/.cache/sccache` exists so the Rust compiler cache can be used.
+**Edit the `.sdx`, never the `.rs`.** After a change, regenerate with:
 
-**You get:**
+```bash
+REDOX_UPDATE=1 cargo test -p redox-cli --test port
+```
 
-- Rust (stable), clippy, rustfmt, rust-analyzer, cargo-nextest, cargo-llvm-cov, cargo-audit  
-- Bun + TypeScript  
-- moon, treefmt, and all formatters (alejandra, beautysh, biome, taplo, yamlfmt, etc.)  
-- prek, git, gh, direnv  
-- Env: `RUST_BACKTRACE=1`, `CARGO_TERM_COLOR=always`, `RUSTC_WRAPPER=sccache`, `MOON_TOOLCHAIN_FORCE_GLOBALS=rust`  
-- Scripts: `prek-install`, `moon-sync`, `pre-push` (used by the pre-push hook)
+which compiles the generated tree before writing it and refuses a generation that does not
+compile — so a bad change leaves `src/` untouched rather than broken.
 
-Optional: if you use [direnv](https://direnv.net), `direnv allow` in the repo will enter the devenv shell automatically when you `cd` in.
+Three blessable corpora, each asserting a different thing about a program:
 
-### 3. Develop
+```bash
+REDOX_UPDATE=1 cargo test -p redox-cli --test examples  # tests/golden/*.xrs — the text
+REDOX_UPDATE=1 cargo test -p redox-cli --test ui        # tests/ui/*.stderr — the diagnostic
+REDOX_UPDATE=1 cargo test -p redox-cli --test run       # *.stdout — what it prints
+```
 
-- **Format:** `moon run :format` (writes changes) or `moon run :ci-format` (CI-style; fails if anything would change).
-- **Check / lint / build / test:**  
-  `moon run :check`, `:lint`, `:build`, `:test`  
-  Or run the full gate:  
-  `devenv shell -- pre-push` (same as the pre-push hook).
-- **Fix auto-fixable issues:** `moon run :fix`
-- **Docs:** `moon run :docs`
-- **Security:** `moon run :audit`; run `cargo deny check` manually for full deny checks.
-- **Coverage:** `moon run :coverage` (nextest under llvm-cov).
-
-All of these use the tools and configs from the dev shell (rustfmt, nextest.toml, etc.).
-
-### 4. Commit
-
-- When you run `git commit`, the **commit-msg** hook (prek + commitizen) runs.
-- It validates that the commit message follows conventional commits (e.g. `feat: add X`, `fix: Y`). If not, the commit is rejected.
-
-### 5. Push
-
-- When you run `git push`, the **pre-push** hook runs.
-- The hook runs: `devenv shell -- pre-push`
-- **pre-push** (defined in `devenv.nix` scripts) runs:  
-  `moon run :format :check :lint :build :test :audit`
-- If any of these fail, the push is aborted. So the branch you push has already been formatted, checked, linted, built, tested and audited in the same way as in CI.
-
-### 6. CI (when you add it)
-
-- In GitHub Actions (or similar), use the same commands inside a Nix/devenv setup so CI matches local and pre-push.
-- **Format check:** `devenv shell -- moon run :ci-format`  
-  Uses `treefmt.ci.toml` (same as treefmt but `fail-on-change = true`).
-- **Full pipeline:** `devenv shell -- moon run :format :check :lint :build :test :audit`  
-  Or use `devenv shell -- pre-push` to mirror the pre-push hook exactly.
+Blessing rewrites the expectations and then fails the run, so a blessed diff is always reviewed
+rather than absorbed into a green build.
 
 ---
 
-## Moon tasks quick reference
+## Documentation
 
-| Task | What it does |
-|------|----------------|
-| `:format` | treefmt (format tracked files) |
-| `:ci-format` | treefmt with `treefmt.ci.toml` (fail if not formatted) |
-| `:check` | cargo check --workspace --all-features |
-| `:lint` | cargo fmt --check + cargo clippy |
-| `:build` | cargo build |
-| `:test` | cargo nextest run |
-| `:docs` | cargo doc --no-deps --all-features |
-| `:fix` | cargo fix + clippy --fix |
-| `:bench` | cargo bench (no-op if no `benches/`) |
-| `:audit` | cargo audit |
-| `:coverage` | cargo llvm-cov nextest |
-
-Run with: `moon run :<task>` or `devenv shell -- moon run :<task>` from outside the shell.
+`docs/` is numbered: `01` specification, `02` blueprint, `03` surface design, `04` plan of plans,
+`05 - NN -` one per plan, `06` code architecture, plus `COMPILER.md` for toolchain decisions and
+`CONFORMANCE.md` for what the surface covers today.
 
 ---
 
-## Config files
+## Contributing
 
-- **devenv.nix** — Dev shell: packages, env, scripts (prek-install, moon-sync, pre-push).
-- **devenv.yaml** — Nix flake inputs (fenix, nixpkgs, rust-overlay, etc.).
-- **moon.yml** — Moon project and task definitions.
-- **treefmt.toml** — Formatters and globs (local format; `walk = "git"`).
-- **treefmt.ci.toml** — Same as above with `fail-on-change = true` for CI.
-- **rustfmt.toml** — Rust format options (edition 2024, 2 spaces).
-- **deny.toml** — cargo-deny: advisories, licenses, bans.
-- **nextest.toml** — nextest profiles (default + ci), timeouts, cache.
-- **.pre-commit-config.yaml** — prek: pre-push (devenv pre-push script), commit-msg (commitizen).
+See [CONTRIBUTING.md](CONTRIBUTING.md). Commits are signed off
+([DCO](https://developercertificate.org/)) and follow conventional commits. Security issues go
+through [SECURITY.md](SECURITY.md), not public issues.
 
----
+## License
 
-## Summary flow
-
-1. **Clone** (with submodules) → **devenv shell** → prek installs hooks, moon syncs, sccache ready.  
-2. **Develop** with moon tasks (`:format`, `:check`, `:lint`, `:build`, `:test`, etc.).  
-3. **Commit** → commitizen checks message.  
-4. **Push** → pre-push runs full moon pipeline; push only if it passes.  
-5. **CI** (when added) runs the same commands (e.g. `:ci-format` and the same full pipeline) inside devenv so results match local and pre-push.
+[CC-BY-SA-4.0](https://creativecommons.org/licenses/by-sa/4.0/).
