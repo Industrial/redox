@@ -1,27 +1,202 @@
--- ! The content-addressed compile cache.
--- !
--- ! Plan 10 (`docs/15 - 10 - Incremental Cache.md`). Doc 02 §7.1 calls
--- ! `emerald-driver/src/cache.rs` *"the highest-value code reuse in the
--- ! project"*, and the rule it quotes governs everything in here:
--- !
--- ! > A cache MISS always falls back to calling the real function verbatim — a
--- ! > cache hit is strictly an optimization, never a correctness dependency.
--- !
--- ! So nothing in this module returns an error. A key that cannot be computed,
--- ! an entry that cannot be read, a directory that cannot be written: each is a
--- ! miss, and a miss costs only time. Delete `<OUT_DIR>/.redox-cache/` and the
--- ! compiler behaves identically.
--- !
--- ! A grouping module (doc 06 §1.2): it declares the cache's parts and holds no
--- ! construct of its own, because there is no single "cache" object — the key,
--- ! the fingerprint, the store and the reporter are four independent concerns
--- ! that `compile_dir` composes.
+import std::path::Path
+import std::path::PathBuf
 
--- | The cache key for one source file.
-export(crate) module cache_key
--- | A hash of the compiler that produced a cached result.
-export(crate) module fingerprint
--- | Where the cache reports hits and misses.
-export(crate) module reporter
--- | The on-disk cache under `<out>/.redox-cache/`.
-export(crate) module store
+export(crate) cache_key : &str -> &Fingerprint -> blake3::Hash
+cache_key source fingerprint =
+  mut hasher = blake3::Hasher::new ()
+  length = .unwrap_or u64::MAX $ u64::try_from $ .len source
+  .update (&.to_le_bytes length) hasher
+  .update (.as_bytes source) hasher
+  .update (.as_bytes fingerprint) hasher
+  .finalize hasher
+
+#[cfg(test)]
+fp : Fingerprint
+fp = Fingerprint::r#of b"compiler"
+
+test "the same source and compiler give the same key"
+  assert_eq! \-> cache_key "main : ()\nmain =\n" (&fp ()) \-> cache_key "main : ()\nmain =\n" (&fp ())
+
+test "one changed byte changes the key"
+  assert_ne! \-> cache_key "print 1\n" (&fp ()) \-> cache_key "print 2\n" (&fp ())
+
+test "a different compiler changes the key"
+  a = cache_key "main : ()\nmain =\n" (&Fingerprint::r#of b"old")
+  b = cache_key "main : ()\nmain =\n" (&Fingerprint::r#of b"new")
+  assert_ne! \-> a \-> b
+
+test "the boundary between fields is unambiguous"
+  assert_ne! \-> cache_key "ab" (&Fingerprint::r#of b"c") \-> cache_key "a" (&Fingerprint::r#of b"bc")
+
+test "renders as hex"
+  hex = .to_string $ cache_key "x" (&fp ())
+  assert_eq! \-> .len hex \-> 64
+  assert! \-> .all (\c -> .is_ascii_hexdigit c) (.chars hex)
+
+export newtype Fingerprint = Fingerprint blake3::Hash
+  deriving (Debug, Clone, Copy, PartialEq, Eq)
+
+instance Fingerprint
+  export current : Self
+  current = case .and_then std::fs::read (std::env::current_exe ()) of
+    Ok bytes -> Fingerprint::r#of (&bytes)
+    Err _ -> Fingerprint::r#of $ &.to_le_bytes (Fingerprint::now ())
+
+  now : u128
+  now =
+    std::time::SystemTime::now ()
+      |> .duration_since std::time::UNIX_EPOCH
+      |> .map_or 0 (\d -> .as_nanos d)
+
+  export r#of : &[u8] -> Self
+  r#of bytes = Fingerprint $ blake3::hash bytes
+
+  export(crate) as_bytes : &self -> &[u8; 32]
+  as_bytes self = .as_bytes self.0
+
+test "differs for different bytes"
+  assert_ne! \-> Fingerprint::r#of b"compiler-a" \-> Fingerprint::r#of b"compiler-b"
+
+test "is stable for the same bytes"
+  assert_eq! \-> Fingerprint::r#of b"same" \-> Fingerprint::r#of b"same"
+
+test "the current compiler has a stable fingerprint"
+  assert_eq! \-> Fingerprint::current () \-> Fingerprint::current ()
+
+export class CacheReporter
+  report : &self -> &str -> bool -> ()
+
+#[cfg(test)]
+data Collect = Collect std::cell::RefCell<Vec<String>>
+
+#[cfg(test)]
+instance CacheReporter Collect
+  report self label hit =
+    outcome = if hit
+      "HIT"
+    else
+      "MISS"
+    .push (format! \-> "#{label} #{outcome}") (.borrow_mut self.0)
+    ()
+
+test "a reporter sees both outcomes"
+  collect = Collect $ std::cell::RefCell::new $ Vec::new ()
+  .report "a.sdx" false collect
+  .report "a.sdx" true collect
+  assert_eq! \-> .as_slice (.borrow collect.0) \-> ["a.sdx MISS", "a.sdx HIT"]
+
+export data Silent = Silent
+
+instance CacheReporter Silent
+  report : &self -> &str -> bool -> ()
+  report self _label _hit = ()
+
+test "accepts everything and says nothing"
+  .report "a.sdx" true Silent
+  .report "a.sdx" false Silent
+
+export(crate) data Store = Store {
+  dir : PathBuf,
+}
+
+instance Store
+  export(crate) new : &Path -> Self
+  new out = Store { dir = .join ".redox-cache" out }
+
+  paths : &blake3::Hash -> &self -> (PathBuf, PathBuf)
+  paths key self =
+    rust_path = .join (format! \-> "#{key}.rs") self.dir
+    map_path = .join (format! \-> "#{key}.rs.map") self.dir
+    (rust_path, map_path)
+
+  export(crate) get : &blake3::Hash -> &self -> Option<Cached>
+  get key self =
+    found = .paths key self
+    text = (.ok (std::fs::read_to_string found.0))?
+    map = (.ok (std::fs::read_to_string found.1))?
+    (.ok (redox_diag::parse_map (&map)))?
+    Some (Cached { r#rust = text, map })
+
+  export(crate) put : &blake3::Hash -> &Cached -> &self -> ()
+  put key cached self =
+    if .is_err (std::fs::create_dir_all (&self.dir))
+      return ()
+    found = .paths key self
+    if .is_err (std::fs::write (&found.1) (&cached.map))
+      return ()
+    if .is_err (std::fs::write (&found.0) (&cached.r#rust))
+      _dropped = .ok $ std::fs::remove_file (&found.1)
+    ()
+
+#[cfg(test)]
+static NEXT : std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new 0
+
+#[cfg(test)]
+data Dir = Dir std::path::PathBuf
+
+#[cfg(test)]
+instance Dir
+  new : &str -> Self
+  new tag =
+    n = .fetch_add 1 std::sync::atomic::Ordering::Relaxed NEXT
+    pid = std::process::id ()
+    dir = .join (format! \-> "redox-store-#{tag}-#{pid}-#{n}") (std::env::temp_dir ())
+    .expect "should create" $ std::fs::create_dir_all (&dir)
+    Dir dir
+
+#[cfg(test)]
+instance Drop Dir
+  drop : &mut self -> ()
+  drop self =
+    _dropped = .ok $ std::fs::remove_dir_all (&self.0)
+    ()
+
+#[cfg(test)]
+entry : Cached
+entry = Cached { r#rust = .to_string "fn main() {}\n", map = .to_string "redox-map 1 a.sdx\n1 1 1 1\n" }
+
+test "a stored entry comes back"
+  dir = Dir::new "roundtrip"
+  store = Store::new (&dir.0)
+  key = blake3::hash b"k"
+  assert_eq! \-> .get (&key) store \-> None \-> "nothing is cached yet"
+  .put (&key) (&entry ()) store
+  assert_eq! \-> .get (&key) store \-> Some (entry ())
+
+test "an unknown key is a miss"
+  dir = Dir::new "unknown"
+  store = Store::new (&dir.0)
+  .put (&blake3::hash b"a") (&entry ()) store
+  assert_eq! \-> .get (&blake3::hash b"b") store \-> None
+
+test "a corrupt map is a miss"
+  dir = Dir::new "corrupt"
+  store = Store::new (&dir.0)
+  key = blake3::hash b"k"
+  .put (&key) (&entry ()) store
+
+  found = .paths (&key) store
+  .expect "should overwrite" $ std::fs::write (&found.1) "not a redox map at all\n"
+  assert_eq! \-> .get (&key) store \-> None
+
+test "a half written entry is a miss"
+  dir = Dir::new "half"
+  store = Store::new (&dir.0)
+  key = blake3::hash b"k"
+  .put (&key) (&entry ()) store
+
+  found = .paths (&key) store
+  .expect "should remove" $ std::fs::remove_file (&found.0)
+  assert_eq! \-> .get (&key) store \-> None
+
+test "an unwritable store is simply always a miss"
+  store = Store::new $ std::path::Path::new "/proc/nonexistent-redox"
+  key = blake3::hash b"k"
+  .put (&key) (&entry ()) store
+  assert_eq! \-> .get (&key) store \-> None
+
+export(crate) data Cached = Cached {
+  export(crate) r#rust : String,
+  export(crate) map : String,
+}
+  deriving (Debug, Clone, PartialEq, Eq)

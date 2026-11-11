@@ -1,113 +1,26 @@
-import crate::lint::comment_pragma_message::comment_pragma_message
-import crate::lint::comment_pragma_sites::comment_pragma_sites
-import crate::lint::shadow_help::SHADOW_HELP
-import crate::lint::shadow_message::shadow_message
-import crate::lint::shadow_sites::shadow_sites
-import crate::lint::unwrap_call_sites::unwrap_call_sites
-import crate::lint::unwrap_message::UNWRAP_MESSAGE
+import redox_ast::Binding
+import redox_ast::ClassMember
+import redox_ast::ClauseBody
+import redox_ast::Expr
+import redox_ast::Ident
+import redox_ast::Item
+import redox_ast::Pattern
 import redox_ast::Program
+import redox_ast::Stmt
+import redox_diag::Code
+import redox_diag::Diagnostic
 import redox_diag::DiagnosticCode
-import redox_diag::{Code, Diagnostic, Severity}
+import redox_diag::Lint
+import redox_diag::Severity
+import redox_diag::Span
+import redox_lexer::TokenKind
+import redox_lexer::Trivia
+import redox_lexer::TriviaKind
 import std::path::Path
 
--- | Whether one trivium suppresses a lint, in either spelling.
-export(crate) module allow_pragma
--- | The lint one trivium suppresses as an attribute.
-export(crate) module attribute_pragma
--- | The one name a binding contributes to `RDX1003`, if it contributes one.
-export(crate) module binding_name
--- | The lint one trivium suppresses as a deprecated comment.
-export(crate) module comment_pragma
--- | The message `RDX1002` carries.
-export(crate) module comment_pragma_message
--- | Every comment-form suppression pragma in a source file, for `RDX1002`.
-export(crate) module comment_pragma_sites
--- | The 1-based line a byte offset falls on.
-export(crate) module line_of
--- | Collects the byte ranges one lint is suppressed over.
-export(crate) module pragma_walk
--- | What a lint wants to see as the walk descends a program.
-export(crate) module program_walk
--- | The help `RDX1003` carries.
-export(crate) module shadow_help
--- | The message `RDX1003` carries.
-export(crate) module shadow_message
--- | Every unsuppressed shadowing `=` in a program — `RDX1003`.
-export(crate) module shadow_sites
--- | Collects every bare `=` that rebinds a name bound earlier in the same statement list.
-export(crate) module shadow_walk
--- | The byte ranges a lint is suppressed over.
-export(crate) module suppressed_spans
--- | Every unsuppressed `unwrap`/`expect` call site in a source file.
-export(crate) module unwrap_call_sites
--- | The message `RDX1001` carries.
-export(crate) module unwrap_message
--- | Walk one item.
-export(crate) module walk_item
--- | Walk one class or instance member.
-export(crate) module walk_member
--- | Walk a whole program.
-export(crate) module walk_program
--- | Walk a statement run and the blocks its statements own.
-export(crate) module walk_stmts
-
--- | Every lint, as warnings — doc 03 §12.7, plan 38, plan 53 leaves 4–5 and
--- | plan 54 leaf 3.
--- |
--- | Three lints. `RDX1001` is `unwrap` discouragement, which opened the
--- | `RDX1000`+ band; `RDX1002` is its suppression pragma written as a comment,
--- | which plan 53 deprecates in favour of `#[redox::allow(unwrap)]`; `RDX1003`
--- | is a bare `=` rebinding a name already bound in the same statement list,
--- | which plan 54 §1.1 measured as the one defect in the language that nothing
--- | caught. The second one's shape is the first one's, as plan 38 predicted it
--- | would be.
--- |
--- | `RDX1003` is the first lint that is **not** lexical, and the first that
--- | cannot be: it is two bindings *in one statement list*, so the list is the
--- | unit and a token scan has no notion of one. It is also the lint that made
--- | the suppression pragma take a lint name — see
--- | [`allow_pragma`](allow_pragma::allow_pragma).
--- |
--- | # Why the driver and not the parser
--- |
--- | Plan 30's `check_callback_tails` is a whole-program pass in the **parser**,
--- | and it produces `ParseError`s — which become hard errors, because
--- | `ParseFailure` has no notion of a warning. A lint cannot go that way.
--- |
--- | `Diagnostic` is the type that carries a [`Severity`], and the driver is
--- | where `Diagnostic`s are built (`diagnose`). So a lint runs here, over an
--- | AST that already parsed, and returns warnings the caller renders and does
--- | not fail on.
--- |
--- | # Source **and** the program, where the program is optional
--- |
--- | Both lints are detected lexically, which is why the source comes first and
--- | why plan 38 took nothing else. What needs the tree is *where a suppression
--- | reaches*: plan 53's attribute can only sit on the line above the construct
--- | it applies to, so the pragma's own line is not the line it is about, and a
--- | declaration-level pragma covers a range. `suppressed_spans` reads those
--- | ranges off the AST's byte spans.
--- |
--- | `None` is for the caller that has no tree to give. `redox-lsp` lints a
--- | document that does not parse on purpose — a lint is still an answer about
--- | the text while the author is mid-edit — and the degradation is the right
--- | way round: a suppression that cannot be computed leaves the warning
--- | showing.
 export lint : &Path -> &str -> Option<&Program> -> Vec<Diagnostic>
 lint path source program =
-  -- `shown`, not a rebinding of `path`: `RDX1003` reports a shadow.
   shown = path |> .display |> .to_string
-  -- No annotations, because a lambda parameter is a bare name (doc 69 §10.4),
-  -- so one inferred type per parameter has to serve all three call sites:
-  -- `message` and `help` are `String` where the Rust took `&str`. Both were
-  -- already allocated by `to_string` inside, so only the place changed.
-  --
-  -- And the `Code`-to-`DiagnosticCode` conversion moved **out** of the
-  -- closure for the same reason: `code.into()` on an unannotated parameter is
-  -- `E0282`, because a closure body is checked before any call site is seen.
-  -- Naming the target at each call site resolves `code` from the struct field
-  -- instead, which is the general answer whenever an annotation would have
-  -- carried the inference.
   warning = \code message span help -> Diagnostic { code, severity = Severity::Warning, message, span, help = Some help, path = .clone shown, source = .to_string source }
 
   unwraps = unwrap_call_sites source program
@@ -125,10 +38,6 @@ lint path source program =
 
   mut found : Vec<Diagnostic> = .collect (.chain pragmas unwraps)
 
-  -- `RDX1003` is the one lint that needs the tree rather than the text, so it
-  -- is the one with nothing to say when there is no tree — which is the right
-  -- degradation: a language server lints a document mid-edit, and a shadow
-  -- reported from a half-parsed statement list would be a guess.
   if program is Some tree
     shadows = shadow_sites tree
       |> .into_iter
@@ -138,8 +47,244 @@ lint path source program =
       warning (DiagnosticCode::from Code::ShadowedBinding) (shadow_message (&name)) span (.to_string SHADOW_HELP))
     .extend shadows found
 
-  -- One file's warnings are rendered in source order whichever lint found
-  -- them, because a recorded `.stderr` is compared as exact text and two lints
-  -- concatenated are not sorted.
   .sort_by_key (\d -> d.span) found
   found
+
+export(crate) allow_pragma : &Trivia -> Lint -> bool
+allow_pragma trivium lint =
+  attribute_pragma trivium == Some lint || comment_pragma trivium == Some lint
+
+export(crate) attribute_pragma : &Trivia -> Option<Lint>
+attribute_pragma trivium_attribute_pragma = case trivium_attribute_pragma.kind of
+  TriviaKind::Attribute -> Lint::from_allow_attribute $ .trim trivium_attribute_pragma.text
+  _ -> None
+
+#[cfg(test)]
+trivium_attribute_pragma : TriviaKind -> &str -> Trivia
+trivium_attribute_pragma kind text = Trivia { kind, text = .to_string text, span = (0, 0) }
+
+test "the attribute suppresses"
+  assert_eq! \-> attribute_pragma (&trivium_attribute_pragma TriviaKind::Attribute "redox::allow(unwrap)") \-> Some Lint::Unwrap
+
+test "each lint is suppressed by its own name"
+  assert_eq! \-> attribute_pragma (&trivium_attribute_pragma TriviaKind::Attribute "redox::allow(shadow)") \-> Some Lint::Shadow
+
+test "an unknown lint name is not a pragma"
+  assert_eq! \-> attribute_pragma (&trivium_attribute_pragma TriviaKind::Attribute "redox::allow(unwarp)") \-> None
+
+test "an unnamespaced allow is rustc's"
+  assert_eq! \-> attribute_pragma (&trivium_attribute_pragma TriviaKind::Attribute "allow(unwrap)") \-> None
+
+test "whitespace inside the brackets is not normalised"
+  assert_eq! \-> attribute_pragma (&trivium_attribute_pragma TriviaKind::Attribute "redox :: allow( unwrap )") \-> None
+
+test "an inner attribute does not suppress"
+  assert_eq! \-> attribute_pragma (&trivium_attribute_pragma TriviaKind::InnerAttribute "redox::allow(unwrap)") \-> None
+
+export(crate) binding_name : &Binding -> Option<&Ident>
+binding_name binding = case &binding.pattern of
+  Pattern::Binding ident -> Some ident
+  Pattern::Literal { .. } or Pattern::Wildcard _ or Pattern::Range { .. } or Pattern::Apply { .. } or Pattern::Tuple { .. } or Pattern::Slice { .. } or Pattern::Record { .. } or Pattern::As { .. } or Pattern::Rest _ or Pattern::NamedRest { .. } or Pattern::Or _ -> None
+
+export(crate) comment_pragma : &Trivia -> Option<Lint>
+comment_pragma trivium_comment_pragma = case trivium_comment_pragma.kind of
+  TriviaKind::LineComment -> Lint::from_allow_comment $ .trim trivium_comment_pragma.text
+  _ -> None
+
+#[cfg(test)]
+trivium_comment_pragma : TriviaKind -> &str -> Trivia
+trivium_comment_pragma kind text = Trivia { kind, text = .to_string text, span = (0, 0) }
+
+test "the pragma suppresses"
+  assert_eq! \-> comment_pragma (&trivium_comment_pragma TriviaKind::LineComment "redox: allow unwrap") \-> Some Lint::Unwrap
+
+test "each lint is suppressed by its own name"
+  assert_eq! \-> comment_pragma (&trivium_comment_pragma TriviaKind::LineComment "redox: allow shadow") \-> Some Lint::Shadow
+
+test "an unrelated comment does not suppress"
+  assert_eq! \-> comment_pragma (&trivium_comment_pragma TriviaKind::LineComment "allow unwrap here, it cannot fail") \-> None
+
+test "a doc comment does not suppress"
+  assert_eq! \-> comment_pragma (&trivium_comment_pragma TriviaKind::DocComment "redox: allow unwrap") \-> None
+
+export(crate) comment_pragma_message : Lint -> String
+comment_pragma_message lint =
+  comment = .allow_comment lint
+  attribute = .allow_attribute lint
+  format! \-> "`-- #{comment}` is deprecated — write `\#[#{attribute}]` on the line above instead (plan 53 §1.3)"
+
+test "the unwrap wording is plan 53's"
+  assert_eq! \-> comment_pragma_message Lint::Unwrap \-> "`-- redox: allow unwrap` is deprecated — write `\#[redox::allow(unwrap)]` on the line above instead (plan 53 §1.3)"
+
+test "each lint gets its own spellings"
+  text = comment_pragma_message Lint::Shadow
+  assert! \-> .contains "-- redox: allow shadow" text
+  assert! \-> .contains "\#[redox::allow(shadow)]" text
+
+export(crate) comment_pragma_sites : &str -> Vec<(Span, Lint)>
+comment_pragma_sites source =
+  guard redox_lexer::lex source is Ok tokens else
+    return Vec::new ()
+
+  tokens
+    |> .iter
+    |> .flat_map (\t -> .chain (.as_ref t.trailing) (.iter t.leading))
+    |> .filter_map (\trivium -> .map (\lint -> (trivium.span, lint)) (comment_pragma trivium))
+    |> .collect
+
+export(crate) line_of : &str -> usize -> usize
+line_of source offset =
+  end = .min (.len source) offset
+  .count (.matches '\n' source[0 .. end]) + 1
+
+export(crate) data PragmaWalk = PragmaWalk {
+  export(crate) lint : Lint,
+  export(crate) found : Vec<Span>,
+}
+
+instance ProgramWalk PragmaWalk
+  item : &mut self -> &Item -> ()
+  item self item =
+    if .any (\t -> allow_pragma t self.lint) (.iter (redox_ast::leading item))
+      .push (.span item) self.found
+    ()
+
+  stmts : &mut self -> &[Stmt] -> ()
+  stmts self stmts =
+    for stmt in stmts
+      if .any (\t -> allow_pragma t self.lint) (.iter stmt.leading)
+        .push stmt.span self.found
+    ()
+
+export(crate) class ProgramWalk
+  item : &mut self -> &Item -> ()
+
+  stmts : &mut self -> &[Stmt] -> ()
+
+export(crate) const SHADOW_HELP : &str = "to reassign instead, write `:=` and `mut` on the first binding; if the shadow is meant, say so on the line above: `#[redox::allow(shadow)]`"
+
+export(crate) shadow_message : &str -> String
+shadow_message name =
+  format! \-> "`#{name}` is already bound in this block — a bare `=` binds a second name rather than reassigning the first (plan 54 §1.1)"
+
+test "it names the shadowed binding"
+  assert! \-> .starts_with "`cursor` is already bound" (shadow_message "cursor")
+
+export(crate) shadow_sites : &Program -> Vec<(Span, String)>
+shadow_sites program =
+  mut walk = ShadowWalk { found = Vec::new () }
+  walk_program program (&mut walk)
+
+  ranges = suppressed_spans program Lint::Shadow
+  walk.found
+    |> .into_iter
+    |> .filter (\pair ->
+    span = pair.0
+    !.any (\r -> r.0 <= span.0 && span.1 <= r.1) (.iter ranges))
+    |> .collect
+
+export(crate) data ShadowWalk = ShadowWalk {
+  export(crate) found : Vec<(Span, String)>,
+}
+
+instance ProgramWalk ShadowWalk
+  item : &mut self -> &Item -> ()
+  item self _item = ()
+
+  stmts : &mut self -> &[Stmt] -> ()
+  stmts self stmts =
+    mut bound : Vec<&str> = Vec::new ()
+    for stmt in stmts
+      guard &stmt.expr is Expr::Binding binding else
+        continue
+      guard binding_name binding is Some ident else
+        continue
+
+      suppressed = .is_some_and (\t -> allow_pragma t Lint::Shadow) (.as_ref stmt.trailing)
+
+      if .contains (&.as_str ident.text) bound && !suppressed
+        .push (ident.span, .clone ident.text) self.found
+      .push (&ident.text) bound
+    ()
+
+export(crate) suppressed_spans : &Program -> Lint -> Vec<Span>
+suppressed_spans program lint =
+  mut walk = PragmaWalk { lint, found = Vec::new () }
+  walk_program program (&mut walk)
+  walk.found
+
+export(crate) unwrap_call_sites : &str -> Option<&Program> -> Vec<Span>
+unwrap_call_sites source program =
+  guard redox_lexer::lex source is Ok tokens else
+    return Vec::new ()
+
+  suppressed : Vec<usize> = tokens
+    |> .iter
+    |> .flat_map (\t -> .chain (.as_ref t.trailing) (.iter t.leading))
+    |> .filter (\trivium -> allow_pragma trivium Lint::Unwrap)
+    |> .map (\trivium -> line_of source trivium.span.0)
+    |> .collect
+
+  ranges = program
+    |> .map (\p -> suppressed_spans p Lint::Unwrap)
+    |> .unwrap_or_default
+
+  tokens
+    |> .windows 2
+    |> .filter (\pair -> pair[0].kind == TokenKind::Dot)
+    |> .filter_map (\pair ->
+    case &pair[1].kind of
+      TokenKind::Ident name | name == "unwrap" || name == "expect" -> Some pair[1].span
+      _ -> None)
+    |> .filter (\span -> !.contains (&line_of source span.0) suppressed)
+    |> .filter (\span -> !.any (\r -> r.0 <= span.0 && span.1 <= r.1) (.iter ranges))
+    |> .collect
+
+export(crate) const UNWRAP_MESSAGE : &str = "`unwrap` and `expect` panic — the ergonomic path is `?`, `??` or `catch` (doc 03 §12.7)"
+
+export(crate) walk_item : &Item -> &mut dyn ProgramWalk -> ()
+walk_item item walk =
+  .item item walk
+
+  case item of
+    Item::Fn decl ->
+      for clause in &decl.clauses
+        case &clause.body of
+          ClauseBody::Plain block -> walk_stmts (&block.stmts) walk
+          ClauseBody::Guarded rows ->
+            for row in rows
+              walk_stmts (&row.body.stmts) walk
+        walk_stmts (&clause.wheres) walk
+    Item::Class decl ->
+      for member in &decl.members
+        walk_member member walk
+    Item::Instance decl ->
+      for member in &decl.members
+        walk_member member walk
+    Item::Test decl -> walk_stmts (&decl.body.stmts) walk
+    Item::Module decl ->
+      for inner in .flatten (.iter decl.items)
+        walk_item inner walk
+    Item::Data _ or Item::Type _ or Item::Errors _ or Item::Import _ or Item::Const _ or Item::InlineRust _ or Item::Extern _ or Item::PatternSynonym _ or Item::DeriveTemplate _ or Item::OperatorDecl _ -> ()
+  ()
+
+export(crate) walk_member : &ClassMember -> &mut dyn ProgramWalk -> ()
+walk_member member walk =
+  if member is ClassMember::Method decl
+    walk_item (&Item::Fn (.clone decl)) walk
+  ()
+
+export(crate) walk_program : &Program -> &mut dyn ProgramWalk -> ()
+walk_program program walk =
+  for item in &program.items
+    walk_item item walk
+  ()
+
+export(crate) walk_stmts : &[Stmt] -> &mut dyn ProgramWalk -> ()
+walk_stmts stmts walk =
+  .stmts stmts walk
+
+  for stmt in stmts
+    for nested in .statement_blocks stmt.expr
+      walk_stmts (&nested.stmts) walk
+  ()

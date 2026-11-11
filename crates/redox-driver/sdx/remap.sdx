@@ -1,52 +1,12 @@
-import crate::remap::generated_offset::generated_offset
-import crate::remap::narrow::narrow
-import crate::remap::rustc_message::RustcMessage
-import redox_diag::{Diagnostic, DiagnosticCode, SourceMap}
+import redox_diag::Diagnostic
+import redox_diag::DiagnosticCode
+import redox_diag::SourceMap
+import redox_diag::Span
 
--- | Byte offset of a 1-based line and column, if it is in the text.
-export(crate) module char_offset
--- | Byte offset of a position in the generated file, clamped into range.
-export(crate) module generated_offset
--- | Narrow a span to the single character at a line and column.
-export(crate) module narrow
--- | One diagnostic as rustc's `--error-format=short` prints it.
-export(crate) module rustc_message
-
--- | Turn one of rustc's diagnostics into one against the `.sdx`.
--- |
--- | Plan 07 (`docs/12 - 07 - Rustc Remapping.md`) leaf 3. The message, the code
--- | and the level stay rustc's verbatim; only the position changes (§1.1).
--- |
--- | Three outcomes, and telling them apart is the whole plan:
--- |
--- | 1. **The line maps and the shifted column lands inside the construct's
--- |    span** — [`narrow`] reduces the span to that character. The exact case,
--- |    which holds wherever the emitter copied the source's content verbatim.
--- |
--- | 2. **The line maps but the column does not land inside the span** — the
--- |    whole span is underlined, because the error is somewhere in that
--- |    statement and Redox does not know where.
--- |
--- | 3. **The line does not map** — it is one the emitter synthesised, a closing
--- |    brace or a blank. The diagnostic is reported against the `.xrs`, with a
--- |    note saying so. Relocating it to the nearest mapped line would be a
--- |    guess presented as a fact.
 export remap : &RustcMessage -> &SourceMap -> &str -> &str -> &str -> &str -> Diagnostic
 remap message map sdx_path sdx_source xrs_path xrs_source =
-  -- rustc gives most diagnostics a code and some — a plain lint, say — none.
-  -- Falling back to the level keeps the rendered output from printing an empty
-  -- `error[]`, and is still rustc's own word rather than one of Redox's.
   code = DiagnosticCode::Foreign $ .unwrap_or_else (\-> .clone message.level) $ .clone message.code
 
-  -- rustc's level, now that plan 38 gives it somewhere to go. Before the
-  -- severity existed, a rustc warning rendered as `error[warning]` — the
-  -- comment above says the fallback exists to avoid an empty `error[]`, and
-  -- the result was a worse lie than the one it prevented.
-  --
-  -- Plan 38 §1.2 said this path was unaffected, and §10 records why it was
-  -- changed anyway: once a severity exists, rendering a warning as an error is
-  -- a defect one would be *choosing* to leave. It changes only the rendering —
-  -- `check` already does not fail on a rustc warning.
   severity = if message.level == "warning"
     redox_diag::Severity::Warning
   else
@@ -67,7 +27,6 @@ const SDX : &str = "add = (a: i32, b: i32): i32 ->\n  a + \"x\"\n"
 #[cfg(test)]
 const XRS : &str = "fn add(a: i32, b: i32) -> i32 {\n    a + \"x\"\n}\n"
 
--- | `  a + "x"` spans bytes 33..40.
 #[cfg(test)]
 map_of : SourceMap
 map_of = SourceMap::new "p.sdx" (vec! \-> Some (redox_diag::Origin { span = (0, 30), src_line = 1, src_col = 1, gen_col = 1 }) \-> Some (redox_diag::Origin { span = (33, 40), src_line = 2, src_col = 3, gen_col = 5 }) \-> None)
@@ -80,8 +39,6 @@ message_at line col = RustcMessage { path = .to_string "p.xrs", line, col, level
 run : &RustcMessage -> redox_diag::Diagnostic
 run m = remap m (&map_of ()) "p.sdx" SDX "p.xrs" XRS
 
--- | Case 1, and the measured one: rustc's `.xrs:2:7` is the `+`, and the
--- | `.sdx`'s `+` is at line 2 column 5.
 test "narrows to the exact character on a verbatim line"
   d = run $ &message_at 2 7
   assert_eq! \-> d.path \-> "p.sdx"
@@ -90,14 +47,11 @@ test "narrows to the exact character on a verbatim line"
   assert_eq! \-> d.message \-> "cannot add `&str` to `i32`" \-> "rustc's message passes through"
   assert! \-> .is_none d.help
 
--- | Case 2: a column past the source line underlines the whole statement
--- | rather than clamping to a plausible-looking character.
 test "underlines the whole span when the column misses"
   d = run $ &message_at 2 99
   assert_eq! \-> d.span \-> (33, 40)
   assert_eq! \-> &SDX[d.span.0 .. d.span.1] \-> "a + \"x\""
 
--- | Case 3: a synthetic line is reported against the `.xrs`, with a note.
 test "reports a synthetic line against the generated file"
   d = run $ &message_at 3 1
   assert_eq! \-> d.path \-> "p.xrs"
@@ -106,15 +60,181 @@ test "reports a synthetic line against the generated file"
   assert! \-> .contains "Redox generated" help \-> "#{help}"
   assert! \-> .contains "p.xrs:3:1" help \-> "#{help}"
 
--- | A line past the map's end is not relocated either.
 test "reports an unmapped line against the generated file"
   d = run $ &message_at 99 1
   assert_eq! \-> d.path \-> "p.xrs"
 
--- | A diagnostic rustc gave no code for still carries its level, so the
--- | rendered output never prints an empty `error[]`.
 test "falls back to the level when rustc gave no code"
   mut m = message_at 2 7
   m.code := None
   m.level := .to_string "warning"
   assert_eq! \-> .text (run (&m)).code \-> "warning"
+
+export(crate) char_offset : &str -> usize -> usize -> Option<usize>
+char_offset source line col =
+  if line == 0 || col == 0
+    return None
+  mut offset = 0
+  for pair in .enumerate (.lines source)
+    n = pair.0
+    text = pair.1
+    if n + 1 == line
+      if .count (.chars text) < col - 1
+        return None
+      within : usize = text
+        |> .chars
+        |> .take (col - 1)
+        |> .map char::len_utf8
+        |> .sum
+      return Some (offset + within)
+    offset += .len text + 1
+  None
+
+#[cfg(test)]
+const SRC_CHAR_OFFSET : &str = "ab\n  cd\n"
+
+test "resolves a position"
+  assert_eq! \-> char_offset SRC_CHAR_OFFSET 1 1 \-> Some 0
+  assert_eq! \-> char_offset SRC_CHAR_OFFSET 2 3 \-> Some 5
+  assert_eq! \-> &SRC_CHAR_OFFSET[5 .. 7] \-> "cd"
+
+test "allows the position just past a line"
+  assert_eq! \-> char_offset SRC_CHAR_OFFSET 1 3 \-> Some 2
+
+test "declines a column past the line"
+  assert_eq! \-> char_offset SRC_CHAR_OFFSET 1 9 \-> None
+
+test "declines a line past the text"
+  assert_eq! \-> char_offset SRC_CHAR_OFFSET 9 1 \-> None
+
+test "declines a zero line or column"
+  assert_eq! \-> char_offset SRC_CHAR_OFFSET 0 1 \-> None
+  assert_eq! \-> char_offset SRC_CHAR_OFFSET 1 0 \-> None
+
+test "counts characters and returns bytes"
+  assert_eq! \-> char_offset "é x\n" 1 2 \-> Some 2
+  assert_eq! \-> &"é x\n"[2 .. 3] \-> " "
+
+export(crate) generated_offset : &str -> usize -> usize -> usize
+generated_offset source line col =
+  .unwrap_or_else (\-> .saturating_sub 1 (.len source)) $ char_offset source line col
+
+#[cfg(test)]
+const SRC_GENERATED_OFFSET : &str = "fn main() {\n}\n"
+
+test "resolves a real position"
+  assert_eq! \-> generated_offset SRC_GENERATED_OFFSET 2 1 \-> 12
+  assert_eq! \-> .next (.chars SRC_GENERATED_OFFSET[12 .. 13]) \-> Some '}'
+
+test "clamps a position past the end"
+  assert_eq! \-> generated_offset SRC_GENERATED_OFFSET 99 99 \-> .len SRC_GENERATED_OFFSET - 1
+
+test "survives an empty source"
+  assert_eq! \-> generated_offset "" 1 1 \-> 0
+
+export(crate) narrow : Span -> &str -> usize -> usize -> Span
+narrow span source line col =
+  guard char_offset source line col is Some offset else
+    return span
+  if offset < span.0 || offset >= span.1
+    return span
+  n = .len source
+  width = .map_or 1 char::len_utf8 (.next (.chars source[offset .. n]))
+  (offset, offset + width)
+
+#[cfg(test)]
+const SRC_NARROW : &str = "add = (a: i32, b: i32): i32 ->\n  a + \"x\"\n"
+
+#[cfg(test)]
+const SPAN : (usize, usize) = (33, 40)
+
+test "narrows to one character inside the span"
+  got = narrow SPAN SRC_NARROW 2 5
+  assert_eq! \-> &SRC_NARROW[got.0 .. got.1] \-> "+"
+
+test "keeps the span when the column is past the line"
+  assert_eq! \-> narrow SPAN SRC_NARROW 2 99 \-> SPAN
+
+test "keeps the span when the position is elsewhere"
+  assert_eq! \-> narrow SPAN SRC_NARROW 1 1 \-> SPAN
+
+test "keeps the span when the line does not exist"
+  assert_eq! \-> narrow SPAN SRC_NARROW 99 1 \-> SPAN
+
+test "narrows to a whole multibyte character"
+  src = "x : ()\nx =\n  é\n"
+  span = (13, 15)
+  assert_eq! \-> &src[span.0 .. span.1] \-> "é" \-> "the premise of this test"
+  got = narrow span src 3 3
+  assert_eq! \-> &src[got.0 .. got.1] \-> "é"
+
+export data RustcMessage = RustcMessage {
+  export path : String,
+  export line : usize,
+  export col : usize,
+  export level : String,
+  export code : Option<String>,
+  export message : String,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+instance RustcMessage
+  export parse : &str -> Option<Self>
+  parse line =
+    head = (.split_once ": " line)?
+    position = head.0
+    rest = head.1
+
+    tail = (.rsplit_once ':' position)?
+    col : usize = (.ok (.parse tail.1))?
+    stem = (.rsplit_once ':' tail.0)?
+    line_no : usize = (.ok (.parse stem.1))?
+
+    labelled = (.split_once ": " rest)?
+    label = labelled.0
+    message = labelled.1
+    bracketed = .split_once '[' label
+    level = .map_or label (\parts -> parts.0) (.as_ref bracketed)
+    code = .map (\parts -> .to_string (.trim_end_matches ']' parts.1)) (.as_ref bracketed)
+    if level != "error" && level != "warning"
+      return None
+
+    Some (RustcMessage { path = .to_string stem.0, line = line_no, col, level = .to_string level, code, message = .to_string message })
+
+  export is_error : &self -> bool
+  is_error self = self.level == "error"
+
+test "parses a coded error"
+  m = .expect "should parse" $ RustcMessage::parse ".tmp/typeerr.xrs:6:24: error[E0308]: mismatched types: expected `i32`, found `&str`"
+  assert_eq! \-> m.path \-> ".tmp/typeerr.xrs"
+  assert_eq! \-> (m.line, m.col) \-> (6, 24)
+  assert_eq! \-> m.level \-> "error"
+  assert_eq! \-> .as_deref m.code \-> Some "E0308"
+  assert_eq! \-> m.message \-> "mismatched types: expected `i32`, found `&str`" \-> "the message keeps rustc's own colons"
+  assert! \-> .is_error m
+
+test "keeps a message containing a colon"
+  m = .expect "should parse" $ RustcMessage::parse ".tmp/tail.xrs:2:7: error[E0277]: cannot add `&str` to `i32`: no implementation for `i32 + &str`"
+  assert_eq! \-> m.message \-> "cannot add `&str` to `i32`: no implementation for `i32 + &str`"
+
+test "parses an uncoded warning"
+  m = .expect "should parse" $ RustcMessage::parse "main.xrs:3:9: warning: unused variable: `x`"
+  assert_eq! \-> m.level \-> "warning"
+  assert_eq! \-> m.code \-> None
+  assert_eq! \-> m.message \-> "unused variable: `x`"
+  assert! \-> !.is_error m
+
+test "declines the summary line"
+  assert_eq! \-> RustcMessage::parse "error: aborting due to 1 previous error" \-> None
+
+test "declines an unpositioned note"
+  assert_eq! \-> RustcMessage::parse "note: run with `RUST_BACKTRACE=1`" \-> None
+  assert_eq! \-> RustcMessage::parse "" \-> None
+
+test "survives a colon in the path"
+  m = .expect "should parse" $ RustcMessage::parse "C:\\out\\main.xrs:6:24: error[E0308]: mismatched types"
+  assert_eq! \-> m.path \-> "C:\\out\\main.xrs"
+  assert_eq! \-> (m.line, m.col) \-> (6, 24)
+
+test "declines an unknown level"
+  assert_eq! \-> RustcMessage::parse "main.xrs:1:1: help: try this" \-> None

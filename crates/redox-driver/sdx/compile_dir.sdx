@@ -1,57 +1,168 @@
-import crate::cache::reporter::silent::Silent
-import crate::compile_dir::compiled::Compiled
-import crate::compile_dir::with::compile_dir_with
+import crate::cache::CacheReporter
+import crate::cache::Cached
+import crate::cache::Fingerprint
+import crate::cache::Silent
+import crate::cache::Store
+import crate::cache::cache_key
+import crate::check::diagnose
+import crate::check::io_diagnostic
 import redox_diag::Diagnostic
 import std::path::Path
+import std::path::PathBuf
 
--- | Compile one `.sdx` into `<out>/<stem>.rs`, with its map beside it.
-export(crate) module compile_file
--- | What a [`super::compile_dir`] run produced.
-export(crate) module compiled
--- | Every `.sdx` directly in a directory, sorted.
-export(crate) module sdx_in
--- | [`crate::compile_dir`], reporting each file's cache outcome.
-export(crate) module r#with
-
--- | Compile every `.sdx` in `src` to a `.rs` in `out`.
--- |
--- | Plan 09 (`docs/14 - 09 - Cargo Integration.md`) leaf 1. This is the entry
--- | point a user's `build.rs` calls, and the answer to doc 02 §6.6's open
--- | question about what a Redox project looks like:
--- |
--- | ```text
--- | // build.rs
--- | fn main() {
--- |   let out = std::env::var("OUT_DIR").expect("cargo sets OUT_DIR");
--- |   match redox_driver::compile_dir("src".as_ref(), out.as_ref()) {
--- |     Ok(compiled) => {
--- |       for line in compiled.rerun_directives() {
--- |         println!("{line}");
--- |       }
--- |     }
--- |     Err(diagnostics) => {
--- |       eprint!("{}", redox_diag::render(&diagnostics, true));
--- |       std::process::exit(1);
--- |     }
--- |   }
--- | }
--- | ```
--- |
--- | **`.rs`, not `.xrs`, and deliberately.** rustc accepts `.rs`; `.xrs` stays
--- | the canonical human-facing artifact that `redox build` writes for reading
--- | and review (doc 02 §6.6). The map sidecar is written beside the `.rs` so
--- | plan 07's remapping works through a cargo build.
--- |
--- | **Every error, not the first.** A crate with three bad files reports all
--- | three, because a build script runs once and a user who has to fix one error
--- | per `cargo build` is being made to pay for the compiler's convenience.
--- |
--- | Errors are returned as [`Diagnostic`]s rather than rendered text: the caller
--- | chooses the renderer, and a build script wants the plain one because
--- | Cargo's output is not a terminal.
--- |
--- | Plan 10 added the cache **behind this signature**, as plan 09 §1.1 promised
--- | it would: a caller sees no difference except speed. Use
--- | [`compile_dir_with`] to observe the hits and misses.
 export compile_dir : &Path -> &Path -> Result<Compiled, Vec<Diagnostic>>
 compile_dir src out = compile_dir_with src out (&Silent)
+
+export(crate) compile_file : &Path -> &Path -> &Store -> &Fingerprint -> Result<Outcome, Vec<Diagnostic>>
+compile_file source out store fingerprint =
+  path = source |> .display |> .to_string
+  text = (.map_err (\e -> vec! \-> io_diagnostic (&path) (format! \-> "cannot read #{path}: #{e}")) (std::fs::read_to_string source))?
+
+  key = cache_key (&text) fingerprint
+  if .get (&key) store is Some hit
+    cached = (write_outputs source out (&path) (&hit))?
+    return Ok (Outcome { written = cached, was_cached = true })
+
+  program = (.map_err (\failure -> diagnose source (&text) (&failure)) (redox_parser::parse_source (&text)))?
+  emitted = redox_emit::emit_with_map (&program) (&text) (&path)
+  fresh = Cached { r#rust = emitted.0, map = redox_diag::render_map (&emitted.1) }
+
+  written = (write_outputs source out (&path) (&fresh))?
+  .put (&key) (&fresh) store
+  Ok (Outcome { written, was_cached = false })
+
+export(crate) data Outcome = Outcome {
+  export(crate) written : PathBuf,
+  export(crate) was_cached : bool,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export(crate) write_outputs : &Path -> &Path -> &str -> &Cached -> Result<PathBuf, Vec<Diagnostic>>
+write_outputs source out path content =
+  stem = .map_or_else (\-> .to_string "generated") (\s -> .to_string (.to_string_lossy s)) (.file_stem source)
+  target = .join (format! \-> "#{stem}.rs") out
+
+  out_shown = out |> .display |> .to_string
+  (.map_err (\e -> vec! \-> io_diagnostic path (format! \-> "cannot create #{out_shown}: #{e}")) (std::fs::create_dir_all out))?
+  target_shown = target |> .display |> .to_string
+  (.map_err (\e -> vec! \-> io_diagnostic path (format! \-> "cannot write #{target_shown}: #{e}")) (std::fs::write (&target) (&content.r#rust)))?
+
+  mut map_name = .to_os_string (.expect "a name" (.file_name target))
+  map_name |> .push ".map"
+  sidecar = .with_file_name map_name target
+  sidecar_shown = sidecar |> .display |> .to_string
+  (.map_err (\e -> vec! \-> io_diagnostic path (format! \-> "cannot write #{sidecar_shown}: #{e}")) (std::fs::write (&sidecar) (&content.map)))?
+
+  Ok target
+
+export data Compiled = Compiled {
+  export inputs : Vec<PathBuf>,
+  export outputs : Vec<PathBuf>,
+}
+  deriving (Debug, Clone, Default, PartialEq, Eq)
+
+instance Compiled
+  export rerun_directives : &self -> Vec<String>
+  rerun_directives self =
+    self.inputs
+      |> .iter
+      |> .map (\p ->
+      shown = .display p
+      format! \-> "cargo::rerun-if-changed=#{shown}")
+      |> .collect
+
+  export is_empty : &self -> bool
+  is_empty self = .is_empty self.inputs
+
+test "names every input for cargo"
+  compiled = Compiled { inputs = vec! \-> PathBuf::from "src/a.sdx" \-> PathBuf::from "src/b.sdx", outputs = vec! \-> PathBuf::from "out/a.rs" \-> PathBuf::from "out/b.rs" }
+  assert_eq! \-> .rerun_directives compiled \-> vec! \-> "cargo::rerun-if-changed=src/a.sdx" \-> "cargo::rerun-if-changed=src/b.sdx"
+
+test "an empty run asks for no reruns"
+  empty = Compiled::default ()
+  directives = .rerun_directives empty
+  assert! \-> .is_empty directives
+  assert! \-> .is_empty empty
+
+export(crate) sdx_in : &Path -> Vec<PathBuf>
+sdx_in dir =
+  guard std::fs::read_dir dir is Ok entries else
+    return Vec::new ()
+  mut found : Vec<PathBuf> = entries
+    |> .filter_map Result::ok
+    |> .map (\e -> .path e)
+    |> .filter (\p -> .is_file p && .is_some_and (\x -> x == "sdx") (.extension p))
+    |> .collect
+  .sort found
+  found
+
+#[cfg(test)]
+static NEXT : std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new 0
+
+#[cfg(test)]
+data Dir = Dir std::path::PathBuf
+
+#[cfg(test)]
+instance Dir
+  r#with : &str -> &[&str] -> Self
+  r#with tag names =
+    n = .fetch_add 1 std::sync::atomic::Ordering::Relaxed NEXT
+    pid = std::process::id ()
+    dir = .join (format! \-> "redox-sdx-in-#{tag}-#{pid}-#{n}") (std::env::temp_dir ())
+    .expect "should create" $ std::fs::create_dir_all (&dir)
+    for name in names
+      .expect "should write" $ std::fs::write (.join name dir) "main : ()\nmain =\n  println! \\-> \"\#{1}\"\n"
+    Dir dir
+
+#[cfg(test)]
+instance Drop Dir
+  drop : &mut self -> ()
+  drop self =
+    _dropped = .ok $ std::fs::remove_dir_all (&self.0)
+    ()
+
+test "finds sdx files and sorts them"
+  dir = Dir::r#with "sorted" (&["b.sdx", "a.sdx", "c.sdx"])
+  found : Vec<String> = sdx_in (&dir.0)
+    |> .iter
+    |> .map (\p -> .to_string (.to_string_lossy (.expect "a name" (.file_name p))))
+    |> .collect
+  assert_eq! \-> found \-> vec! \-> "a.sdx" \-> "b.sdx" \-> "c.sdx"
+
+test "ignores other extensions"
+  dir = Dir::r#with "mixed" (&["keep.sdx", "skip.rs", "skip.xrs", "skip.md"])
+  assert_eq! \-> .len (sdx_in (&dir.0)) \-> 1
+
+test "yields nothing for a missing directory"
+  found = sdx_in $ std::path::Path::new "/nonexistent/redox"
+  assert! \-> .is_empty found
+
+test "yields nothing for an empty directory"
+  dir = Dir::r#with "empty" (&[])
+  found = sdx_in (&dir.0)
+  assert! \-> .is_empty found
+
+export compile_dir_with : &Path -> &Path -> &dyn CacheReporter -> Result<Compiled, Vec<Diagnostic>>
+compile_dir_with src out reporter =
+  store = Store::new out
+  fingerprint = Fingerprint::current ()
+
+  mut compiled = Compiled::default ()
+  mut diagnostics = Vec::new ()
+
+  for source in sdx_in src
+    label = .map_or_else String::new (\n -> .to_string (.to_string_lossy n)) (.file_name source)
+
+    case compile_file (&source) out (&store) (&fingerprint) of
+      Ok outcome ->
+        .report (&label) outcome.was_cached reporter
+        .push source compiled.inputs
+        .push outcome.written compiled.outputs
+      Err reported ->
+        .report (&label) false reporter
+        .extend reported diagnostics
+
+  if .is_empty diagnostics
+    Ok compiled
+  else
+    Err diagnostics
