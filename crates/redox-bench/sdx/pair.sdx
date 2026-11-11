@@ -1,0 +1,26 @@
+-- | Every pair under `benchmarks/pairs/`, sorted by stem.
+export(crate) module pairs
+
+import std::path::PathBuf
+
+-- | One lowering, as the `.sdx` that produces it and the `.rs` a competent Rust
+-- | author writes for the same job.
+-- |
+-- | Plan 44 §1.3 narrows the corpus to the lowerings that generate **more** than
+-- | the author wrote. For a syntactic lowering — `x |> f` becoming `x.f()` — the
+-- | generated Rust *is* what a human writes, so comparing them measures rustc
+-- | rather than Redox.
+export data Pair = Pair {
+  -- | The pair's filename stem, which names the pair and nothing else.
+  export stem : String,
+  -- | The function both halves define, **discovered** from the hand-written
+  -- | half rather than derived from the stem. `pairs`' doc records why, and
+  -- | that a mismatch is silent in the dangerous direction.
+  export function : String,
+  export sdx : PathBuf,
+  -- | `r#rust`, because **`rust` is a keyword** — plan 64 gave it the
+  -- | layout-delimited escape hatch. The raw form is the same identifier
+  -- | in Rust, so `tests/zero_cost.rs` still reads `pair.rust`.
+  export r#rust : PathBuf,
+}
+  deriving (Debug, Clone)

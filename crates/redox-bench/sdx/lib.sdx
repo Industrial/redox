@@ -1,0 +1,58 @@
+-- The third lint about a Rust form Redox cannot write, after
+-- `match_like_matches_macro` and `single_match`: `while let Some(x) = …`
+-- binds a **pattern**, and Redox cannot pass one. `alpha_renamed` is a
+-- `loop` with a `case` whose `None` arm breaks, which says the same thing
+-- in the constructs the language has.
+#![allow(clippy::while_let_loop)]
+
+-- Plan 55 §1.6 requires a `()`-returning body to **end with `()`** rather
+-- than implying it, so a body ending in a loop or an assignment cannot
+-- become `()` by arriving last. clippy reads that `()` as a statement with
+-- no effect, and names it `unused_unit` where it closes a body.
+--
+-- The **sixth** crate to say so. Plan 75 §2.4 already called repeating
+-- this paragraph the wrong answer; it has now happened once more, and the
+-- decision is owed either a workspace-level allow or a change to §1.6.
+#![allow(clippy::no_effect)]
+
+#![allow(clippy::unused_unit)]
+-- ! `redox-bench` — doc 03's zero-cost claim, measured.
+-- !
+-- ! Plan 44 (`docs/38 - 44 - Zero-cost Benchmarks.md`). Two things, in two
+-- ! categories, and the split is §1.2's correction to the row's own register
+-- ! cell:
+-- !
+-- ! | What | How |
+-- ! |---|---|
+-- ! | Generated versus hand-written Rust | **identical optimised IR**, asserted in the gate |
+-- ! | Transpile throughput | timed, reported in `benchmarks/REPORT.md` |
+-- !
+-- ! # Why not a timing comparison
+-- !
+-- ! Doc 04's row says *"asserted within noise"*. A timing assertion is a flaky
+-- ! gate: plan 23 §10.8, doc 30 §8.7 and plan 43 §10.3 are three rows that
+-- ! wrote *unexplained* into their results because a gate failed for a
+-- ! load-dependent reason.
+-- !
+-- ! Identical optimised IR is deterministic, exact — *within noise* becomes
+-- ! *identical*, which is the claim doc 03 makes — and actionable, because a
+-- ! timing regression says *slower* where an IR diff says **what was added**.
+-- !
+-- ! What it is not is a runtime measurement, and §6 says so: identical IR is
+-- ! sufficient for zero cost, and a timing comparison is not necessary once you
+-- ! have it.
+
+export module ir
+export module pair
+-- | How long transpiling a source takes, averaged over several runs.
+module throughput
+
+export import ir::function_ir::function_ir
+-- Plan 50 leaf 1: this crate had its **own** `rustc_path` and its own
+-- `build.rs`, the latter identical to `redox-cli`'s but for the doc comments.
+-- Both are gone; the driver owns the resolution and this is a re-export so
+-- the crate's public surface is unchanged.
+export import pair::Pair
+export import pair::pairs::pairs
+export import redox_driver::rustc_path
+export import throughput::throughput

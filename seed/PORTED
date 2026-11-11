@@ -14,3 +14,4 @@ redox-lexer 74
 redox-ast 68
 redox-fmt 69
 redox-fuzz 75
+redox-bench 76

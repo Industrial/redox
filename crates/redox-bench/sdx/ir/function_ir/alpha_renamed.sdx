@@ -1,0 +1,69 @@
+-- | One function body with its local value names renumbered by first
+-- | appearance.
+-- |
+-- | # Why this normalisation is safe and the one decision 5 declined is not
+-- |
+-- | LLVM local names carry the Rust binding's name, so the generated
+-- | `Ok(__rdx_v) => __rdx_v` and the hand-written `Ok(value) => value` differ by
+-- | `%__rdx_v.sroa.0.0` against `%value.sroa.0.0` — and by nothing else. The
+-- | `catch` pair's 240-line body differed in exactly those two lines.
+-- |
+-- | That is a **binding name**, not a cost. Renaming locals to `%0`, `%1`, …
+-- | in order of first appearance is an alpha-renaming, and alpha-equivalence is
+-- | precisely the equivalence doc 03's claim means.
+-- |
+-- | It is also structure-preserving, which is what separates it from the
+-- | normalisation plan 44 decision 5 declined. The numbering follows **first
+-- | use**, so two bodies that use their values in a different order get
+-- | different numbers and still differ. Decision 5 declined normalising
+-- | *symbol* names — a hash of the crate and path — because that is a filter
+-- | over something a real difference could hide behind; the crate name is held
+-- | constant instead. A local's name cannot hide anything, because there is
+-- | nothing in it.
+export(crate) alpha_renamed : &str -> String
+alpha_renamed body =
+  mut names : Vec<String> = Vec::new ()
+  mut out = String::with_capacity (.len body)
+  mut rest = body
+  -- A `loop` with a `case` where the Rust had `while let Some(at) = …`.
+  loop
+    at = case .find '%' rest of
+      Some a -> a
+      None ->
+        break
+    -- **Closed ranges throughout.** A parenthesised half-open range is an
+    -- operator section — `(at..)` is `|x| at .. x` — so each of the four
+    -- slices in this loop names both ends. None of the fallbacks can fire:
+    -- `at` came from `find` and `end` is clamped to the length.
+    -- Piped: `at` above binds a block, and a `.name` statement after one is
+    -- read as field access on it.
+    out |> .push_str (.unwrap_or "" (.get (0 .. at) rest))
+    rest := .unwrap_or "" (.get (at + 1 .. .len rest) rest)
+    -- **`.char_indices` where the Rust wrote `find(|c: char| …)`.** A Redox
+    -- lambda parameter is a bare name, so the annotation that call needs has
+    -- no spelling — and `char_indices` removes the need for one: `p.1` is a
+    -- `char`, and `p.0` is the **byte** index `str::find` would have returned,
+    -- so this is the same answer rather than a near one.
+    found = rest
+      |> .char_indices
+      |> .find (\p -> !(.is_alphanumeric p.1 || p.1 == '_' || p.1 == '.' || p.1 == '-'))
+      |> .map (\p -> p.0)
+    end = .unwrap_or (.len rest) found
+    name = .unwrap_or "" (.get (0 .. end) rest)
+    -- A purely numeric local is already canonical and keeps its own name:
+    -- renumbering it would renumber it to something else and make two
+    -- identical bodies differ.
+    if .all (\c -> .is_ascii_digit c) (.chars name)
+      .push '%' out
+      .push_str name out
+    else
+      index = case .position (\seen -> seen == name) (.iter names) of
+        Some i -> i
+        None ->
+          .push (.to_string name) names
+          .len names - 1
+      -- Piped: the line above binds a block.
+      out |> .push_str (&format! \-> "%v#{index}")
+    rest := .unwrap_or "" (.get (end .. .len rest) rest)
+  out |> .push_str rest
+  out

@@ -1,0 +1,47 @@
+-- | The source with the compared function marked so rustc must emit it.
+-- |
+-- | # Why this is necessary, and what it replaced
+-- |
+-- | An rlib at `-O` does **not** codegen a `pub fn` at all: the function is
+-- | stored as MIR for a downstream crate to inline, and `--emit=llvm-ir`
+-- | produces a module with no `define` for it. Zero definitions, for both
+-- | halves — and two empty bodies compare equal, which is a vacuous pass. The
+-- | test's non-empty assertion is what caught it, and is why that assertion
+-- | exists.
+-- |
+-- | `#[no_mangle]` forces the symbol to be emitted and exported.
+-- | `#[inline(never)]` keeps it whole. Together they make the function
+-- | something rustc has to produce.
+-- |
+-- | `no_mangle` also makes the comparison **simpler** than plan 44 decision 5
+-- | planned: the symbol becomes literally the function's name, with no crate
+-- | name or path hash in it, so holding `--crate-name` constant stops being
+-- | what makes the two sides comparable. The flag stays anyway — it costs
+-- | nothing and it keeps the reasoning true if the marking ever changes.
+-- |
+-- | `-Ccodegen-units=1` stays for a different reason, which the flag's own
+-- | comment records: with several units rustc writes one `.ll` per unit and
+-- | `-o` names only one of them.
+export(crate) mark_target : &str -> &str -> String
+mark_target source name =
+  signature = format! \-> "fn #{name}("
+  pub_signature = format! \-> "pub #{signature}"
+  -- A `for` loop where the Rust had a `map` over a multi-statement closure.
+  -- The closure's body binds twice and branches, which reads better as
+  -- statements than as a lambda inside a pipeline — and it avoids a
+  -- block-bodied lambda in argument position entirely.
+  mut parts : Vec<String> = Vec::new ()
+  for line in .lines source
+    trimmed = .trim_start line
+    if .starts_with (&signature) trimmed || .starts_with (&pub_signature) trimmed
+      body = if .starts_with "pub " trimmed
+        .to_string line
+      else
+        format! \-> "pub #{line}"
+      -- Piped: the line above binds a block, and a `.name` statement after one
+      -- is read as field access on it.
+      parts
+        |> .push (format! \-> "#[no_mangle]\n#[inline(never)]\n#{body}")
+    else
+      .push (.to_string line) parts
+  .join "\n" parts

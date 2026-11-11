@@ -21,7 +21,7 @@ plan 64 changed its answer.
 
 **Almost — and what is left is the `as` cast.**
 
-**6 blocking occurrences**, down from 964 — and the construct that was 952 of them is gone. Plan 48 measured macro invocation at 99% of the obstacle and wrote *"spell it, and what remains is the `as` casts below"*; plan 64 spelled it, as `name! \-> e`, and this is what remained.
+**4 blocking occurrences**, down from 964 — and the construct that was 952 of them is gone. Plan 48 measured macro invocation at 99% of the obstacle and wrote *"spell it, and what remains is the `as` casts below"*; plan 64 spelled it, as `name! \-> e`, and this is what remained.
 
 That is the whole arc of the measurement in three rows: plan 45 §1.5 **found** the gap and declined to spell it because it needed a surface decision in doc 03; plan 48 **priced** it, which is what made the decision worth taking; plan 64 **took** it. A count is what turned an unreachability note into a priority.
 
@@ -35,7 +35,7 @@ Each is graded `UNREACHABLE` in `docs/GRAMMAR.md`.
 
 | Blocker | Occurrences |
 |---|---:|
-| `as` cast | 6 |
+| `as` cast | 4 |
 | `unsafe trait` | 0 |
 | `unsafe impl` | 0 |
 | `extern "C" fn` | 0 |
@@ -53,7 +53,7 @@ Each is graded `UNREACHABLE` in `docs/GRAMMAR.md`.
 | Crate | Files | With a blocker | |
 |---|---:|---:|---:|
 | `redox-ast` | 53 | 0 | 0% |
-| `redox-bench` | 13 | 1 | 8% |
+| `redox-bench` | 13 | 0 | 0% |
 | `redox-cli` | 24 | 0 | 0% |
 | `redox-diag` | 21 | 0 | 0% |
 | `redox-driver` | 48 | 1 | 2% |
@@ -65,17 +65,17 @@ Each is graded `UNREACHABLE` in `docs/GRAMMAR.md`.
 | `redox-mcp` | 19 | 0 | 0% |
 | `redox-parser` | 117 | 1 | 1% |
 | `redox-seed` | 6 | 0 | 0% |
-| **total** | **528** | **5** | **1%** |
+| **total** | **528** | **4** | **1%** |
 
 ---
 
-## Five crates are no longer a count
+## Six crates are no longer a count
 
-The table above measures what *could* be ported. Five crates **have** been, and for them the question is settled by rustc rather than by a blocker count: `redox-diag` (plan 73), `redox-lexer` (plan 74), `redox-ast` (plan 68), `redox-fmt` (plan 69) and `redox-fuzz` (plan 75) are written in Redox, their `.sdx` living in `crates/<crate>/sdx/` beside the `src/` it generates, and the generated Rust is compiled as part of the workspace.
+The table above measures what *could* be ported. Six crates **have** been, and for them the question is settled by rustc rather than by a blocker count: `redox-diag` (plan 73), `redox-lexer` (plan 74), `redox-ast` (plan 68), `redox-fmt` (plan 69), `redox-fuzz` (plan 75) and `redox-bench` (plan 76) are written in Redox, their `.sdx` living in `crates/<crate>/sdx/` beside the `src/` it generates, and the generated Rust is compiled as part of the workspace.
 
-So **the compiler is now partly compiled from Redox** — 170 files of it. That corrects what this document said until plan 70: *"nothing in the build depends on `conformance/`, and the compiler is not compiled from it"*, which was true when plan 48 lifted one 45-line module out of a crate and checked it with `syn`, and stopped being true the moment a whole crate's `src/` was generated.
+So **the compiler is now partly compiled from Redox** — 183 files of it. That corrects what this document said until plan 70: *"nothing in the build depends on `conformance/`, and the compiler is not compiled from it"*, which was true when plan 48 lifted one 45-line module out of a crate and checked it with `syn`, and stopped being true the moment a whole crate's `src/` was generated.
 
-Plan 48's probe is retired with that sentence. `conformance/clause.sdx` was `clause.rs` expressed in Redox and checked by `syn::parse_file`, because one module lifted out of a crate cannot resolve `crate::Stmt`; the real port has no extraction to concede to, so the weaker oracle expired. Its no-escape-hatch assertion now runs over all 170 files in `port.rs`.
+Plan 48's probe is retired with that sentence. `conformance/clause.sdx` was `clause.rs` expressed in Redox and checked by `syn::parse_file`, because one module lifted out of a crate cannot resolve `crate::Stmt`; the real port has no extraction to concede to, so the weaker oracle expired. Its no-escape-hatch assertion now runs over all 183 files in `port.rs`.
 
 What it found still stands, and is the reason doc 02 §4.8 expected a port to be worth doing: every field doc comment was silently discarded, and `redox fmt` deleted them from the source, because the lexer classified a comment opening a continuation line as *trailing* the previous line and then held it for a `Newline` a continuation never produces. Plans 68 and 69 found three more of that class and two formatter defects, and plan 73 four more in the toolchain that writes the port.
 
@@ -83,4 +83,4 @@ What it found still stands, and is the reason doc 02 §4.8 expected a port to be
 
 ## The Rust implementation is permanent
 
-Doc 02 §4.8 corrects doc 01 §34's own wording: keep the Rust implementation *"permanently rather than as a 'fallback'"*. The eight crates that are not ported are hand-written Rust and stay that way until a row says otherwise; the five that are ported keep their generated Rust **committed**, which is what doc 02 §4.8 means by *"commit the generated `.xrs` so the bootstrap never breaks"* — the committed output is the previous-version compiler every self-hosting language needs, stored as reviewable source rather than as a binary.
+Doc 02 §4.8 corrects doc 01 §34's own wording: keep the Rust implementation *"permanently rather than as a 'fallback'"*. The seven crates that are not ported are hand-written Rust and stay that way until a row says otherwise; the six that are ported keep their generated Rust **committed**, which is what doc 02 §4.8 means by *"commit the generated `.xrs` so the bootstrap never breaks"* — the committed output is the previous-version compiler every self-hosting language needs, stored as reviewable source rather than as a binary.
