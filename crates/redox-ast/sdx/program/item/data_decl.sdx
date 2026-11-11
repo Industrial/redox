@@ -28,6 +28,18 @@ import redox_lexer::{Span, Trivia}
 -- | standalone keyword becomes `deriving` as a clause of the declaration.
 export data DataDecl = DataDecl {
   export name : Ident,
+  -- | The generic list, **synthesised** from the constructors' field types —
+  -- | doc 18 §5.3's "type variables need no declaration … the generic list is
+  -- | the order of their first appearance, lifetimes included".
+  -- |
+  -- | Plan 74 added it, and the gap it closed is worth stating: that rule was
+  -- | already applied to a *signature*, by `generalise`, and to an `instance`
+  -- | *target*, by `TypeApp::vars` — and nowhere to a declaration. So
+  -- | `data Cursor = Cursor { src : &'a str }` emitted
+  -- | `struct Cursor { src: &'a str }`, which rustc rejects for an undeclared
+  -- | lifetime. Nothing new is written in the source; the third of three
+  -- | places the same rule belongs simply had it missing.
+  export generics : Vec<String>,
   -- | One or more, in source order.
   export constructors : Vec<Constructor>,
   -- | The `deriving (…)` list, which becomes `#[derive(…)]`.

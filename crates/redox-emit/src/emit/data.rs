@@ -40,6 +40,16 @@ pub(crate) fn emit_data(out: &mut Sink<'_>, d: &DataDecl, indent: usize) {
     _ => false,
   };
 
+  // Doc 18 §5.3's synthesised list, in the one slot all three shapes share.
+  // Empty for a declaration with no type variables, which is almost all of
+  // them — so `data Point = Point { x : f64 }` emits exactly the Rust it
+  // emitted before plan 74 existed.
+  let params = if d.generics.is_empty() {
+    String::new()
+  } else {
+    format!("<{}>", d.generics.join(", "))
+  };
+
   if as_struct {
     let fields = d
       .constructors
@@ -77,7 +87,7 @@ pub(crate) fn emit_data(out: &mut Sink<'_>, d: &DataDecl, indent: usize) {
     // is the whole argument for it riding on `data` rather than being a
     // declaration of its own.
     out.push_str(&format!(
-      "{}{} {}",
+      "{}{} {}{params}",
       d.visibility.rust_text(),
       if d.is_union { "union" } else { "struct" },
       d.name.text
@@ -88,7 +98,7 @@ pub(crate) fn emit_data(out: &mut Sink<'_>, d: &DataDecl, indent: usize) {
 
   pad(out, indent);
   out.push_str(&format!(
-    "{}enum {} {{\n",
+    "{}enum {}{params} {{\n",
     d.visibility.rust_text(),
     d.name.text
   ));

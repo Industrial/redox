@@ -54,6 +54,14 @@ instance TypeApp
         .push (&a.text) seen
     seen
 
+  -- | Whether a name is a **lifetime**: it opens with `'`.
+  -- |
+  -- | `'static` and `'_` are not, for the reasons `type_vars` records about
+  -- | the same two names: one needs no declaration, and the other must not
+  -- | have one — `fn f<'_>(…)` is `E0637: '_ cannot be used here`.
+  export is_lifetime : &str -> bool
+  is_lifetime text = .starts_with '\'' text && text != "'static" && text != "'_"
+
   -- | Whether a name is a type variable, which doc 18 §5.3 makes the case of
   -- | its first letter — with [`primitive_type`]'s correction, because `f64`
   -- | is lowercase and concrete.
@@ -61,13 +69,27 @@ instance TypeApp
   -- | The correction arrived with plan 67: `instance Convert f64 Meters` is
   -- | `impl Convert<f64> for Meters`, and the case of the first letter alone
   -- | made it `Convert<F64>`.
+  -- |
+  -- | **A lifetime counts**, which plan 74 added. Doc 18 §5.3 says the
+  -- | synthesised list includes lifetimes and this predicate asked only about
+  -- | the first letter's case, so `'a` was not a variable: `rust_text`
+  -- | printed `Cursor<'a>` and `generics` declared nothing, giving
+  -- | `impl Cursor<'a>` with an undeclared lifetime. The target and the list
+  -- | that must declare its arguments disagreed.
   export is_var : &str -> bool
-  is_var text = .is_some_and char::is_lowercase (.next (.chars text)) && !primitive_type text
+  is_var text =
+    if TypeApp::is_lifetime text
+      return true
+    .is_some_and char::is_lowercase (.next (.chars text)) && !primitive_type text
 
   -- | A type argument's Rust spelling: a variable uppercased, a concrete type
   -- | left alone.
   export rust_name : &str -> String
   rust_name text =
+    -- A lifetime is already its own Rust spelling, and `is_var` now says yes
+    -- to one — so without this it would come out `'A`.
+    if .starts_with '\'' text
+      return .to_string text
     if TypeApp::is_var text
       return .to_uppercase text
     .to_string text

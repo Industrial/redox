@@ -35,6 +35,8 @@ pub(crate) mod field_decl;
 pub(crate) mod field_init;
 pub(crate) mod flush_word;
 pub(crate) mod generalise;
+/// A declaration synthesises its generic list from its field types.
+pub(crate) mod generalise_data;
 pub(crate) mod holds_a_pattern_test;
 pub(crate) mod import_decl;
 pub(crate) mod import_path;
@@ -95,6 +97,8 @@ pub(crate) mod type_app;
 pub(crate) mod type_stop;
 pub(crate) mod type_vars;
 pub(crate) mod unary_op;
+/// A function type's grouping parentheses, removed.
+pub(crate) mod ungrouped;
 pub(crate) mod unit_tail;
 pub(crate) mod visibility;
 pub(crate) mod walk_item_for_tails;

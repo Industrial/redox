@@ -77,7 +77,33 @@ pub(crate) fn emit_application(callee: &Expr, args: &[Expr], indent: usize) -> S
   }
 
   let head = receiver(callee, indent);
+
+  // **A constructor applied to `()` passes unit.** `expr_list` collapses a
+  // lone unit argument to the empty list, because `f ()` is doc 18 §7's
+  // zero-argument call — and its doc comment accepts the trade that a
+  // function genuinely taking a `()` then cannot be called by juxtaposition,
+  // on the grounds that a unit parameter is rare. It is not: it is how every
+  // `Result<(), E>` function returns, and plan 74 found `return Ok (())`
+  // emitting `return Ok();` eleven times in `redox-lexer`.
+  //
+  // The two readings are told apart by the convention the language already
+  // runs on — the case of the first letter, which decides a type variable
+  // (doc 18 §5.3) and a constructor pattern's path (plan 68). An uppercase
+  // last segment is a constructor, so `Ok ()` is `Ok(())`; a lowercase one is
+  // a function, so `String::new ()` stays `String::new()`.
+  //
+  // Nothing takes this away: a unit struct is written `Marker` with no call,
+  // and `data` cannot declare a zero-field tuple struct.
+  let unit_argument = matches!(args, [Expr::Unit { .. }])
+    && head
+      .rsplit("::")
+      .next()
+      .is_some_and(|seg| seg.starts_with(char::is_uppercase));
+
   let Some(missing) = missing_arity(callee, args) else {
+    if unit_argument {
+      return format!("{head}(())");
+    }
     return format!("{head}({})", expr_list(args, indent));
   };
 

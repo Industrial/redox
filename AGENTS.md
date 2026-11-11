@@ -210,6 +210,16 @@ Within a crate, `src/` is flat and every file is one construct — see the first
 - **Public-API tests are integration tests** under `crates/<crate>/tests/`, not
   `#[cfg(test)]` modules. An inline test can reach private internals and eventually will.
   Inline tests are for private constructs only.
+- **A port counts the crate's tests, before and after.** `port.rs` compares the
+  `.sdx`'s doc comments against the generated Rust's, which is how plan 73 caught a
+  doubling — and it *structurally cannot* do the same for tests, because once a port
+  lands the pre-port Rust is gone. Plan 74 dropped `scan_number.rs`'s seven inline
+  tests by reading the file's body and stopping above its `mod tests`, and every gate
+  passed: the crate compiled, every test that existed ran, clippy was clean. The check
+  is `cargo nextest run -p <crate>` against the count at the commit the port's build
+  script is pinned to. **A check that compares generated output to its source cannot
+  see something absent from both.**
+
 - **Every `.sdx` fixture is a file, and tests reference files.** Never embed language source
   as a string literal in a Rust test. Emerald's one syntax cutover missed 113 fixtures that
   lived as string literals inside test modules; that cost is paid once per syntax change,

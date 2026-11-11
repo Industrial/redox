@@ -10,5 +10,6 @@
 # Order is dependency order, which is also the order to rebuild in: a crate's
 # `.sdx` may name types from a crate above it.
 redox-diag 73
+redox-lexer 74
 redox-ast 68
 redox-fmt 69

@@ -23,5 +23,59 @@ import crate::trivia::kind::TriviaKind
 -- | rule, and the stricter reading is taken deliberately so that `x --1` is
 -- | arithmetic rather than a silently truncated line. Recorded rather than
 -- | resolved silently, because real Haskell takes the looser reading.
+export(crate) scan_comment : &str -> Option<(TriviaKind, usize)>
+scan_comment rest =
+  after = (.strip_prefix "--" rest)?
 
--- TODO plan 68: hand-port from line 26
+  -- `-- |` and `-- !` are the doc forms. Checked before the generic rule
+  -- because the marker is what makes them comments at all.
+  --
+  -- `.is_some` rather than the Rust's `if let Some(body) = …` followed by
+  -- `let _ = body;`: the marker's presence is the whole answer, so the
+  -- binding and the discard that cancelled it both go.
+  if .is_some (.strip_prefix " |" after)
+    return Some (TriviaKind::DocComment, 4)
+  if .is_some (.strip_prefix " !" after)
+    return Some (TriviaKind::InnerDocComment, 4)
+
+  -- A plain line comment needs whitespace or the end of the line after the
+  -- dashes. A third dash is still a comment — `---` is a divider people write
+  -- — so an all-dash run counts as whitespace-terminated.
+  opens = case .next (.chars after) of
+    None -> true
+    Some c -> .is_whitespace c || c == '-'
+  -- Piped: the line above binds a block, and a `.name` statement after one is
+  -- read as field access on it.
+  opens |> .then_some (TriviaKind::LineComment, 2)
+
+test "a dash dash space opens a line comment"
+  assert_eq! \-> scan_comment "-- hello" \-> Some (TriviaKind::LineComment, 2)
+
+test "a bare dash dash at end of line opens one"
+  assert_eq! \-> scan_comment "--" \-> Some (TriviaKind::LineComment, 2)
+  assert_eq! \-> scan_comment "--\n" \-> Some (TriviaKind::LineComment, 2)
+
+-- | A divider is a comment, not an operator.
+test "a run of dashes opens one"
+  assert_eq! \-> scan_comment "-----" \-> Some (TriviaKind::LineComment, 2)
+
+test "the doc markers are recognised"
+  assert_eq! \-> scan_comment "-- | outer" \-> Some (TriviaKind::DocComment, 4)
+  assert_eq! \-> scan_comment "-- ! inner" \-> Some (TriviaKind::InnerDocComment, 4)
+
+-- | The hazard doc 18 §5.1 names, taken in the strict reading: this is
+-- | arithmetic, not a comment.
+test "dashes against a digit are not a comment"
+  assert_eq! \-> scan_comment "--1" \-> None
+
+test "dashes against an identifier are not a comment"
+  assert_eq! \-> scan_comment "--x" \-> None
+
+test "a single dash is not a comment"
+  assert_eq! \-> scan_comment "-" \-> None
+  assert_eq! \-> scan_comment "- 1" \-> None
+  assert_eq! \-> scan_comment "-> x" \-> None
+
+test "text that is not dashes is not a comment"
+  assert_eq! \-> scan_comment "hello" \-> None
+  assert_eq! \-> scan_comment "" \-> None

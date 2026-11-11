@@ -1,6 +1,6 @@
 use crate::ParseError;
 use crate::parse::parser::Parser;
-use redox_ast::TypeApp;
+use redox_ast::{Ident, TypeApp};
 use redox_lexer::TokenKind;
 
 /// Parse a juxtaposed type: `Counter`, `Wrapper t`, `(Pair k v)`.
@@ -19,8 +19,26 @@ pub(crate) fn type_app(p: &mut Parser) -> Result<TypeApp, ParseError> {
 
   let head = p.ident("expected a type name")?;
   let mut args = Vec::new();
-  while let Some(arg) = p.try_ident() {
-    args.push(arg);
+  loop {
+    if let Some(arg) = p.try_ident() {
+      args.push(arg);
+      continue;
+    }
+    // **A lifetime argument.** `'a` lexes as a `Label` and not an `Ident` —
+    // `scan_quote` reads `'name` as a lifetime or block label — so
+    // `instance (Cursor 'a)` was "expected `)` to close the type". The `'` is
+    // put back, because that is the name everything downstream compares and
+    // prints: `TypeApp::is_lifetime`, `is_var` and `rust_name` all read it.
+    if let TokenKind::Label(name) = &p.peek().kind {
+      let arg = Ident {
+        text: format!("\'{name}"),
+        span: p.peek_span(),
+      };
+      p.advance();
+      args.push(arg);
+      continue;
+    }
+    break;
   }
 
   if grouped {

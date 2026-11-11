@@ -20,10 +20,10 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 
 | Status | Rows |
 |---|---:|
-| `done` | 68 |
+| `done` | 69 |
 | `superseded` | 4 |
 | outstanding | 1 |
-| **total** | **73** |
+| **total** | **74** |
 
 `docs/04 - Redox Plan of Plans.md` is the register and the authority. **`done` is a register status, not a guarantee**: several rows record a later plan finding something they got wrong, which is why the register carries the correction and this table only counts.
 
@@ -33,20 +33,20 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 
 | Crate | `src` | `tests` |
 |---|---:|---:|
-| `redox-ast` | 3540 | 0 |
+| `redox-ast` | 3576 | 0 |
 | `redox-bench` | 597 | 217 |
 | `redox-cli` | 1376 | 9358 |
 | `redox-diag` | 1965 | 0 |
 | `redox-driver` | 2981 | 0 |
-| `redox-emit` | 6167 | 4441 |
+| `redox-emit` | 6203 | 4523 |
 | `redox-fmt` | 3028 | 1463 |
 | `redox-fuzz` | 124 | 292 |
-| `redox-lexer` | 3030 | 1196 |
+| `redox-lexer` | 3381 | 1196 |
 | `redox-lsp` | 934 | 502 |
 | `redox-mcp` | 808 | 776 |
-| `redox-parser` | 8020 | 609 |
+| `redox-parser` | 8223 | 609 |
 | `redox-seed` | 298 | 676 |
-| **total** | **32868** | **19530** |
+| **total** | **33494** | **19612** |
 
 ---
 

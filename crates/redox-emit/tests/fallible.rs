@@ -191,3 +191,28 @@ fn question_dot_is_refused_and_a_spaced_one_is_not() {
 fn the_try_postfix_still_works() {
   assert_eq!(body("  n = (parse x)?\n"), "let n = parse(x)?;");
 }
+
+/// `Ok(())` — the case `expr_list`'s documented trade gave up, recovered.
+///
+/// A lone `()` argument is doc 18 §7's zero-argument call, so `f ()` is
+/// `f()`; `expr_list`'s doc comment accepts that a function genuinely taking a
+/// `()` then cannot be called by juxtaposition, *"a unit parameter is
+/// vanishingly rare against a zero-argument call"*. It is not rare — it is how
+/// every `Result<(), E>` function returns, and plan 74 found `return Ok (())`
+/// emitting `return Ok();` eleven times in one crate.
+///
+/// The two are told apart by the case of the callee's last path segment, which
+/// is the convention that already decides a type variable (doc 18 §5.3) and a
+/// constructor pattern's path (plan 68).
+#[test]
+fn a_constructor_applied_to_unit_passes_unit() {
+  assert_eq!(body("  ok = Ok ()\n"), "let ok = Ok(());");
+}
+
+/// And the half that must not change: a lowercase callee keeps the
+/// zero-argument reading, which is what every `String::new ()` in the ported
+/// corpus depends on.
+#[test]
+fn a_function_applied_to_unit_is_a_zero_argument_call() {
+  assert_eq!(body("  s = String::new ()\n"), "let s = String::new();");
+}

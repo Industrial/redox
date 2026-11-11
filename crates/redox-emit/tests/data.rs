@@ -145,3 +145,60 @@ fn a_tuple_index_reads_a_field() {
   let out = xrs("depth : Meters -> f64\ndepth m = m.0\n");
   assert!(out.contains("m.0"), "{out}");
 }
+
+/// Doc 18 §5.3's synthesised generic list, on a **declaration**.
+///
+/// The rule — "type variables need no declaration … the generic list is the
+/// order of their first appearance, lifetimes included" — was applied to a
+/// signature by `generalise` and to an `instance` target by `TypeApp::vars`,
+/// and to neither a `data` nor a `newtype`. So a field type mentioning `'a`
+/// emitted a struct with an undeclared lifetime, which is `E0261`. Plan 74
+/// found it porting `redox-lexer`, whose `Cursor` and `Lexer` both borrow
+/// their source.
+#[test]
+fn a_lifetime_in_a_field_generalises_the_declaration() {
+  let out = xrs("data Holder = Holder { s : &'a str }\n");
+  assert!(out.contains("struct Holder<'a> {"), "{out}");
+  assert!(out.contains("s: &'a str,"), "{out}");
+}
+
+/// A type variable is declared **and rewritten**, which a lifetime is not:
+/// `t` becomes `T` in the list and in the field.
+#[test]
+fn a_type_variable_in_a_field_is_declared_and_rewritten() {
+  let out = xrs("data Boxed = Boxed { item : t }\n");
+  assert!(out.contains("struct Boxed<T> {"), "{out}");
+  assert!(out.contains("item: T,"), "{out}");
+}
+
+/// An `enum` takes the list in the same slot.
+#[test]
+fn an_enum_carries_the_list_too() {
+  let out = xrs("data Holder\n  = Full &'a str\n  | Empty\n");
+  assert!(out.contains("enum Holder<'a> {"), "{out}");
+}
+
+/// A tuple constructor's types are read as well as a record's.
+#[test]
+fn a_tuple_constructor_contributes_its_types() {
+  let out = xrs("newtype Wrap = Wrap &'a str\n");
+  assert!(out.contains("struct Wrap<'a>(&'a str);"), "{out}");
+}
+
+/// **A declaration with no variables is untouched**, which is what keeps
+/// every existing golden byte-identical.
+#[test]
+fn a_concrete_declaration_gains_no_list() {
+  let out = xrs("data Point = Point { x : f64 }\n");
+  assert!(out.contains("struct Point {"), "{out}");
+  assert!(!out.contains("Point<"), "{out}");
+}
+
+/// `'static` and `'_` are excluded, for the two reasons `type_vars` records:
+/// one needs no declaration, and declaring the other is `E0637`.
+#[test]
+fn static_and_anonymous_lifetimes_are_not_declared() {
+  let out = xrs("data Held = Held { s : &'static str }\n");
+  assert!(out.contains("struct Held {"), "{out}");
+  assert!(!out.contains("Held<"), "{out}");
+}

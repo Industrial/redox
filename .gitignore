@@ -108,6 +108,7 @@ crates/*/sdx/**/*.xrs.map
 # rather than duplicated: `the_generated_trees_are_ignored` asks git, per
 # crate named in that file, so a crate added there and forgotten here fails.
 crates/redox-diag/src/
+crates/redox-lexer/src/
 crates/redox-ast/src/
 crates/redox-fmt/src/
 

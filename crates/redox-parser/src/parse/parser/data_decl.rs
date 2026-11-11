@@ -2,6 +2,7 @@ use crate::ParseError;
 use crate::parse::parser::Parser;
 use crate::parse::parser::constructor::constructor;
 use crate::parse::parser::deriving::deriving;
+use crate::parse::parser::generalise_data::generalise_data;
 use crate::parse::parser::newtype_shape::newtype_shape;
 use redox_ast::{DataDecl, Visibility};
 use redox_lexer::{Keyword, TokenKind, Trivia};
@@ -96,8 +97,9 @@ pub(crate) fn data_decl(
     p.expect(&TokenKind::Dedent, "expected the declaration to end")?;
   }
 
-  let decl = DataDecl {
+  let mut decl = DataDecl {
     name,
+    generics: Vec::new(),
     constructors,
     derives,
     is_newtype,
@@ -106,6 +108,11 @@ pub(crate) fn data_decl(
     span: (start, p.prev_span().1),
     leading,
   };
+
+  // Doc 18 §5.3's generic list, from the field types. After the declaration
+  // is assembled because it reads every constructor, and before
+  // `newtype_shape` only because that check does not care either way.
+  generalise_data(&mut decl);
 
   // Plan 53 leaf 2. On the finished declaration, because `is_newtype`'s
   // narrowing is a fact about the constructor *list* — the field count alone

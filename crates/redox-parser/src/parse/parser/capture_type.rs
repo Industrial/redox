@@ -3,6 +3,7 @@ use crate::parse::parser::Parser;
 use crate::parse::parser::can_end_a_type::can_end_a_type;
 use crate::parse::parser::token_text::token_text;
 use crate::parse::parser::type_stop::TypeStop;
+use crate::parse::parser::ungrouped::ungrouped;
 use redox_ast::TypeExpr;
 use redox_diag::Code;
 use redox_lexer::TokenKind;
@@ -161,7 +162,7 @@ pub(crate) fn capture_type(
     return Err(ParseError::with(Code::ExpectedType, message, p.peek_span()));
   }
   Ok(TypeExpr {
-    text,
+    text: ungrouped(&text),
     span: (start, p.prev_span().1),
   })
 }
