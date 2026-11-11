@@ -1,0 +1,398 @@
+import crate::Block
+import crate::Expr
+import crate::Ident
+import crate::Pattern
+import crate::TypeExpr
+import redox_lexer::Span
+import redox_lexer::Trivia
+
+export data Program = Program {
+  export items : Vec<Item>,
+  export span : Span,
+  export trailing : Vec<Trivia>,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data Item
+  = Fn FnDecl
+  | Data DataDecl
+  | Type TypeAlias
+  | Class ClassDecl
+  | Instance InstanceDecl
+  | Errors ErrorsDecl
+  | Test TestDecl
+  | Import ImportDecl
+  | Module ModuleDecl
+  | Const ConstDecl
+  | InlineRust InlineRust
+  | Extern ExternBlock
+  | PatternSynonym PatternSynonym
+  | DeriveTemplate DeriveTemplate
+  | OperatorDecl OperatorDecl
+  deriving (Debug, Clone, PartialEq, Eq)
+instance Item
+  export span : &self -> Span
+  span self = case self of
+    Item::Fn f -> f.span
+    Item::Data d -> d.span
+    Item::Type a -> a.span
+    Item::Class c -> c.span
+    Item::Instance i -> i.span
+    Item::Errors e -> e.span
+    Item::Test t -> t.span
+    Item::Import i -> i.span
+    Item::Module m -> m.span
+    Item::Const c -> c.span
+    Item::InlineRust r -> r.span
+    Item::Extern e -> e.span
+    Item::PatternSynonym p -> p.span
+    Item::DeriveTemplate t -> t.span
+    Item::OperatorDecl o -> o.span
+
+export data ClassDecl = ClassDecl {
+  export name : Ident,
+  export params : Vec<Ident>,
+  export supers : Vec<Ident>,
+  export members : Vec<ClassMember>,
+  export visibility : Visibility,
+  export span : Span,
+  export leading : Vec<Trivia>,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data ClassMember
+  = AssocType Ident
+  | AssocConst { name : Ident, ty : TypeExpr, value : Option<Expr> }
+  | Method FnDecl
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data Clause = Clause {
+  export patterns : Vec<Pattern>,
+  export body : ClauseBody,
+  export wheres : Vec<crate::Stmt>,
+  export span : Span,
+  export trailing : Option<Trivia>,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data ClauseBody
+  = Plain Block
+  | Guarded Vec<Guard>
+  deriving (Debug, Clone, PartialEq, Eq)
+instance ClauseBody
+  export plain : &self -> Option<&Block>
+  plain self = case self of
+    Plain block -> Some block
+    Guarded _ -> None
+
+export data ConstDecl = ConstDecl {
+  export name : Ident,
+  export ty : TypeExpr,
+  export value : Expr,
+  export is_static : bool,
+  export visibility : Visibility,
+  export span : Span,
+  export leading : Vec<Trivia>,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data Constraint = Constraint {
+  export trait_name : Ident,
+  export var : Ident,
+  export span : Span,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data Constructor = Constructor {
+  export name : Ident,
+  export fields : ConstructorFields,
+  export leading : Vec<Trivia>,
+  export span : Span,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data ConstructorFields
+  = Unit
+  | Tuple Vec<TypeExpr>
+  | Record Vec<FieldDecl>
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data DataDecl = DataDecl {
+  export name : Ident,
+  export generics : Vec<String>,
+  export constructors : Vec<Constructor>,
+  export derives : Vec<Ident>,
+  export is_newtype : bool,
+  export is_union : bool,
+  export visibility : Visibility,
+  export span : Span,
+  export leading : Vec<Trivia>,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data DeriveTemplate = DeriveTemplate {
+  export name : Ident,
+  export body : InstanceDecl,
+  export span : Span,
+  export leading : Vec<Trivia>,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data ErrorVariant = ErrorVariant {
+  export name : Ident,
+  export fields : Vec<TypeExpr>,
+  export from : bool,
+  export message : String,
+  export span : Span,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data ErrorsDecl = ErrorsDecl {
+  export name : Ident,
+  export variants : Vec<ErrorVariant>,
+  export visibility : Visibility,
+  export span : Span,
+  export leading : Vec<Trivia>,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data ExternBlock = ExternBlock {
+  export abi : String,
+  export decls : Vec<ForeignFn>,
+  export span : Span,
+  export leading : Vec<Trivia>,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data FieldDecl = FieldDecl {
+  export name : Ident,
+  export ty : TypeExpr,
+  export visibility : Visibility,
+  export leading : Vec<Trivia>,
+  export span : Span,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data Fixity
+  = LeftAssoc
+  | RightAssoc
+  | NonAssoc
+  deriving (Debug, Clone, Copy, PartialEq, Eq)
+
+instance Fixity
+  export powers : u8 -> self -> (u8, u8)
+  powers precedence self =
+    left = 2 * precedence + 2
+    case self of
+      Fixity::LeftAssoc or Fixity::NonAssoc -> (left, left + 1)
+      Fixity::RightAssoc -> (left, left)
+
+  export keyword : self -> &'static str
+  keyword self = case self of
+    Fixity::LeftAssoc -> "infixl"
+    Fixity::RightAssoc -> "infixr"
+    Fixity::NonAssoc -> "infix"
+
+  export from_keyword : &str -> Option<Self>
+  from_keyword word = case word of
+    "infixl" -> Some Fixity::LeftAssoc
+    "infixr" -> Some Fixity::RightAssoc
+    "infix" -> Some Fixity::NonAssoc
+    _ -> None
+
+export data FnDecl = FnDecl {
+  export name : Ident,
+  export sig : Signature,
+  export clauses : Vec<Clause>,
+  export visibility : Visibility,
+  export span : Span,
+  export leading : Vec<Trivia>,
+  export trailing : Option<Trivia>,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data ForeignFn = ForeignFn { export name : Ident, export sig : Signature, export span : Span, export leading : Vec<Trivia> }
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data Guard = Guard {
+  export condition : Option<Expr>,
+  export body : Block,
+  export span : Span,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data ImportDecl = ImportDecl {
+  export path : String,
+  export alias : Option<Ident>,
+  export visibility : Visibility,
+  export span : Span,
+  export leading : Vec<Trivia>,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data InlineRust = InlineRust {
+  export code : String,
+  export span : Span,
+  export leading : Vec<Trivia>,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data InstanceDecl = InstanceDecl {
+  export r#class : Option<TypeApp>,
+  export target : TypeApp,
+  export constraints : Vec<Constraint>,
+  export r#given : Option<String>,
+  export members : Vec<ClassMember>,
+  export span : Span,
+  export leading : Vec<Trivia>,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export leading : &Item -> &[Trivia]
+leading item = case item of
+  Item::Fn f -> &f.leading
+  Item::Data d -> &d.leading
+  Item::Type a -> &a.leading
+  Item::Class c -> &c.leading
+  Item::Instance i -> &i.leading
+  Item::Errors e -> &e.leading
+  Item::Test t -> &t.leading
+  Item::Import i -> &i.leading
+  Item::Module m -> &m.leading
+  Item::Const c -> &c.leading
+  Item::InlineRust r -> &r.leading
+  Item::Extern e -> &e.leading
+  Item::PatternSynonym p -> &p.leading
+  Item::DeriveTemplate t -> &t.leading
+  Item::OperatorDecl o -> &o.leading
+
+export data ModuleDecl = ModuleDecl {
+  export name : Ident,
+  export items : Option<Vec<crate::Item>>,
+  export visibility : Visibility,
+  export span : Span,
+  export leading : Vec<Trivia>,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data OperatorDecl = OperatorDecl {
+  export spelling : Ident,
+  export fixity : Fixity,
+  export precedence : u8,
+  export target : String,
+  export span : Span,
+  export leading : Vec<Trivia>,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data Param = Param { export name : Ident, export ty : Option<TypeExpr>, export is_mut : bool, export span : Span }
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data PatternSynonym = PatternSynonym {
+  export name : Ident,
+  export params : Vec<Ident>,
+  export body : Pattern,
+  export span : Span,
+  export leading : Vec<Trivia>,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export primitive_type : &str -> bool
+primitive_type name = case name of
+  "i8" or "i16" or "i32" or "i64" or "i128" or "isize" -> true
+  "u8" or "u16" or "u32" or "u64" or "u128" or "usize" -> true
+  "f32" or "f64" or "bool" or "char" or "str" -> true
+  _ -> false
+
+export data Signature = Signature {
+  export params : Vec<Param>,
+  export ret : Option<TypeExpr>,
+  export generics : Vec<String>,
+  export bounds : Vec<(String, String)>,
+  export r#given : Option<String>,
+  export predicates : Option<String>,
+  export is_const : bool,
+  export is_async : bool,
+  export is_unsafe : bool,
+  export span : Span,
+}
+  deriving (Debug, Clone, PartialEq, Eq, Default)
+instance Signature
+  export returns_unit : &self -> bool
+  returns_unit self = .is_none_or (\ret -> ret.text == "()") (.as_ref self.ret)
+
+export data TestDecl = TestDecl {
+  export description : String,
+  export body : Block,
+  export span : Span,
+  export leading : Vec<Trivia>,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data TypeAlias = TypeAlias {
+  export name : Ident,
+  export ty : TypeExpr,
+  export visibility : Visibility,
+  export span : Span,
+  export leading : Vec<Trivia>,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data TypeApp = TypeApp {
+  export head : Ident,
+  export args : Vec<Ident>,
+  export span : Span,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+instance TypeApp
+  export rust_text : &self -> String
+  rust_text self =
+    if .is_empty self.args
+      return .clone self.head.text
+    args : Vec<String> = self.args
+      |> .iter
+      |> .map (\a -> TypeApp::rust_name (&a.text))
+      |> .collect
+    format! \-> "#{self.head.text}<#{(.join ", " args)}>"
+
+  export vars : &self -> Vec<&str>
+  vars self =
+    mut seen : Vec<&str> = Vec::new ()
+    for a in &self.args
+      if TypeApp::is_var (&a.text) && !.contains (&.as_str a.text) seen
+        .push (&a.text) seen
+    seen
+
+  export is_lifetime : &str -> bool
+  is_lifetime text = .starts_with '\'' text && text != "'static" && text != "'_"
+
+  export is_var : &str -> bool
+  is_var text =
+    if TypeApp::is_lifetime text
+      return true
+    .is_some_and char::is_lowercase (.next (.chars text)) && !primitive_type text
+
+  export rust_name : &str -> String
+  rust_name text =
+    if .starts_with '\'' text
+      return .to_string text
+    if TypeApp::is_var text
+      return .to_uppercase text
+    .to_string text
+
+export data Visibility
+  #[default]
+  = Private
+  | Public
+  | Crate
+  | Super
+  | In String
+  deriving (Debug, Clone, PartialEq, Eq, Default)
+instance Visibility
+  export rust_text : &self -> String
+  rust_text self = case self of
+    Private -> String::new ()
+    Public -> .to_string "pub "
+    Crate -> .to_string "pub(crate) "
+    Super -> .to_string "pub(super) "
+    In path -> format! \-> "pub(in #{path}) "

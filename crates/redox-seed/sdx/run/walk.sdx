@@ -57,14 +57,20 @@ walk src out =
 
 -- | Inline because `walk` is private, per AGENTS.md's rule that inline tests
 -- | are for private constructs.
+-- |
+-- | The fixture is built here rather than read off a real crate's `sdx/`: it
+-- | used to walk `../redox-ast/sdx` and assert the result was nested, which
+-- | plan 91 wave 3 flattened. A test of the walker should not depend on
+-- | another crate's module layout.
 test "it mirrors a nested tree"
-  root = std::path::Path::new "../redox-ast/sdx"
-  if !.is_dir root
-    -- The crate layout moved; `port.rs` is what grades that, not this.
-    return ()
-  pairs = walk root (std::path::Path::new "/out")
-  assert! \-> .len pairs > 1 \-> "redox-ast's sdx tree is nested, so walking it must find more than the root"
-  -- `pairs[1].1` read in place, where the Rust bound `(_, out)` from a
-  -- reference to it.
+  pid = std::process::id ()
+  root = .join (format! \-> "redox-seed-walk-#{pid}") (std::env::temp_dir ())
+  .expect "should create" $ std::fs::create_dir_all (.join "inner/deeper" (&root))
+
+  pairs = walk (&root) (std::path::Path::new "/out")
+  _dropped = .ok $ std::fs::remove_dir_all (&root)
+
+  assert_eq! \-> .len pairs \-> 3 \-> "the root plus the two directories beneath it, got #{pairs:?}"
   shown = .display pairs[1].1
   assert! \-> .starts_with "/out" pairs[1].1 \-> "every output directory mirrors under the root it was given, got #{shown}"
+  assert! \-> .ends_with "deeper" pairs[2].1 \-> "the deepest directory is reached, got #{pairs:?}"

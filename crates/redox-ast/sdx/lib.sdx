@@ -1,97 +1,61 @@
--- ! `redox-ast` — syntax tree types. **No logic.**
--- !
--- ! Plan 01 (`docs/05 - 01 - Vertical Slice.md`) leaf 3 established the shape;
--- ! plan 03 (`docs/08 - 03 - Parser Core.md`) grew it to the expression,
--- ! signature and binding surface.
--- !
--- ! Every node carries a byte [`Span`], and every node that can own source
--- ! lines carries [`Trivia`]. Both are built in from the start on evidence:
--- ! Emerald's plan 22 found `TypeExpr` carried no span at all, so every
--- ! diagnostic touching a type hardcoded `(0, 0)` and reported line 1 column 1
--- ! for an error on line 6 — discovered twenty-one plans after its diagnostics
--- ! plan shipped, by which point the full fix was judged too large.
--- !
--- ! Deliberately not generic over a span type and deliberately not
--- ! arena-allocated (doc 01 §30's minimality constraint).
--- !
--- ! Layout follows `docs/06 - Redox Code Architecture.md`. The module tree is
--- ! the grammar's containment hierarchy: a `Program` holds `Item`s which hold a
--- ! `FnDecl` with its `Signature` and `Param`s; a `Block` holds `Stmt`s which
--- ! hold an `Expr`; an `Expr` holds an `Ident`, its operators and a
--- ! `TypeExpr`. Per doc 06 §3 rule 1 this crate holds no decisions, only types.
--- !
--- ! **There is one node kind for a body position.** Plan 55 leaf 1 deleted
--- ! `StmtKind` and moved its forms into [`Expr`], so a block element and a
--- ! subexpression are the same type and the statement/expression fork is gone
--- ! from the tree. [`Stmt`] survives as the trivia carrier and records why.
-
--- | An indented sequence of statements.
 module block
--- | An `if`, `while` or `case`-arm-guard condition.
-module condition
--- | An expression.
 module expr
--- | A whole source file.
-module program
--- | The names in one dependency cycle among a `where` group's bindings.
-module where_cycle
--- | Which of a `where` group's bindings each entry's value mentions.
-module where_edges
+module item
+module pattern
+module section
+module where_deps
 
-export import block::Block
-export import block::stmt::Stmt
-export import block::stmt::binding::Binding
-export import condition::Condition
-export import condition::operand::ConditionOperand
-export import expr::Expr
-export import expr::binary_op::BinaryOp
-export import expr::case_arm::CaseArm
-export import expr::field_init::FieldInit
-export import expr::ident::Ident
-export import expr::qualifier::Qualifier
-export import expr::section::Section
-export import expr::str_interp_part::StrInterpPart
-export import expr::type_expr::TypeExpr
-export import expr::unary_op::UnaryOp
-export import program::Program
-export import program::item::Item
-export import program::item::class_decl::ClassDecl
-export import program::item::class_member::ClassMember
-export import program::item::clause::Clause
-export import program::item::clause_body::ClauseBody
-export import program::item::const_decl::ConstDecl
-export import program::item::constraint::Constraint
-export import program::item::constructor::Constructor
-export import program::item::constructor_fields::ConstructorFields
-export import program::item::data_decl::DataDecl
-export import program::item::error_variant::ErrorVariant
-export import program::item::errors_decl::ErrorsDecl
-export import program::item::extern_block::ExternBlock
-export import program::item::field_decl::FieldDecl
-export import program::item::fn_decl::FnDecl
-export import program::item::foreign_fn::ForeignFn
-export import program::item::guard::Guard
-export import program::item::import_decl::ImportDecl
-export import program::item::inline_rust::InlineRust
-export import program::item::instance_decl::InstanceDecl
-export import program::item::leading::leading
-export import program::item::module_decl::ModuleDecl
-export import program::item::param::Param
-export import program::item::pattern::Pattern
-export import program::item::derive_template::DeriveTemplate
-export import program::item::operator_decl::OperatorDecl
-export import program::item::fixity::Fixity
-export import program::item::pattern_synonym::PatternSynonym
-export import program::item::primitive_type::primitive_type
-export import program::item::record_pattern_field::RecordPatternField
-export import program::item::signature::Signature
-export import program::item::test_decl::TestDecl
-export import program::item::type_alias::TypeAlias
-export import program::item::type_app::TypeApp
-export import program::item::visibility::Visibility
-
--- Re-exported so downstream crates naming a span or a trivium need not add a
--- second dependency edge onto `redox-lexer` (doc 06 §5).
-export import crate::where_cycle::where_cycle
-export import crate::where_edges::where_edges
 export import redox_lexer::{Span, Trivia, TriviaKind}
+export import block::Binding
+export import block::Block
+export import block::Condition
+export import block::ConditionOperand
+export import block::Stmt
+export import expr::BinaryOp
+export import expr::CaseArm
+export import expr::Expr
+export import expr::FieldInit
+export import expr::Ident
+export import expr::StrInterpPart
+export import expr::TypeExpr
+export import expr::UnaryOp
+export import item::ClassDecl
+export import item::ClassMember
+export import item::Clause
+export import item::ClauseBody
+export import item::ConstDecl
+export import item::Constraint
+export import item::Constructor
+export import item::ConstructorFields
+export import item::DataDecl
+export import item::DeriveTemplate
+export import item::ErrorVariant
+export import item::ErrorsDecl
+export import item::ExternBlock
+export import item::FieldDecl
+export import item::Fixity
+export import item::FnDecl
+export import item::ForeignFn
+export import item::Guard
+export import item::ImportDecl
+export import item::InlineRust
+export import item::InstanceDecl
+export import item::Item
+export import item::ModuleDecl
+export import item::OperatorDecl
+export import item::Param
+export import item::PatternSynonym
+export import item::Program
+export import item::Signature
+export import item::TestDecl
+export import item::TypeAlias
+export import item::TypeApp
+export import item::Visibility
+export import item::leading
+export import item::primitive_type
+export import pattern::Pattern
+export import pattern::RecordPatternField
+export import section::Qualifier
+export import section::Section
+export import where_deps::where_cycle
+export import where_deps::where_edges

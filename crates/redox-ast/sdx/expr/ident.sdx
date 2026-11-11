@@ -1,5 +1,0 @@
-import redox_lexer::Span
-
--- | An identifier and where it came from.
-export data Ident = Ident { export text : String, export span : Span }
-  deriving (Debug, Clone, PartialEq, Eq)

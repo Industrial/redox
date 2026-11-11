@@ -1,0 +1,95 @@
+import crate::Expr
+import crate::Stmt
+import crate::StrInterpPart
+
+export where_cycle : &[Stmt] -> Option<Vec<String>>
+where_cycle entries =
+  graph = where_edges entries
+  mut state : Vec<u8> = .collect (std::iter::repeat_n 0u8 (.len entries))
+  mut path = Vec::new ()
+  n = .len entries
+  for start in 0 .. n
+    if state[start] == 0 && walk start (&graph) (&mut state) (&mut path) is Some found
+      return Some (.collect (.filter_map (\i -> .where_entry_name entries[*i]) (.iter found)))
+  None
+
+export(crate) walk : usize -> &[Vec<usize>] -> &mut [u8] -> &mut Vec<usize> -> Option<Vec<usize>>
+walk at graph state path =
+  state[at] := 1
+  .push at path
+  for next in &graph[at]
+    if state[*next] == 1
+      from = path
+        |> .iter
+        |> .position (\i -> *i == *next)
+        |> .unwrap_or 0
+      end = .len path
+      return Some (.to_vec path[from .. end])
+    if state[*next] == 0 && walk (*next) graph state path is Some found
+      return Some found
+  .pop path
+  state[at] := 2
+  None
+
+export where_edges : &[Stmt] -> Vec<Vec<usize>>
+where_edges entries =
+  named : Vec<(usize, String)> = entries
+    |> .iter
+    |> .enumerate
+    |> .filter_map (\pair -> case &pair.1.expr of
+    Expr::Binding b -> case .as_slice (.binders b.pattern) of
+      [one] -> Some (pair.0, .clone one)
+      _ -> None
+    _ -> None)
+    |> .collect
+
+  entries
+    |> .iter
+    |> .map (\entry ->
+    case &entry.expr of
+      Expr::Binding b ->
+        mut found = Vec::new ()
+        mentions (&b.value) (&named) (&mut found)
+        .sort_unstable found
+        .dedup found
+        found
+      _ -> Vec::new ())
+    |> .collect
+
+export(crate) mentions : &Expr -> &[(usize, String)] -> &mut Vec<usize> -> ()
+mentions e named into =
+  if e is Expr::Ident name && .find (\pair -> pair.1 == name.text) (.iter named) is Some found
+    .push found.0 into
+  for child in operands e
+    mentions child named into
+  ()
+
+export(crate) operands : &Expr -> Vec<&Expr>
+operands e = case e of
+  Expr::Call { callee, args, .. } ->
+    mut out = [.as_ref callee] : Vec<&Expr>
+    .extend (.iter args) out
+    out
+  Expr::Binary { lhs, rhs, .. } -> [.as_ref lhs, .as_ref rhs] : Vec<&Expr>
+  Expr::Unary { operand, .. } -> [.as_ref operand] : Vec<&Expr>
+  Expr::Paren { inner, .. } or Expr::Ascribe { inner, .. } or Expr::Try { inner, .. } ->
+    [.as_ref inner] : Vec<&Expr>
+  Expr::Field { recv, .. } -> [.as_ref recv] : Vec<&Expr>
+  Expr::Index { recv, index, .. } -> [.as_ref recv, .as_ref index] : Vec<&Expr>
+  Expr::Lambda { body, .. } -> [.as_ref body] : Vec<&Expr>
+  Expr::Tuple { items, .. } or Expr::List { items, .. } -> .collect (.iter items)
+  Expr::ArrayRepeat { value, count, .. } -> [.as_ref value, .as_ref count] : Vec<&Expr>
+  Expr::MacroCall { args, .. } -> .collect (.iter args)
+  Expr::StrInterp { parts, .. } ->
+    parts
+      |> .iter
+      |> .filter_map (\p -> case p of
+      StrInterpPart::Interp { expr, .. } -> Some expr
+      StrInterpPart::Text _ -> None)
+      |> .collect
+  Expr::Record { fields, .. } ->
+    fields
+      |> .iter
+      |> .filter_map (\f -> .as_ref f.value)
+      |> .collect
+  _ -> Vec::new ()

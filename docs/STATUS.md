@@ -33,7 +33,7 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 
 | Crate | `src` | `tests` |
 |---|---:|---:|
-| `redox-ast` | 3990 | 0 |
+| `redox-ast` | 1626 | 0 |
 | `redox-bench` | 645 | 217 |
 | `redox-cli` | 1494 | 9509 |
 | `redox-diag` | 1017 | 0 |
@@ -45,8 +45,8 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 | `redox-lsp` | 1626 | 756 |
 | `redox-mcp` | 884 | 776 |
 | `redox-parser` | 10165 | 706 |
-| `redox-seed` | 337 | 676 |
-| **total** | **36472** | **20196** |
+| `redox-seed` | 348 | 676 |
+| **total** | **34119** | **20196** |
 
 ---
 

@@ -1,0 +1,14 @@
+import crate::BinaryOp
+import crate::Expr
+import crate::Ident
+
+export data Qualifier
+  = Draw { name : Ident, source : Expr }
+  | Guard Expr
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data Section
+  = Right { op : BinaryOp, operand : Box<Expr> }
+  | Left { op : BinaryOp, operand : Box<Expr> }
+  | Field Vec<Ident>
+  deriving (Debug, Clone, PartialEq, Eq)
