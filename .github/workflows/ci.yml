@@ -75,6 +75,24 @@ jobs:
       # first CI run on this workflow did.
       - name: Make the pinned toolchain the default
         run: rustup default ${{ env.RUST_TOOLCHAIN }}
+      # Pre-fetch the component the nested build triggers a download of, so that
+      # download happens once, serially, here.
+      #
+      # `cargo_project.rs` runs two tests that each build `examples/cargo-project`,
+      # and nextest runs them concurrently. With `RUSTUP_TOOLCHAIN` scrubbed, each
+      # one reaches rustup's proxy, and both decided to sync the channel and
+      # download `rust-src` at the same moment. They then raced on the same
+      # partial file in `~/.rustup/downloads` and one lost:
+      #
+      #   error: component download failed for rust-src: could not rename
+      #   'downloaded' file from '….partial' to '…': No such file or directory
+      #
+      # Nothing is wrong with the test or the project — it is two rustup
+      # processes and one download directory. Fetching it up front means neither
+      # test has anything left to download. (It passes locally because the
+      # component is already installed there, so no download is attempted.)
+      - name: Pre-fetch rust-src (the nested build races on downloading it)
+        run: rustup component add rust-src --toolchain ${{ env.RUST_TOOLCHAIN }}
       - name: Cache
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - name: Install cargo-nextest
