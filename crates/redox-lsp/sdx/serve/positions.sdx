@@ -16,6 +16,8 @@
 -- ! `examples/strings.sdx` has non-ASCII content, so the corpus does reach it.
 
 -- | One byte offset as a `(line, utf16 character)` position.
+-- | A protocol position as a byte offset.
+export(crate) module offset_of
 export(crate) module position_of
 -- | A byte span in the source, as an LSP range.
 export(crate) module range_of

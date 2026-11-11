@@ -1,0 +1,53 @@
+import crate::ParseError
+import crate::parse::parser::Parser
+import crate::parse::parser::pattern_alt::pattern_alt
+import redox_ast::PatternSynonym
+import redox_diag::Code
+import redox_lexer::{TokenKind, Trivia}
+
+-- | `pattern Name = <pattern>` and `pattern Name a b = <pattern>` — plan 87.
+-- |
+-- | ```text
+-- | pattern Origin = Point { x = 0, y = 0 }
+-- | pattern Both a b = (Some a, Some b)
+-- | ```
+-- |
+-- | The name is upper case because a use site has to read as a constructor,
+-- | which is the convention the surface already runs on: `pattern_app` keeps a
+-- | bare upper-case name as a path and a lower-case one as a binder, exactly as
+-- | doc 18 §5.3 reads a type variable and plan 68 a constructor pattern.
+-- |
+-- | # The body may not introduce a name
+-- |
+-- | Every lower-case identifier in the body must be one of the declared
+-- | parameters. A stray one would be a name the use site never wrote, which is
+-- | precisely why `docs/DECLINED.md` refuses `RecordWildCards` — *"introduces
+-- | names absent from the source"* — and the one property that distinguishes
+-- | this construct from that decline.
+-- |
+-- | Checked here rather than at emit, because it is a property of the
+-- | declaration and a diagnostic about the declaration should point at it.
+export(crate) pattern_synonym : &mut Parser -> Vec<Trivia> -> usize -> Result<PatternSynonym, ParseError>
+pattern_synonym p leading start =
+  -- The word is **contextual**, so it is consumed as an ordinary identifier
+  -- rather than expected as a keyword. `Parser::item`'s two-token lookahead is
+  -- what decided this is a synonym; see the note there, and plan 87 §10 for
+  -- why reserving the word was tried and reverted.
+  .advance p
+  name = (.ident "expected a name for the pattern synonym" p)?
+  mut params = Vec::new ()
+  while .try_ident p is Some param
+    .push param params
+  (.expect (&TokenKind::Eq) "expected `=` after the pattern synonym's name" p)?
+  body = (pattern_alt p)?
+  (.newline_with_trailing "expected a line break after the pattern synonym" p)?
+  -- The body's binders, checked against the declared parameters. `binders`
+  -- walks the pattern and reports every name it would bind, which is the same
+  -- walk the shadowing lint uses — so a stray name is found by asking the
+  -- pattern rather than by re-deriving what a pattern can hold.
+  declared : Vec<String> = params |> .iter |> .map (\i -> .clone i.text) |> .collect
+  for bound in .binders body
+    if !.contains (&bound) declared
+      message = format! \-> "`#{bound}` is not a parameter of this pattern synonym, so it would introduce a name the use site never wrote"
+      return Err $ ParseError::with_help Code::PatternSynonymShape message "a synonym's body may bind only its own parameters — `pattern Both a b = (Some a, Some b)` declares `a` and `b` and binds exactly those. A name from nowhere is what `docs/DECLINED.md` refuses `RecordWildCards` for" name.span
+  Ok (PatternSynonym { name, params, body, span = (start, (.prev_span p).1), leading })

@@ -22,10 +22,12 @@
 ; grammar has, a hard `Invalid node type` error rather than a dead pattern.
 [
   "import" "module" "data" "newtype" "type" "class" "instance" "errors"
-  "test" "const" "static" "deriving" "from" "as" "where" "otherwise"
+  "test" "const" "static" "deriving" "from" "as" "where" "given" "pattern" "template" "otherwise"
   "if" "else" "while" "until" "for" "in" "loop" "break" "continue"
   "return" "guard" "is" "with" "case" "of" "async" "try" "catch"
   "mut" "move" "or"
+  "infix" "infixl" "infixr"
+  "over"
   "rust" "unsafe" "extern" "union"
 ] @keyword
 
@@ -33,6 +35,9 @@
 ; `editors.rs`'s `NOT_KEYWORDS` names it for that reason, as it names `true`,
 ; `false` and `self`.
 (reserved_word) @keyword
+
+; Plan 90. A declared operator is an operator, however it is spelled.
+(user_operator) @operator
 
 (visibility) @keyword
 

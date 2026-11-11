@@ -1,0 +1,6 @@
+error[RDX0103]: expected a method name after `do .`
+  --> bind_block_shape.sdx:21:1
+   |
+21 |   ()
+   | ^
+

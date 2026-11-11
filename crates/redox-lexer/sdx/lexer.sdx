@@ -17,6 +17,8 @@ import crate::{LexError, Span, Token, TokenKind, Trivia, TriviaKind}
 import redox_diag::Code
 
 -- | A character cursor over the source text.
+-- | Every spelling a file may declare an operator for.
+export module assignable_operators
 export(crate) module cursor
 -- | Strip the common leading indentation from a `"""` block's body.
 export(crate) module dedent_block

@@ -1,10 +1,13 @@
 import crate::ParseError
 import crate::parse::parser::Parser
+import crate::parse::parser::operator_chains::operator_chains
+import crate::parse::parser::user_rung::user_rung
 import crate::parse::parser::application::application
 import crate::parse::parser::capture_type::capture_type
 import crate::parse::parser::type_stop::TypeStop
 import crate::parse::precedence::binary_power::binary_power
-import redox_ast::Expr
+import redox_ast::{Expr, Fixity}
+import redox_diag::Code
 import redox_lexer::TokenKind
 
 -- | Parse an expression by Pratt loop, stopping before any operator whose left
@@ -50,9 +53,43 @@ parse_expr p min =
       at = ((.span lhs).0, (.span arg).1)
       lhs := Expr::Call { callee = Box::new lhs, args = vec! \-> arg, is_dollar = true, span = at }
       continue
+    -- Plan 90's user-declared operators, read **before** the built-in table
+    -- because they are not in it: the spelling is data, the fixity is this
+    -- file's, and `user_rung` is the one place the two meet.
+    --
+    -- Returned as the same `(left, right)` pair a built-in rung carries, so the
+    -- `< min` test, the recursion and the span arithmetic below are shared
+    -- rather than copied. What differs is only the node built, which is why
+    -- this is a separate `if` and not a separate loop.
+    -- `declared.0` is the spelling, `.1` its fixity, `.2` and `.3` its left
+    -- and right powers, `.4` its alias target and `.5` its declared
+    -- precedence — the positional idiom `rung.0`/`.1`/`.2` uses below, widened.
+    if user_rung p is Some declared
+      if declared.2 < min
+        return Ok lhs
+      spelling = declared.0
+      .advance p
+      rhs = (parse_expr p declared.3)?
+      span = ((.span lhs).0, (.span rhs).1)
+      -- `NonAssoc` refuses the **chain**, and this is where it has to be
+      -- refused: a Pratt loop's binding powers can only group one way or the
+      -- other, so "does not chain" is a diagnostic rather than a precedence.
+      -- Checked after the right operand so the error points past it, at the
+      -- second use, which is the one that is too many.
+      if declared.1 == Fixity::NonAssoc && operator_chains p (&spelling)
+        return Err $ ParseError::with_help Code::NonAssociativeOperator (format! \-> "`#{spelling.text}` was declared `infix`, so it does not chain") "write the grouping — `(a #{spelling.text} b) #{spelling.text} c` — or declare it `infixl` or `infixr`" (.peek_span p)
+      lhs := Expr::UserBinary { spelling, fixity = declared.1, precedence = declared.5, target = declared.4, lhs = Box::new lhs, rhs = Box::new rhs, span }
+      continue
     -- `rung.0` is the operator, `rung.1` its left power and `rung.2` its
     -- right, where the Rust destructured the triple in the `let … else`.
     guard binary_power (&(.peek p).kind) is Some rung else
+      -- Plan 90 §1.5's loud boundary, and the one place it could have been
+      -- quiet. A `UserOp` the file has not declared is not a rung, so without
+      -- this the loop would simply stop and the caller would report *"expected
+      -- a line break"* — true, and about the wrong thing. `user_rung`'s doc
+      -- comment records why the check cannot live there.
+      if &(.peek p).kind is TokenKind::UserOp spelling
+        return Err $ ParseError::with_help Code::UndeclaredOperator (format! \-> "`#{spelling}` is not declared in this file") "declare it above its first use — `infixl 6 #{spelling} = Set::union`. An operator's scope is the file, which is plan 14 decision 4's refusal of name resolution" (.peek_span p)
       return Ok lhs
     if rung.1 < min
       return Ok lhs

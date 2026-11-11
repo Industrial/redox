@@ -1,0 +1,57 @@
+import lsp_types::Position
+
+-- | A protocol position as a byte offset into `source` — plan 71 leaf 5.
+-- |
+-- | [`position_of`]'s inverse, and the direction every *cursor* capability
+-- | needs: the editor sends a line and a UTF-16 character, and every span in
+-- | the AST is a pair of byte offsets.
+-- |
+-- | # UTF-16 in, bytes out
+-- |
+-- | `position_of` sums `char::len_utf16` to produce the character column, so
+-- | this undoes exactly that sum rather than counting `char`s. A line holding
+-- | an astral character — an emoji, a rare CJK ideograph — has a UTF-16 column
+-- | two greater than its `char` column at every position after it, and
+-- | `position_of`'s own doc comment is the reason the protocol wants it that
+-- | way. Counting `char`s here would put the cursor in the wrong place in
+-- | exactly the files Redox's own source contains, which carry `—` and `§`
+-- | throughout.
+-- |
+-- | # Out of range clamps rather than failing
+-- |
+-- | A position past the end of a line, or past the end of the file, answers
+-- | with the nearest real offset. The editor and the server see the same
+-- | document under full sync (plan 40 decision 5), so a position out of range
+-- | is a race rather than a mistake — the user typed while the request was in
+-- | flight — and the kind answer is the nearest offset rather than an error
+-- | reply in their log.
+export(crate) offset_of : &str -> Position -> usize
+offset_of source at =
+  wanted_line = at.line : u32
+  -- The byte offset each line starts at, in order. `split_inclusive` keeps the
+  -- `\n` with its line, so the running total is the next line's start.
+  mut offset = 0 : usize
+  -- `enumerate` rather than a counter, which clippy's `explicit_counter_loop`
+  -- asks for by name. The index is a `usize`, so the comparison casts rather
+  -- than the counter being typed — one conversion at the test instead of an
+  -- increment per line.
+  for pair in .enumerate (.split_inclusive '\n' source)
+    line : u32 = .unwrap_or u32::MAX (.ok (u32::try_from pair.0))
+    text = pair.1
+    if line == wanted_line
+      -- Walk the line's characters, accumulating UTF-16 units until the
+      -- requested column is reached. The `\n` is included in `text`, which is
+      -- harmless: a column past the line's content clamps at its end.
+      mut units = 0 : u32
+      mut within = 0 : usize
+      for ch in .chars text
+        if units >= at.character
+          break
+        if ch == '\n'
+          break
+        units += .unwrap_or u32::MAX (.ok (u32::try_from (char::len_utf16 ch)))
+        within += .len_utf8 ch
+      return offset + within
+    offset += .len text
+  -- The requested line is past the end of the document.
+  .len source

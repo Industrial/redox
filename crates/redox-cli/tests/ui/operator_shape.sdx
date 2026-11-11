@@ -1,0 +1,7 @@
+-- RDX0126: a declaration that is not `infixN <op> = path` — plan 90.
+--
+-- The alias is the whole point: a declaration names a function that already
+-- exists. With nothing after the `=` it would emit `(a, b)` — a call to no
+-- function at all — so the empty target is refused, and reported against the
+-- spelling, which is the thing the author named.
+infixl 6 <+> =

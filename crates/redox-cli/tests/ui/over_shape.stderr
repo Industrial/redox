@@ -1,0 +1,7 @@
+error[RDX0127]: expected a field selector after `over`
+  --> over_shape.sdx:19:8
+   |
+19 |   over (.cmp 0) bump local
+   |        ^
+  = help: `over` takes a parenthesised path — `over (.addr.city) .to_uppercase u`
+

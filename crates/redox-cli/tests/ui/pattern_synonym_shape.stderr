@@ -1,0 +1,7 @@
+error[RDX0121]: `b` is not a parameter of this pattern synonym, so it would introduce a name the use site never wrote
+  --> pattern_synonym_shape.sdx:13:9
+   |
+13 | pattern Both a = (Some a, Some b)
+   |         ^^^^
+  = help: a synonym's body may bind only its own parameters — `pattern Both a b = (Some a, Some b)` declares `a` and `b` and binds exactly those. A name from nowhere is what `docs/DECLINED.md` refuses `RecordWildCards` for
+

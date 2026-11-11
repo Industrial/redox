@@ -1,0 +1,73 @@
+import crate::ParseError
+import crate::parse::parser::Parser
+import crate::parse::parser::can_end_a_type::can_end_a_type
+import crate::parse::parser::token_text::token_text
+import redox_diag::Code
+import redox_lexer::{Keyword, TokenKind}
+
+-- | The signature-position `where` clause, if one is here — plan 84 leaf 3.
+-- |
+-- | ```text
+-- | count : given <I: IntoIterator> I -> usize where I::IntoIter: Clone
+-- | ```
+-- |
+-- | Doc 03 §14.2 assigns this position the role and says the two `where`s are
+-- | told apart by **position** rather than by lookahead:
+-- |
+-- | > | Position | Role |
+-- | > | In the signature, before the body arrow | trait bounds (Rust) |
+-- | > | Indented after the body | local definitions (Haskell) |
+-- |
+-- | The role was declared and never implemented: doc 18 §2.2 took the job with
+-- | `=>` instead, and plan 84 leaf 0 measured what `=>` cannot carry. A
+-- | predicate whose subject is a **projection** — `where I::IntoIter: Clone` —
+-- | is the clearest case, because the `=>` clause pairs a trait with a
+-- | *variable* and a path has no position in it.
+-- |
+-- | **The text is not inspected**, which is doc 03 §14.1's contract one level
+-- | up: what comes back is the source after the keyword, for the emitter to
+-- | paste where rustc wants a `where` clause. Every present and future Rust
+-- | predicate form is therefore reachable, and none of them can drift.
+-- |
+-- | It reads to the end of the line because nothing follows it — a signature's
+-- | `where` is the last thing on its line, as it is in Rust. That makes an
+-- | empty one the only malformed shape, and it is refused rather than emitted:
+-- | `fn f<T>() where {` does not compile, and plan 84 §1.3's lesson is that a
+-- | binder which fails quietly is worse than one that fails.
+export(crate) where_predicates : &mut Parser -> Result<Option<String>, ParseError>
+where_predicates p =
+  if !.check (&TokenKind::Kw (Keyword::Where)) p
+    return Ok None
+  opened = .peek_span p
+  .advance p
+  mut text = String::new ()
+  mut last = TokenKind::Eof
+  loop
+    kind = &(.peek p).kind
+    at_end = case kind of
+      TokenKind::Newline or TokenKind::Indent or TokenKind::Dedent or TokenKind::Eof -> true
+      _ -> false
+    if at_end
+      break
+    if (.peek p).ws_before && !.is_empty text
+      .push ' ' text
+    .push_str (&token_text kind) text
+    last := .clone kind
+    .advance p
+  if .is_empty text
+    return Err $ ParseError::with_help Code::BoundClauseShape "this `where` carries no predicates" "a signature's `where` holds Rust's own predicates, verbatim: `where I::IntoIter: Clone`. Redox's other `where` — the one that introduces local definitions — is indented after the body, which is how doc 03 §14.2 tells the two apart" opened
+  -- **A predicate must end where a type can end**, and `redox-fuzz` is why.
+  -- Carrying text verbatim means a *truncated* predicate is pasted verbatim
+  -- too: `sweep.rs`'s truncation of `examples/binder.sdx` cut
+  -- `where for<'a> F: Fn(&'a str) -> &'a str` after the arrow, the parser
+  -- accepted it, and the emitter wrote `where for<'a> F: Fn(&'a str) ->,`
+  -- which is not Rust. `the_generated_rust_always_parses` caught it.
+  --
+  -- The check is **token class, not meaning**: `can_end_a_type` is the same
+  -- predicate `capture_type` uses to find a type's last token, so this inspects
+  -- the clause no more deeply than `given` inspects its angle brackets. Every
+  -- real predicate ends in a trait name, a `>`, a `)` or a `]`; an operator at
+  -- the end is a clause the author did not finish.
+  if !can_end_a_type (&last)
+    return Err $ ParseError::with_help Code::BoundClauseShape "this `where` clause does not end where a type can end" "a predicate ends in a trait name or a closing bracket — `where I::IntoIter: Clone`. This one ends mid-expression, so the verbatim text would reach the generated Rust unfinished" opened
+  Ok (Some text)

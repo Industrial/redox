@@ -107,6 +107,19 @@ expr_text expr required indent source = case expr of
     format! \-> "#{(receiver recv indent source)}[#{(expr_text index 0 indent source)}]"
   Expr::Binary { op = BinaryOp::Pipeline, lhs, rhs, .. } ->
     pipeline_text lhs rhs indent source
+  -- Plan 90. The `Binary` arm below, with the powers read off the node instead
+  -- of off `BinaryOp::power` — a user operator's precedence is one file's
+  -- declaration, so there is no table to ask and the node carries it.
+  -- Plan 88 leaf 3. Printed from the tree in all three parts, which is the
+  -- whole reason `Expr::Over` exists rather than the parser desugaring to an
+  -- assignment: `redox fmt` has to write back the path the author said once.
+  Expr::Over { selector, function, place, .. } ->
+    path : Vec<String> = selector |> .iter |> .map (\i -> .clone i.text) |> .collect
+    spelled = .join "." path
+    format! \-> "over (.#{spelled}) #{(operand function u8::MAX indent source)} #{(operand place u8::MAX indent source)}"
+  Expr::UserBinary { spelling, fixity, precedence, lhs, rhs, .. } ->
+    powers = .powers (*precedence) (*fixity)
+    format! \-> "#{(operand lhs powers.0 indent source)} #{spelling.text} #{(operand rhs powers.1 indent source)}"
   Expr::Binary { op, lhs, rhs, .. } ->
     -- Left-associative, so the right operand must bind one rung tighter for
     -- its parentheses to be redundant.
@@ -173,6 +186,13 @@ expr_text expr required indent source = case expr of
     format! \-> "unsafe\n#{(block_text body (indent + 1) source)}"
   Expr::TryBlock { body, .. } ->
     format! \-> "try\n#{(block_text body (indent + 1) source)}"
+  -- Plan 86. The modifier **names a method**, so unlike its three siblings the
+  -- word alone is not the whole of it — the printer has to put the `.` back.
+  -- Plan 84 §10.4 is the precedent, one construct over: the stored text is the
+  -- Rust form and the surface spelling carries more, and the first fix there
+  -- printed valid Rust that was not a Redox program.
+  Expr::BindBlock { method, body, .. } ->
+    format! \-> "do .#{method.text}\n#{(block_text body (indent + 1) source)}"
   Expr::Case { scrutinee, arms, .. } ->
     printed : Vec<String> = arms
       |> .iter

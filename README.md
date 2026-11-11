@@ -82,8 +82,17 @@ partial application share a single spelling:
 ```redox
 .trim raw                     -- raw.trim()
 .insert k v m                 -- m.insert(k, v)
-.trim                         -- |x| x.trim()      — awaiting a receiver
+.trim _                       -- |x| x.trim()      — awaiting a receiver
+.insert k _ m                 -- |v| m.insert(k, v) — awaiting the middle one
+(.name)                       -- |x| x.name        — GHC's record dot
 ```
+
+The `_` is an **application hole**: it marks the argument a closure is still
+waiting for, in any position. That is what makes the third line mean what it
+says — the fourth row is the reason it has to. A `.name` followed by `)` is the
+*selector*, so `(.trim)` is `|x| x.trim`, a field access rustc answers with
+*"attempted to take value of method"*. This table claimed `.trim` alone was
+`|x| x.trim()` until plan 85 measured it; the hole is the spelling that is.
 
 ### Pipelines, composition and sections
 
@@ -147,6 +156,64 @@ not hide the borrow — it just stops making you write `impl` blocks by hand.
 
 Indentation is significant; there are no braces and no semicolons. Blocks are opened by layout,
 which is why a guard ladder and a `where` group read as outlines rather than punctuation.
+
+### Abstractions Rust does not have
+
+Four constructs with no Rust counterpart, each lowering to ordinary Rust that rustc then checks
+exactly as it would the written-out form.
+
+```redox
+pattern Origin = Point { x = 0, y = 0 }   -- a named pattern, with parameters
+pattern Both a b = (Some a, Some b)
+
+deriving template Forward                 -- a derive, with no proc-macro crate
+  instance Display Target
+    fmt : &self -> &mut Formatter<'_> -> Result
+    fmt self f = Display::fmt (&self.Field0) f
+
+infixl 6 <+> = merge                      -- a spelling and a fixity for an existing function
+
+totals = do .and_then                     -- a block whose statements are bound by one method
+  first <- head xs
+  rest <- tail xs
+  Some (first + rest)
+```
+
+A **pattern synonym** is substituted at every use site, so `case p of Origin -> …` compiles to
+the written-out pattern and rustc's exhaustiveness check sees everything it would have. A
+synonym's parameters are formal: every binder is written at the use site, which is what separates
+it from a wildcard import of names.
+
+A **deriving template** names an `instance` whose implementing type is the reserved name
+`Target`; every declaration listing it in `deriving (…)` gets that `instance` with `Target`
+replaced by its own type name, `Field0`… by its field names, and `Fields` / `FieldNames` by
+*every* field as a `self` access and as a string literal — so one template visits declarations of
+any width. One file, four lines, no `syn`, no `quote`, no second compilation unit. A name in a
+`deriving` list that no template matches stays in `#[derive(…)]` untouched.
+
+An **operator declaration** is fixity plus alias and emits no item: `a <+> b` becomes
+`merge(a, b)`. The spellings are a closed set of twelve, `<` · one character · `>`; precedence is
+0–9 and always binds looser than arithmetic, so `a <+> b + c` is `a <+> (b + c)`. A declaration
+names a function that already exists, so go-to-definition has somewhere real to go.
+
+A **bind block** reads `<-` as whatever the named method does, so one shape covers `Option`,
+`Result`, iterators and anything else with a `and_then`-like method — the comprehension Haskell
+spells `do`, without Redox having to know which monad it is.
+
+```redox
+over (.addr.zip.code) doubled target   -- target.addr.zip.code = doubled(target.addr.zip.code)
+```
+
+**`over` says a path once.** `:=` is the general assignment and reaches a name, a field, an index
+and a deref target, so the update already exists — written twice:
+`target.addr.zip.code := doubled target.addr.zip.code`. Two spellings of one path that must agree
+is the shape of a typo that type-checks, and `… := doubled target.addr.zip.town` compiles whenever
+both fields are the same type. The lowering is an assignment through the place, so nothing is moved
+and nothing is cloned; the emitted Rust is what the `:=` form emits.
+
+Every one of these lowers to ordinary Rust that rustc then checks exactly as it would the
+written-out form — which is the only reason they are admissible. Redox has no type checker and
+must never grow one.
 
 ### String interpolation
 

@@ -1,5 +1,5 @@
 import crate::capabilities::token_types::token_types
-import lsp_types::{OneOf, SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions, SemanticTokensServerCapabilities, ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind, WorkDoneProgressOptions}
+import lsp_types::{FoldingRangeProviderCapability, HoverProviderCapability, OneOf, SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions, SemanticTokensServerCapabilities, ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind, WorkDoneProgressOptions}
 
 -- | The legend the server's token indices refer into.
 export(crate) module token_types
@@ -14,8 +14,30 @@ export(crate) module token_types
 -- | that advertises none, because the editor's own word-based fallback is
 -- | switched off by the advertisement.
 -- |
--- | So the list is exactly four, and `capabilities_match_the_handlers` in the
--- | test suite is the assertion that it stays that way.
+-- | So the list is exactly **seven**, and
+-- | `capabilities_are_exactly_the_seven_implemented` in the test suite is the
+-- | assertion that it stays that way.
+-- |
+-- | # The three plan 71 leaf 5 added, and why they are not the ones plan 40 declined
+-- |
+-- | Plan 40 §6 declined `hover` and `definition` because they *"would need name
+-- | resolution"*, and that is true of the capabilities a Rust programmer
+-- | expects: the **type** of the expression under the cursor, and the
+-- | definition of a name wherever it lives.
+-- |
+-- | These three are a different question each, and each is answerable by a
+-- | **span lookup over an AST that already carries spans** — which is leaf 5's
+-- | own criterion for choosing them:
+-- |
+-- | | Capability | The question it answers | What it never does |
+-- | |---|---|---|
+-- | | `hover` | which declaration am I inside, and what is its first line | consult a type |
+-- | | `definition` | where does **this file** declare this name | follow an import, or walk a scope tree |
+-- | | `foldingRange` | where are the indented blocks | re-implement the off-side rule |
+-- |
+-- | Doc 02 §12.4's refusal of a type checker is untouched and rustc remains the
+-- | sole authority on types — `redox check` is where a reader gets one, and it
+-- | reports rustc's own answer against the `.sdx`.
 -- |
 -- | # Full-document sync
 -- |
@@ -32,4 +54,4 @@ capabilities =
   -- the type's path and the source gives only the value's name. The emitted
   -- Rust therefore contains no `..`.
   base = ServerCapabilities::default ()
-  base { text_document_sync = Some (TextDocumentSyncCapability::Kind TextDocumentSyncKind::FULL), document_symbol_provider = Some (OneOf::Left true), document_formatting_provider = Some (OneOf::Left true), semantic_tokens_provider = Some (SemanticTokensServerCapabilities::SemanticTokensOptions (SemanticTokensOptions { work_done_progress_options = WorkDoneProgressOptions::default (), legend = SemanticTokensLegend { token_types = token_types (), token_modifiers = Vec::new () }, range = None, full = Some (SemanticTokensFullOptions::Bool true) })) }
+  base { text_document_sync = Some (TextDocumentSyncCapability::Kind TextDocumentSyncKind::FULL), document_symbol_provider = Some (OneOf::Left true), document_formatting_provider = Some (OneOf::Left true), hover_provider = Some (HoverProviderCapability::Simple true), definition_provider = Some (OneOf::Left true), folding_range_provider = Some (FoldingRangeProviderCapability::Simple true), semantic_tokens_provider = Some (SemanticTokensServerCapabilities::SemanticTokensOptions (SemanticTokensOptions { work_done_progress_options = WorkDoneProgressOptions::default (), legend = SemanticTokensLegend { token_types = token_types (), token_modifiers = Vec::new () }, range = None, full = Some (SemanticTokensFullOptions::Bool true) })) }

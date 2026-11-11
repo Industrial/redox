@@ -16,4 +16,6 @@ section_text section indent source = case section of
     format! \-> "(#{(.redox_text (*op))} #{(expr_text operand 0 indent source)})"
   Section::Left { op, operand } ->
     format! \-> "(#{(expr_text operand 0 indent source)} #{(.redox_text (*op))})"
-  Section::Field name -> format! \-> "(.#{name.text})"
+  Section::Field path ->
+    joined : Vec<&str> = path |> .iter |> .map (\n -> .as_str n.text) |> .collect
+    format! \-> "(.#{(.join "." joined)})"

@@ -82,7 +82,12 @@ emit_section section indent =
     moved = format! \-> "move #{inner}"
     return closure (&[typed]) (&moved)
   body = case section of
-    Section::Field name -> format! \-> "#{param}.#{name.text}"
+    -- Plan 88: a path. `.join` over the names rather than one `text`, so
+    -- `(.a.b.c)` emits `|__rdx_1| __rdx_1.a.b.c` — the field access a reader
+    -- would write, and not the method call the old reading produced.
+    Section::Field path ->
+      joined : Vec<&str> = path |> .iter |> .map (\n -> .as_str n.text) |> .collect
+      format! \-> "#{param}.#{(.join "." joined)}"
     Section::Right { op, operand } ->
       value = emit_expr (unparen operand) indent
       case .compare_method op of

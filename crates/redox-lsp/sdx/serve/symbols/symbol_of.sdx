@@ -80,6 +80,18 @@ symbol_of item source =
         |> .map (\d -> DocumentSymbol { name = .clone d.name.text, detail = None, kind = SymbolKind::FUNCTION, tags = None, deprecated = None, range = to_range source d.span, selection_range = to_range source d.span, children = None })
         |> .collect
       (format! \-> "extern #{decl.abi}", SymbolKind::NAMESPACE, Some declared)
+    -- Plan 87. `CONSTANT` rather than `FUNCTION` or `STRUCT`: a synonym is a
+    -- name standing for a fixed pattern, and it emits no Rust item at all, so
+    -- the kind that reads closest in an outline is the one for a named value.
+    Item::PatternSynonym decl -> (.clone decl.name.text, SymbolKind::CONSTANT, None)
+    -- Plan 89. `INTERFACE`, because a template is a reusable implementation a
+    -- `deriving` list names — the outline entry a reader looks for when asking
+    -- where `Forward` came from, which is the discoverability cost §1.4 admits
+    -- and this row partly repays.
+    Item::DeriveTemplate decl -> (.clone decl.name.text, SymbolKind::INTERFACE, None)
+    -- Plan 90. `OPERATOR`, which is the kind LSP has for exactly this and the
+    -- only one in the enum that is not an approximation.
+    Item::OperatorDecl decl -> (.clone decl.spelling.text, SymbolKind::OPERATOR, None)
   name = described.0
   kind = described.1
   children = described.2

@@ -7,16 +7,21 @@ import crate::parse::parser::condition::condition
 import crate::parse::parser::const_decl::const_decl
 import crate::parse::parser::constraints::constraints
 import crate::parse::parser::data_decl::data_decl
+import crate::parse::parser::declares_an_operator::declares_an_operator
+import crate::parse::parser::derive_template::derive_template
 import crate::parse::parser::errors_decl::errors_decl
 import crate::parse::parser::extern_block::extern_block
 import crate::parse::parser::generalise::generalise
+import crate::parse::parser::given_clause::given_clause
 import crate::parse::parser::import_decl::import_decl
 import crate::parse::parser::inline_rust::inline_rust
 import crate::parse::parser::instance_decl::instance_decl
 import crate::parse::parser::module_decl::module_decl
+import crate::parse::parser::operator_decl::operator_decl
 import crate::parse::parser::parse_expr::parse_expr
 import crate::parse::parser::parse_spine::parse_spine
 import crate::parse::parser::pattern_alt::pattern_alt
+import crate::parse::parser::pattern_synonym::pattern_synonym
 import crate::parse::parser::patterns::patterns
 import crate::parse::parser::signature_from::signature_from
 import crate::parse::parser::signature_head::SignatureHead
@@ -26,17 +31,22 @@ import crate::parse::parser::test_decl::test_decl
 import crate::parse::parser::type_alias::type_alias
 import crate::parse::parser::type_stop::TypeStop
 import crate::parse::parser::visibility::visibility
+import crate::parse::parser::where_predicates::where_predicates
 import redox_ast::Guard
+import redox_ast::Fixity
 import redox_ast::Visibility
 import redox_ast::{Binding, Block, Expr, FnDecl, Ident, Item, Program, Stmt, TypeExpr}
 import redox_diag::Code
 import redox_lexer::{Keyword, Span, Token, TokenKind, Trivia}
 
 export(crate) module above_and_and
+-- | The function an operator stands for, verbatim to the end of the line.
+export(crate) module alias_target
 export(crate) module application
 export(crate) module arm_body
 export(crate) module assign_tail
 export(crate) module atom
+export(crate) module bind_block
 export(crate) module binary_op
 export(crate) module block_expr
 export(crate) module bracketed
@@ -60,6 +70,12 @@ export(crate) module constructor_fields
 export(crate) module constructor_path
 export(crate) module control_flow
 export(crate) module data_decl
+-- | The precedence a declaration's literal spells, or `None`.
+export(crate) module digit_precedence
+-- | Whether the three tokens at the cursor begin an operator declaration.
+export(crate) module declares_an_operator
+-- | `deriving template Forward` and its indented `instance` body.
+export(crate) module derive_template
 export(crate) module r#deriving
 export(crate) module error_variant
 export(crate) module errors_decl
@@ -69,6 +85,7 @@ export(crate) module field_decl
 export(crate) module field_init
 export(crate) module flush_word
 export(crate) module generalise
+export(crate) module given_clause
 -- | A declaration synthesises its generic list from its field types.
 export(crate) module generalise_data
 export(crate) module holds_a_pattern_test
@@ -86,8 +103,16 @@ export(crate) module method_context
 export(crate) module modified_block
 export(crate) module module_decl
 export(crate) module newtype_shape
+-- | Whether the same user operator follows, for the non-associative refusal.
+export(crate) module operator_chains
+-- | `infixl 6 <+> = Set::union` — a spelling and a fixity for an existing function.
+export(crate) module operator_decl
 export(crate) module opens_a_section
+-- | Whether the three tokens at the cursor begin an `over`.
+export(crate) module opens_an_over
 export(crate) module optional_chaining
+-- | `over (.a.b) f place` — an assignment that says its path once.
+export(crate) module over_update
 export(crate) module parse_expr
 export(crate) module parse_spine
 export(crate) module path_or_ident
@@ -95,6 +120,7 @@ export(crate) module pattern
 export(crate) module pattern_alt
 export(crate) module pattern_app
 export(crate) module pattern_series
+export(crate) module pattern_synonym
 export(crate) module patterns
 export(crate) module pipeline_section
 export(crate) module postfix
@@ -102,6 +128,7 @@ export(crate) module prefix
 export(crate) module qualifiers
 export(crate) module range_or_literal
 export(crate) module reaches_a_draw_arrow
+export(crate) module reaches_a_fat_arrow
 export(crate) module receiver
 export(crate) module receiver_text
 export(crate) module record_literal
@@ -131,6 +158,8 @@ export(crate) module type_app
 export(crate) module type_stop
 export(crate) module type_vars
 export(crate) module unary_op
+-- | A user-declared operator's fixity, powers and alias target.
+export(crate) module user_rung
 -- | A function type's grouping parentheses, removed.
 export(crate) module ungrouped
 export(crate) module unit_tail
@@ -139,6 +168,7 @@ export(crate) module walk_item_for_tails
 export(crate) module walk_member_for_tails
 export(crate) module where_entry_is_a_function
 export(crate) module where_group
+export(crate) module where_predicates
 
 -- | The recursive-descent parser.
 -- |
@@ -192,11 +222,29 @@ export(crate) data Parser = Parser {
   -- | Restating a signature still works in any order, so no program that
   -- | compiled before this row stops — see §10.
   class_heads : std::collections::BTreeMap<(String, String), SignatureHead>,
+  -- | Plan 90: the fixity and precedence of every operator this file has
+  -- | declared **so far**, by spelling.
+  -- |
+  -- | `class_heads`' shape, for `class_heads`' reasons — collected while items
+  -- | are parsed, read while an expression is, transforming no node either
+  -- | time — with the same one narrowing: **declaration before use**. A
+  -- | `infixl 6 <+>` below its first use is `RDX0123`, which is a diagnostic at
+  -- | the use site rather than a reordering, and plan 90 §1.5 chose that
+  -- | boundary deliberately.
+  -- |
+  -- | This is also where plan 90 §1.3's pre-pass went. Its argument was that a
+  -- | user spelling *"cannot be scanned as one token until the `infixl`
+  -- | declaration has been read"*, so the **lexer** would need to find
+  -- | declarations before lexing the body. It does not, because
+  -- | `ASSIGNABLE_OPERATORS` is closed: the lexer scans every admissible
+  -- | spelling unconditionally and this table decides, at the only point where
+  -- | source order is already known for free.
+  fixities : std::collections::BTreeMap<String, (Fixity, u8, String)>,
 }
 
 instance (Parser 'a)
   export(crate) new : &'a [Token] -> Self
-  new toks = Parser { toks, pos = 0, r#errors = Vec::new (), class_heads = std::collections::BTreeMap::new () }
+  new toks = Parser { toks, pos = 0, r#errors = Vec::new (), class_heads = std::collections::BTreeMap::new (), fixities = std::collections::BTreeMap::new () }
   -- | Parse the whole token stream, consuming the parser.
   export(crate) run : usize -> mut self -> Result<Program, Vec<ParseError>>
   run src_len self =
@@ -312,6 +360,55 @@ instance (Parser 'a)
       block = (inline_rust self leading start)?
       (.newline_with_trailing "expected a line break after the inline Rust" self)?
       return Ok (Item::InlineRust block)
+    -- Plan 87's pattern synonym, and the one branch here that is **not** a
+    -- reserved word. `pattern` is Redox's second contextual keyword after
+    -- `from`, because reserving it was tried and reverted: it is a *field
+    -- name* in four of this compiler's own declarations — `Binding`,
+    -- `CaseArm`, `RecordPatternField` and `Expr::Await` — so a
+    -- `Keyword::PatternKw` made `redox-ast` stop transpiling with `RDX0103` on
+    -- its own source. Plan 87 §10 records it.
+    --
+    -- Two tokens settle it, and the second is what makes the reading safe: a
+    -- synonym's name is **upper case**, because a use site has to read as a
+    -- constructor. So `pattern Origin = …` is a declaration and
+    -- `pattern = Some 1` or `pattern : Vec<Pattern>` is an ordinary binding or
+    -- signature named `pattern`, which this compiler's own source contains.
+    --
+    -- It takes **no visibility marker**: the declaration emits no Rust item,
+    -- so there is nothing for `export` to be about.
+    word_is_pattern = case &(.peek self).kind of
+      TokenKind::Ident text -> text == "pattern"
+      _ -> false
+    names_a_constructor = .is_some_and (\t -> case &t.kind of
+      TokenKind::Ident next -> .is_some_and char::is_uppercase (.next (.chars next))
+      _ -> false) (.peek_at 1 self)
+    if word_is_pattern && names_a_constructor
+      decl = (pattern_synonym self leading start)?
+      return Ok (Item::PatternSynonym decl)
+    -- Plan 90's operator declaration, and the **three**-token lookahead that
+    -- makes `infixl` safe to leave unreserved: the word, an integer literal,
+    -- then an assignable operator. `infixl = 3` is a binding and
+    -- `infixl 6 x = x * 6` an equation, both of which a program may contain.
+    -- `operator_decl` re-reads the word and reports on it, so the predicate
+    -- here only has to be *sufficient*, never diagnostic.
+    if declares_an_operator self
+      decl = (operator_decl self leading start)?
+      return Ok (Item::OperatorDecl decl)
+    -- Plan 89's `deriving template Forward`. `deriving` is already a keyword —
+    -- it introduces a declaration's derive list — and at **item** position it
+    -- can only begin this, so one token settles it and `template` rides in as
+    -- an ordinary identifier. That is plan 87's contextual-word lesson applied
+    -- in advance rather than after a revert: reserving `template` would make
+    -- it unusable as a field or binding name for the sake of a word that needs
+    -- to be recognised in exactly one place.
+    --
+    -- Like a pattern synonym, it takes **no visibility marker**: the
+    -- declaration emits no Rust item, so there is nothing for `export` to be
+    -- about.
+    if .check (&TokenKind::Kw Keyword::Deriving) self
+      decl = (derive_template self leading start)?
+      (.newline_with_trailing "expected a line break after the deriving template" self)?
+      return Ok (Item::DeriveTemplate decl)
     -- Doc 01 §26's FFI requirement — plan 45 leaf 3.
     if .check (&TokenKind::Kw Keyword::Extern) self
       block = (extern_block self leading start)?
@@ -410,7 +507,21 @@ instance (Parser 'a)
     -- Doc 18 §2.2's `=>` clause. Read speculatively, because
     -- `f : Ord t => &[t] -> &t` and `f : &[t] -> &t` begin with the same
     -- token — see `constraints`.
-    bounds = (constraints self)?
+    -- Plan 84 leaf 1's `given <…>`, read **before** the `=>` clause and
+    -- exclusive with it. §1.6 makes the binder all or nothing: a signature
+    -- that declines synthesis declines the bound clause with it, because a
+    -- half-synthesised binder cannot be predicted without simulating the
+    -- compiler. `constraints` is not even consulted when `given` is present,
+    -- so a program carrying both is `RDX0120` from the clause it reaches
+    -- second rather than a silent precedence.
+    -- `binder`, not `given`: plan 84 leaf 1 made `given` a keyword, so it is
+    -- not available as a binding name. The field keeps the construct's name as
+    -- `r#given`, which is `r#errors`' precedent one declaration over.
+    binder = (given_clause self)?
+    bounds = if .is_some binder
+      Vec::new ()
+    else
+      (constraints self)?
     -- Doc 18 §2.2's `const fn` marker, consumed **before** the spine: a type
     -- is verbatim text, so leaving `const` in one would make the first
     -- parameter's type `const u32`, which is not a Rust type.
@@ -424,8 +535,12 @@ instance (Parser 'a)
     -- would make the first parameter's type `unsafe u32`.
     is_unsafe = .eat_keyword Keyword::Unsafe self
     spine = (parse_spine self)?
+    -- Plan 84 leaf 3. Rust puts its predicates after the return type and so
+    -- does this: `capture_type` stops at the keyword, so the spine ends where
+    -- the clause begins.
+    predicates = (where_predicates self)?
     (.newline_with_trailing "expected a line break after the signature" self)?
-    Ok (SignatureHead { types = spine, bounds, is_const, is_async, is_unsafe })
+    Ok (SignatureHead { types = spine, bounds, r#given = binder, predicates, is_const, is_async, is_unsafe })
   -- | Record a `class` member's head, so an `instance` may elide it.
   -- |
   -- | Plan 63 leaf 1, and the narrowest resolver the row could have: one name,
@@ -469,6 +584,14 @@ instance (Parser 'a)
         TokenKind::Ident _ -> !.is_some_and (\t -> t.kind == TokenKind::Colon) (.peek_at 1 self)
         _ -> false
       if !is_equation
+        break
+      -- Plan 90. An operator declaration looks exactly like an equation to the
+      -- one-token test above — a lower-case name not followed by `:` — so the
+      -- clause loop has to be told, or `infixl 6 <+> = merge` below a function
+      -- is read as another clause of it and reported as a mistyped name.
+      -- Found by writing `examples/operator.sdx`: `Parser::item`'s dispatch is
+      -- not the only place a line is claimed.
+      if declares_an_operator self
         break
       -- Plan 63 leaf 0. Inside a `class` or `instance` body a differing name
       -- starts the **next member**, where at top level it is a mistyped
@@ -517,6 +640,11 @@ instance (Parser 'a)
     -- The generic list is synthesised from the types, not written — doc 18
     -- §5.3. Done here rather than in the two signature builders because it
     -- needs the constraint clause, which only this knows about.
+    -- Plan 84 leaf 1 and leaf 2: the verbatim binder is attached **before**
+    -- `generalise`, which reads it and returns at once when it is there. §1.6
+    -- is the rule — synthesis is all or nothing per signature.
+    settled.r#given := .clone head.r#given
+    settled.predicates := .clone head.predicates
     generalise (&mut settled) bounds reserved
     settled.is_const := head.is_const
     settled.is_async := head.is_async

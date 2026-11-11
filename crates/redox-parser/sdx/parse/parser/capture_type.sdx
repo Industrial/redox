@@ -69,13 +69,37 @@ capture_type p message stop =
       TokenKind::Eof -> true
       _ -> false
     if at_eof
+      -- Plan 90. An unbalanced opener that reaches the end of the input is
+      -- **refused**, not swallowed. `break`ing here captured the whole rest of
+      -- the file as one type and pasted it into the generated Rust, which is
+      -- plan 84 §1.3's defect exactly: *"a malformed binder being swallowed
+      -- instead of refused"*. Found by the fuzzer, which flipped the `>` of
+      -- `u32 -> u32` to `<` and watched a six-line program become one type.
+      if depth > 0
+        return Err $ ParseError::with_help Code::ExpectedType "this type's brackets are not closed" "a `<`, `(`, `[` or `{` in a type is closed on the same line — a type runs to the end of its line and no further" (start, (.peek_span p).1)
       break
+    -- The same refusal one token earlier, and the one that actually fires: a
+    -- signature is **one line**, so an opener still open at a line break has no
+    -- closer anywhere. At depth zero a line break ends the type normally, which
+    -- is the arm in the `ends` table below.
+    crosses_a_line = case kind of
+      TokenKind::Newline or TokenKind::Indent or TokenKind::Dedent -> depth > 0
+      _ -> false
+    if crosses_a_line
+      return Err $ ParseError::with_help Code::ExpectedType "this type's brackets are not closed on this line" "a `<`, `(`, `[` or `{` in a type is closed on the same line — a type runs to the end of its line and no further" (start, (.peek_span p).0)
     if depth == 0
       ends = case kind of
         TokenKind::Comma or TokenKind::RParen or TokenKind::Eq -> true
         TokenKind::RBrace or TokenKind::Or or TokenKind::Pipe -> true
         TokenKind::Str { .. } or TokenKind::RawStr { .. } -> true
         TokenKind::Kw (Keyword::As) -> true
+        -- Plan 84 leaf 1. A signature-position `where` carries verbatim Rust
+        -- predicates after the spine — doc 03 §14.2's declared role for this
+        -- position — so a type ends where one begins. A type capture never met
+        -- this keyword at depth zero before the row, because Redox's own
+        -- `where` introduces local bindings and sits at a different indent
+        -- after the body.
+        TokenKind::Kw (Keyword::Where) -> true
         TokenKind::Arrow -> !closed_a_named_group
         TokenKind::Newline or TokenKind::Indent or TokenKind::Dedent or TokenKind::Eof -> true
         TokenKind::Gt or TokenKind::Shr or TokenKind::Compose or TokenKind::RBracket -> true

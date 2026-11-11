@@ -1,11 +1,12 @@
 import crate::emit::closure::closure
 import crate::emit::closure_param::closure_param
 import crate::emit::expr_list::expr_list
+import crate::emit::holes::holes
 import crate::emit::method_ref::method_ref
 import crate::emit::missing_arity::missing_arity
 import crate::emit::receiver::receiver
 import crate::emit::unparen::unparen
-import redox_ast::Expr
+import redox_ast::{Expr, Ident}
 
 -- | Lower doc 18 §2.1's application: a saturated call, or the closure an
 -- | under-applied one becomes.
@@ -51,6 +52,42 @@ import redox_ast::Expr
 -- | that creates synthesized lambdas, and this is it.
 export(crate) emit_application : &Expr -> &[Expr] -> usize -> String
 emit_application callee args indent =
+  -- **Plan 85's application hole, and it is deliberately the first thing here.**
+  --
+  -- Each `_` is replaced by the name of a closure parameter and this function
+  -- is re-entered with the substituted arguments, so the hole lowering reuses
+  -- *everything* below rather than reimplementing any of it: the `$` flatten,
+  -- plan 57's receiver-last `method_ref`, the unit-argument reading and
+  -- `missing_arity` all run on the substituted call. That is what makes
+  -- `.insert k _ m` work for free — a method's arguments go through the same
+  -- list — and it is plan 56 criterion 6's one-lowering rule honoured by
+  -- *reuse* rather than by a fourth caller of `closure`.
+  --
+  -- It also gives plan 85 §1.3's scope rule with no extra machinery: the
+  -- closure wraps the **innermost enclosing application**, because that is the
+  -- `emit_application` the hole is an argument of. `f (g _ 1) 2` emits
+  -- `f(|__rdx_1| g(__rdx_1, 1), 2)`.
+  --
+  -- The recursion terminates because the substituted arguments contain no
+  -- holes, so the branch cannot fire twice on one call.
+  at = holes args
+  if !.is_empty at
+    params : Vec<String> = 0 .. .len at |> .map closure_param |> .collect
+    mut filled : Vec<Expr> = Vec::new ()
+    mut taken = 0
+    for arg in args
+      is_hole = case arg of
+        Expr::Ident i -> i.text == "_"
+        _ -> false
+      if is_hole
+        -- The hole's own span, so a diagnostic about the generated parameter
+        -- points at the `_` the author wrote.
+        .push (Expr::Ident (Ident { text = .clone params[taken], span = .span arg })) filled
+        taken += 1
+      else
+        .push (.clone arg) filled
+    body = emit_application callee (&filled) indent
+    return closure (&params) (&body)
   -- The `matches!` as a `case`, bound before the chain, because a macro's
   -- second argument cannot be a pattern.
   if unparen callee is Expr::Call { callee = inner, args = inner_args, .. }

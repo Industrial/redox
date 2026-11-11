@@ -1,0 +1,62 @@
+// A declaration gives a spelling and a fixity to a function that already
+// exists — plan 90, `docs/84 - 90 - Operator Declaration.md`.
+//
+// It emits **no item**. `a <+> b` becomes `merge(a, b)`: nothing is declared,
+// nothing is renamed, and go-to-definition on the operator has somewhere real
+// to go. That is what keeps it admissible where a Haskell-style *definition*
+// would not be — no Rust function can be named `<+>`, so a definition would
+// have to invent a name, and doc 03 §8.7 refuses fabricated API.
+//
+// `docs/DECLINED.md` refused this construct under *"Rust has no mechanism for
+// it, so there is no lowering target"*. The first clause is true; the second
+// does not follow — the surface already carries six operators Rust has no
+// counterpart for, and every one lowers to an ordinary expression. Plan 90
+// §1.1 makes the correction.
+use std::collections::BTreeSet;
+
+fn merge(a: BTreeSet<u32>, b: BTreeSet<u32>) -> BTreeSet<u32> {
+    // Written out rather than piped through `.union`, because `union` is a Redox
+    // keyword (plan 45 gave it the `data` slot) and so has no method spelling.
+    let mut out = a;
+    out.extend(b);
+    out
+}
+
+fn diff(n: u32, m: u32) -> u32 {
+    n - m
+}
+
+fn set(xs: &[u32]) -> BTreeSet<u32> {
+    xs.iter().copied().collect()
+}
+
+// Left-associative at 6, so `a <+> b <+> c` is `(a <+> b) <+> c` — visible in
+// the generated Rust as `merge(merge(a, b), c)`.
+
+// Right-associative at 2. `diff` is not associative, so the two readings give
+// different numbers and the *output* tells them apart — which is what plan 90
+// criterion 2 asks for.
+
+// Declared `infix`, so it does not chain at all: `a <=> b <=> c` is RDX0125,
+// and `tests/ui/non_associative_operator.sdx` is the fixture.
+
+pub fn main() {
+    let a = set(&[1, 2]);
+    let b = set(&[2, 3]);
+    let c = set(&[9]);
+    let joined = merge(merge(a, b), c);
+    println!("{:?}", joined);
+    // `9 <-> 4 <-> 2` right-associates to `diff 9 (diff 4 2)` = 7. The
+    // left-associative reading would be `diff (diff 9 4) 2` = 3.
+    let stepped = diff(9, diff(4, 2));
+    println!("{}", stepped);
+    // Every user operator binds looser than arithmetic — `Fixity::powers` has
+    // the interleave table — so this is `diff 9 (2 + 3)` = 4, not
+    // `diff 9 2 + 3` = 10.
+    let mixed = diff(9, 2 + 3);
+    println!("{}", mixed);
+    // Non-associative, used once, which is legal.
+    let larger = u32::max(7, 4);
+    println!("{}", larger);
+    ();
+}

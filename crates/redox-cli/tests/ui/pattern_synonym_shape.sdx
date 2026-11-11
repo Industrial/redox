@@ -1,0 +1,17 @@
+-- Plan 87's `RDX0121`: a pattern synonym whose body binds a name it did not
+-- declare.
+--
+-- `a` is a parameter and `b` is not, so `b` would be a binder the use site
+-- never wrote. That is exactly what `docs/DECLINED.md` refuses
+-- `RecordWildCards` for — "introduces names absent from the source" — and the
+-- one property that distinguishes a synonym from that decline: a synonym's
+-- parameters are **formal**, and every binder at a use site is written there.
+--
+-- Refused at the **declaration**, where a reader can see both the parameter
+-- list and the body. A use site cannot know what went wrong.
+
+pattern Both a = (Some a, Some b)
+
+main : ()
+main =
+  ()

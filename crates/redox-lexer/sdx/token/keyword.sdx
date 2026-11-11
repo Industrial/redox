@@ -96,6 +96,26 @@ export data Keyword
   | Try
   | Catch
   | Where
+  -- | `given`, plan 84 leaf 1 — the **verbatim** generic parameter list, which
+  -- | declines doc 18 §2.2's synthesis for the signature that carries it.
+  -- |
+  -- | Doc 03 §14.1 carries a *type* verbatim, so every present and future Rust
+  -- | type form is reachable for free. The **binder** was synthesised instead,
+  -- | and plan 84 leaf 0 measured six shapes it cannot reach — a bound whose
+  -- | trait has type arguments, a projection predicate, `?Sized`, a lifetime
+  -- | bound, a const parameter and a higher-ranked bound. This is §14.1's
+  -- | argument applied one level up.
+  | Given
+  -- **`pattern` is deliberately absent, and plan 87 §10 is the record.** That
+  -- row's synonym declaration is Redox's **second contextual keyword**, after
+  -- `from`, because reserving the word was tried and reverted: `pattern` is a
+  -- *field name* in four of this compiler's own declarations — `Binding`,
+  -- `CaseArm`, `RecordPatternField` and `Expr::Await` — so `Keyword::PatternKw`
+  -- made `redox-ast` stop transpiling with `RDX0103` on its own source.
+  --
+  -- A word this language already uses as a field cannot be reserved without
+  -- a rename across six crates, and a contextual reading costs two tokens of
+  -- lookahead at one dispatch site.
   -- Patterns. Doc 03 §4.4 fixed `is`, `and`, `or` and `not` as pattern
   -- combinators; doc 18 §2.3 deletes `is`, `and` and `not` in favour of
   -- guards, and §5.4 keeps `or` **precisely so that `|` is unambiguously the
@@ -192,6 +212,7 @@ instance Keyword
     "try" -> Some Try
     "catch" -> Some Catch
     "where" -> Some Where
+    "given" -> Some Given
     "or" -> Some Or
     "not" -> Some Not
     "as" -> Some As
@@ -254,6 +275,7 @@ instance Keyword
     Try -> "try"
     Catch -> "catch"
     Where -> "where"
+    Given -> "given"
     Or -> "or"
     Not -> "not"
     As -> "as"

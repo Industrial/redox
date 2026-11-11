@@ -62,6 +62,47 @@ export data Expr
   -- | `recv[index]`
   | Index { recv : Box<Expr>, index : Box<Expr>, span : Span }
   | Binary { op : BinaryOp, lhs : Box<Expr>, rhs : Box<Expr>, span : Span }
+  -- | `a <+> b` — a use of an operator this file declared. Plan 90.
+  -- |
+  -- | Carries **both** the spelling and the alias target, which is what lets
+  -- | the emitter and `redox fmt` each read the field it needs with no ambient
+  -- | table between them: the emitter writes `target(lhs, rhs)` and the
+  -- | printer writes `lhs <+> rhs`.
+  -- |
+  -- | That is plan 61's two-consumers rule satisfied by **storing** rather than
+  -- | by guarding. The four ambient `thread_local!` scopes — `ArityScope`,
+  -- | `BindingScope`, `SynonymScope`, `TemplateScope` — exist because their
+  -- | information is not in the tree; here the parser already had to consult
+  -- | the fixity table to parse the expression at all, so recording what it
+  -- | found costs one field and retires a fifth guard before it is written.
+  -- |
+  -- | `fixity` and `precedence` are carried for the **printer**, not the
+  -- | emitter: dropping a redundant parenthesis is a precedence decision, and
+  -- | `BinaryOp::power`'s own doc comment records what happens when a formatter
+  -- | works from a second copy of a precedence table. There is no table to copy
+  -- | here — the fixity is one file's declaration — so the only way the printer
+  -- | can know it without a fifth ambient guard is for the node to say.
+  | UserBinary { spelling : Ident, fixity : crate::Fixity, precedence : u8, target : String, lhs : Box<Expr>, rhs : Box<Expr>, span : Span }
+  -- | `over (.addr.city) .to_uppercase u` — plan 88 leaf 3.
+  -- |
+  -- | An assignment that says its path **once**. `u.addr.city :=
+  -- | .to_uppercase u.addr.city` is the same program with the path written
+  -- | twice, and §1.3's argument for the construct is that two spellings of
+  -- | one path which must agree is the shape of a typo that type-checks:
+  -- | `u.addr.city := .to_uppercase u.addr.town` compiles whenever both
+  -- | fields are strings.
+  -- |
+  -- | `selector` is the path from `(.a.b.c)`, `function` is what to apply and
+  -- | `place` is what to apply it through — three atoms, which is what keeps
+  -- | the parse unambiguous: `function` may be a bare method reference
+  -- | (`.to_uppercase`) precisely because `place` is a separate atom rather
+  -- | than its argument.
+  -- |
+  -- | **No node is rewritten and no clone is inserted.** The emitter builds
+  -- | the field chain, assigns through it, and applies `function` with the
+  -- | chain as its last argument — so the output is byte-identical to the
+  -- | `:=` form a person would have written, and rustc judges the borrow.
+  | Over { selector : Vec<Ident>, function : Box<Expr>, place : Box<Expr>, span : Span }
   | Unary { op : UnaryOp, operand : Box<Expr>, span : Span }
   -- | `(inner)` — kept in the tree so the emitter reproduces the grouping the
   -- | author wrote rather than re-deriving it from precedence.
@@ -124,6 +165,34 @@ export data Expr
   -- | lowered to a bare block compiles, and its `?` then returns from the
   -- | function. That is why plan 28 §3 proves it by running.
   | TryBlock { body : crate::Block, span : Span }
+  -- | `do .method`, plan 86 — a block whose `<-` rows bind through the method
+  -- | the modifier **names**.
+  -- |
+  -- | ```text
+  -- | users = do .and_then          pairs = do .flat_map
+  -- |   u <- find id                  x <- 1 .. 3
+  -- |   a <- u.address                y <- 1 .. 3
+  -- |   Ok a                          iter::once (x, y)
+  -- | ```
+  -- |
+  -- | This is the construct `docs/DECLINED.md` refused as a *"general monadic
+  -- | comprehension"*, with the only reopening venue in that whole document:
+  -- | *"revisit only if a type-free discrimination is found."* The
+  -- | discrimination is the modifier, which plan 60 already made one — `try`
+  -- | reads `<-` as `?` and `async` reads it as `.await`. This opens that
+  -- | closed set, so doc 03 §2 clause 1's second sentence is satisfied in its
+  -- | own words: *"the user's own syntax selects between them — never an
+  -- | inference."*
+  -- |
+  -- | **The lowering is structurally unlike its two siblings.** `try` and
+  -- | `async` read `<-` as a *postfix* and emit a statement per row; this folds
+  -- | the rows **rightwards into nested closures**, so the block is one
+  -- | expression rather than a sequence. That is why it is a node of its own
+  -- | rather than a third `BindMode`.
+  -- |
+  -- | Nothing is fabricated, the final row included: choosing between `Ok`,
+  -- | `Some` and `iter::once` would be an inference, so the author writes it.
+  | BindBlock { method : crate::Ident, body : crate::Block, span : Span }
   -- | `e : T`, doc 18 §6's ascription.
   -- |
   -- | Lowers to `{ let __rdx_t: T = e; __rdx_t }` — a block, because Rust has
@@ -512,7 +581,7 @@ export data Expr
 instance Expr
   export span : &self -> Span
   span self = case self of
-    Call { span, .. } or Field { span, .. } or Index { span, .. } or Binary { span, .. } or Unary { span, .. } or Paren { span, .. } or Path { span, .. } or Lambda { span, .. } or MethodRef { span, .. } or AsyncBlock { span, .. } or UnsafeBlock { span, .. } or TryBlock { span, .. } or Ascribe { span, .. } or StrLit { span, .. } or StrInterp { span, .. } or Tuple { span, .. } or ArrayRepeat { span, .. } or RawLit { span, .. } or Case { span, .. } or Record { span, .. } or Expr::Section { span, .. } or Try { span, .. } or Item { span, .. } or If { span, .. } or Block { span, .. } or List { span, .. } or Comprehension { span, .. } or Num { span, .. } or Bool { span, .. } or Char { span, .. } or SelfField { span, .. } or SelfType { span, .. } or Return { span, .. } or Draw { span, .. } or Await { span, .. } or Assign { span, .. } or Guard { span, .. } or While { span, .. } or For { span, .. } or Loop { span, .. } or Break { span, .. } or Continue { span, .. } or MacroCall { span, .. } or RustHatch { span, .. } or Unit { span } -> *span
+    Call { span, .. } or Field { span, .. } or Index { span, .. } or Binary { span, .. } or Unary { span, .. } or Paren { span, .. } or Path { span, .. } or Lambda { span, .. } or MethodRef { span, .. } or AsyncBlock { span, .. } or UnsafeBlock { span, .. } or TryBlock { span, .. } or BindBlock { span, .. } or Ascribe { span, .. } or StrLit { span, .. } or StrInterp { span, .. } or Tuple { span, .. } or ArrayRepeat { span, .. } or RawLit { span, .. } or Case { span, .. } or Record { span, .. } or Expr::Section { span, .. } or Try { span, .. } or Item { span, .. } or If { span, .. } or Block { span, .. } or List { span, .. } or Comprehension { span, .. } or Num { span, .. } or Bool { span, .. } or Char { span, .. } or SelfField { span, .. } or SelfType { span, .. } or Return { span, .. } or Draw { span, .. } or Await { span, .. } or Assign { span, .. } or Guard { span, .. } or While { span, .. } or For { span, .. } or Loop { span, .. } or Break { span, .. } or Continue { span, .. } or MacroCall { span, .. } or RustHatch { span, .. } or UserBinary { span, .. } or Over { span, .. } or Unit { span } -> *span
     Ident i -> i.span
     Binding b -> b.span
 
@@ -576,4 +645,4 @@ instance Expr
       None -> [then_block] : Vec<&crate::Block>
     While { body, .. } or For { body, .. } or Loop { body, .. } -> [body] : Vec<&crate::Block>
     Guard { r#otherwise, .. } -> [r#otherwise] : Vec<&crate::Block>
-    Item { .. } or Call { .. } or Field { .. } or Index { .. } or Binary { .. } or Unary { .. } or Paren { .. } or Path { .. } or Lambda { .. } or MethodRef { .. } or AsyncBlock { .. } or UnsafeBlock { .. } or TryBlock { .. } or Ascribe { .. } or StrLit { .. } or StrInterp { .. } or Tuple { .. } or ArrayRepeat { .. } or RawLit { .. } or Record { .. } or List { .. } or Comprehension { .. } or Block { .. } or Try { .. } or Unit { .. } or Expr::Section { .. } or Case { .. } or Num { .. } or Bool { .. } or Char { .. } or SelfField { .. } or SelfType { .. } or Return { .. } or Draw { .. } or Await { .. } or Assign { .. } or Break { .. } or Continue { .. } or MacroCall { .. } or RustHatch { .. } or Ident _ or Binding _ -> Vec::new ()
+    Item { .. } or Call { .. } or Field { .. } or Index { .. } or Binary { .. } or Unary { .. } or Paren { .. } or Path { .. } or Lambda { .. } or MethodRef { .. } or AsyncBlock { .. } or UnsafeBlock { .. } or TryBlock { .. } or BindBlock { .. } or Ascribe { .. } or StrLit { .. } or StrInterp { .. } or Tuple { .. } or ArrayRepeat { .. } or RawLit { .. } or Record { .. } or List { .. } or Comprehension { .. } or Block { .. } or Try { .. } or Unit { .. } or Expr::Section { .. } or Case { .. } or Num { .. } or Bool { .. } or Char { .. } or SelfField { .. } or SelfType { .. } or Return { .. } or Draw { .. } or Await { .. } or Assign { .. } or Break { .. } or Continue { .. } or MacroCall { .. } or RustHatch { .. } or UserBinary { .. } or Over { .. } or Ident _ or Binding _ -> Vec::new ()

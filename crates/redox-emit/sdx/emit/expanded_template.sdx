@@ -1,0 +1,101 @@
+import crate::emit::expanded_template::field_names::field_names
+import crate::emit::instance::emit_instance
+import crate::emit::sink::Sink
+import redox_ast::{DataDecl, DeriveTemplate}
+
+-- | The declaration's field names, in order.
+export(crate) module field_names
+
+-- | A template's `instance`, emitted against `d` — plan 89.
+-- |
+-- | ```text
+-- | deriving template Forward            impl Display for Meters {
+-- |   instance Display Target        →       fn fmt(&self, f: &mut …) -> … {
+-- |     fmt : &self -> … -> …                    Display::fmt(&self.0, f)
+-- |     fmt self f = …(&self.Field0) f       }
+-- |                                      }
+-- | newtype Meters = Meters f64
+-- |   deriving (Debug, Forward)
+-- | ```
+-- |
+-- | # The substitution is textual, on the emitted Rust
+-- |
+-- | The stored body is an ordinary `InstanceDecl`, so it is emitted through
+-- | [`emit_instance`] exactly as a hand-written one is — and the placeholders
+-- | are replaced in the **resulting string**.
+-- |
+-- | That is what keeps the row small enough to exist. A tree-level
+-- | substitution would need a walk over `Expr`'s forty-six forms; plan 87's
+-- | `pattern_text` does the equivalent for `Pattern`'s twelve and is already
+-- | three files. Textual substitution computes nothing, which is the line doc
+-- | 03 §13.3 draws against `comptime`, and it reads only the declaration's own
+-- | **source text** — its name and its field names — which is doc 03 §2
+-- | clause 1.
+-- |
+-- | # The closed vocabulary
+-- |
+-- | | Placeholder | Becomes |
+-- | |---|---|
+-- | | `Target` | the declaration's type name |
+-- | | `Field0`, `Field1`, … | the *n*th field's name, or its index for a tuple struct |
+-- | | `Fields` | every field as a `self` access, comma-separated — `self.x, self.y` |
+-- | | `FieldNames` | every field's name as a string literal — `"x", "y"` |
+-- |
+-- | Four, and there is no way to add a fifth from source — which is §1.2's
+-- | closure property surviving the change of spelling.
+-- |
+-- | The last two are **leaf 3's repetitions**, and the first version of this
+-- | row withdrew them: *"a repetition is a loop, and a loop cannot be expressed
+-- | by replacing a name in a finished string."* The first clause is true and the
+-- | second does not follow — the loop does not have to be *in* the string. It
+-- | runs over the declaration's own field list and produces the text that is
+-- | substituted, which is the same thing `emit_data` does to write one line per
+-- | field. Plan 89 §10.3 records the correction.
+-- |
+-- | What is still not available is a **per-field fragment**: a template cannot
+-- | say "emit this member once for each field". That would need the fragment to
+-- | be a thing the template language can name, and `Fields` plus `FieldNames`
+-- | covers the cases §3 asked for — a template that visits every field — by
+-- | handing the body two lists it can zip.
+-- |
+-- | A placeholder the declaration cannot fill is left alone, and rustc then
+-- | reports the unresolved name — `Field2` on a one-field newtype is `E0609`.
+-- | A Redox diagnostic would have to know how many fields a template *intends*
+-- | to use, which is a question about the body rather than about the use.
+export(crate) expanded_template : &DeriveTemplate -> &DataDecl -> usize -> String
+expanded_template template d indent =
+  mut inner = Sink::new ""
+  emit_instance (&mut inner) (&template.body) indent
+  -- `finished.0` is the text and `finished.1` the map, which is discarded: the
+  -- generated impl has no `.sdx` span of its own, because no line of the
+  -- author's `deriving` list corresponds to any line of it.
+  finished = .finish "" inner
+  mut out = .replace "Target" (.as_str d.name.text) (.as_str finished.0)
+  names = field_names d
+  -- **Plan 89 leaf 3's repetitions.** `Fields` is every field as a `self`
+  -- access and `FieldNames` is every field's name as a string literal, both
+  -- comma-separated — so a template can visit a declaration it has never seen
+  -- the shape of.
+  --
+  -- The loop is over the **declaration's own structure**, which is what
+  -- `emit_data` already does to write one line per field and `emit_templates`
+  -- to write one impl per `deriving` entry. Nothing user-written is evaluated,
+  -- so doc 03 §13.3's line against `comptime` is untouched: an interpreter
+  -- runs the author's code, and this joins a list the parser produced.
+  accesses : Vec<String> = names |> .iter |> .map (\name -> format! \-> "self.#{name}") |> .collect
+  quoted : Vec<String> = names |> .iter |> .map (\name -> format! \-> "\"#{name}\"") |> .collect
+  -- **Longest first**, which is `OPERATOR_TABLE`'s discipline applied to a
+  -- substitution table: `FieldNames` before `Fields` so the shorter one cannot
+  -- truncate it, and both before `FieldN` — though that pair is independent,
+  -- because `Field0` is not a substring of either. Documented rather than
+  -- incidental, because the next placeholder added might not be.
+  out := .replace "FieldNames" (.as_str (.join ", " quoted)) (.as_str out)
+  out := .replace "Fields" (.as_str (.join ", " accesses)) (.as_str out)
+  -- The same rule for the indexed form, which is why this loop runs in
+  -- reverse: `Field10` is replaced before `Field1` would truncate it.
+  mut i = .len names
+  while i > 0
+    i -= 1
+    placeholder = format! \-> "Field#{i}"
+    out := .replace (.as_str placeholder) (.as_str names[i]) (.as_str out)
+  out

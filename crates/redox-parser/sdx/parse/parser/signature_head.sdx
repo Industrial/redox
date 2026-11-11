@@ -21,6 +21,11 @@ export(crate) data SignatureHead = SignatureHead {
   export types : Vec<TypeExpr>,
   -- | Doc 18 §2.2's `=>` clause.
   export bounds : Vec<Constraint>,
+  -- | Plan 84 leaf 1's `given <…>`, verbatim. `Some` turns synthesis off for
+  -- | this signature, so `bounds` is then empty by construction.
+  export r#given : Option<String>,
+  -- | Plan 84 leaf 3's signature-position `where` predicates, verbatim.
+  export predicates : Option<String>,
   -- | Whether the signature was marked `const`.
   export is_const : bool,
   -- | Whether the signature was marked `async`.

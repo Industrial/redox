@@ -1,6 +1,8 @@
 import crate::ParseError
 import crate::parse::parser::Parser
 import crate::parse::parser::assign_tail::assign_tail
+import crate::parse::parser::opens_an_over::opens_an_over
+import crate::parse::parser::over_update::over_update
 import crate::parse::parser::control_flow::control_flow
 import crate::parse::parser::local_test::local_test
 import crate::parse::parser::parse_expr::parse_expr
@@ -64,6 +66,16 @@ stmt p =
   -- Plan 20's control flow comes first: every one of its forms begins with
   -- a keyword or a label, none of which can begin an expression, so asking
   -- here costs one comparison and no backtracking.
+  -- Plan 88 leaf 3's `over`, asked **before** the expression chain and after
+  -- control flow, for `control_flow`'s own reason one construct over: three
+  -- tokens settle it and nothing backtracks. `over` is contextual — the fourth
+  -- such word — so the test is the word, then `(`, then `.`, which is a shape
+  -- no call can have: `over (x)` is a call and `over (.x)` is this.
+  if opens_an_over p
+    found = (over_update p start)?
+    end = (.prev_span p).1
+    trailing = (.newline_with_trailing "expected a line break after the statement" p)?
+    return Ok (Stmt { expr = found, span = (start, end), leading, trailing })
   flow = (control_flow p)?
   if flow is Some found
     end = (.prev_span p).1

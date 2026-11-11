@@ -9,7 +9,7 @@ import crate::parse::parser::lambda::lambda
 import crate::parse::parser::macro_call::macro_call
 import crate::parse::parser::modified_block::modified_block
 import crate::parse::parser::parse_expr::parse_expr
-import crate::parse::parser::reserved_word::reserved_word
+import crate::parse::parser::bind_block::bind_block
 import crate::parse::parser::rust_hatch::rust_hatch
 import crate::parse::parser::rust_string_body::rust_string_body
 import crate::parse::parser::section::section
@@ -147,7 +147,10 @@ prefix p =
     TokenKind::Backslash -> lambda p
     TokenKind::Kw (Keyword::Move) -> lambda p
     TokenKind::Kw (Keyword::If) -> .if_statement p
-    TokenKind::Kw (Keyword::Do) -> Err $ reserved_word p
+    -- Plan 86: `do .method` is the do-notation plan 55 §1.7 reserved the word
+    -- for. Every other `do` is still `RDX0114`, which `bind_block` raises
+    -- itself so the lookahead and the refusal stay in one place.
+    TokenKind::Kw (Keyword::Do) -> bind_block p start
     TokenKind::Newline -> block_expr p None start
     TokenKind::Label name ->
       .advance p

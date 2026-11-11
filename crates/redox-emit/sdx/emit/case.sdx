@@ -1,3 +1,4 @@
+import crate::emit::pattern_text::pattern_text
 import crate::emit::ascribed_arm::ascribed_arm
 import crate::emit::emit_condition::emit_condition
 import crate::emit::expr::emit_expr
@@ -39,7 +40,7 @@ emit_case scrutinee arms indent =
   mut out = format! \-> "match #{head} {\n"
   for arm in arms
     .push_str (&arm_pad) out
-    .push_str (&.rust_text arm.pattern) out
+    .push_str (&pattern_text (&arm.pattern)) out
     if &arm.r#guard is Some row
       .push_str " if " out
       -- A pattern test in an arm guard emits `if let` inside the match

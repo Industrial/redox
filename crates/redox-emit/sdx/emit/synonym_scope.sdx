@@ -1,0 +1,60 @@
+import crate::emit::synonym_table::SynonymTable
+import std::cell::RefCell
+
+-- The `thread_local!` block, verbatim — see `bind_scope` for why.
+rust """
+  thread_local! {
+    /// The synonym table in scope, empty outside a [`SynonymScope`].
+    ///
+    /// Empty is the safe default: a name no table knows is left exactly as the
+    /// author wrote it, which for a pattern means rustc sees an unresolved
+    /// constructor and says so. Silence would be the unsafe default here.
+    static IN_SCOPE: RefCell<SynonymTable> = RefCell::new(SynonymTable::default());
+  }
+"""
+
+-- | The pattern-synonym table in scope for the file being emitted — plan 87
+-- | leaf 1.
+-- |
+-- | The **third** guard of this shape, after plan 56's `ArityScope` and plan
+-- | 59's `BindingScope`, and installed in the same place for the same reason:
+-- | `redox_fmt::format` reads the same `Program` and must keep printing the
+-- | author's `Origin` as `Origin`, so nothing about expansion may be visible
+-- | before `emit_with_map`.
+-- |
+-- | That is plan 61's rule — *a pass that rewrites `Program` has two consumers
+-- | and will surprise one of them* — and the reason expansion is not done in
+-- | `parse()`. Three guards, one entry point.
+-- |
+-- | # Why ambient rather than a parameter
+-- |
+-- | `ArityScope`'s argument, unchanged and if anything stronger here. The
+-- | reader is `pattern_text`, reached from six unrelated places — an arm, a
+-- | bind, an `if … is`, a `while … is`, a control-flow binder and a clause's
+-- | binder row — none of which has a context argument, and all of which sit
+-- | below `emit_expr`'s twenty-four importers.
+export(crate) data SynonymScope = SynonymScope {
+  -- | The table to put back when the guard drops.
+  previous : SynonymTable,
+}
+
+instance SynonymScope
+  -- | Install `table` for as long as the returned guard lives.
+  export(crate) enter : SynonymTable -> Self
+  enter table =
+    previous = .with_borrow_mut (\slot -> std::mem::replace slot table) IN_SCOPE
+    SynonymScope { previous }
+
+  -- | The synonym `name` stands for, if the file being emitted declared one.
+  export(crate) lookup : &str -> Option<redox_ast::PatternSynonym>
+  lookup name = .with_borrow (\table -> .get name table) IN_SCOPE
+
+instance Drop SynonymScope
+  drop : &mut self -> ()
+  drop self =
+    restored = std::mem::take $ &mut self.previous
+    -- `replace` and a discard, which is `ArityScope`'s own idiom one guard
+    -- over: a lambda body is one expression and `:=` is an assignment, so the
+    -- assignment has nowhere to sit.
+    _dropped = .with_borrow_mut (\slot -> std::mem::replace slot restored) IN_SCOPE
+    ()

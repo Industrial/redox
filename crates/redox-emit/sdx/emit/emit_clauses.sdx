@@ -1,3 +1,4 @@
+import crate::emit::pattern_text::pattern_text
 import crate::emit::arm::emit_arm
 import crate::emit::emit_body::emit_body
 import crate::emit::emit_where_locals::emit_where_locals
@@ -76,7 +77,7 @@ emit_clauses out f base =
   for clause in &f.clauses
     row : Vec<String> = clause.patterns
       |> .iter
-      |> .map redox_ast::Pattern::rust_text
+      |> .map pattern_text
       |> .collect
     arm = case .as_slice row of
       [one] -> .clone one

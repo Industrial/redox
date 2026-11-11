@@ -4,6 +4,10 @@ import crate::emit::binding_scope::BindingScope
 import crate::emit::binding_table::BindingTable
 import crate::emit::items::emit_items
 import crate::emit::sink::Sink
+import crate::emit::synonym_scope::SynonymScope
+import crate::emit::synonym_table::SynonymTable
+import crate::emit::template_scope::TemplateScope
+import crate::emit::template_table::TemplateTable
 import crate::emit::trivia::emit_trivia
 import redox_ast::Program
 import redox_diag::SourceMap
@@ -35,6 +39,19 @@ emit_with_map program source source_path =
   -- author's `block` as `block`, so the classification may not be visible
   -- before the emitter's entry either. Two guards, one entry point.
   _bindings = BindingScope::enter $ BindingTable::from_items (&program.items)
+  -- Plan 87 leaf 1, and the **third** guard of this shape for the third time
+  -- the same reason applies: `redox_fmt::format` reads this `Program` too and
+  -- must keep printing the author's `Origin` as `Origin`, so a synonym may not
+  -- be expanded anywhere before the emitter's entry. Three guards, one entry
+  -- point — which is plan 61's two-consumers rule holding for a third
+  -- construct rather than three separate accidents.
+  _synonyms = SynonymScope::enter $ SynonymTable::from_items (&program.items)
+  -- Plan 89 leaf 1, and the **fourth**. The sentence above generalises without
+  -- amendment: `redox_fmt::format` reads this `Program` too and must keep
+  -- printing the author's `deriving (Debug, Forward)` with `Forward` still in
+  -- the list, so a template may not be expanded anywhere before the emitter's
+  -- entry. Four guards, one entry point.
+  _templates = TemplateScope::enter $ TemplateTable::from_items (&program.items)
   mut out = Sink::new source
   -- The items, with the blank-line rule, source order and the gathered test
   -- module — all of which a `module` body wants too, which is why they live

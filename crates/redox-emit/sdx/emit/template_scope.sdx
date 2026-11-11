@@ -1,0 +1,52 @@
+import crate::emit::template_table::TemplateTable
+import std::cell::RefCell
+
+-- The `thread_local!` block, verbatim — see `bind_scope` for why.
+rust """
+  thread_local! {
+    /// The template table in scope, empty outside a [`TemplateScope`].
+    ///
+    /// Empty is the safe default: a name no table knows is left in the
+    /// `#[derive(…)]` list exactly as the author wrote it, which is what doc 03
+    /// §9.5 already does with an unknown derive.
+    static IN_SCOPE: RefCell<TemplateTable> = RefCell::new(TemplateTable::default());
+  }
+"""
+
+-- | The `deriving`-template table in scope for the file being emitted — plan
+-- | 89.
+-- |
+-- | The **fourth** guard of this shape, after plan 56's `ArityScope`, plan 59's
+-- | `BindingScope` and plan 87's `SynonymScope`, installed in the same place
+-- | for the same reason: `redox_fmt::format` reads the same `Program` and must
+-- | keep printing the author's `deriving (Debug, Forward)` unexpanded, so no
+-- | expansion may be visible before `emit_with_map`.
+-- |
+-- | Four guards, one entry point — which is plan 61's two-consumers rule
+-- | holding for a fourth construct rather than four separate accidents. It is
+-- | also the fourth entry in `port.rs`'s `HATCH_ALLOWED`, and plan 87 §10.7's
+-- | note applies: every ambient table the emitter installs needs the
+-- | `thread_local!` hatch, so closing plan 81's `macro_item_argument` gap would
+-- | retire all four at once.
+export(crate) data TemplateScope = TemplateScope {
+  -- | The table to put back when the guard drops.
+  previous : TemplateTable,
+}
+
+instance TemplateScope
+  -- | Install `table` for as long as the returned guard lives.
+  export(crate) enter : TemplateTable -> Self
+  enter table =
+    previous = .with_borrow_mut (\slot -> std::mem::replace slot table) IN_SCOPE
+    TemplateScope { previous }
+
+  -- | The template `name` stands for, if the file being emitted declared one.
+  export(crate) lookup : &str -> Option<redox_ast::DeriveTemplate>
+  lookup name = .with_borrow (\table -> .get name table) IN_SCOPE
+
+instance Drop TemplateScope
+  drop : &mut self -> ()
+  drop self =
+    restored = std::mem::take $ &mut self.previous
+    _dropped = .with_borrow_mut (\slot -> std::mem::replace slot restored) IN_SCOPE
+    ()

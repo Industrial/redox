@@ -1,0 +1,98 @@
+use std::cmp::max;
+
+use std::collections::HashMap;
+
+// Plan 85's **application hole**: `_` in an argument position is a closure
+// parameter, so arity becomes call-site syntactic and partial application stops
+// depending on the callee.
+//
+// Plan 56 shipped currying, and §11.1 of that row proved its boundary is not
+// movable by effort: arity is knowable **only** for a bare name whose signature
+// is in the file being compiled. Every Rust path, every method, every `where`
+// local, every lambda parameter and every imported bare name is unknown-arity
+// and emits as a plain call. A hole reaches all of them, because *n* holes make
+// an *n*-parameter closure and the callee is never consulted.
+//
+// It is also strictly stronger than currying rather than a workaround for it.
+// Currying abstracts over a **suffix**; a hole abstracts over **any** position.
+//
+// `_` now has four jobs and position decides between them, which is the rule
+// plan 57 already established for `.`: an argument of an application is a hole,
+// a pattern's `_` is a wildcard, a type's `_` is Rust's inferred type, and the
+// target of `:=` is Rust's discard. `main` below writes three of the four.
+
+// An ordinary two-argument function, for the holes to be taken out of.
+fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+
+// A function whose first parameter is a function, so the nesting case below has
+// somewhere to put the closure a hole makes.
+fn twice(f: impl Fn(i32) -> i32, x: i32) -> i32 {
+    f(f(x))
+}
+
+// The wildcard **parameter**, unchanged by this row: a `_` in a pattern row is
+// a binder that discards, and its generated name begins with an underscore so
+// rustc's unused-variable lint stays silent.
+fn pick(a: i32, __rdx_a1: i32) -> i32 {
+    a
+}
+
+fn main() {
+    // 1. **A Rust path.** `String::from` has no Redox signature, so plan 56 §1.5
+    // records it as *"passable, not curryable"* — and §6 of that row flags the
+    // reader who expects otherwise. This is the spelling for them.
+    // Two statements rather than one: the emitter cannot break a method chain
+    // (plan 51 found that and plan 58 owns it), and rustfmt's `chain_width`
+    // breaks the one-liner — so a single pipeline here would be output rustfmt
+    // rewrites, which `generated_rust_is_rustfmt_clean` refuses.
+    let borrowed = ["a", "bb"];
+    let made = borrowed.into_iter().map(|__rdx_1| String::from(__rdx_1));
+    let owned: Vec<String> = made.collect();
+
+    // 2. **A method awaiting its receiver**, which was unwritable before this row
+    // and is the case worth the most. `(.trim)` is *not* it: a `.name` followed by
+    // `)` is the **selector**, so it emits `|x| x.trim` — a field access, which
+    // rustc answers with `E0615`, *"attempted to take value of method"*. The
+    // README's own table claims `.trim` is `|x| x.trim()` and that claim is
+    // false. With a hole it is true.
+    let trimmed: Vec<&str> = owned.iter().map(|__rdx_1| __rdx_1.trim()).collect();
+
+    // 3. **A method's middle argument.** The receiver is last (plan 57), the map
+    // is supplied, the key is supplied, and the *middle* argument is abstracted.
+    // No prefix-based mechanism can express this: currying takes a suffix.
+    let mut counts: HashMap<&str, i32> = HashMap::new();
+    // `mut`, because the closure captures `&mut counts` and so is `FnMut` —
+    // rustc judging the capture, which is plan 56 §1.3s standing position.
+    let mut set_a = |__rdx_1| (&mut counts).insert("a", __rdx_1);
+    set_a(10);
+
+    // 4. **Two holes**, numbered left to right.
+    let both = |__rdx_1, __rdx_2| add(__rdx_1, __rdx_2);
+
+    // 5. **Nesting.** The closure's extent is the **innermost enclosing
+    // application**, so the hole belongs to the inner `add` and not the outer
+    // one. A reader finds a hole's binder by looking left to the nearest callee.
+    let shifted = twice(|__rdx_1| add(__rdx_1, 1), 5);
+
+    // 6. **An imported bare name.** `max` arrives through `import` and plan 56
+    // §11.1 lists exactly that as permanently unknown-arity.
+    let floor = |__rdx_1| max(__rdx_1, 0);
+
+    // The `:=` discard, which is the one expression position where `_` keeps its
+    // old meaning. It emits Rust's own `_ = …`, and it is here so that the
+    // distinction is in the corpus rather than only in a comment.
+    _ = pick(1, 2);
+
+    println!(
+        "{} {:?} {:?} {} {} {}",
+        owned.len(),
+        trimmed,
+        (&counts).get(&"a"),
+        both(3, 4),
+        shifted,
+        floor(-3)
+    );
+    ();
+}

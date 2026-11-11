@@ -39,7 +39,14 @@ import redox_ast::{Param, Signature}
 -- | way a `Param` is ever built without one.
 export(crate) signature : &Signature -> usize -> String
 signature sig indent =
-  generic_list = if .is_empty sig.generics
+  -- Plan 84 leaf 1: a `given <…>` clause is the generic list, pasted. Checked
+  -- before the synthesised one because §1.6 makes the binder all or nothing —
+  -- a signature carrying `given` has an empty `sig.generics` by construction,
+  -- so the order is a statement of intent rather than a precedence the
+  -- emitter has to arbitrate.
+  generic_list = if &sig.r#given is Some text
+    .clone text
+  else if .is_empty sig.generics
     String::new ()
   else
     joined = .join ", " sig.generics
@@ -87,4 +94,11 @@ signature sig indent =
     -- destructured `for (param, bound) in …`.
     for pair in &sig.bounds
       .push_str (&format! \-> "\n#{padding}    #{pair.0}: #{pair.1},") out
+  -- Plan 84 leaf 3: a signature-position `where` is pasted here, in the same
+  -- shape the synthesised bounds take, because that is the shape rustfmt
+  -- leaves alone. Exclusive with the branch above for §1.6's reason, so the
+  -- two cannot both write a `where`.
+  if &sig.predicates is Some text
+    padding = .repeat indent " "
+    .push_str (&format! \-> "\n#{padding}where\n#{padding}    #{text},") out
   out

@@ -360,6 +360,23 @@ const HATCH_ALLOWED: &[(&str, &str)] = &[
     "crates/redox-emit/sdx/emit/bind_scope.sdx",
     "the same `thread_local!`, for the same reason, over a `Cell<BindMode>`",
   ),
+  (
+    "crates/redox-emit/sdx/emit/synonym_scope.sdx",
+    "the same `thread_local!`, for the same reason, over a \
+     `RefCell<SynonymTable>` — plan 87's pattern synonyms. The **fourth** \
+     entry of one shape, which is the finding rather than four separate \
+     concessions: every ambient table the emitter installs at `emit_with_map` \
+     needs this hatch, so closing plan 81's `macro_item_argument` gap would \
+     retire all four at once",
+  ),
+  (
+    "crates/redox-emit/sdx/emit/template_scope.sdx",
+    "the same `thread_local!`, for the same reason, over a \
+     `RefCell<TemplateTable>` — plan 89's deriving templates. The **fifth**, \
+     and the sentence above needed no amendment to cover it, which is what \
+     makes it a finding about `macro_item_argument` rather than a fifth \
+     concession",
+  ),
 ];
 
 /// Criterion 7: no *undeclared* escape hatch anywhere in the port.

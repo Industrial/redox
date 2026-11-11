@@ -1,6 +1,8 @@
 import crate::ParseError
 import crate::parse::parser::Parser
+import crate::parse::parser::reaches_a_fat_arrow::reaches_a_fat_arrow
 import redox_ast::Constraint
+import redox_diag::Code
 import redox_lexer::TokenKind
 
 -- | The `Trait t, Other u =>` clause, if one is here — doc 18 §2.5.
@@ -37,6 +39,25 @@ constraints p =
     .advance p
   if .is_empty found || !.check (&TokenKind::FatArrow) p
     .rewind mark p
-    return Ok (Vec::new ())
+    -- Plan 84 leaf 1a. The rewind is right for `class Shape t`, which has no
+    -- clause; it is wrong for a clause the author wrote and this function
+    -- could not read, because the `=>` then becomes part of the first
+    -- parameter's verbatim type and `TokenKind::FatArrow`'s Debug name reaches
+    -- the `.xrs`. Plan 84 leaf 0 measured four shapes arriving that way.
+    guard reaches_a_fat_arrow p is Some span else
+      return Ok (Vec::new ())
+    -- Leave the parser at the end of the line rather than at `mark`.
+    -- `recover_to_item` stops at the first `Ident` with the indent stack
+    -- unwound, and every name in a bound clause is one — so erroring from the
+    -- rewound position reported the clause's own tokens as declarations, one
+    -- `RDX0101` each. Measured at **ten** errors for a one-line program, which
+    -- would have been the largest cascade in the UI corpus by a factor of two.
+    mut scanning = true
+    while scanning
+      case &(.peek p).kind of
+        TokenKind::Newline or TokenKind::Indent or TokenKind::Dedent or TokenKind::Eof ->
+          scanning := false
+        _ -> .advance p
+    return Err $ ParseError::with_help Code::BoundClauseShape "a `=>` here is a bound clause, and this is not one" "doc 18 §2.2 reads a bound as a trait and the variable it bounds, each a bare name: `Ord t =>`, or `Ord t, Clone t =>`. A trait with type arguments (`Into<String> t`), a path on the left (`Clone i::IntoIter`), a `?Sized`, and a bound between two lifetimes are all out of reach — `docs/GRAMMAR.md` grades them, and inline Rust is the hatch" span
   .advance p
   Ok found

@@ -1,0 +1,21 @@
+-- Plan 86 leaf 4: `do .` with no method name.
+--
+-- The plan asked for three named diagnostics and needed **none of them**. All
+-- three shapes were already covered, which is why leaf 4 shipped as a fixture
+-- rather than as a code:
+--
+-- - `do` not followed by `.` is still `RDX0114` — `tests/ui/reserved_do.sdx`
+--   is that case, and plan 55 leaf 7's reservation is untouched for it;
+-- - `do .method` with no indented body is `RDX0105`, the empty-body code every
+--   declaration already shares;
+-- - `do .` with nothing after the dot is this file, `RDX0103`, which is the
+--   "expected a name" code the signature line and the equation already use.
+--
+-- A construct that reuses the diagnostics its neighbours have is one fewer code
+-- for a reader to learn, and the help line is where the construct-specific part
+-- belongs.
+
+main : ()
+main =
+  x = do .
+  ()

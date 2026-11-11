@@ -1,0 +1,120 @@
+// A `deriving template` names an `instance` once and derives it per
+// declaration — plan 89, `docs/83 - 89 - Derive Templates.md`.
+//
+// Rust has `#[derive(…)]` for a trait somebody wrote a proc macro for, and
+// nothing at all for a trait one crate wants forwarded three times. A proc
+// macro needs its own crate, `syn`, `quote` and a `proc-macro = true`
+// manifest. This needs four lines, in the file that wants it.
+use std::fmt::Display;
+
+use std::fmt::Formatter;
+
+use std::fmt::Result;
+
+// The template. `Target` stands for the declaration's own type name and
+// `Field0` for its first field — the whole vocabulary, which is what keeps the
+// substitution textual and this row small.
+
+// A second one, because the table is a table: a `deriving` list may name both,
+// and each emits its own `impl` in the order written.
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[repr(transparent)]
+struct Meters(f64);
+
+// Derived by `deriving template Forward`.
+impl Display for Meters {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+// Derived by `deriving template Zeroed`.
+impl Meters {
+    pub fn zero() -> Self {
+        Meters(Default::default())
+    }
+}
+
+#[derive(Debug, Clone)]
+#[repr(transparent)]
+struct Label(String);
+
+// Derived by `deriving template Forward`.
+impl Display for Label {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+// Leaf 3's **repetition**. `Fields` is every field as a `self` access and
+// `FieldNames` is every field's name as a string literal, so one template
+// visits a declaration whose shape it has never seen — which is §3 case 2, the
+// case a substitution-only implementation passes case 1 and fails.
+
+#[derive(Debug, Clone)]
+struct Point {
+    pub x: u32,
+    pub y: u32,
+}
+
+// Derived by `deriving template Labelled`.
+impl Labelled for Point {
+    fn labelled(&self) -> String {
+        zip_pairs(&["x", "y"], &[self.x, self.y])
+    }
+}
+
+#[derive(Debug, Clone)]
+struct Triple {
+    pub a: u32,
+    pub b: u32,
+    pub c: u32,
+}
+
+// Derived by `deriving template Labelled`.
+impl Labelled for Triple {
+    fn labelled(&self) -> String {
+        zip_pairs(&["a", "b", "c"], &[self.a, self.b, self.c])
+    }
+}
+
+// The class the template implements, and the helper its body calls. Both are
+// ordinary declarations: a template names what already exists, which is the
+// property §1.3 asks for — no implied dependency, nothing fabricated.
+trait Labelled {
+    fn labelled(&self) -> String;
+}
+
+// One `name=value` pair. Lifted out of the chain below rather than written as
+// a lambda there, because rustfmt's `chain_width` would break the chain across
+// lines and `generated_rust_is_rustfmt_clean` compares bytes. The emitter has a
+// `chain_width` constant for the shapes it controls; a chain the author writes
+// is the author's to keep short.
+fn one_pair(pair: (&&str, &u32)) -> String {
+    format!("{}={}", pair.0, pair.1)
+}
+
+fn zip_pairs(names: &[&str], values: &[u32]) -> String {
+    let paired = names.iter().zip(values.iter());
+    let pairs: Vec<String> = paired.map(one_pair).collect();
+    pairs.join(", ")
+}
+
+pub fn main() {
+    let width = Meters(2.5);
+    let name = Label("hallway".to_string());
+    // `Display` from the template and `Debug` from Rust's own derive, out of the
+    // same `deriving` list — which is the property §1.3 asked for: a template is
+    // a name in that list and nothing else.
+    println!("{} m of {}", width, name);
+    println!("{:?}", width);
+    let zero = Meters::zero();
+    println!("zero is {} m", zero);
+    // Two declarations of different widths, one template. The two-field case
+    // would pass with a substitution that handled only `Field0`; the three-field
+    // case is what proves the repetition is a loop.
+    println!("{}", (&Point { x: 1, y: 2 }).labelled());
+    println!("{}", (&Triple { a: 3, b: 4, c: 5 }).labelled());
+    ();
+}

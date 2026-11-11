@@ -1,0 +1,38 @@
+import crate::parse::parser::Parser
+import redox_ast::Fixity
+import redox_lexer::TokenKind
+
+-- | Whether the three tokens at the cursor begin an operator declaration —
+-- | plan 90.
+-- |
+-- | ```text
+-- | infixl 6 <+> = Set::union     -- a declaration
+-- | infixl = 3                    -- a binding named `infixl`
+-- | infixl 6 x = x * 6            -- an equation with a literal pattern
+-- | ```
+-- |
+-- | **Three tokens, and all three are needed.** `infix`, `infixl` and `infixr`
+-- | are not reserved words — plan 87 §10.4's finding, applied for the third
+-- | time — so the only thing separating a declaration from an ordinary one is
+-- | the shape of what follows. One token is not enough because a lower-case
+-- | word is a binding or an equation head; two are not enough because an
+-- | equation may pattern-match a literal.
+-- |
+-- | Sufficient rather than diagnostic: when this answers `true`,
+-- | `operator_decl` re-reads all three and is the one that reports. A program
+-- | that writes `infixl 6 <+>` and then something wrong gets a diagnostic about
+-- | the declaration, which is what it meant.
+export(crate) declares_an_operator : &Parser -> bool
+declares_an_operator p =
+  word_is_fixity = case &(.peek p).kind of
+    TokenKind::Ident text -> .is_some (Fixity::from_keyword (.as_str text))
+    _ -> false
+  if !word_is_fixity
+    return false
+  level_is_an_int = .is_some_and (\t -> case &t.kind of
+    TokenKind::Int _ -> true
+    _ -> false) (.peek_at 1 p)
+  names_an_operator = .is_some_and (\t -> case &t.kind of
+    TokenKind::UserOp _ -> true
+    _ -> false) (.peek_at 2 p)
+  level_is_an_int && names_an_operator

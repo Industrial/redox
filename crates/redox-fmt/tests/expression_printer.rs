@@ -263,7 +263,7 @@ fn printing_is_idempotent() {
       if once.contains('\n') {
         continue;
       }
-      let Some((reparsed, probe)) = reparse(&once) else {
+      let Some((reparsed, probe)) = reparse(&once, &source) else {
         panic!("{}: `{once}` did not re-parse", path.display());
       };
       let twice = redox_fmt::expr_text(&reparsed, 0, 0, &probe);
@@ -291,7 +291,7 @@ fn printing_preserves_meaning() {
       if printed.contains('\n') {
         continue;
       }
-      let Some((reparsed, _)) = reparse(&printed) else {
+      let Some((reparsed, _)) = reparse(&printed, &source) else {
         panic!("{}: `{printed}` did not re-parse", path.display());
       };
       assert_eq!(
@@ -322,10 +322,27 @@ fn printing_preserves_meaning() {
 /// pointed at the wrong bytes and the second pass produced
 /// `name =  ()),.to_string ()` — a harness defect reported as a printer
 /// defect, which is the third time in this plan (§10.5, §10.20).
-fn reparse(text: &str) -> Option<(Expr, String)> {
+fn reparse(text: &str, context: &str) -> Option<(Expr, String)> {
+  // Plan 90: the probe is a **different file**, and an operator's scope is the
+  // file it was declared in — so `a <+> b` re-parsed alone is `RDX0123` and
+  // this helper returned `None` for every expression in
+  // `examples/operator.sdx`. Carrying the declarations across is what makes the
+  // probe the same file in the one respect that matters.
+  //
+  // Only the declarations, not the functions they alias: parsing never resolves
+  // the target, so a prelude of `infixl` lines is enough and pulling in the
+  // aliased definitions would make the probe a copy of the corpus file.
+  let prelude: String = context
+    .lines()
+    .filter(|line| {
+      let word = line.split_whitespace().next().unwrap_or("");
+      matches!(word, "infix" | "infixl" | "infixr")
+    })
+    .map(|line| format!("{line}\n"))
+    .collect();
   // The trailing `()` is plan 55 §1.6's unit tail, which the probe's `()`
   // return type now requires of an indented body.
-  let whole = format!("__rdx_probe : ()\n__rdx_probe =\n  __rdx_it = {text}\n  ()\n");
+  let whole = format!("{prelude}__rdx_probe : ()\n__rdx_probe =\n  __rdx_it = {text}\n  ()\n");
   let program = redox_parser::parse_source(&whole).ok()?;
   let found = binding_values(&program).first().map(|e| (*e).clone())?;
   Some((found, whole))

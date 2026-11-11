@@ -29,7 +29,14 @@ emit_instance out i indent =
   .mark i.span out
   pad out indent
   .push_str "impl" out
-  .push_str (&generics (&i.target) (&i.constraints)) out
+  -- Plan 84 leaf 4: a `given <…>` head carries the impl's generic list
+  -- verbatim, which is what closes `blanket_impl`. Checked first because
+  -- §1.6 makes the binder all or nothing — a head with `given` has no
+  -- constraints by construction, so this is intent rather than a precedence.
+  if &i.r#given is Some text
+    .push_str text out
+  else
+    .push_str (&generics (&i.target) (&i.constraints)) out
   .push ' ' out
   if &i.r#class is Some named
     lowered = .rust_text named

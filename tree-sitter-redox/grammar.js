@@ -121,6 +121,26 @@ module.exports = grammar({
 				$.const_declaration,
 				$.extern_block,
 				$.inline_rust,
+				// Plan 87, and **before** `equation` deliberately. `pattern Origin
+				// = (0, 0)` is a perfectly good equation — a name, a parameter, a
+				// body — so without this rule the grammar parsed it with **zero
+				// `ERROR` nodes** and the wrong shape. That is the trap `AGENTS.md`
+				// records twice: a reading that is merely wrong costs nothing at the
+				// gate, where a reading that fails is caught immediately.
+				$.pattern_synonym,
+				// Plan 89. **Before** `data_declaration`'s `deriving` can be
+				// reached, which is not a conflict: that one is only ever read
+				// inside a declaration's body, where this rule's `template` cannot
+				// follow.
+				$.derive_template,
+				// Plan 90, and **before** `signature` and `equation` for the reason
+				// `pattern_synonym` is: `infixl 6 <+> = merge` is a perfectly good
+				// equation to a grammar that does not know better — a name, a
+				// literal parameter, a body — so without this rule it parses with
+				// **zero `ERROR` nodes** and the wrong shape. `AGENTS.md` records
+				// that trap twice; the compiler hit the same thing from the other
+				// side, where the *clause loop* claimed the line.
+				$.operator_declaration,
 				$.signature,
 				$.equation,
 				$.attribute,
@@ -317,12 +337,136 @@ module.exports = grammar({
 		// reading and then found no `=>`. Measured as `(ERROR (identifier))` on
 		// the `f64`; an all-uppercase run such as `instance Show Point Thing` was
 		// unaffected, which is how the gap survived to here.
+		// `infixl 6 <+> = merge` — plan 90.
+		//
+		// The three fixity words are **literals**, so they are grammar keywords
+		// and every highlighter colours them; the compiler reads them
+		// contextually, which is the same deliberate disagreement `pattern` and
+		// `template` carry and which `COLOURED_BUT_NOT_A_KEYWORD` declares.
+		//
+		// `user_operator` is its own token rather than a run of operator
+		// characters. A flat run is the shape `AGENTS.md` warns about — it would
+		// accept `<` then `+` then `>` with no `ERROR` node, so the gate would be
+		// green for a spelling the lexer rejects. An explicit alternation of the
+		// twelve admissible spellings cannot do that, and it keeps the grammar's
+		// vocabulary identical to `ASSIGNABLE_OPERATORS`' by construction —
+		// `every_assignable_operator_is_in_the_grammar` asserts the two lists
+		// agree.
+		operator_declaration: ($) =>
+			seq(
+				field("fixity", choice("infixl", "infixr", "infix")),
+				field("precedence", $.number),
+				field("operator", $.user_operator),
+				"=",
+				field("target", $._expression),
+				$._newline,
+			),
+
+		user_operator: (_) =>
+			choice(
+				"<+>",
+				"<->",
+				"<*>",
+				"</>",
+				"<%>",
+				"<|>",
+				"<&>",
+				"<^>",
+				"<=>",
+				"<~>",
+				"<$>",
+				"<?>",
+			),
+
+		// `deriving template Forward` and its indented `instance` — plan 89.
+		//
+		// `deriving` is already a grammar keyword — the derive clause uses it —
+		// and `template` becomes one here, as a **literal** rather than an
+		// `$.identifier`. The compiler reads it contextually, so the two
+		// disagree on purpose, and `pattern` is the precedent: a word the
+		// grammar spells literally is coloured as syntax, which is what a reader
+		// wants, and `COLOURED_BUT_NOT_A_KEYWORD` is where the lexer's
+		// disagreement with that is declared.
+		//
+		// The body is one `instance_declaration` in its own indented block, and
+		// it is written as `$._indent … $._dedent` rather than `$.block` because
+		// `block` holds *statements* and this holds an item.
+		derive_template: ($) =>
+			seq(
+				"deriving",
+				"template",
+				field("name", $.type_identifier),
+				$._newline,
+				$._indent,
+				field("body", $.instance_declaration),
+				$._dedent,
+			),
+
 		instance_declaration: ($) =>
 			seq(
 				"instance",
+				// Plan 84 leaf 4's verbatim binder, which is what closes
+				// `blanket_impl`. Exclusive with `constraints` in the compiler
+				// (§1.6), and both optional here because a grammar does not need to
+				// enforce what the parser refuses.
+				optional($.given_binder),
 				optional($.constraints),
 				field("target", repeat1(choice($.type_identifier, $.identifier))),
 				choice($.block, $._newline),
+			),
+
+		// `given <…>` on an `instance` head — **delimited, not a flat run**.
+		//
+		// `signature_type` can hold `given` as one more literal in its flat
+		// `repeat1` because nothing follows the type run on that line. Here the
+		// **target** follows, so a flat run would swallow it: `given <T: Display>
+		// Describe T` would parse with `Describe T` inside the binder and no
+		// target at all, and `AGENTS.md` records what that costs — a flat
+		// `repeat1(choice(…))` accepts the wrong reading with no `ERROR` node, so
+		// the gates go green while the grammar is wrong.
+		//
+		// `_angle_group` recurses so a nested `<…>` closes correctly:
+		// `given <T: Into<String>>` has two groups and tree-sitter's own lexer
+		// reads `>>` as two `>` tokens, which is the whole reason this can be a
+		// plain pair rather than the depth arithmetic `capture_type` does over
+		// Redox's `Shr` and `Compose`.
+		given_binder: ($) => seq("given", $._angle_group),
+
+		_angle_group: ($) =>
+			seq(
+				"<",
+				repeat(
+					choice(
+						$.type_identifier,
+						$.identifier,
+						$.lifetime,
+						$.number,
+						"const",
+						"mut",
+						// `dyn` and `impl` are **deliberately absent**. Both reach this
+						// group through `$.identifier`, because neither is a literal
+						// anywhere else in the grammar — and listing them here made
+						// them grammar keywords, which `every_grammar_keyword_is_coloured`
+						// then demanded of all three highlighters. A keyword set that
+						// grows as a side effect of a punctuation list is the kind of
+						// drift that test exists to catch, and it caught this.
+						"?",
+						":",
+						",",
+						"=",
+						"+",
+						"(",
+						")",
+						"[",
+						"]",
+						";",
+						"&",
+						"*",
+						"::",
+						$._angle_group,
+					),
+				),
+				">",
 			),
 
 		// Not a `prec(1)` since plan 67, and that one token of precedence is what
@@ -443,6 +587,24 @@ module.exports = grammar({
 					// `expression_statement` with an `ascription` and **no `ERROR`
 					// node** — which is why the examples sweep could not report it.
 					"mut",
+					// Plan 84's verbatim binder, and the two keywords it brings into
+					// the type run: `given <…>` opens the parameter list, and a
+					// signature-position `where` carries the predicates — doc 03
+					// §14.2's role for that position, which was declared and
+					// unimplemented until that row.
+					//
+					// Added as literals in this flat `repeat1` because that is what
+					// the rule already is, and `AGENTS.md` is explicit about the cost:
+					// a flat run accepts `>>` then `>` with no `ERROR` node, so the
+					// gates went green before `grammar.js` knew `>>>`. The check that
+					// answers is therefore `tree-sitter parse` on
+					// `test/corpus/binder.txt` and not the examples sweep.
+					//
+					// `for` is **not** here and does not need to be: a higher-ranked
+					// bound's `for<'a>` reaches this run through `$.identifier`, since
+					// `for` is a Redox keyword only in a loop position.
+					"given",
+					"where",
 					$._type_punctuation,
 				),
 			),
@@ -464,6 +626,21 @@ module.exports = grammar({
 					"'",
 					"{",
 					"}",
+					// Plan 84's verbatim binder needs three more, and all three were
+					// found by **running the input** rather than by reading this rule:
+					// `tree-sitter parse` on `given <const N: usize> [u8; N]`,
+					// `<Item = u64>` and `?Sized` reported an `ERROR` node at the `:`,
+					// the `=` and the `?` respectively.
+					//
+					// Worth recording how nearly that was missed. The first check was
+					// `tree-sitter parse examples/binder.sdx` run from inside
+					// `tree-sitter-redox/`, where that path does not exist — the
+					// command failed, a grep for `ERROR` found none, and it read as a
+					// clean parse. `AGENTS.md` says to run the input; it does not say
+					// the run can lie about which input it ran.
+					":",
+					"=",
+					"?",
 				),
 			),
 
@@ -598,6 +775,14 @@ module.exports = grammar({
 				$.instance_declaration,
 				$.errors_declaration,
 				$.const_declaration,
+				// Plan 88 leaf 3, **before** `assignment` and `expression_statement`:
+				// `over (.a.b) f x` is a perfectly good call applied to three atoms, so
+				// without this rule it parses with **zero `ERROR` nodes** and the wrong
+				// shape. The literal `over` makes it a grammar keyword, which
+				// `COLOURED_BUT_NOT_A_KEYWORD` declares — `pattern`, `template` and the
+				// three fixity words are the precedent, and the compiler reads all of
+				// them contextually on purpose.
+				$.over_update,
 				$.binding,
 				$.assignment,
 				$.if_statement,
@@ -646,9 +831,45 @@ module.exports = grammar({
 		// No precedence is needed against `:` or `::`: tree-sitter's lexer
 		// takes the longest match, and `:=` is longer than `:` while neither
 		// it nor `::` is a prefix of the other.
+		// `over (.addr.city) .to_uppercase u` — plan 88 leaf 3.
+		//
+		// Three fields, each an operand rather than a full expression, which is
+		// the compiler's own reading: `over_update` parses the function and the
+		// place with `atom`, because a bare `.to_uppercase` in head position
+		// would otherwise take the place as its receiver.
+		over_update: ($) =>
+			seq(
+				"over",
+				// `choice`, and the reason is this grammar's declared flatness rather
+				// than an oversight: `section` is `( operator operand )` or
+				// `( operand operator )`, so a **one**-segment selector `(.age)` lands
+				// there, and a composed one `(.addr.zip.code)` is a flat `.`-led run
+				// and lands in `parenthesized`. Both are accepted here; which of them
+				// is a path is the compiler's question, and `RDX0127` is its answer.
+				//
+				// Demanding `section` alone was tried first and put an `ERROR` node
+				// inside every composed selector — found by `tree-sitter parse` on the
+				// example, which is §1.4's instruction and `AGENTS.md`'s.
+				field("selector", choice($.section, $.parenthesized)),
+				field("function", $._expression_part),
+				field("place", $._expression_part),
+				$._newline,
+			),
+
 		assignment: ($) =>
 			seq(
-				field("target", $._expression),
+				// **`_` is admitted as a target**, because the compiler admits one:
+				// `_ := e` emits Rust's own discard assignment `_ = e;` and compiles
+				// clean. It is not reached through `$._expression` — a bare `_` there
+				// is a `wildcard` *pattern*, so `_ := pick 1 2` parsed as a binding
+				// of a wildcard and then reported the `:=` as an `ERROR`.
+				//
+				// Pre-existing, and `examples/hole.sdx` is the first corpus file to
+				// write the construct — which is how plan 85 found it. The
+				// `docs/GRAMMAR.md` assignment row lists *"a name, a field, an index,
+				// a deref target and Rust's destructuring assignment"* and did not
+				// list this one.
+				field("target", choice($._expression, $.wildcard)),
 				field("operator", $.assignment_operator),
 				field("value", $._expression),
 				$._newline,
@@ -858,6 +1079,12 @@ module.exports = grammar({
 				$.boolean,
 				$.lifetime,
 				$.ascription,
+				// Plan 90, **before** `$.operator`. Without it `a <+> b` lexes as
+				// `<`, `+`, `>` — three `operator` nodes, no `ERROR`, and the
+				// highlighter colours three operators where the author wrote one.
+				// That is `AGENTS.md`'s flat-`repeat1` trap exactly, and it was
+				// found by running the input rather than by reading the rule.
+				$.user_operator,
 				$.operator,
 				// Keywords, not part of the `operator` token: inside
 				// `token(choice(…))` they form one anonymous token, which competed
@@ -885,7 +1112,13 @@ module.exports = grammar({
 		// reached only where a **value** is wanted. `binding` is that position
 		// here.
 		_block_expression: ($) =>
-			choice($.case_expression, $.async_block, $.unsafe_block, $.try_block),
+			choice(
+				$.case_expression,
+				$.async_block,
+				$.unsafe_block,
+				$.try_block,
+				$.bind_block,
+			),
 
 		// Block-bearing, so they keep real rules: folding wants them, and so does
 		// anyone pressing expand-selection.
@@ -945,6 +1178,51 @@ module.exports = grammar({
 		// Plan 45 leaf 2. The fourth construct of this shape.
 		unsafe_block: ($) => seq("unsafe", $.statement_block),
 		try_block: ($) => seq("try", $.statement_block),
+		// Plan 86's named bind — the fifth construct of this shape, and the only
+		// one whose modifier carries more than a word.
+		//
+		// It opens with `$.reserved_word` rather than a bare `"do"`, and that is
+		// forced rather than stylistic: `do` is a **globally reserved** word in
+		// this grammar (see the `reserved` block near the top), so no other rule
+		// may produce the literal. Reusing the node the reservation points at is
+		// what lets the word be a construct again without taking the reservation
+		// away from every other position — which is exactly the split the
+		// compiler makes, where `bind_block` reads `do .name` and raises
+		// `RDX0114` for every other `do`.
+		bind_block: ($) =>
+			seq(
+				$.reserved_word,
+				".",
+				field("method", $.identifier),
+				$.statement_block,
+			),
+
+		// Plan 87's pattern synonym.
+		//
+		// `"pattern"` is a **literal here and not a reserved word**, which is the
+		// compiler's own split: reserving it was tried and reverted because
+		// `pattern` is a field name in four of `redox-ast`'s declarations. The
+		// upper-case name is what disambiguates — `pattern Origin = …` is this
+		// rule, and `pattern = Some 1` or `pattern : Vec<Pattern>` is an ordinary
+		// binding or signature, both of which this compiler's own source
+		// contains.
+		//
+		// A literal makes `pattern` a *grammar keyword*, so
+		// `every_grammar_keyword_is_coloured` demands it of all three
+		// highlighters — and because it is not a `Keyword`,
+		// `every_coloured_keyword_is_still_in_the_grammar` then wants it in
+		// `COLOURED_BUT_NOT_A_KEYWORD`. That is exactly where `from` sits, for
+		// exactly this reason, and it carries the same disclosed cost: a field
+		// named `pattern` is coloured as syntax.
+		pattern_synonym: ($) =>
+			seq(
+				"pattern",
+				field("name", $.type_identifier),
+				field("parameters", repeat($.identifier)),
+				"=",
+				field("body", $._pattern),
+				$._newline,
+			),
 
 		// Plan 55 leaf 2 made the indented `if` usable as a value, and leaf 7
 		// retired `then` — so this position takes the one spelling there is.

@@ -306,6 +306,73 @@ export data Code
   -- | are order-independent in Rust — which is what made leaf 3 free.
   | WhereGroupShape
 
+  -- | `RDX0120` — a `=>` on a declaration line that is not a bound clause,
+  -- | plan 84 leaf 1a.
+  -- |
+  -- | Doc 18 §2.2 reads bounds off `=>` and `constraints` accepts exactly
+  -- | `Trait var` pairs: a bare type identifier and a bare lowercase word. The
+  -- | clause is read **speculatively** and rewound if no `=>` arrives, which is
+  -- | what lets `class Shape t` and `class Debug t => Shape t` begin
+  -- | identically — and the rewind was silent, so a `=>` the clause could not
+  -- | read was swallowed into the first parameter's verbatim type instead.
+  -- |
+  -- | Measured by plan 84 leaf 0, 2026-11-11. The cost of the silence was a
+  -- | `TokenKind`'s **Debug name reaching generated Rust**:
+  -- |
+  -- | ```text
+  -- | shout : Into<String> t => t -> String
+  -- | ->  fn shout<T>(x: Into<String> T FatArrow T) -> String
+  -- | ```
+  -- |
+  -- | and the `.xrs` is a human-facing artifact (doc 02 §10.1), so that is a
+  -- | defect and not merely a gap. Four of the six shapes plan 84 graded
+  -- | `UNREACHABLE` arrived this way — a trait with type arguments, a
+  -- | projection subject, `?Sized`, and a lifetime bound.
+  -- |
+  -- | **The diagnostic names the restriction, not the token.** An author
+  -- | writing `Into<String> t =>` has made a correct guess at a real Rust
+  -- | bound; *"a bound's trait cannot take type arguments"* is actionable where
+  -- | *"expected a type"* is not.
+  | BoundClauseShape
+
+  -- | `RDX0121` — a pattern synonym whose body binds a name it did not
+  -- | declare, plan 87.
+  -- |
+  -- | A synonym's parameters are **formal**: `pattern Both a b = (Some a,
+  -- | Some b)` declares `a` and `b`, and every binder at a use site is written
+  -- | at that use site. That is the one property distinguishing this construct
+  -- | from `docs/DECLINED.md`'s refusal of `RecordWildCards`, which is declined
+  -- | for *"introduc[ing] names absent from the source"*.
+  -- |
+  -- | A body binding something else would introduce exactly such a name, so it
+  -- | is refused at the declaration — where a reader can see both the
+  -- | parameter list and the body — rather than at a use site, which cannot
+  -- | know what went wrong.
+  | PatternSynonymShape
+
+  -- | `RDX0122` — a `deriving template` whose `instance` is not for `Target`,
+  -- | plan 89.
+  -- |
+  -- | `Target` is the placeholder the declaration's own type name is
+  -- | substituted for, so an `instance` head naming a concrete type is not a
+  -- | template at all — it is an `instance` written one indent too deep, and
+  -- | without this it would be stored and then expanded over the wrong type.
+  -- |
+  -- | The placeholders are reserved **names** rather than §1.2's `$Type`
+  -- | because `$` is the application operator and a body containing it does
+  -- | not parse. Plan 89 §10 is the record.
+  | DeriveTemplateShape
+  -- | An operator used that this file never declared — plan 90.
+  | UndeclaredOperator
+  -- | A declared precedence outside 0–9, or not a bare digit — plan 90.
+  | OperatorPrecedence
+  -- | A chain of an operator declared `infix` — plan 90.
+  | NonAssociativeOperator
+  -- | An operator declaration that is not `infixN <op> = path` — plan 90.
+  | OperatorShape
+  -- | An `over` that is not `over (.path) f place` — plan 88 leaf 3.
+  | OverShape
+
   -- ---- lints: RDX1000+ ----
   -- | `unwrap` or `expect` used — doc 03 §12.7, plan 38.
   -- |
@@ -415,6 +482,14 @@ instance Code
     Code::OptionalChaining -> 117
     Code::RetiredSpelling -> 118
     Code::WhereGroupShape -> 119
+    Code::BoundClauseShape -> 120
+    Code::PatternSynonymShape -> 121
+    Code::DeriveTemplateShape -> 122
+    Code::UndeclaredOperator -> 123
+    Code::OperatorPrecedence -> 124
+    Code::NonAssociativeOperator -> 125
+    Code::OperatorShape -> 126
+    Code::OverShape -> 127
     Code::UnwrapUsed -> 1001
     Code::CommentAllowPragma -> 1002
     Code::ShadowedBinding -> 1003
@@ -427,7 +502,7 @@ instance Code
   -- | Every code, for the uniqueness and range checks.
   -- A nullary signature is the return type alone; see `lint.sdx`.
   export all : &'static [Code]
-  all = &[Code::TabIndent, Code::InconsistentDedent, Code::UnterminatedString, Code::UnterminatedRawString, Code::UnterminatedInterpolation, Code::UnterminatedFence, Code::UnterminatedAttribute, Code::UnterminatedByteLiteral, Code::UnknownEscape, Code::MalformedNumber, Code::UnexpectedCharacter, Code::UnbalancedDelimiter, Code::BadQuote, Code::ExpectedToken, Code::ExpectedExpression, Code::ExpectedName, Code::ExpectedType, Code::EmptyBody, Code::ModuleScopeBinding, Code::PatternUntil, Code::EllipsisRestPattern, Code::NestingTooDeep, Code::SpacedPathSeparator, Code::NewtypeShape, Code::LocalTest, Code::UnitTail, Code::ReservedWord, Code::MethodCallSyntax, Code::PipelineSection, Code::OptionalChaining, Code::RetiredSpelling, Code::WhereGroupShape, Code::UnwrapUsed, Code::CommentAllowPragma, Code::ShadowedBinding, Code::ReturnInCallbackTail]
+  all = &[Code::TabIndent, Code::InconsistentDedent, Code::UnterminatedString, Code::UnterminatedRawString, Code::UnterminatedInterpolation, Code::UnterminatedFence, Code::UnterminatedAttribute, Code::UnterminatedByteLiteral, Code::UnknownEscape, Code::MalformedNumber, Code::UnexpectedCharacter, Code::UnbalancedDelimiter, Code::BadQuote, Code::ExpectedToken, Code::ExpectedExpression, Code::ExpectedName, Code::ExpectedType, Code::EmptyBody, Code::ModuleScopeBinding, Code::PatternUntil, Code::EllipsisRestPattern, Code::NestingTooDeep, Code::SpacedPathSeparator, Code::NewtypeShape, Code::LocalTest, Code::UnitTail, Code::ReservedWord, Code::MethodCallSyntax, Code::PipelineSection, Code::OptionalChaining, Code::RetiredSpelling, Code::WhereGroupShape, Code::BoundClauseShape, Code::PatternSynonymShape, Code::DeriveTemplateShape, Code::UndeclaredOperator, Code::OperatorPrecedence, Code::NonAssociativeOperator, Code::OperatorShape, Code::OverShape, Code::UnwrapUsed, Code::CommentAllowPragma, Code::ShadowedBinding, Code::ReturnInCallbackTail]
 
   -- | Whether this code is a lexical one, for the range check.
   #[cfg(test)]

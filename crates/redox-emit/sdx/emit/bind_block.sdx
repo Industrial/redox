@@ -1,0 +1,91 @@
+import crate::emit::pattern_text::pattern_text
+import crate::emit::expr::emit_expr
+import crate::emit::receiver::receiver
+import crate::emit::unparen::unparen
+import redox_ast::{Expr, Ident, Stmt}
+
+-- | Fold a `do .method` block's rows into nested closures — plan 86 leaf 2.
+-- |
+-- | ```text
+-- | do .and_then                  find(id).and_then(move |u| {
+-- |   u <- find id            →     u.address.and_then(move |a| Ok(a))
+-- |   a <- u.address                })
+-- |   Ok a
+-- | ```
+-- |
+-- | **Structurally unlike its two siblings, which is why it is not a third
+-- | `BindMode`.** `try` and `async` read `<-` as a *postfix* — `emit_bind`
+-- | writes `let a = parse(x)?;` and the rows stay a sequence of statements.
+-- | Here each row *contains* the rest of the block, so the fold is rightwards
+-- | and the whole block is one expression.
+-- |
+-- | # Nothing is fabricated, and the last row is why
+-- |
+-- | Haskell's `do` ends in an expression *of the monad* and a naive port
+-- | inserts `pure`. This does not, and must not: choosing between `Ok`, `Some`
+-- | and `iter::once` is an inference, which doc 03 §2 clause 1 forbids, and
+-- | `iter::once` is also a path the author did not write, which clause 2
+-- | forbids. So the final row is emitted **as written** — one more line of
+-- | source than Haskell needs, and the line that keeps the construct
+-- | admissible.
+-- |
+-- | It is also what plan 60's `try` block already does: its last row is the
+-- | author's `Ok (a + b)`, not a synthesised wrapper.
+-- |
+-- | # `move`, and why it is the opposite of plan 56's decision
+-- |
+-- | The inner closures carry `move`. Plan 56 §11.2 dropped `move` from partial
+-- | application, and the two are not in conflict because they capture
+-- | different things for different reasons: a partial application may capture
+-- | a *borrowed argument*, where `move` turns rustc's borrow error into a worse
+-- | move error about the same mistake — while a bind's closure captures an
+-- | **outer binder** and is returned past its frame, so it has to own what it
+-- | captures or it does not compile at all.
+-- |
+-- | Doc 03 §10.1's comprehension lowering is the precedent and emits `move` on
+-- | exactly these closures:
+-- | `(1..3).flat_map(|x| (1..3).filter(move |y| x != *y).map(move |y| (x, y)))`.
+-- |
+-- | # An intermediate row with no binder sequences
+-- |
+-- | Haskell's `>>`. A row that is neither the last nor a `<-` binding lowers to
+-- | the same method with a discarded binder — `e.method(move |_| rest)` — which
+-- | is the only reading that keeps the rows in source order.
+-- | # It takes the statements rather than the `Block`
+-- |
+-- | Because it is **recursive over them**: one row is emitted with the rest of
+-- | the block folded inside it, so the recursive call needs a tail. Doc 06 §1's
+-- | one-construct-per-file rule means a separate `fold` helper would be a
+-- | second file, and the wrapper it would need adds nothing — the caller
+-- | already has `body.stmts`.
+export(crate) bind_block : &Ident -> &[Stmt] -> usize -> String
+bind_block method stmts indent =
+  -- The last row is the block's value and is emitted verbatim. An empty block
+  -- is unreachable from the parser — `statement_block` refuses one — so the
+  -- fallback is a defensive `()` rather than a case a program can reach.
+  if .is_empty stmts
+    return .to_string "()"
+  if .len stmts == 1
+    return emit_expr (unparen (&stmts[0].expr)) indent
+  head = &stmts[0]
+  -- `1 .. n` rather than `1 ..`: an **open-ended range has no spelling**, which
+  -- `AGENTS.md` records three ports in a row meeting (plans 68, 76 and 79).
+  n = .len stmts
+  rest = bind_block method (&stmts[1 .. n]) indent
+  name = &method.text
+  -- `Expr::Await` is `<-`'s node. The name is plan 60's residue: that row
+  -- renamed `emit_await` to `emit_bind` because *"a function called
+  -- `emit_await` that sometimes writes `?` is the stale-name hazard this
+  -- project keeps recording"* — and left the **node** called `Await`. This row
+  -- gives the token a third meaning and so is the second plan to read past the
+  -- wrong name; §10 owes the rename to a successor.
+  case &head.expr of
+    Expr::Await { pattern, value, .. } ->
+      recv = receiver (unparen value) indent
+      binder = case pattern of
+        Some p -> pattern_text p
+        None -> .to_string "_"
+      format! \-> "#{recv}.#{name}(move |#{binder}| #{rest})"
+    other ->
+      recv = receiver (unparen other) indent
+      format! \-> "#{recv}.#{name}(move |_| #{rest})"

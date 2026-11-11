@@ -1,0 +1,35 @@
+import redox_ast::Pattern
+
+-- | `body` with every binding named `param` replaced by `actual` — plan 87.
+-- |
+-- | The whole of the parameterised form's substitution, and the reason hygiene
+-- | does not arise. A formal parameter is a lower-case name and so arrives as
+-- | a `Pattern::Binding`; the parser has already guaranteed it is one of the
+-- | declared ones, because `RDX0121` refuses a body that binds anything else.
+-- |
+-- | So every binder in the result was **written at the use site**, which is the
+-- | one property distinguishing this construct from `docs/DECLINED.md`'s
+-- | refusal of `RecordWildCards` — declined for *"introduc[ing] names absent
+-- | from the source"*.
+export(crate) substituted : &Pattern -> &str -> &Pattern -> Pattern
+substituted body param actual = case body of
+  Pattern::Binding name ->
+    if name.text == param
+      .clone actual
+    else
+      .clone body
+  Pattern::Apply { path, args, span } ->
+    grown : Vec<Pattern> = args |> .iter |> .map (\a -> substituted a param actual) |> .collect
+    Pattern::Apply { path = .clone path, args = grown, span = *span }
+  Pattern::Tuple { items, span } ->
+    grown : Vec<Pattern> = items |> .iter |> .map (\i -> substituted i param actual) |> .collect
+    Pattern::Tuple { items = grown, span = *span }
+  Pattern::Slice { items, span } ->
+    grown : Vec<Pattern> = items |> .iter |> .map (\i -> substituted i param actual) |> .collect
+    Pattern::Slice { items = grown, span = *span }
+  Pattern::Or alts ->
+    grown : Vec<Pattern> = alts |> .iter |> .map (\a -> substituted a param actual) |> .collect
+    Pattern::Or grown
+  Pattern::As { name, inner, span } ->
+    Pattern::As { name = .clone name, inner = Box::new (substituted inner param actual), span = *span }
+  _ -> .clone body

@@ -1,0 +1,12 @@
+-- RDX0125: a chain of an operator declared `infix` — plan 90.
+--
+-- A Pratt loop's binding powers can only group one way or the other, so "does
+-- not chain" cannot be expressed as a precedence. It is a diagnostic, which is
+-- also how Haskell answers it.
+pick : u32 -> u32 -> u32
+pick a b = u32::max a b
+
+infix 4 <=> = pick
+
+ranked : u32
+ranked = 1 <=> 2 <=> 3

@@ -33,6 +33,19 @@ export data InstanceDecl = InstanceDecl {
   export target : TypeApp,
   -- | `Display t =>` — bounds on the generic parameters.
   export constraints : Vec<Constraint>,
+  -- | `instance given <T: Display> Describe T` — the **verbatim** impl generic
+  -- | list, plan 84 leaf 4.
+  -- |
+  -- | `Some` turns the synthesised list off for this head, so
+  -- | [`constraints`](Self::constraints) is then empty: plan 84 §1.6's
+  -- | all-or-nothing rule, the same one a signature's own binder follows.
+  -- |
+  -- | This is what closes **`blanket_impl`**, which `docs/STATUS.md` carried as
+  -- | a gap. `instance Display t => Describe t` emitted `impl Describe for t`
+  -- | with a lowercase target rustc rejects, because `TypeApp::vars` reads the
+  -- | *arguments* and a bare variable is the head — a synthesis failure rather
+  -- | than a type one. Written verbatim the question does not arise.
+  export r#given : Option<String>,
   export members : Vec<ClassMember>,
   export span : Span,
   export leading : Vec<Trivia>,

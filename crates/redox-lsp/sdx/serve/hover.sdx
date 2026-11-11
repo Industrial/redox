@@ -1,0 +1,70 @@
+import crate::serve::hover::innermost::innermost
+import crate::serve::positions::offset_of::offset_of
+import crate::serve::positions::range_of::range_of as to_range
+import lsp_types::{Hover, HoverContents, MarkupContent, MarkupKind, Position}
+
+-- | The innermost named declaration whose span contains an offset.
+export(crate) module innermost
+
+-- | What the declaration under the cursor is — plan 71 leaf 5.
+-- |
+-- | ```text
+-- | merge : BTreeSet<u32> -> BTreeSet<u32> -> BTreeSet<u32>
+-- | ^ the cursor here hovers:
+-- |
+-- |   fn merge
+-- |   merge : BTreeSet<u32> -> BTreeSet<u32> -> BTreeSet<u32>
+-- | ```
+-- |
+-- | # It reports the declaration, not a type
+-- |
+-- | Plan 40 §6 declined `hover` on the ground that it *"would need name
+-- | resolution"*, and the test that pinned four capabilities said so too. That
+-- | is right about the hover a Rust programmer expects — the **type** of the
+-- | expression under the cursor — and leaf 5's three capabilities are chosen
+-- | precisely because none of them is that: each is *"a span lookup over an AST
+-- | that already carries spans on every node"*.
+-- |
+-- | So this answers a different question, and it is one Redox can answer
+-- | exactly: *which declaration am I inside, and what is its first line?* No
+-- | type is consulted, nothing is inferred, and a hover is never wrong — it
+-- | either names the enclosing declaration or returns nothing. Doc 02 §12.4's
+-- | refusal of a type checker is untouched, and rustc remains the sole
+-- | authority on types.
+-- |
+-- | A reader who wants the *type* has `redox check`, which reports rustc's own
+-- | answer against the `.sdx`. That is a better answer than a server with no
+-- | checker could give, and §10 of plan 71 records it as the division.
+-- |
+-- | # The innermost item wins
+-- |
+-- | A `module` with a body holds items, so the cursor can be inside two. The
+-- | inner one is the answer, which is the convention every language server
+-- | follows and the one a reader means by *"what am I looking at"*.
+export(crate) hover : &str -> Position -> Option<Hover>
+hover source at =
+  guard redox_parser::parse_source source is Ok program else
+    return None
+  offset = offset_of source at
+  found = (innermost (&program.items) offset)?
+  heading = found.0
+  name = found.1
+  span = found.2
+  -- The declaration's **first line**, verbatim from the source. For a function
+  -- that is its signature line, which is the one line of a Redox declaration
+  -- that says the most — and it is a slice rather than a re-print for
+  -- `item_text`'s recorded reason: `generalise` rewrites a signature's type
+  -- variables in place, so printing from the tree would show `T` where the
+  -- author wrote `t`.
+  first = source
+    |> .get (span.0 .. .len source)
+    |> .unwrap_or ""
+    |> .lines
+    |> .next
+    |> .unwrap_or ""
+    |> .trim
+  body = if .is_empty first
+    format! \-> "```redox\n#{heading} #{name}\n```"
+  else
+    format! \-> "```redox\n#{heading} #{name}\n```\n\n```redox\n#{first}\n```"
+  Some (Hover { contents = HoverContents::Markup (MarkupContent { kind = MarkupKind::Markdown, value = body }), range = Some (to_range source span) })

@@ -1,0 +1,71 @@
+import crate::ParseError
+import crate::parse::parser::Parser
+import crate::parse::parser::atom::atom
+import crate::parse::parser::section::section
+import redox_ast::{Expr, Section}
+import redox_diag::Code
+import redox_lexer::TokenKind
+
+-- | `over (.addr.city) .to_uppercase u` — plan 88 leaf 3.
+-- |
+-- | ```text
+-- | over (.addr.city) .to_uppercase u
+-- | -- u.addr.city = u.addr.city.to_uppercase();
+-- | ```
+-- |
+-- | # Three atoms, and that is what makes it parse
+-- |
+-- | `function` is read with [`atom`] rather than with `parse_expr`, and the
+-- | difference is the whole construct: a bare `.to_uppercase` in head position
+-- | *calls*, taking the next thing as its receiver (plan 57), so reading an
+-- | expression here would swallow `u` and leave no place. An atom stops after
+-- | the method reference, and `place` is then the next atom.
+-- |
+-- | That is also why the surface is three arguments rather than two. Plan 85's
+-- | hole gives `(.to_uppercase _)` as a receiver-awaiting *closure*, which
+-- | would read as `over (.addr.city) (.to_uppercase _) u` — one atom either
+-- | way, and a closure call in the output instead of a method call. The
+-- | emitted Rust has to be what a person would have written, so the method
+-- | reference is applied directly.
+-- |
+-- | # `over` is contextual, settled by three tokens
+-- |
+-- | `over` is **not reserved** — the fourth contextual word after `from`,
+-- | `pattern` and `template`, and `infix`'s lesson applies: a lower-case
+-- | verb-like word is the kind most likely to be somebody's function name.
+-- | `Parser::stmt` requires `over`, then `(`, then `.`, which is a shape no
+-- | call can have: `over (x)` is a call and `over (.x)` is this.
+-- |
+-- | # The selector must be a field path, and only one wrong shape can arrive
+-- |
+-- | `RDX0127` has exactly one reachable cause: a parenthesis that opens with
+-- | `.` and is **not** a selector — `over (.cmp y) f u`, where `(.cmp y)` is a
+-- | method *application* and `section` rewinds rather than returning a path.
+-- |
+-- | An operator section cannot reach here at all, and that is worth writing
+-- | down rather than guarding against: `opens_an_over` requires the word, `(`
+-- | and then `.`, so `over (+ 1) bump n` never enters this function — it parses
+-- | as a call to a function named `over`, which is what it looks like. A second
+-- | guard for the operator-section case was written first and deleted when the
+-- | UI fixture for it **built successfully**; a diagnostic nothing can reach is
+-- | worse than none, because it reads as a case that was handled.
+export(crate) over_update : &mut Parser -> usize -> Result<Expr, ParseError>
+over_update p start =
+  -- The contextual word. `Parser::stmt`'s three-token test already matched it,
+  -- so this consumes rather than checks.
+  .advance p
+  at_selector = .peek_span p
+  -- The `(` is consumed **here**, because `section` is called with it already
+  -- taken — its own doc comment says so, and `atom` is where that happens for
+  -- every other section. `opens_an_over` already matched it, so this cannot
+  -- fail for a program that reached this function.
+  (.expect (&TokenKind::LParen) "expected `(` to open the selector" p)?
+  guard (section p at_selector.0)? is Some selected else
+    return Err $ ParseError::with_help Code::OverShape "expected a field selector after `over`" "`over` takes a parenthesised path — `over (.addr.city) .to_uppercase u`" at_selector
+  -- `section` returns a `Field` or nothing for a parenthesis opening with `.`,
+  -- so this is total rather than a second check — see the doc comment.
+  guard selected is Expr::Section { section = Section::Field path, .. } else
+    return Err $ ParseError::with_help Code::OverShape "expected a field selector after `over`" "`over` takes a parenthesised path of field names — `over (.addr.city) .to_uppercase u`. `(.cmp y)` is a method application, not a path" at_selector
+  function = (atom p)?
+  place = (atom p)?
+  Ok (Expr::Over { selector = path, function = Box::new function, place = Box::new place, span = (start, (.prev_span p).1) })

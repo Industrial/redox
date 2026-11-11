@@ -1,0 +1,43 @@
+import redox_ast::Item
+
+-- | What an item declares — its keyword and its name — or nothing.
+-- |
+-- | Plan 71 leaf 5's shared half: `hover` renders this and `definition` matches
+-- | against it, so one table answers both and they cannot disagree about what
+-- | a file declares.
+-- |
+-- | The keyword is the **Redox** spelling, not Rust's, for the reason
+-- | `redox-fmt`'s `visibility_text` records: an AST that holds only the Rust
+-- | word makes every printer reach for a translation, and this is the sixth
+-- | place that has wanted one. A hover showing `fn` over a `.sdx` file would be
+-- | showing the output's language, not the input's.
+-- |
+-- | `None` for the four items that declare no name a cursor can be on: an
+-- | `import`, an `instance`, a `rust` block and an `extern` block. An
+-- | `instance` is the interesting one — it names a class and a type, both of
+-- | which are declared elsewhere, so pointing `definition` at the `instance`
+-- | head would send a reader away from the declaration they asked for.
+export(crate) declared : &Item -> Option<(&'static str, String)>
+declared item = case item of
+  Item::Fn decl -> Some ("fn", .clone decl.name.text)
+  Item::Data decl ->
+    keyword = if decl.is_newtype
+      "newtype"
+    else if decl.is_union
+      "union"
+    else
+      "data"
+    Some (keyword, .clone decl.name.text)
+  Item::Type decl -> Some ("type", .clone decl.name.text)
+  Item::Class decl -> Some ("class", .clone decl.name.text)
+  Item::Errors decl -> Some ("errors", .clone decl.name.text)
+  Item::Const decl -> Some ("const", .clone decl.name.text)
+  Item::Module decl -> Some ("module", .clone decl.name.text)
+  -- `test` is named by its **description**, which is what the outline shows
+  -- too — `symbol_of`'s own doc comment calls that the one place a symbol name
+  -- is more useful than an identifier.
+  Item::Test decl -> Some ("test", .clone decl.description)
+  Item::PatternSynonym decl -> Some ("pattern", .clone decl.name.text)
+  Item::DeriveTemplate decl -> Some ("deriving template", .clone decl.name.text)
+  Item::OperatorDecl decl -> Some ("infix", .clone decl.spelling.text)
+  Item::Import _ or Item::Instance _ or Item::InlineRust _ or Item::Extern _ -> None

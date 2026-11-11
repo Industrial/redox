@@ -1,0 +1,7 @@
+error[RDX0122]: a deriving template's `instance` must be for `Target`
+  --> derive_template_shape.sdx:8:20
+  |
+8 |   instance Display Meters
+  |                    ^^^^^^
+  = help: `Target` is the placeholder the declaration's own type name is substituted for — `instance Display Target`. An `instance` for a concrete type is not a template and belongs at module scope
+

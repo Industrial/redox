@@ -1,0 +1,60 @@
+-- | Every spelling a file may declare an operator for — plan 90.
+-- |
+-- | ```text
+-- | infixl 6 <+> = Set::union
+-- | combined = a <+> b          -- Set::union(a, b)
+-- | ```
+-- |
+-- | # Closed, and that is what keeps the lexer a lexer
+-- |
+-- | Plan 90 §1.3 priced this row as *"the lexer stops being a lexer"*: a
+-- | user-declared spelling cannot be scanned as one token until its `infixl`
+-- | declaration has been read, so the lexer would acquire a **pre-pass** over
+-- | raw source — the permanent architectural change §6 disclosed and the reason
+-- | the row sat last in its milestone.
+-- |
+-- | That follows only from letting the *spelling* be open. With the set closed,
+-- | the table is static, every entry is scanned whether or not any file
+-- | declares it, and the lexer is unchanged in kind: one more constant run
+-- | tried before [`OPERATOR_TABLE`]. **Which** of these a file has declared is
+-- | the parser's business, because that is where declaration order is known —
+-- | and an undeclared use is `RDX0123` at the use site, which is the loud
+-- | boundary §1.5 wanted.
+-- |
+-- | # The shape is `<` · one character · `>`
+-- |
+-- | Every entry is three characters, opening `<` and closing `>`. Three
+-- | properties follow from the shape alone, and each one is a correctness
+-- | argument rather than an aesthetic:
+-- |
+-- | 1. **No entry is a prefix of another**, because they are all the same
+-- |    length and all distinct. Longest-match within this run is therefore
+-- |    vacuous, which is the one thing `OPERATOR_TABLE`'s order has to get
+-- |    right and this list cannot get wrong.
+-- | 2. **No entry is a prefix of a built-in.** Every built-in beginning with
+-- |    `<` is `<`, `<=`, `<-`, `<<` or `<<<`, and none of those begins
+-- |    `<` · *char* · `>`. So scanning this run *first* cannot truncate a
+-- |    built-in.
+-- | 3. **Two built-ins are prefixes of entries here** — `<-` of `<->` and `<=`
+-- |    of `<=>` — which is exactly why this run must come first. `a <- b` still
+-- |    lexes `<-`, because `<->` does not match; `a <-> b` lexes `<->`, because
+-- |    it is tried before `<-` can truncate it. This is
+-- |    `longer_operators_are_tried_before_their_prefixes` holding across two
+-- |    tables instead of within one, and `assignable_operators_precede_their_builtin_prefixes`
+-- |    asserts it.
+-- |
+-- | # Twelve, and adding a thirteenth is a register row
+-- |
+-- | The number is not a budget, it is the shape's own capacity: these are the
+-- | wrappable characters that are not already load-bearing inside `<…>`.
+-- | Doc 03 §4.1 records that `#` alone *"resolves six forms, by longest
+-- | match"*, so the single-character space is crowded and the bracketed space
+-- | is where there is room left.
+-- |
+-- | A spelling nobody can declare is not a gap a workaround should close. If a
+-- | thirteenth is wanted, the cost is one entry here plus whatever
+-- | [`OPERATOR_TABLE`] interaction it introduces — which is a measurement, and
+-- | measurements belong in a plan.
+-- |
+-- | [`OPERATOR_TABLE`]: crate::lexer::operator_table::OPERATOR_TABLE
+export const ASSIGNABLE_OPERATORS : &[&str] = &["<+>", "<->", "<*>", "</>", "<%>", "<|>", "<&>", "<^>", "<=>", "<~>", "<$>", "<?>"]

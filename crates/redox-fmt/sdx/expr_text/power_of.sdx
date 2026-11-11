@@ -42,6 +42,13 @@ import redox_ast::Expr
 export(crate) power_of : &Expr -> Option<u8>
 power_of expr = case expr of
   Expr::Binary { op, .. } -> Some (.power op)
+  -- Plan 90: the same answer, from the node rather than the operator. A user
+  -- operator's left power is `Fixity::powers`', which is always even and so
+  -- never collides with a built-in rung — see that function's interleave
+  -- table.
+  Expr::UserBinary { fixity, precedence, .. } ->
+    powers = .powers (*precedence) (*fixity)
+    Some powers.0
   Expr::Call { is_dollar = true, .. } -> Some 0
   Expr::Call { .. } -> Some u8::MAX
   Expr::MacroCall { .. } or Expr::RustHatch { .. } -> Some u8::MAX
@@ -51,6 +58,6 @@ power_of expr = case expr of
   Expr::Tuple { .. } or Expr::List { .. } or Expr::ArrayRepeat { .. } or Expr::Unit { .. } -> Some u8::MAX
   Expr::Paren { inner, .. } -> power_of inner
   Expr::Record { .. } or Expr::Comprehension { .. } or Expr::Section { .. } -> Some u8::MAX
-  Expr::Lambda { .. } or Expr::Ascribe { .. } or Expr::If { .. } or Expr::Block { .. } or Expr::Case { .. } or Expr::AsyncBlock { .. } or Expr::UnsafeBlock { .. } or Expr::TryBlock { .. } -> None
-  Expr::Binding _ or Expr::Item { .. } or Expr::Return { .. } or Expr::Draw { .. } or Expr::Await { .. } or Expr::Assign { .. } -> None
+  Expr::Lambda { .. } or Expr::Ascribe { .. } or Expr::If { .. } or Expr::Block { .. } or Expr::Case { .. } or Expr::AsyncBlock { .. } or Expr::UnsafeBlock { .. } or Expr::TryBlock { .. } or Expr::BindBlock { .. } -> None
+  Expr::Binding _ or Expr::Item { .. } or Expr::Return { .. } or Expr::Draw { .. } or Expr::Await { .. } or Expr::Assign { .. } or Expr::Over { .. } -> None
   Expr::Guard { .. } or Expr::While { .. } or Expr::For { .. } or Expr::Loop { .. } or Expr::Break { .. } or Expr::Continue { .. } -> None

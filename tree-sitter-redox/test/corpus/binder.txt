@@ -1,0 +1,233 @@
+================================================================
+a verbatim binder: given, a const parameter, and a bound colon
+================================================================
+
+first_of : given <const N: usize> [u8; N] -> u8
+first_of xs = xs[0]
+
+----------------------------------------------------------------
+
+(source_file
+  (signature
+    (identifier)
+    (signature_type
+      (type_identifier)
+      (identifier)
+      (identifier)
+      (type_identifier)
+      (identifier)))
+  (equation
+    (identifier)
+    (identifier)
+    (identifier)
+    (list
+      (number))))
+
+================================================================
+a signature-position where, with an associated-type equality
+================================================================
+
+total : given <I: IntoIterator<Item = u64>> I -> u64 where I::IntoIter: Clone
+total xs = xs |> .into_iter |> .sum
+
+----------------------------------------------------------------
+
+(source_file
+  (signature
+    (identifier)
+    (signature_type
+      (type_identifier)
+      (type_identifier)
+      (type_identifier)
+      (identifier)
+      (type_identifier)
+      (identifier)
+      (type_identifier)
+      (type_identifier)
+      (type_identifier)))
+  (equation
+    (identifier)
+    (identifier)
+    (identifier)
+    (operator)
+    (operator)
+    (identifier)
+    (operator)
+    (operator)
+    (identifier)))
+
+================================================================
+a relaxed bound, whose question mark had no respelling
+================================================================
+
+width : given <T: ?Sized> &T -> usize
+width _ = 4
+
+----------------------------------------------------------------
+
+(source_file
+  (signature
+    (identifier)
+    (signature_type
+      (type_identifier)
+      (type_identifier)
+      (type_identifier)
+      (identifier)))
+  (equation
+    (identifier)
+    (wildcard)
+    (number)))
+
+================================================================
+a blanket impl: the binder on an instance head, target intact
+================================================================
+
+instance given <T: Display> Describe T
+  describe : &self -> String
+  describe self = "x"
+
+----------------------------------------------------------------
+
+(source_file
+  (instance_declaration
+    (given_binder
+      (type_identifier)
+      (type_identifier))
+    (type_identifier)
+    (type_identifier)
+    (block
+      (signature
+        (identifier)
+        (signature_type
+          (identifier)
+          (type_identifier)))
+      (equation
+        (identifier)
+        (identifier)
+        (string)))))
+
+================================================================
+a pattern synonym, nullary and parameterised
+================================================================
+
+pattern Origin = (0, 0)
+pattern Both a b = (Some a, Some b)
+
+----------------------------------------------------------------
+
+(source_file
+  (pattern_synonym
+    (type_identifier)
+    (parenthesized_pattern
+      (pattern_run
+        (number))
+      (pattern_run
+        (number))))
+  (pattern_synonym
+    (type_identifier)
+    (identifier)
+    (identifier)
+    (parenthesized_pattern
+      (pattern_run
+        (type_identifier)
+        (identifier))
+      (pattern_run
+        (type_identifier)
+        (identifier)))))
+
+================================================================
+a deriving template, whose body is an ordinary instance
+================================================================
+
+deriving template Forward
+  instance Display Target
+    fmt : &self -> &mut Formatter<'_> -> Result
+    fmt self f = Display::fmt (&self.Field0) f
+
+----------------------------------------------------------------
+
+(source_file
+  (derive_template
+    (type_identifier)
+    (instance_declaration
+      (type_identifier)
+      (type_identifier)
+      (block
+        (signature
+          (identifier)
+          (signature_type
+            (identifier)
+            (type_identifier)
+            (lifetime)
+            (type_identifier)))
+        (equation
+          (identifier)
+          (identifier)
+          (identifier)
+          (path)
+          (parenthesized
+            (operator)
+            (identifier)
+            (operator)
+            (type_identifier))
+          (identifier))))))
+
+================================================================
+an operator declaration, and two uses of it in one run
+================================================================
+
+infixl 6 <+> = merge
+
+joined = a <+> b <+> c
+
+----------------------------------------------------------------
+
+(source_file
+  (operator_declaration
+    (number)
+    (user_operator)
+    (identifier))
+  (equation
+    (identifier)
+    (identifier)
+    (user_operator)
+    (identifier)
+    (user_operator)
+    (identifier)))
+
+================================================================
+an over update, with a composed selector and a one-segment one
+================================================================
+
+main : ()
+main =
+  over (.addr.zip.code) doubled target
+  over (.age) succ target
+  ()
+
+----------------------------------------------------------------
+
+(source_file
+  (signature
+    (identifier)
+    (signature_type))
+  (equation
+    (identifier)
+    (over_update
+      (parenthesized
+        (operator)
+        (identifier)
+        (operator)
+        (identifier)
+        (operator)
+        (identifier))
+      (identifier)
+      (identifier))
+    (over_update
+      (section
+        (operator)
+        (identifier))
+      (identifier)
+      (identifier))
+    (expression_statement
+      (parenthesized))))

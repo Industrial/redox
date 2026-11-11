@@ -1,0 +1,31 @@
+error[RDX0120]: a `=>` here is a bound clause, and this is not one
+  --> bound_clause_shape.sdx:21:24
+   |
+21 | shout : Into<String> t => t -> String
+   |                        ^^
+  = help: doc 18 §2.2 reads a bound as a trait and the variable it bounds, each a bare name: `Ord t =>`, or `Ord t, Clone t =>`. A trait with type arguments (`Into<String> t`), a path on the left (`Clone i::IntoIter`), a `?Sized`, and a bound between two lifetimes are all out of reach — `docs/GRAMMAR.md` grades them, and inline Rust is the hatch
+
+error[RDX0101]: expected `:` after the name, to begin the signature
+  --> bound_clause_shape.sdx:22:7
+   |
+22 | shout x = .into x
+   |       ^
+
+error[RDX0106]: a module-scope binding needs `const` or `static` and a type: `const x : T = …`. Rust forbids `let` at module scope, and doc 03 §13.4 corrects doc 01 §4.3 accordingly
+  --> bound_clause_shape.sdx:22:7
+   |
+22 | shout x = .into x
+   |       ^
+
+error[RDX0101]: expected `:` after the name, to begin the signature
+  --> bound_clause_shape.sdx:22:17
+   |
+22 | shout x = .into x
+   |                 ^
+
+error[RDX0101]: expected `:` after the name, to begin the signature
+  --> bound_clause_shape.sdx:23:1
+   |
+22 | shout x = .into x
+   |                  ^
+

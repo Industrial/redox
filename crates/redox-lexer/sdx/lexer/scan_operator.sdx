@@ -1,4 +1,5 @@
 import crate::TokenKind
+import crate::lexer::assignable_operators::ASSIGNABLE_OPERATORS
 import crate::lexer::cursor::Cursor
 import crate::lexer::operator_table::OPERATOR_TABLE
 
@@ -8,6 +9,20 @@ import crate::lexer::operator_table::OPERATOR_TABLE
 -- | lives in [`OPERATOR_TABLE`], longest first.
 export(crate) scan_operator : &mut Cursor -> Option<TokenKind>
 scan_operator cur =
+  -- Plan 90's user operators, **before** the built-in table and for the same
+  -- reason the built-in table is ordered at all: `<-` and `<=` are prefixes of
+  -- `<->` and `<=>`, so a built-in tried first would truncate them. Nothing
+  -- here is a prefix of a built-in, so putting this run first takes nothing
+  -- away — `ASSIGNABLE_OPERATORS`' doc comment has the three-way argument and
+  -- `assignable_operators_precede_their_builtin_prefixes` asserts it.
+  --
+  -- Scanned whether or not the file declares it. That is what keeps this
+  -- function static, and it is the whole reason plan 90 needed no pre-pass over
+  -- raw source: an undeclared operator is `RDX0123` from the parser, where
+  -- declaration order is known.
+  for spelling in ASSIGNABLE_OPERATORS
+    if .eat spelling cur
+      return Some (TokenKind::UserOp (.to_string spelling))
   -- `for entry in …` and `entry.0`/`entry.1`, because a `for` binder is a
   -- bare name — the rule a lambda parameter follows too.
   for entry in OPERATOR_TABLE
@@ -88,3 +103,38 @@ test "distinguishes the at sigils"
 
 test "returns none for a non operator"
   assert_eq! \-> scan "abc" \-> (None, 0)
+
+-- | Plan 90: the cross-table half of the ordering property.
+-- |
+-- | `longer_operators_are_tried_before_their_prefixes` proves `OPERATOR_TABLE`
+-- | is ordered within itself. This proves the same thing *across* the two
+-- | tables, which the first test structurally cannot see: `<-` is in one list
+-- | and `<->` in the other, and nothing about either list's internal order says
+-- | which is consulted first.
+test "assignable operators precede their builtin prefixes"
+  for spelling in ASSIGNABLE_OPERATORS
+    for entry in OPERATOR_TABLE
+      builtin = entry.0
+      if .starts_with builtin spelling && .len spelling > .len builtin
+        -- The built-in is a prefix, so the user spelling must win. Asked of
+        -- the scanner rather than of the lists, because the lists are two and
+        -- the answer is the scanner's.
+        scanned = scan spelling
+        assert_eq! \-> scanned \-> (Some (TokenKind::UserOp (.to_string spelling)), .len spelling) \-> "`#{spelling}` must not be truncated to its builtin prefix `#{builtin}`"
+
+-- | And the other direction: no built-in loses its own spelling to this run.
+-- |
+-- | The failure this rules out is the one plan 66 §10 and `AGENTS.md` both
+-- | record for `>>>`, pointed the other way — a new entry that silently
+-- | shortens an existing token, with every gate still green because both
+-- | readings parse.
+test "no builtin is shadowed by an assignable operator"
+  assert_eq! \-> scan "<- x" \-> (Some TokenKind::DrawArrow, 2)
+  assert_eq! \-> scan "<= 1" \-> (Some TokenKind::Le, 2)
+  assert_eq! \-> scan "<< 1" \-> (Some TokenKind::Shl, 2)
+  assert_eq! \-> scan "<<< f" \-> (Some TokenKind::ComposeBack, 3)
+  assert_eq! \-> scan "< 1" \-> (Some TokenKind::Lt, 1)
+
+test "scans every assignable operator whole"
+  for spelling in ASSIGNABLE_OPERATORS
+    assert_eq! \-> scan spelling \-> (Some (TokenKind::UserOp (.to_string spelling)), 3) \-> "`#{spelling}` should scan as one token"

@@ -17,6 +17,8 @@ export(crate) module ascribed_arm
 export(crate) module ascribed_list
 -- | Lower an `assert` statement.
 export(crate) module assert_call
+-- | Fold a `do .method` block's rows into nested closures.
+export(crate) module bind_block
 -- | What `<-` means in the block being emitted.
 export(crate) module bind_mode
 -- | What `<-` means right here, awaiting outside any modifier.
@@ -79,6 +81,8 @@ export(crate) module emit_control_inline
 export(crate) module emit_fn
 -- | Emit a run of statements, flattening `with` callbacks.
 export(crate) module emit_stmts
+-- | Emit the `impl` of every `deriving` template a declaration names.
+export(crate) module emit_templates
 -- | A `where` group's entries, emitted in dependency order.
 export(crate) module emit_where_locals
 -- | Split an error variant's message into a format string and its arguments.
@@ -89,8 +93,12 @@ export(crate) module r#errors
 export(crate) module expr
 -- | A comma-separated argument list.
 export(crate) module expr_list
+-- | A `deriving` template's `instance`, with its placeholders filled.
+export(crate) module expanded_template
 -- | Emit an `extern` block.
 export(crate) module extern_block
+-- | The argument positions holding an application hole, `_`.
+export(crate) module holes
 -- | A record field's value text, with punning expanded.
 export(crate) module field_value
 -- | Emit a constructor's fields.
@@ -139,10 +147,14 @@ export(crate) module one_field
 export(crate) module one_line_if
 -- | A clause's body as one tail expression statement, when that is what it is.
 export(crate) module one_tail_expression
+-- | `over (.a.b) f place` as an assignment.
+export(crate) module over
 -- | Append a number of spaces to the sink.
 export(crate) module pad
 -- | Append a number of spaces to a `String`.
 export(crate) module pad_to
+-- | A pattern's Rust text, with pattern synonyms expanded.
+export(crate) module pattern_text
 -- | Lower `|>` as reverse application: `x |> f` is `f x`.
 export(crate) module pipeline
 -- | Render an expression as a method call's receiver, parenthesised when `.` would bind tighter.
@@ -169,6 +181,14 @@ export(crate) module sink
 export(crate) module sole_expression
 -- | Emit one block element.
 export(crate) module stmt
+-- | The synonym table in scope for the file being emitted.
+export(crate) module synonym_scope
+-- | Every pattern synonym a file declares, by name.
+export(crate) module synonym_table
+-- | The `deriving`-template table in scope for the file being emitted.
+export(crate) module template_scope
+-- | Every `deriving` template a file declares, by name.
+export(crate) module template_table
 -- | The widest a record literal's fields may be and still go on one line.
 export(crate) module struct_lit_width
 -- | The widest an enum's record variant may be and still go on one line.

@@ -1,0 +1,56 @@
+import crate::serve::declared::declared
+import crate::serve::definition::word_at::word_at
+import crate::serve::positions::offset_of::offset_of
+import crate::serve::positions::range_of::range_of as to_range
+import lsp_types::{GotoDefinitionResponse, Location, Position, Uri}
+
+-- | The identifier under the word a cursor is on.
+export(crate) module word_at
+
+-- | Where the name under the cursor is declared **in this file** — plan 71
+-- | leaf 5.
+-- |
+-- | # Same file, top-level names, and that is the whole contract
+-- |
+-- | The lookup is: read the identifier the cursor is on, then find the item in
+-- | *this document* that declares that name. No imports are followed, no other
+-- | file is opened, and nothing is inferred.
+-- |
+-- | That boundary is plan 14 decision 4's, and it is the same one plan 56 §1.4
+-- | draws for currying and plan 87 for pattern synonyms: **Redox has no name
+-- | resolution and must not grow one.** A server that followed `import
+-- | crate::foo::bar` would be building exactly that, in the component where it
+-- | is least visible.
+-- |
+-- | # What it costs, stated rather than hidden
+-- |
+-- | A **local** binding that shares a top-level name resolves to the top-level
+-- | one. `total xs = … where total = 0` with the cursor on the inner `total`
+-- | jumps to the function, not to the `where` entry. That is wrong, and it is
+-- | disclosed rather than silent for a specific reason: the editor *shows you
+-- | where it jumped*, so a wrong jump is immediately visible and costs one
+-- | keystroke to undo — unlike a wrong type, which would be believed.
+-- |
+-- | Narrowing it would need the scope tree, which is name resolution. Plan 71
+-- | §10 records the trade and §6's follow-on list has `references` and `rename`
+-- | behind the same wall.
+-- |
+-- | # A name this file does not declare answers with nothing
+-- |
+-- | Not an error and not a guess. An editor that gets no location falls back to
+-- | its own word search, which is the behaviour plan 40's criterion 1 wants
+-- | preserved: *"an editor told a capability exists stops looking for another
+-- | source for it"* — and `definition` returning `null` for an unknown name is
+-- | the server saying *this one is not mine*, which keeps the fallback alive
+-- | per request rather than switching it off for the whole document.
+export(crate) definition : &str -> &Uri -> Position -> Option<GotoDefinitionResponse>
+definition source uri at =
+  guard redox_parser::parse_source source is Ok program else
+    return None
+  offset = offset_of source at
+  wanted = (word_at source offset)?
+  for item in &program.items
+    if declared item is Some pair && pair.1 == wanted
+      at_item = .span item
+      return Some (GotoDefinitionResponse::Scalar (Location { uri = .clone uri, range = to_range source at_item }))
+  None

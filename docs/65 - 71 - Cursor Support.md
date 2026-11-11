@@ -1,6 +1,6 @@
 # Plan 71 — Cursor Support
 
-Status: planned
+Status: `done` — leaf 5 shipped 2026-11-11, §10.7; the one rung left is a person running the switch (§10.6)
 Depends on: 40 (the language server), 49 (the editor clients), 50 (the MCP server)
 
 > **Numbering.** This row takes plan **71** and doc index **65**, not 70. `AGENTS.md`
@@ -591,7 +591,10 @@ So the flake input in leaf 3's patch is `github:Industrial/redox` rather than
 the `git+file://` the plan expected to need. What remains of leaf 4 is nothing:
 there is no `path:` to swap.
 
-Leaf 5 is untouched, and `capabilities.rs` still advertises exactly four.
+**Leaf 5 shipped 2026-11-11**, and §10.7 records it. The sentence that stood
+here — *"Leaf 5 is untouched, and `capabilities.rs` still advertises exactly
+four"* — is superseded: the server advertises **seven**, and
+`capabilities_are_exactly_the_seven_implemented` is the renamed assertion.
 
 ### 10.6 Owed to successors
 
@@ -609,3 +612,76 @@ Leaf 5 is untouched, and `capabilities.rs` still advertises exactly four.
   every gate runs only on a developer's machine. Out of scope here and named
   because leaf 4 makes it possible.
 - **`docs/COMPILER.md` §5's dependency figures**, per §10.3.
+
+### 10.7 Leaf 5, shipped
+
+`hover`, `definition` and `foldingRange`, with `capabilities` extended to seven
+and six session tests — one per capability plus the negative half of each, which
+is where the contract actually lives.
+
+**The three are not the three plan 40 §6 declined, and that distinction is the
+leaf's whole justification.** §6 refused `hover` and `definition` because they
+*"would need name resolution"*, and the capability test said so in a comment.
+That is true of what a Rust programmer expects from them — the **type** of the
+expression under the cursor, and the definition of a name wherever it lives.
+Each of these answers a narrower question that a span lookup settles:
+
+| Capability | The question | What it never does |
+|---|---|---|
+| `hover` | which declaration am I inside, and what is its first line | consult a type |
+| `definition` | where does **this file** declare this name | follow an import, or walk a scope tree |
+| `foldingRange` | where are the indented blocks | re-implement the off-side rule |
+
+Doc 02 §12.4's refusal of a type checker is untouched and rustc remains the sole
+authority on types. A reader who wants a *type* has `redox check`, which reports
+rustc's own answer against the `.sdx` — a better answer than a server with no
+checker could give, and §10 records that as the division rather than as a gap.
+
+**`foldingRange` is the one that was free.** Redox is an off-side-rule language,
+so *"an indented block"* is a pair of tokens the lexer already emits, and the
+fold closes exactly where the parser's block closes. The alternative — counting
+leading spaces — would be a second implementation of the off-side rule, free to
+disagree with the first.
+
+#### What `definition` costs, stated rather than hidden
+
+A **local** binding sharing a top-level name resolves to the top-level one:
+`total xs = … where total = 0`, with the cursor on the inner `total`, jumps to
+the function. That is wrong, and it is disclosed rather than narrowed for a
+specific reason — the editor *shows you where it jumped*, so a wrong jump is
+visible immediately and costs one keystroke, where a wrong type would be
+believed. Narrowing it needs the scope tree, which is name resolution; §6's
+follow-on list has `references` and `rename` behind the same wall.
+
+#### Three things the leaf found
+
+**`offset_of` had to be written, and it is `position_of`'s exact inverse.**
+Every capability before this one took a *document*; these take a *position*, and
+the protocol speaks UTF-16 columns while every span in the AST is a byte pair.
+`position_of` sums `char::len_utf16`, so `offset_of` undoes that sum rather than
+counting `char`s — and Redox's own source is full of `—` and `§`, so the
+distinction is the ordinary case here, not the edge one.
+
+**A position past the end of the file clamps, and a test premise depended on
+it.** `hover_outside_a_declaration_is_none` first probed a line past the last
+item and *failed*: the clamp put the cursor on the last item's span. The clamp is
+right — under full sync the editor and the server hold the same document, so an
+out-of-range position is a cursor racing an edit, and the kind answer is the
+nearest offset rather than an error in the user's log. The test now probes a
+**leading comment**, which is the one place reliably inside a file and outside
+every item span, because comments are trivia and an item's span starts at its
+first token.
+
+**A cursor position in a test must be computed from the fixture.** The tests
+derive line and column from `source.find(needle)` rather than writing numbers
+down. A hardcoded line number rots when an example gains a comment, and it rots
+**silently** — the test still passes, asserting about whatever moved into that
+line. `AGENTS.md`'s rule against string-literal fixtures has the same shape and
+the same reason.
+
+#### What remains of plan 71
+
+Nothing in this repository. §10.6's one owed item is unchanged and is not code:
+**run the switch once `tldr-pages` is unblocked**, which is a person looking at
+a diagnostic in a running Cursor. Every rung upstream of that is verified,
+including on the built `cursor-with-extensions`.

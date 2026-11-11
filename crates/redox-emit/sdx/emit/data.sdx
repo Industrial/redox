@@ -1,9 +1,11 @@
+import crate::emit::emit_templates::emit_templates
 import crate::emit::fields::emit_fields
 import crate::emit::pad::pad
 import crate::emit::rust_indent::RUST_INDENT
 import crate::emit::sink::Sink
+import crate::emit::template_scope::TemplateScope
 import crate::emit::trivia::emit_trivia
-import redox_ast::{ConstructorFields, DataDecl}
+import redox_ast::{ConstructorFields, DataDecl, Ident}
 
 -- | Emit doc 18 §2.4's `data` declaration as a `struct` or an `enum`.
 -- |
@@ -26,12 +28,26 @@ export(crate) emit_data : &mut Sink<'_> -> &DataDecl -> usize -> ()
 emit_data out d indent =
   .mark d.span out
   emit_trivia out (&d.leading) indent
-  if !.is_empty d.derives
-    names : Vec<&str> = d.derives
-      |> .iter
-      |> .map (\i -> .as_str i.text)
-      |> .collect
-    joined = .join ", " names
+  -- **Plan 89 splits the `deriving` list in two.** A name this file declared a
+  -- `deriving template` for is a template and emits an `impl` below the
+  -- declaration; every other name is Rust's own and stays in `#[derive(…)]`.
+  --
+  -- The split is by lookup, so an **undeclared** name is left in the derive
+  -- list exactly as before — which is doc 03 §9.5's behaviour and the reason
+  -- this row needs no name resolution. A misspelled template is therefore
+  -- rustc's `E0433`, which plan 89 §9 decision 4 records as the cost.
+  templated : Vec<Ident> = d.derives
+    |> .iter
+    |> .filter (\i -> .is_some (TemplateScope::lookup (.as_str i.text)))
+    |> .cloned
+    |> .collect
+  builtin : Vec<&str> = d.derives
+    |> .iter
+    |> .filter (\i -> .is_none (TemplateScope::lookup (.as_str i.text)))
+    |> .map (\i -> .as_str i.text)
+    |> .collect
+  if !.is_empty builtin
+    joined = .join ", " builtin
     pad out indent
     .push_str (&format! \-> "\#[derive(#{joined})]\n") out
   as_struct = case .as_slice d.constructors of
@@ -85,6 +101,7 @@ emit_data out d indent =
       "struct"
     .push_str (&format! \-> "#{vis}#{keyword} #{d.name.text}#{params}") out
     emit_fields out fields indent true
+    emit_templates out (&templated) d indent
     return ()
   pad out indent
   vis = .rust_text d.visibility
@@ -134,4 +151,5 @@ emit_data out d indent =
   .push_str "#[allow(unused_imports)]\n" out
   pad out indent
   .push_str (&format! \-> "use #{d.name.text}::*;\n") out
+  emit_templates out (&templated) d indent
   ()

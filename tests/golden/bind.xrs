@@ -1,0 +1,94 @@
+use std::iter::once;
+
+// Plan 86's **named bind**: `do .method` is a block modifier, and `<-` inside
+// it binds through the method the modifier names.
+//
+// This is the construct `docs/DECLINED.md` refused as a *"general monadic
+// comprehension"* — *"must choose `flat_map` versus `and_then`"* — carrying the
+// only reopening venue in that whole document: **"revisit only if a type-free
+// discrimination is found."**
+//
+// The discrimination is the **modifier**, and plan 60 already built one. `<-`
+// is monadic bind read by the enclosing block modifier, with `try` reading it
+// as `?` and `async` as `.await`; the set it ranged over was simply closed.
+// Opening it satisfies doc 03 §2 clause 1 in that clause's own words: *"the
+// user's own syntax selects between them — never an inference."* Redox chooses
+// nothing here. It transcribes the method the author named.
+//
+// The lowering is structurally unlike its two siblings: `try` and `async` read
+// `<-` as a *postfix* and emit a statement per row, where this folds the rows
+// **rightwards into nested closures**. Inner closures carry `move`, which doc
+// 03 §10.1's comprehension lowering already does — a bind's closure captures an
+// outer binder and is returned past its frame, so it must own what it captures.
+//
+// **Nothing is fabricated, the final row included.** Haskell's `do` ends in an
+// expression of the monad and a naive port inserts `pure`; choosing between
+// `Ok`, `Some` and `once` is an inference, so the author writes it. One more
+// line than Haskell needs, and the line that keeps the construct admissible.
+
+// `and_then` over `Option`. Two binds, a written final row.
+fn first_word(s: &str) -> Option<&str> {
+    Some(s.trim()).and_then(move |t| t.split_whitespace().next().and_then(move |w| Some(w)))
+}
+
+// `flat_map` over a range — the case that needs `move` on the inner closure
+// and does not compile without it. The comprehension in
+// `examples/comprehension.sdx` reaches this one shape too; `do` reaches every
+// other method as well, which is §1.6's argument for keeping both.
+fn grid() -> Vec<(u64, u64)> {
+    let pairs = (1u64..3).flat_map(move |x| (1u64..3).flat_map(move |y| once((x, y))));
+    pairs.collect()
+}
+
+// A **user type with its own `and_then`**, which is what proves the construct
+// is not a `Try` special case in disguise: nothing in `std` is involved.
+#[derive(Debug, Clone, Copy)]
+struct Tally {
+    value: u64,
+}
+
+impl Tally {
+    // Two shapes avoided here, both **pre-existing grammar gaps** that plan 86
+    // §10 records rather than closes, and that this file is the first in the
+    // corpus to come near:
+    //
+    // - the parenthesised `(impl Fn(u64) -> Tally)` compiles identically and
+    //   `grammar.js` reports `ERROR` on the `)` before the arrow;
+    // - `export` on a member whose signature contains an `Fn(…)` type also
+    //   `ERROR`s, while the same member without `export` parses — isolated to
+    //   four tokens by `tree-sitter parse` on a four-line file.
+    //
+    // Unparenthesised and unexported is the corpus's form;
+    // `examples/bindings.sdx`'s `twice : impl Fn() -> u32 -> u32` is the
+    // precedent, and `and_then` needs no visibility because its only caller is
+    // in this file.
+    fn and_then(self, f: impl Fn(u64) -> Tally) -> Tally {
+        f(self.value)
+    }
+}
+
+fn doubled() -> Tally {
+    (Tally { value: 5 }).and_then(move |n| Tally { value: n * 2 })
+}
+
+// An **intermediate row with no binder** sequences, which is Haskell's `>>`:
+// it lowers to the same method with a discarded binder, so the rows keep their
+// source order.
+fn checked() -> Option<u64> {
+    Some(1).and_then(move |_| Some(7).and_then(move |n| Some(n + 1)))
+}
+
+// A **single-row block** — the degenerate case, which must emit one expression
+// and no nesting at all.
+fn lone() -> Option<u64> {
+    Some(3)
+}
+
+fn main() {
+    println!("{:?}", first_word("  hello world  "));
+    println!("{}", grid().len());
+    println!("{}", doubled().value);
+    println!("{:?}", checked());
+    println!("{:?}", lone());
+    ();
+}

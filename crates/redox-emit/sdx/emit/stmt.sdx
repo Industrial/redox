@@ -1,3 +1,4 @@
+import crate::emit::pattern_text::pattern_text
 import crate::emit::annotated_binding::annotated_binding
 import crate::emit::emit_bind::emit_bind
 import crate::emit::emit_control::emit_control
@@ -52,7 +53,7 @@ emit_stmt out stmt indent tail =
       .push_str "let " out
       if b.is_mut
         .push_str "mut " out
-      .push_str (&.rust_text b.pattern) out
+      .push_str (&pattern_text (&b.pattern)) out
       -- Plan 62 leaf 1: an ascription that is the whole right-hand side is
       -- Rust's annotated `let`, so it moves to the annotation rather than
       -- emitting a block whose only job is to carry the type.

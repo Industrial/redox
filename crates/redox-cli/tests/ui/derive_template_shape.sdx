@@ -1,0 +1,10 @@
+-- RDX0122: a deriving template's `instance` must be for `Target` — plan 89.
+--
+-- `Target` is the placeholder, so an `instance` for a concrete type is not a
+-- template at all. Caught at the declaration, where the mistake is, rather
+-- than at a `deriving` list that would then expand to an impl for the wrong
+-- type — which would compile the first time and collide the second.
+deriving template Forward
+  instance Display Meters
+    fmt : &self -> &mut Formatter<'_> -> Result
+    fmt self f = Display::fmt (&self.0) f

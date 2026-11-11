@@ -1,0 +1,114 @@
+use std::fmt::Display;
+
+// Plan 84's `given <…>` clause: the **verbatim** generic parameter list, and a
+// signature-position `where` for the predicates.
+//
+// Doc 03 §14.1 carries a *type* verbatim, so "every present and future Rust
+// type form is reachable for free, and nothing can drift". The **binder** — the
+// generic list, the bound clause, the predicates — was synthesised instead, by
+// doc 18 §2.2's rule that a lowercase type name is a type variable and the
+// generic list is the order of first appearance.
+//
+// Plan 84 leaf 0 measured six shapes that rule cannot reach. Each one is below,
+// and each one was `UNREACHABLE` in `docs/GRAMMAR.md` until this file existed.
+// Synthesis is still the default and still what every other example uses: this
+// is the hatch, not the road.
+//
+// The rule is **all or nothing per signature** (plan 84 §1.6). A signature
+// carrying `given` gets no synthesised generic list, no `=>` bounds, and no
+// type rewrite — so its lowercase spine atoms are ordinary verbatim Rust types,
+// which is what makes `[u8; N]` below mean the `N` the author declared rather
+// than a parameter invented from it.
+
+// A **const generic parameter**. Synthesis reads the `n` in `[u8; n]` as a type
+// variable and emits `fn first_of<N>(xs: [u8; N])`, which uses a type as a
+// value: rustc answers `E0423`.
+fn first_of<const N: usize>(xs: [u8; N]) -> u8 {
+    xs[0]
+}
+
+// A bound whose trait carries **type arguments** — the most common shape of
+// bound in Rust, and the one the `=>` clause cannot read at all. `Ord t` works
+// there; anything with a `<` in the trait does not.
+fn shout<T: Into<String>>(x: T) -> String {
+    x.into()
+}
+
+// A **projection predicate**. The `=>` clause pairs a trait with a *variable*,
+// so a path has no position in it. This is doc 03 §14.2's signature-position
+// `where`, whose role that document declared and nothing implemented until
+// plan 84 leaf 3.
+fn total<I: IntoIterator<Item = u64>>(xs: I) -> u64
+where
+    I::IntoIter: Clone,
+{
+    xs.into_iter().sum()
+}
+
+// A **relaxed bound**. There is no `=>` spelling for a negative bound, and the
+// `?` had no respelling either — plan 84 leaf 0 found it reaching generated
+// Rust as a `TokenKind`'s own Debug name, which `token_text` now spells.
+fn width<T: ?Sized>(__rdx_a0: &T) -> usize {
+    4
+}
+
+// A parameter mentioned **only in a bound**, and a **chosen** parameter order.
+// Synthesis takes the order from first appearance in the spine, so `<U, T>`
+// cannot be asked for and a `T` the spine never mentions is not declared at
+// all.
+fn widen<U: From<T>, T>(x: T) -> U {
+    x.into()
+}
+
+// A **bound between two lifetimes**. The `=>` clause has one trait slot and
+// this has a lifetime on both sides, so it has no spelling there at all.
+// Verbatim, it is just Rust.
+fn longer<'a, 'b: 'a>(a: &'a str, b: &'b str) -> usize {
+    a.len() + b.len()
+}
+
+// A **higher-ranked bound**. Synthesis excludes only `dyn`, `impl`, `mut` and
+// `as` from its lowercase scan, so `for` and `fn` both became type parameters:
+// `fn calls<'a, FOR, FN>(f: FOR<'a> FN(&'a str) -> &'a str)`.
+fn trimmed<F>(f: F) -> String
+where
+    for<'a> F: Fn(&'a str) -> &'a str,
+{
+    f("  x  ").to_string()
+}
+
+// The binder on an **`instance` head**, which is what closes `blanket_impl` —
+// a gap `docs/STATUS.md` carried until plan 84 leaf 4.
+//
+// `instance Display t => Describe t` parses and emits `impl Describe for t`,
+// with a lowercase target rustc rejects: `TypeApp::vars` reads a type
+// application's *arguments*, and here the variable is the target's **head**, so
+// the generic list comes out empty and the `=>` bound goes with it. A synthesis
+// failure, not a type one — so writing the list is the whole fix.
+trait Describe {
+    fn describe(&self) -> String;
+}
+
+impl<T: Display> Describe for T {
+    fn describe(&self) -> String {
+        format!("<{}>", self)
+    }
+}
+
+fn main() {
+    let bytes = [7u8; 3];
+    let n: u64 = widen(5u32);
+    // An array rather than a `vec!`: `[u64; 3]`'s `IntoIter` is `Clone`, which
+    // is what `total`'s predicate asks for, and plan 84 §10 records why the
+    // macro could not be used here.
+    let nums = [1u64, 2u64, 3u64];
+    println!("{}", first_of(bytes));
+    println!("{}", shout("hi"));
+    println!("{}", total(nums));
+    println!("{}", width("abcd"));
+    println!("{}", n);
+    println!("{}", longer("ab", "cde"));
+    println!("{}", trimmed(str::trim));
+    println!("{}", (&9).describe());
+    ();
+}

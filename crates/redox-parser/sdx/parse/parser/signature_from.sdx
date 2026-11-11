@@ -59,11 +59,32 @@ signature_from spine bound span =
     -- pattern moves into the `match` the emitter builds. That is doc 18
     -- §2.3's `__rdx_a0`, and the reason the generated-identifier prefix
     -- exists.
-    name = case binder of
-      Pattern::Binding ident -> .clone ident
-      _ -> Ident { text = format! \-> "__rdx_a#{i}", span = .span binder }
+    -- **An upper-case `Binding` is a constructor, not a binder**, so it does
+    -- not lend its name either. `pattern_app` keeps a bare constructor as a
+    -- `Pattern::Binding` carrying the whole path (plan 81 §2.4), which made
+    -- this arm read `pick None = 0` as a parameter *named* `None` and emit
+    -- `fn pick(None: Option<i32>)` — a refutable pattern in argument position,
+    -- which rustc answers with **`E0005`**.
+    --
+    -- Pre-existing and found by plan 87, because a pattern synonym's name is
+    -- upper case by design and so hits it immediately. No corpus file had a
+    -- bare constructor as a clause's whole pattern, which is why nothing
+    -- caught it: every existing one is an `Apply` or a `Record`.
+    --
+    -- The case of the first letter is the convention the language already runs
+    -- on — doc 18 §5.3 for a type variable, plan 68 for a constructor pattern
+    -- — so this needs no new information.
+    lends_its_name = case binder of
+      Pattern::Binding ident -> !.is_some_and char::is_uppercase (.next (.chars ident.text))
+      _ -> false
+    name = if lends_its_name
+      case binder of
+        Pattern::Binding ident -> .clone ident
+        _ -> Ident { text = format! \-> "__rdx_a#{i}", span = .span binder }
+    else
+      Ident { text = format! \-> "__rdx_a#{i}", span = .span binder }
     .push (Param { name, ty = Some (.clone ty), is_mut = false, span = .span binder }) params
-  Ok (Signature { params, ret = Some (.clone ret), generics = Vec::new (), is_const = false, is_async = false, is_unsafe = false, bounds = Vec::new (), span })
+  Ok (Signature { params, ret = Some (.clone ret), generics = Vec::new (), is_const = false, is_async = false, is_unsafe = false, bounds = Vec::new (), r#given = None, predicates = None, span })
 
 -- | `#[cfg(test)]`: a type expression at a dummy span. Redox can put nothing
 -- | but `#[test] fn`s inside its generated `mod __rdx_tests` — plan 73 §2.9.

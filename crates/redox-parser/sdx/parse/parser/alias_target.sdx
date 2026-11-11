@@ -1,0 +1,52 @@
+import crate::ParseError
+import crate::parse::parser::Parser
+import crate::parse::parser::token_text::token_text
+import redox_ast::Ident
+import redox_diag::Code
+import redox_lexer::TokenKind
+
+-- | The function an operator stands for, verbatim to the end of the line —
+-- | plan 90.
+-- |
+-- | ```text
+-- | infixl 6 <+> = Set::union
+-- |                ^^^^^^^^^^
+-- | ```
+-- |
+-- | # Verbatim, and reassembled from tokens
+-- |
+-- | `given_clause`'s technique, for `given_clause`'s reason: what the author
+-- | wrote is a path, a path is already Rust, and re-spelling it from a tree
+-- | could only lose something. The `Parser` holds no source text, so the run is
+-- | rebuilt from [`token_text`] with a space wherever the lexer recorded one —
+-- | which is why plan 84 leaf 2 had to make `token_text` total over the
+-- | operators, and why this row needed no addition to it.
+-- |
+-- | Unlike a `given` clause this one ends at the **line**, because nothing
+-- | follows it: a declaration is one line and the alias is its last part. So no
+-- | delimiter has to be counted and an unbalanced run is impossible.
+-- |
+-- | # An empty target is refused
+-- |
+-- | `infixl 6 <+> =` with nothing after it would otherwise declare an operator
+-- | that emits `(a, b)` — a call to no function. Reported against the
+-- | **spelling** rather than the empty position, because that is the thing the
+-- | author named and the thing a reader looks for.
+export(crate) alias_target : &mut Parser -> &Ident -> Result<String, ParseError>
+alias_target p spelling =
+  mut text = String::new ()
+  loop
+    kind = &(.peek p).kind
+    at_end = case kind of
+      TokenKind::Newline or TokenKind::Indent or TokenKind::Dedent or TokenKind::Eof -> true
+      _ -> false
+    if at_end
+      break
+    if (.peek p).ws_before && !.is_empty text
+      .push ' ' text
+    .push_str (&token_text kind) text
+    .advance p
+  trimmed = .trim (.as_str text)
+  if .is_empty trimmed
+    return Err $ ParseError::with_help Code::OperatorShape "expected a function for this operator to stand for" "a declaration is an **alias**: `infixl 6 <+> = Set::union` makes `a <+> b` emit `Set::union(a, b)`. It declares no function of its own, because no Rust function can be named `<+>`" spelling.span
+  Ok (.to_string trimmed)

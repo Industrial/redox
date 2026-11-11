@@ -78,6 +78,10 @@ export import program::item::leading::leading
 export import program::item::module_decl::ModuleDecl
 export import program::item::param::Param
 export import program::item::pattern::Pattern
+export import program::item::derive_template::DeriveTemplate
+export import program::item::operator_decl::OperatorDecl
+export import program::item::fixity::Fixity
+export import program::item::pattern_synonym::PatternSynonym
 export import program::item::primitive_type::primitive_type
 export import program::item::record_pattern_field::RecordPatternField
 export import program::item::signature::Signature

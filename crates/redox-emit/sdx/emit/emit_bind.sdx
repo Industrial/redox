@@ -1,3 +1,4 @@
+import crate::emit::pattern_text::pattern_text
 import crate::emit::bind_mode::BindMode
 import crate::emit::bind_scope::BindScope
 import crate::emit::receiver::receiver
@@ -42,6 +43,6 @@ emit_bind pattern value indent =
   bound = format! \-> "#{recv}#{postfix}"
   case pattern of
     Some p ->
-      lowered = .rust_text p
+      lowered = pattern_text p
       format! \-> "let #{lowered} = #{bound};"
     None -> format! \-> "#{bound};"

@@ -564,6 +564,143 @@ const WITNESSES: &[Covers] = &[
     witness: Witness::Toks(&["=>"]),
   },
   Covers {
+    row: "do .method — the named bind",
+    // `do` then `.` then a name. The `do` alone would be satisfied by
+    // `tests/ui/reserved_do.sdx`, which writes the word precisely to have it
+    // refused — so the witness has to carry the method reference that makes it
+    // a construct rather than an error.
+    spelling: "`do .and_then` and `do .flat_map`",
+    witness: Witness::Toks(&["do", ".", "«id»"]),
+  },
+  Covers {
+    row: "The composed selector, (.a.b.c)",
+    // Two dots inside the parentheses. `(.name)` alone would be satisfied by
+    // every file that already has a selector, which is the hollow-witness
+    // shape plan 57 §11.6 found from the other side — so the witness carries
+    // the second `.` that is the whole of the construct.
+    spelling: "`(.addr.zip)` and `(.addr.zip.code)`",
+    witness: Witness::Toks(&["(", ".", "«id»", ".", "«id»", ")"]),
+  },
+  // --- plan 88 leaf 3's `over` ---
+  //
+  // Three tokens, which is the same three the parser's dispatch reads: the
+  // word, `(`, then `.`. A witness on `over` alone would be satisfied by a
+  // program that calls a function of that name.
+  Covers {
+    row: "Functional update through a path",
+    spelling: "`over (.addr.zip.code) doubled target`",
+    witness: Witness::Toks(&["over", "(", "."]),
+  },
+  // --- plan 89's deriving templates ---
+  Covers {
+    row: "deriving templates",
+    spelling: "`deriving template Forward` and its indented `instance Display Target`",
+    witness: Witness::Toks(&["deriving", "«id»", "«id»"]),
+  },
+  // --- plan 90's operator declarations ---
+  //
+  // Three tokens, which is the same three `Parser::item`'s dispatch reads: the
+  // fixity word, the precedence literal, and the operator. A witness on the
+  // word alone would be satisfied by a program with a binding named `infixl`.
+  Covers {
+    row: "Operator declaration",
+    spelling: "`infixl 6 <+> = merge`, and `a <+> b` emitting `merge(a, b)`",
+    witness: Witness::Toks(&["infixl", "«int»", "<+>"]),
+  },
+  // --- plan 87's pattern synonyms ---
+  Covers {
+    row: "Pattern synonyms",
+    spelling: "`pattern Origin = (0, 0)` and `pattern Both a b = (Some a, Some b)`",
+    witness: Witness::Toks(&["pattern", "«id»", "="]),
+  },
+  Covers {
+    row: "A bare constructor as a clause's whole pattern",
+    // A clause whose only pattern is an upper-case name, then `=`. The
+    // `«id»` placeholder does not distinguish case, so the witness leans on
+    // the *shape* — a name, a name, `=` at item level — which an ordinary
+    // two-name equation head also has. That is accepted: the row is about the
+    // emitted parameter, and `examples/synonym.sdx` is where it is asserted by
+    // running.
+    spelling: "`describe Origin = \"the origin\"`",
+    witness: Witness::Toks(&["«id»", "«id»", "=", "«str»"]),
+  },
+  // --- plan 85's application hole ---
+  //
+  // Each witness names a *shape* rather than the token, because a bare `_` is
+  // in the corpus as a pattern already — `pick a _ = a` — and a witness that
+  // matched it would be satisfied by a file with no hole in it at all.
+  Covers {
+    row: "The application hole, _",
+    spelling: "`max _ 0` — a hole as an argument of an application",
+    witness: Witness::Toks(&["«id»", "_", "«int»"]),
+  },
+  Covers {
+    row: "A method awaiting its receiver",
+    spelling: "`.map (.trim _)` — the receiver is the closure's parameter",
+    witness: Witness::Toks(&["(", ".", "«id»", "_", ")"]),
+  },
+  Covers {
+    row: "Assignment to _",
+    spelling: "`_ := pick 1 2` — Rust's discard assignment",
+    witness: Witness::Toks(&["_", ":="]),
+  },
+  Covers {
+    row: "Blanket impls",
+    // Plan 84 leaf 4 closed this, and it is the only one of that row's seven
+    // siblings that sits in §1.2 rather than §1.3 — an `instance` head rather
+    // than a signature. The witness is the head's own shape, because `given <`
+    // alone is satisfied by any of the signatures above it in the same file.
+    spelling: "`instance given <T: Display> Describe T`",
+    witness: Witness::Toks(&["instance", "given", "<"]),
+  },
+  // --- plan 84's verbatim binder, and the six shapes it reaches ---
+  //
+  // Each of these six was `UNREACHABLE` with a fixture under
+  // `tests/unreachable/` until plan 84 leaf 1, and each is witnessed by its own
+  // signature in `examples/binder.sdx` rather than by the `given` keyword
+  // alone. That distinction is the lesson plan 57 §11.6 paid for from the other
+  // side: a witness broad enough to be satisfied by *any* use of the construct
+  // is satisfied by the file that introduces it and asserts nothing about the
+  // shape the row is actually about.
+  Covers {
+    row: "The verbatim binder, given <…>",
+    spelling: "`given <…>` on a signature line",
+    witness: Witness::Toks(&["given", "<"]),
+  },
+  Covers {
+    row: "A bound whose trait has type arguments",
+    spelling: "`given <T: Into<String>>` — the trait carries a type argument",
+    witness: Witness::Toks(&["given", "<", "«id»", ":", "«id»", "<"]),
+  },
+  Covers {
+    row: "A projection predicate",
+    // `where` then a path. Redox's own `where` opens a layout block of
+    // definitions, so a `::` directly inside it is the signature-position
+    // clause and nothing else.
+    spelling: "`where I::IntoIter: Clone` — a predicate whose subject is a path",
+    witness: Witness::Toks(&["where", "«id»", "::"]),
+  },
+  Covers {
+    row: "A relaxed bound ?Sized",
+    spelling: "`given <T: ?Sized>`",
+    witness: Witness::Toks(&[":", "?", "«id»"]),
+  },
+  Covers {
+    row: "A bound between two lifetimes",
+    spelling: "`given <'a, 'b: 'a>`",
+    witness: Witness::Toks(&["«label»", ":", "«label»"]),
+  },
+  Covers {
+    row: "Const generic parameters",
+    spelling: "`given <const N: usize> [u8; N]`",
+    witness: Witness::Toks(&["given", "<", "const"]),
+  },
+  Covers {
+    row: "Higher-ranked bounds for<'a>",
+    spelling: "`where for<'a> F: Fn(&'a str) -> &'a str`",
+    witness: Witness::Toks(&["for", "<", "«label»", ">"]),
+  },
+  Covers {
     row: "The receiver, marked in a type",
     spelling: "`minus : u32 -> &self -> u32` — the marker, past the first type",
     witness: Witness::Shape(

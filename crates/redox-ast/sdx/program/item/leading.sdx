@@ -25,3 +25,6 @@ leading item = case item of
   Item::Const c -> &c.leading
   Item::InlineRust r -> &r.leading
   Item::Extern e -> &e.leading
+  Item::PatternSynonym p -> &p.leading
+  Item::DeriveTemplate t -> &t.leading
+  Item::OperatorDecl o -> &o.leading

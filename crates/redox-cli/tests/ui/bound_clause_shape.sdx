@@ -1,0 +1,27 @@
+-- Plan 84 leaf 1a: a `=>` on a signature line that is not a bound clause.
+--
+-- `constraints` reads the clause **speculatively** and rewinds if no `=>`
+-- arrives, which is what lets `class Shape t` and `class Debug t => Shape t`
+-- begin identically. The rewind was silent, so this program used to transpile
+-- with the whole clause swallowed into the first parameter's verbatim type and
+-- `TokenKind::FatArrow`'s own Debug name reaching the generated Rust:
+--
+--   fn shout<T>(x: Into<String> T FatArrow T) -> String
+--
+-- No diagnostic, and the `.xrs` is a human-facing artifact (doc 02 §10.1), so
+-- that is a defect rather than a gap. Plan 84 leaf 0 measured four shapes
+-- arriving this way and `docs/GRAMMAR.md` grades all four.
+--
+-- **This is the most common shape of bound in Rust** — `T: Into<String>`,
+-- `U: From<T>`, `I: IntoIterator<Item = T>`, `F: Fn(i32) -> i32` — so the help
+-- names the restriction rather than the token. An author who wrote this made a
+-- correct guess at real Rust; "expected a type" would not tell them why it was
+-- refused.
+
+shout : Into<String> t => t -> String
+shout x = .into x
+
+main : ()
+main =
+  println! \-> "#{(shout "hi")}"
+  ()

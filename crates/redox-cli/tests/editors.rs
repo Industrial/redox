@@ -599,7 +599,39 @@ fn every_coloured_keyword_is_still_in_the_grammar() {
   /// colour that `from` as syntax. That is a mis-colouring the compiler cannot
   /// be asked to prevent, and the alternative — leaving `errors` blocks
   /// uncoloured — is worse.
-  const COLOURED_BUT_NOT_A_KEYWORD: &[&str] = &["export", "Self", "from"];
+  /// `pattern` is the **second** contextual keyword, and it arrived the hard
+  /// way: plan 87 reserved it, found that `redox-ast` stopped transpiling with
+  /// `RDX0103` because `pattern` is a field name in four of its own
+  /// declarations, and reverted to a contextual reading. `grammar.js` carries it
+  /// as a literal, so the forward direction demands it of every highlighter;
+  /// `Keyword::from_text` rejects it, so this direction needs it here.
+  ///
+  /// It carries `from`'s cost, disclosed in the same terms: a field or binding
+  /// named `pattern` is coloured as syntax, and the compiler cannot be asked to
+  /// prevent that. The alternative — leaving a declaration keyword uncoloured —
+  /// is worse.
+  ///
+  /// `template` is the **third**, and plan 89 made it contextual by choice
+  /// rather than after a revert — `pattern`'s cost was already measured, and a
+  /// word recognised in exactly one position does not need to be unusable in
+  /// every other. It reaches the grammar as a literal for the same reason
+  /// `pattern` does: a reader wants `deriving template Forward` coloured as the
+  /// declaration it is.
+  const COLOURED_BUT_NOT_A_KEYWORD: &[&str] = &[
+    "export", "Self", "from", "pattern", "template",
+    // Plan 90's three fixity words, the fourth through sixth of this kind. The
+    // dispatch that reads them is a **three**-token lookahead — the word, an
+    // integer literal, then an assignable operator — which is what makes
+    // leaving them unreserved safe where one token would not have: `infixl = 3`
+    // is a binding and `infixl 6 x = x * 6` an equation, and a program may
+    // contain either.
+    "infix", "infixl", "infixr",
+    // Plan 88 leaf 3's `over`, the seventh of this kind and the one most
+    // likely to be somebody's function name — `over` is an ordinary English
+    // verb. Three tokens settle it: the word, `(`, then `.`, which is a shape
+    // no call can have.
+    "over",
+  ];
 
   // The oracle's own floor: a `from_text` that stopped matching would
   // otherwise make every word below look dead.
@@ -1099,6 +1131,70 @@ fn every_client_documents_its_own_install() {
       "editors/README.md should link editors/{client}/README.md"
     );
   }
+}
+
+/// Plan 90: the grammar's twelve user-operator spellings are the lexer's.
+///
+/// Two lists of the same twelve, in two languages, and nothing structural keeps
+/// them equal: `grammar.js` spells them as an alternation of literals so a use
+/// lexes as **one** token, and `ASSIGNABLE_OPERATORS` is what the compiler
+/// accepts. A spelling in one and not the other is the failure mode plan 46
+/// exists for — an editor that highlights a spelling the compiler rejects, or a
+/// spelling the compiler takes that highlights as three separate operators.
+///
+/// The lexer is the oracle, as it is for
+/// [`every_coloured_keyword_is_still_in_the_grammar`]: `grammar.js` is read as
+/// text, the constant is read through `redox_lexer`, and the two sets are
+/// compared both ways.
+#[test]
+fn every_assignable_operator_is_in_the_grammar() {
+  let grammar =
+    std::fs::read_to_string(grammar_dir().join("grammar.js")).expect("should read grammar.js");
+  // Sliced forward from the rule's own name rather than through `between`,
+  // which finds the **first** closing marker in the file and then looks
+  // backwards — fine for a unique `] @keyword`, wrong for a `),` that occurs
+  // in every rule above this one.
+  let from = grammar
+    .find("user_operator: (_) =>")
+    .expect("grammar.js should have a `user_operator` rule");
+  let rest = &grammar[from..];
+  let to = rest
+    .find("),")
+    .expect("the `user_operator` rule should close");
+  let rule = &rest[..to];
+
+  // Derived from the lexer rather than retyped, which is the whole point: a
+  // literal list here would be a third copy to drift.
+  let spellings = redox_lexer::ASSIGNABLE_OPERATORS;
+  assert_eq!(
+    spellings.len(),
+    12,
+    "the closed set is twelve; if it grew, `ASSIGNABLE_OPERATORS`' doc comment \
+     says the cost is a register row"
+  );
+
+  let mut missing = Vec::new();
+  for spelling in spellings {
+    if !rule.contains(&format!("\"{spelling}\"")) {
+      missing.push(format!("  {spelling}: absent from grammar.js"));
+    }
+  }
+  // And the other direction, which is the one that rots: a spelling retired
+  // from the lexer would otherwise sit in the grammar forever, lexing as one
+  // token for an editor and as three for the compiler.
+  for quoted in rule.split('"').skip(1).step_by(2) {
+    if !spellings.contains(&quoted) {
+      missing.push(format!(
+        "  {quoted}: in grammar.js but not in ASSIGNABLE_OPERATORS"
+      ));
+    }
+  }
+  assert!(
+    missing.is_empty(),
+    "the grammar and the lexer disagree about which operators may be \
+     declared:\n{}",
+    missing.join("\n")
+  );
 }
 
 /// Every `.sdx` in a directory, sorted.

@@ -1,0 +1,84 @@
+-- A `deriving template` names an `instance` once and derives it per
+-- declaration — plan 89, `docs/83 - 89 - Derive Templates.md`.
+--
+-- Rust has `#[derive(…)]` for a trait somebody wrote a proc macro for, and
+-- nothing at all for a trait one crate wants forwarded three times. A proc
+-- macro needs its own crate, `syn`, `quote` and a `proc-macro = true`
+-- manifest. This needs four lines, in the file that wants it.
+import std::fmt::Display
+import std::fmt::Formatter
+import std::fmt::Result
+
+-- The template. `Target` stands for the declaration's own type name and
+-- `Field0` for its first field — the whole vocabulary, which is what keeps the
+-- substitution textual and this row small.
+deriving template Forward
+  instance Display Target
+    fmt : &self -> &mut Formatter<'_> -> Result
+    fmt self f = Display::fmt (&self.Field0) f
+
+-- A second one, because the table is a table: a `deriving` list may name both,
+-- and each emits its own `impl` in the order written.
+deriving template Zeroed
+  instance Target
+    export zero : Self
+    zero = Target (Default::default ())
+
+newtype Meters = Meters f64
+  deriving (Debug, Clone, Copy, PartialEq, Forward, Zeroed)
+
+newtype Label = Label String
+  deriving (Debug, Clone, Forward)
+
+-- Leaf 3's **repetition**. `Fields` is every field as a `self` access and
+-- `FieldNames` is every field's name as a string literal, so one template
+-- visits a declaration whose shape it has never seen — which is §3 case 2, the
+-- case a substitution-only implementation passes case 1 and fails.
+deriving template Labelled
+  instance Labelled Target
+    labelled : &self -> String
+    labelled self = zip_pairs (&[FieldNames]) (&[Fields])
+
+data Point = Point { export x : u32, export y : u32 }
+  deriving (Debug, Clone, Labelled)
+
+data Triple = Triple { export a : u32, export b : u32, export c : u32 }
+  deriving (Debug, Clone, Labelled)
+
+-- The class the template implements, and the helper its body calls. Both are
+-- ordinary declarations: a template names what already exists, which is the
+-- property §1.3 asks for — no implied dependency, nothing fabricated.
+class Labelled
+  labelled : &self -> String
+
+-- One `name=value` pair. Lifted out of the chain below rather than written as
+-- a lambda there, because rustfmt's `chain_width` would break the chain across
+-- lines and `generated_rust_is_rustfmt_clean` compares bytes. The emitter has a
+-- `chain_width` constant for the shapes it controls; a chain the author writes
+-- is the author's to keep short.
+one_pair : (&&str, &u32) -> String
+one_pair pair = format! \-> "#{pair.0}=#{pair.1}"
+
+zip_pairs : &[&str] -> &[u32] -> String
+zip_pairs names values =
+  paired = .zip (.iter values) (.iter names)
+  pairs : Vec<String> = paired |> .map one_pair |> .collect
+  .join ", " pairs
+
+export main : ()
+main =
+  width = Meters 2.5
+  name = Label (.to_string "hallway")
+  -- `Display` from the template and `Debug` from Rust's own derive, out of the
+  -- same `deriving` list — which is the property §1.3 asked for: a template is
+  -- a name in that list and nothing else.
+  println! \-> "#{width} m of #{name}"
+  println! \-> "#{width:?}"
+  zero = Meters::zero ()
+  println! \-> "zero is #{zero} m"
+  -- Two declarations of different widths, one template. The two-field case
+  -- would pass with a substitution that handled only `Field0`; the three-field
+  -- case is what proves the repetition is a loop.
+  println! \-> "#{(.labelled (&Point { x = 1, y = 2 }))}"
+  println! \-> "#{(.labelled (&Triple { a = 3, b = 4, c = 5 }))}"
+  ()

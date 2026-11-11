@@ -1,0 +1,67 @@
+// Plan 87's **pattern synonyms**: a pattern given a name and reused.
+//
+// Rust has no pattern abstraction at all. A pattern cannot be named, reused or
+// parameterised, and `macro_rules!` does not reach the ergonomics — which is
+// why the RFC has stood unaccepted for years. This is the largest piece of
+// expressiveness in milestone 11 that costs **no type knowledge whatsoever**.
+//
+// The lowering is textual substitution at emit time, so rustc performs every
+// check it would have performed on the written-out form: exhaustiveness, field
+// names, types, binding modes. Doc 03 §2's corollary holds in both directions
+// — Redox checks nothing new, and rustc checks nothing less.
+//
+// `pattern` is Redox's **second contextual keyword**, after `from`. Reserving
+// it was tried and reverted: it is a *field name* in four of this compiler's
+// own declarations, so `Keyword::PatternKw` made `redox-ast` stop transpiling
+// with `RDX0103` on its own source. Two tokens settle the reading instead — the
+// word, then an **upper-case** name, because a use site has to read as a
+// constructor.
+
+// The **nullary** form. A name for a pattern, with no parameters.
+
+// The **parameterised** form. `a` and `b` are *formal* parameters: a use site
+// writes its own binders and they are substituted positionally, so no name is
+// introduced that the author did not write. That is the one property
+// distinguishing this from `docs/DECLINED.md`'s refusal of `RecordWildCards`,
+// which is declined for "introducing names absent from the source".
+
+// A synonym in an **equation head**. The parameter takes a generated name,
+// because an upper-case `Binding` is a constructor and not a binder — which
+// plan 87 found by writing this line: before it, `describe Origin = …` emitted
+// `fn describe(Origin: (i32, i32))`, a refutable pattern in argument position
+// that rustc answers with `E0005`. Pre-existing, and nothing in the corpus had
+// a bare constructor as a clause's whole pattern.
+fn describe(__rdx_a0: (i32, i32)) -> &'static str {
+    match __rdx_a0 {
+        (0, 0) => "the origin",
+        _ => "elsewhere",
+    }
+}
+
+// A synonym in a **`case` arm**, which is the other position it has to reach.
+// `Both l r` substitutes `l` and `r` into `(Some a, Some b)`, giving
+// `(Some(l), Some(r))` — and `l` and `r` are bound here, at the use site.
+fn added(pair: (Option<i32>, Option<i32>)) -> i32 {
+    match pair {
+        (Some(l), Some(r)) => l + r,
+        _ => 0,
+    }
+}
+
+// A synonym **nested inside another pattern**, so the expansion has to be
+// recursive rather than top-level only.
+fn holds_origin(slot: Option<(i32, i32)>) -> bool {
+    match slot {
+        Some((0, 0)) => true,
+        _ => false,
+    }
+}
+
+fn main() {
+    println!("{}", describe((0, 0)));
+    println!("{}", describe((1, 2)));
+    println!("{}", added((Some(3), Some(4))));
+    println!("{}", added((None, Some(4))));
+    println!("{}", holds_origin(Some((0, 0))));
+    ();
+}

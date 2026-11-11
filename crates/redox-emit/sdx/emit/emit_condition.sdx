@@ -1,3 +1,4 @@
+import crate::emit::pattern_text::pattern_text
 import crate::emit::expr::emit_expr
 import crate::emit::unparen::unparen
 import redox_ast::{Condition, ConditionOperand}
@@ -26,7 +27,7 @@ emit_condition condition indent =
     case operand of
       ConditionOperand::Expr e -> emit_expr (unparen e) indent
       ConditionOperand::Pattern { pattern, source } ->
-        lowered = .rust_text pattern
+        lowered = pattern_text pattern
         value = emit_expr (unparen source) indent
         format! \-> "let #{lowered} = #{value}")
     |> .collect

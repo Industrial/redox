@@ -35,6 +35,16 @@ import redox_ast::{Constraint, Signature}
 -- | functions grew generics.
 export(crate) generalise : &mut Signature -> &[Constraint] -> &[String] -> ()
 generalise sig constraints reserved =
+  -- **Plan 84 leaf 2: a verbatim binder turns synthesis off entirely.** Not
+  -- partially — §1.6 of that plan is the decision, and the reason is that a
+  -- half-synthesised binder turns four separate causes into four interaction
+  -- questions a reader can only answer by simulating the compiler. So a
+  -- signature with `given` gets no generic list, no bounds, and **no type
+  -- rewrite**: its lowercase spine atoms are verbatim Rust types like any
+  -- other, which is what lets `given <const N: usize> [u8; N] -> u8` mean the
+  -- `N` it declared rather than a synthesised `<N>`.
+  if .is_some sig.r#given
+    return ()
   mut texts : Vec<&str> = sig.params
     |> .iter
     |> .filter_map (\param -> .map (\t -> .as_str t.text) (.as_ref param.ty))
@@ -45,14 +55,31 @@ generalise sig constraints reserved =
     |> .into_iter
     |> .filter (\v -> !.contains v reserved)
     |> .collect
+  -- **Plan 84 leaf 1b: the bounds are set before the early return, and are
+  -- filtered by `reserved` rather than by `found`.** This function's own doc
+  -- comment has said since it was written that a constraint naming a variable
+  -- the signature does not use *"is kept anyway, because rustc reports it and
+  -- Redox has no name resolution to do better"*, and the code did the
+  -- opposite twice over: it filtered on `found`, and it returned before
+  -- assigning `bounds` at all when the spine had no variables. So
+  -- `hold : Default t => u -> u` emitted `fn hold<U>(x: U) -> U` — the bound
+  -- gone, no diagnostic, and the program compiling clean. Measured by plan 84
+  -- leaf 0, 2026-11-11, and it is AGENTS.md's *"a doc comment is not an oracle
+  -- for its own code"* in its other direction: here the comment was right and
+  -- the body was wrong.
+  --
+  -- `reserved` stays a filter because those variables are not parameters at
+  -- all — inside a `class Shape t` the `t` is the implementing type, and plan
+  -- 67 §6 keeps a bound on a trait parameter out of scope. A constraint naming
+  -- one has nothing to be a bound *on*.
+  sig.bounds := constraints
+    |> .iter
+    |> .filter (\c -> !.contains (&c.var.text) reserved)
+    |> .map (\c -> (rust_generic (&c.var.text), .clone c.trait_name.text))
+    |> .collect
   if .is_empty found
     return ()
   sig.generics := .collect (.map (\v -> rust_generic v) (.iter found))
-  sig.bounds := constraints
-    |> .iter
-    |> .filter (\c -> .contains (&c.var.text) found)
-    |> .map (\c -> (rust_generic (&c.var.text), .clone c.trait_name.text))
-    |> .collect
   for var in &found
     if .starts_with '\'' var
       continue

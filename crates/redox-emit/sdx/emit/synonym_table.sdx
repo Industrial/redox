@@ -1,0 +1,45 @@
+import redox_ast::{Item, PatternSynonym}
+
+-- | Every pattern synonym a file declares, by name — plan 87 leaf 1.
+-- |
+-- | **Collect and never transform**, which is plan 61's rule about a pass with
+-- | two consumers: this is written once at the emitter's entry and read while
+-- | patterns are rendered, and it changes no node either time.
+-- |
+-- | A `BTreeMap` rather than a `HashMap` for `redox-emit`'s standing reason:
+-- | the emitter's output must be byte-stable and a hash map's iteration order
+-- | is not. Nothing here iterates today, and the next reader who wants to will
+-- | get a deterministic order for free.
+-- |
+-- | # Scope is the file
+-- |
+-- | Built from the items of the file being emitted, which is plan 56 §1.4's
+-- | boundary and plan 14 decision 4's refusal: *"Redox has no name resolution
+-- | and must not grow one."*
+-- |
+-- | Unlike currying's boundary this one is **safe rather than silent**. An
+-- | unexpanded synonym is not a valid Rust pattern constructor either, so a
+-- | name from another file is a rustc error at the generated pattern rather
+-- | than a program that compiles and means something else.
+export(crate) data SynonymTable = SynonymTable {
+  by_name : std::collections::BTreeMap<String, PatternSynonym>,
+}
+  deriving (Debug, Clone, Default)
+
+instance SynonymTable
+  -- | Collect every `pattern` declaration among `items`.
+  -- |
+  -- | Top-level only, which matches `ArityTable`'s scope and plan 56 §11.8's
+  -- | correction to it: a bodiless `module` loads nothing, so there is nothing
+  -- | inside one to collect.
+  export(crate) from_items : &[Item] -> Self
+  from_items items =
+    mut by_name = std::collections::BTreeMap::new ()
+    for item in items
+      if item is Item::PatternSynonym decl
+        .insert (.clone decl.name.text) (.clone decl) by_name
+    SynonymTable { by_name }
+
+  -- | The synonym `name` stands for, if this file declared one.
+  export(crate) get : &str -> &self -> Option<PatternSynonym>
+  get name self = self.by_name |> .get name |> .cloned

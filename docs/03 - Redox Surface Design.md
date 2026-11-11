@@ -1018,6 +1018,45 @@ Haskell's RecordWildCards is **not** adopted: a wildcard introduces names that a
 nowhere in the source, which conflicts with the reachability-positive admission test
 reading of readable generated code.
 
+### 9.2a Updating through a path — `over`
+
+Plan 88 leaf 3. `:=` is the general assignment and reaches a name, a field, an index and a deref
+target, so updating a nested field already works — written twice:
+
+```
+u.addr.city := .to_uppercase u.addr.city
+```
+
+`over` says the path once:
+
+```
+over (.addr.city) .to_uppercase u
+```
+```rust
+u.addr.city = u.addr.city.to_uppercase();
+```
+
+**The gain is a class of defect, not keystrokes.** Two spellings of one path that must agree is
+the shape of a typo that type-checks: `u.addr.city := .to_uppercase u.addr.town` compiles
+whenever both fields are strings, and §2's corollary means no checker Redox is allowed to have
+would catch it.
+
+Three arguments — selector, function, place — and each is an **atom**. That is what lets the
+function be a bare method reference: a `.name` in head position takes the next thing as its
+receiver (§5.4), so reading an expression there would swallow the place. The lowering is an
+assignment through the place, so nothing is moved, nothing is cloned, and the emitted Rust is
+byte-identical to the `:=` form — §2 clause 3.
+
+`over` is contextual, settled by three tokens: the word, `(`, then `.`. `over (x)` is a call and
+`over = 3` is a binding, both of which a program may contain. `RDX0127` refuses a selector that
+is not a path.
+
+The **functional** form — `set` and an `over` that returns a new value — stays declined, and
+`docs/DECLINED.md` has the reason: every lowering of it either inserts a clone (§2 clause 3),
+chooses from a type (clause 1), or reaches one level via `..base`, which is §9.1's spread
+already. That is an admission failure rather than a scope decision.
+
+
 ### 9.3 Primary constructors
 
 From C# 12, with Gleam and Haskell's positional constructors as further witnesses. A
@@ -1078,6 +1117,66 @@ struct Point { x: f64, y: f64 }
 
 General attributes remain available by verbatim passthrough (§13.2); the clause is a
 spelling for the common case, not a replacement.
+
+**A name in the list that this file declared a template for is not a Rust derive** — plan 89.
+`deriving template Forward` declares an `instance` whose implementing type is the reserved
+name `Target`, and every declaration naming `Forward` in its `deriving` list emits that
+`instance` with `Target` replaced by its own type name and `Field0`, `Field1`, … by its field
+names:
+
+```
+deriving template Forward
+  instance Display Target
+    fmt : &self -> &mut Formatter<'_> -> Result
+    fmt self f = Display::fmt (&self.Field0) f
+
+newtype Meters = Meters f64
+  deriving (Debug, Forward)
+```
+```rust
+#[derive(Debug)]
+#[repr(transparent)]
+struct Meters(f64);
+
+// Derived by `deriving template Forward`.
+impl Display for Meters {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        Display::fmt(&self.0, f)
+    }
+}
+```
+
+The capability is a derive **without a proc-macro crate**: no `syn`, no `quote`, no
+`proc-macro = true` manifest, no second compilation unit, and local to the file that uses it.
+Rust cannot do that at all.
+
+Three properties keep it inside §2's tests. The split is by **table lookup**, so an
+undeclared name stays in `#[derive(…)]` exactly as it does today and nothing resolves a name.
+The substitution reads only the declaration's own **source text** — its name and its field
+names — so it is type-free. And it **computes nothing**: the body is emitted through the
+ordinary `instance` emitter and the placeholders are replaced in the resulting string, which
+is the line §13.3 draws against `comptime`.
+
+The vocabulary is closed, and it has **four** entries: `Target`, `Field0`…, and the two
+repetitions `Fields` and `FieldNames` — every field as a `self` access, and every field's name
+as a string literal, both comma-separated. So one template visits declarations of any width:
+
+```
+deriving template Labelled
+  instance Labelled Target
+    labelled : &self -> String
+    labelled self = zip_pairs (&[FieldNames]) (&[Fields])
+```
+
+The loop runs over the declaration's own field list and produces the text that is substituted,
+which is what the emitter already does to write one line per field. §13.3's line against
+`comptime` is untouched: an interpreter runs the author's code, and this joins a list the parser
+produced.
+
+What is closed off is a **per-field fragment** — a template cannot say *"emit this member once
+per field"*, which would need the fragment to be something the template language can name. That
+and `$variants` are a successor's, and plan 89 §10.3 records why each needs a construct rather
+than a table entry.
 
 ### 9.6 Visibility
 
@@ -1717,8 +1816,25 @@ impl<T: Display> Describe for Wrapper<T>
 | `impl Trait` in argument and return position | the idiomatic way to take a closure or return an iterator |
 
 Operator overloading needs no new construct: it is an ordinary trait implementation, which
-doc 01 §17.5 already provides. Custom operator *declaration* (Haskell, Scala) is declined
-by necessity — Rust has no mechanism for it, so there is no lowering target.
+doc 01 §17.5 already provides.
+
+**Custom operator declaration shipped at plan 90, and this paragraph used to decline it.**
+It read *"declined by necessity — Rust has no mechanism for it, so there is no lowering
+target"*, which conflates two things: Rust has no custom-operator **mechanism**, and that
+does not mean there is no lowering **target**. `|>`, `>>>`, `<<<`, `$`, `??` and `is` have no
+Rust counterpart either, and all six lower to ordinary expression forms. Corrected
+2026-11-11.
+
+What ships is **fixity plus alias**: `infixl 6 <+> = merge` gives an existing function a
+spelling and a binding power and emits no item, so `a <+> b` is `merge(a, b)`. The spellings
+are a closed set of twelve, `<` · one character · `>`, which is what keeps the lexer static;
+precedence is Haskell's 0–9 mapped onto the binding powers between `|>` and `+`, so a declared
+operator always binds looser than arithmetic. `infix` is non-associative by diagnostic, not by
+precedence.
+
+A Haskell-style *definition* — where `(<+>)` is the function's name — stays declined, and on a
+reason that does survive inspection: no Rust function can be named `<+>`, so the emitter would
+have to invent one, which is the fabricated API §8.7 refuses for default arguments.
 
 ---
 
@@ -2054,7 +2170,6 @@ Extends doc 02 §12.4. Each entry is permanent unless a named venue reopens it.
 | Property-test and benchmark blocks | Emerald | same (§15) |
 | Concurrent-await construct | — | every joining form is runtime-crate-provided (§14.3) |
 | Transpile-time evaluation (`comptime`) | Zig, Emerald | requires an interpreter in the compiler (§13.3) |
-| Custom operator declaration | Haskell, Scala | no Rust lowering target exists (§14.4) |
 | Cascades | Dart, Smalltalk | method-chaining sugar with no Rust lowering of its own — **reason restated by plan 47 §1.4**, see below |
 | Scope functions (`apply`, `tap`, `doto`) | Kotlin, Ruby, Clojure | the same |
 | `RecordWildCards` | Haskell | introduces names absent from the source (§9.2) |
@@ -2063,13 +2178,18 @@ Extends doc 02 §12.4. Each entry is permanent unless a named venue reopens it.
 | Default arguments | C#, Ruby, Python | fabricates API surface (§8.7) |
 | UFCS | Nim | requires type knowledge to choose a shape (§2) |
 | Two-binder `and` patterns | C# | no Rust pattern form binds from both sides (§6.2) |
-| General monadic comprehension | Scala | must choose `flat_map` versus `and_then` (§10.1) |
+| General monadic comprehension | Scala | **lifted by plan 86** — `do .method`. The reason was *"must choose `flat_map` versus `and_then`"* (§10.1) and the venue below asked for a type-free discrimination; plan 60's block modifier already was one, with `try` reading `<-` as `?` and `async` as `.await`, so the set was merely closed. `do .and_then` opens it and §2 clause 1 holds in its own words — the user's syntax selects, nothing is inferred |
 | A Redox type checker | — | the project's load-bearing constraint (doc 02 §12.4) |
 | A Redox standard library or prelude | — | doc 02 §1.1 |
 
-Two entries carry a named venue rather than a permanent decline: `with` as a functional-update
-*expression* (§9.1's spread entry covers the ground; revisit if it proves insufficient), and
-a general monadic comprehension (revisit only if a type-free discrimination is found).
+**One** entry carries a named venue rather than a permanent decline: `with` as a
+functional-update *expression* (§9.1's spread entry covers the ground; revisit if it proves
+insufficient).
+
+There were two. The second — a general monadic comprehension, *"revisit only if a type-free
+discrimination is found"* — was **lifted by plan 86**, and it is the only decline in this
+document ever reopened. Worth keeping as the record of what a venue is for: the condition was
+written down precisely enough that a later row could meet it and know that it had.
 
 > **Correction, plan 47 §1.4.** Cascades and scope functions gave their reason as *"duplicates
 > `with` (§7.5)"*. Doc 18 §7 **deleted** §7.5's `with` blocks — *"an ordinary binding, no

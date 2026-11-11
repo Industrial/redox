@@ -37,6 +37,7 @@ module trivia
 -- | The body of a `"""…"""` literal, undecoded.
 module verbatim_triple
 
+export import lexer::assignable_operators::ASSIGNABLE_OPERATORS
 export import lex::error::LexError
 export import lex::lex
 export import redox_diag::Span

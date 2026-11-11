@@ -1,0 +1,7 @@
+error[RDX0125]: `<=>` was declared `infix`, so it does not chain
+  --> non_associative_operator.sdx:12:18
+   |
+12 | ranked = 1 <=> 2 <=> 3
+   |                  ^^^
+  = help: write the grouping — `(a <=> b) <=> c` — or declare it `infixl` or `infixr`
+

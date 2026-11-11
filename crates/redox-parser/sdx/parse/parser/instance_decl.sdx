@@ -2,6 +2,7 @@ import crate::ParseError
 import crate::parse::parser::Parser
 import crate::parse::parser::class_body::class_body
 import crate::parse::parser::constraints::constraints
+import crate::parse::parser::given_clause::given_clause
 import crate::parse::parser::method_context::MethodContext
 import crate::parse::parser::type_app::type_app
 import redox_ast::{InstanceDecl, TypeApp}
@@ -49,7 +50,15 @@ import redox_lexer::{Keyword, TokenKind, Trivia}
 export(crate) instance_decl : &mut Parser -> Vec<Trivia> -> usize -> Result<InstanceDecl, ParseError>
 instance_decl p leading start =
   (.expect (&TokenKind::Kw Keyword::Instance) "expected `instance`" p)?
-  limits = (constraints p)?
+  -- Plan 84 leaf 4's verbatim impl generic list, read before the `=>` clause
+  -- and exclusive with it — §1.6's all-or-nothing rule. This is what closes
+  -- `blanket_impl`: the target is written as an ordinary uppercase Rust name
+  -- and its parameter is declared here rather than synthesised from it.
+  binder = (given_clause p)?
+  limits = if .is_some binder
+    Vec::new ()
+  else
+    (constraints p)?
   -- Parentheses on the *first* type mean it is the target and there is no
   -- class — nothing else would be worth grouping there.
   grouped = .check (&TokenKind::LParen) p
@@ -91,4 +100,4 @@ instance_decl p leading start =
   -- exactly that.
   ctx.implementing := .map (\c -> .clone c.head.text) (.as_ref implemented)
   members = (class_body p (&ctx))?
-  Ok (InstanceDecl { r#class = implemented, target, constraints = limits, members, span = (start, (.prev_span p).1), leading })
+  Ok (InstanceDecl { r#class = implemented, target, constraints = limits, r#given = binder, members, span = (start, (.prev_span p).1), leading })

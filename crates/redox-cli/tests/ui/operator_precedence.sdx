@@ -1,0 +1,8 @@
+-- RDX0124: a declared precedence outside 0 to 9 — plan 90.
+--
+-- Refused rather than clamped, so the number in the source is the number in
+-- the table and `redox fmt` prints back what was written.
+pick : u32 -> u32 -> u32
+pick a b = u32::max a b
+
+infixl 12 <=> = pick

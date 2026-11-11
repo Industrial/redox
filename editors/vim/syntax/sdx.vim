@@ -54,7 +54,7 @@ syn keyword sdxSelf         self Self
 " and `editors.rs` excuses it from the grammar cross-check — the tree-sitter
 " grammar declares it through `reserved` rather than as a literal in a rule.
 syn keyword sdxKeyword      import module data newtype type class instance
-syn keyword sdxKeyword      errors test const static deriving from as where
+syn keyword sdxKeyword      errors test const static deriving from as where given pattern template infix infixl infixr over
 syn keyword sdxKeyword      otherwise if else while until for in loop
 syn keyword sdxKeyword      break continue return guard is with case of
 syn keyword sdxKeyword      do async try catch mut move or

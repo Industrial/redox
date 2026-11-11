@@ -1,0 +1,67 @@
+import crate::ParseError
+import crate::parse::parser::Parser
+import crate::parse::parser::alias_target::alias_target
+import crate::parse::parser::digit_precedence::digit_precedence
+import redox_ast::{Fixity, Ident, OperatorDecl}
+import redox_diag::Code
+import redox_lexer::{TokenKind, Trivia}
+
+-- | `infixl 6 <+> = Set::union` — plan 90.
+-- |
+-- | ```text
+-- | infixl 6 <+> = Set::union
+-- | infixr 1 <$> = and_then
+-- | infix  4 <=> = compare_rank
+-- | ```
+-- |
+-- | # Three contextual words, settled by three tokens
+-- |
+-- | `infix`, `infixl` and `infixr` are **not reserved**, and `Parser::item`'s
+-- | dispatch is what makes that safe: the word, then an integer literal, then
+-- | one of `ASSIGNABLE_OPERATORS`. All three have to line up, so `infixl = 3`
+-- | is an ordinary binding and `infixl 6 x = x * 6` an ordinary equation with a
+-- | literal pattern — both of which a program may contain.
+-- |
+-- | Plan 87 reserved `pattern`, found that `redox-ast` stopped transpiling
+-- | because `pattern` is a field name in four of its own declarations, and
+-- | reverted. Plan 89 read that record and made `template` contextual by
+-- | choice. This is the third application of the same finding, and the first
+-- | where the word is **lower case and verb-like** — the kind most likely to be
+-- | somebody's function name.
+-- |
+-- | # It takes no visibility marker
+-- |
+-- | The declaration emits no Rust item, so there is nothing for `export` to be
+-- | about — the same reason a pattern synonym and a deriving template take
+-- | none. Scope is the file, which is plan 56 §1.4's boundary and plan 14
+-- | decision 4's refusal of name resolution.
+export(crate) operator_decl : &mut Parser -> Vec<Trivia> -> usize -> Result<OperatorDecl, ParseError>
+operator_decl p leading start =
+  word = (.ident "expected `infix`, `infixl` or `infixr`" p)?
+  guard Fixity::from_keyword (.as_str word.text) is Some fixity else
+    return Err $ ParseError::r#with Code::OperatorShape "expected `infix`, `infixl` or `infixr`" word.span
+  at_level = .peek_span p
+  guard &(.peek p).kind is TokenKind::Int digits else
+    return Err $ ParseError::with_help Code::OperatorShape "expected a precedence after the fixity keyword" "the scale is Haskell's 0 to 9 — `infixl 6 <+> = Set::union`" at_level
+  -- **Refused rather than clamped**, so the number in the source is the number
+  -- in the table and `redox fmt` prints back what was written. `12`, `6u8` and
+  -- `1_0` all land here, because `digit_precedence` is a table of ten and not
+  -- a parse — see its doc comment.
+  guard digit_precedence (.as_str digits) is Some level else
+    return Err $ ParseError::with_help Code::OperatorPrecedence "a declared precedence must be a single digit, 0 to 9" "the scale is Haskell's, and `Fixity::powers` maps it onto the binding powers between `|>` and `+`. Every user operator binds looser than arithmetic, which is what keeps a familiar expression meaning what it looks like. No suffix and no separator — `infixl 6`, not `infixl 6u8`" at_level
+  .advance p
+  at_spelling = .peek_span p
+  guard &(.peek p).kind is TokenKind::UserOp text else
+    return Err $ ParseError::with_help Code::OperatorShape "expected an assignable operator after the precedence" "the admissible spellings are closed: `<+>`, `<->`, `<*>`, `</>`, `<%>`, `<|>`, `<&>`, `<^>`, `<=>`, `<~>`, `<$>`, `<?>`. `ASSIGNABLE_OPERATORS` records why" at_spelling
+  spelling = Ident { text = .clone text, span = at_spelling }
+  .advance p
+  (.expect (&TokenKind::Eq) "expected `=` after the operator's spelling" p)?
+  target = (alias_target p (&spelling))?
+  -- **Declared here, read by the Pratt loop.** Written before the newline is
+  -- consumed, so the declaration is in scope for every line below it and for
+  -- none above — the `class_heads` narrowing, stated the same way. The field is
+  -- reached directly because this is a child module of `parse::parser`, which
+  -- is the same access `clause` and `stmt` have.
+  .insert (.clone spelling.text) (fixity, level, .clone target) p.fixities
+  (.newline_with_trailing "expected a line break after the operator declaration" p)?
+  Ok (OperatorDecl { spelling, fixity, precedence = level, target, span = (start, (.prev_span p).1), leading })

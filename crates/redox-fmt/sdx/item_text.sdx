@@ -33,6 +33,7 @@ import crate::item_text::fn_text::fn_text
 import crate::item_text::instance_text::instance_text
 import crate::item_text::leading_text::leading_text
 import crate::item_text::visibility_text::visibility_text
+import crate::pattern_text::pattern_text
 import crate::stmt_text::block_text::block_text
 import crate::stmt_text::indent_text::indent_text
 import redox_ast::Item
@@ -112,5 +113,36 @@ item_text item indent source =
         |> .map (\d -> format! \-> "#{(indent_text (indent + 1))}#{(.trim source[d.span.0..d.span.1])}\n")
         |> .collect
       format! \-> "extern #{decl.abi}\n#{(.trim_end body)}"
+    -- Plan 87. Printed from the tree, so the parameters and the body are both
+    -- re-spelled — plan 84 §10.4's lesson one construct over: a declaration
+    -- the printer does not know is simply dropped, and `redox fmt` then writes
+    -- a different program.
+    Item::PatternSynonym decl ->
+      params : Vec<String> = decl.params |> .iter |> .map (\i -> .clone i.text) |> .collect
+      spelled = if .is_empty params
+        .clone decl.name.text
+      else
+        format! \-> "#{decl.name.text} #{(.join " " params)}"
+      -- `pattern_text`, **not** `Pattern::rust_text`: this is a Redox printer,
+      -- and the AST method gives the *Rust* spelling. The first version used it
+      -- and wrote `pattern Both a b = (Some(a), Some(b))` — valid Rust, not a
+      -- Redox program, and the fourth printer in this plan to want a Redox
+      -- spelling where the AST held only the Rust one (`visibility_text`'s own
+      -- doc comment counts the first three).
+      format! \-> "pattern #{spelled} = #{(pattern_text (&decl.body))}"
+    -- Plan 89. The body is an ordinary `InstanceDecl`, so it prints through the
+    -- ordinary printer one level deeper — which is the whole benefit of having
+    -- stored it as one rather than as a captured block of text. A text body
+    -- would round-trip only the bytes the author typed, and `redox fmt` exists
+    -- to re-spell them.
+    Item::DeriveTemplate decl ->
+      inner = instance_text (&decl.body) (indent + 1) source
+      format! \-> "deriving template #{decl.name.text}\n#{(indent_text (indent + 1))}#{inner}"
+    -- Plan 90. Printed from the tree in all four parts, because all four are
+    -- in it: the fixity's keyword, the precedence as written, the spelling and
+    -- the verbatim target. `precedence` is stored as the author's digit rather
+    -- than as the internal binding power for exactly this line.
+    Item::OperatorDecl decl ->
+      format! \-> "#{(.keyword decl.fixity)} #{decl.precedence} #{decl.spelling.text} = #{decl.target}"
   out |> .push_str (&body)
   out

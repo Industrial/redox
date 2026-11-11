@@ -1,3 +1,4 @@
+import crate::emit::trivia::emit_trivia
 import crate::emit::binding_kind::BindingKind
 import crate::emit::binding_scope::BindingScope
 import crate::emit::class::emit_class
@@ -48,6 +49,35 @@ emit_item out item indent =
     Item::Const c -> emit_const out c indent
     Item::InlineRust r -> emit_inline_rust out r indent
     Item::Extern e -> emit_extern_block out e indent
+    -- Plan 87. **Emits its comments and nothing else**, and both halves are the
+    -- construct rather than an omission.
+    --
+    -- *Nothing else*, because a synonym is expanded at every use site, so the
+    -- declaration has no Rust to produce — which is what leaves rustc checking
+    -- the written-out pattern and never learning the name existed.
+    --
+    -- *Its comments*, because doc 02 §10.1 makes a comment trivia that reaches
+    -- the `.xrs`, and every other arm here emits its own leading trivia. The
+    -- first version emitted truly nothing and **dropped the author's comments**
+    -- — then `emit_items`' separator, which counts an item that wrote no text,
+    -- left two blank lines at the top of the file where the comments had been.
+    -- `generated_rust_is_rustfmt_clean` caught the blanks; only reading the
+    -- golden caught the loss.
+    Item::PatternSynonym p ->
+      .unmark out
+      emit_trivia out (&p.leading) indent
+    -- Plan 89, and the same shape for the same reason: a template's Rust is
+    -- produced at each `deriving` list that names it, so the declaration
+    -- itself has none — and its comments must still reach the `.xrs`.
+    Item::DeriveTemplate t ->
+      .unmark out
+      emit_trivia out (&t.leading) indent
+    -- Plan 90, and the third of the same shape. A declaration is fixity plus
+    -- alias: it introduces no Rust name, so it has no item to emit — and its
+    -- comments must still reach the `.xrs`.
+    Item::OperatorDecl o ->
+      .unmark out
+      emit_trivia out (&o.leading) indent
     Item::Test _ ->
       unreachable! \-> "tests are gathered, not emitted in place"
   ()

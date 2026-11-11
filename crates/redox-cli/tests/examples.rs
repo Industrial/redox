@@ -235,3 +235,71 @@ fn redox_lexer_lexes(text: &str) -> bool {
   // "expected". Only the latter is acceptable here.
   String::from_utf8_lossy(&out.stderr).contains("expected")
 }
+
+/// Plan 84 criterion 10: no `TokenKind`'s own name reaches a generated `.xrs`.
+///
+/// Plan 84 leaf 0 measured a bound clause the parser could not read being
+/// swallowed into the first parameter's verbatim type, with the `=>` rendering
+/// as the literal text `FatArrow` — `TokenKind::FatArrow`'s Debug name, in a
+/// file doc 02 §10.1 calls a human-facing artifact. `?Sized` produced
+/// `QuestionSized` the same way.
+///
+/// Leaf 1a refused the clause that caused those two, and `tests/ui/` pins that
+/// one case. This is the wider assertion, and it is the one worth keeping: the
+/// defect was never about `=>` specifically, it was about a token with no
+/// source spelling reaching the output through a verbatim capture. A scan finds
+/// the third instance; a fixture for the first two cannot.
+///
+/// Scoped to the names, not to the mechanism, because the mechanism is a
+/// capture path and the names are what a reader would see.
+#[test]
+fn no_generated_rust_contains_a_token_kind_name() {
+  const LEAKED: [&str; 2] = ["FatArrow", "QuestionSized"];
+  let mut found = Vec::new();
+
+  let mut targets: Vec<PathBuf> = Vec::new();
+  let golden = workspace_root().join("tests/golden");
+  if let Ok(entries) = std::fs::read_dir(&golden) {
+    for entry in entries.flatten() {
+      let path = entry.path();
+      if path.extension().is_some_and(|e| e == "xrs") {
+        targets.push(path);
+      }
+    }
+  }
+  targets.sort();
+
+  for path in &targets {
+    let Ok(text) = std::fs::read_to_string(path) else {
+      continue;
+    };
+    // Comments are skipped, and `examples/binder.sdx` is why: comments are
+    // trivia that reach the `.xrs` (doc 02 §10.1), and that example's own prose
+    // explains the defect by naming the leaked token — so the first version of
+    // this test failed on the file documenting what it checks for. A leak is
+    // always in *code*, never in a comment, so the narrowing costs nothing.
+    for line in text.lines() {
+      if line.trim_start().starts_with("//") {
+        continue;
+      }
+      for name in LEAKED {
+        if line.contains(name) {
+          found.push(format!("{} contains {name}", path.display()));
+        }
+      }
+    }
+  }
+
+  assert!(
+    !targets.is_empty(),
+    "no goldens were scanned, so this test would pass by finding nothing"
+  );
+  assert!(
+    found.is_empty(),
+    "a TokenKind's Debug name reached generated Rust. The `.xrs` is a \
+     human-facing artifact (doc 02 §10.1), so a token with no source spelling \
+     in it is a defect in whatever captured it verbatim — not something to \
+     bless:\n  {}",
+    found.join("\n  ")
+  );
+}

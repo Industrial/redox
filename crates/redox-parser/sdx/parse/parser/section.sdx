@@ -61,10 +61,27 @@ section p start =
     false
   if .check (&TokenKind::Dot) p && names_a_field
     .advance p
-    name = (.ident "expected a field name after `.`" p)?
+    -- **Plan 88: a path, not one name.** `(.addr.city)` already parsed before
+    -- this row — as a selector of `addr` and then a *method call* on the
+    -- closure it produced, emitting `(|__rdx_1| __rdx_1.addr()).city(o)`. Not
+    -- Rust, no Redox diagnostic, and `E0282` from rustc. So the loop replaces
+    -- a silent misreading rather than adding a new shape.
+    --
+    -- The continuation test is the same two tokens the entry test used: a `.`
+    -- followed by an identifier. A `.` followed by anything else ends the path
+    -- and the `)` check below reports it.
+    mut path = vec! \-> (.ident "expected a field name after `.`" p)?
+    while .check (&TokenKind::Dot) p && (if .peek_at 1 p is Some next
+      case next.kind of
+        TokenKind::Ident _ -> true
+        _ -> false
+    else
+      false)
+      .advance p
+      .push (.ident "expected a field name after `.`" p)? path
     if .check (&TokenKind::RParen) p
       .advance p
-      return Ok (Some (Expr::Section { section = Section::Field name, span = (start, (.prev_span p).1) }))
+      return Ok (Some (Expr::Section { section = Section::Field path, span = (start, (.prev_span p).1) }))
     .rewind mark p
     return Ok None
   -- `(|> name)` — retired by plan 57, which builds its replacement. Kept as

@@ -1,0 +1,13 @@
+error[RDX0123]: `<+>` is not declared in this file
+  --> undeclared_operator.sdx:9:18
+  |
+9 | combined a b = a <+> b
+  |                  ^^^
+  = help: declare it above its first use — `infixl 6 <+> = Set::union`. An operator's scope is the file, which is plan 14 decision 4's refusal of name resolution
+
+error[RDX0101]: expected `:` after the name, to begin the signature
+  --> undeclared_operator.sdx:10:1
+  |
+9 | combined a b = a <+> b
+  |                       ^
+

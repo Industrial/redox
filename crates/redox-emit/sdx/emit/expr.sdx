@@ -1,5 +1,6 @@
 import crate::emit::application::emit_application
 import crate::emit::ascribed_list::ascribed_list
+import crate::emit::bind_block::bind_block
 import crate::emit::bind_mode::BindMode
 import crate::emit::bind_scope::BindScope
 import crate::emit::binding_scope::BindingScope
@@ -15,6 +16,7 @@ import crate::emit::expr_list::expr_list
 import crate::emit::format_template::format_template
 import crate::emit::macro_call::macro_call
 import crate::emit::method_ref::method_ref
+import crate::emit::over::emit_over
 import crate::emit::pipeline::pipeline
 import crate::emit::receiver::receiver
 import crate::emit::record::emit_record
@@ -102,6 +104,10 @@ emit_expr e indent = case e of
     -- sits inside a `try`.
     _bind = BindScope::enter BindMode::Await
     format! \-> "async #{emit_block (&None) body indent}"
+  -- Plan 86. No `BindScope` is entered: a `do .method` block consumes its own
+  -- `<-` rows in the fold, so `emit_bind` is never reached for them — and a
+  -- nested `async` or `try` inside one still installs its own mode.
+  Expr::BindBlock { method, body, .. } -> bind_block method (&body.stmts) indent
   Expr::UnsafeBlock { body, .. } -> emit_unsafe_block body indent
   Expr::Tuple { items, .. } ->
     -- A one-element tuple keeps Rust's trailing comma, for the reason
@@ -124,6 +130,17 @@ emit_expr e indent = case e of
   Expr::SelfType { name, .. } -> format! \-> "Self::#{name.text}"
   Expr::Paren { inner, .. } -> format! \-> "(#{emit_expr inner indent})"
   Expr::Unary { op, operand, .. } -> format! \-> "#{.rust_text op}#{emit_expr operand indent}"
+  -- Plan 90. The declaration is an **alias**, so the lowering is the call the
+  -- alias names and nothing else: no node, no trait, no inferred method. The
+  -- target is pasted verbatim, which is `given`'s rule one construct over and
+  -- the reason this needs no ambient table — `Expr::UserBinary` carries both
+  -- the spelling the printer wants and the target the emitter wants.
+  -- Plan 88 leaf 3. The assignment the author wrote once.
+  Expr::Over { selector, function, place, .. } -> emit_over selector function place indent
+  Expr::UserBinary { target, lhs, rhs, .. } ->
+    left = emit_expr lhs indent
+    right = emit_expr rhs indent
+    format! \-> "#{target}(#{left}, #{right})"
   Expr::Binary { op, lhs, rhs, .. } | *op == BinaryOp::Pipeline -> pipeline lhs rhs indent
   Expr::Binary { op, lhs, rhs, .. } | *op == BinaryOp::Coalesce -> coalesce lhs rhs indent
   Expr::Binary { op, lhs, rhs, .. } | *op == BinaryOp::Catch -> catch_fallback lhs rhs indent

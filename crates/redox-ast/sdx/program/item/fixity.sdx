@@ -1,0 +1,81 @@
+-- | Whether a declared operator groups left, right, or not at all — plan 90.
+-- |
+-- | The variants are spelled `…Assoc` rather than `Left` / `Right` / `None`
+-- | because a `data` declaration emits `use Fixity::*;` beside its `enum` —
+-- | doc 18 §2.4's constructor scoping — and a variant named `None` would
+-- | shadow `Option::None` for the rest of the file.
+export data Fixity
+  -- | `infixl` — `a <+> b <+> c` is `(a <+> b) <+> c`.
+  = LeftAssoc
+  -- | `infixr` — `a <+> b <+> c` is `a <+> (b <+> c)`.
+  | RightAssoc
+  -- | `infix` — a chain is refused, `RDX0125`.
+  -- |
+  -- | Non-associativity is a **diagnostic**, not a parse. A Pratt loop has no
+  -- | way to express "this does not chain" in its binding powers: every pair of
+  -- | numbers groups one way or the other, and picking either would make
+  -- | `a <=> b <=> c` mean something the author did not say. So the powers are
+  -- | `LeftAssoc`'s and the parser refuses the second use — the same division
+  -- | Haskell makes, where a non-associative chain is a parse error rather than
+  -- | a grouping.
+  | NonAssoc
+  deriving (Debug, Clone, Copy, PartialEq, Eq)
+
+instance Fixity
+  -- | The `(left, right)` binding powers for a declared precedence.
+  -- |
+  -- | # The scale, and why it is doubled
+  -- |
+  -- | `BinaryOp::power` uses the **odd** numbers 1–25, deliberately: *"the
+  -- | numbers are the parser's original odd-numbered rungs, kept so
+  -- | left-associativity is `power() + 1` with no collisions."* A declared
+  -- | precedence therefore maps to `2n + 2`, which is always **even** and so
+  -- | can never equal a built-in's left power. Every user operator sits in a
+  -- | gap between two built-in rungs, and the ordering among user operators is
+  -- | their declared order:
+  -- |
+  -- | | declared | internal | sits between |
+  -- | |---|---|---|
+  -- | | 0 | 2 | `\|>` (1) and `??` (3) |
+  -- | | 1 | 4 | `??` / `catch` (3) and `..` (5) |
+  -- | | 2 | 6 | `..` (5) and `\|\|` (7) |
+  -- | | 3 | 8 | `\|\|` (7) and `&&` (9) |
+  -- | | 4 | 10 | `&&` (9) and the comparisons (11) |
+  -- | | 5 | 12 | the comparisons (11) and `\|` (13) |
+  -- | | 6 | 14 | `\|` (13) and `^` (15) |
+  -- | | 7 | 16 | `^` (15) and `&` (17) |
+  -- | | 8 | 18 | `&` (17) and the shifts (19) |
+  -- | | 9 | 20 | the shifts (19) and `+` (21) |
+  -- |
+  -- | So **every user operator binds looser than `+`, `*` and `>>>`**, and that
+  -- | is a deliberate consequence rather than a leftover: `a <+> b + c` is
+  -- | `a <+> (b + c)`, which is what a reader of `Set::union set (n + 1)`
+  -- | expects. Arithmetic is the one precedence every reader already knows, and
+  -- | a declaration that could outrank it would make a familiar expression mean
+  -- | something new.
+  -- |
+  -- | A precedence above 9 is refused by the parser (`RDX0124`) rather than
+  -- | clamped here, so the number in the source is the number in the table.
+  export powers : u8 -> self -> (u8, u8)
+  powers precedence self =
+    left = 2 * precedence + 2
+    case self of
+      -- Left-associative and non-associative share the powers; the difference
+      -- is that `NonAssoc` then refuses the chain. See the variant's comment.
+      Fixity::LeftAssoc or Fixity::NonAssoc -> (left, left + 1)
+      Fixity::RightAssoc -> (left, left)
+
+  -- | The keyword that spells this fixity, for `redox fmt`.
+  export keyword : self -> &'static str
+  keyword self = case self of
+    Fixity::LeftAssoc -> "infixl"
+    Fixity::RightAssoc -> "infixr"
+    Fixity::NonAssoc -> "infix"
+
+  -- | The fixity a keyword spells, for the parser.
+  export from_keyword : &str -> Option<Self>
+  from_keyword word = case word of
+    "infixl" -> Some Fixity::LeftAssoc
+    "infixr" -> Some Fixity::RightAssoc
+    "infix" -> Some Fixity::NonAssoc
+    _ -> None

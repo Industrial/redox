@@ -1,0 +1,7 @@
+error[RDX0126]: expected a function for this operator to stand for
+  --> operator_shape.sdx:7:10
+  |
+7 | infixl 6 <+> =
+  |          ^^^
+  = help: a declaration is an **alias**: `infixl 6 <+> = Set::union` makes `a <+> b` emit `Set::union(a, b)`. It declares no function of its own, because no Rust function can be named `<+>`
+

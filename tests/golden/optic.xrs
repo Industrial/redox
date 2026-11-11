@@ -1,0 +1,114 @@
+// Plan 88's **composed selector**: `(.a.b.c)` selects a path of fields, where
+// `(.name)` stopped at one.
+//
+// The declared scope is smaller than "optics", and that is a finding rather
+// than a shortcut. **The functional setter is inadmissible, not deferred**:
+// every lowering of a `set` that returns a new value needs either a clone,
+// which doc 03 §2 clause 3 forbids outright — "never inserts a clone" — or a
+// `Clone` bound chosen by type, which clause 1 forbids. `docs/DECLINED.md`
+// carries the refusal so it is findable from outside the plan.
+//
+// What is left is admissible on every clause: a selector is a path of field
+// accesses, which names nothing outside the source, inserts nothing, and is
+// exactly the closure a reader would have written.
+//
+// # What plan 88 leaf 0 measured
+//
+// `(.addr.city)` **already parsed**, and wrongly: as a selector of `addr`
+// followed by a *method call* on the closure it produced, emitting
+// `(|__rdx_1| __rdx_1.addr()).city(o)`. Not Rust, no Redox diagnostic, and
+// `E0282` from rustc rather than anything a reader could act on. One field deep
+// was the whole of the construct and nothing said so — milestone 9's worst
+// class, found by writing the second dot.
+
+#[derive(Debug, Clone, Copy)]
+struct Zip {
+    code: u32,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Address {
+    zip: Zip,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Person {
+    age: u32,
+    addr: Address,
+}
+
+// Depth **one**, which is what `(.name)` always did. Here as the control: it
+// emits byte-identical Rust to what it emitted before this row.
+fn ages(people: &[Person]) -> Vec<u32> {
+    people.iter().map(|__rdx_1| __rdx_1.age).collect()
+}
+
+// Depth **two**. A reader writes `person.addr.zip`; before this row the only
+// spelling was a written lambda.
+fn zips(people: &[Person]) -> Vec<Zip> {
+    people.iter().map(|__rdx_1| __rdx_1.addr.zip).collect()
+}
+
+// Depth **three**, which is the case a one-level-deep implementation passes at
+// depth two and fails here — the selector has to be a loop, not a pair.
+fn codes(people: &[Person]) -> Vec<u32> {
+    people.iter().map(|__rdx_1| __rdx_1.addr.zip.code).collect()
+}
+
+// The functions `over` applies. Named rather than inline, because `over` reads
+// its function as an **atom** — a bare `.method` is one, and so is a name.
+fn doubled(n: u32) -> u32 {
+    n * 2
+}
+
+fn succ(n: u32) -> u32 {
+    n + 1
+}
+
+fn main() {
+    let one = Person {
+        age: 36,
+        addr: Address {
+            zip: Zip { code: 22 },
+        },
+    };
+    let two = Person {
+        age: 24,
+        addr: Address {
+            zip: Zip { code: 11 },
+        },
+    };
+    // An array collected rather than a `vec!`: plan 84 §10.8 records that
+    // `vec! \-> x` emits `vec!(x)` where rustfmt writes `vec![x]`, so
+    // `generated_rust_is_rustfmt_clean` refuses it. Pre-existing, owed to a row
+    // that owns macro emission, and met here for the second time.
+    let mut all: Vec<Person> = [one, two].into_iter().collect();
+    println!("{:?}", ages(&all));
+    println!("{:?}", codes(&all));
+    println!("{}", zips(&all).len());
+    // A selector as a **sort key**, which is the position the construct is
+    // actually for: an adaptor hands the closure its argument, so the type is
+    // known and the selector needs no annotation of its own. Directly applying
+    // one — `(.addr.zip.code) p` — is `E0282` instead, because a bare closure
+    // call has nothing to infer its parameter from; that is pre-existing and
+    // true of `(.name)` too.
+    (&mut all).sort_by_key(|__rdx_1| __rdx_1.addr.zip.code);
+    println!("{:?}", codes(&all));
+    // `over` — plan 88 leaf 3. The path is said **once**, where `:=` says it
+    // twice: `one.addr.zip.code := doubled one.addr.zip.code` is the same
+    // program, and two spellings of one path that must agree is the shape of a
+    // typo that type-checks.
+    //
+    // The lowering is an ordinary assignment through the place, so no value is
+    // moved, nothing is cloned, and the emitted Rust is byte-identical to the
+    // `:=` form.
+    let mut target = one;
+    target.addr.zip.code = doubled(target.addr.zip.code);
+    println!("{}", target.addr.zip.code);
+    // Depth one, and a **method** rather than a named function: the function is
+    // read as an atom, so `.saturating_add 0` would be two atoms and is not
+    // this — `succ` is.
+    target.age = succ(target.age);
+    println!("{}", target.age);
+    ();
+}

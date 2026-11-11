@@ -1,0 +1,13 @@
+error[RDX0124]: a declared precedence must be a single digit, 0 to 9
+  --> operator_precedence.sdx:8:8
+  |
+8 | infixl 12 <=> = pick
+  |        ^^
+  = help: the scale is Haskell's, and `Fixity::powers` maps it onto the binding powers between `|>` and `+`. Every user operator binds looser than arithmetic, which is what keeps a familiar expression meaning what it looks like. No suffix and no separator — `infixl 6`, not `infixl 6u8`
+
+error[RDX0101]: expected `:` after the name, to begin the signature
+  --> operator_precedence.sdx:9:1
+  |
+8 | infixl 12 <=> = pick
+  |                     ^
+

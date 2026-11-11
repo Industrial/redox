@@ -1,0 +1,38 @@
+import crate::parse::parser::Parser
+import redox_lexer::TokenKind
+
+-- | Whether the three tokens at the cursor begin an `over` — plan 88 leaf 3.
+-- |
+-- | ```text
+-- | over (.addr.city) .to_uppercase u   -- an update
+-- | over (x)                            -- a call to a function named `over`
+-- | over = 3                            -- a binding named `over`
+-- | ```
+-- |
+-- | **The word, `(`, then `.`** — and the third token is what makes leaving
+-- | `over` unreserved safe. A parenthesised selector is the only thing in the
+-- | language that opens `(.`, because a leading `.` inside parentheses is a
+-- | field selector or a method reference and never an operand. One token would
+-- | claim every binding named `over`; two would claim every call applied to a
+-- | parenthesised argument.
+-- |
+-- | `over` is the **fourth** contextual word, after `from`, `pattern` and
+-- | `template`, and plan 90's three fixity words make it the seventh of the
+-- | kind. The finding those share: a word recognised in exactly one position
+-- | does not need to be unusable in every other, and plan 87 §10.4 paid for
+-- | learning that the other way round.
+-- |
+-- | Sufficient rather than diagnostic. When this answers `true`,
+-- | `over_update` re-reads the selector and is the one that reports `RDX0127`
+-- | — so `over (.a) …` with something wrong after it gets a diagnostic about
+-- | the update, which is what the author meant to write.
+export(crate) opens_an_over : &Parser -> bool
+opens_an_over p =
+  word_is_over = case &(.peek p).kind of
+    TokenKind::Ident text -> text == "over"
+    _ -> false
+  if !word_is_over
+    return false
+  opens = .is_some_and (\t -> t.kind == TokenKind::LParen) (.peek_at 1 p)
+  selects = .is_some_and (\t -> t.kind == TokenKind::Dot) (.peek_at 2 p)
+  opens && selects

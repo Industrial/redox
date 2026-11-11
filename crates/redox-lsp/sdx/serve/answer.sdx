@@ -1,13 +1,16 @@
 import crate::serve::cast::cast
+import crate::serve::definition::definition
 import crate::serve::documents::Documents
+import crate::serve::folding::folding
 import crate::serve::formatting::formatting
+import crate::serve::hover::hover
 import crate::serve::reply::reply
 import crate::serve::semantic_tokens::semantic_tokens
 import crate::serve::symbols::symbols
 import lsp_server::ExtractError
 import lsp_server::{Request, Response}
-import lsp_types::request::{DocumentSymbolRequest, Formatting, Request as RequestTrait, SemanticTokensFullRequest}
-import lsp_types::{DocumentFormattingParams, DocumentSymbolParams, SemanticTokensParams}
+import lsp_types::request::{DocumentSymbolRequest, FoldingRangeRequest, Formatting, GotoDefinition, HoverRequest, Request as RequestTrait, SemanticTokensFullRequest}
+import lsp_types::{DocumentFormattingParams, DocumentSymbolParams, FoldingRangeParams, GotoDefinitionParams, HoverParams, SemanticTokensParams}
 
 -- | Answer one request.
 -- |
@@ -34,6 +37,32 @@ answer request documents =
   if method == SemanticTokensFullRequest::METHOD
     got : Result<SemanticTokensParams, ExtractError<Request>> = cast request SemanticTokensFullRequest::METHOD
     return reply id got (\params -> semantic_tokens (.unwrap_or_default (.text (&params.text_document.uri) documents)))
+
+  -- Plan 71 leaf 5's three, each taking a **position** where the three above
+  -- take only a document. `offset_of` is where a protocol position becomes a
+  -- byte offset, and every span in the AST is already a byte pair.
+  if method == HoverRequest::METHOD
+    got : Result<HoverParams, ExtractError<Request>> = cast request HoverRequest::METHOD
+    return reply id got (\params ->
+      text = .unwrap_or_default (.text (&params.text_document_position_params.text_document.uri) documents)
+      hover text params.text_document_position_params.position)
+
+  -- `definition` is the one handler that needs the **URI**, because its answer
+  -- is a `Location` and a location names a file. It is the request's own URI,
+  -- not a resolved one: the lookup is same-file by design, which is plan 14
+  -- decision 4's refusal of name resolution.
+  if method == GotoDefinition::METHOD
+    got : Result<GotoDefinitionParams, ExtractError<Request>> = cast request GotoDefinition::METHOD
+    return reply id got (\params ->
+      uri = .clone params.text_document_position_params.text_document.uri
+      text = .unwrap_or_default (.text (&uri) documents)
+      definition text (&uri) params.text_document_position_params.position)
+
+  if method == FoldingRangeRequest::METHOD
+    got : Result<FoldingRangeParams, ExtractError<Request>> = cast request FoldingRangeRequest::METHOD
+    return reply id got (\params ->
+      text = .unwrap_or_default (.text (&params.text_document.uri) documents)
+      folding text)
 
   -- A method this server did not advertise gets a `null` **result** rather
   -- than an error. The protocol allows either, and `null` is the kinder

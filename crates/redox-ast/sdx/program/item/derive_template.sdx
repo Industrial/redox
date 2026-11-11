@@ -1,0 +1,47 @@
+import crate::{Ident, InstanceDecl}
+import redox_lexer::{Span, Trivia}
+
+-- | `deriving template Forward` and its body — plan 89.
+-- |
+-- | ```text
+-- | deriving template Forward
+-- |   instance Display Target
+-- |     fmt : &self -> &mut fmt::Formatter -> fmt::Result
+-- |     fmt self f = Display::fmt (&self.Field0) f
+-- |
+-- | newtype Meters = Meters f64
+-- |   deriving (Debug, Forward)
+-- | ```
+-- |
+-- | The capability is a derive **without a proc-macro crate**: no `syn`, no
+-- | `quote`, no separate `Cargo.toml`, no second compilation unit, and local to
+-- | the file that uses it. Rust cannot do that at all.
+-- |
+-- | # The body is ordinary Redox, and that is the design decision
+-- |
+-- | §1.2 of the plan specified `$Type` and `$field0`. **`$` is the application
+-- | operator** — doc 18 §4, hardcoded in the Pratt loop at binding power 1 —
+-- | so a body containing it does not parse, and §9 decision 3's fallback sigils
+-- | `%` and `@` are taken too.
+-- |
+-- | So the placeholders are **reserved upper-case names** instead: `Target` for
+-- | the declaration's type and `Field0`, `Field1`, … for its fields. The body
+-- | is then an ordinary [`InstanceDecl`], parsed once at its declaration, and
+-- | every existing `instance` path applies to it unchanged — `generalise`, the
+-- | member loop, the emitter.
+-- |
+-- | That is what makes the row cheap enough to exist. The substitution is
+-- | textual **on the emitted Rust**, so it needs no walk over `Expr`'s
+-- | forty-six forms, and it computes nothing — which is the line doc 03 §13.3
+-- | draws against `comptime`.
+-- |
+-- | [`InstanceDecl`]: crate::InstanceDecl
+export data DeriveTemplate = DeriveTemplate {
+  -- | The template's name, as it appears in a `deriving` list.
+  export name : Ident,
+  -- | The `instance` the template stands for, with its placeholders unresolved.
+  export body : InstanceDecl,
+  export span : Span,
+  export leading : Vec<Trivia>,
+}
+  deriving (Debug, Clone, PartialEq, Eq)

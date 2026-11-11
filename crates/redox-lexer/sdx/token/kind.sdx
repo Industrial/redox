@@ -13,6 +13,19 @@ export data TokenKind
   -- | `'name` — a lifetime or a block/loop label. Disambiguated from a char
   -- | literal by lookahead, as Rust does (doc 03 §4.3).
   | Label String
+  -- | A **user-declared** infix operator, carrying its own spelling — plan 90.
+  -- |
+  -- | One variant for all of them, because the spelling is data: the set of
+  -- | admissible spellings is closed (`ASSIGNABLE_OPERATORS`) but which of them
+  -- | a file declares is the file's business, and a variant per spelling would
+  -- | put twelve dead arms in every exhaustive match for the sake of a `&str`.
+  -- |
+  -- | **The lexer scans these whether or not they are declared.** That is what
+  -- | kept plan 90 from needing the pre-pass its §1.3 priced: the table is
+  -- | static, so the lexer stays a lexer, and an undeclared operator is a
+  -- | *parser* diagnostic at the use site (`RDX0123`) rather than a failure to
+  -- | lex. §1.5 asked for a loud boundary and this is louder than it asked.
+  | UserOp String
 
   -- ---- literals ----
   -- | A decimal, hex, octal or binary integer, carried verbatim including any
@@ -234,4 +247,9 @@ instance TokenKind
   export(crate) continues_line : &self -> bool
   continues_line self = case self of
     Pipe or ComposeBack or Comma or Plus or Minus or Slash or Percent or EqEq or Ne or Lt or Le or Ge or AndAnd or OrOr or Amp or Or or Caret or Shl or Coalesce or DotDot or DotDotEq -> true
+    -- Plan 90. A user operator closes no construct — every admissible spelling
+    -- ends in `>`, but it is `<…>` as a whole and never a generic argument
+    -- list's closer — so the rule above puts it on the continuing side with
+    -- `|>` rather than with `>>>`.
+    UserOp _ -> true
     _ -> false

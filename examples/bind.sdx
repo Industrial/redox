@@ -1,0 +1,98 @@
+import std::iter::once
+
+-- Plan 86's **named bind**: `do .method` is a block modifier, and `<-` inside
+-- it binds through the method the modifier names.
+--
+-- This is the construct `docs/DECLINED.md` refused as a *"general monadic
+-- comprehension"* — *"must choose `flat_map` versus `and_then`"* — carrying the
+-- only reopening venue in that whole document: **"revisit only if a type-free
+-- discrimination is found."**
+--
+-- The discrimination is the **modifier**, and plan 60 already built one. `<-`
+-- is monadic bind read by the enclosing block modifier, with `try` reading it
+-- as `?` and `async` as `.await`; the set it ranged over was simply closed.
+-- Opening it satisfies doc 03 §2 clause 1 in that clause's own words: *"the
+-- user's own syntax selects between them — never an inference."* Redox chooses
+-- nothing here. It transcribes the method the author named.
+--
+-- The lowering is structurally unlike its two siblings: `try` and `async` read
+-- `<-` as a *postfix* and emit a statement per row, where this folds the rows
+-- **rightwards into nested closures**. Inner closures carry `move`, which doc
+-- 03 §10.1's comprehension lowering already does — a bind's closure captures an
+-- outer binder and is returned past its frame, so it must own what it captures.
+--
+-- **Nothing is fabricated, the final row included.** Haskell's `do` ends in an
+-- expression of the monad and a naive port inserts `pure`; choosing between
+-- `Ok`, `Some` and `once` is an inference, so the author writes it. One more
+-- line than Haskell needs, and the line that keeps the construct admissible.
+
+-- `and_then` over `Option`. Two binds, a written final row.
+first_word : &str -> Option<&str>
+first_word s = do .and_then
+  t <- Some (.trim s)
+  w <- .next (.split_whitespace t)
+  Some w
+
+-- `flat_map` over a range — the case that needs `move` on the inner closure
+-- and does not compile without it. The comprehension in
+-- `examples/comprehension.sdx` reaches this one shape too; `do` reaches every
+-- other method as well, which is §1.6's argument for keeping both.
+grid : Vec<(u64, u64)>
+grid = pairs |> .collect
+  where
+    pairs = do .flat_map
+      x <- 1u64 .. 3
+      y <- 1u64 .. 3
+      once (x, y)
+
+-- A **user type with its own `and_then`**, which is what proves the construct
+-- is not a `Try` special case in disguise: nothing in `std` is involved.
+data Tally = Tally { value : u64 }
+  deriving (Debug, Clone, Copy)
+
+instance Tally
+  -- Two shapes avoided here, both **pre-existing grammar gaps** that plan 86
+  -- §10 records rather than closes, and that this file is the first in the
+  -- corpus to come near:
+  --
+  -- - the parenthesised `(impl Fn(u64) -> Tally)` compiles identically and
+  --   `grammar.js` reports `ERROR` on the `)` before the arrow;
+  -- - `export` on a member whose signature contains an `Fn(…)` type also
+  --   `ERROR`s, while the same member without `export` parses — isolated to
+  --   four tokens by `tree-sitter parse` on a four-line file.
+  --
+  -- Unparenthesised and unexported is the corpus's form;
+  -- `examples/bindings.sdx`'s `twice : impl Fn() -> u32 -> u32` is the
+  -- precedent, and `and_then` needs no visibility because its only caller is
+  -- in this file.
+  and_then : self -> impl Fn(u64) -> Tally -> Tally
+  and_then self f = f self.value
+
+doubled : Tally
+doubled = do .and_then
+  n <- Tally { value = 5 }
+  Tally { value = n * 2 }
+
+-- An **intermediate row with no binder** sequences, which is Haskell's `>>`:
+-- it lowers to the same method with a discarded binder, so the rows keep their
+-- source order.
+checked : Option<u64>
+checked = do .and_then
+  Some 1
+  n <- Some 7
+  Some (n + 1)
+
+-- A **single-row block** — the degenerate case, which must emit one expression
+-- and no nesting at all.
+lone : Option<u64>
+lone = do .and_then
+  Some 3
+
+main : ()
+main =
+  println! \-> "#{(first_word "  hello world  "):?}"
+  println! \-> "#{(.len grid)}"
+  println! \-> "#{doubled.value}"
+  println! \-> "#{checked:?}"
+  println! \-> "#{lone:?}"
+  ()

@@ -15,12 +15,15 @@ use lsp_types::notification::{
   DidOpenTextDocument, Exit, Notification as NotificationTrait, PublishDiagnostics,
 };
 use lsp_types::request::{
-  DocumentSymbolRequest, Formatting, Request as RequestTrait, SemanticTokensFullRequest, Shutdown,
+  DocumentSymbolRequest, FoldingRangeRequest, Formatting, GotoDefinition, HoverRequest,
+  Request as RequestTrait, SemanticTokensFullRequest, Shutdown,
 };
 use lsp_types::{
   DidOpenTextDocumentParams, DocumentFormattingParams, DocumentSymbolParams,
-  DocumentSymbolResponse, FormattingOptions, PublishDiagnosticsParams, SemanticTokens,
-  TextDocumentIdentifier, TextDocumentItem, Uri, WorkDoneProgressParams,
+  DocumentSymbolResponse, FoldingRange, FoldingRangeParams, FormattingOptions,
+  GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverContents, HoverParams,
+  PartialResultParams, Position, PublishDiagnosticsParams, SemanticTokens, TextDocumentIdentifier,
+  TextDocumentItem, TextDocumentPositionParams, Uri, WorkDoneProgressParams,
 };
 use std::str::FromStr;
 
@@ -154,13 +157,26 @@ fn fixture(name: &str) -> String {
 
 /// Criterion 1: the advertised list is exactly what is implemented.
 ///
-/// Asserted as a **count plus the four names**, so adding a capability to the
+/// Asserted as a **count plus the seven names**, so adding a capability to the
 /// struct without a handler fails here. The alternative — eyeballing the JSON
 /// — is what lets a server drift into advertising what it does not do, and
 /// plan 40's criterion 1 says why that is worse than advertising nothing: an
 /// editor told a capability exists stops looking for another source for it.
+///
+/// # Four became seven, and the count is the point
+///
+/// Plan 71 leaf 5 added `hover`, `definition` and `foldingRange`, and this test
+/// is the one it had to change rather than weaken — leaf 5 says so in those
+/// terms. The three that arrived are **not** the three plan 40 §6 declined: §6
+/// refused the hover that reports a *type* and the definition that follows an
+/// *import*, both of which need name resolution. Each of these is a span lookup
+/// over an AST that already carries spans, and `capabilities.sdx`'s own doc
+/// comment carries the table of what each one never does.
+///
+/// What stays declined is below, and the reason is unchanged: `completion`,
+/// `references` and `rename` each need the scope tree.
 #[test]
-fn capabilities_are_exactly_the_four_implemented() {
+fn capabilities_are_exactly_the_seven_implemented() {
   let advertised = redox_lsp::capabilities();
   assert!(advertised.text_document_sync.is_some(), "sync");
   assert!(advertised.document_symbol_provider.is_some(), "symbols");
@@ -169,14 +185,16 @@ fn capabilities_are_exactly_the_four_implemented() {
     "formatting"
   );
   assert!(advertised.semantic_tokens_provider.is_some(), "tokens");
+  assert!(advertised.hover_provider.is_some(), "hover");
+  assert!(advertised.definition_provider.is_some(), "definition");
+  assert!(advertised.folding_range_provider.is_some(), "folding");
 
-  // The ones plan 40 §6 declines, each because it would need name resolution
-  // that AGENTS.md forbids Redox from having.
+  // Still declined, each because it would need the scope tree that AGENTS.md
+  // forbids Redox from building.
   assert!(advertised.completion_provider.is_none(), "no completion");
-  assert!(advertised.hover_provider.is_none(), "no hover");
-  assert!(advertised.definition_provider.is_none(), "no definition");
   assert!(advertised.references_provider.is_none(), "no references");
   assert!(advertised.rename_provider.is_none(), "no rename");
+  assert!(advertised.code_action_provider.is_none(), "no code actions");
 }
 
 /// Criterion 2: a syntax error is reported against the `.sdx`, with its `RDX`
@@ -499,4 +517,240 @@ fn an_unknown_method_is_answered_with_null() {
   let _ = session.diagnostics();
   let value = session.request(1, "textDocument/hover", &serde_json::Value::Null);
   assert_eq!(value, serde_json::Value::Null);
+}
+
+/// Plan 71 leaf 5: `hover` names the declaration the cursor is inside.
+///
+/// A **position in a fixture**, never a string literal — `AGENTS.md`'s rule,
+/// and leaf 5's AC restates it. The position is computed from the fixture's own
+/// text rather than hardcoded, so an edit to the example moves the cursor with
+/// it instead of silently pointing somewhere else.
+#[test]
+fn hover_names_the_declaration_under_the_cursor() {
+  let session = Session::start();
+  let source = fixture("examples/operator.sdx");
+  session.open(&uri(), &source);
+
+  let at = position_of(&source, "merge a b =");
+  let value = session.request(
+    1,
+    HoverRequest::METHOD,
+    &HoverParams {
+      text_document_position_params: TextDocumentPositionParams {
+        text_document: TextDocumentIdentifier { uri: uri() },
+        position: at,
+      },
+      work_done_progress_params: WorkDoneProgressParams::default(),
+    },
+  );
+  let answer: Option<Hover> = serde_json::from_value(value).expect("a hover response");
+  let hover = answer.expect("a cursor inside a function should hover");
+  let HoverContents::Markup(markup) = hover.contents else {
+    panic!("the server replies with markup");
+  };
+  assert!(
+    markup.value.contains("fn merge"),
+    "the hover should name the enclosing declaration, got {:?}",
+    markup.value
+  );
+  // And its first line, which for a function is the signature — the one line
+  // of a Redox declaration that says the most.
+  assert!(
+    markup.value.contains("merge : BTreeSet<u32>"),
+    "and show its signature line, got {:?}",
+    markup.value
+  );
+  assert!(
+    hover.range.is_some(),
+    "a hover carries the range it describes"
+  );
+}
+
+/// And a cursor outside every declaration hovers nothing.
+///
+/// The other half of the contract: `hover` either names the enclosing
+/// declaration or returns nothing, and never guesses.
+///
+/// The position is inside a **leading comment**, which is the one place inside
+/// a file that is reliably outside every item span: comments are trivia, and an
+/// item's span starts at its first *token*. A position past the end of the file
+/// would not do — `offset_of` clamps to the nearest real offset by design, so
+/// it lands on the last item, and that clamp is what keeps a cursor racing
+/// against an edit from producing an error in the user's log.
+#[test]
+fn hover_outside_a_declaration_is_none() {
+  let session = Session::start();
+  session.open(
+    &uri(),
+    "-- a comment above the item\nmain : ()\nmain =\n  ()\n",
+  );
+  let value = session.request(
+    1,
+    HoverRequest::METHOD,
+    &HoverParams {
+      text_document_position_params: TextDocumentPositionParams {
+        text_document: TextDocumentIdentifier { uri: uri() },
+        position: Position {
+          line: 0,
+          character: 5,
+        },
+      },
+      work_done_progress_params: WorkDoneProgressParams::default(),
+    },
+  );
+  let answer: Option<Hover> = serde_json::from_value(value).expect("a hover response");
+  assert!(answer.is_none(), "nothing there, so nothing to say");
+}
+
+/// Plan 71 leaf 5: `definition` jumps to the declaration in the same file.
+#[test]
+fn definition_finds_the_declaration_in_this_file() {
+  let session = Session::start();
+  let source = fixture("examples/operator.sdx");
+  session.open(&uri(), &source);
+
+  // The `merge` on the `infixl` line is a **use**; the declaration is above it.
+  let at = position_of(&source, "infixl 6 <+> = merge");
+  let at = Position {
+    line: at.line,
+    character: at.character + 15,
+  };
+  let value = session.request(
+    1,
+    GotoDefinition::METHOD,
+    &GotoDefinitionParams {
+      text_document_position_params: TextDocumentPositionParams {
+        text_document: TextDocumentIdentifier { uri: uri() },
+        position: at,
+      },
+      work_done_progress_params: WorkDoneProgressParams::default(),
+      partial_result_params: PartialResultParams::default(),
+    },
+  );
+  let answer: Option<GotoDefinitionResponse> =
+    serde_json::from_value(value).expect("a definition response");
+  let GotoDefinitionResponse::Scalar(location) = answer.expect("`merge` is declared in this file")
+  else {
+    panic!("the server replies with a single location");
+  };
+  assert_eq!(location.uri, uri(), "the same document");
+  let declared_at = position_of(&source, "merge : BTreeSet<u32>");
+  assert_eq!(
+    location.range.start.line, declared_at.line,
+    "it should point at the declaration, not at the use"
+  );
+}
+
+/// And a name this file does not declare answers with nothing.
+///
+/// Not an error and not a guess: the lookup is same-file by design, so an
+/// imported name is outside the contract and the editor keeps its own fallback
+/// for that request.
+#[test]
+fn definition_of_a_name_this_file_does_not_declare_is_none() {
+  let session = Session::start();
+  let source = "main : ()\nmain =\n  println! \\-> \"hi\"\n";
+  session.open(&uri(), source);
+  let value = session.request(
+    1,
+    GotoDefinition::METHOD,
+    &GotoDefinitionParams {
+      text_document_position_params: TextDocumentPositionParams {
+        text_document: TextDocumentIdentifier { uri: uri() },
+        // On `println`, which no item here declares.
+        position: Position {
+          line: 2,
+          character: 3,
+        },
+      },
+      work_done_progress_params: WorkDoneProgressParams::default(),
+      partial_result_params: PartialResultParams::default(),
+    },
+  );
+  let answer: Option<GotoDefinitionResponse> =
+    serde_json::from_value(value).expect("a definition response");
+  assert!(answer.is_none(), "not this file's name, so not its answer");
+}
+
+/// Plan 71 leaf 5: `foldingRange` is the indented blocks, from the lexer.
+///
+/// The assertion is structural rather than a count: every range must start
+/// above where it ends, and the file's own `main =` header must be foldable.
+/// A count would pin the fixture's shape rather than the capability's.
+#[test]
+fn folding_ranges_are_the_indented_blocks() {
+  let session = Session::start();
+  let source = fixture("examples/operator.sdx");
+  session.open(&uri(), &source);
+
+  let value = session.request(
+    1,
+    FoldingRangeRequest::METHOD,
+    &FoldingRangeParams {
+      text_document: TextDocumentIdentifier { uri: uri() },
+      work_done_progress_params: WorkDoneProgressParams::default(),
+      partial_result_params: PartialResultParams::default(),
+    },
+  );
+  let found: Vec<FoldingRange> = serde_json::from_value(value).expect("a folding response");
+  assert!(
+    !found.is_empty(),
+    "a file with indented bodies should fold somewhere"
+  );
+  for range in &found {
+    assert!(
+      range.end_line > range.start_line,
+      "a fold spans more than one line, got {range:?}"
+    );
+  }
+  // `main =` opens the longest block in the fixture, so its header line must
+  // be the start of some range.
+  let main_at = position_of(&source, "main =\n");
+  assert!(
+    found.iter().any(|r| r.start_line == main_at.line),
+    "the `main =` header should be foldable, got {found:?}"
+  );
+}
+
+/// And a document that does not lex folds nothing rather than erroring.
+#[test]
+fn folding_a_broken_document_is_empty() {
+  let session = Session::start();
+  // An unterminated string: the lexer stops, so there are no indent tokens to
+  // trust.
+  session.open(&uri(), "main : ()\nmain =\n  \"unterminated\n");
+  let value = session.request(
+    1,
+    FoldingRangeRequest::METHOD,
+    &FoldingRangeParams {
+      text_document: TextDocumentIdentifier { uri: uri() },
+      work_done_progress_params: WorkDoneProgressParams::default(),
+      partial_result_params: PartialResultParams::default(),
+    },
+  );
+  let found: Vec<FoldingRange> = serde_json::from_value(value).expect("a folding response");
+  assert!(
+    found.is_empty(),
+    "half a file's folds is worse than none, got {found:?}"
+  );
+}
+
+/// The line and column of `needle`'s first byte in `source`.
+///
+/// So a cursor position is derived from the fixture rather than written down.
+/// A hardcoded line number is the thing that rots when an example gains a
+/// comment, and it rots **silently** — the test still passes, pointing at
+/// whatever moved into that line.
+fn position_of(source: &str, needle: &str) -> Position {
+  let at = source
+    .find(needle)
+    .unwrap_or_else(|| panic!("the fixture should contain {needle:?}"));
+  let before = &source[..at];
+  let line = before.matches('\n').count();
+  let line_start = before.rfind('\n').map_or(0, |i| i + 1);
+  let character: usize = source[line_start..at].chars().map(char::len_utf16).sum();
+  Position {
+    line: u32::try_from(line).unwrap_or(u32::MAX),
+    character: u32::try_from(character).unwrap_or(u32::MAX),
+  }
 }

@@ -47,5 +47,5 @@ walk_item item walk =
     Item::Module decl ->
       for inner in .flatten (.iter decl.items)
         walk_item inner walk
-    Item::Data _ or Item::Type _ or Item::Errors _ or Item::Import _ or Item::Const _ or Item::InlineRust _ or Item::Extern _ -> ()
+    Item::Data _ or Item::Type _ or Item::Errors _ or Item::Import _ or Item::Const _ or Item::InlineRust _ or Item::Extern _ or Item::PatternSynonym _ or Item::DeriveTemplate _ or Item::OperatorDecl _ -> ()
   ()

@@ -1,0 +1,32 @@
+import crate::emit::pattern_text::expanded::expanded
+import redox_ast::Pattern
+
+-- | `pattern` with its children expanded and itself left alone — plan 87.
+-- |
+-- | The recursive half of the expansion. A synonym can appear anywhere a
+-- | pattern can, so every pattern that **holds** patterns has an arm here: an
+-- | `Apply`'s arguments, a tuple's and a slice's items, an alternation's
+-- | branches and an `@` binding's inner pattern.
+-- |
+-- | Everything else is a leaf — a literal, a wildcard, a range, a record, a
+-- | rest — and is cloned unchanged. A record is a leaf **deliberately**: its
+-- | fields hold patterns, and expanding inside one is owed to a successor
+-- | rather than guessed at here, because `RecordPatternField` carries a
+-- | punning bit that a substitution would have to decide what to do with.
+export(crate) rebuilt : &Pattern -> usize -> Pattern
+rebuilt pattern depth = case pattern of
+  Pattern::Apply { path, args, span } ->
+    grown : Vec<Pattern> = args |> .iter |> .map (\a -> expanded a (depth + 1)) |> .collect
+    Pattern::Apply { path = .clone path, args = grown, span = *span }
+  Pattern::Tuple { items, span } ->
+    grown : Vec<Pattern> = items |> .iter |> .map (\i -> expanded i (depth + 1)) |> .collect
+    Pattern::Tuple { items = grown, span = *span }
+  Pattern::Slice { items, span } ->
+    grown : Vec<Pattern> = items |> .iter |> .map (\i -> expanded i (depth + 1)) |> .collect
+    Pattern::Slice { items = grown, span = *span }
+  Pattern::Or alts ->
+    grown : Vec<Pattern> = alts |> .iter |> .map (\a -> expanded a (depth + 1)) |> .collect
+    Pattern::Or grown
+  Pattern::As { name, inner, span } ->
+    Pattern::As { name = .clone name, inner = Box::new (expanded inner (depth + 1)), span = *span }
+  _ -> .clone pattern

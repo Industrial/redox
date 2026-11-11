@@ -209,12 +209,28 @@ fn matching_brace(text: &str, open: usize) -> Option<usize> {
 /// is a single expression must stay on the equation line. Moving it to an
 /// indented block is a change `redox fmt` would make silently and rustc would
 /// never see, because the file would stop parsing as Redox first.
-fn reparse(text: &str) -> Option<(Stmt, String)> {
+fn reparse(text: &str, context: &str) -> Option<(Stmt, String)> {
+  // Plan 90: an operator's scope is the **file**, so `a <+> b` re-parsed in a
+  // bare probe is `RDX0123`. The declarations travel with it — only the
+  // declarations, since parsing never resolves the alias target.
+  // `expression_printer.rs`'s own `reparse` carries the same prelude for the
+  // same reason.
+  let prelude: String = context
+    .lines()
+    .filter(|line| {
+      let word = line.split_whitespace().next().unwrap_or("");
+      matches!(word, "infix" | "infixl" | "infixr")
+    })
+    .map(|line| format!("{line}\n"))
+    .collect();
   // The trailing `()` is plan 55 §1.6's unit tail: the probe's return type is
   // `()`, so an indented body needs one and the statement under test stays
   // first either way. The tail form needs none — §1.6's rule is about a block.
-  let indented = format!("__rdx_probe : ()\n__rdx_probe =\n{text}\n  ()\n");
-  let tail = format!("__rdx_probe : ()\n__rdx_probe = {}\n", text.trim_start());
+  let indented = format!("{prelude}__rdx_probe : ()\n__rdx_probe =\n{text}\n  ()\n");
+  let tail = format!(
+    "{prelude}__rdx_probe : ()\n__rdx_probe = {}\n",
+    text.trim_start()
+  );
   for whole in [indented, tail] {
     let Ok(program) = redox_parser::parse_source(&whole) else {
       continue;
@@ -287,7 +303,7 @@ fn printing_preserves_the_statement() {
     for block in bodies(&program) {
       for stmt in &block.stmts {
         let printed = redox_fmt::stmt_text(stmt, 1, &source);
-        let Some((reparsed, probe)) = reparse(&printed) else {
+        let Some((reparsed, probe)) = reparse(&printed, &source) else {
           panic!("{}: did not re-parse:\n{printed}", path.display());
         };
         assert_eq!(

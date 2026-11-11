@@ -31,4 +31,4 @@ signature_only spine span =
     |> .collect
   -- A unit return type is recorded here and omitted at emission, for the
   -- reason `signature_from` gives.
-  Signature { params, ret = Some (.clone split.0), generics = Vec::new (), is_const = false, is_async = false, is_unsafe = false, bounds = Vec::new (), span }
+  Signature { params, ret = Some (.clone split.0), generics = Vec::new (), is_const = false, is_async = false, is_unsafe = false, bounds = Vec::new (), r#given = None, predicates = None, span }

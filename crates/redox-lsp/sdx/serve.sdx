@@ -10,12 +10,20 @@ export(crate) module absorb
 export(crate) module answer
 -- | Deserialise a request's parameters for a known method.
 export(crate) module cast
+-- | What an item declares — its keyword and its name — or nothing.
+export(crate) module declared
+-- | Where the name under the cursor is declared in this file.
+export(crate) module definition
 -- | Every diagnostic Redox itself can report for one document.
 export(crate) module diagnostics
 -- | The open documents, keyed by URI.
 export(crate) module documents
+-- | Every indented block in the document, as a folding range.
+export(crate) module folding
 -- | The edit that makes a document canonical, or none.
 export(crate) module formatting
+-- | What the declaration under the cursor is.
+export(crate) module hover
 export(crate) module positions
 -- | Send the current diagnostics for one document.
 export(crate) module publish

@@ -1,0 +1,20 @@
+-- RDX0127: an `over` whose selector is not a path — plan 88 leaf 3.
+--
+-- `(.cmp other)` opens with `.` and so reaches `over`'s dispatch, but it is a
+-- method **application** rather than a selector: `section` rewinds and there is
+-- no path to assign through. Reported against the selector, which is where the
+-- author wrote the thing that cannot be a place.
+--
+-- An operator section — `over (+ 1) bump n` — cannot reach this diagnostic at
+-- all, because the dispatch requires `(` then `.`, so that spelling parses as a
+-- call to a function named `over`. The first version of this fixture used it
+-- and **built successfully**, which is how the unreachable guard beside this
+-- one was found and deleted.
+bump : u32 -> u32
+bump n = n + 1
+
+shift : u32 -> u32
+shift n =
+  mut local = n
+  over (.cmp 0) bump local
+  local

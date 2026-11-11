@@ -1,3 +1,4 @@
+import crate::emit::pattern_text::pattern_text
 import crate::emit::condition_head::condition_head
 import crate::emit::emit_condition::emit_condition
 import crate::emit::emit_control_inline::emit_control_inline
@@ -140,7 +141,7 @@ emit_control out expr indent tail =
       .push_str "}\n" out
     Expr::Guard { pattern, source, r#otherwise, .. } ->
       pad out indent
-      lowered = .rust_text pattern
+      lowered = pattern_text pattern
       value = emit_expr (unparen source) indent
       .push_str (&format! \-> "let #{lowered} = #{value} else {\n") out
       emit_stmts out (&r#otherwise.stmts) (indent + RUST_INDENT) false
