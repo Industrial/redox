@@ -1,15 +1,6 @@
--- ! `redox` — the command-line interface.
--- !
--- ! Plan 01 (`docs/05 - 01 - Vertical Slice.md`), leaf 6.
--- !
--- ! Layout follows `docs/06 - Redox Code Architecture.md`: this module root
--- ! holds only module declarations and `fn main`, which has no other legal
--- ! home. Each subcommand heads its own module.
-
 import std::process::ExitCode
 
 module build_command
-module check_command
 module fmt_command
 module run
 module watch_command

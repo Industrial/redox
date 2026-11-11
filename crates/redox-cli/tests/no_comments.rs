@@ -37,6 +37,7 @@ const REWRITTEN: &[&str] = &[
   "redox-lsp",
   "redox-emit",
   "redox-driver",
+  "redox-cli",
 ];
 
 fn workspace_root() -> PathBuf {

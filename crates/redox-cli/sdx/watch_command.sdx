@@ -1,59 +1,23 @@
-import crate::watch_command::is_change::is_change
-import crate::watch_command::is_relevant::is_relevant
-import crate::watch_command::report::report
-import crate::watch_command::target::Target
-import notify::{RecursiveMode, Watcher}
+import crate::build_command::build_command
+import notify::EventKind
+import notify::RecursiveMode
+import notify::Watcher
+import notify::event::ModifyKind
 import std::path::Path
+import std::path::PathBuf
 import std::sync::mpsc
 
-export(crate) module is_change
-export(crate) module is_relevant
-export(crate) module report
-export(crate) module run_build
-export(crate) module sources
-export(crate) module target
-
--- | `redox watch <file.sdx | dir>`.
--- |
--- | Plan 12 (`docs/17 - 12 - Watcher.md`) leaf 3. Builds once, then rebuilds on
--- | every relevant change, and **keeps going when a build fails**.
--- |
--- | There is no debounce window and no mtime comparison: plan 10's cache makes
--- | an unchanged file a content hash rather than a parse and an emit, so the
--- | watcher needs no timing heuristic to avoid redundant work. `watch.rs`
--- | asserts that absence.
--- |
--- | What the cache does **not** buy is freedom from caring which events matter
--- | — plan 12 §1.1 claimed it did, and §10.1 records the correction. A cache
--- | makes a redundant compile cheap; it cannot break a loop whose trigger is
--- | the compile itself. Hence [`is_change`], which rejects the build's own read
--- | of its own input.
--- |
--- | Doc 01 §28 bounds this: it watches and rebuilds. It does not run tests,
--- | resolve dependencies, or sequence tasks — that is a build system, and doc
--- | 01 §1.3 forbids replacing Cargo's. `cargo watch -x test` already exists and
--- | composes with this.
 export(crate) watch_command : &[String] -> Result<(), String>
 watch_command args =
   input = (.ok_or_else (\-> .to_string "error: no input file\n\n`redox watch` takes a .sdx file or a directory.") (.find (\a -> !.starts_with '-' a) (.iter args)))?
   target = (Target::resolve (Path::new input))?
   plain = .any (== "--plain") (.iter args)
 
-  -- Build before watching, so an already-broken file is reported now rather
-  -- than after the user's next keystroke.
   report (&target) plain
 
-  -- `tx` and `rx` bound from the pair, where the Rust destructured
-  -- `let (tx, rx) = …`: Redox has no tuple-destructuring binding, so each
-  -- half is moved out by projection.
   channel = mpsc::channel ()
   tx = channel.0
   rx = channel.1
-  -- A send failure means the receiver is gone, which means the process is
-  -- ending; there is nothing useful to do about it here.
-  --
-  -- `drop (…)`, where the Rust wrote `let _ = …`. A lambda body is one
-  -- expression, so plan 75 §2.3's `_dropped = …` binding has nowhere to go.
   mut watcher = (.map_err (\e -> format! \-> "error: cannot start the file watcher: #{e}") (notify::recommended_watcher (move \event -> drop (.send event tx))))?
 
   dir_shown = target.dir |> .display |> .to_string
@@ -65,13 +29,206 @@ watch_command args =
   for received in rx
     case received of
       Ok event ->
-        -- Two filters, and both are necessary. `is_change` rejects the
-        -- build's own *read* of the source, which is a `.sdx` path and would
-        -- otherwise retrigger the build forever (plan 12 §10.1 — measured at
-        -- 97,442 builds in six seconds). `is_relevant` rejects the generated
-        -- `.xrs` it writes, which is a real change to an irrelevant path.
         if is_change (&event.kind) && .any (\p -> is_relevant p) (.iter event.paths)
           report (&target) plain
       Err e -> eprintln! \-> "error: the file watcher reported: #{e}"
 
   Ok ()
+
+export(crate) is_change : &EventKind -> bool
+is_change kind = case kind of
+  EventKind::Create _ or EventKind::Remove _ -> true
+  EventKind::Any or EventKind::Other -> true
+  EventKind::Modify inner -> case inner of
+    ModifyKind::Data _ or ModifyKind::Name _ -> true
+    _ -> false
+  EventKind::Access _ -> false
+
+test "reading a file is not a change"
+  assert! \-> !is_change (&EventKind::Access (notify::event::AccessKind::Open notify::event::AccessMode::Any))
+  assert! \-> !is_change (&EventKind::Access notify::event::AccessKind::Read)
+  assert! \-> !is_change (&EventKind::Access (notify::event::AccessKind::Close notify::event::AccessMode::Read))
+  assert! \-> !is_change (&EventKind::Access notify::event::AccessKind::Any)
+
+test "writing data is a change"
+  assert! \-> is_change (&EventKind::Modify (ModifyKind::Data notify::event::DataChange::Any))
+  assert! \-> is_change (&EventKind::Modify (ModifyKind::Data notify::event::DataChange::Content))
+
+test "renaming is a change"
+  assert! \-> is_change (&EventKind::Modify (ModifyKind::Name notify::event::RenameMode::To))
+  assert! \-> is_change (&EventKind::Modify (ModifyKind::Name notify::event::RenameMode::Both))
+
+test "creating and removing are changes"
+  assert! \-> is_change (&EventKind::Create notify::event::CreateKind::File)
+  assert! \-> is_change (&EventKind::Remove notify::event::RemoveKind::File)
+
+test "metadata alone is not a change"
+  assert! \-> !is_change (&EventKind::Modify (ModifyKind::Metadata notify::event::MetadataKind::Any))
+  assert! \-> !is_change (&EventKind::Modify (ModifyKind::Metadata notify::event::MetadataKind::AccessTime))
+
+test "an unknown kind is treated as a change"
+  assert! \-> is_change (&EventKind::Any)
+  assert! \-> is_change (&EventKind::Other)
+
+export(crate) is_relevant : &Path -> bool
+is_relevant path =
+  guard .map (\n -> .to_string (.to_string_lossy n)) (.file_name path) is Some name else
+    return false
+
+  if name == "4913" || .ends_with '~' name || .starts_with ".#" name || .starts_with '#' name && .ends_with '#' name
+    return false
+
+  extension = .map (\e -> .to_string (.to_string_lossy e)) (.extension path)
+  case .as_deref extension of
+    Some "sdx" -> !.starts_with '.' name
+    _ -> false
+
+test "a sdx file is relevant"
+  assert! \-> is_relevant (Path::new "src/main.sdx")
+  assert! \-> is_relevant (Path::new "main.sdx")
+
+test "another extension is not"
+  for name in ["main.rs", "main.xrs", "Cargo.toml", "README.md", "main"]
+    assert! \-> !is_relevant (Path::new name) \-> "#{name}"
+
+test "the generated output is not relevant"
+  assert! \-> !is_relevant (Path::new "main.xrs")
+  assert! \-> !is_relevant (Path::new "main.xrs.map")
+
+test "editor temporaries are ignored"
+  for name in ["4913", "main.sdx~", ".main.sdx.swp", ".\#main.sdx", "\#main.sdx\#", ".main.sdx"]
+    assert! \-> !is_relevant (Path::new name) \-> "#{name} should be ignored"
+
+test "a path with no file name is not relevant"
+  assert! \-> !is_relevant (Path::new "/")
+  assert! \-> !is_relevant (Path::new "..")
+
+test "an unfamiliar name still compiles if it is a sdx"
+  assert! \-> is_relevant (Path::new "weird-editor-artifact.sdx")
+
+export(crate) report : &Target -> bool -> ()
+report target plain =
+  case &target.file of
+    Some file ->
+      shown = file |> .display |> .to_string
+      run_build (&shown) plain
+    None ->
+      for source in sources (&target.dir)
+        run_build (&source) plain
+  ()
+
+export(crate) run_build : &str -> bool -> ()
+run_build input plain =
+  mut args = vec! \-> .to_string input
+  if plain
+    args |> .push (.to_string "--plain")
+
+  case build_command (&args) of
+    Ok _ -> eprintln! \-> "built #{input}"
+    Err message -> eprintln! \-> "#{message}"
+  ()
+
+export(crate) sources : &Path -> Vec<String>
+sources dir =
+  guard std::fs::read_dir dir is Ok entries else
+    return Vec::new ()
+  mut found : Vec<String> = entries
+    |> .filter_map Result::ok
+    |> .map (\e -> .path e)
+    |> .filter (\p -> .is_file p && .is_some_and (\x -> x == "sdx") (.extension p))
+    |> .map (\p -> .to_string (.display p))
+    |> .collect
+  .sort found
+  found
+
+test "finds and sorts sdx files"
+  pid = std::process::id ()
+  dir = .join (format! \-> "redox-watch-src-#{pid}") (std::env::temp_dir ())
+  .expect "should create" $ std::fs::create_dir_all (&dir)
+  for name in ["b.sdx", "a.sdx", "ignored.rs"]
+    .expect "should write" $ std::fs::write (.join name dir) "main : ()\nmain =\n  println! \\-> \"\#{1}\"\n"
+
+  found = sources (&dir)
+  assert_eq! \-> .len found \-> 2 \-> "#{found:?}"
+  assert! \-> .ends_with "a.sdx" found[0] && .ends_with "b.sdx" found[1] \-> "#{found:?}"
+
+  _dropped = .ok $ std::fs::remove_dir_all (&dir)
+
+test "an unreadable directory yields nothing"
+  found = sources $ std::path::Path::new "/nonexistent/redox"
+  assert! \-> .is_empty found
+
+export(crate) data Target = Target {
+  export(crate) dir : PathBuf,
+  export(crate) file : Option<PathBuf>,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+instance Target
+  export(crate) resolve : &Path -> Result<Self, String>
+  resolve arg =
+    if .is_dir arg
+      return Ok (Target { dir = .to_path_buf arg, file = None })
+
+    if !.exists arg
+      shown = arg |> .display |> .to_string
+      return Err (format! \-> "error: #{shown} does not exist\n\n`redox watch` takes a .sdx file or a directory of them.")
+
+    parent = .filter (\p -> !.is_empty (.as_os_str p)) (.parent arg)
+    dir = parent |> .unwrap_or (Path::new ".") |> .to_path_buf
+    Ok (Target { dir, file = Some (.to_path_buf arg) })
+
+#[cfg(test)]
+newtype Dir = Dir PathBuf
+
+#[cfg(test)]
+static NEXT : std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new 0
+
+#[cfg(test)]
+instance Dir
+  new : &str -> Self
+  new tag =
+    n = .fetch_add 1 std::sync::atomic::Ordering::Relaxed NEXT
+    pid = std::process::id ()
+    dir = .join (format! \-> "redox-target-#{tag}-#{pid}-#{n}") (std::env::temp_dir ())
+    .expect "should create" $ std::fs::create_dir_all (&dir)
+    Dir dir
+
+#[cfg(test)]
+instance Drop Dir
+  drop : &mut self -> ()
+  drop self =
+    _dropped = .ok $ std::fs::remove_dir_all (&self.0)
+    ()
+
+test "a directory is watched whole"
+  dir = Dir::new "whole"
+  target = .expect "should resolve" $ Target::resolve (&dir.0)
+  assert_eq! \-> target.dir \-> dir.0
+  assert_eq! \-> target.file \-> None \-> "a directory compiles all of itself"
+
+test "a file is watched through its parent"
+  dir = Dir::new "parent"
+  file = .join "main.sdx" dir.0
+  .expect "should write" $ std::fs::write (&file) "main : ()\nmain =\n  println! \\-> \"\#{1}\"\n"
+
+  target = .expect "should resolve" $ Target::resolve (&file)
+  assert_eq! \-> target.dir \-> dir.0 \-> "the parent directory is what is watched"
+  assert_eq! \-> target.file \-> Some file
+
+test "a missing path is an error that says what is accepted"
+  err = .expect_err "should fail" $ Target::resolve $ Path::new "/nonexistent/main.sdx"
+  assert! \-> .contains "does not exist" err \-> "#{err}"
+  assert! \-> .contains ".sdx file or a directory" err \-> "#{err}"
+
+test "a bare filename resolves to the current directory"
+  dir = Dir::new "bare"
+  file = .join "main.sdx" dir.0
+  .expect "should write" $ std::fs::write (&file) "main : ()\nmain =\n  println! \\-> \"\#{1}\"\n"
+
+  previous = .expect "a cwd" $ std::env::current_dir ()
+  .expect "should chdir" $ std::env::set_current_dir (&dir.0)
+  target = .expect "should resolve" $ Target::resolve $ Path::new "main.sdx"
+  .expect "should restore" $ std::env::set_current_dir previous
+
+  assert_eq! \-> target.dir \-> Path::new "." \-> "not the empty path"

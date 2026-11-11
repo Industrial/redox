@@ -1,27 +1,28 @@
-import crate::fmt_command::parse_fmt_args::parse_fmt_args
+import crate::build_command::parse_build_args
+import crate::run::usage
+import redox_driver::CheckOutcome
 import redox_driver::diagnose
+import std::path::PathBuf
 
-export(crate) module fmt_args
-export(crate) module parse_fmt_args
+export(crate) check_command : &[String] -> Result<(), String>
+check_command args =
+  parsed = (parse_build_args args)?
+  shown = parsed.input |> .display |> .to_string
+  source = (.map_err (\e -> format! \-> "error: cannot read #{shown}: #{e}") (std::fs::read_to_string (&parsed.input)))?
 
--- | `redox fmt FILE…` and `redox fmt --check FILE…` — plan 34, leaf 1.
--- |
--- | Formats in place, or with `--check` reports which files are not canonical
--- | and exits non-zero without writing anything.
--- |
--- | # Why `--check` prints names rather than a diff
--- |
--- | A diff needs a diff algorithm, and the information a reader needs from
--- | `--check` is *which files*; the diff they want after that is
--- | `redox fmt FILE && git diff`, which they already know how to read. Plan 34
--- | criterion 1 asks for a diff and this gives a file list — recorded in §10 as
--- | a narrowing rather than done quietly.
--- |
--- | # A file that does not parse is left alone
--- |
--- | Criterion 8. The parse error is reported and nothing is written, because a
--- | formatter that rewrites a file it could not understand is the one way this
--- | command could destroy work.
+  outcome = (redox_driver::check (&parsed.input) (&source))?
+  report (&outcome) parsed.plain
+
+export(crate) report : &CheckOutcome -> bool -> Result<(), String>
+report outcome plain =
+  if .is_empty outcome.diagnostics
+    return Ok ()
+  rendered = redox_diag::render (&outcome.diagnostics) plain
+  if outcome.failed
+    return Err rendered
+  eprintln! \-> "#{rendered}"
+  Ok ()
+
 export(crate) fmt_command : &[String] -> Result<(), String>
 fmt_command args =
   parsed = (parse_fmt_args args)?
@@ -50,3 +51,31 @@ fmt_command args =
     |> .collect
   listed = .join "\n" indented
   Err $ format! \-> "error: not formatted:\n#{listed}\nrun `redox fmt` on them\n"
+
+export(crate) data FmtArgs = FmtArgs {
+  export(crate) inputs : Vec<PathBuf>,
+  export(crate) check : bool,
+  export(crate) plain : bool,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export(crate) parse_fmt_args : &[String] -> Result<FmtArgs, String>
+parse_fmt_args args =
+  mut inputs = Vec::new ()
+  mut check = false
+  mut plain = false
+
+  for arg in args
+    case .as_str arg of
+      "--check" -> check := true
+      "--plain" -> plain := true
+      flag | .starts_with '-' flag ->
+        help = usage ()
+        return Err (format! \-> "error: unknown flag `#{flag}`\n\n#{help}")
+      path -> inputs |> .push (PathBuf::from path)
+
+  if .is_empty inputs
+    help = usage ()
+    return Err (format! \-> "error: fmt needs at least one .sdx\n\n#{help}")
+
+  Ok (FmtArgs { inputs, check, plain })

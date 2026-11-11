@@ -54,7 +54,7 @@ Each is graded `UNREACHABLE` in `docs/GRAMMAR.md`.
 |---|---:|---:|---:|
 | `redox-ast` | 7 | 0 | 0% |
 | `redox-bench` | 5 | 0 | 0% |
-| `redox-cli` | 24 | 0 | 0% |
+| `redox-cli` | 5 | 0 | 0% |
 | `redox-diag` | 5 | 0 | 0% |
 | `redox-driver` | 6 | 0 | 0% |
 | `redox-emit` | 10 | 0 | 0% |
@@ -65,7 +65,7 @@ Each is graded `UNREACHABLE` in `docs/GRAMMAR.md`.
 | `redox-mcp` | 5 | 0 | 0% |
 | `redox-parser` | 13 | 0 | 0% |
 | `redox-seed` | 6 | 0 | 0% |
-| **total** | **101** | **0** | **0%** |
+| **total** | **82** | **0** | **0%** |
 
 ---
 
@@ -73,9 +73,9 @@ Each is graded `UNREACHABLE` in `docs/GRAMMAR.md`.
 
 The table above measures what *could* be ported. Thirteen crates **have** been, and for them the question is settled by rustc rather than by a blocker count: `redox-diag` (plan 73), `redox-lexer` (plan 74), `redox-ast` (plan 68), `redox-parser` (plan 82), `redox-fmt` (plan 69), `redox-fuzz` (plan 75), `redox-bench` (plan 76), `redox-mcp` (plan 77), `redox-lsp` (plan 78), `redox-emit` (plan 81), `redox-driver` (plan 80), `redox-cli` (plan 79) and `redox-seed` (plan 83) are written in Redox, their `.sdx` living in `crates/<crate>/sdx/` beside the `src/` it generates, and the generated Rust is compiled as part of the workspace.
 
-So **the compiler is now compiled from Redox** — 101 files of it. That corrects what this document said until plan 70: *"nothing in the build depends on `conformance/`, and the compiler is not compiled from it"*, which was true when plan 48 lifted one 45-line module out of a crate and checked it with `syn`, and stopped being true the moment a whole crate's `src/` was generated.
+So **the compiler is now compiled from Redox** — 82 files of it. That corrects what this document said until plan 70: *"nothing in the build depends on `conformance/`, and the compiler is not compiled from it"*, which was true when plan 48 lifted one 45-line module out of a crate and checked it with `syn`, and stopped being true the moment a whole crate's `src/` was generated.
 
-Plan 48's probe is retired with that sentence. `conformance/clause.sdx` was `clause.rs` expressed in Redox and checked by `syn::parse_file`, because one module lifted out of a crate cannot resolve `crate::Stmt`; the real port has no extraction to concede to, so the weaker oracle expired. Its no-escape-hatch assertion now runs over all 101 files in `port.rs`.
+Plan 48's probe is retired with that sentence. `conformance/clause.sdx` was `clause.rs` expressed in Redox and checked by `syn::parse_file`, because one module lifted out of a crate cannot resolve `crate::Stmt`; the real port has no extraction to concede to, so the weaker oracle expired. Its no-escape-hatch assertion now runs over all 82 files in `port.rs`.
 
 What it found still stands, and is the reason doc 02 §4.8 expected a port to be worth doing: every field doc comment was silently discarded, and `redox fmt` deleted them from the source, because the lexer classified a comment opening a continuation line as *trailing* the previous line and then held it for a `Newline` a continuation never produces. Plans 68 and 69 found three more of that class and two formatter defects, and plan 73 four more in the toolchain that writes the port.
 
