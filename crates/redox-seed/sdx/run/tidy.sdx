@@ -32,5 +32,5 @@ tidy dir =
   -- produce.
   --
   -- `_dropped`, where the Rust wrote `let _ = …`.
-  _dropped = std::fs::remove_dir_all (.join ".redox-cache" dir)
+  _dropped = std::fs::remove_dir_all $ .join ".redox-cache" dir
   ()

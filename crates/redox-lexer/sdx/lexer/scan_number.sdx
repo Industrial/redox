@@ -14,7 +14,7 @@ scan_number cur =
 
   -- A radix prefix forbids a fractional part, so handle it first and return.
   if .peek cur == Some '0'
-    radix = .unwrap_or '\0' (.peek_at 1 cur)
+    radix = cur |> .peek_at 1 |> .unwrap_or '\0'
     -- The ascription is the Rust's and is load-bearing: the arms are three
     -- different closures, and `fn(char) -> bool` is what unifies them. Only
     -- the tuple *destructuring* had to go — a Redox binding takes one name.
@@ -29,7 +29,7 @@ scan_number cur =
       .bump cur
       .bump cur
       digits = .eat_while (\c -> valid c || c == '_') cur
-      if .all (\c -> c == '_') (.chars (.slice digits cur))
+      if .all (== '_') (.chars (.slice digits cur))
         return Err (LexError { code = Code::MalformedNumber, help = None, message = format! \-> "#{name} literal has no digits", span = (start, .pos cur) })
       -- A suffix such as `u8` follows the digits directly.
       .eat_while (\c -> .is_ascii_alphanumeric c || c == '_') cur
@@ -63,10 +63,10 @@ scan_number cur =
 
   .eat_while (\c -> .is_ascii_alphanumeric c || c == '_') cur
 
-  text = .to_string (.slice (start, .pos cur) cur)
+  text = cur |> .slice (start, .pos cur) |> .to_string
   if is_float
     return Ok (TokenKind::Float text)
-  Ok (TokenKind::Int text)
+  Ok $ TokenKind::Int text
 
 -- | `#[cfg(test)]`: the helper every test below shares. Redox can put nothing
 -- | but `#[test] fn`s inside its generated `mod __rdx_tests` — plan 73 §2.9.
@@ -74,7 +74,7 @@ scan_number cur =
 scan : &str -> (TokenKind, usize)
 scan src =
   mut cur = Cursor::new src
-  kind = .expect "should scan" (scan_number (&mut cur))
+  kind = .expect "should scan" $ scan_number $ &mut cur
   (kind, .pos cur)
 
 test "scans decimal integers with separators"

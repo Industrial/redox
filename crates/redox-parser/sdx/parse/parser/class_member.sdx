@@ -130,9 +130,9 @@ class_member p ctx =
     found
   mut decl = (.equations name leading start (&head) (&reserved) true p)?
   decl.visibility := member_visibility
-  receiver (&mut decl.sig)
+  receiver $ &mut decl.sig
   -- `pair.0` is the source spelling and `pair.1` its Rust one, where the Rust
   -- destructured the pair in the `for` binder.
   for pair in &ctx.vars
     substitute_var (&mut decl.sig) (&pair.0) (&pair.1)
-  Ok (ClassMember::Method decl)
+  Ok $ ClassMember::Method decl

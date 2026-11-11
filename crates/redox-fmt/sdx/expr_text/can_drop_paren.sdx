@@ -13,4 +13,4 @@ import redox_ast::Expr
 -- | at least as tightly as the context demands.
 export(crate) can_drop_paren : &Expr -> u8 -> bool
 can_drop_paren inner required =
-  .is_some_and (\power -> power >= required) (power_of inner)
+  .is_some_and (>= required) (power_of inner)

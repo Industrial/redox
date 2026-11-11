@@ -45,7 +45,7 @@ emit_errors out d indent =
   .push_str (&format! \-> "#{vis}enum #{name} {\n") out
   for v in &d.variants
     .mark v.span out
-    pad out (indent + RUST_INDENT)
+    pad out $ indent + RUST_INDENT
     .push_str (&v.name.text) out
     if !.is_empty v.fields
       texts : Vec<&str> = v.fields
@@ -79,9 +79,9 @@ emit_errors out d indent =
   .push_str (&format! \-> "use #{name}::*;\n\n") out
   pad out indent
   .push_str (&format! \-> "impl std::fmt::Display for #{name} {\n") out
-  pad out (indent + RUST_INDENT)
+  pad out $ indent + RUST_INDENT
   .push_str "fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {\n" out
-  pad out (indent + RUST_INDENT * 2)
+  pad out $ indent + RUST_INDENT * 2
   .push_str "match self {\n" out
   for v in &d.variants
     .mark v.span out
@@ -93,7 +93,7 @@ emit_errors out d indent =
     binders : Vec<String> = 0 .. count
       |> .map (\i -> format! \-> "_#{i}")
       |> .collect
-    pad out (indent + RUST_INDENT * 3)
+    pad out $ indent + RUST_INDENT * 3
     .push_str (&format! \-> "#{name}::#{v.name.text}") out
     if !.is_empty binders
       joined = .join ", " binders
@@ -103,9 +103,9 @@ emit_errors out d indent =
       .push_str (&format! \-> ", #{arg}") out
     .push_str "),\n" out
   .unmark out
-  pad out (indent + RUST_INDENT * 2)
+  pad out $ indent + RUST_INDENT * 2
   .push_str "}\n" out
-  pad out (indent + RUST_INDENT)
+  pad out $ indent + RUST_INDENT
   .push_str "}\n" out
   pad out indent
   .push_str "}\n\n" out
@@ -119,11 +119,11 @@ emit_errors out d indent =
     .push '\n' out
     pad out indent
     .push_str (&format! \-> "impl From<#{ty}> for #{name} {\n") out
-    pad out (indent + RUST_INDENT)
+    pad out $ indent + RUST_INDENT
     .push_str (&format! \-> "fn from(e: #{ty}) -> Self {\n") out
-    pad out (indent + RUST_INDENT * 2)
+    pad out $ indent + RUST_INDENT * 2
     .push_str (&format! \-> "#{name}::#{v.name.text}(e)\n") out
-    pad out (indent + RUST_INDENT)
+    pad out $ indent + RUST_INDENT
     .push_str "}\n" out
     pad out indent
     .push_str "}\n" out

@@ -74,7 +74,7 @@ stmt p =
     value = if .at_statement_end p
       None
     else
-      Some (Box::new (parse_expr p 0)?)
+      Some $ Box::new (parse_expr p 0)?
     Expr::Return { value, span = (start, (.prev_span p).1) }
   else if (.try_draw p)? is Some drawn
     drawn
@@ -85,7 +85,7 @@ stmt p =
     -- that reason, so neither claims the other's statement.
     awaited
   else if (.try_binding p)? is Some bound
-    Expr::Binding (Box::new bound)
+    Expr::Binding $ Box::new bound
   else
     value = (parse_expr p 0)?
     -- Assignment, read after the place expression because every one of its

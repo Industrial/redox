@@ -49,7 +49,7 @@ data_text decl indent source =
     "newtype"
   else
     "data"
-  pad = indent_text (indent + 1)
+  pad = indent_text $ indent + 1
   header = format! \-> "#{(visibility_text (&decl.visibility))}#{keyword} #{decl.name.text}"
   mut out = case .as_slice decl.constructors of
     [only] | same_line source decl.span.0 only.span.0 ->

@@ -14,8 +14,8 @@ scan_raw_string cur =
   -- the `r`
   .bump cur
 
-  hash_span = .eat_while (\c -> c == '#') cur
-  hashes = .len (.slice hash_span cur)
+  hash_span = .eat_while (== '#') cur
+  hashes = cur |> .slice hash_span |> .len
 
   if !.eat "\"" cur
     return Err (LexError { code = Code::UnterminatedRawString, help = None, message = .to_string "a raw string must open with `\"` after `r` and any `#`", span = (start, .pos cur) })
@@ -29,6 +29,6 @@ scan_raw_string cur =
   while !.starts_with (&closing) cur
     if .is_none (.bump cur)
       return Err (LexError { code = Code::UnterminatedRawString, help = None, message = format! \-> "unterminated raw string; expected closing `#{closing}`", span = (start, .pos cur) })
-  text = .to_string (.slice (text_start, .pos cur) cur)
+  text = cur |> .slice (text_start, .pos cur) |> .to_string
   .eat (&closing) cur
   Ok (TokenKind::RawStr { text, hashes })

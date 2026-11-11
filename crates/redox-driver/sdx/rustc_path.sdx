@@ -47,7 +47,7 @@ rustc_path =
       |> .map (\dir -> .join "rustc" dir)
       |> .collect
     dirs)
-  baked = std::iter::once (PathBuf::from (env! \-> "REDOX_RUSTC"))
+  baked = std::iter::once $ PathBuf::from $ env! \-> "REDOX_RUSTC"
   -- `RUSTC` last. It is blaze's own shim under `blaze build`, so it is the
   -- least trustworthy of the three and is here only so that a toolchain
   -- reachable by no other means is still reachable.
@@ -63,6 +63,6 @@ rustc_path =
 -- | The environment this suite runs in has a real rustc, since the suite was
 -- | compiled by one.
 test "finds a rustc"
-  found = .expect "the toolchain should provide a rustc" (rustc_path ())
+  found = .expect "the toolchain should provide a rustc" $ rustc_path ()
   shown = .display found
   assert! \-> is_real_rustc (&found) \-> "#{shown} is not rustc"

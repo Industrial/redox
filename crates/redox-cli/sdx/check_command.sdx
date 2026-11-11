@@ -21,7 +21,7 @@ check_command args =
   -- `parsed`, not a rebinding of `args`: `RDX1003` reports a shadow.
   parsed = (parse_build_args args)?
   -- Bound, because a nested string inside `#{…}` ends the interpolation early.
-  shown = .to_string (.display parsed.input)
+  shown = parsed.input |> .display |> .to_string
   source = (.map_err (\e -> format! \-> "error: cannot read #{shown}: #{e}") (std::fs::read_to_string (&parsed.input)))?
 
   outcome = (redox_driver::check (&parsed.input) (&source))?

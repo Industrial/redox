@@ -18,7 +18,7 @@ ungrouped text =
   guard .and_then (\t -> .strip_suffix ')' t) (.strip_prefix '(' text) is Some inner else
     return .to_string text
   -- One group, not two side by side: `(a) -> (b)` must not lose its arrow.
-  chars : Vec<char> = .collect (.chars inner)
+  chars : Vec<char> = inner |> .chars |> .collect
   mut depth : i32 = 0
   mut top_level_arrow = false
   mut top_level_comma = false

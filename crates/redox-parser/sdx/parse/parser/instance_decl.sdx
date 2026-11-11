@@ -68,7 +68,7 @@ instance_decl p leading start =
     -- `instance Show Point` and `instance Convert f64 Meters` — juxtaposition
     -- put the target in the argument list, and it is the **last** one.
     mut args = .clone first.args
-    head = .expect "the argument list is not empty" (.pop args)
+    head = args |> .pop |> .expect "the argument list is not empty"
     class_end = .map_or first.head.span.1 (\a -> a.span.1) (.last args)
     class_app = TypeApp { head = .clone first.head, args, span = (first.head.span.0, class_end) }
     target_app = TypeApp { head = .clone head, args = Vec::new (), span = head.span }
@@ -81,7 +81,7 @@ instance_decl p leading start =
   var = .map (\v -> .to_string v) (.first (.vars target))
   -- Inside an `instance` a target's type variable is the impl's generic
   -- parameter, so it is that parameter's uppercase name — doc 18 §5.3.
-  subject = .map_or_else String::new TypeApp::rust_name (.as_deref var)
+  subject = var |> .as_deref |> .map_or_else String::new TypeApp::rust_name
   mut ctx = MethodContext::for_instance (.as_deref var) (&subject)
   -- Plan 63 leaf 1: the class this instance implements is where an elided
   -- member's signature comes from. `None` for an inherent `instance`, which

@@ -21,4 +21,4 @@ export(crate) server_content : Serialize t => Result<t, String> -> Result<CallTo
 server_content outcome =
   value = (.map_err (\message -> ErrorData::internal_error message None) outcome)?
   encoded = .map_err (\e -> ErrorData::internal_error (format! \-> "cannot serialise the result: #{e}") None) (serde_json::to_value (&value))
-  Ok (CallToolResult::structured encoded?)
+  Ok $ CallToolResult::structured encoded?

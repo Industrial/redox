@@ -29,7 +29,7 @@ clause_text clause name indent source =
     .push_str (&pattern_argument pattern) head
   body = case &clause.body of
     ClauseBody::Guarded guards ->
-      pad = indent_text (indent + 1)
+      pad = indent_text $ indent + 1
       -- `r#guard` because `guard` is plan 59's keyword and this is a lambda
       -- *parameter* — the half of the keyword surface plan 68's survey missed,
       -- which covered fields and modules only.

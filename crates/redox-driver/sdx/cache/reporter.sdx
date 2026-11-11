@@ -34,7 +34,7 @@ instance CacheReporter Collect
     ()
 
 test "a reporter sees both outcomes"
-  collect = Collect (std::cell::RefCell::new (Vec::new ()))
+  collect = Collect $ std::cell::RefCell::new $ Vec::new ()
   .report "a.sdx" false collect
   .report "a.sdx" true collect
   assert_eq! \-> .as_slice (.borrow collect.0) \-> ["a.sdx MISS", "a.sdx HIT"]

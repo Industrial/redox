@@ -52,4 +52,4 @@ receiver_text ty =
   if .trim split.1 != "self"
     return None
   prefix = split.0
-  Some (format! \-> "#{prefix}self")
+  Some $ format! \-> "#{prefix}self"

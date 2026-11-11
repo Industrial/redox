@@ -22,7 +22,7 @@ range_or_literal p lo span =
     _ ->
       return Pattern::Literal { text = lo, span }
   .advance p
-  hi = token_text (&(.peek p).kind)
+  hi = token_text $ &(.peek p).kind
   end = (.peek_span p).1
   .advance p
   Pattern::Range { lo, hi, inclusive, span = (span.0, end) }

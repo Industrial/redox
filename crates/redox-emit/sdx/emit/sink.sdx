@@ -109,7 +109,7 @@ instance (Sink 'a)
   -- | subtracts.
   gen_col_of_current_line : &self -> usize
   gen_col_of_current_line self =
-    line_start = .map_or 0 (\i -> i + 1) (.rfind '\n' self.out)
+    line_start = .map_or 0 (+ 1) (.rfind '\n' self.out)
     n = .len self.out
     text = &self.out[line_start .. n]
     trimmed = .trim_start text

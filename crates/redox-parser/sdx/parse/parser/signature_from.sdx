@@ -29,7 +29,7 @@ signature_from spine bound span =
   -- `split.0` is the return type and `split.1` the parameter types, where the
   -- Rust destructured the pair. The second is `arrow_types` rather than
   -- `params`, which is the name of the field built from it.
-  split = .expect "parse_spine returns at least one type" (.split_last spine)
+  split = spine |> .split_last |> .expect "parse_spine returns at least one type"
   ret = split.0
   arrow_types = split.1
   arrows = .len arrow_types
@@ -76,7 +76,7 @@ id : &str -> Pattern
 id text = Pattern::Binding (Ident { text = .to_string text, span = (0, 0) })
 
 test "pairs the spine with the binders"
-  sig = .expect "should build" (signature_from (&[ty "i32", ty "i32", ty "i32"]) (&[id "a", id "b"]) (0, 0))
+  sig = .expect "should build" $ signature_from (&[ty "i32", ty "i32", ty "i32"]) (&[id "a", id "b"]) (0, 0)
   assert_eq! \-> .len sig.params \-> 2
   assert_eq! \-> sig.params[0].name.text \-> "a"
   assert_eq! \-> (.expect "a type" (.as_ref sig.params[0].ty)).text \-> "i32"
@@ -86,25 +86,25 @@ test "pairs the spine with the binders"
 -- | what declines to write `-> ()`, so `returns_unit` is the question a
 -- | reader asks rather than `ret.is_some()`.
 test "a unit return is recorded and not discarded"
-  sig = .expect "should build" (signature_from (&[ty "()"]) (&[]) (0, 0))
+  sig = .expect "should build" $ signature_from (&[ty "()"]) (&[]) (0, 0)
   assert! \-> .is_empty sig.params
   assert_eq! \-> (.expect "a return type" (.as_ref sig.ret)).text \-> "()"
   assert! \-> .returns_unit sig
 
 test "too few binders is an error naming both counts"
-  err = .expect_err "should fail" (signature_from (&[ty "i32", ty "i32", ty "i32"]) (&[id "a"]) (0, 0))
+  err = .expect_err "should fail" $ signature_from (&[ty "i32", ty "i32", ty "i32"]) (&[id "a"]) (0, 0)
   assert! \-> .contains "arity" err.message \-> "#{err.message}"
   assert! \-> .contains "takes 2" err.message \-> "#{err.message}"
   assert! \-> .contains "binds 1" err.message \-> "#{err.message}"
 
 test "too many binders is also an error"
-  err = .expect_err "should fail" (signature_from (&[ty "i32"]) (&[id "a"]) (0, 0))
+  err = .expect_err "should fail" $ signature_from (&[ty "i32"]) (&[id "a"]) (0, 0)
   assert! \-> .contains "binds 1" err.message \-> "#{err.message}"
   assert! \-> .contains "takes 0" err.message \-> "#{err.message}"
 
 -- | A non-unit zero-parameter function keeps its return type.
 test "a zero parameter function can still return something"
-  sig = .expect "should build" (signature_from (&[ty "u32"]) (&[]) (0, 0))
+  sig = .expect "should build" $ signature_from (&[ty "u32"]) (&[]) (0, 0)
   assert! \-> .is_empty sig.params
   assert_eq! \-> (.expect "a return type" (.as_ref sig.ret)).text \-> "u32"
   assert! \-> !.returns_unit sig

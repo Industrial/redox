@@ -49,7 +49,7 @@ instance Documents
   -- | that treated it as a protocol violation would log noise at exactly the
   -- | moment the user did nothing wrong.
   export(crate) text : &Uri -> &self -> Option<&str>
-  text uri self = .map String::as_str (.get uri self.open)
+  text uri self = self.open |> .get uri |> .map String::as_str
 
 -- No `len` or `is_empty`. Both were written for "the tests that assert the
 -- store is maintained", and no test wants them: `didOpen` followed by a

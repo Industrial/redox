@@ -42,7 +42,7 @@ emit_tests_module out tests indent =
   .push_str "#[cfg(test)]\n" out
   pad out indent
   .push_str "mod __rdx_tests {\n" out
-  pad out (indent + RUST_INDENT)
+  pad out $ indent + RUST_INDENT
   .push_str "use super::*;\n" out
   mut used : Vec<String> = Vec::new ()
   for t in tests
@@ -55,17 +55,17 @@ emit_tests_module out tests indent =
     .push (.clone name) used
     .unmark out
     .push '\n' out
-    emit_trivia out (&t.leading) (indent + RUST_INDENT)
+    emit_trivia out (&t.leading) $ indent + RUST_INDENT
     .mark t.span out
-    pad out (indent + RUST_INDENT)
+    pad out $ indent + RUST_INDENT
     .push_str "#[test]\n" out
-    pad out (indent + RUST_INDENT)
+    pad out $ indent + RUST_INDENT
     .push_str (&format! \-> "fn #{name}() {\n") out
     -- A test returns nothing, so its last statement is a statement and not a
     -- tail expression.
     emit_stmts out (&t.body.stmts) (indent + RUST_INDENT * 2) false
     .unmark out
-    pad out (indent + RUST_INDENT)
+    pad out $ indent + RUST_INDENT
     .push_str "}\n" out
   pad out indent
   .push_str "}\n" out

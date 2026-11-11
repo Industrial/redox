@@ -29,12 +29,12 @@ emit_with_map program source source_path =
   -- currying may be visible before this point (§11.3). The guard's lifetime is
   -- §1.4's boundary — currying is available where the signature is in the file
   -- being emitted.
-  _arity = ArityScope::enter (ArityTable::from_items (&program.items))
+  _arity = ArityScope::enter $ ArityTable::from_items (&program.items)
   -- Plan 59 leaf 1, and here for the same reason rather than a parallel one:
   -- `redox_fmt::format` reads this `Program` too and must keep printing the
   -- author's `block` as `block`, so the classification may not be visible
   -- before the emitter's entry either. Two guards, one entry point.
-  _bindings = BindingScope::enter (BindingTable::from_items (&program.items))
+  _bindings = BindingScope::enter $ BindingTable::from_items (&program.items)
   mut out = Sink::new source
   -- The items, with the blank-line rule, source order and the gathered test
   -- module — all of which a `module` body wants too, which is why they live

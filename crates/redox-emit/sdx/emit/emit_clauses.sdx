@@ -56,7 +56,7 @@ emit_clauses out f base =
     -- order**, so the author's order does not have to be Rust's. The sentence
     -- this comment used to end with — *"that reordering is the whole of the
     -- lowering"* — was true and is one of four copies the row amends.
-    emit_where_locals out (&f.clauses[0].wheres) (base + RUST_INDENT)
+    emit_where_locals out (&f.clauses[0].wheres) $ base + RUST_INDENT
     -- The body is the function's own, so a narrow two-armed guard ladder may
     -- go on one line — unless a `where` local precedes it, which is a
     -- position rustfmt's behaviour has not been measured at and so is not
@@ -71,7 +71,7 @@ emit_clauses out f base =
   scrutinee = case .as_slice names of
     [one] -> .to_string (*one)
     many -> format! \-> "(#{.join ", " many})"
-  pad out (base + RUST_INDENT)
+  pad out $ base + RUST_INDENT
   .push_str (&format! \-> "match #{scrutinee} {\n") out
   for clause in &f.clauses
     row : Vec<String> = clause.patterns
@@ -82,6 +82,6 @@ emit_clauses out f base =
       [one] -> .clone one
       many -> format! \-> "(#{.join ", " many})"
     emit_arm out clause (&arm) (base + RUST_INDENT * 2) tail
-  pad out (base + RUST_INDENT)
+  pad out $ base + RUST_INDENT
   .push_str "}\n" out
   ()

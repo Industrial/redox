@@ -59,7 +59,7 @@ emit_case scrutinee arms indent =
     -- caller for exactly this reason.
     body = case &arm.body of
       Expr::Block { label = None, body = block, .. } | .is_some_and (\stmt -> .is_empty stmt.leading && .is_none stmt.trailing) (.first block.stmts) ->
-        .unwrap_or (&arm.body) (.sole_expression block)
+        block |> .sole_expression |> .unwrap_or (&arm.body)
       other -> other
     -- Plan 62 leaf 3. An ascription on the pattern becomes a `let` at the top
     -- of the arm body, because rustc takes no type in a `match` pattern — so

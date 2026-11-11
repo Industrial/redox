@@ -38,4 +38,4 @@ parse toks src_len =
     -- something a person wrote.
     message = format! \-> "this input nests brackets #{deepest} deep, and the limit is #{MAX_NESTING}: deeper than that overflows the parser's stack"
     return Err (vec! \-> ParseError { code = Code::NestingTooDeep, message, span = (0, 0), help = None })
-  .run src_len (Parser::new toks)
+  .run src_len $ Parser::new toks

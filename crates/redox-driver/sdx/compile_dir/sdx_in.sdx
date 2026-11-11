@@ -48,20 +48,20 @@ instance Dir
     n = .fetch_add 1 std::sync::atomic::Ordering::Relaxed NEXT
     pid = std::process::id ()
     dir = .join (format! \-> "redox-sdx-in-#{tag}-#{pid}-#{n}") (std::env::temp_dir ())
-    .expect "should create" (std::fs::create_dir_all (&dir))
+    .expect "should create" $ std::fs::create_dir_all (&dir)
     for name in names
-      .expect "should write" (std::fs::write (.join name dir) "main : ()\nmain =\n  println! \\-> \"\#{1}\"\n")
+      .expect "should write" $ std::fs::write (.join name dir) "main : ()\nmain =\n  println! \\-> \"\#{1}\"\n"
     Dir dir
 
 #[cfg(test)]
 instance Drop Dir
   drop : &mut self -> ()
   drop self =
-    _dropped = .ok (std::fs::remove_dir_all (&self.0))
+    _dropped = .ok $ std::fs::remove_dir_all (&self.0)
     ()
 
 test "finds sdx files and sorts them"
-  dir = Dir::r#with "sorted" (&["b.sdx", "a.sdx", "c.sdx"])
+  dir = Dir::r#with "sorted" $ &["b.sdx", "a.sdx", "c.sdx"]
   found : Vec<String> = sdx_in (&dir.0)
     |> .iter
     |> .map (\p -> .to_string (.to_string_lossy (.expect "a name" (.file_name p))))
@@ -69,11 +69,11 @@ test "finds sdx files and sorts them"
   assert_eq! \-> found \-> vec! \-> "a.sdx" \-> "b.sdx" \-> "c.sdx"
 
 test "ignores other extensions"
-  dir = Dir::r#with "mixed" (&["keep.sdx", "skip.rs", "skip.xrs", "skip.md"])
+  dir = Dir::r#with "mixed" $ &["keep.sdx", "skip.rs", "skip.xrs", "skip.md"]
   assert_eq! \-> .len (sdx_in (&dir.0)) \-> 1
 
 test "yields nothing for a missing directory"
-  found = sdx_in (std::path::Path::new "/nonexistent/redox")
+  found = sdx_in $ std::path::Path::new "/nonexistent/redox"
   assert! \-> .is_empty found
 
 test "yields nothing for an empty directory"

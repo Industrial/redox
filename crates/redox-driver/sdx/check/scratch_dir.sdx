@@ -32,9 +32,9 @@ instance ScratchDir
     n = .fetch_add 1 std::sync::atomic::Ordering::Relaxed NEXT
     pid = std::process::id ()
     dir = .join (format! \-> "redox-#{tag}-#{pid}-#{n}") (std::env::temp_dir ())
-    shown = .to_string (.display dir)
+    shown = dir |> .display |> .to_string
     (.map_err (\e -> format! \-> "error: cannot create #{shown}: #{e}") (std::fs::create_dir_all (&dir)))?
-    Ok (ScratchDir dir)
+    Ok $ ScratchDir dir
 
   -- | The directory itself.
   export(crate) path : &self -> &Path
@@ -45,21 +45,21 @@ instance Drop ScratchDir
   drop self =
     -- A failure here is not worth reporting: the directory is temporary, and
     -- the user came for a diagnostic, not for housekeeping news.
-    _dropped = .ok (std::fs::remove_dir_all (&self.0))
+    _dropped = .ok $ std::fs::remove_dir_all (&self.0)
     ()
 
 test "creates and removes itself"
   -- An indented block as the binding's value, where the Rust wrote `{ … }`:
   -- the point of the scope is that `dir` drops before the assertion below.
   gone =
-    dir = .expect "should create" (ScratchDir::new "test")
-    live = .to_path_buf (.path dir)
+    dir = .expect "should create" $ ScratchDir::new "test"
+    live = dir |> .path |> .to_path_buf
     assert! \-> .is_dir live
     live
   assert! \-> !.exists gone \-> "the directory should be gone after the drop"
 
 -- | Two live scratch directories must not be the same directory.
 test "two directories do not collide"
-  a = .expect "should create" (ScratchDir::new "test")
-  b = .expect "should create" (ScratchDir::new "test")
+  a = .expect "should create" $ ScratchDir::new "test"
+  b = .expect "should create" $ ScratchDir::new "test"
   assert_ne! \-> .path a \-> .path b

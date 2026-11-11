@@ -61,7 +61,7 @@ pipeline_text lhs rhs indent source =
     return one_line
   -- One level in from the statement, which is the indentation
   -- `examples/application.sdx` writes and doc 03 §5.3's own example before it.
-  pad = indent_text (indent + 1)
+  pad = indent_text $ indent + 1
   mut out = receiver
   for stage in &stages
     .push '\n' out

@@ -28,7 +28,7 @@ import redox_lexer::{Trivia, TriviaKind}
 -- | [`suppressed_spans`](super::suppressed_spans::suppressed_spans).
 export(crate) attribute_pragma : &Trivia -> Option<Lint>
 attribute_pragma trivium = case trivium.kind of
-  TriviaKind::Attribute -> Lint::from_allow_attribute (.trim trivium.text)
+  TriviaKind::Attribute -> Lint::from_allow_attribute $ .trim trivium.text
   _ -> None
 
 -- | `#[cfg(test)]`: the trivium every test below classifies.

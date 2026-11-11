@@ -53,7 +53,7 @@ import redox_diag::Code
 -- | made leaf 3 free.
 export(crate) where_group : &[Stmt] -> &[Pattern] -> Result<(), ParseError>
 where_group entries params =
-  bound : Vec<String> = .collect (.flat_map Pattern::binders (.iter params))
+  bound : Vec<String> = params |> .iter |> .flat_map Pattern::binders |> .collect
   for entry in entries
     case &entry.expr of
       Expr::Item { .. } ->

@@ -67,7 +67,7 @@ instance ArityScope
 instance Drop ArityScope
   drop : &mut self -> ()
   drop self =
-    restored = std::mem::take (&mut self.previous)
+    restored = std::mem::take $ &mut self.previous
     -- `std::mem::replace` and a discard, where the Rust wrote `*slot =
     -- restored`: a lambda body is one *expression* and `:=` is an assignment,
     -- so the assignment has no place to sit. `replace` says the same thing and

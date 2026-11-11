@@ -34,7 +34,7 @@ import redox_ast::ErrorsDecl
 -- | one table instead of two.
 export(crate) errors_text : &ErrorsDecl -> usize -> String
 errors_text decl indent =
-  pad = indent_text (indent + 1)
+  pad = indent_text $ indent + 1
   header = format! \-> "#{(visibility_text (&decl.visibility))}errors #{decl.name.text}"
   if .is_empty decl.variants
     return header

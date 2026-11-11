@@ -51,7 +51,7 @@ constructor_text constructor indent = case &constructor.fields of
       |> .any (\field -> !.is_empty field.leading)
     if !documented
       return format! \-> "#{constructor.name.text} { #{(.join ", " printed)} }"
-    pad = indent_text (indent + 1)
+    pad = indent_text $ indent + 1
     mut lines : Vec<String> = Vec::new ()
     for field in fields
       for trivium in &field.leading

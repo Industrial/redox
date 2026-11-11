@@ -36,7 +36,7 @@ remap message map sdx_path sdx_source xrs_path xrs_source =
   -- rustc gives most diagnostics a code and some — a plain lint, say — none.
   -- Falling back to the level keeps the rendered output from printing an empty
   -- `error[]`, and is still rustc's own word rather than one of Redox's.
-  code = DiagnosticCode::Foreign (.unwrap_or_else (\-> .clone message.level) (.clone message.code))
+  code = DiagnosticCode::Foreign $ .unwrap_or_else (\-> .clone message.level) $ .clone message.code
 
   -- rustc's level, now that plan 38 gives it somewhere to go. Before the
   -- severity existed, a rustc warning rendered as `error[warning]` — the
@@ -83,7 +83,7 @@ run m = remap m (&map_of ()) "p.sdx" SDX "p.xrs" XRS
 -- | Case 1, and the measured one: rustc's `.xrs:2:7` is the `+`, and the
 -- | `.sdx`'s `+` is at line 2 column 5.
 test "narrows to the exact character on a verbatim line"
-  d = run (&message_at 2 7)
+  d = run $ &message_at 2 7
   assert_eq! \-> d.path \-> "p.sdx"
   assert_eq! \-> &SDX[d.span.0 .. d.span.1] \-> "+"
   assert_eq! \-> .text d.code \-> "E0277"
@@ -93,13 +93,13 @@ test "narrows to the exact character on a verbatim line"
 -- | Case 2: a column past the source line underlines the whole statement
 -- | rather than clamping to a plausible-looking character.
 test "underlines the whole span when the column misses"
-  d = run (&message_at 2 99)
+  d = run $ &message_at 2 99
   assert_eq! \-> d.span \-> (33, 40)
   assert_eq! \-> &SDX[d.span.0 .. d.span.1] \-> "a + \"x\""
 
 -- | Case 3: a synthetic line is reported against the `.xrs`, with a note.
 test "reports a synthetic line against the generated file"
-  d = run (&message_at 3 1)
+  d = run $ &message_at 3 1
   assert_eq! \-> d.path \-> "p.xrs"
   assert_eq! \-> d.source \-> XRS
   help = .expect "a synthetic line should explain itself" d.help
@@ -108,7 +108,7 @@ test "reports a synthetic line against the generated file"
 
 -- | A line past the map's end is not relocated either.
 test "reports an unmapped line against the generated file"
-  d = run (&message_at 99 1)
+  d = run $ &message_at 99 1
   assert_eq! \-> d.path \-> "p.xrs"
 
 -- | A diagnostic rustc gave no code for still carries its level, so the

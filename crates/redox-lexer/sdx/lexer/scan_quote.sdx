@@ -24,7 +24,7 @@ scan_quote cur =
   -- Try a char literal first: one character (or one escape), then `'`.
   decoded = if .peek cur == Some '\\'
     .bump cur
-    .ok (scan_escape cur)
+    .ok $ scan_escape cur
   else
     .bump cur
 
@@ -48,7 +48,7 @@ scan_quote cur =
   -- the `'`
   .bump cur
   name_span = .eat_while (\c -> .is_ascii_alphanumeric c || c == '_') cur
-  name = .to_string (.slice name_span cur)
+  name = cur |> .slice name_span |> .to_string
   if .is_empty name
     return Err (LexError { code = Code::BadQuote, help = None, message = .to_string "a `'` must open a character literal or name a lifetime or label", span = (start, .pos cur) })
-  Ok (TokenKind::Label name)
+  Ok $ TokenKind::Label name

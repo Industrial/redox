@@ -26,7 +26,7 @@ import redox_lexer::{Trivia, TriviaKind}
 -- | `unwrap` in prose could silence a warning.
 export(crate) comment_pragma : &Trivia -> Option<Lint>
 comment_pragma trivium = case trivium.kind of
-  TriviaKind::LineComment -> Lint::from_allow_comment (.trim trivium.text)
+  TriviaKind::LineComment -> Lint::from_allow_comment $ .trim trivium.text
   _ -> None
 
 -- | `#[cfg(test)]`: the trivium every test below classifies.

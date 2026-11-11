@@ -74,7 +74,6 @@ tasks:
     options:
       cache: false
       outputStyle: buffer-only-failure
-
   ci-format:
     description: 'Format check for CI (treefmt with fail-on-change)'
     command: 'treefmt'

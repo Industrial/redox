@@ -98,7 +98,7 @@ control_flow p =
     value = if .at_statement_end p
       None
     else
-      Some (Box::new (parse_expr p 0)?)
+      Some $ Box::new (parse_expr p 0)?
     return Ok (Some (Expr::Break { label = break_label, value, span = (start, (.prev_span p).1) }))
   if .check (&TokenKind::Kw Keyword::Continue) p
     .advance p

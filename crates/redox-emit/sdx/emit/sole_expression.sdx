@@ -9,4 +9,4 @@ import redox_ast::Guard
 -- | one-line `if`/`else` form has nowhere to put a second statement.
 export(crate) sole_expression : &Guard -> usize -> Option<String>
 sole_expression row indent =
-  .map (\e -> emit_expr (unparen e) indent) (.sole_expression row.body)
+  .map (\e -> emit_expr (unparen e) indent) $ .sole_expression row.body

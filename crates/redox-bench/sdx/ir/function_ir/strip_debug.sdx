@@ -1,5 +1,5 @@
 -- | One line with its `!dbg` attachment removed.
 export(crate) strip_debug : &str -> &str
 strip_debug line = case .find ", !dbg" line of
-  Some at -> .unwrap_or line (.get (0 .. at) line)
+  Some at -> line |> .get (0 .. at) |> .unwrap_or line
   None -> line

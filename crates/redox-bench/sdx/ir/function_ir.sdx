@@ -75,4 +75,4 @@ function_ir source name scratch =
     return None
 
   text = (.ok (std::fs::read_to_string (&output)))?
-  Some (alpha_renamed (&body_of (&text) name))
+  Some $ alpha_renamed $ &body_of (&text) name

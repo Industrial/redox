@@ -88,13 +88,13 @@ emit_section section indent =
       case .compare_method op of
         Some method -> format! \-> "#{param}.#{method}(&#{value})"
         None ->
-          spelling = .unwrap_or "/* unsupported */" (.rust_text op)
+          spelling = op |> .rust_text |> .unwrap_or "/* unsupported */"
           format! \-> "#{param} #{spelling} #{value}"
     Section::Left { op, operand } ->
       value = emit_expr (unparen operand) indent
       case .and_then redox_ast::BinaryOp::compare_method (.flipped op) of
         Some method -> format! \-> "#{param}.#{method}(&#{value})"
         None ->
-          spelling = .unwrap_or "/* unsupported */" (.rust_text op)
+          spelling = op |> .rust_text |> .unwrap_or "/* unsupported */"
           format! \-> "#{value} #{spelling} #{param}"
   closure (&[param]) (&body)

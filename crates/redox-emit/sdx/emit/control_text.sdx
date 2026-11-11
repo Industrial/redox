@@ -57,4 +57,4 @@ control_text expr indent =
   emit_control (&mut inner) expr indent true
   -- `finished.0` is the text and `finished.1` the map, which this discards.
   finished = .finish "" inner
-  .to_string (.trim_end (.trim_start finished.0))
+  finished.0 |> .trim_start |> .trim_end |> .to_string

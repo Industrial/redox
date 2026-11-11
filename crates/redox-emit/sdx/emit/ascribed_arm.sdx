@@ -36,4 +36,4 @@ export(crate) module sole_binder
 export(crate) ascribed_arm : &Pattern -> &str -> Option<String>
 ascribed_arm pattern ty =
   binder = (sole_binder pattern)?
-  Some (format! \-> "let #{binder}: #{ty} = #{binder};")
+  Some $ format! \-> "let #{binder}: #{ty} = #{binder};"

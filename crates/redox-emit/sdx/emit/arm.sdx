@@ -27,7 +27,7 @@ export(crate) emit_arm : &mut Sink<'_> -> &Clause -> &str -> usize -> bool -> ()
 emit_arm out clause arm indent tail =
   -- A clause with `where` locals is never collapsed to `pat => expr,`: the
   -- locals need statements, and an arm with statements needs its braces.
-  collapsed = .filter (\_ -> .is_empty clause.wheres) (one_tail_expression clause tail)
+  collapsed = .filter (\_ -> .is_empty clause.wheres) $ one_tail_expression clause tail
   if collapsed is Some stmt
     .mark stmt.span out
     pad out indent
@@ -35,13 +35,13 @@ emit_arm out clause arm indent tail =
     .push_str " => " out
     .push_str (&emit_expr (unparen (&stmt.expr)) indent) out
     .push ',' out
-    emit_inline_comment out (.as_ref stmt.trailing)
+    emit_inline_comment out $ .as_ref stmt.trailing
     .push '\n' out
     return ()
   pad out indent
   .push_str arm out
   .push_str " => {\n" out
-  emit_where_locals out (&clause.wheres) (indent + RUST_INDENT)
+  emit_where_locals out (&clause.wheres) $ indent + RUST_INDENT
   -- Every arm is a tail position: a `match` arm's value is the arm's value,
   -- whether or not the function returns anything.
   -- A `match` arm's body, where rustfmt expands a two-armed `if`/`else` that

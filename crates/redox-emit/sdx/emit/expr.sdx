@@ -158,7 +158,7 @@ emit_expr e indent = case e of
       _ -> false
     if .is_empty args || lone_unit
       named = case .as_ref callee of
-        Expr::Ident name -> Some (.as_str name.text)
+        Expr::Ident name -> Some $ .as_str name.text
         Expr::Path { text, .. } -> Some (.as_str text)
         _ -> None
       if named is Some name && .is_some (BindingScope::kind_of name)

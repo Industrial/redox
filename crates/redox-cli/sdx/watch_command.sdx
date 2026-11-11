@@ -37,7 +37,7 @@ export(crate) watch_command : &[String] -> Result<(), String>
 watch_command args =
   input = (.ok_or_else (\-> .to_string "error: no input file\n\n`redox watch` takes a .sdx file or a directory.") (.find (\a -> !.starts_with '-' a) (.iter args)))?
   target = (Target::resolve (Path::new input))?
-  plain = .any (\a -> a == "--plain") (.iter args)
+  plain = .any (== "--plain") (.iter args)
 
   -- Build before watching, so an already-broken file is reported now rather
   -- than after the user's next keystroke.
@@ -56,7 +56,7 @@ watch_command args =
   -- expression, so plan 75 §2.3's `_dropped = …` binding has nowhere to go.
   mut watcher = (.map_err (\e -> format! \-> "error: cannot start the file watcher: #{e}") (notify::recommended_watcher (move \event -> drop (.send event tx))))?
 
-  dir_shown = .to_string (.display target.dir)
+  dir_shown = target.dir |> .display |> .to_string
   watched = watcher |> .watch (&target.dir) RecursiveMode::Recursive
   (.map_err (\e -> format! \-> "error: cannot watch #{dir_shown}: #{e}") watched)?
 

@@ -40,7 +40,7 @@ visibility p =
       return Err (ParseError::expected "expected a module path after `in`" (.peek_span p))
     Visibility::In path
   else
-    word = token_text (&(.peek p).kind)
+    word = token_text $ &(.peek p).kind
     .advance p
     case .as_str word of
       "crate" -> Visibility::Crate

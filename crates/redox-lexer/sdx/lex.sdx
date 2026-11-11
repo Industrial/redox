@@ -10,4 +10,4 @@ export(crate) module error
 -- | Trivia is attached to the token that follows it; trivia at the end of the
 -- | file is attached to `Eof`.
 export lex : &str -> Result<Vec<Token>, LexError>
-lex src = .run (Lexer::new src)
+lex src = .run $ Lexer::new src

@@ -67,7 +67,7 @@ instance Store
       return ()
     if .is_err (std::fs::write (&found.0) (&cached.r#rust))
       -- Remove the orphan so the directory does not accumulate half-entries.
-      _dropped = .ok (std::fs::remove_file (&found.1))
+      _dropped = .ok $ std::fs::remove_file (&found.1)
     ()
 
 #[cfg(test)]
@@ -86,14 +86,14 @@ instance Dir
     n = .fetch_add 1 std::sync::atomic::Ordering::Relaxed NEXT
     pid = std::process::id ()
     dir = .join (format! \-> "redox-store-#{tag}-#{pid}-#{n}") (std::env::temp_dir ())
-    .expect "should create" (std::fs::create_dir_all (&dir))
+    .expect "should create" $ std::fs::create_dir_all (&dir)
     Dir dir
 
 #[cfg(test)]
 instance Drop Dir
   drop : &mut self -> ()
   drop self =
-    _dropped = .ok (std::fs::remove_dir_all (&self.0))
+    _dropped = .ok $ std::fs::remove_dir_all (&self.0)
     ()
 
 #[cfg(test)]
@@ -122,7 +122,7 @@ test "a corrupt map is a miss"
   .put (&key) (&entry ()) store
 
   found = .paths (&key) store
-  .expect "should overwrite" (std::fs::write (&found.1) "not a redox map at all\n")
+  .expect "should overwrite" $ std::fs::write (&found.1) "not a redox map at all\n"
   assert_eq! \-> .get (&key) store \-> None
 
 -- | A half-entry — the Rust missing — is absent rather than partly usable.
@@ -133,12 +133,12 @@ test "a half written entry is a miss"
   .put (&key) (&entry ()) store
 
   found = .paths (&key) store
-  .expect "should remove" (std::fs::remove_file (&found.0))
+  .expect "should remove" $ std::fs::remove_file (&found.0)
   assert_eq! \-> .get (&key) store \-> None
 
 -- | An unwritable cache directory must not fail anything.
 test "an unwritable store is simply always a miss"
-  store = Store::new (std::path::Path::new "/proc/nonexistent-redox")
+  store = Store::new $ std::path::Path::new "/proc/nonexistent-redox"
   key = blake3::hash b"k"
   .put (&key) (&entry ()) store
   assert_eq! \-> .get (&key) store \-> None

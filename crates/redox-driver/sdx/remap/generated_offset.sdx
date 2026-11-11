@@ -10,7 +10,7 @@ import crate::remap::char_offset::char_offset
 -- | false statement about a line they did.
 export(crate) generated_offset : &str -> usize -> usize -> usize
 generated_offset source line col =
-  .unwrap_or_else (\-> .saturating_sub 1 (.len source)) (char_offset source line col)
+  .unwrap_or_else (\-> .saturating_sub 1 (.len source)) $ char_offset source line col
 
 -- | `#[cfg(test)]`: the source every test below resolves a position in.
 #[cfg(test)]

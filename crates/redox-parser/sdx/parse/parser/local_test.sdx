@@ -52,4 +52,4 @@ local_test p =
   -- and the binding is still what satisfies `Result`'s `#[must_use]`. A
   -- `drop (…)` would do it too and draws `clippy::drop_non_drop`.
   _dropped = test_decl p (Vec::new ()) keyword.0
-  Err (ParseError::with_help Code::LocalTest "a `test` declaration belongs at module scope, and this one is inside a body" "move it out to the left margin: rustc does not collect a nested `#[test]` — it warns `cannot test inner items` and the test silently never runs (plan 55 §1.5)" keyword)
+  Err $ ParseError::with_help Code::LocalTest "a `test` declaration belongs at module scope, and this one is inside a body" "move it out to the left margin: rustc does not collect a nested `#[test]` — it warns `cannot test inner items` and the test silently never runs (plan 55 §1.5)" keyword

@@ -21,7 +21,7 @@ import crate::stmt_text::indent_text::indent_text
 -- | the body is byte-identical either way, and only its delimiters change.
 export(crate) rust_hatch_text : &str -> usize -> String
 rust_hatch_text code indent =
-  pad = indent_text (indent + 1)
+  pad = indent_text $ indent + 1
   mut out = String::from "rust"
   for line in .lines code
     .push '\n' out

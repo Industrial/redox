@@ -45,7 +45,7 @@ emit_fn out f indent =
     .push '{' out
   else
     .push_str " {" out
-  emit_inline_comment out (.as_ref f.trailing)
+  emit_inline_comment out $ .as_ref f.trailing
   .push '\n' out
   -- A function that declares a return type ends in a tail expression; one
   -- that does not returns `()` and ends in a statement. See `emit_stmt`.

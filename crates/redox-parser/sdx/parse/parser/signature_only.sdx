@@ -18,7 +18,7 @@ export(crate) signature_only : &[TypeExpr] -> Span -> Signature
 signature_only spine span =
   -- `split.0` is the return type and `split.1` the parameters, where the Rust
   -- destructured the pair.
-  split = .expect "parse_spine returns at least one type" (.split_last spine)
+  split = spine |> .split_last |> .expect "parse_spine returns at least one type"
   params : Vec<Param> = split.1
     |> .iter
     |> .enumerate

@@ -96,7 +96,7 @@ export(crate) module walk_stmts
 export lint : &Path -> &str -> Option<&Program> -> Vec<Diagnostic>
 lint path source program =
   -- `shown`, not a rebinding of `path`: `RDX1003` reports a shadow.
-  shown = .to_string (.display path)
+  shown = path |> .display |> .to_string
   -- No annotations, because a lambda parameter is a bare name (doc 69 §10.4),
   -- so one inferred type per parameter has to serve all three call sites:
   -- `message` and `help` are `String` where the Rust took `&str`. Both were
@@ -119,7 +119,7 @@ lint path source program =
     |> .map (\pair ->
     span = pair.0
     named = pair.1
-    code_text = .text (.code named)
+    code_text = named |> .code |> .text
     help = format! \-> "the comment still suppresses `#{code_text}` for this milestone; the attribute is what plan 64 keeps"
     warning (DiagnosticCode::from Code::CommentAllowPragma) (comment_pragma_message named) span help)
 

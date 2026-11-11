@@ -43,7 +43,7 @@ generalise_data d =
       ConstructorFields::Unit -> ()
       ConstructorFields::Tuple ts -> .extend (.map (\t -> .clone t.text) (.iter ts)) texts
       ConstructorFields::Record fs -> .extend (.map (\f -> .clone f.ty.text) (.iter fs)) texts
-  refs : Vec<&str> = .collect (.map String::as_str (.iter texts))
+  refs : Vec<&str> = texts |> .iter |> .map String::as_str |> .collect
   found = type_vars (&refs)
   if .is_empty found
     return ()

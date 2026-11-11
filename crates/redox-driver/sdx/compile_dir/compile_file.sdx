@@ -32,7 +32,7 @@ export(crate) module write_outputs
 -- | half-finished build, and the cheap write makes the question moot.
 export(crate) compile_file : &Path -> &Path -> &Store -> &Fingerprint -> Result<Outcome, Vec<Diagnostic>>
 compile_file source out store fingerprint =
-  path = .to_string (.display source)
+  path = source |> .display |> .to_string
   text = (.map_err (\e -> vec! \-> io_diagnostic (&path) (format! \-> "cannot read #{path}: #{e}")) (std::fs::read_to_string source))?
 
   key = cache_key (&text) fingerprint

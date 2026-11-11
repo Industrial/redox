@@ -46,7 +46,7 @@ export(crate) module scratch_dir
 -- | *your code is wrong* from *this machine cannot answer*.
 export check : &Path -> &str -> Result<CheckOutcome, String>
 check path source =
-  sdx_path = .to_string (.display path)
+  sdx_path = path |> .display |> .to_string
 
   -- A syntax error is Redox's own, and never reaches rustc.
   program = case redox_parser::parse_source source of
@@ -69,11 +69,11 @@ check path source =
   rustc = (.ok_or_else (\-> .to_string "error: no rustc found. `redox check` compiles the generated Rust, so it needs the Rust toolchain on PATH.") (rustc_path ()))?
 
   dir = (ScratchDir::new "check")?
-  xrs = .join "check.xrs" (.path dir)
-  xrs_path = .to_string (.display xrs)
+  xrs = dir |> .path |> .join "check.xrs"
+  xrs_path = xrs |> .display |> .to_string
   (.map_err (\e -> format! \-> "error: cannot write #{xrs_path}: #{e}") (std::fs::write (&xrs) (&emitted.0)))?
 
-  rustc_shown = .to_string (.display rustc)
+  rustc_shown = rustc |> .display |> .to_string
   invoked = Command::new (&rustc)
     |> .args (["--edition", "2024", "--error-format=short", "--emit=metadata"])
     |> .arg "-o"
@@ -83,8 +83,8 @@ check path source =
   out = (.map_err (\e -> format! \-> "error: cannot run #{rustc_shown}: #{e}") invoked)?
 
   stderr = String::from_utf8_lossy (&out.stderr)
-  messages : Vec<RustcMessage> = .collect (.filter_map RustcMessage::parse (.lines stderr))
-  failed = .any RustcMessage::is_error (.iter messages)
+  messages : Vec<RustcMessage> = stderr |> .lines |> .filter_map RustcMessage::parse |> .collect
+  failed = messages |> .iter |> .any RustcMessage::is_error
   remapped = .map (\m -> remap m (&emitted.1) (&sdx_path) source (&xrs_path) (&emitted.0)) (.iter messages)
   .extend remapped diagnostics
 

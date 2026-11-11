@@ -85,11 +85,11 @@ instance BindingTable
   -- | Record one name's kind, noting it as ambiguous if it already had another.
   insert : String -> BindingKind -> &mut Vec<String> -> &mut self -> ()
   insert key kind ambiguous self =
-    if .is_some_and (\previous -> previous != kind) (.insert (.clone key) kind self.kinds)
+    if .is_some_and (!= kind) (.insert (.clone key) kind self.kinds)
       .push key ambiguous
     ()
 
   -- | What `name` means in the file being emitted, when it declares exactly one
   -- | parameterless binding by that name.
   export(crate) kind_of : &str -> &self -> Option<BindingKind>
-  kind_of name self = .copied (.get name self.kinds)
+  kind_of name self = self.kinds |> .get name |> .copied

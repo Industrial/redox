@@ -22,7 +22,7 @@ split_format_spec body =
     -- `.get` and `.copied` where the Rust wrote `bytes[i]`: indexing is
     -- `Index`, which doc 03 grades unreachable. The loop's own bound makes the
     -- fallback unreachable, and `0` matches none of the arms below.
-    byte = .unwrap_or 0 (.copied (.get i bytes))
+    byte = bytes |> .get i |> .copied |> .unwrap_or 0
     case byte of
       b'(' or b'[' or b'{' -> depth += 1
       b')' or b']' or b'}' -> depth -= 1
@@ -38,8 +38,8 @@ split_format_spec body =
         -- parses and then fails in rustc; `0..i` and `(i + 1)..len` are the
         -- same two slices with both sides supplied.
         len = .len body
-        head = .unwrap_or "" (.get (0 .. i) body)
-        tail = .unwrap_or "" (.get (i + 1 .. len) body)
+        head = body |> .get (0 .. i) |> .unwrap_or ""
+        tail = body |> .get (i + 1 .. len) |> .unwrap_or ""
         return (head, Some tail)
       _ -> ()
     i += 1

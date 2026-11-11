@@ -35,7 +35,7 @@ split_parts body base =
       open = bounds.0
       close = bounds.1
 
-      inner = .unwrap_or "" (.get (open .. close) body)
+      inner = body |> .get (open .. close) |> .unwrap_or ""
       split = split_format_spec inner
       expr = split.0
       spec = split.1

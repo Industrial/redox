@@ -44,7 +44,7 @@ pairs root =
     rust_path = .join (format! \-> "#{stem}.rs") dir
     if !.is_file rust_path
       continue
-    read = .ok (std::fs::read_to_string (&rust_path))
+    read = .ok $ std::fs::read_to_string (&rust_path)
     function = case .and_then (\text -> first_public_function (&text)) read of
       Some f -> f
       None ->

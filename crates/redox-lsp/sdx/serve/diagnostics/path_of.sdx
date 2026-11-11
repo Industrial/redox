@@ -10,4 +10,4 @@ import std::path::Path
 export(crate) path_of : &Uri -> std::path::PathBuf
 path_of uri =
   text = .as_str uri
-  .to_path_buf (Path::new (.unwrap_or text (.strip_prefix "file://" text)))
+  .to_path_buf $ Path::new $ .unwrap_or text $ .strip_prefix "file://" text

@@ -211,7 +211,7 @@ instance (Lexer 'a)
     -- to say the same thing. `scan_rust_block` declines unless the keyword is
     -- alone on its line, which leaves the `"""` spelling untouched.
     if opens_a_rust_block
-      base = *.expect "the base level is never popped" (.last self.indents)
+      base = *.expect "the base level is never popped" $ .last self.indents
       body_start = .pos self.cur
       case scan_rust_block (&mut self.cur) base of
         Some code ->
@@ -222,7 +222,7 @@ instance (Lexer 'a)
   -- | Everything that is not whitespace, a newline or a `#` form.
   scan_token : &mut self -> Result<TokenKind, LexError>
   scan_token self =
-    ch = .expect "step checked for eof" (.peek self.cur)
+    ch = self.cur |> .peek |> .expect "step checked for eof"
 
     if ch == '"'
       return scan_string (&mut self.cur)
@@ -260,7 +260,7 @@ instance (Lexer 'a)
       text = .slice span self.cur
       word = case Keyword::from_text text of
         Some kw -> TokenKind::Kw kw
-        None -> TokenKind::Ident (.to_string text)
+        None -> TokenKind::Ident $ .to_string text
       return Ok word
 
     case scan_operator (&mut self.cur) of
@@ -306,7 +306,7 @@ instance (Lexer 'a)
           '[' -> depth += 1
           ']' -> depth -= 1
           _ -> ()
-      text = .to_string (.slice (body_start, .pos self.cur - 1) self.cur)
+      text = self.cur |> .slice (body_start, .pos self.cur - 1) |> .to_string
       -- **Trivia, not a token** — plan 18 §1.3. An attribute belongs to the
       -- declaration below it, which is what `leading` already means, and
       -- every item kind and every statement carries one.
@@ -346,7 +346,7 @@ instance (Lexer 'a)
         if .is_none (.bump self.cur)
           return Err (LexError { code = Code::UnterminatedFence, help = Some (.to_string "close it with `-}`"), message = .to_string "unterminated `{- -}` comment", span = (start, .pos self.cur) })
       end = .pos self.cur - 2
-      text = .to_string (.trim (.slice (body_start, end) self.cur))
+      text = self.cur |> .slice (body_start, end) |> .trim |> .to_string
       self.pending
         |> .push (Trivia::comment TriviaKind::FencedComment text (start, .pos self.cur))
       return Ok true
@@ -360,8 +360,8 @@ instance (Lexer 'a)
     for _step in 0 .. marker
       .bump self.cur
 
-    body = .eat_while (\c -> c != '\n') self.cur
-    text = trim_comment (.slice body self.cur)
+    body = .eat_while (!= '\n') self.cur
+    text = trim_comment $ .slice body self.cur
     trivium = Trivia::comment kind text (start, .pos self.cur)
 
     -- A comment following content on the same line *trails* it and belongs to
@@ -451,7 +451,7 @@ instance (Lexer 'a)
     -- and no item begins with `|>`, so treating one as a continuation would
     -- attach documentation to an expression and hide a real mistake.
     while .starts_with "--" self.cur && !.starts_with "-- |" self.cur
-      .eat_while (\c -> c != '\n') self.cur
+      .eat_while (!= '\n') self.cur
       .bump self.cur
       .eat_spaces self.cur
 
@@ -473,7 +473,7 @@ instance (Lexer 'a)
       trailing = .take self.trailing
       -- Bound, because `:=` wants a place it can name and
       -- `.last_mut(…).expect(…).trailing` is a field of a call's result.
-      last = .expect "a Newline was just pushed" (.last_mut self.toks)
+      last = self.toks |> .last_mut |> .expect "a Newline was just pushed"
       last.trailing := trailing
     ()
 
@@ -553,7 +553,7 @@ instance (Lexer 'a)
     if !.is_empty self.open_delims && closes
       return Ok ()
 
-    top = *.expect "indent stack is never empty" (.last self.indents)
+    top = *.expect "indent stack is never empty" $ .last self.indents
     at = (line_start + width, line_start + width)
 
     if width > top
@@ -598,7 +598,7 @@ instance (Lexer 'a)
     leading = if .is_structural kind
       Vec::new ()
     else
-      std::mem::take (&mut self.pending)
+      std::mem::take $ &mut self.pending
     self.toks
       |> .push (Token { kind, span, ws_before, leading, trailing = None })
     ()

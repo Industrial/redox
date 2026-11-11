@@ -27,13 +27,13 @@ instance Target
       return Ok (Target { dir = .to_path_buf arg, file = None })
 
     if !.exists arg
-      shown = .to_string (.display arg)
+      shown = arg |> .display |> .to_string
       return Err (format! \-> "error: #{shown} does not exist\n\n`redox watch` takes a .sdx file or a directory of them.")
 
     parent = .filter (\p -> !.is_empty (.as_os_str p)) (.parent arg)
     -- A bare `main.sdx` has a parent of `""`, which is not a directory any
     -- watcher will accept; `.` is the same place and is.
-    dir = .to_path_buf (.unwrap_or (Path::new ".") parent)
+    dir = parent |> .unwrap_or (Path::new ".") |> .to_path_buf
     Ok (Target { dir, file = Some (.to_path_buf arg) })
 
 -- | `#[cfg(test)]`: a unique temporary directory, removed when it goes out of
@@ -57,19 +57,19 @@ instance Dir
     n = .fetch_add 1 std::sync::atomic::Ordering::Relaxed NEXT
     pid = std::process::id ()
     dir = .join (format! \-> "redox-target-#{tag}-#{pid}-#{n}") (std::env::temp_dir ())
-    .expect "should create" (std::fs::create_dir_all (&dir))
+    .expect "should create" $ std::fs::create_dir_all (&dir)
     Dir dir
 
 #[cfg(test)]
 instance Drop Dir
   drop : &mut self -> ()
   drop self =
-    _dropped = .ok (std::fs::remove_dir_all (&self.0))
+    _dropped = .ok $ std::fs::remove_dir_all (&self.0)
     ()
 
 test "a directory is watched whole"
   dir = Dir::new "whole"
-  target = .expect "should resolve" (Target::resolve (&dir.0))
+  target = .expect "should resolve" $ Target::resolve (&dir.0)
   assert_eq! \-> target.dir \-> dir.0
   assert_eq! \-> target.file \-> None \-> "a directory compiles all of itself"
 
@@ -78,14 +78,14 @@ test "a directory is watched whole"
 test "a file is watched through its parent"
   dir = Dir::new "parent"
   file = .join "main.sdx" dir.0
-  .expect "should write" (std::fs::write (&file) "main : ()\nmain =\n  println! \\-> \"\#{1}\"\n")
+  .expect "should write" $ std::fs::write (&file) "main : ()\nmain =\n  println! \\-> \"\#{1}\"\n"
 
-  target = .expect "should resolve" (Target::resolve (&file))
+  target = .expect "should resolve" $ Target::resolve (&file)
   assert_eq! \-> target.dir \-> dir.0 \-> "the parent directory is what is watched"
   assert_eq! \-> target.file \-> Some file
 
 test "a missing path is an error that says what is accepted"
-  err = .expect_err "should fail" (Target::resolve (Path::new "/nonexistent/main.sdx"))
+  err = .expect_err "should fail" $ Target::resolve $ Path::new "/nonexistent/main.sdx"
   assert! \-> .contains "does not exist" err \-> "#{err}"
   assert! \-> .contains ".sdx file or a directory" err \-> "#{err}"
 
@@ -93,11 +93,11 @@ test "a missing path is an error that says what is accepted"
 test "a bare filename resolves to the current directory"
   dir = Dir::new "bare"
   file = .join "main.sdx" dir.0
-  .expect "should write" (std::fs::write (&file) "main : ()\nmain =\n  println! \\-> \"\#{1}\"\n")
+  .expect "should write" $ std::fs::write (&file) "main : ()\nmain =\n  println! \\-> \"\#{1}\"\n"
 
-  previous = .expect "a cwd" (std::env::current_dir ())
-  .expect "should chdir" (std::env::set_current_dir (&dir.0))
-  target = .expect "should resolve" (Target::resolve (Path::new "main.sdx"))
-  .expect "should restore" (std::env::set_current_dir previous)
+  previous = .expect "a cwd" $ std::env::current_dir ()
+  .expect "should chdir" $ std::env::set_current_dir (&dir.0)
+  target = .expect "should resolve" $ Target::resolve $ Path::new "main.sdx"
+  .expect "should restore" $ std::env::set_current_dir previous
 
   assert_eq! \-> target.dir \-> Path::new "." \-> "not the empty path"

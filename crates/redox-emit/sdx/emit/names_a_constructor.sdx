@@ -19,4 +19,4 @@ names_a_constructor head =
     Expr::Path { text, .. } -> .unwrap_or text (.next (.rsplit "::" text))
     _ ->
       return false
-  .is_some_and char::is_uppercase (.next (.chars name))
+  name |> .chars |> .next |> .is_some_and char::is_uppercase

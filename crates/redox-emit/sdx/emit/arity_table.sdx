@@ -67,7 +67,7 @@ instance ArityTable
       case item of
         Item::Fn decl ->
           arity = .len decl.sig.params
-          clash = .is_some_and (\previous -> previous != arity) (.insert (.clone decl.name.text) arity self.arities)
+          clash = .is_some_and (!= arity) (.insert (.clone decl.name.text) arity self.arities)
           if clash
             .push (.clone decl.name.text) ambiguous
         Item::Module decl ->
@@ -79,4 +79,4 @@ instance ArityTable
   -- | The declared arity of `name`, when this file declares exactly one
   -- | function by that name.
   export(crate) arity_of : &str -> &self -> Option<usize>
-  arity_of name self = .copied (.get name self.arities)
+  arity_of name self = self.arities |> .get name |> .copied

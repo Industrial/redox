@@ -46,4 +46,4 @@ module run
 -- that position parses and is then dropped by the emitter *and* the formatter
 -- — §2.2 of this row's plan has the reproduction.
 main : ()
-main = std::process::exit (run::run ())
+main = std::process::exit $ run::run ()

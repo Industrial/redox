@@ -66,4 +66,4 @@ unit_tail name block =
   if spells_unit
     return Ok ()
   message = format! \-> "`#{name.text}` returns `()`, so its body must end with `()`"
-  Err (ParseError::with_help Code::UnitTail message "write `()` as the body's last line — plan 55 §1.6 spells a unit value rather than implying it, so a body ending in a loop, a binding or an assignment cannot become `()` by arriving last" last.span)
+  Err $ ParseError::with_help Code::UnitTail message "write `()` as the body's last line — plan 55 §1.6 spells a unit value rather than implying it, so a body ending in a loop, a binding or an assignment cannot become `()` by arriving last" last.span

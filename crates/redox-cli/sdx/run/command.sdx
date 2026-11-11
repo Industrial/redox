@@ -49,7 +49,7 @@ instance Command
   not_yet self = case self.state of
     State::Ready -> None
     State::Planned { plan, id } ->
-      Some (format! \-> "error: `#{self.name}` is not implemented yet — it is plan #{plan:02} (`#{id}`)")
+      Some $ format! \-> "error: `#{self.name}` is not implemented yet — it is plan #{plan:02} (`#{id}`)"
 
 -- | `#[cfg(test)]`: the two commands every test below reads. Redox can put
 -- | nothing but `#[test] fn`s inside its generated `mod __rdx_tests` —
@@ -64,7 +64,7 @@ test "a ready command has nothing to announce"
   assert_eq! \-> .not_yet BUILD \-> None
 
 test "a planned command names its plan"
-  message = .expect "fmt is planned" (.not_yet FMT)
+  message = FMT |> .not_yet |> .expect "fmt is planned"
   assert! \-> .contains "not implemented yet" message \-> "#{message}"
   assert! \-> .contains "plan 34" message \-> "#{message}"
   assert! \-> .contains "formatter" message \-> "#{message}"

@@ -85,6 +85,6 @@ emit_stmt out stmt indent tail =
       .push_str (&emit_expr (unparen value) indent) out
       if !tail
         .push ';' out
-  emit_inline_comment out (.as_ref stmt.trailing)
+  emit_inline_comment out $ .as_ref stmt.trailing
   .push '\n' out
   ()

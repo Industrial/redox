@@ -75,7 +75,7 @@ instance RustcMessage
 
 -- | The exact line rustc produced for `plan 07 §2`'s measurement.
 test "parses a coded error"
-  m = .expect "should parse" (RustcMessage::parse ".tmp/typeerr.xrs:6:24: error[E0308]: mismatched types: expected `i32`, found `&str`")
+  m = .expect "should parse" $ RustcMessage::parse ".tmp/typeerr.xrs:6:24: error[E0308]: mismatched types: expected `i32`, found `&str`"
   assert_eq! \-> m.path \-> ".tmp/typeerr.xrs"
   assert_eq! \-> (m.line, m.col) \-> (6, 24)
   assert_eq! \-> m.level \-> "error"
@@ -85,11 +85,11 @@ test "parses a coded error"
 
 -- | The other measured line, whose message contains a colon.
 test "keeps a message containing a colon"
-  m = .expect "should parse" (RustcMessage::parse ".tmp/tail.xrs:2:7: error[E0277]: cannot add `&str` to `i32`: no implementation for `i32 + &str`")
+  m = .expect "should parse" $ RustcMessage::parse ".tmp/tail.xrs:2:7: error[E0277]: cannot add `&str` to `i32`: no implementation for `i32 + &str`"
   assert_eq! \-> m.message \-> "cannot add `&str` to `i32`: no implementation for `i32 + &str`"
 
 test "parses an uncoded warning"
-  m = .expect "should parse" (RustcMessage::parse "main.xrs:3:9: warning: unused variable: `x`")
+  m = .expect "should parse" $ RustcMessage::parse "main.xrs:3:9: warning: unused variable: `x`"
   assert_eq! \-> m.level \-> "warning"
   assert_eq! \-> m.code \-> None
   assert_eq! \-> m.message \-> "unused variable: `x`"
@@ -105,7 +105,7 @@ test "declines an unpositioned note"
 
 -- | A path containing a colon must not be mistaken for a position.
 test "survives a colon in the path"
-  m = .expect "should parse" (RustcMessage::parse "C:\\out\\main.xrs:6:24: error[E0308]: mismatched types")
+  m = .expect "should parse" $ RustcMessage::parse "C:\\out\\main.xrs:6:24: error[E0308]: mismatched types"
   assert_eq! \-> m.path \-> "C:\\out\\main.xrs"
   assert_eq! \-> (m.line, m.col) \-> (6, 24)
 

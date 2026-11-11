@@ -110,4 +110,4 @@ postfix p lhs =
     if .check (&TokenKind::LParen) p && !(.peek p).ws_before
       return Err (method_call_syntax (&name.text) (start, name.span.1))
     return Ok (Ok (Expr::Field { recv = Box::new lhs, name, span = (start, (.prev_span p).1) }))
-  Ok (Err lhs)
+  Ok $ Err lhs

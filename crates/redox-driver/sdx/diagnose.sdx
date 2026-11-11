@@ -24,7 +24,7 @@ export(crate) module io_diagnostic
 export diagnose : &Path -> &str -> &ParseFailure -> Vec<Diagnostic>
 diagnose path source failure =
   -- `shown`, not a rebinding of `path`: `RDX1003` reports a shadow.
-  shown = .to_string (.display path)
+  shown = path |> .display |> .to_string
   case failure of
     ParseFailure::Lex e ->
       vec! \-> Diagnostic { code = .into e.code, severity = redox_diag::Severity::Error, message = .clone e.message, span = e.span, help = .clone e.help, path = shown, source = .to_string source }
@@ -36,7 +36,7 @@ diagnose path source failure =
 
 test "carries a lex errors code and help across"
   source = "main : ()\nmain =\n\tprint 1\n"
-  failure = .expect_err "a tab is an error" (redox_parser::parse_source source)
+  failure = .expect_err "a tab is an error" $ redox_parser::parse_source source
   diagnostics = diagnose (Path::new "a.sdx") source (&failure)
   assert_eq! \-> .len diagnostics \-> 1
   assert_eq! \-> .text diagnostics[0].code \-> "RDX0001"
@@ -58,7 +58,7 @@ test "reports every recovered parse error"
   -- section**, which parses. A statement that begins with a binary
   -- operator has nowhere left to go, and ends at its own line break.
   source = "a : ()\na =\n  + 1\n\nb : ()\nb =\n  * \n"
-  failure = .expect_err "should fail" (redox_parser::parse_source source)
+  failure = .expect_err "should fail" $ redox_parser::parse_source source
   diagnostics = diagnose (Path::new "a.sdx") source (&failure)
   count = .len diagnostics
   assert! \-> count >= 2 \-> "expected a diagnostic per error, got #{count}"

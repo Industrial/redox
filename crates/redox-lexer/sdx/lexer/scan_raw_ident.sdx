@@ -33,4 +33,4 @@ scan_raw_ident cur =
   -- `is_ident_continue` by name, not wrapped in a lambda: it takes a `char`
   -- now, which is exactly what `eat_while` hands its predicate.
   .eat_while is_ident_continue cur
-  Ok (TokenKind::Ident (.to_string (.slice (start, .pos cur) cur)))
+  Ok $ TokenKind::Ident $ .to_string $ .slice (start, .pos cur) cur

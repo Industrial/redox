@@ -84,7 +84,7 @@ data_decl p leading start visibility =
   -- Doc 18 §5.3's generic list, from the field types. After the declaration
   -- is assembled because it reads every constructor, and before
   -- `newtype_shape` only because that check does not care either way.
-  generalise_data (&mut decl)
+  generalise_data $ &mut decl
   -- Plan 53 leaf 2. On the finished declaration, because `is_newtype`'s
   -- narrowing is a fact about the constructor *list* — the field count alone
   -- would miss `newtype Multi = A | B`, which emitted an enum.

@@ -40,5 +40,5 @@ import redox_diag::{Lint, Span}
 export(crate) suppressed_spans : &Program -> Lint -> Vec<Span>
 suppressed_spans program lint =
   mut walk = PragmaWalk { lint, found = Vec::new () }
-  walk_program program (&mut walk)
+  walk_program program $ &mut walk
   walk.found

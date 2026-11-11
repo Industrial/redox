@@ -47,6 +47,6 @@ class_decl p leading start visibility =
   mut ctx = MethodContext::for_class (&params)
   -- Plan 63 leaf 1: members are recorded under this class's name as they are
   -- read, which is what an `instance` later borrows from.
-  ctx.recording := Some (.clone name.text)
+  ctx.recording := Some $ .clone name.text
   members = (class_body p (&ctx))?
   Ok (ClassDecl { name, params, supers, members, visibility, span = (start, (.prev_span p).1), leading })

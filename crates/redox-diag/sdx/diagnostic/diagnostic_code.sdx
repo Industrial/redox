@@ -50,11 +50,11 @@ test "renders a redox code from the catalogue"
   assert! \-> .is_redox code
 
 test "renders a foreign code untouched"
-  code = DiagnosticCode::Foreign (.to_string "E0308")
+  code = DiagnosticCode::Foreign $ .to_string "E0308"
   assert_eq! \-> .text code \-> "E0308"
   assert! \-> !.is_redox code
 
 -- | A lint name is not numbered, and must survive anyway.
 test "carries a foreign code that is not a number"
-  code = DiagnosticCode::Foreign (.to_string "unused_variables")
+  code = DiagnosticCode::Foreign $ .to_string "unused_variables"
   assert_eq! \-> .text code \-> "unused_variables"

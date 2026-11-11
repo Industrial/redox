@@ -34,7 +34,7 @@ main =
     return Ok ()
 
   -- `<-` is doc 30's bind, which is how `.await` is written.
-  started <- .serve (rmcp::transport::stdio ()) (redox_mcp::Server::new ())
+  started <- .serve (rmcp::transport::stdio ()) $ redox_mcp::Server::new ()
   service = (.inspect_err (\e -> eprintln! \-> "redox-mcp: cannot start: #{e}") started)?
   -- `waiting` returns when the client closes the transport, which for a stdio
   -- server is the normal way to stop. Returning before it would drop replies

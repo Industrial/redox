@@ -89,7 +89,7 @@ test "binary operators are left associative"
   for kind in [TokenKind::Plus, TokenKind::Star, TokenKind::Pipe]
     -- `rung.1` is the left power and `rung.2` the right, where the Rust
     -- destructured the triple.
-    rung = .expect "should have a precedence" (binary_power (&kind))
+    rung = .expect "should have a precedence" $ binary_power (&kind)
     assert_eq! \-> rung.2 \-> rung.1 + 1 \-> "#{kind:?} should be left-associative"
 
 test "a non operator has no precedence"
@@ -102,7 +102,7 @@ test "a non operator has no precedence"
 -- | a literal here, it fails.
 test "the powers come from the operator"
   for kind in [TokenKind::Pipe, TokenKind::Coalesce, TokenKind::OrOr, TokenKind::EqEq, TokenKind::Plus, TokenKind::Percent]
-    rung = .expect "should have a precedence" (binary_power (&kind))
+    rung = .expect "should have a precedence" $ binary_power (&kind)
     assert_eq! \-> rung.1 \-> .power rung.0 \-> "#{kind:?} reports a power of its own"
     assert_eq! \-> rung.2 \-> .power rung.0 + 1
 

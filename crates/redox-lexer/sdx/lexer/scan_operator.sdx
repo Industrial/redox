@@ -21,7 +21,7 @@ scan_operator cur =
 scan : &str -> (Option<TokenKind>, usize)
 scan src =
   mut cur = Cursor::new src
-  kind = scan_operator (&mut cur)
+  kind = scan_operator $ &mut cur
   (kind, .pos cur)
 
 -- | The property the table's order exists for. Every prefix pair is checked

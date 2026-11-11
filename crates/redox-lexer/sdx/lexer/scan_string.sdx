@@ -57,7 +57,7 @@ scan_string cur =
   body_end = .pos cur
   .eat delim cur
 
-  raw = .to_string (.slice (start, .pos cur) cur)
+  raw = cur |> .slice (start, .pos cur) |> .to_string
   body = .slice (body_start, body_end) cur
 
   -- A `"""` block drops its delimiter lines and loses its common indentation

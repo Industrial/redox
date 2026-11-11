@@ -28,7 +28,7 @@ fmt_command args =
   mut unformatted : Vec<String> = Vec::new ()
 
   for path in &parsed.inputs
-    shown = .to_string (.display path)
+    shown = path |> .display |> .to_string
     source = (.map_err (\e -> format! \-> "error: cannot read #{shown}: #{e}") (std::fs::read_to_string path))?
 
     program = (.map_err (\failure -> redox_diag::render (&diagnose path (&source) (&failure)) parsed.plain) (redox_parser::parse_source (&source)))?
@@ -49,4 +49,4 @@ fmt_command args =
     |> .map (\p -> format! \-> "  #{p}")
     |> .collect
   listed = .join "\n" indented
-  Err (format! \-> "error: not formatted:\n#{listed}\nrun `redox fmt` on them\n")
+  Err $ format! \-> "error: not formatted:\n#{listed}\nrun `redox fmt` on them\n"

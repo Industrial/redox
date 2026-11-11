@@ -19,9 +19,9 @@ write_outputs source out path content =
   stem = .map_or_else (\-> .to_string "generated") (\s -> .to_string (.to_string_lossy s)) (.file_stem source)
   target = .join (format! \-> "#{stem}.rs") out
 
-  out_shown = .to_string (.display out)
+  out_shown = out |> .display |> .to_string
   (.map_err (\e -> vec! \-> io_diagnostic path (format! \-> "cannot create #{out_shown}: #{e}")) (std::fs::create_dir_all out))?
-  target_shown = .to_string (.display target)
+  target_shown = target |> .display |> .to_string
   -- `content.r#rust`, because `rust` is a Redox keyword and the translator
   -- renamed the field. The first collision to reach a *use* site.
   (.map_err (\e -> vec! \-> io_diagnostic path (format! \-> "cannot write #{target_shown}: #{e}")) (std::fs::write (&target) (&content.r#rust)))?
@@ -29,7 +29,7 @@ write_outputs source out path content =
   mut map_name = .to_os_string (.expect "a name" (.file_name target))
   map_name |> .push ".map"
   sidecar = .with_file_name map_name target
-  sidecar_shown = .to_string (.display sidecar)
+  sidecar_shown = sidecar |> .display |> .to_string
   (.map_err (\e -> vec! \-> io_diagnostic path (format! \-> "cannot write #{sidecar_shown}: #{e}")) (std::fs::write (&sidecar) (&content.map)))?
 
   Ok target

@@ -278,7 +278,7 @@ instance Keyword
 
 test "round trips every spelling"
   for word in ["mut", "if", "do", "case", "of", "otherwise", "data", "newtype", "deriving", "instance", "module", "not", "or", "guard", "catch", "loop", "Self", "self", "true", "errors", "implements"]
-    kw = .expect "should be reserved" (Keyword::from_text word)
+    kw = .expect "should be reserved" $ Keyword::from_text word
     assert_eq! \-> .text kw \-> word
 
 -- | The words doc 18 §7 retires are ordinary identifiers again, and that is

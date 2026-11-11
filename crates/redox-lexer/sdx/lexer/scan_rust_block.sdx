@@ -64,12 +64,12 @@ scan_rust_block cur base =
     if .is_eof cur || width <= base
       .reset_to line_mark cur
       break
-    .eat_while (\c -> c != '\n') cur
-    end := Some (.pos cur)
+    .eat_while (!= '\n') cur
+    end := Some $ .pos cur
 
   -- `stop`, not `end`: the Rust rebinds `let end = end?` over its own
   -- `Option`, and `RDX1003` reports that shadow — plan 54 leaf 3 made it a
   -- lint deliberately.
   stop = end?
   .reset_to stop cur
-  Some (dedent_block (.slice (body_start, stop) cur))
+  Some $ dedent_block $ .slice (body_start, stop) cur

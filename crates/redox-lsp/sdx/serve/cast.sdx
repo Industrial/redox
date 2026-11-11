@@ -18,5 +18,5 @@ import serde::de::DeserializeOwned
 -- | take its discriminator as an argument.
 export(crate) cast : DeserializeOwned p => &Request -> &str -> Result<p, ExtractError<Request>>
 cast request method =
-  extracted = .extract method (.clone request)
+  extracted = request |> .clone |> .extract method
   .map (\pair -> pair.1) extracted

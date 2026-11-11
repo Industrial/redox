@@ -38,4 +38,4 @@ constructor_fields p =
     .push (capture_type p "expected a field type" TypeStop::Atom)? types
   if .is_empty types
     return Ok ConstructorFields::Unit
-  Ok (ConstructorFields::Tuple types)
+  Ok $ ConstructorFields::Tuple types

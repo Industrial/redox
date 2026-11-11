@@ -31,4 +31,4 @@ verbatim_triple raw =
   -- d raw)?` puts the `?` on the inner call's argument instead of its result.
   opened = (.strip_prefix "\"\"\"" raw)?
   body = (.strip_suffix "\"\"\"" opened)?
-  Some (dedent_triple_body body)
+  Some $ dedent_triple_body body

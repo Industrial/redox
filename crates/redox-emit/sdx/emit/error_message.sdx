@@ -27,7 +27,7 @@ error_message raw =
   -- macro one line down is not a good name for a `String`.
   mut template = String::with_capacity (.len text)
   mut args = Vec::new ()
-  chars : Vec<char> = .collect (.chars text)
+  chars : Vec<char> = text |> .chars |> .collect
   mut i = 0
   while i < .len chars
     if chars[i] == '#' && .get (i + 1) chars == Some (&'{')

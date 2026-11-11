@@ -10,7 +10,7 @@ import redox_diag::Code
 -- | line the user never wrote.
 export(crate) scan_escape : &mut Cursor -> Result<char, LexError>
 scan_escape cur =
-  start = .saturating_sub 1 (.pos cur)
+  start = cur |> .pos |> .saturating_sub 1
 
   ch = case .bump cur of
     Some c -> c
@@ -42,27 +42,27 @@ scan_escape cur =
       .bump cur
       text = .slice (at, .pos cur) cur
       if .len text != 2 || !.all (\c -> .is_ascii_hexdigit c) (.chars text)
-        Err (.to_string "`\\x` takes exactly two hexadecimal digits")
+        Err $ .to_string "`\\x` takes exactly two hexadecimal digits"
       else
         case u8::from_str_radix text 16 of
-          Ok v -> Ok (char::from v)
-          Err _ -> Err (format! \-> "`\\x#{text}` is not a valid byte escape")
+          Ok v -> Ok $ char::from v
+          Err _ -> Err $ format! \-> "`\\x#{text}` is not a valid byte escape"
     'u' ->
       if !.eat "{" cur
-        Err (.to_string "`\\u` must be followed by `{`")
+        Err $ .to_string "`\\u` must be followed by `{`"
       else
         digits = .eat_while (\c -> .is_ascii_hexdigit c) cur
-        text = .to_string (.slice digits cur)
+        text = cur |> .slice digits |> .to_string
         if !.eat "}" cur
-          Err (.to_string "unterminated `\\u{…}` escape")
+          Err $ .to_string "unterminated `\\u{…}` escape"
         else
           case u32::from_str_radix (&text) 16 of
-            Err _ -> Err (format! \-> "`\\u{#{text}}` is not valid hexadecimal")
+            Err _ -> Err $ format! \-> "`\\u{#{text}}` is not valid hexadecimal"
             Ok value ->
               case char::from_u32 value of
                 Some c -> Ok c
-                None -> Err (format! \-> "`\\u{#{text}}` is not a Unicode scalar value")
-    other -> Err (format! \-> "unknown escape sequence `\\#{other}`")
+                None -> Err $ format! \-> "`\\u{#{text}}` is not a Unicode scalar value"
+    other -> Err $ format! \-> "unknown escape sequence `\\#{other}`"
 
   case decoded of
     Ok c -> Ok c
@@ -76,7 +76,7 @@ scan_escape cur =
 decode : &str -> Result<char, String>
 decode after_backslash =
   mut cur = Cursor::new after_backslash
-  .map_err (\e -> e.message) (scan_escape (&mut cur))
+  .map_err (\e -> e.message) $ scan_escape $ &mut cur
 
 test "decodes the simple escapes"
   assert_eq! \-> decode "n" \-> Ok '\n'

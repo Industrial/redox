@@ -35,7 +35,7 @@ build request =
         |> .map diagnostic_from_redox
         |> .collect })
 
-  diagnostics = redox_driver::lint path (&source) (Some (&program))
+  diagnostics = redox_driver::lint path (&source) $ Some (&program)
   emitted = redox_emit::emit_with_map (&program) (&source) (&request.path)
   -- `generated`, not `rust`: **`rust` is a keyword**, and as a binding name it
   -- earns `RDX0101: expected a """ block of Rust after `rust`` — a diagnostic
@@ -46,7 +46,7 @@ build request =
   map = emitted.1
 
   output = .with_extension "xrs" path
-  out_shown = .to_string (.display output)
+  out_shown = output |> .display |> .to_string
   (.map_err (\e -> format! \-> "cannot write #{out_shown}: #{e}") (std::fs::write (&output) (&generated)))?
 
   -- Same rule as `redox build`: the stem plus `.map`, so `main.xrs` has
@@ -57,7 +57,7 @@ build request =
   mut map_name = .to_os_string (.expect "a name" (.file_name output))
   .push ".map" map_name
   map_path = .with_file_name map_name output
-  map_shown = .to_string (.display map_path)
+  map_shown = map_path |> .display |> .to_string
   (.map_err (\e -> format! \-> "cannot write #{map_shown}: #{e}") (std::fs::write (&map_path) (redox_diag::render_map (&map))))?
 
   Ok (BuildResponse { ok = true, output = Some out_shown, map = Some map_shown, diagnostics = diagnostics

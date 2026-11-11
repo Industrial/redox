@@ -61,17 +61,17 @@ prefix p =
       span = .peek_span p
       .advance p
       pad = .repeat hashes "#"
-      Ok (Expr::RawLit { text = format! \-> "r#{pad}\"#{text}\"#{pad}", span })
+      Ok $ Expr::RawLit { text = format! \-> "r#{pad}\"#{text}\"#{pad}", span }
     TokenKind::ByteStr text ->
       span = .peek_span p
       .advance p
       body = rust_string_body (&text)
-      Ok (Expr::RawLit { text = format! \-> "b\"#{body}\"", span })
+      Ok $ Expr::RawLit { text = format! \-> "b\"#{body}\"", span }
     TokenKind::CStr text ->
       span = .peek_span p
       .advance p
       body = rust_string_body (&text)
-      Ok (Expr::RawLit { text = format! \-> "c\"#{body}\"", span })
+      Ok $ Expr::RawLit { text = format! \-> "c\"#{body}\"", span }
     TokenKind::Byte value ->
       span = .peek_span p
       .advance p
@@ -147,7 +147,7 @@ prefix p =
     TokenKind::Backslash -> lambda p
     TokenKind::Kw (Keyword::Move) -> lambda p
     TokenKind::Kw (Keyword::If) -> .if_statement p
-    TokenKind::Kw (Keyword::Do) -> Err (reserved_word p)
+    TokenKind::Kw (Keyword::Do) -> Err $ reserved_word p
     TokenKind::Newline -> block_expr p None start
     TokenKind::Label name ->
       .advance p
@@ -156,11 +156,11 @@ prefix p =
     TokenKind::Kw (Keyword::SelfValue) ->
       span = .peek_span p
       .advance p
-      Ok (Expr::Ident (Ident { text = .to_string "self", span }))
+      Ok $ Expr::Ident $ Ident { text = .to_string "self", span }
     TokenKind::Kw (Keyword::SelfType) ->
       span = .peek_span p
       .advance p
-      Ok (Expr::Ident (Ident { text = .to_string "Self", span }))
+      Ok $ Expr::Ident $ Ident { text = .to_string "Self", span }
     TokenKind::Dot ->
       .advance p
       name = (.ident "expected a method name after `.`" p)?
@@ -168,4 +168,4 @@ prefix p =
       Ok (Expr::MethodRef { name, span })
     TokenKind::Ident _ -> macro_call p
     _ ->
-      Err (ParseError::r#with Code::ExpectedExpression "expected an expression" (.peek_span p))
+      Err $ ParseError::r#with Code::ExpectedExpression "expected an expression" $ .peek_span p

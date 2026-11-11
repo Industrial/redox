@@ -66,7 +66,7 @@ test "no command advertises a plan"
 -- | surface problem, so the length is an assertion rather than a hope.
 test "fits on one screen"
   text = usage ()
-  lines = .count (.lines text)
+  lines = text |> .lines |> .count
   assert! \-> lines <= 24 \-> "usage is #{lines} lines, which no longer fits a terminal"
 
 test "names cargo as the owner of everything else"

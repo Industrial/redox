@@ -7,7 +7,7 @@ import lsp_types::{PublishDiagnosticsParams, Uri}
 -- | Send the current diagnostics for one document.
 export(crate) publish : &Connection -> &Uri -> &Documents -> Result<(), String>
 publish connection uri documents =
-  source = .unwrap_or_default (.text uri documents)
+  source = documents |> .text uri |> .unwrap_or_default
   params = PublishDiagnosticsParams { uri = .clone uri, diagnostics = diagnostics uri source, version = None }
   encoded = (.map_err (\e -> .to_string e) (serde_json::to_value params))?
   message = Message::Notification (Notification { method = .to_string PublishDiagnostics::METHOD, params = encoded })

@@ -48,4 +48,4 @@ try_await p =
   pattern = (pattern_alt p)?
   (.expect (&TokenKind::DrawArrow) "expected `<-`" p)?
   value = Box::new (parse_expr p 0)?
-  Ok (Some (Expr::Await { pattern = Some pattern, value, span = (start, (.prev_span p).1) }))
+  Ok $ Some $ Expr::Await { pattern = Some pattern, value, span = (start, (.prev_span p).1) }

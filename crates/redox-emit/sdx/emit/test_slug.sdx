@@ -24,7 +24,7 @@ test_slug description =
       .extend (.to_lowercase ch) out
     else if !.ends_with '_' out
       .push '_' out
-  trimmed = .to_string (.trim_matches '_' out)
+  trimmed = out |> .trim_matches '_' |> .to_string
   if .is_empty trimmed
     return .to_string "_"
   -- The first character directly, where the Rust wrote

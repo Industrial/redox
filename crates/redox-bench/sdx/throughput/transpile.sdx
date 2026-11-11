@@ -12,4 +12,4 @@
 export(crate) transpile : &str -> Option<String>
 transpile source =
   program = (.ok (redox_parser::parse_source source))?
-  Some (redox_emit::emit (&program))
+  Some $ redox_emit::emit (&program)

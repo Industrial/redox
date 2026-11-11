@@ -24,4 +24,4 @@ pattern_alt p =
   mut alts = vec! \-> first
   while .eat_keyword Keyword::Or p
     .push (pattern_app p)? alts
-  Ok (Pattern::Or alts)
+  Ok $ Pattern::Or alts

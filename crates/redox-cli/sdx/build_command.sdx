@@ -15,7 +15,7 @@ export(crate) build_command : &[String] -> Result<(), String>
 build_command args =
   -- `parsed`, not a rebinding of `args`: `RDX1003` reports a shadow.
   parsed = (parse_build_args args)?
-  shown = .to_string (.display parsed.input)
+  shown = parsed.input |> .display |> .to_string
   source = (.map_err (\e -> format! \-> "error: cannot read #{shown}: #{e}") (std::fs::read_to_string (&parsed.input)))?
 
   program = (.map_err (\failure -> redox_diag::render (&diagnose (&parsed.input) (&source) (&failure)) parsed.plain) (redox_parser::parse_source (&source)))?
@@ -26,7 +26,7 @@ build_command args =
   -- After the parse, because a warning about a program nobody can compile is
   -- noise, and before the write, so the author sees it with the build they
   -- asked for rather than on the next one.
-  warnings = redox_driver::lint (&parsed.input) (&source) (Some (&program))
+  warnings = redox_driver::lint (&parsed.input) (&source) $ Some (&program)
   if !.is_empty warnings
     rendered = redox_diag::render (&warnings) parsed.plain
     eprint! \-> "#{rendered}"
@@ -36,7 +36,7 @@ build_command args =
   -- binding, so the pair is bound once and projected.
   emitted = redox_emit::emit_with_map (&program) (&source) (&shown)
 
-  out_shown = .to_string (.display parsed.output)
+  out_shown = parsed.output |> .display |> .to_string
   (.map_err (\e -> format! \-> "error: cannot write #{out_shown}: #{e}") (std::fs::write (&parsed.output) (&emitted.0)))?
 
   -- The sidecar sits beside the `.xrs` under the same stem plus `.map`, so
@@ -46,6 +46,6 @@ build_command args =
   -- `sidecar`, where the Rust named the local `map_path`: that spelling
   -- shadows the function of the same name, and `RDX1003` reports it.
   sidecar = map_path (&parsed.output)
-  sidecar_shown = .to_string (.display sidecar)
+  sidecar_shown = sidecar |> .display |> .to_string
   (.map_err (\e -> format! \-> "error: cannot write #{sidecar_shown}: #{e}") (std::fs::write (&sidecar) (redox_diag::render_map (&emitted.1))))?
   Ok ()

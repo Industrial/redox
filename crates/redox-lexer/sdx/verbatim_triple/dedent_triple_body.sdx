@@ -8,6 +8,6 @@ import crate::lexer::dedent_block::dedent_block
 -- | begins.
 export(crate) dedent_triple_body : &str -> String
 dedent_triple_body body =
-  inner = .unwrap_or body (.strip_prefix '\n' body)
+  inner = body |> .strip_prefix '\n' |> .unwrap_or body
   trimmed = .trim_end_matches ' ' inner
-  dedent_block (.unwrap_or trimmed (.strip_suffix '\n' trimmed))
+  dedent_block $ .unwrap_or trimmed $ .strip_suffix '\n' trimmed

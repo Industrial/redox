@@ -39,7 +39,7 @@ emit_stmts out stmts indent tail =
   rest = split.1
   guard &first.expr is Expr::Draw { name, value, .. } else
     last = .is_empty rest
-    emit_stmt out first indent (tail && last)
+    emit_stmt out first indent $ tail && last
     emit_stmts out rest indent tail
     return ()
   .mark first.span out

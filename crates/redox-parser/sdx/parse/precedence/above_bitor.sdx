@@ -19,5 +19,5 @@ export(crate) above_bitor : u8
 above_bitor =
   -- `found.1` is the left power, where the Rust destructured and discarded
   -- the other two.
-  found = .expect "`|` is in the precedence table" (binary_power (&TokenKind::Or))
+  found = .expect "`|` is in the precedence table" $ binary_power (&TokenKind::Or)
   found.1 + 1

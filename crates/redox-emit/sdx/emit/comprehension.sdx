@@ -57,7 +57,7 @@ emit_comprehension element qualifiers indent =
     |> .iter
     |> .filter_map (\q ->
     case q of
-      Qualifier::Guard e -> Some (emit_expr (unparen e) indent)
+      Qualifier::Guard e -> Some $ emit_expr (unparen e) indent
       Qualifier::Draw { .. } -> None)
     |> .collect
   -- With no generator there is nothing to iterate, so the brackets are a

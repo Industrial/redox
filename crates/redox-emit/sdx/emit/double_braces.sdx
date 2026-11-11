@@ -24,7 +24,7 @@
 -- | `{}` hole *after* this runs on the literal segments, so the two compose:
 -- | holes the author wrote stay holes, braces they wrote stay braces.
 export(crate) double_braces : &str -> String
-double_braces literal = .replace '}' "}}" (.replace '{' "{{" literal)
+double_braces literal = literal |> .replace '{' "{{" |> .replace '}' "}}"
 
 -- | Every brace-bearing argument below is a **raw** literal — doc 03 §11.2's
 -- | `r"…"`, which §11.2 calls *"pure passthrough"*. A plain `"…"` reaching a

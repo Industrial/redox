@@ -25,4 +25,4 @@ scan_cstring cur =
     else
       .push (.expect "not at eof" (.bump cur)) text
   .eat "\"" cur
-  Ok (TokenKind::CStr text)
+  Ok $ TokenKind::CStr text

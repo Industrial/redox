@@ -11,7 +11,7 @@ export(crate) report : &Target -> bool -> ()
 report target plain =
   case &target.file of
     Some file ->
-      shown = .to_string (.display file)
+      shown = file |> .display |> .to_string
       run_build (&shown) plain
     None ->
       for source in sources (&target.dir)

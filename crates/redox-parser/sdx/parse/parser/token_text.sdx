@@ -10,7 +10,7 @@ import redox_lexer::TokenKind
 export(crate) token_text : &TokenKind -> String
 token_text kind = case kind of
   TokenKind::Ident t -> .clone t
-  TokenKind::Kw kw -> .to_string (.text kw)
+  TokenKind::Kw kw -> kw |> .text |> .to_string
   TokenKind::Int t or TokenKind::Float t -> .clone t
   TokenKind::Char c -> format! \-> "#{c:?}"
   TokenKind::Byte b ->

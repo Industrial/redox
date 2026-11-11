@@ -50,4 +50,4 @@ retired_spelling name =
     _ ->
       return None
   message = format! \-> "`#{name.text}` is not a construct any more — macros are callable, so write #{replacement}"
-  Some (ParseError::with_help Code::RetiredSpelling message "`!` marks a macro's name and `\\->` opens each argument, so no bracket is needed: `println! \\-> \"\#{total} rows\"`" name.span)
+  Some $ ParseError::with_help Code::RetiredSpelling message "`!` marks a macro's name and `\\->` opens each argument, so no bracket is needed: `println! \\-> \"\#{total} rows\"`" name.span

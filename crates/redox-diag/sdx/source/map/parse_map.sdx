@@ -47,7 +47,7 @@ parse_map text =
     line = pair.1
     if .is_empty line
       continue
-    fields : Vec<&str> = .collect (.split ' ' line)
+    fields : Vec<&str> = line |> .split ' ' |> .collect
     expected = i + 1
     -- `.ok_or` with the message built eagerly, where the Rust wrote
     -- `.ok_or_else(|| …)`. A **nullary lambda in argument position makes
@@ -85,7 +85,7 @@ parse_map text =
       _ ->
         return Err (format! \-> "record #{expected} has #{(.len fields)} fields; expected 2 (`n -`) or 4 (`n src_line src_col gen_col`)")
 
-  Ok (SourceMap::new source_path origins)
+  Ok $ SourceMap::new source_path origins
 
 -- | `#[cfg(test)]`: a helper for the tests below, dead code otherwise.
 #[cfg(test)]
@@ -95,36 +95,36 @@ sample = SourceMap::new "examples/phase1.sdx" (vec! \-> Some (Origin { span = (0
 test "round trips"
   -- `crate::render_map` via the re-export `lib.sdx` makes, rather than
   -- an import: this is the only mention, and it is inside a `test`.
-  text = crate::render_map (&sample ())
+  text = crate::render_map $ &sample ()
   assert_eq! \-> .expect "should parse" (parse_map (&text)) \-> sample ()
 
 test "rejects a foreign file"
-  err = .expect_err "should fail" (parse_map "{\"version\":3}\n")
+  err = .expect_err "should fail" $ parse_map "{\"version\":3}\n"
   assert! \-> .contains "does not begin" err \-> "#{err}"
 
 test "rejects a future version"
-  err = .expect_err "should fail" (parse_map "redox-map 99 a.sdx\n")
+  err = .expect_err "should fail" $ parse_map "redox-map 99 a.sdx\n"
   assert! \-> .contains "version 99" err \-> "#{err}"
 
 test "rejects a header with no source"
-  err = .expect_err "should fail" (parse_map "redox-map 1\n")
+  err = .expect_err "should fail" $ parse_map "redox-map 1\n"
   assert! \-> .contains "names no source" err \-> "#{err}"
 
 -- | Records are positional, so a gap would shift every line after it. Better
 -- | to refuse the file than to resolve the wrong line.
 test "rejects records out of order"
-  err = .expect_err "should fail" (parse_map "redox-map 1 a.sdx\n1 1 1 1\n3 2 1 1\n")
+  err = .expect_err "should fail" $ parse_map "redox-map 1 a.sdx\n1 1 1 1\n3 2 1 1\n"
   assert! \-> .contains "must be in order" err \-> "#{err}"
 
 test "rejects a malformed record"
-  err = .expect_err "should fail" (parse_map "redox-map 1 a.sdx\n1 2 3\n")
+  err = .expect_err "should fail" $ parse_map "redox-map 1 a.sdx\n1 2 3\n"
   assert! \-> .contains "3 fields" err \-> "#{err}"
 
 test "rejects a zero column"
-  err = .expect_err "should fail" (parse_map "redox-map 1 a.sdx\n1 1 0 1\n")
+  err = .expect_err "should fail" $ parse_map "redox-map 1 a.sdx\n1 1 0 1\n"
   assert! \-> .contains "1-based" err \-> "#{err}"
 
 test "parses a map with no records"
-  map = .expect "should parse" (parse_map "redox-map 1 a.sdx\n")
+  map = .expect "should parse" $ parse_map "redox-map 1 a.sdx\n"
   assert! \-> .is_empty map
   assert_eq! \-> map.source_path \-> "a.sdx"

@@ -56,7 +56,7 @@ newtype_shape decl =
   n = .len fields
   case n of
     1 -> Ok ()
-    0 -> Err (ParseError::r#with Code::NewtypeShape "a `newtype` wraps exactly one field, and this declaration wraps none — write `data` for a type with no payload" blame)
+    0 -> Err $ ParseError::r#with Code::NewtypeShape "a `newtype` wraps exactly one field, and this declaration wraps none — write `data` for a type with no payload" blame
     _ ->
       message = format! \-> "a `newtype` wraps exactly one field, and this declaration wraps #{n} — write `data` for a constructor with more than one field"
-      Err (ParseError::r#with Code::NewtypeShape message fields[1])
+      Err $ ParseError::r#with Code::NewtypeShape message fields[1]

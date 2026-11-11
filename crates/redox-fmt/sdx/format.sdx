@@ -51,7 +51,7 @@ format program source =
     -- A file does not open with a blank line, whatever the author wrote.
     if first
       first := false
-      text := String::from (.trim_start_matches '\n' text)
+      text := String::from $ .trim_start_matches '\n' text
     -- `mut text` and `:=` where the first port wrote `text = if first …`, and
     -- the pipelines are the reason for both. Plan 69's second sighting: a
     -- binding whose **value** is a block — an `if`, a `case` — swallows a

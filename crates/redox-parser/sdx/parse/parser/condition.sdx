@@ -53,4 +53,4 @@ condition p =
   -- block parser would give.
   if .check (&TokenKind::OrOr) p
     return Err (ParseError::r#with Code::ExpectedToken "a condition holding a pattern test joins with `&&` only: Rust's let-chains do not admit `||`. Split the condition, or use a `case`" (.peek_span p))
-  Ok (Condition { operands })
+  Ok $ Condition { operands }

@@ -53,7 +53,7 @@ type_vars types =
   mut lifetimes : Vec<String> = Vec::new ()
   mut vars : Vec<String> = Vec::new ()
   for text in types
-    chars : Vec<char> = .collect (.chars text)
+    chars : Vec<char> = text |> .chars |> .collect
     mut i = 0
     n = .len chars
     while i < n
@@ -95,7 +95,7 @@ type_vars types =
       -- bare closure has nothing to infer its parameter from. An empty word
       -- answers `false` either way, which is the one case the two spellings
       -- could have differed on.
-      lowercase_head = .is_some_and char::is_lowercase (.next (.chars word))
+      lowercase_head = word |> .chars |> .next |> .is_some_and char::is_lowercase
       -- One line, where the Rust wrapped the condition over five: a
       -- continuation is a line *ending* in an operator, so a `||` opening a
       -- line is `RDX0102`.

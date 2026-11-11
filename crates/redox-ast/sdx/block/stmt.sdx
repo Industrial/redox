@@ -51,6 +51,6 @@ instance Stmt
       [one] -> Some (.clone one)
       _ -> None
     Expr::Item { item, .. } -> case .as_ref item of
-      Item::Fn decl -> Some (.clone decl.name.text)
+      Item::Fn decl -> Some $ .clone decl.name.text
       _ -> None
     _ -> None

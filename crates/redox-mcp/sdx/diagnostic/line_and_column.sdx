@@ -18,7 +18,7 @@ diagnostic_line_and_column source offset =
   -- Closed ranges: a parenthesised half-open range is an operator section, so
   -- `(0..at)` names both ends. Neither fallback can fire — `at` is clamped and
   -- `line_start` comes from `rfind` on the same prefix.
-  prefix = .unwrap_or "" (.get (0 .. at) source)
+  prefix = source |> .get (0 .. at) |> .unwrap_or ""
   -- Count the newlines before the offset; the last one ends the preceding
   -- line, so the line after it is the one the offset is on.
   line_start = .map_or 0 (\a -> a + .len_utf8 '\n') (.rfind '\n' prefix)
@@ -36,19 +36,19 @@ test "a later line counts from its own start"
   -- `\#{1}` escaped: `#{` opens an interpolation, and this fixture is *about*
   -- a program that contains one.
   source = "main : ()\nmain =\n  println! \\-> \"\#{1}\"\n"
-  at = .expect "should be there" (.find "print" source)
+  at = source |> .find "print" |> .expect "should be there"
   assert_eq! \-> diagnostic_line_and_column source at \-> (3, 3)
 
 -- | The property the whole function exists for: a multi-byte character is
 -- | **one** column, not two or three.
 test "a column counts characters and not bytes"
   source = "-- é\nx"
-  at = .expect "should be there" (.find 'x' source)
+  at = source |> .find 'x' |> .expect "should be there"
   assert_eq! \-> diagnostic_line_and_column source at \-> (2, 1)
 
   -- And within the line: `é` is two bytes, so a byte column would say 5.
   line = "aéb"
-  b_at = .expect "should be there" (.find 'b' line)
+  b_at = line |> .find 'b' |> .expect "should be there"
   assert_eq! \-> b_at \-> 3 \-> "the byte offset is 3"
   assert_eq! \-> diagnostic_line_and_column line b_at \-> (1, 3)
 
