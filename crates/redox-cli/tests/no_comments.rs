@@ -32,6 +32,7 @@ const REWRITTEN: &[&str] = &[
   "redox-parser",
   "redox-fmt",
   "redox-fuzz",
+  "redox-bench",
 ];
 
 fn workspace_root() -> PathBuf {
