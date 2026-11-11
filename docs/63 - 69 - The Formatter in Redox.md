@@ -389,6 +389,25 @@ tries `postfix` once the value ends, and a block-bearing value ends on a
 `Dedent` that does not stop the loop. A block in statement position never
 reaches `postfix`.
 
+> **Corrected 2026-11-11 by plan 80, and the third statement was wrong too.**
+> *"A block in statement position never reaches `postfix`"* is true of `if`
+> and **false of `case`**: a `case` statement goes through the expression path,
+> so `case … of` followed by `.push_str "z" (&mut out)` is the identical
+> `RDX0115` with no binding anywhere. That is the same kind of counterexample
+> this section used to refute its own second statement, found the same way —
+> by running the input rather than reading the path.
+>
+> So the rule was never binding-versus-statement. It is **wherever the
+> expression path runs**, `application` has guarded its argument loop on
+> `just_dedented` since doc 18 §2.3 arrived, and `postfix` simply had no such
+> guard. Plan 80 gave it one — *a postfix step cannot cross a dedent* — which
+> is §12's owed row below, and all four shapes are pinned in
+> `crates/redox-parser/tests/parse.rs`. The fixture is retired: its verdict
+> was the defect.
+>
+> The three working spellings below remain good style and are no longer
+> required.
+
 Three spellings work, and the port uses all three: push inside the branches,
 parenthesise the statement, or `recv |> .name args` — which is what `RDX0115`'s
 own help text offers, and which reads better anyway when two consecutive lines
@@ -556,7 +575,7 @@ mutable state machine at its centre.
 
 | Owed | Why it is not here |
 |---|---|
-| A diagnostic for finding 2 — `.name` after a block-valued binding | `RDX0115` is correct about what it saw; the fix is a *parse* decision about whether a `Dedent` terminates a binding, which wants a row |
+| ~~A diagnostic for finding 2 — `.name` after a block-valued binding~~ | **Done, plan 80**, and as a parse fix rather than a diagnostic: a postfix step cannot cross a dedent. §10.3's correction has why the row's own framing — *"whether a `Dedent` terminates a binding"* — was the wrong question |
 | A spelling for finding 3 — a pattern as a lambda parameter | Grammar, `redox-fmt`, tree-sitter and five editor clients, by plan 52's four-readers rule |
 | Finding 4, the pipeline comment | A genuine defect, small, and in the lexer's continuation logic rather than here |
 | A diagnostic for finding 5 — prefix operator in argument position | Silent today. An ambiguity resolved without a word is the class `AGENTS.md` keeps a section about |

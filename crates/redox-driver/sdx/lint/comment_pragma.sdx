@@ -1,0 +1,52 @@
+import redox_diag::Lint
+import redox_lexer::{Trivia, TriviaKind}
+
+-- | The lint one trivium suppresses as a **deprecated comment** — plan 38
+-- | §1.3, deprecated by plan 53 leaf 5, parametrised by plan 54 leaf 3.
+-- |
+-- | ```text
+-- | port = raw.unwrap ()  -- redox: allow unwrap
+-- | n = next ()           -- redox: allow shadow
+-- | ```
+-- |
+-- | Still a suppression, and additionally an `RDX1002`. Plan 38 chose a
+-- | comment because it *"reaches nothing downstream"*; plan 53 §1.3 reverses
+-- | that on evidence plan 38 did not have — plan 48 found `redox fmt`
+-- | **deleting** comments from a `.sdx`, so a comment is unsafe *upstream*
+-- | even though it is harmless downstream, and a suppression a formatter can
+-- | remove is worse than no suppression. The attribute spelling is
+-- | [`attribute_pragma`](super::attribute_pragma::attribute_pragma).
+-- |
+-- | The `redox:` namespace is load-bearing, and
+-- | `an_unrelated_comment_does_not_suppress` asserts it: `allow unwrap` alone
+-- | would turn an ordinary English sentence into a pragma by accident.
+-- |
+-- | Only a **plain** comment. A doc comment describes the item for a reader of
+-- | the generated Rust, and giving it a second job would mean a sentence about
+-- | `unwrap` in prose could silence a warning.
+export(crate) comment_pragma : &Trivia -> Option<Lint>
+comment_pragma trivium = case trivium.kind of
+  TriviaKind::LineComment -> Lint::from_allow_comment (.trim trivium.text)
+  _ -> None
+
+-- | `#[cfg(test)]`: the trivium every test below classifies.
+#[cfg(test)]
+trivium : TriviaKind -> &str -> Trivia
+trivium kind text = Trivia { kind, text = .to_string text, span = (0, 0) }
+
+test "the pragma suppresses"
+  assert_eq! \-> comment_pragma (&trivium TriviaKind::LineComment "redox: allow unwrap") \-> Some Lint::Unwrap
+
+-- | The second lint reaches the deprecated spelling too, because an author
+-- | who learned the comment form has no reason to know it is per-lint.
+test "each lint is suppressed by its own name"
+  assert_eq! \-> comment_pragma (&trivium TriviaKind::LineComment "redox: allow shadow") \-> Some Lint::Shadow
+
+-- | The `redox:` namespace, which is why the pragma is not a sentence.
+test "an unrelated comment does not suppress"
+  assert_eq! \-> comment_pragma (&trivium TriviaKind::LineComment "allow unwrap here, it cannot fail") \-> None
+
+-- | A doc comment describes the item for a reader of the generated Rust;
+-- | giving it a second job would let prose about `unwrap` silence a warning.
+test "a doc comment does not suppress"
+  assert_eq! \-> comment_pragma (&trivium TriviaKind::DocComment "redox: allow unwrap") \-> None

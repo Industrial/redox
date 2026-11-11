@@ -20,10 +20,10 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 
 | Status | Rows |
 |---|---:|
-| `done` | 74 |
+| `done` | 75 |
 | `superseded` | 4 |
 | outstanding | 1 |
-| **total** | **79** |
+| **total** | **80** |
 
 `docs/04 - Redox Plan of Plans.md` is the register and the authority. **`done` is a register status, not a guarantee**: several rows record a later plan finding something they got wrong, which is why the register carries the correction and this table only counts.
 
@@ -37,16 +37,16 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 | `redox-bench` | 645 | 217 |
 | `redox-cli` | 1494 | 9397 |
 | `redox-diag` | 1954 | 0 |
-| `redox-driver` | 2981 | 0 |
+| `redox-driver` | 3250 | 0 |
 | `redox-emit` | 6203 | 4572 |
 | `redox-fmt` | 3037 | 1463 |
 | `redox-fuzz` | 142 | 292 |
 | `redox-lexer` | 3358 | 1196 |
 | `redox-lsp` | 1044 | 502 |
 | `redox-mcp` | 884 | 776 |
-| `redox-parser` | 8270 | 658 |
+| `redox-parser` | 8293 | 706 |
 | `redox-seed` | 298 | 676 |
-| **total** | **33857** | **19749** |
+| **total** | **34149** | **19797** |
 
 ---
 
@@ -56,7 +56,7 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 |---|---:|---|
 | `examples/*.sdx` | 37 | the CI-checked source of truth for what works |
 | `tests/golden/*.xrs` | 36 | the generated Rust, as exact text |
-| `crates/redox-cli/tests/ui/*.sdx` | 47 | the diagnostic a bad program gets |
+| `crates/redox-cli/tests/ui/*.sdx` | 46 | the diagnostic a bad program gets |
 | `tests/unreachable/*.sdx` | 7 | the gaps below, asserted to **still fail** |
 | `benchmarks/pairs/*.sdx` | 9 | generated and hand-written Rust, as identical IR |
 

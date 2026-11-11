@@ -1,0 +1,47 @@
+import std::path::PathBuf
+
+-- | What a [`super::compile_dir`] run produced.
+-- |
+-- | Plan 09 (`docs/14 - 09 - Cargo Integration.md`) leaf 2.
+-- |
+-- | `inputs` exists for Cargo. A build script must emit
+-- | `cargo::rerun-if-changed=<path>` for every file it read, or Cargo reruns it
+-- | only when the crate's own files change — so editing a `.sdx` would not
+-- | rebuild, and the user would be running stale code with no indication. That
+-- | is the silent-staleness failure doc 02 §6.6 warns of in option (b), and it
+-- | would reappear in option (a) without this.
+export data Compiled = Compiled {
+  -- | Every `.sdx` read, in the order compiled.
+  export inputs : Vec<PathBuf>,
+  -- | Every `.rs` written, positionally matching [`Compiled::inputs`].
+  export outputs : Vec<PathBuf>,
+}
+  deriving (Debug, Clone, Default, PartialEq, Eq)
+
+instance Compiled
+  -- | The `cargo::rerun-if-changed` lines a build script should print.
+  -- |
+  -- | Returned as lines rather than printed here: a library that writes to
+  -- | stdout is a library that cannot be tested, and Cargo's directives are
+  -- | stdout-sensitive.
+  export rerun_directives : &self -> Vec<String>
+  rerun_directives self =
+    self.inputs
+      |> .iter
+      |> .map (\p ->
+      shown = .display p
+      format! \-> "cargo::rerun-if-changed=#{shown}")
+      |> .collect
+
+  export is_empty : &self -> bool
+  is_empty self = .is_empty self.inputs
+
+test "names every input for cargo"
+  compiled = Compiled { inputs = vec! \-> PathBuf::from "src/a.sdx" \-> PathBuf::from "src/b.sdx", outputs = vec! \-> PathBuf::from "out/a.rs" \-> PathBuf::from "out/b.rs" }
+  assert_eq! \-> .rerun_directives compiled \-> vec! \-> "cargo::rerun-if-changed=src/a.sdx" \-> "cargo::rerun-if-changed=src/b.sdx"
+
+test "an empty run asks for no reruns"
+  empty = Compiled::default ()
+  directives = .rerun_directives empty
+  assert! \-> .is_empty directives
+  assert! \-> .is_empty empty

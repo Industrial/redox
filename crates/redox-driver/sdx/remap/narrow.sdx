@@ -1,0 +1,66 @@
+import crate::remap::char_offset::char_offset
+import redox_diag::Span
+
+-- | Narrow `span` to the single character at `line`:`col`, if that position
+-- | falls inside it.
+-- |
+-- | Plan 07 (`docs/12 - 07 - Rustc Remapping.md`) §2.1 — the decision this
+-- | function exists to make.
+-- |
+-- | Inside the span, rustc's column survives the shift intact and the caret can
+-- | be precise: `a + "x"` is emitted as `a + "x"`, so the only difference is
+-- | indentation. Outside it, the emitter restructured the line —
+-- | `print add("x", 2)` became `println!("{}", add("x", 2));` — and the shifted
+-- | column means nothing. Then the whole span is returned, and the reader sees
+-- | the statement underlined.
+-- |
+-- | The rejected alternative was to clamp the column into the line. A caret that
+-- | is plausible and wrong is worse than one that is honestly coarse, because
+-- | the reader has no way to tell which they are looking at.
+export(crate) narrow : Span -> &str -> usize -> usize -> Span
+narrow span source line col =
+  guard char_offset source line col is Some offset else
+    return span
+  if offset < span.0 || offset >= span.1
+    return span
+  -- `source[offset .. n]` with `n` bound first, where the Rust wrote
+  -- `source[offset..]`. An **open range has no spelling**.
+  n = .len source
+  width = .map_or 1 char::len_utf8 (.next (.chars source[offset .. n]))
+  (offset, offset + width)
+
+-- | `add = …\n  a + "x"\n` — the statement spans bytes 33..40.
+#[cfg(test)]
+const SRC : &str = "add = (a: i32, b: i32): i32 ->\n  a + \"x\"\n"
+
+#[cfg(test)]
+const SPAN : (usize, usize) = (33, 40)
+
+test "narrows to one character inside the span"
+  got = narrow SPAN SRC 2 5
+  assert_eq! \-> &SRC[got.0 .. got.1] \-> "+"
+
+test "keeps the span when the column is past the line"
+  assert_eq! \-> narrow SPAN SRC 2 99 \-> SPAN
+
+-- | A position on another line is outside the span, even though it exists.
+test "keeps the span when the position is elsewhere"
+  assert_eq! \-> narrow SPAN SRC 1 1 \-> SPAN
+
+test "keeps the span when the line does not exist"
+  assert_eq! \-> narrow SPAN SRC 99 1 \-> SPAN
+
+-- | The narrowed span must cover a whole character, not a byte of one.
+test "narrows to a whole multibyte character"
+  -- `x : ()\n` is 7 bytes and `x =\n` is 4, so the body's two spaces are
+  -- at 11 and 12 and `é` — two bytes — is 13..15, on line 3 column 3.
+  --
+  -- Every number in those two lines moved by one when plan 52 made the
+  -- type marker `:` rather than `::`, which is the hazard of deriving an
+  -- offset in a comment: the arithmetic is only checked by the assertion
+  -- two lines down, and that assertion is the one that caught it.
+  src = "x : ()\nx =\n  é\n"
+  span = (13, 15)
+  assert_eq! \-> &src[span.0 .. span.1] \-> "é" \-> "the premise of this test"
+  got = narrow span src 3 3
+  assert_eq! \-> &src[got.0 .. got.1] \-> "é"

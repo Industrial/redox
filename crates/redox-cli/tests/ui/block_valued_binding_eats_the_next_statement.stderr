@@ -1,7 +1,0 @@
-error[RDX0115]: method-call syntax is retired
-  --> block_valued_binding_eats_the_next_statement.sdx:24:10
-   |
-24 |   pick = if flag
-   |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  = help: a method is a function whose last argument is its receiver, so write `.push args recv` or `recv |> .push args`. `.` is field access and nothing else (plan 57 §1.1)
-

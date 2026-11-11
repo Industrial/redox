@@ -1,0 +1,145 @@
+import crate::lint::comment_pragma_message::comment_pragma_message
+import crate::lint::comment_pragma_sites::comment_pragma_sites
+import crate::lint::shadow_help::SHADOW_HELP
+import crate::lint::shadow_message::shadow_message
+import crate::lint::shadow_sites::shadow_sites
+import crate::lint::unwrap_call_sites::unwrap_call_sites
+import crate::lint::unwrap_message::UNWRAP_MESSAGE
+import redox_ast::Program
+import redox_diag::DiagnosticCode
+import redox_diag::{Code, Diagnostic, Severity}
+import std::path::Path
+
+-- | Whether one trivium suppresses a lint, in either spelling.
+export(crate) module allow_pragma
+-- | The lint one trivium suppresses as an attribute.
+export(crate) module attribute_pragma
+-- | The one name a binding contributes to `RDX1003`, if it contributes one.
+export(crate) module binding_name
+-- | The lint one trivium suppresses as a deprecated comment.
+export(crate) module comment_pragma
+-- | The message `RDX1002` carries.
+export(crate) module comment_pragma_message
+-- | Every comment-form suppression pragma in a source file, for `RDX1002`.
+export(crate) module comment_pragma_sites
+-- | The 1-based line a byte offset falls on.
+export(crate) module line_of
+-- | Collects the byte ranges one lint is suppressed over.
+export(crate) module pragma_walk
+-- | What a lint wants to see as the walk descends a program.
+export(crate) module program_walk
+-- | The help `RDX1003` carries.
+export(crate) module shadow_help
+-- | The message `RDX1003` carries.
+export(crate) module shadow_message
+-- | Every unsuppressed shadowing `=` in a program — `RDX1003`.
+export(crate) module shadow_sites
+-- | Collects every bare `=` that rebinds a name bound earlier in the same statement list.
+export(crate) module shadow_walk
+-- | The byte ranges a lint is suppressed over.
+export(crate) module suppressed_spans
+-- | Every unsuppressed `unwrap`/`expect` call site in a source file.
+export(crate) module unwrap_call_sites
+-- | The message `RDX1001` carries.
+export(crate) module unwrap_message
+-- | Walk one item.
+export(crate) module walk_item
+-- | Walk one class or instance member.
+export(crate) module walk_member
+-- | Walk a whole program.
+export(crate) module walk_program
+-- | Walk a statement run and the blocks its statements own.
+export(crate) module walk_stmts
+
+-- | Every lint, as warnings — doc 03 §12.7, plan 38, plan 53 leaves 4–5 and
+-- | plan 54 leaf 3.
+-- |
+-- | Three lints. `RDX1001` is `unwrap` discouragement, which opened the
+-- | `RDX1000`+ band; `RDX1002` is its suppression pragma written as a comment,
+-- | which plan 53 deprecates in favour of `#[redox::allow(unwrap)]`; `RDX1003`
+-- | is a bare `=` rebinding a name already bound in the same statement list,
+-- | which plan 54 §1.1 measured as the one defect in the language that nothing
+-- | caught. The second one's shape is the first one's, as plan 38 predicted it
+-- | would be.
+-- |
+-- | `RDX1003` is the first lint that is **not** lexical, and the first that
+-- | cannot be: it is two bindings *in one statement list*, so the list is the
+-- | unit and a token scan has no notion of one. It is also the lint that made
+-- | the suppression pragma take a lint name — see
+-- | [`allow_pragma`](allow_pragma::allow_pragma).
+-- |
+-- | # Why the driver and not the parser
+-- |
+-- | Plan 30's `check_callback_tails` is a whole-program pass in the **parser**,
+-- | and it produces `ParseError`s — which become hard errors, because
+-- | `ParseFailure` has no notion of a warning. A lint cannot go that way.
+-- |
+-- | `Diagnostic` is the type that carries a [`Severity`], and the driver is
+-- | where `Diagnostic`s are built (`diagnose`). So a lint runs here, over an
+-- | AST that already parsed, and returns warnings the caller renders and does
+-- | not fail on.
+-- |
+-- | # Source **and** the program, where the program is optional
+-- |
+-- | Both lints are detected lexically, which is why the source comes first and
+-- | why plan 38 took nothing else. What needs the tree is *where a suppression
+-- | reaches*: plan 53's attribute can only sit on the line above the construct
+-- | it applies to, so the pragma's own line is not the line it is about, and a
+-- | declaration-level pragma covers a range. `suppressed_spans` reads those
+-- | ranges off the AST's byte spans.
+-- |
+-- | `None` is for the caller that has no tree to give. `redox-lsp` lints a
+-- | document that does not parse on purpose — a lint is still an answer about
+-- | the text while the author is mid-edit — and the degradation is the right
+-- | way round: a suppression that cannot be computed leaves the warning
+-- | showing.
+export lint : &Path -> &str -> Option<&Program> -> Vec<Diagnostic>
+lint path source program =
+  -- `shown`, not a rebinding of `path`: `RDX1003` reports a shadow.
+  shown = .to_string (.display path)
+  -- No annotations, because a lambda parameter is a bare name (doc 69 §10.4),
+  -- so one inferred type per parameter has to serve all three call sites:
+  -- `message` and `help` are `String` where the Rust took `&str`. Both were
+  -- already allocated by `to_string` inside, so only the place changed.
+  --
+  -- And the `Code`-to-`DiagnosticCode` conversion moved **out** of the
+  -- closure for the same reason: `code.into()` on an unannotated parameter is
+  -- `E0282`, because a closure body is checked before any call site is seen.
+  -- Naming the target at each call site resolves `code` from the struct field
+  -- instead, which is the general answer whenever an annotation would have
+  -- carried the inference.
+  warning = \code message span help -> Diagnostic { code, severity = Severity::Warning, message, span, help = Some help, path = .clone shown, source = .to_string source }
+
+  unwraps = unwrap_call_sites source program
+    |> .into_iter
+    |> .map (\span -> warning (DiagnosticCode::from Code::UnwrapUsed) (.to_string UNWRAP_MESSAGE) span (.to_string "if a panic is intended here, say so on the line above: `\#[redox::allow(unwrap)]`"))
+
+  pragmas = comment_pragma_sites source
+    |> .into_iter
+    |> .map (\pair ->
+    span = pair.0
+    named = pair.1
+    code_text = .text (.code named)
+    help = format! \-> "the comment still suppresses `#{code_text}` for this milestone; the attribute is what plan 64 keeps"
+    warning (DiagnosticCode::from Code::CommentAllowPragma) (comment_pragma_message named) span help)
+
+  mut found : Vec<Diagnostic> = .collect (.chain pragmas unwraps)
+
+  -- `RDX1003` is the one lint that needs the tree rather than the text, so it
+  -- is the one with nothing to say when there is no tree — which is the right
+  -- degradation: a language server lints a document mid-edit, and a shadow
+  -- reported from a half-parsed statement list would be a guess.
+  if program is Some tree
+    shadows = shadow_sites tree
+      |> .into_iter
+      |> .map (\pair ->
+      span = pair.0
+      name = pair.1
+      warning (DiagnosticCode::from Code::ShadowedBinding) (shadow_message (&name)) span (.to_string SHADOW_HELP))
+    .extend shadows found
+
+  -- One file's warnings are rendered in source order whichever lint found
+  -- them, because a blessed `.stderr` is compared as exact text and two lints
+  -- concatenated are not sorted.
+  .sort_by_key (\d -> d.span) found
+  found

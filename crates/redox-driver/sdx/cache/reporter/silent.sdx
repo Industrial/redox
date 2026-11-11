@@ -1,0 +1,18 @@
+import crate::cache::reporter::CacheReporter
+
+-- | Reports nothing.
+-- |
+-- | Plan 10 (`docs/15 - 10 - Incremental Cache.md`) leaf 4. The default for
+-- | [`crate::compile_dir`], which plan 09 §1.1 promised would keep its
+-- | signature when the cache arrived — so the cache had to have a way of
+-- | saying nothing, and this is it. A caller that wants the events uses
+-- | [`crate::compile_dir_with`].
+export data Silent = Silent
+
+instance CacheReporter Silent
+  report : &self -> &str -> bool -> ()
+  report self _label _hit = ()
+
+test "accepts everything and says nothing"
+  .report "a.sdx" true Silent
+  .report "a.sdx" false Silent

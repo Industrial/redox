@@ -1,0 +1,50 @@
+import crate::cache::fingerprint::Fingerprint
+import crate::cache::reporter::CacheReporter
+import crate::cache::store::Store
+import crate::compile_dir::compile_file::compile_file
+import crate::compile_dir::compiled::Compiled
+import crate::compile_dir::sdx_in::sdx_in
+import redox_diag::Diagnostic
+import std::path::Path
+
+-- | [`crate::compile_dir`], reporting each file's cache outcome.
+-- |
+-- | Plan 10 (`docs/15 - 10 - Incremental Cache.md`) leaf 5. Lives at
+-- | `compile_dir/with.rs`, where doc 06 §2.3's parent-plus-stem rule makes
+-- | `compile_dir_with` the correct name rather than merely a permitted one.
+-- |
+-- | The reporter exists
+-- | so a build script can print `[cache] greeting.sdx HIT` to **stderr** and a
+-- | test can collect the same events into a `Vec`. Doc 02 §7.1's phrasing is
+-- | that the cache has *"no opinion on stdout"*, and for a build script that is
+-- | not a style preference: stdout is Cargo's directive channel, so a cache
+-- | that printed there would corrupt the build it was speeding up.
+-- |
+-- | The cache is consulted per file and keyed on the source bytes plus the
+-- | compiler's own fingerprint (plan 10 §1.1). A miss calls `compile_file`
+-- | verbatim — the rule the whole design rests on — so this function is correct
+-- | whether or not anything is cached.
+export compile_dir_with : &Path -> &Path -> &dyn CacheReporter -> Result<Compiled, Vec<Diagnostic>>
+compile_dir_with src out reporter =
+  store = Store::new out
+  fingerprint = Fingerprint::current ()
+
+  mut compiled = Compiled::default ()
+  mut diagnostics = Vec::new ()
+
+  for source in sdx_in src
+    label = .map_or_else String::new (\n -> .to_string (.to_string_lossy n)) (.file_name source)
+
+    case compile_file (&source) out (&store) (&fingerprint) of
+      Ok outcome ->
+        .report (&label) outcome.was_cached reporter
+        .push source compiled.inputs
+        .push outcome.written compiled.outputs
+      Err reported ->
+        .report (&label) false reporter
+        .extend reported diagnostics
+
+  if .is_empty diagnostics
+    Ok compiled
+  else
+    Err diagnostics

@@ -1,0 +1,64 @@
+import crate::cache::fingerprint::Fingerprint
+
+-- | The cache key for one source file.
+-- |
+-- | Plan 10 (`docs/15 - 10 - Incremental Cache.md`) leaf 1. `blake3::Hash` is
+-- | returned bare, which doc 02 §7.1 names as one of the two details worth
+-- | stealing from Emerald: it is already `Copy`, `Eq`, `Hash` and
+-- | `Display`-as-hex, so it serves as a map key and a filename with no wrapper
+-- | type and no boilerplate.
+-- |
+-- | The key covers the **source bytes and the compiler's fingerprint**, and
+-- | nothing else. Not the file's path: two files with identical contents should
+-- | share a result, and a file that moves should not lose one. Not the output
+-- | directory: the same source compiles to the same Rust wherever it is
+-- | written. Not the mtime — content, not timestamps, which is what makes this
+-- | a *content*-addressed cache and immune to a checkout that rewrites
+-- | modification times.
+export(crate) cache_key : &str -> &Fingerprint -> blake3::Hash
+cache_key source fingerprint =
+  mut hasher = blake3::Hasher::new ()
+  -- A length prefix keeps the two fields from running together: without it,
+  -- sources differing only in where the fingerprint appears to begin could
+  -- collide. Cheap, and the alternative is a subtle one.
+  --
+  -- `u64::try_from` plus `unwrap_or`, where the Rust wrote `as u64`: an `as`
+  -- cast is `UNREACHABLE` in `docs/GRAMMAR.md`, and this is the crate's one
+  -- entry in `docs/CONFORMANCE.md`. The fallback cannot mislead — a length
+  -- that does not fit a `u64` cannot exist, and `u64::MAX` would still be a
+  -- distinct prefix if one did.
+  length = .unwrap_or u64::MAX (u64::try_from (.len source))
+  .update (&.to_le_bytes length) hasher
+  .update (.as_bytes source) hasher
+  .update (.as_bytes fingerprint) hasher
+  .finalize hasher
+
+-- | `#[cfg(test)]`: the compiler fingerprint every test below keys against.
+#[cfg(test)]
+fp : Fingerprint
+fp = Fingerprint::r#of b"compiler"
+
+test "the same source and compiler give the same key"
+  assert_eq! \-> cache_key "main : ()\nmain =\n" (&fp ()) \-> cache_key "main : ()\nmain =\n" (&fp ())
+
+-- | Criterion 2's mechanism: one byte changes the key.
+test "one changed byte changes the key"
+  assert_ne! \-> cache_key "print 1\n" (&fp ()) \-> cache_key "print 2\n" (&fp ())
+
+-- | Criterion 3's mechanism: a new compiler invalidates everything.
+test "a different compiler changes the key"
+  a = cache_key "main : ()\nmain =\n" (&Fingerprint::r#of b"old")
+  b = cache_key "main : ()\nmain =\n" (&Fingerprint::r#of b"new")
+  assert_ne! \-> a \-> b
+
+-- | The length prefix exists to prevent this: two inputs whose concatenations
+-- | would be identical must still key differently.
+test "the boundary between fields is unambiguous"
+  assert_ne! \-> cache_key "ab" (&Fingerprint::r#of b"c") \-> cache_key "a" (&Fingerprint::r#of b"bc")
+
+-- | A key is usable as a filename, which is what the bare `blake3::Hash`
+-- | buys and what the store relies on.
+test "renders as hex"
+  hex = .to_string (cache_key "x" (&fp ()))
+  assert_eq! \-> .len hex \-> 64
+  assert! \-> .all (\c -> .is_ascii_hexdigit c) (.chars hex)

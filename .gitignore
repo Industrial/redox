@@ -115,6 +115,7 @@ crates/redox-bench/src/
 crates/redox-fuzz/src/
 crates/redox-lsp/src/
 crates/redox-mcp/src/
+crates/redox-driver/src/
 crates/redox-cli/src/
 
 # Plan 49, amended by plan 71. `editors/vscode/` is a VSCode extension, so an

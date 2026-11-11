@@ -19,3 +19,7 @@ redox-emit = { path = "../redox-emit" }
 # scans tokens rather than walking an AST that could silently miss a variant.
 redox-lexer = { path = "../redox-lexer" }
 redox-parser = { path = "../redox-parser" }
+
+# The five surface-fact allows — see the root manifest.
+[lints]
+workspace = true

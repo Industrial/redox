@@ -1,0 +1,13 @@
+-- | The scratch-directory counter.
+-- |
+-- | Its own file because doc 06 §1 is one construct per file, and the Rust
+-- | declared it **inside** `ScratchDir::new` — a function-local `static`,
+-- | which Redox has no spelling for: doc 03 §13.4's `const`/`static` is
+-- | module-scope. A function-local `static` already has static lifetime, so
+-- | hoisting changes nothing but who can see it — and `export(crate)` it must
+-- | be, because the only thing that reads it now lives one file up.
+-- |
+-- | The counter exists so two directories made in the same process, for the
+-- | same tag, in the same nanosecond cannot collide — which
+-- | `two_directories_do_not_collide` asserts.
+export(crate) static NEXT : std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new 0

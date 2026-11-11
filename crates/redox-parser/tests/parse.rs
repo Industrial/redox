@@ -390,3 +390,51 @@ fn an_adjacent_paren_is_still_the_retired_method_call() {
     "the retirement diagnostic, not a generic one: {errs:?}"
   );
 }
+
+/// A postfix step does not cross a dedent — plan 80, the row doc 69 §10.3
+/// asked for.
+///
+/// Doc 69 found that `pick = if … else …` followed by `.push pick out` read as
+/// `(if …).push(…)` and was refused as `RDX0115`, recorded it as a surface
+/// decision, and deferred the parse question: *"whether a `Dedent` terminates
+/// a binding, which wants a row"*. Its pinning contrast — *"a block in
+/// statement position never reaches `postfix`"* — is true of `if` and **false
+/// of `case`**, which is the same kind of counterexample §10.3 used to refute
+/// its own second statement. So the rule was never binding-versus-statement:
+/// it is wherever the expression path runs, and `application` has guarded its
+/// argument loop on `just_dedented` all along.
+///
+/// Four shapes, because two of them were the ones that misled doc 69.
+#[test]
+fn a_dot_statement_after_a_block_is_its_own_statement() {
+  for (label, src) in [
+    (
+      "if, bound",
+      "main : ()\nmain =\n  mut out = String::new ()\n  pick = if true\n    'a'\n  else\n    'b'\n  .push pick (&mut out)\n  ()\n",
+    ),
+    (
+      "if, statement",
+      "main : ()\nmain =\n  mut out = String::new ()\n  if true\n    out := String::new ()\n  .push 'a' (&mut out)\n  ()\n",
+    ),
+    (
+      "case, bound",
+      "main : ()\nmain =\n  mut out = String::new ()\n  pick = case true of\n    true -> 'a'\n    false -> 'b'\n  .push pick (&mut out)\n  ()\n",
+    ),
+    (
+      "case, statement",
+      "main : ()\nmain =\n  mut out = String::new ()\n  case true of\n    true -> ()\n    false -> ()\n  .push 'a' (&mut out)\n  ()\n",
+    ),
+  ] {
+    let p = prog(src);
+    let Item::Fn(f) = &p.items[0] else {
+      panic!("expected a function item")
+    };
+    // Four statements: the `mut`, the block, the `.push`, and §1.6's `()`.
+    assert_eq!(stmts(f).len(), 4, "{label}: {:?}", stmts(f));
+    assert!(
+      matches!(&stmts(f)[2].expr, Expr::Call { .. }),
+      "{label}: the `.push` is its own call, not a postfix on the block: {:?}",
+      stmts(f)[2].expr
+    );
+  }
+}

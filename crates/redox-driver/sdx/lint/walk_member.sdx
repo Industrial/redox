@@ -1,0 +1,15 @@
+import crate::lint::program_walk::ProgramWalk
+import crate::lint::walk_item::walk_item
+import redox_ast::{ClassMember, Item}
+
+-- | Walk one class or instance member — plan 53 leaf 4, shared by plan 54
+-- | leaf 3.
+-- |
+-- | A method **is** a function, carrying its own `leading` trivia and its own
+-- | span, so it is walked as one. An associated type and an associated const
+-- | hold no statements and no trivia of their own.
+export(crate) walk_member : &ClassMember -> &mut dyn ProgramWalk -> ()
+walk_member member walk =
+  if member is ClassMember::Method decl
+    walk_item (&Item::Fn (.clone decl)) walk
+  ()

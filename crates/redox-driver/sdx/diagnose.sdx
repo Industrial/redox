@@ -1,0 +1,65 @@
+import redox_diag::Diagnostic
+import redox_parser::ParseFailure
+import std::path::Path
+
+-- | A diagnostic for something that failed outside the source text.
+export(crate) module io_diagnostic
+
+-- | Turn a [`ParseFailure`] into the diagnostics that represent it.
+-- |
+-- | Plan 05 (`docs/10 - 05 - Diagnostics.md`) leaf 4 wrote this in the CLI, on
+-- | the reasoning that `redox-diag` may not mention `redox-parser` — true, and
+-- | the CLI was the only caller. Plan 09 gave it a second caller, `compile_dir`,
+-- | which a build script uses and which must not depend on the CLI (plan 09
+-- | §2.1). So it moved **down** to `redox-driver`, which sits above both stages
+-- | and below the CLI.
+-- |
+-- | That is doc 06 §3 rule 6 applied before the duplicate existed rather than
+-- | after: the alternative was two copies of the same conversion, and the copies
+-- | would have drifted the first time a stage error gained a field.
+-- |
+-- | Every stage error already carries its own code and span, so this function
+-- | decides nothing — it only attaches the file name and the source text that
+-- | rendering needs, and copies the rest across.
+export diagnose : &Path -> &str -> &ParseFailure -> Vec<Diagnostic>
+diagnose path source failure =
+  -- `shown`, not a rebinding of `path`: `RDX1003` reports a shadow.
+  shown = .to_string (.display path)
+  case failure of
+    ParseFailure::Lex e ->
+      vec! \-> Diagnostic { code = .into e.code, severity = redox_diag::Severity::Error, message = .clone e.message, span = e.span, help = .clone e.help, path = shown, source = .to_string source }
+    ParseFailure::Parse problems ->
+      problems
+        |> .iter
+        |> .map (\e -> Diagnostic { code = .into e.code, severity = redox_diag::Severity::Error, message = .clone e.message, span = e.span, help = .clone e.help, path = .clone shown, source = .to_string source })
+        |> .collect
+
+test "carries a lex errors code and help across"
+  source = "main : ()\nmain =\n\tprint 1\n"
+  failure = .expect_err "a tab is an error" (redox_parser::parse_source source)
+  diagnostics = diagnose (Path::new "a.sdx") source (&failure)
+  assert_eq! \-> .len diagnostics \-> 1
+  assert_eq! \-> .text diagnostics[0].code \-> "RDX0001"
+  assert_eq! \-> diagnostics[0].path \-> "a.sdx"
+  assert! \-> .is_some diagnostics[0].help \-> "the lexer's help survives"
+
+-- | Recovered parse errors arrive as a batch and all of them are reported —
+-- | one diagnostic per error, which is what plan 05 criterion 5 asserts end
+-- | to end.
+test "reports every recovered parse error"
+  -- Both errors are bounded to their own statement, which is what keeps
+  -- them *independent*: an error that runs off the end of its line lets
+  -- statement recovery swallow the following signature line, and the two
+  -- collapse into one. That is true of doc 18's grammar and not of doc
+  -- 03's, because a signature line is now something recovery can land in
+  -- the middle of.
+  --
+  -- `print (1 +)` was the first of them until doc 18 §4 made it a **left
+  -- section**, which parses. A statement that begins with a binary
+  -- operator has nowhere left to go, and ends at its own line break.
+  source = "a : ()\na =\n  + 1\n\nb : ()\nb =\n  * \n"
+  failure = .expect_err "should fail" (redox_parser::parse_source source)
+  diagnostics = diagnose (Path::new "a.sdx") source (&failure)
+  count = .len diagnostics
+  assert! \-> count >= 2 \-> "expected a diagnostic per error, got #{count}"
+  assert! \-> .all (\d -> d.source == source) (.iter diagnostics)

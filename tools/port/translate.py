@@ -32,6 +32,41 @@ VIS = {
 }
 
 
+# **Keyword collisions get `r#`, rather than a parse error.** Owed since row 75
+# and hit seven times by row 80: `data` (a fuzz parameter), `rust` (a `Pair`
+# field, then a `Cached` field), `class` and `data` again (`redox-lsp`), and
+# `with` (a `redox-driver` module). Each one arrived as `RDX0103` naming a line
+# whose author chose the name freely in Rust, and the fix was always the same
+# three characters.
+#
+# **The list is read out of the lexer, not retyped**, because a second copy of
+# 57 keywords is a second copy free to drift.
+#
+# **Rust's own reserved words are in the union too.** Row 78 found `final`
+# running the other way — reserved in *Rust* and not in Redox — so a binding
+# called `final` parses and emits and then fails in rustc against the generated
+# file. What a name must avoid is the union of both sets.
+#
+# `self`, `Self`, `crate` and `super` are excluded: `r#self` is not a legal raw
+# identifier, and a Rust field or module cannot be called one of them anyway.
+_KW_SDX = ROOT + 'crates/redox-lexer/sdx/token/keyword.sdx'
+RUST_RESERVED = (
+    'final', 'become', 'priv', 'typeof', 'unsized', 'virtual', 'abstract',
+    'override', 'box', 'macro', 'yield', 'gen',
+)
+NEVER_RAW = ('self', 'Self', 'crate', 'super')
+KEYWORDS = (
+    set(re.findall(r'"([a-zA-Z_][a-zA-Z_0-9]*)" -> Some ',
+                   io.open(_KW_SDX, encoding='utf-8').read()))
+    | set(RUST_RESERVED)
+) - set(NEVER_RAW)
+
+
+def raw_ident(name):
+    """`name`, prefixed with `r#` if it collides with either keyword set."""
+    return 'r#' + name if name in KEYWORDS else name
+
+
 def comment(line):
     """A Rust comment line as its Redox spelling, or `None`."""
     t = line.strip()
@@ -152,7 +187,7 @@ def translate(path):
             v, _ = vis_of(line)
             out.extend(pending)
             pending = []
-            out.append('%smodule %s' % (v, m.group(2)))
+            out.append('%smodule %s' % (v, raw_ident(m.group(2))))
             i += 1
             continue
 
@@ -330,7 +365,7 @@ def fields(lines, i, out):
         v, _ = vis_of(line)
         out.extend('  ' + p for p in pending)
         pending = []
-        out.append('  %s%s : %s,' % (v, m.group(2), m.group(3)))
+        out.append('  %s%s : %s,' % (v, raw_ident(m.group(2)), m.group(3)))
         i += 1
     raise Fail('unterminated struct')
 
@@ -429,7 +464,7 @@ def record_variant(lines, i, out):
         # **No visibility**: `pub` on an enum variant's field is `E0449`,
         # which rustc reports against the `.sdx` line. Dropped rather than
         # translated, because there is nothing to translate it to.
-        out.append('    %s : %s,' % (m.group(2), m.group(3)))
+        out.append('    %s : %s,' % (raw_ident(m.group(2)), m.group(3)))
         i += 1
     raise Fail('unterminated record variant')
 

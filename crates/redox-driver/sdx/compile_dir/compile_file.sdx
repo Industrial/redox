@@ -1,0 +1,51 @@
+import crate::cache::cache_key::cache_key
+import crate::cache::fingerprint::Fingerprint
+import crate::cache::store::Store
+import crate::cache::store::cached::Cached
+import crate::compile_dir::compile_file::outcome::Outcome
+import crate::compile_dir::compile_file::write_outputs::write_outputs
+import crate::diagnose::diagnose
+import crate::diagnose::io_diagnostic::io_diagnostic
+import redox_diag::Diagnostic
+import std::path::Path
+
+-- | What compiling one file produced.
+export(crate) module outcome
+-- | Write the generated Rust and its map, whatever their provenance.
+export(crate) module write_outputs
+
+-- | Compile one `.sdx` into `<out>/<stem>.rs`, with its map beside it.
+-- |
+-- | Plan 09 (`docs/14 - 09 - Cargo Integration.md`) leaf 1; plan 10 added the
+-- | cache. Returns what was written and whether the cache supplied it.
+-- |
+-- | `.rs` rather than `.xrs` because that is the extension rustc accepts; the
+-- | `.xrs` stays the canonical human-facing artifact `redox build` writes for
+-- | reading (doc 02 §6.6). The map sidecar goes beside the generated file under
+-- | the same whole-name-plus-`.map` rule the CLI uses, so plan 07's remapping
+-- | finds it the same way through a cargo build.
+-- |
+-- | **The cache changes only whether parse and emit run**, never what is
+-- | written. A hit writes the same bytes a miss would — that is plan 10 §1's
+-- | rule, and the reason the hit path still writes the files rather than
+-- | assuming last run's outputs survive: `OUT_DIR` persists, but so does a
+-- | half-finished build, and the cheap write makes the question moot.
+export(crate) compile_file : &Path -> &Path -> &Store -> &Fingerprint -> Result<Outcome, Vec<Diagnostic>>
+compile_file source out store fingerprint =
+  path = .to_string (.display source)
+  text = (.map_err (\e -> vec! \-> io_diagnostic (&path) (format! \-> "cannot read #{path}: #{e}")) (std::fs::read_to_string source))?
+
+  key = cache_key (&text) fingerprint
+  if .get (&key) store is Some hit
+    cached = (write_outputs source out (&path) (&hit))?
+    return Ok (Outcome { written = cached, was_cached = true })
+
+  program = (.map_err (\failure -> diagnose source (&text) (&failure)) (redox_parser::parse_source (&text)))?
+  -- `emitted.0` is the Rust and `emitted.1` the map, where the Rust
+  -- destructured the pair. `r#rust` because `rust` is a Redox keyword.
+  emitted = redox_emit::emit_with_map (&program) (&text) (&path)
+  fresh = Cached { r#rust = emitted.0, map = redox_diag::render_map (&emitted.1) }
+
+  written = (write_outputs source out (&path) (&fresh))?
+  .put (&key) (&fresh) store
+  Ok (Outcome { written, was_cached = false })

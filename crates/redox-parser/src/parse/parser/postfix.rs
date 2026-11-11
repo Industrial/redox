@@ -14,6 +14,29 @@ use redox_lexer::TokenKind;
 /// expressing "no step applied" without a sentinel.
 #[allow(clippy::result_large_err)]
 pub(crate) fn postfix(p: &mut Parser, lhs: Expr) -> Result<Result<Expr, Expr>, ParseError> {
+  // **A postfix step cannot cross a dedent**, which is the same rule
+  // `application` states for an argument and for the same reason: an
+  // expression with layout of its own — doc 18 §2.3's `case … of`, an `if`,
+  // a `guard` ladder — ends on a `Dedent`, and whatever follows is on a later
+  // line and belongs to the next statement.
+  //
+  // Without this, a `case` statement followed by a line opening with `.` —
+  // which is how every method-call statement in Redox opens — read as a field
+  // access on the `case`, and `application` then refused it as `RDX0115`:
+  //
+  //     case hit of
+  //       true -> ()
+  //       false -> ()
+  //     .push_str "z" (&mut out)
+  //
+  // `application` could not help, because it guards its *argument* loop and
+  // this runs inside `atom`, below it. Plan 80 found it on the first
+  // `redox-driver` body that needed an `if` in expression position; the `if`
+  // *statement* form happened to be safe, which is why nine ports went by.
+  if p.just_dedented() {
+    return Ok(Err(lhs));
+  }
+
   let start = lhs.span().0;
 
   // **No paren-call step.** Doc 18 §2.1 makes parentheses grouping only:
@@ -111,7 +134,7 @@ pub(crate) fn postfix(p: &mut Parser, lhs: Expr) -> Result<Result<Expr, Expr>, P
     // becomes the `Expr::Field` below, and `application` refuses a field as
     // the head of an application. The two halves now split on whitespace,
     // which is exactly how the two spellings differ.
-    if p.check(&TokenKind::LParen) && p.peek_span().0 == name.span.1 {
+    if p.check(&TokenKind::LParen) && !p.peek().ws_before {
       return Err(method_call_syntax(&name.text, (start, name.span.1)));
     }
     return Ok(Ok(Expr::Field {

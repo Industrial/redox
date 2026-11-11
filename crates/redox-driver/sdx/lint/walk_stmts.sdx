@@ -1,0 +1,49 @@
+import crate::lint::program_walk::ProgramWalk
+import redox_ast::Stmt
+
+-- | Walk a statement run and the blocks its statements own — plan 53 leaf 4,
+-- | shared by plan 54 leaf 3.
+-- |
+-- | The run is offered first, then each block a statement owns, so every list
+-- | in the program reaches [`ProgramWalk::stmts`] exactly once.
+-- |
+-- | Which blocks those are is [`redox_ast::Expr::statement_blocks`], whose own
+-- | match is **exhaustive with no wildcard**: a new form that owns a statement
+-- | block has to be considered there rather than quietly excluded here. Plan
+-- | 55 leaf 1 moved the question to the node, because collapsing `StmtKind`
+-- | into `Expr` would otherwise have left this crate matching forty-six
+-- | variants to name five.
+-- |
+-- | # One list per call, which is `RDX1003`'s whole definition
+-- |
+-- | A nested block is a **separate** call with a separate list, so the shadow
+-- | lint cannot see across a block boundary even by accident — plan 54
+-- | criterion 5, and the boundary decision 4 says must not drift. Nothing here
+-- | hands a consumer an outer list and an inner one together.
+-- |
+-- | # Where this stops, and why that is safe
+-- |
+-- | Not into the blocks an **expression** owns — `do`, `async`, `unsafe`,
+-- | `try` and a lambda body. Reaching those needs an expression walk, which is
+-- | the thing
+-- | [`unwrap_call_sites`](super::unwrap_call_sites::unwrap_call_sites) refuses,
+-- | and the refusal is affordable here in a way it is not there: a statement
+-- | this walk does not reach keeps its warning, so the author sees `RDX1001`
+-- | beside the pragma they wrote and the gap reports itself. Detection going
+-- | wrong the same way would print nothing and look like a clean program.
+-- |
+-- | The declaration-level pragma covers these cases in the meantime: an
+-- | attribute on the enclosing function suppresses its whole span, expression
+-- | blocks included.
+-- |
+-- | For `RDX1003` the stop costs nothing at all. An expression block is a
+-- | separate statement list, which criterion 5 requires the lint to be silent
+-- | about anyway — `examples/control.sdx`'s `shadowed` is exactly that shape.
+export(crate) walk_stmts : &[Stmt] -> &mut dyn ProgramWalk -> ()
+walk_stmts stmts walk =
+  .stmts stmts walk
+
+  for stmt in stmts
+    for nested in .statement_blocks stmt.expr
+      walk_stmts (&nested.stmts) walk
+  ()
