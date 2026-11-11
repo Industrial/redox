@@ -310,6 +310,23 @@ parameter that was: which position it was in, which of up to three spellings hap
 the implementing type, and what borrow prefix it carried. The third is kept and is good design;
 the first two are gone.
 
+**An `instance` must be in the same file as its `class`** — measured at plan 91 wave 5,
+after two type classes became the first real uses of this move. `Parser` carries
+`class_heads: BTreeMap<(String, String), SignatureHead>`, filled by `record_head` when a
+`class` is parsed and read by `borrowed_head` when an instance member is parsed, so the
+parser learns a member's signature from the class declaration — and **each file gets a
+fresh `Parser`**. An instance declared elsewhere parses as a run of top-level declarations
+and fails with `RDX0101` on every name in the member line, which reads nothing like the
+cause.
+
+This is a constraint of the surface, not a defect: the parser wants the member's *shape*,
+not its types, so it stays on the right side of doc 02 §12.4. It does bound the design —
+an instance cannot sit beside the type it is for, or beside the function it delegates to,
+unless the class is in that file too. `redox-emit`'s `Emit` therefore declares the class
+and all thirteen instances in `item.sdx`, beside the dispatcher that uses them. Lifting
+the constraint means letting an instance member be parsed without its head, which is a
+surface decision owed its own row.
+
 ```haskell
 class Debug => Shape
   type Unit

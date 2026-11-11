@@ -55,6 +55,13 @@ So the rule this plan adopts, and §10 reports against:
 
 - **Point-free wherever the output is unchanged** — pipelines, sections, method
   references in adaptor position, `$` instead of parentheses. Unbounded.
+
+  > **Correction, wave 14: there are no method references in adaptor position.**
+  > `(.f)` is a *field* section and emits `|__rdx_1| __rdx_1.f` with no call,
+  > because plan 57 §1.1 made `.` field access and nothing else. `MethodRef`
+  > exists but the grammar reaches it only in `over`'s function slot. Under
+  > `.map` / `.filter` / `.all` an explicit lambda is already the minimal form,
+  > and eta-reducing one to a section is a type error. §10.3.
 - **Point-free in a definition where it inserts a closure** — taken where the
   definition is a pure composition of named functions and the closure is what a
   person would have written anyway; **declined** where a direct call exists,
@@ -125,12 +132,22 @@ Measured over the compiler's own 13,453 code lines:
 | pattern synonym | **87** | **0** | **0** |
 | `deriving template` | **89** | **0** | **0** |
 | `infixl` | **90** | **0** | **0** |
-| `class` | 18 §2.5 | **0** | **0** |
+| `class` | 18 §2.5 | **0** | **0** | ← **wrong, see below** |
 | `where` group | **61** | **0** | **0** |
 
 Six constructs the project shipped are used **zero to three times** by the
 compiler itself, and `class` — the surface's own abstraction mechanism — is used
 nowhere. Each has exactly one `examples/` witness and one golden.
+
+> **Correction, wave 14: the `class` row is wrong.** `redox-driver` already had
+> two — `export class CacheReporter` and `export(crate) class ProgramWalk` —
+> both present at the commit this plan was written against. The probe that
+> produced this table matched `^class` and so missed every `export`-prefixed
+> declaration. The row is **2 / 2**, not 0 / 0, and the sentence above
+> overstates the gap for that one construct. The rest of the table re-measures
+> exactly, which is what makes the error attributable to the probe rather than
+> to the tree. §10.2 has the corrected table and §10.8 lists the consequences;
+> the identical probe bug cost wave 11 a dropped public re-export.
 
 That is the real content of instruction 4. A construct exercised by one
 hand-written example is a construct whose failure modes are unknown; the same
@@ -495,4 +512,212 @@ comparing generated output to its source cannot see something absent from both.
 
 ## 10. Result
 
-Not started. Awaiting approval.
+**Done.** Thirteen waves, thirteen crates, one commit each.
+
+### 10.1 What the rewrite measures
+
+| | before | after | |
+|---|---:|---:|---:|
+| files under `crates/*/sdx` | 572 | **78** | −86% |
+| lines | 30,858 | **13,216** | −57% |
+| doc and comment lines | 17,293 | **0** | −100% |
+| code lines | 13,565 | **11,970** | −12% |
+| mean code lines per file | 23.5 | **153** | ×6.5 |
+| largest generated `.rs` | 1,478 of 1,500 | **828** | |
+| tests | 892 + 1 skipped | **893, none skipped** | |
+
+Per crate, files then lines:
+
+| Crate | Files | Lines | Wave |
+|---|---|---|---:|
+| redox-diag | 21 → 5 | 1,602 → 641 | 1 |
+| redox-lexer | 34 → 8 | 2,820 → 1,518 | 2 |
+| redox-ast | 57 → 7 | 3,280 → 1,000 | 3 |
+| redox-parser | 134 → 13 | 7,629 → 3,371 | 4 |
+| redox-fmt | 57 → 6 | 2,559 → 976 | 5 |
+| redox-fuzz | 6 → 2 | 134 → 33 | 6 |
+| redox-bench | 13 → 5 | 582 → 299 | 7 |
+| redox-mcp | 19 → 5 | 735 → 316 | 8 |
+| redox-lsp | 29 → 4 | 1,273 → 530 | 9 |
+| redox-emit | 123 → 10 | 6,396 → 2,715 | 10 |
+| redox-driver | 49 → 6 | 2,492 → 1,094 | 11 |
+| redox-cli | 24 → 5 | 1,068 → 621 | 12 |
+| redox-seed | 6 → 2 | 294 → 102 | 13 |
+
+**Code fell 12% while files fell 86%**, which is the number that says what the
+merge actually removed: 1,595 lines of `import` blocks and `module`
+declarations, not logic. §1.1 measured that ceremony at 2,358 lines; the rest
+of it is the imports a merged file still needs.
+
+### 10.2 §1.3's table, re-measured — and §1.3 was wrong about `class`
+
+Probes that reproduce §1.1 and §1.3's own figures exactly on the `before`
+column (572 files, 13,453 code), so the two columns are comparable:
+
+| Construct | before | after |
+|---|---:|---:|
+| `\|>` | 612 / 159 | 616 / 52 |
+| `(.f)` in parens | 891 / 265 | 891 / 56 |
+| `$` | 210 / 102 | 212 / 44 |
+| `case … of` | 349 / 211 | 349 / 54 |
+| `instance` | 72 / 53 | **89 / 30** |
+| `guard … else` | 64 / 47 | 64 / 23 |
+| `>>>` / `<<<` | 11 / 5 | 11 / 4 |
+| `over (.a.b)` | 3 / 2 | 3 / 2 |
+| `do .method` | 2 / 2 | **3 / 3** |
+| `given <…>` | 1 / 1 | 1 / 1 |
+| pattern synonym | 0 / 0 | 0 / 0 |
+| `deriving template` | 0 / 0 | 0 / 0 |
+| `infixl` | 0 / 0 | 0 / 0 |
+| `class` | **2 / 2** | **4 / 4** |
+| `where` group | 0 / 0 | 0 / 0 |
+
+**§1.3 recorded `class` as 0 / 0, and that was false when it was written.**
+`redox-driver` already had two: `export class CacheReporter` in
+`cache/reporter.sdx` and `export(crate) class ProgramWalk` in
+`lint/program_walk.sdx`, both present at `505f46d`, the commit this plan was
+written against. The probe that produced the table must have matched `^class`
+and so missed every `export`-prefixed declaration — the same probe bug this
+plan hit from the other side at wave 11, where `export newtype Fingerprint`
+was invisible to the re-export detector.
+
+The claim built on that row is therefore also wrong, and it is repeated in two
+commit messages that cannot be amended: wave 5's *"§1.3's dogfooding gap had
+`class` at zero uses across all thirteen crates"* and wave 10's *"the zero it
+has been for 90 plans"*. The truth is that `class` was used **twice** before
+this plan and is used **four** times after, with 17 instances where there were
+72 lines' worth before. The gap was real and narrower than stated.
+
+The honest reading of the rest of the table: **point-free was already
+saturated.** 612 pipelines and 891 parenthesised `.f` calls across a
+13,453-line compiler is not a codebase with point-free headroom, and the
+instruction to prefer it moved `\|>` by 4 lines and `$` by 2. What the plan
+added that was genuinely new is the two type classes and their 17 instances.
+
+### 10.3 Point-free in method position does not exist, and that is a surface gap
+
+I found 39 sites of the form `(\x -> .f x)` and rewrote them to `(.f)` as
+eta-reduction. **That is wrong, and the port caught it.**
+
+`(.f)` emits `|__rdx_1| __rdx_1.f` — a *field* access with no call. Plan 57
+§1.1 made `.` field access and nothing else, so `.f x` is a method call with
+the receiver last and `(.f)` is a field section; they are different
+constructs, and conflating them turned `.all (\c -> .is_ascii_digit c)` into
+`.all(|__rdx_1| __rdx_1.is_ascii_hexdigit)` — E0615, *"method, not a field"*.
+Probed four ways afterwards (std method, user method, under `.map`, under
+`.all`): all four emit a field access. The sweep is reverted in full.
+
+What caught it is worth naming: `REDOX_UPDATE=1 … --test port` **compiles the
+generated tree before writing it**, so a generation that does not compile
+leaves `src/` untouched. The 39 bad rewrites never reached a committed state.
+
+So **§1.2 is wrong where it lists "method references in adaptor position"
+among the free point-free positions.** There is a `MethodRef` node and a
+`method_ref` emitter, but the grammar only reaches them in `over`'s function
+slot — `over (.addr.city) .to_uppercase u` — where plan 88 reads the function
+as an atom. In `.map` / `.filter` / `.all` position there is no spelling for
+"pass this method as a function", and an explicit lambda is already the
+minimal form. Field sections work and are used; method sections do not exist.
+
+That is a real finding about the surface rather than about the rewrite, and it
+is exactly what §1.3 argued dogfooding would surface.
+
+### 10.4 The four constructs still at zero
+
+`pattern synonym`, `deriving template`, `infixl` and `where` group are
+unchanged at 0 / 0, and this plan does not move them. Each is design-bound
+rather than effort-bound: the compiler has no place where a pattern synonym
+abbreviates a pattern it matches more than once, no derivable shape repeated
+across its own types, no domain operator worth declaring, and no `where` group
+that a top-level function does not express as well. Inventing a site to raise
+the count would be the token use §1.3 argues against — a construct carrying
+*part of a compiler* is the thing with value, and a contrived one carries
+nothing.
+
+### 10.5 Where the two classes landed
+
+`Render` (wave 5, redox-fmt) is `show` to `expr_text`'s `showsPrec`: four
+instances over `Item`, `Stmt`, `Expr` and `Pattern`, three of which already
+shared the signature, and `format` calls `.render 0 source item`.
+
+`Emit` (wave 10, redox-emit) is the stronger of the two. Fourteen functions
+already shared `&mut Sink<'_> -> &T -> usize -> ()` across thirteen types —
+open recursion written out by hand — and `emit_item`'s `case` now dispatches
+through the class in ten of its arms.
+
+**An `instance` must be in the same file as its `class`.** `Parser` carries
+`class_heads`, filled by `record_head` when a `class` is parsed and read by
+`borrowed_head` when an instance member is parsed, so the parser learns a
+member's signature from the class declaration — and each file gets a fresh
+`Parser`. An instance elsewhere parses as a run of top-level declarations and
+fails with RDX0101 on every name. It is a constraint, not a defect: the parser
+needs the member's *shape*, not its types, so it does not cross doc 02
+§12.4's line. It is in AGENTS.md as of wave 15.
+
+### 10.6 What the merge tool cost, and what that says
+
+The merge is mechanical, so it is a tool. Eleven bugs in it, each found by
+running it and each of which would have recurred in every later wave:
+
+| # | Bug | Wave |
+|---:|---|---:|
+| 1 | braced imports opaque to dedup and the defined-here check | 2 |
+| 2 | `crate::X` and `redox_diag::X` both kept — same type, two paths | 2 |
+| 3 | fully-qualified paths in *bodies* not rewritten, only imports | 2 |
+| 4 | counting `"""` stuck on a string literal containing one | 2 |
+| 5 | `lib.sdx` hand-maintained, so it drifted from the groups | 3 |
+| 6 | `top_names` blind to `export`-prefixed functions | 3 |
+| 7 | a group named after a keyword — `module class` cannot parse | 4 |
+| 8 | `main.sdx` skipped entirely, so its comments survived | 7 |
+| 9 | aliased imports (`as`) left pointing at deleted modules | 9 |
+| 10 | names inside a `rust """` hatch invisible to collision detection | 10 |
+| 11 | `X as _` kept beside bare `X` — rustc calls the pair unused | 10 |
+| 12 | disambiguation ignored case convention: `SRC_narrow` | 11 |
+| 13 | `newtype` missing from the re-export detector | 11 |
+| 14 | `main.sdx`'s `module` list not regenerated | 12 |
+| 15 | a `lib.sdx` created for a binary-only crate — 25 dead_code | 12 |
+
+Fifteen, not eleven. The one that mattered most was not in the tool at all:
+**the driver script piped the merge into `grep`, so the pipeline carried
+grep's exit status** and a reported `UNASSIGNED` went on to retire the crate's
+subtrees anyway. A guard whose whole job is to stop a destructive step has to
+be checked before that step runs. Tracked files made it a reset.
+
+Two of the fifteen produced a *silently wrong* result rather than a failure —
+#8 left 43 comment lines that `no_comments` caught, and #13 dropped a public
+re-export that only `redox-cli`'s cache test noticed. After #13 I audited all
+eleven rewritten crates for the same class of loss; `Fingerprint` was the only
+one.
+
+### 10.7 Criteria
+
+| | Criterion | Verdict |
+|---|---|---|
+| 1 | every crate rewritten | **met** — 13/13, `the_rewrite_is_complete` armed |
+| 2 | no comments | **met** — `no_comments` over 13 crates, 0 lines |
+| 3 | one cohesive group per file | **met** — doc 06 3.0.0; 572 → 78 |
+| 4 | goldens byte-identical | **met** — 0 changes at every wave |
+| 5 | no fewer tests than the sanctioned ten | **met** — 893, none skipped |
+| 6 | line cap | **met** — 828 of 1,500 |
+| 7 | surface uptake re-measured | **met** — §10.2, with §1.3 corrected |
+| 8 | `class` ≥ 1 | **met** — 4, and it was already 2 |
+| 9 | docs updated | **met** — wave 15 |
+| 10 | gates green | **met** — `:format :check :lint :test`, port, seed blob |
+
+### 10.8 What the plan got wrong
+
+- **§1.3's `class` row was 0 / 0 and the truth was 2 / 2.** §10.2. A probe that
+  missed `export` prefixes, and the same bug cost wave 11 a re-export.
+- **§1.2 lists method references among the free point-free positions.** They
+  exist only in `over`'s function slot. §10.3.
+- **§4 estimated 8 groups for redox-parser and 6 for redox-ast.** Both were
+  low: the parser needs 13 because the 1,500-line cap is on the *generated*
+  Rust at ~1.6 lines per line of source, and redox-ast needs 7 because two
+  enums sharing a variant name cannot share a file.
+- **Nothing in §1 anticipated that flattening breaks privacy.** A private
+  method is visible to its module's *descendants*; crate-root siblings are not
+  descendants. Twelve of `Parser`'s members are now `export(crate)` — the set
+  the compiler named, not a blanket promotion.
+- **I refreshed the seed on a wrong diagnosis at wave 5** and reverted it. The
+  blob does not lag the compiler on instance bodies; same-file placement was
+  the issue, and the refreshed seed failed identically.

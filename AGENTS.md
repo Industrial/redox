@@ -200,14 +200,33 @@ workspace splits along pipeline stages (`docs/02 - Redox Update Blueprint.md` §
   `05 - NN -` one per plan, 06 code architecture; plus `COMPILER.md` for toolchain decisions
 - `.maestro/` — harness state (read `.maestro/AGENTS.md` first)
 
-Within a crate, `src/` is flat and every file is one construct — see the first bullet under
-*Conventions that are load-bearing* and `docs/06 - Redox Code Architecture.md`.
+Within a crate, `src/` is a shallow module tree and every file holds one cohesive group —
+see the first bullet under *Conventions that are load-bearing* and
+`docs/06 - Redox Code Architecture.md`.
 
 ### Conventions that are load-bearing, not stylistic
 
-- **One construct per file.** Every `struct`, `enum`, `union`, `trait`, `type`, `fn`,
-  `const` and `static` lives in its own file. `impl` blocks travel with their type; `lib.rs`
-  and `main.rs` hold only `mod` declarations, `pub use` re-exports and `fn main`.
+- **One cohesive group per file.** A file holds the constructs that belong to one concern
+  and are read together — a type with its operators, a dispatcher with the arms it
+  dispatches to. `impl` blocks travel with their type; `lib.rs` and `main.rs` hold only
+  `mod` declarations, `pub use` re-exports and `fn main`.
+
+  **This replaced one-construct-per-file at plan 91**, which is a reversal and not a
+  relaxation. That rule was right while every file also held a paragraph explaining
+  itself: the comment was the unit of value and the file was its envelope. Plan 91 removed
+  the comments, and a 15-line file with no comment in it is an import list and a
+  function — 271 of the 572 files were that. The rule cost 2,358 lines, 18% of all code,
+  in `import` and `module` declarations. `crates/redox-cli/tests/one_construct_per_file.rs`
+  is deleted; the cap below is what bounds a file now.
+
+  Two hard constraints bound how far a merge can go, both found by doing it:
+
+  - **Two enums sharing any variant name cannot share a file.** Every `data`
+    declaration emits `use <Enum>::*` for doc 18 §2.4's constructor scoping, so
+    `TokenKind::Or` and `Keyword::Or` in one module are E0659, and a pattern match on the
+    bare name then binds instead of matching (E0170).
+  - **The 1,500-line cap is on the *generated* `.rs`**, which runs about 1.6 lines per
+    line of `.sdx` code. `redox-parser` therefore needs 13 files, not the 8 estimated.
 - **`src/` is a module tree, not a flat directory.** Every file directly under `src/` must
   be the module root, a **module head** (a construct with a sibling `<name>/` holding its
   children), or a **grouping module** (child declarations and a doc comment, no construct).
@@ -217,9 +236,9 @@ Within a crate, `src/` is flat and every file is one construct — see the first
 - **Naming is path-aware.** A construct's `snake_case` name equals the file stem, or the
   parent directory joined to the stem by `_`. So `token/kind.rs` holds `TokenKind` —
   `token/token_kind.rs` stutters and is rejected.
-- All three are **machine-checked** by `crates/redox-cli/tests/one_construct_per_file.rs`
-  and `crates/redox-cli/tests/directory_structure.rs`. Full rules and rationale:
-  `docs/06 - Redox Code Architecture.md`.
+- The latter two are **machine-checked** by `crates/redox-cli/tests/directory_structure.rs`,
+  and `crates/redox-cli/tests/no_comments.rs` and `line_cap.rs` carry the rest. Full rules
+  and rationale: `docs/06 - Redox Code Architecture.md`.
 - **Public-API tests are integration tests** under `crates/<crate>/tests/`, not
   `#[cfg(test)]` modules. An inline test can reach private internals and eventually will.
   Inline tests are for private constructs only.
@@ -237,6 +256,11 @@ Within a crate, `src/` is flat and every file is one construct — see the first
   as a string literal in a Rust test. Emerald's one syntax cutover missed 113 fixtures that
   lived as string literals inside test modules; that cost is paid once per syntax change,
   forever.
+- **No comments in the compiler's own `.sdx`.** Zero, enforced over every ported crate by
+  `crates/redox-cli/tests/no_comments.rs`. Reasoning belongs in `docs/` and in commit
+  messages, which is where it can be dated and corrected; a comment beside code is a
+  claim with no gate on it. This is about the compiler's *source* and not about what the
+  compiler *does* — see the next bullet, which is the opposite rule for user code.
 - **Comments are trivia, never discarded.** They must reach the generated `.xrs` — the
   `.xrs` is a human-facing artifact. Doc 02 §10.1 corrects doc 01 §4.1 on this.
 - **Every AST node carries a byte span.** Emerald found a whole node type with no span at
@@ -481,6 +505,60 @@ result, which is why they are written down rather than rediscovered.
   and is the only thing that answers. And prefer a case in
   `tree-sitter-redox/test/corpus/`, which `tree_sitter.rs` runs, over leaning on the
   examples sweep: the sweep cannot see a construct the grammar never knew it was missing.
+
+- **An `instance` must be in the same file as its `class`.** `Parser` carries
+  `class_heads: BTreeMap<(String, String), SignatureHead>`, filled by `record_head` when a
+  `class` is parsed and read by `borrowed_head` when an instance member is parsed — so the
+  parser learns a member's signature from the class declaration, and **each file gets a
+  fresh `Parser`**. An instance in another file parses as a run of top-level declarations
+  and fails with `RDX0101` *"expected `:` after the name"* on every name in the line, which
+  looks nothing like the actual cause.
+
+  It is a constraint, not a defect: the parser needs the member's *shape*, not its types,
+  so it does not cross doc 02 §12.4's no-type-checker line. Found at plan 91 wave 5, after
+  the symptom was first misread as the seed lagging the compiler — refreshing the seed
+  changed nothing, which is what pointed at placement.
+
+- **`module <keyword>` cannot parse, and the diagnostic cascades past the cause.** `class`,
+  `data`, `test`, `type` and `errors` are all keywords, so a module may not be named after
+  one. The seed reports it exactly — `RDX0103` *"expected the module's name"* on the right
+  line — and then item-boundary recovery emits a dozen `RDX0101`s on the lines *after* it.
+  **Read the first diagnostic, not the loudest run of them.** Plan 91 wave 4.
+
+- **`(.f)` is a field section, not a method reference.** It emits
+  `|__rdx_1| __rdx_1.f` with no call, because plan 57 §1.1 made `.` field access and
+  nothing else. `.f x` is the method call `x.f()` with the receiver last, so the two are
+  different constructs and eta-reducing `(\c -> .is_ascii_digit c)` to `(.is_ascii_digit)`
+  is `E0615` *"method, not a field"*. There is a `MethodRef` node, but the grammar reaches
+  it only in `over`'s function slot. **Under `.map` / `.filter` / `.all`, the explicit
+  lambda is already the minimal form.** Plan 91 wave 14 — which also means doc 85's §1.2
+  is wrong where it lists method references among the free point-free positions.
+
+- **Flattening a module tree breaks privacy, and the compiler names the exact set.** A
+  private item is visible in its defining module **and its descendants**, so moving
+  `parse::parser::*` to crate-root siblings turned 43 private-member uses into
+  `E0616`/`E0624`. The fix is to promote what the compiler lists and nothing more — twelve
+  of `Parser`'s members, not the whole `impl`. Plan 91 wave 4.
+
+- **Gates keyed by file path go stale when files move, and two of them are easy to miss.**
+  `HATCH_ALLOWED` in `crates/redox-cli/tests/port.rs` names the `.sdx` files permitted
+  inline Rust, and `docs/GRAMMAR.md`'s rows cite `.sdx` paths that
+  `grammar_inventory.rs` checks exist. A merge or rename invalidates both. Plan documents
+  cite paths too and **nothing gates those** — five had gone stale by wave 10. When you
+  move a file, re-point a citation at the file that now *defines* the construct, verified
+  by searching for the declaration rather than inferred from the move.
+
+- **A guard that exists to stop a destructive step must be checked before that step runs.**
+  A driver script piped a merge tool into `grep`, which gave the pipeline *grep's* exit
+  status, so the tool's refusal printed its reason, exited 1, and the script went on to
+  delete the crate's subtrees anyway. `set -o pipefail`, or capture to a file and test the
+  status. Plan 91 wave 11.
+
+- **`git checkout -- <path>` restores from the index, not from HEAD.** After a `git add -A`
+  that staged a half-finished state, it restores the half-finished state. Use
+  `git checkout HEAD -- <path>`, and remove untracked leftovers separately — `git stash`
+  without `-u` leaves them, which is how a HEAD baseline measurement came back
+  contaminated.
 
 ## See also
 

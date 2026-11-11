@@ -290,9 +290,10 @@ The workspace splits along pipeline stages.
 | `redox-mcp` | MCP server (`redox_build`, `redox_check`, `redox_fmt`, `redox_source_map`) |
 | `redox-bench`, `redox-fuzz`, `redox-seed` | throughput, fuzzing, and the wasm seed |
 
-Within a crate, **one construct per file**, and `src/` is a module tree rather than a flat
-directory — both machine-checked. `docs/06 - Redox Code Architecture.md` has the rules;
-[AGENTS.md](AGENTS.md) has the conventions that are load-bearing rather than stylistic.
+Within a crate, **one cohesive group per file**, `src/` is a shallow module tree, and no
+file carries a comment — all three machine-checked.
+`docs/06 - Redox Code Architecture.md` has the rules; [AGENTS.md](AGENTS.md) has the
+conventions that are load-bearing rather than stylistic.
 
 ---
 

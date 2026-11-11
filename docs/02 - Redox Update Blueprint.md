@@ -570,14 +570,23 @@ redox/
 **Add a CI check capping any single `.rs` file at ~1,500 lines.** It is the cheapest
 possible defence against the one structural problem Emerald demonstrably has.
 
-**Superseded in part, 2026-11-08.** The line cap shipped, but it is now the *backstop*
-rather than the primary rule. `docs/06 - Redox Code Architecture.md` §1 requires **one
-construct per file** — every `struct`, `enum`, `trait`, `type`, `fn`, `const` and `static`
-in its own file named after it — enforced by
-`crates/redox-cli/tests/one_construct_per_file.rs`. Under that rule a file rarely
-approaches 1,500 lines, and when one does it signals that the single construct inside it is
-doing too much. Doc 06 also fixes the module-root, re-export, visibility, error-handling and
-test-placement conventions this section left implicit.
+**Superseded in part, 2026-11-08, and that supersession is itself withdrawn,
+2026-11-12.** The line cap shipped and was demoted to a *backstop* behind doc 06 §1's
+**one construct per file**. Plan 91 retired that rule, so **the cap is the primary rule
+again** — which is what this section said in the first place.
+
+The rule was right while every file also held a paragraph explaining itself. Plan 91
+removed the comments from the compiler's own source, and a 15-line file with no comment in
+it is an import list and a function; 271 of 572 files were that, and the rule cost 2,358
+lines — 18% of all code — in `import` and `module` declarations. Doc 06 3.0.0 asks for
+**one cohesive group per file**, `crates/redox-cli/tests/one_construct_per_file.rs` is
+deleted, and `line_cap.rs` is what bounds a file. The largest generated `.rs` is 828 lines
+of 1,500.
+
+Note the cap is on the **generated** `.rs`, at roughly 1.6 lines per line of `.sdx` code,
+which is the number that decides how far a merge can go. Doc 06 still fixes the
+module-root, re-export, visibility, error-handling and test-placement conventions this
+section left implicit.
 
 ### 5.5 Dependencies
 
