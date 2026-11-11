@@ -36,7 +36,7 @@ ROOT = '/home/tom/Code/rust/redox/crates/%s/sdx/' % CRATE
 # The first line that begins a construct rather than describing one.
 CONSTRUCT = re.compile(
     r'^(export(\(crate\)|\(super\))? )?'
-    r'(data |newtype |type |instance |errors |class |const |module |test )'
+    r'(data |newtype |type |instance |errors |class |const |static |module |test )'
     r'|^(export(\(crate\)|\(super\))? )?[A-Za-z_][A-Za-z0-9_]* : '
     r'|^-- TODO plan 68'
 )
@@ -79,7 +79,14 @@ def write(rel, text):
     # The head's trailing comment block is an orphan once the body supplies its
     # own. Blanks come off first: the `-- TODO` marker sits one blank line below
     # the comment it follows, so a loop that tests for a comment exits at once.
-    if body and body[0].lstrip().startswith('--'):
+    #
+    # **Only a `-- |` in the body replaces one in the head.** Testing for any
+    # `--` threw a doc comment away: `redox-cli/run/commands`' body opens with
+    # an ordinary comment relocated out of the Rust's one-line-per-entry table,
+    # and that silently took the 19-line `-- |` block describing `COMMANDS`
+    # with it. An ordinary comment and a doc comment are different things —
+    # the rule this tool exists to respect — and only the second supersedes.
+    if body and body[0].lstrip().startswith('-- |'):
         while head and not head[-1].strip():
             head.pop()
         while head and head[-1].lstrip().startswith('--'):

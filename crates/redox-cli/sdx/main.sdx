@@ -6,13 +6,19 @@
 -- ! holds only module declarations and `fn main`, which has no other legal
 -- ! home. Each subcommand heads its own module.
 
+import std::process::ExitCode
+
 module build_command
 module check_command
 module fmt_command
 module run
 module watch_command
 
-import std::process::ExitCode
-
-
--- TODO plan 68: hand-port from line 17
+main : ExitCode
+main =
+  args : Vec<String> = std::env::args () |> .skip 1 |> .collect
+  case run::run (&args) of
+    Ok () -> ExitCode::SUCCESS
+    Err message ->
+      eprintln! \-> "#{message}"
+      ExitCode::FAILURE

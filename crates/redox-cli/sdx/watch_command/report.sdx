@@ -7,5 +7,13 @@ import crate::watch_command::target::Target
 -- | Plan 12 (`docs/17 - 12 - Watcher.md`) leaf 3. Called before the loop starts
 -- | and on every relevant event, so an already-broken file is reported
 -- | immediately rather than after the user's next keystroke.
-
--- TODO plan 68: hand-port from line 10
+export(crate) report : &Target -> bool -> ()
+report target plain =
+  case &target.file of
+    Some file ->
+      shown = .to_string (.display file)
+      run_build (&shown) plain
+    None ->
+      for source in sources (&target.dir)
+        run_build (&source) plain
+  ()

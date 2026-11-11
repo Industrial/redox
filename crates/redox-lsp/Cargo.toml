@@ -27,3 +27,7 @@ redox-parser = { path = "../redox-parser" }
 # The session test reparses a fixture to count its items, so the expectation
 # is derived from the parser rather than written down and left to rot.
 redox-parser = { path = "../redox-parser" }
+
+# The five surface-fact allows — see the root manifest.
+[lints]
+workspace = true

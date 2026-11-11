@@ -1,7 +1,7 @@
-export(crate) module report
-
 import crate::build_command::parse_build_args::parse_build_args
 import crate::check_command::report::report
+
+export(crate) module report
 
 -- | `redox check <file.sdx> [--plain]`.
 -- |
@@ -16,5 +16,13 @@ import crate::check_command::report::report
 -- | `pub(crate)` here, `redox_check` over MCP needs the same answer, and a copy
 -- | would let the two disagree while both compiled. `redox-bench` had already
 -- | made that copy once (plan 50 §1.2).
+export(crate) check_command : &[String] -> Result<(), String>
+check_command args =
+  -- `parsed`, not a rebinding of `args`: `RDX1003` reports a shadow.
+  parsed = (parse_build_args args)?
+  -- Bound, because a nested string inside `#{…}` ends the interpolation early.
+  shown = .to_string (.display parsed.input)
+  source = (.map_err (\e -> format! \-> "error: cannot read #{shown}: #{e}") (std::fs::read_to_string (&parsed.input)))?
 
--- TODO plan 68: hand-port from line 19
+  outcome = (redox_driver::check (&parsed.input) (&source))?
+  report (&outcome) parsed.plain

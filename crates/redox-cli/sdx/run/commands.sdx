@@ -1,7 +1,7 @@
-export(crate) module lookup
-
 import crate::run::command::Command
 import crate::run::command::state::State
+
+export(crate) module lookup
 
 -- | Redox's entire command-line surface.
 -- |
@@ -20,5 +20,17 @@ import crate::run::command::state::State
 -- | entry point and plan 08 §6.1 declined it, because the corpus is a cargo
 -- | integration test and `cargo test` runs it. That happened because the rule
 -- | was written down, and this table is the rule made executable.
+-- `fmt`'s summary is plural, because plan 34 §1.5's gate is
+-- `redox fmt --check examples/*.sdx` and a one-file command would make that a
+-- shell loop nobody checks. The comment sat inside the table in the Rust; the
+-- table is one line here, so it sits above it.
+export(crate) const COMMANDS : &[Command] = &[Command { name = "build", summary = "transpile a .sdx to .xrs", state = State::Ready }, Command { name = "check", summary = "transpile, then report rustc's errors against the .sdx", state = State::Ready }, Command { name = "fmt", summary = "format .sdx files in place, or --check them", state = State::Ready }, Command { name = "watch", summary = "rebuild on change", state = State::Ready }, Command { name = "--version", summary = "print the version", state = State::Ready }, Command { name = "--help", summary = "print this message", state = State::Ready }]
 
--- TODO plan 68: hand-port from line 23
+test "every command has a summary"
+  for command in COMMANDS
+    assert! \-> !.is_empty command.summary \-> "#{command.name} has no summary"
+
+-- | Doc 01 §27 fixes the surface at six entries. This is the table's own
+-- | count; `cli_surface.rs` holds the list, deliberately duplicated.
+test "the surface has six entries"
+  assert_eq! \-> .len COMMANDS \-> 6 \-> "doc 01 §27 lists six commands; adding a seventh is a decision, not a patch"

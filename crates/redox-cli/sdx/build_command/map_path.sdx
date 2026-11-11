@@ -8,5 +8,17 @@ import std::path::{Path, PathBuf}
 -- | which would replace `.xrs` and give `main.map`. Keeping the `.xrs` visible
 -- | means a directory listing says which generated file a map belongs to, and
 -- | a map can never collide with the output of a differently-suffixed input.
+export(crate) map_path : &Path -> PathBuf
+map_path output =
+  mut name = .map_or_else OsString::new OsString::from (.file_name output)
+  name |> .push ".map"
+  .with_file_name name output
 
--- TODO plan 68: hand-port from line 11
+test "appends rather than replacing"
+  assert_eq! \-> map_path (Path::new "main.xrs") \-> Path::new "main.xrs.map"
+
+test "keeps the directory"
+  assert_eq! \-> map_path (Path::new "/tmp/out/main.xrs") \-> Path::new "/tmp/out/main.xrs.map"
+
+test "handles a name with no extension"
+  assert_eq! \-> map_path (Path::new "out/main") \-> Path::new "out/main.map"

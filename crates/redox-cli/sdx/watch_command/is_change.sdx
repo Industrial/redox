@@ -29,5 +29,47 @@ import notify::event::ModifyKind
 -- | `Modify(Metadata)`: a `chmod` or an `atime` update is not a content change,
 -- | and under `relatime` the build's own read can update `atime`, which would
 -- | reopen the same loop by another door.
+export(crate) is_change : &EventKind -> bool
+is_change kind = case kind of
+  EventKind::Create _ or EventKind::Remove _ -> true
+  EventKind::Any or EventKind::Other -> true
+  EventKind::Modify inner -> case inner of
+    ModifyKind::Data _ or ModifyKind::Name _ -> true
+    _ -> false
+  EventKind::Access _ -> false
 
--- TODO plan 68: hand-port from line 32
+-- | The event that caused the loop. If this ever returns `true` again, the
+-- | watcher will spin on its own reads.
+test "reading a file is not a change"
+  assert! \-> !is_change (&EventKind::Access (notify::event::AccessKind::Open notify::event::AccessMode::Any))
+  assert! \-> !is_change (&EventKind::Access notify::event::AccessKind::Read)
+  assert! \-> !is_change (&EventKind::Access (notify::event::AccessKind::Close notify::event::AccessMode::Read))
+  assert! \-> !is_change (&EventKind::Access notify::event::AccessKind::Any)
+
+-- | Writing is. `Close(Write)` is an `Access` kind and still excluded — the
+-- | `Modify(Data)` event that accompanies the same write is what triggers.
+test "writing data is a change"
+  assert! \-> is_change (&EventKind::Modify (ModifyKind::Data notify::event::DataChange::Any))
+  assert! \-> is_change (&EventKind::Modify (ModifyKind::Data notify::event::DataChange::Content))
+
+-- | A rename over the source is how editors save, and it is a change.
+test "renaming is a change"
+  assert! \-> is_change (&EventKind::Modify (ModifyKind::Name notify::event::RenameMode::To))
+  assert! \-> is_change (&EventKind::Modify (ModifyKind::Name notify::event::RenameMode::Both))
+
+test "creating and removing are changes"
+  assert! \-> is_change (&EventKind::Create notify::event::CreateKind::File)
+  assert! \-> is_change (&EventKind::Remove notify::event::RemoveKind::File)
+
+-- | Metadata is excluded, and the reason is not fastidiousness: under
+-- | `relatime` the build's own read can update `atime`, which would reopen
+-- | the loop by another door.
+test "metadata alone is not a change"
+  assert! \-> !is_change (&EventKind::Modify (ModifyKind::Metadata notify::event::MetadataKind::Any))
+  assert! \-> !is_change (&EventKind::Modify (ModifyKind::Metadata notify::event::MetadataKind::AccessTime))
+
+-- | An unknown kind errs toward rebuilding, because a missed edit looks like
+-- | a broken watcher.
+test "an unknown kind is treated as a change"
+  assert! \-> is_change (&EventKind::Any)
+  assert! \-> is_change (&EventKind::Other)

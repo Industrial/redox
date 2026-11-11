@@ -44,3 +44,7 @@ toml = "1.2.1"
 # small, and `deflate` pulls flate2, zlib-rs and a wasm-bindgen tree into the
 # dev graph to save a few kilobytes nobody transfers.
 zip = { version = "9.5.0", default-features = false }
+
+# The five surface-fact allows — see the root manifest.
+[lints]
+workspace = true

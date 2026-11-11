@@ -1,15 +1,51 @@
+import crate::build_command::map_path::map_path
+import crate::build_command::parse_build_args::parse_build_args
+import redox_driver::diagnose
+
 export(crate) module build_args
 export(crate) module default_output
 export(crate) module map_path
 export(crate) module parse_build_args
 
-import crate::build_command::map_path::map_path
-import crate::build_command::parse_build_args::parse_build_args
-import redox_driver::diagnose
-
 -- | `redox build <file.sdx> [-o <output.xrs>] [--plain]`.
 -- |
 -- | Named `build_command` rather than `build` so this module is never confused
 -- | with the crate's `build.rs` build script, which does an unrelated job.
+export(crate) build_command : &[String] -> Result<(), String>
+build_command args =
+  -- `parsed`, not a rebinding of `args`: `RDX1003` reports a shadow.
+  parsed = (parse_build_args args)?
+  shown = .to_string (.display parsed.input)
+  source = (.map_err (\e -> format! \-> "error: cannot read #{shown}: #{e}") (std::fs::read_to_string (&parsed.input)))?
 
--- TODO plan 68: hand-port from line 14
+  program = (.map_err (\failure -> redox_diag::render (&diagnose (&parsed.input) (&source) (&failure)) parsed.plain) (redox_parser::parse_source (&source)))?
+  -- Doc 03 §12.7's lints — plan 38. Reported and **not** fatal: §12.7 makes
+  -- `unwrap` *"lintable rather than prohibited"*, so the warning goes to
+  -- stderr and the command carries on.
+  --
+  -- After the parse, because a warning about a program nobody can compile is
+  -- noise, and before the write, so the author sees it with the build they
+  -- asked for rather than on the next one.
+  warnings = redox_driver::lint (&parsed.input) (&source) (Some (&program))
+  if !.is_empty warnings
+    rendered = redox_diag::render (&warnings) parsed.plain
+    eprint! \-> "#{rendered}"
+
+  -- `emitted.0` is the Rust and `emitted.1` the map, where the Rust
+  -- destructured `let (rust, map) = …`. Redox has no tuple-destructuring
+  -- binding, so the pair is bound once and projected.
+  emitted = redox_emit::emit_with_map (&program) (&source) (&shown)
+
+  out_shown = .to_string (.display parsed.output)
+  (.map_err (\e -> format! \-> "error: cannot write #{out_shown}: #{e}") (std::fs::write (&parsed.output) (&emitted.0)))?
+
+  -- The sidecar sits beside the `.xrs` under the same stem plus `.map`, so
+  -- `main.xrs` has `main.xrs.map`. Plan 07 finds it by that rule rather than
+  -- by being told where it is.
+  --
+  -- `sidecar`, where the Rust named the local `map_path`: that spelling
+  -- shadows the function of the same name, and `RDX1003` reports it.
+  sidecar = map_path (&parsed.output)
+  sidecar_shown = .to_string (.display sidecar)
+  (.map_err (\e -> format! \-> "error: cannot write #{sidecar_shown}: #{e}") (std::fs::write (&sidecar) (redox_diag::render_map (&emitted.1))))?
+  Ok ()

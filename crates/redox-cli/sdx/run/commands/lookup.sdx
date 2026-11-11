@@ -7,5 +7,22 @@ import crate::run::commands::COMMANDS
 -- | argument becomes a command, so dispatch cannot recognise something the
 -- | usage text does not — the defect §2.1 describes, where `USAGE` and the
 -- | dispatch `match` were two independent lists that nothing kept in step.
+export(crate) lookup : &str -> Option<&'static Command>
+lookup arg = .find (\c -> .matches arg c) (.iter COMMANDS)
 
--- TODO plan 68: hand-port from line 10
+test "every declared command is reachable by its own name"
+  for command in COMMANDS
+    found = .unwrap_or_else (\-> panic! \-> "#{command.name} not found") (lookup command.name)
+    assert_eq! \-> found.name \-> command.name
+
+test "an unknown argument selects nothing"
+  assert! \-> .is_none (lookup "frobnicate")
+  assert! \-> .is_none (lookup "")
+
+-- | Two entries matching the same argument would make dispatch depend on
+-- | table order, which is the kind of thing nobody notices until the order
+-- | changes.
+test "no two commands claim the same argument"
+  for arg in ["build", "check", "fmt", "watch", "--version", "-V", "--help", "-h", "help"]
+    claimants = .count (.filter (\c -> .matches arg c) (.iter COMMANDS))
+    assert_eq! \-> claimants \-> 1 \-> "#{arg} is claimed #{claimants} times"

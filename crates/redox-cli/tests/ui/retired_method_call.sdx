@@ -4,8 +4,14 @@
 -- measured that `x.f (a)` was `Expr::MethodCall` and `x.f a` is an
 -- application over an `Expr::Field`, so a refusal in one place retires one
 -- spelling and leaves the other emitting the identical `x.f(a)` silently.
--- Three lines, three shapes: parenthesised with an argument, parenthesised
--- with none, and parenless.
+-- Four lines, four shapes: parenthesised with an argument, parenthesised with
+-- none, parenless, and the **adjacent** spelling Rust itself writes.
+--
+-- The last one is what separates the two halves. Plan 79 made the `postfix`
+-- refusal test for adjacency, because refusing any following `(` also refused
+-- `.contains p.name (&text)` — an ordinary receiver-last call whose `(` opens
+-- the *enclosing* application's next argument. So `s.len(1)` is this half and
+-- the three spaced forms are `application`'s, and all four still report.
 
 main : ()
 main =
@@ -13,5 +19,6 @@ main =
   a = s.len (1)
   b = s.len ()
   c = s.find "h"
+  d = s.len(1)
   println! \-> "#{a}"
   ()

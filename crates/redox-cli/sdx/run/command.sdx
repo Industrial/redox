@@ -1,6 +1,7 @@
+import crate::run::command::state::State
+
 export(crate) module state
 
-import crate::run::command::state::State
 -- | One entry in Redox's command-line surface.
 -- |
 -- | Plan 11 (`docs/16 - 11 - CLI Surface.md`) leaf 1. Doc 01 §27 fixes that
@@ -24,5 +25,60 @@ export(crate) data Command = Command {
 }
   deriving (Debug, Clone, Copy, PartialEq, Eq)
 
+instance Command
+  -- | The argument forms that select this command.
+  -- |
+  -- | `--help` is also `-h` and `help`, and `--version` is also `-V`, because
+  -- | those are the conventions every other tool follows and a surface this
+  -- | small gains nothing by being surprising.
+  -- |
+  -- | Three `if`s, where the Rust nested `matches!` inside a `match`: an
+  -- | arm's `|` is doc 03 §6.2's guard, so the macro does not carry over as
+  -- | written, and `or` inside a `case` inside a `case` says it twice as
+  -- | deep as this does.
+  export(crate) matches : &str -> &self -> bool
+  matches arg self =
+    if self.name == "--help"
+      return arg == "--help" || arg == "-h" || arg == "help"
+    if self.name == "--version"
+      return arg == "--version" || arg == "-V"
+    arg == self.name
 
--- TODO plan 68: hand-port from line 27
+  -- | The message for a command that is declared but not yet implemented.
+  export(crate) not_yet : &self -> Option<String>
+  not_yet self = case self.state of
+    State::Ready -> None
+    State::Planned { plan, id } ->
+      Some (format! \-> "error: `#{self.name}` is not implemented yet — it is plan #{plan:02} (`#{id}`)")
+
+-- | `#[cfg(test)]`: the two commands every test below reads. Redox can put
+-- | nothing but `#[test] fn`s inside its generated `mod __rdx_tests` —
+-- | plan 73 §2.9 — so a test's `const` lives at file scope.
+#[cfg(test)]
+const FMT : Command = Command { name = "fmt", summary = "format a .sdx in place", state = State::Planned { plan = 34, id = "formatter" } }
+
+#[cfg(test)]
+const BUILD : Command = Command { name = "build", summary = "transpile", state = State::Ready }
+
+test "a ready command has nothing to announce"
+  assert_eq! \-> .not_yet BUILD \-> None
+
+test "a planned command names its plan"
+  message = .expect "fmt is planned" (.not_yet FMT)
+  assert! \-> .contains "not implemented yet" message \-> "#{message}"
+  assert! \-> .contains "plan 34" message \-> "#{message}"
+  assert! \-> .contains "formatter" message \-> "#{message}"
+
+test "the help and version aliases are accepted"
+  help = Command { name = "--help", summary = "", state = State::Ready }
+  for arg in ["--help", "-h", "help"]
+    assert! \-> .matches arg help \-> "#{arg}"
+  assert! \-> !.matches "--helpful" help
+
+  version = Command { name = "--version", summary = "", state = State::Ready }
+  assert! \-> .matches "--version" version && .matches "-V" version
+  assert! \-> !.matches "-v" version \-> "lowercase -v is not a version flag"
+
+test "an ordinary command matches only itself"
+  assert! \-> .matches "build" BUILD
+  assert! \-> !.matches "builds" BUILD && !.matches "--build" BUILD

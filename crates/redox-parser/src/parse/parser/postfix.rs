@@ -91,14 +91,27 @@ pub(crate) fn postfix(p: &mut Parser, lhs: Expr) -> Result<Result<Expr, Expr>, P
     }
 
     let name = p.ident("expected a field name or a tuple index after `.`")?;
-    // A `(` after the name was Rust's method-call syntax, which plan 57 leaf 3
-    // retires — `RDX0115`. Half of the retirement is here and half is in
-    // `application`, because §11.2 measured **two** AST shapes for one form:
-    // this built `Expr::MethodCall`, and the parenless `x.f a` is an
+    // A `(` **adjacent** to the name was Rust's method-call syntax, which plan
+    // 57 leaf 3 retires — `RDX0115`. Half of the retirement is here and half
+    // is in `application`, because §11.2 measured **two** AST shapes for one
+    // form: this built `Expr::MethodCall`, and the parenless `x.f a` is an
     // application over the `Expr::Field` built below. Refusing only this one
     // would leave `x.f (a)` re-parsing as the other and emitting the
     // identical `x.f(a)` silently.
-    if p.check(&TokenKind::LParen) {
+    //
+    // **Adjacency is what separates the two halves, and testing for any `(`
+    // at all refused a legal program.** `.contains p.name (&text)` is the
+    // ordinary receiver-last call, and its `(` opens the *enclosing*
+    // application's next argument rather than a call on the field — but this
+    // runs inside `atom`, which cannot see that there is an enclosing
+    // application. Plan 79 found it in `run/usage.sdx`, where the formatter
+    // then round-tripped the parentheses off a working program.
+    //
+    // A *spaced* `x.f (a)` is still refused, and by the other half: it
+    // becomes the `Expr::Field` below, and `application` refuses a field as
+    // the head of an application. The two halves now split on whitespace,
+    // which is exactly how the two spellings differ.
+    if p.check(&TokenKind::LParen) && p.peek_span().0 == name.span.1 {
       return Err(method_call_syntax(&name.text, (start, name.span.1)));
     }
     return Ok(Ok(Expr::Field {

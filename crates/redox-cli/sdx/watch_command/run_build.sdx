@@ -15,5 +15,13 @@ import crate::build_command::build_command
 -- | Output goes to **stderr**, including the success line: a watch loop's
 -- | progress is not the program's output, and keeping stdout clear means
 -- | `redox watch` composes with a pipe.
+export(crate) run_build : &str -> bool -> ()
+run_build input plain =
+  mut args = vec! \-> .to_string input
+  if plain
+    args |> .push (.to_string "--plain")
 
--- TODO plan 68: hand-port from line 18
+  case build_command (&args) of
+    Ok _ -> eprintln! \-> "built #{input}"
+    Err message -> eprintln! \-> "#{message}"
+  ()

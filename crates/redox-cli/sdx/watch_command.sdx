@@ -1,10 +1,3 @@
-export(crate) module is_change
-export(crate) module is_relevant
-export(crate) module report
-export(crate) module run_build
-export(crate) module sources
-export(crate) module target
-
 import crate::watch_command::is_change::is_change
 import crate::watch_command::is_relevant::is_relevant
 import crate::watch_command::report::report
@@ -12,6 +5,13 @@ import crate::watch_command::target::Target
 import notify::{RecursiveMode, Watcher}
 import std::path::Path
 import std::sync::mpsc
+
+export(crate) module is_change
+export(crate) module is_relevant
+export(crate) module report
+export(crate) module run_build
+export(crate) module sources
+export(crate) module target
 
 -- | `redox watch <file.sdx | dir>`.
 -- |
@@ -33,5 +33,45 @@ import std::sync::mpsc
 -- | resolve dependencies, or sequence tasks — that is a build system, and doc
 -- | 01 §1.3 forbids replacing Cargo's. `cargo watch -x test` already exists and
 -- | composes with this.
+export(crate) watch_command : &[String] -> Result<(), String>
+watch_command args =
+  input = (.ok_or_else (\-> .to_string "error: no input file\n\n`redox watch` takes a .sdx file or a directory.") (.find (\a -> !.starts_with '-' a) (.iter args)))?
+  target = (Target::resolve (Path::new input))?
+  plain = .any (\a -> a == "--plain") (.iter args)
 
--- TODO plan 68: hand-port from line 36
+  -- Build before watching, so an already-broken file is reported now rather
+  -- than after the user's next keystroke.
+  report (&target) plain
+
+  -- `tx` and `rx` bound from the pair, where the Rust destructured
+  -- `let (tx, rx) = …`: Redox has no tuple-destructuring binding, so each
+  -- half is moved out by projection.
+  channel = mpsc::channel ()
+  tx = channel.0
+  rx = channel.1
+  -- A send failure means the receiver is gone, which means the process is
+  -- ending; there is nothing useful to do about it here.
+  --
+  -- `drop (…)`, where the Rust wrote `let _ = …`. A lambda body is one
+  -- expression, so plan 75 §2.3's `_dropped = …` binding has nowhere to go.
+  mut watcher = (.map_err (\e -> format! \-> "error: cannot start the file watcher: #{e}") (notify::recommended_watcher (move \event -> drop (.send event tx))))?
+
+  dir_shown = .to_string (.display target.dir)
+  watched = watcher |> .watch (&target.dir) RecursiveMode::Recursive
+  (.map_err (\e -> format! \-> "error: cannot watch #{dir_shown}: #{e}") watched)?
+
+  eprintln! \-> "watching #{dir_shown} — press ctrl-c to stop"
+
+  for received in rx
+    case received of
+      Ok event ->
+        -- Two filters, and both are necessary. `is_change` rejects the
+        -- build's own *read* of the source, which is a `.sdx` path and would
+        -- otherwise retrigger the build forever (plan 12 §10.1 — measured at
+        -- 97,442 builds in six seconds). `is_relevant` rejects the generated
+        -- `.xrs` it writes, which is a real change to an irrelevant path.
+        if is_change (&event.kind) && .any (\p -> is_relevant p) (.iter event.paths)
+          report (&target) plain
+      Err e -> eprintln! \-> "error: the file watcher reported: #{e}"
+
+  Ok ()

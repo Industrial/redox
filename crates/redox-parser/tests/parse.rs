@@ -341,3 +341,52 @@ fn a_block_is_an_expression() {
 fn a_statement_if_needs_no_else() {
   let _ = prog("main : ()\nmain =\n  if 1 > 0\n    println! \\-> \"y\"\n  ()\n");
 }
+
+/// A field access as a **non-final** argument is an argument, not a method
+/// call — plan 79.
+///
+/// `RDX0115`'s two halves split on whitespace: `postfix` refuses the adjacent
+/// `x.f(a)` Rust writes, and `application` refuses a field as an application's
+/// head, which is every spaced form. Testing for any following `(` at all put
+/// both halves on the adjacent case and refused this, which is the ordinary
+/// receiver-last call — `redox-cli`'s `run/usage.sdx` writes it, and the
+/// formatter then round-tripped the parentheses off a working program.
+#[test]
+fn a_field_access_may_be_a_non_final_argument() {
+  let p = prog(
+    "main : ()\nmain =\n  text = String::new ()\n  n = .contains text.capacity text\n  println! \\-> \"#{n}\"\n  ()\n",
+  );
+  let Item::Fn(f) = &p.items[0] else {
+    panic!("expected a function item")
+  };
+  // The binding's value is one `Call` with two arguments, the second of which
+  // is the receiver — not a `Call` whose argument is another call.
+  let redox_ast::Stmt {
+    expr: Expr::Binding(b),
+    ..
+  } = &stmts(f)[1]
+  else {
+    panic!("expected a binding, got {:?}", stmts(f)[1].expr)
+  };
+  let Expr::Call { args, .. } = &b.value else {
+    panic!("expected a call, got {:?}", b.value)
+  };
+  assert_eq!(args.len(), 2, "{args:?}");
+  assert!(
+    matches!(&args[0], Expr::Field { .. }),
+    "the first argument is the field access: {:?}",
+    args[0]
+  );
+}
+
+/// And the adjacent spelling is still refused, which is the half that must not
+/// regress — `tests/ui/retired_method_call.sdx` pins all four shapes.
+#[test]
+fn an_adjacent_paren_is_still_the_retired_method_call() {
+  let errs = errors("main : ()\nmain =\n  s = String::new ()\n  a = s.len(1)\n  ()\n");
+  assert_eq!(
+    errs[0].code,
+    Code::MethodCallSyntax,
+    "the retirement diagnostic, not a generic one: {errs:?}"
+  );
+}

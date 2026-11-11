@@ -47,3 +47,32 @@ exclude = [".tmp"]
 version = "0.1.0"
 edition = "2024"
 license = "CC-BY-SA-4.0"
+
+# Five clippy lints that **every** Redox-sourced crate trips, stated once.
+#
+# Each one is the same fact: clippy asks for a Rust form this language cannot
+# write, so the allow states a fact rather than suppressing a defect. They had
+# been copied into crate roots instead — `no_effect`/`unused_unit` into five,
+# `match_like_matches_macro` into four, `single_match` into two — and plan 75
+# §2.4 called repeating the paragraph the wrong answer while plan 76 §6
+# repeated it anyway. Plan 79 would have been the eighth, which is the point at
+# which the owed decision gets made.
+#
+# | Lint | The form Redox cannot write |
+# |---|---|
+# | `no_effect`, `unused_unit` | Plan 55 §1.6 requires a `()`-returning body to **end with `()`** rather than imply it, deliberately, so a body ending in a loop or an assignment cannot become `()` by arriving last. clippy reads that `()` as a statement with no effect, and names it `unused_unit` where it closes a body. |
+# | `match_like_matches_macro` | `matches!`'s second argument is a **pattern**, and a Redox macro argument is an expression (plan 64 §6), so a method asking *is this one of these variants* is a `case` with a `_ -> false` arm. |
+# | `single_match` | Redox has no `if let`, so *do this if it matches* is a `case` with a `_ -> ()` arm — the same gap one step over. |
+# | `while_let_loop` | `while let Some(x) = …` binds a **pattern** too, so the same thing is a `loop` with a `case` whose `None` arm breaks. |
+#
+# **A crate opts in**, with `[lints] workspace = true`, and only the crates
+# generated from Redox do. The three still hand-written in Rust — `redox-driver`,
+# `redox-emit`, `redox-parser` — keep clippy's real verdict until their own port
+# row adds those two lines, which is the whole cost of this per future port
+# where it used to be a ten-line paragraph.
+[workspace.lints.clippy]
+no_effect = "allow"
+unused_unit = "allow"
+match_like_matches_macro = "allow"
+single_match = "allow"
+while_let_loop = "allow"

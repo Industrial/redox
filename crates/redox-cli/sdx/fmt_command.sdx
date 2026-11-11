@@ -1,8 +1,8 @@
-export(crate) module fmt_args
-export(crate) module parse_fmt_args
-
 import crate::fmt_command::parse_fmt_args::parse_fmt_args
 import redox_driver::diagnose
+
+export(crate) module fmt_args
+export(crate) module parse_fmt_args
 
 -- | `redox fmt FILE…` and `redox fmt --check FILE…` — plan 34, leaf 1.
 -- |
@@ -22,5 +22,31 @@ import redox_driver::diagnose
 -- | Criterion 8. The parse error is reported and nothing is written, because a
 -- | formatter that rewrites a file it could not understand is the one way this
 -- | command could destroy work.
+export(crate) fmt_command : &[String] -> Result<(), String>
+fmt_command args =
+  parsed = (parse_fmt_args args)?
+  mut unformatted : Vec<String> = Vec::new ()
 
--- TODO plan 68: hand-port from line 25
+  for path in &parsed.inputs
+    shown = .to_string (.display path)
+    source = (.map_err (\e -> format! \-> "error: cannot read #{shown}: #{e}") (std::fs::read_to_string path))?
+
+    program = (.map_err (\failure -> redox_diag::render (&diagnose path (&source) (&failure)) parsed.plain) (redox_parser::parse_source (&source)))?
+
+    formatted = redox_fmt::format (&program) (&source)
+    if formatted == source
+      continue
+
+    if parsed.check
+      unformatted |> .push shown
+    else
+      (.map_err (\e -> format! \-> "error: cannot write #{shown}: #{e}") (std::fs::write path (&formatted)))?
+
+  if .is_empty unformatted
+    return Ok ()
+  indented : Vec<String> = unformatted
+    |> .iter
+    |> .map (\p -> format! \-> "  #{p}")
+    |> .collect
+  listed = .join "\n" indented
+  Err (format! \-> "error: not formatted:\n#{listed}\nrun `redox fmt` on them\n")

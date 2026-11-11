@@ -16,5 +16,12 @@ import redox_driver::CheckOutcome
 -- | rather than prohibited"*, so a lint prints and the command carries on.
 -- | [`CheckOutcome`] keeps *are there diagnostics* and *did it fail* apart for
 -- | exactly this reason.
-
--- TODO plan 68: hand-port from line 19
+export(crate) report : &CheckOutcome -> bool -> Result<(), String>
+report outcome plain =
+  if .is_empty outcome.diagnostics
+    return Ok ()
+  rendered = redox_diag::render (&outcome.diagnostics) plain
+  if outcome.failed
+    return Err rendered
+  eprintln! \-> "#{rendered}"
+  Ok ()

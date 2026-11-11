@@ -2,6 +2,21 @@ import crate::serve::positions::range_of::range_of as to_range
 import lsp_types::{DocumentSymbol, SymbolKind}
 import redox_ast::Item
 
+-- | One item as a document symbol.
+-- |
+-- | The kind is the protocol's nearest equivalent, and two of them are
+-- | judgements worth recording rather than leaving to look obvious:
+-- |
+-- | - **`errors` is a `SymbolKind::ENUM`**, because that is what it lowers to —
+-- |   doc 03 §14's declaration becomes an enum with a `Display` and an `Error`
+-- |   impl. Calling it a `STRUCT` would read better in an outline and would
+-- |   disagree with the generated Rust.
+-- | - **`test` is a `SymbolKind::FUNCTION`**, because it is one in the output,
+-- |   and its *name* is its description string. An outline of a file full of
+-- |   tests is then a readable list of what the file asserts, which is the one
+-- |   place a symbol name is more useful than an identifier.
+-- |
+-- | A `module`'s items nest. Everything else is a leaf.
 -- **The allow is on the function, where the Rust had it on each field.**
 -- An attribute on a record-field initialiser is **dropped**: `FieldInit`
 -- has no `leading`, so the parser discards it before the AST exists and

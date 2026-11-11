@@ -9,5 +9,34 @@ import std::path::Path
 -- |
 -- | Sorted for the same reason it is sorted there: unsorted directory order
 -- | would make the diagnostics reorder between runs for no reason.
+export(crate) sources : &Path -> Vec<String>
+sources dir =
+  guard std::fs::read_dir dir is Ok entries else
+    return Vec::new ()
+  mut found : Vec<String> = entries
+    |> .filter_map Result::ok
+    |> .map (\e -> .path e)
+    |> .filter (\p -> .is_file p && .is_some_and (\x -> x == "sdx") (.extension p))
+    |> .map (\p -> .to_string (.display p))
+    |> .collect
+  .sort found
+  found
 
--- TODO plan 68: hand-port from line 12
+test "finds and sorts sdx files"
+  pid = std::process::id ()
+  dir = .join (format! \-> "redox-watch-src-#{pid}") (std::env::temp_dir ())
+  .expect "should create" (std::fs::create_dir_all (&dir))
+  -- `\#{1}` is a literal `#{1}`, so the fixture is Redox source rather than
+  -- this file interpolating into it.
+  for name in ["b.sdx", "a.sdx", "ignored.rs"]
+    .expect "should write" (std::fs::write (.join name dir) "main : ()\nmain =\n  println! \\-> \"\#{1}\"\n")
+
+  found = sources (&dir)
+  assert_eq! \-> .len found \-> 2 \-> "#{found:?}"
+  assert! \-> .ends_with "a.sdx" found[0] && .ends_with "b.sdx" found[1] \-> "#{found:?}"
+
+  _dropped = .ok (std::fs::remove_dir_all (&dir))
+
+test "an unreadable directory yields nothing"
+  found = sources (std::path::Path::new "/nonexistent/redox")
+  assert! \-> .is_empty found

@@ -1,6 +1,8 @@
 import lsp_server::{ExtractError, Request}
 import serde::de::DeserializeOwned
 
+-- | Deserialise a request's parameters for a known method.
+-- |
 -- | **The method is a value, where the Rust made it a turbofish.**
 -- |
 -- | `cast::<Formatting>(request)` picks the request type at the call site, and

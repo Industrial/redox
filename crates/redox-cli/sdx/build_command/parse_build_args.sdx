@@ -4,5 +4,68 @@ import crate::run::usage::usage
 import std::path::PathBuf
 
 -- | Resolve `build`'s arguments into a [`BuildArgs`].
+export(crate) parse_build_args : &[String] -> Result<BuildArgs, String>
+parse_build_args args =
+  mut input : Option<PathBuf> = None
+  mut output : Option<PathBuf> = None
+  mut plain = false
+  mut i = 0
+  while i < .len args
+    case .as_str args[i] of
+      "-o" or "--output" ->
+        path = (.ok_or_else (\-> .to_string "error: -o requires a path") (.get (i + 1) args))?
+        output := Some (PathBuf::from path)
+        i += 2
+      "--plain" ->
+        plain := true
+        i += 1
+      flag | .starts_with '-' flag ->
+        help = usage ()
+        return Err (format! \-> "error: unknown flag `#{flag}`\n\n#{help}")
+      path ->
+        if .is_some input
+          return Err (format! \-> "error: unexpected second input `#{path}`")
+        input := Some (PathBuf::from path)
+        i += 1
+  -- `resolved` and `out`, where the Rust rebound `input` and `output`:
+  -- `RDX1003` reports a shadow. A `guard` rather than `ok_or_else`, because
+  -- the message needs `usage ()` bound and a lambda body is one expression.
+  guard input is Some resolved else
+    help = usage ()
+    return Err (format! \-> "error: no input file\n\n#{help}")
+  out = .unwrap_or_else (\-> default_output (&resolved)) output
+  Ok (BuildArgs { input = resolved, output = out, plain })
 
--- TODO plan 68: hand-port from line 7
+test "rejects an unknown flag"
+  args = [.to_string "--nope"]
+  err = .expect_err "should fail" (parse_build_args (&args))
+  assert! \-> .contains "unknown flag" err \-> "#{err}"
+
+test "rejects a missing input"
+  empty : Vec<String> = Vec::new ()
+  err = .expect_err "should fail" (parse_build_args (&empty))
+  assert! \-> .contains "no input file" err \-> "#{err}"
+
+test "rejects a second input"
+  args = [.to_string "a.sdx", .to_string "b.sdx"]
+  err = .expect_err "should fail" (parse_build_args (&args))
+  assert! \-> .contains "second input" err \-> "#{err}"
+
+test "rejects a dangling output flag"
+  args = [.to_string "-o"]
+  err = .expect_err "should fail" (parse_build_args (&args))
+  assert! \-> .contains "requires a path" err \-> "#{err}"
+
+-- | Plan 05 leaf 5: the UI corpus needs a flag, not an environment sniff.
+test "accepts the plain flag before or after the input"
+  before = [.to_string "--plain", .to_string "a.sdx"]
+  after = [.to_string "a.sdx", .to_string "--plain"]
+  for args in [before, after]
+    parsed = .expect "should parse" (parse_build_args (&args))
+    assert! \-> parsed.plain
+    assert_eq! \-> .to_str parsed.input \-> Some "a.sdx"
+
+test "defaults to graphical rendering"
+  args = [.to_string "a.sdx"]
+  parsed = .expect "should parse" (parse_build_args (&args))
+  assert! \-> !parsed.plain

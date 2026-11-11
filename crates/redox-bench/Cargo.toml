@@ -11,3 +11,7 @@ license.workspace = true
 redox-driver = { path = "../redox-driver" }
 redox-parser = { path = "../redox-parser" }
 redox-emit = { path = "../redox-emit" }
+
+# The five surface-fact allows — see the root manifest.
+[lints]
+workspace = true
