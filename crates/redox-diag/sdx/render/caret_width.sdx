@@ -1,0 +1,47 @@
+import crate::Span
+
+-- | How many `^` to draw under a span.
+-- |
+-- | Characters, not bytes. A span is a byte range, so subtracting its ends
+-- | gives the right number only for ASCII — plan 05's UI corpus caught it
+-- | drawing `^^` under a single `§`, because `§` is two bytes. The column the
+-- | caret starts at is already counted in characters, so the width has to be
+-- | too or the two disagree.
+-- |
+-- | A span that is empty, or that does not line up with the text, still gets
+-- | one caret: a diagnostic with no visible marker is worse than one whose
+-- | marker is a character wide.
+
+-- | How many `^` to draw under a span.
+-- |
+-- | Characters, not bytes. A span is a byte range, so subtracting its ends
+-- | gives the right number only for ASCII — plan 05's UI corpus caught it
+-- | drawing `^^` under a single `§`, because `§` is two bytes. The column the
+-- | caret starts at is already counted in characters, so the width has to be
+-- | too or the two disagree.
+-- |
+-- | A span that is empty, or that does not line up with the text, still gets
+-- | one caret: a diagnostic with no visible marker is worse than one whose
+-- | marker is a character wide.
+export(crate) caret_width : &str -> Span -> usize
+caret_width source span = source
+  |> .get span.0 .. span.1
+  |> .map_or 1 (\text -> .max 1 (.count (.chars text)))
+
+test "counts characters not bytes"
+  -- `§` is two bytes but occupies one column.
+  assert_eq! \-> caret_width "1 § 2" (2, 4) \-> 1
+
+test "spans several characters"
+  assert_eq! \-> caret_width "print 0x" (6, 8) \-> 2
+
+test "always draws at least one"
+  assert_eq! \-> caret_width "abc" (1, 1) \-> 1
+
+-- | A span past the end — an error at end of input — must not panic.
+test "survives a span outside the source"
+  assert_eq! \-> caret_width "ab" (5, 9) \-> 1
+
+-- | Nor one that would slice through a character.
+test "survives a span off a character boundary"
+  assert_eq! \-> caret_width "é" (1, 2) \-> 1

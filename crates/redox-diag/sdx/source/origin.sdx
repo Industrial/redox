@@ -1,0 +1,44 @@
+import crate::Span
+
+-- | Where one line of generated Rust came from.
+-- |
+-- | Plan 06 (`docs/11 - 06 - Source Map.md`) leaf 1. Recorded by the emitter as
+-- | it writes, which is the only moment both positions are known at once.
+-- |
+-- | Both columns are stored because mapping a column is a *shift*, not a
+-- | lookup: rustc reports a position inside a line, and the generated line and
+-- | the source line differ by their indentation (four spaces against two, say,
+-- | plus whatever wrapper the emitter added). Knowing where the construct's
+-- | text begins on each side turns that into subtraction.
+export data Origin = Origin {
+  -- | The source span of the construct that produced the line.
+  export span : Span,
+  -- | 1-based source line of [`Origin::span`]'s start.
+  export src_line : usize,
+  -- | 1-based source column at which the construct's text begins.
+  export src_col : usize,
+  -- | 1-based generated column at which the same text begins.
+  export gen_col : usize,
+}
+  deriving (Debug, Clone, Copy, PartialEq, Eq)
+
+instance Origin
+  -- | Map a column on the generated line back to a source column.
+  -- |
+  -- | Floored at 1: a position *left* of where the construct begins — inside
+  -- | the emitter's own indentation — has no source column, and reporting the
+  -- | construct's first column is better than reporting zero or wrapping.
+  export map_col : &self -> usize -> usize
+  map_col self gen_col = self.src_col + .saturating_sub self.gen_col gen_col
+
+-- | Source `  a + b` at line 2 column 3; generated `    a + b` at column 5.
+origin : () -> Origin
+origin () = Origin { span = (10, 15), src_line = 2, src_col = 3, gen_col = 5 }
+
+test "shifts a column by the indentation difference"
+  assert_eq! \-> .map_col 5 (origin ()) \-> 3 \-> "the first character"
+  assert_eq! \-> .map_col 9 (origin ()) \-> 7 \-> "four characters in"
+
+test "floors at the construct's first column"
+  assert_eq! \-> .map_col 1 (origin ()) \-> 3
+  assert_eq! \-> .map_col 4 (origin ()) \-> 3

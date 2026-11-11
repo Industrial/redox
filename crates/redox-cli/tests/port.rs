@@ -69,6 +69,13 @@ fn workspace_root() -> PathBuf {
 /// the order they were ported, which is also dependency order — `redox-fmt`
 /// reads `redox-ast`'s types, so a staged check of the second needs the first
 /// already in place.
+// `redox-diag` joins this list when its port compiles. All 21 files are
+// written and every one parses; what remains is rustc's verdict on the bodies.
+// A half-ported crate here makes the staging guard refuse every bless —
+// correctly — which would leave the gate red for the length of a port rather
+// than at the end of one. Its `.sdx` tree is in `crates/redox-diag/sdx/`
+// meanwhile, and `.tmp/p73build.sh` rebuilds it from the translator and nine
+// batches.
 const PORTED: &[&str] = &["redox-ast", "redox-fmt"];
 
 /// Every `.sdx` of the port, with the `.rs` it generates.

@@ -1,0 +1,56 @@
+import crate::Diagnostic
+import crate::render::graphical_one::graphical_one
+import crate::render::plain_one::plain_one
+
+-- | Move a span onto a character that can actually be drawn under.
+export(crate) module anchor_span
+-- | How many `^` to draw under a span.
+export(crate) module caret_width
+-- | The boxed, coloured rendering, by way of `miette`.
+export(crate) module graphical_one
+-- | Resolve a byte offset to a 1-based line and column.
+export(crate) module line_col
+-- | The rendering with no colour and no width dependence.
+export(crate) module plain_one
+-- | Which source line to show, and where in it to point.
+export(crate) module snippet_line
+
+-- | Render every diagnostic, graphically or plainly.
+-- |
+-- | Plan 05 (`docs/10 - 05 - Diagnostics.md`) leaf 4. One report per
+-- | diagnostic, which is Emerald's `report_driver_error` loop — plan 03's
+-- | two-level recovery already produces several errors and nothing yet
+-- | displayed more than the first.
+-- |
+-- | `plain` exists for the UI tests, not for users: a corpus comparing bytes
+-- | cannot depend on terminal width or colour detection. Making it a flag
+-- | rather than an environment sniff keeps the test honest about what it
+-- | asserts.
+
+-- | Render every diagnostic, graphically or plainly.
+-- |
+-- | Plan 05 (`docs/10 - 05 - Diagnostics.md`) leaf 4. One report per
+-- | diagnostic, which is Emerald's `report_driver_error` loop — plan 03's
+-- | two-level recovery already produces several errors and nothing yet
+-- | displayed more than the first.
+-- |
+-- | `plain` exists for the UI tests, not for users: a corpus comparing bytes
+-- | cannot depend on terminal width or colour detection. Making it a flag
+-- | rather than an environment sniff keeps the test honest about what it
+-- | asserts.
+export render : &[Diagnostic] -> bool -> String
+render diagnostics plain =
+  mut out = String::new ()
+  for pair in .enumerate (.iter diagnostics)
+    -- One parameter and two bindings, where the Rust wrote `for (i, d)`:
+    -- **`for` binds a name, not a pattern** (plan 68's gap), and a lambda
+    -- parameter is a name too (plan 69's third finding).
+    i = pair.0
+    d = pair.1
+    if i > 0
+      .push '\n' out
+    if plain
+      .push_str (&plain_one d) out
+    else
+      .push_str (&graphical_one d) out
+  out

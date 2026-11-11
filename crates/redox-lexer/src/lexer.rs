@@ -476,6 +476,28 @@ impl<'a> Lexer<'a> {
     const LEADING: &[&str] = &[">>>", "<<<", "|>"];
     let mark = self.cur.mark();
     self.cur.eat_spaces();
+
+    // **Step over whole comment lines.** A comment between two stages used to
+    // end the chain: this asked whether the line ahead opened with an
+    // operator, a comment line opens with `--`, so `end_of_line` emitted a
+    // `Newline` and `RDX0102` followed on the `|>` below. Plan 69 found it,
+    // graded it a defect — `AGENTS.md` says trivia is never discarded, and a
+    // trivium that stops its neighbour parsing is the strongest form of
+    // discarding one — and plan 73 met it three times in one crate.
+    //
+    // Nothing is consumed: this marks and resets, so the comments are scanned
+    // normally afterwards and attach as leading trivia to the `|>`, which is
+    // where the author wrote them.
+    //
+    // A `-- |` doc comment is **not** skipped. It documents the item below it
+    // and no item begins with `|>`, so treating one as a continuation would
+    // attach documentation to an expression and hide a real mistake.
+    while self.cur.starts_with("--") && !self.cur.starts_with("-- |") {
+      self.cur.eat_while(|c| c != '\n');
+      self.cur.bump();
+      self.cur.eat_spaces();
+    }
+
     let continues = LEADING.iter().any(|op| self.cur.starts_with(op));
     self.cur.reset_to(mark);
     continues

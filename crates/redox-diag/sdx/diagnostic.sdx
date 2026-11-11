@@ -1,0 +1,51 @@
+import crate::Span
+import crate::diagnostic::diagnostic_code::DiagnosticCode
+import std::error::Error
+import std::fmt::Display
+import std::fmt::Formatter
+import std::fmt::Result
+
+-- | A stable diagnostic code.
+export(crate) module code
+-- | Redox's own code, or another compiler's passed through.
+export(crate) module diagnostic_code
+-- | A lint an author can switch off by name.
+export(crate) module lint
+-- | Whether a diagnostic stops the build.
+export(crate) module severity
+
+-- | One diagnostic, ready to render.
+-- |
+-- | Plan 05 (`docs/10 - 05 - Diagnostics.md`) leaf 2. Shaped after Emerald's
+-- | `SemaError` (`crates/emerald-cli/src/main.rs:47-81`), which supplies
+-- | `source_code` and one `LabeledSpan` — the one piece of its diagnostics work
+-- | that transfers directly.
+-- |
+-- | `miette` renders this; the stage crates never see it. An error carries a
+-- | span and a message, and only the CLI renders (doc 06 §6 rule 2), which
+-- | keeps the renderer swappable.
+export data Diagnostic = Diagnostic {
+  -- | Redox's own code, or another compiler's passed through (plan 07).
+  export code : DiagnosticCode,
+  -- | Whether this stops the build — doc 03 §12.7's lint band, plan 38.
+  -- |
+  -- | `Error` by default, so every construction that predates `RDX1001` means
+  -- | what it meant and a new one that forgets to say is fatal rather than
+  -- | silent.
+  export severity : crate::Severity,
+  export message : String,
+  export span : Span,
+  -- | A one-line suggestion, shown after the snippet.
+  export help : Option<String>,
+  -- | The file name, for the location line.
+  export path : String,
+  -- | The whole source, so the snippet has context.
+  export source : String,
+}
+  deriving (Debug, Clone)
+
+instance Display Diagnostic
+  fmt : &self -> &mut Formatter<'_> -> Result
+  fmt self f = write! \-> f \-> "#{self.message}"
+
+instance Error Diagnostic

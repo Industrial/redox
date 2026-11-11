@@ -1,0 +1,60 @@
+import crate::Code
+
+-- | A diagnostic's code: Redox's own, or another compiler's passed through.
+-- |
+-- | Plan 07 (`docs/12 - 07 - Rustc Remapping.md`) leaf 1. `redox check` reports
+-- | rustc's errors against the `.sdx`, changing **only the position** — the
+-- | message, the severity and the code stay rustc's (plan 07 §1.1). So a
+-- | diagnostic has to be able to carry `E0308`.
+-- |
+-- | Why this is a separate type rather than a `Code::Rustc(String)` variant:
+-- | [`Code`] is a closed, numbered catalogue whose value is precisely that it
+-- | is closed — plan 05's `code_coverage.rs` fails if any variant is
+-- | unreachable from the UI corpus, which is what makes `RDX0105` a promise
+-- | rather than a hope. A string variant would be in the catalogue without
+-- | being *of* it. A foreign code is explicitly outside, and the type says so.
+export data DiagnosticCode
+  -- | Redox's own, from the `RDX` catalogue.
+  = Redox Code
+  -- | Another compiler's, verbatim — `E0308`, `unused_variables`.
+  -- |
+  -- | Never parsed, never renumbered. A user who searches for it must find
+  -- | Rust's documentation, not Redox's.
+  | Foreign String
+  deriving (Debug, Clone, PartialEq, Eq)
+
+instance DiagnosticCode
+  -- | The code as it is printed.
+  export text : &self -> String
+  text self = case self of
+    DiagnosticCode::Redox code -> .text code
+    DiagnosticCode::Foreign text -> .clone text
+
+  -- | Whether this code comes from Redox's catalogue.
+  -- |
+  -- | Plan 05's corpus checks read `.stderr` files for `RDX` codes; this is how
+  -- | a later `check` UI case can be excluded from that count without the check
+  -- | having to pattern-match on the text.
+  export is_redox : &self -> bool
+  is_redox self = case self of
+    DiagnosticCode::Redox _ -> true
+    _ -> false
+
+instance From Code DiagnosticCode
+  from : Code -> Self
+  from code = DiagnosticCode::Redox code
+
+test "renders a redox code from the catalogue"
+  code : DiagnosticCode = .into Code::ExpectedToken
+  assert_eq! \-> .text code \-> "RDX0101"
+  assert! \-> .is_redox code
+
+test "renders a foreign code untouched"
+  code = DiagnosticCode::Foreign (.to_string "E0308")
+  assert_eq! \-> .text code \-> "E0308"
+  assert! \-> !.is_redox code
+
+-- | A lint name is not numbered, and must survive anyway.
+test "carries a foreign code that is not a number"
+  code = DiagnosticCode::Foreign (.to_string "unused_variables")
+  assert_eq! \-> .text code \-> "unused_variables"

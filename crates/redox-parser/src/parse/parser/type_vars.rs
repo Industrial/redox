@@ -33,6 +33,11 @@ use redox_ast::primitive_type;
 ///   primitive type and a list whose name stops describing its contents is
 ///   how a reader learns to stop trusting the names — plan 67 §9 decision 4;
 /// - **`'static`** — a lifetime that needs no declaration;
+/// - **`'_`** — the *anonymous* lifetime, which asks rustc to infer one.
+///   Declaring it is not merely unnecessary but a hard error, `E0637: `'_`
+///   cannot be used here`, so `&mut Formatter<'_>` emitted `fn fmt<'_>(…)` and
+///   would not compile. Found porting `redox-diag`, where every `impl Display`
+///   takes one;
 /// - **the type keywords** `dyn`, `impl`, `mut` and `as`, which are lowercase
 ///   words inside a type and name nothing;
 /// - **path segments** — `fmt` in `fmt::Result` is a module. A type variable
@@ -75,7 +80,10 @@ pub(crate) fn type_vars(types: &[&str]) -> Vec<String> {
       }
 
       if is_lifetime {
-        if word != "static" {
+        // `'static` needs no declaration and `'_` must not have one: it is
+        // the anonymous lifetime, and `fn f<'_>(…)` is `E0637`. See the
+        // doc comment's exclusion list.
+        if word != "static" && word != "_" {
           let named = format!("'{word}");
           if !lifetimes.contains(&named) {
             lifetimes.push(named);

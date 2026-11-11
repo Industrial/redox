@@ -1,0 +1,74 @@
+import crate::Diagnostic
+import crate::Severity
+import crate::render::caret_width::caret_width
+import crate::render::line_col::line_col
+import crate::render::snippet_line::snippet_line
+import std::fmt::Write
+import std::fmt::Write as _
+
+-- | Render one diagnostic without colour or width dependence.
+-- |
+-- | Deliberately close to doc 01 §29's own example output, so the plain form is
+-- | recognisable rather than a second dialect:
+-- |
+-- | ```text
+-- | error[RDX0101]: expected `->` after the signature
+-- |   --> bad_arrow.sdx:1:15
+-- |   |
+-- | 1 | add = (a: i32)
+-- |   |               ^
+-- | ```
+-- |
+-- | The first word is the **severity**, not a constant: plan 38's `RDX1001` is
+-- | a warning, and this renderer said `error[RDX1001]` until it stopped being
+-- | one. A hardcoded word is the kind of thing that stays right for thirty-odd
+-- | codes and is wrong for the thirty-first.
+
+-- | Render one diagnostic without colour or width dependence.
+-- |
+-- | Deliberately close to doc 01 §29's own example output, so the plain form is
+-- | recognisable rather than a second dialect:
+-- |
+-- | ```text
+-- | error[RDX0101]: expected `->` after the signature
+-- |   --> bad_arrow.sdx:1:15
+-- |   |
+-- | 1 | add = (a: i32)
+-- |   |               ^
+-- | ```
+-- |
+-- | The first word is the **severity**, not a constant: plan 38's `RDX1001` is
+-- | a warning, and this renderer said `error[RDX1001]` until it stopped being
+-- | one. A hardcoded word is the kind of thing that stays right for thirty-odd
+-- | codes and is wrong for the thirty-first.
+export(crate) plain_one : &Diagnostic -> String
+plain_one d =
+  at = line_col (&d.source) d.span.0
+  line = at.0
+  col = at.1
+  -- `Severity::…` imported rather than `crate::Severity::…` written inline: a
+  -- `crate::`-prefixed path **cannot open a pattern**, which is plan 68's
+  -- uppercase-path rule met from a new direction — this path starts with a
+  -- keyword.
+  level = case d.severity of
+    Severity::Error -> "error"
+    Severity::Warning -> "warning"
+  mut out = format! \-> "#{level}[#{(.text d.code)}]: #{d.message}\n"
+  _ = writeln! \-> out \-> "  --> #{d.path}:#{line}:#{col}"
+
+  if snippet_line (&d.source) line col is Some found
+    shown = found.0
+    text = found.1
+    caret = found.2
+    gutter = .repeat (.len (.to_string shown)) " "
+    _ = writeln! \-> out \-> "#{gutter} |"
+    -- A literal tab in the snippet would put the caret line out of step with
+    -- the source line, which matters most for the one diagnostic that is
+    -- *about* a tab. Expanding to a single space keeps the two aligned.
+    _ = writeln! \-> out \-> "#{shown} | #{(.replace '\t' " " text)}"
+    pad = .repeat (caret - 1) " "
+    carets = .repeat (caret_width (&d.source) d.span) "^"
+    _ = writeln! \-> out \-> "#{gutter} | #{pad}#{carets}"
+  if &d.help is Some help
+    _ = writeln! \-> out \-> "  = help: #{help}"
+  out

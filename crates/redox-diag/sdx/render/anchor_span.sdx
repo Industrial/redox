@@ -1,0 +1,58 @@
+import crate::Span
+
+-- | Move a span onto a character that can actually be drawn under.
+-- |
+-- | A parse error at end of input carries a span starting at `source.len()`,
+-- | and `miette` renders such a label as nothing at all: the snippet box
+-- | appears with no `┬` and no `here`. Rather than widen the label — which
+-- | would underline the wrong text — the span is walked back to the last
+-- | character that is not a line ending, so "unexpected end of input" points at
+-- | the last thing the author wrote.
+-- |
+-- | A span already inside the text is returned untouched, so this costs nothing
+-- | in the common case.
+
+-- | Move a span onto a character that can actually be drawn under.
+-- |
+-- | A parse error at end of input carries a span starting at `source.len()`,
+-- | and `miette` renders such a label as nothing at all: the snippet box
+-- | appears with no `┬` and no `here`. Rather than widen the label — which
+-- | would underline the wrong text — the span is walked back to the last
+-- | character that is not a line ending, so "unexpected end of input" points at
+-- | the last thing the author wrote.
+-- |
+-- | A span already inside the text is returned untouched, so this costs nothing
+-- | in the common case.
+export(crate) anchor_span : &str -> Span -> Span
+anchor_span source span =
+  if span.0 < .len source
+    return span
+  -- Parenthesised: an array literal in **argument** position is read as an
+  -- index on the callee, so the bare form wants a `]` after the first
+  -- element. Plan 69's `(*is_move)` is the same collision for a prefix
+  -- operator.
+  trimmed = .trim_end_matches (['\n', '\r']) source
+  case .next_back (.char_indices trimmed) of
+    Some pair ->
+      i = pair.0
+      c = pair.1
+      (i, i + .len_utf8 c)
+    None -> span
+
+test "leaves a span inside the text alone"
+  assert_eq! \-> anchor_span "abc\n" (1, 2) \-> (1, 2)
+
+test "walks back past a trailing newline"
+  src = "ab\n"
+  assert_eq! \-> anchor_span src (3, 3) \-> (1, 2)
+  assert_eq! \-> &src[1 .. 2] \-> "b" \-> "the anchored span covers the last character"
+
+test "respects character boundaries"
+  -- `é` is two bytes; a naive `len - 1` would slice mid-character.
+  src = "é\n"
+  assert_eq! \-> anchor_span src (3, 3) \-> (0, 2)
+  assert_eq! \-> &src[0 .. 2] \-> "é"
+
+test "gives up on an empty source"
+  assert_eq! \-> anchor_span "" (0, 0) \-> (0, 0)
+  assert_eq! \-> anchor_span "\n\n" (2, 2) \-> (2, 2)

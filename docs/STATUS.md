@@ -35,18 +35,18 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 |---|---:|---:|
 | `redox-ast` | 3540 | 0 |
 | `redox-bench` | 597 | 217 |
-| `redox-cli` | 1376 | 9184 |
+| `redox-cli` | 1376 | 9191 |
 | `redox-diag` | 1793 | 0 |
 | `redox-driver` | 2981 | 0 |
 | `redox-emit` | 6156 | 4421 |
 | `redox-fmt` | 3028 | 1463 |
 | `redox-fuzz` | 124 | 292 |
-| `redox-lexer` | 3008 | 1158 |
+| `redox-lexer` | 3030 | 1196 |
 | `redox-lsp` | 934 | 502 |
 | `redox-mcp` | 808 | 776 |
-| `redox-parser` | 7988 | 609 |
+| `redox-parser` | 8006 | 609 |
 | `redox-seed` | 298 | 656 |
-| **total** | **32631** | **19278** |
+| **total** | **32671** | **19323** |
 
 ---
 
@@ -56,7 +56,7 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 |---|---:|---|
 | `examples/*.sdx` | 37 | the CI-checked source of truth for what works |
 | `tests/golden/*.xrs` | 36 | the generated Rust, as exact text |
-| `crates/redox-cli/tests/ui/*.sdx` | 48 | the diagnostic a bad program gets |
+| `crates/redox-cli/tests/ui/*.sdx` | 47 | the diagnostic a bad program gets |
 | `tests/unreachable/*.sdx` | 7 | the gaps below, asserted to **still fail** |
 | `benchmarks/pairs/*.sdx` | 9 | generated and hand-written Rust, as identical IR |
 

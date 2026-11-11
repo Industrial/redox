@@ -48,6 +48,16 @@ pub(crate) fn token_text(kind: &TokenKind) -> String {
     TokenKind::Plus => "+".to_string(),
     TokenKind::Arrow => "->".to_string(),
     TokenKind::Colon => ":".to_string(),
+    // **An associated-type binding** — `Iterator<Item = T>`,
+    // `Future<Output = T>`. `=` is a type terminator at depth zero, where it
+    // is a binding's `=` rather than a type's, so `capture_type` only ever
+    // reaches here inside `<…>`.
+    //
+    // Without this arm the debug fallback spelled it `Eq` and the generated
+    // Rust read `dyn Iterator<Item Eq miette::LabeledSpan>`, which rustc
+    // rejects. That is the fallback working as its comment below describes,
+    // and it is how `LBrace` and `Compose` were found too.
+    TokenKind::Eq => "=".to_string(),
     TokenKind::Bang => "!".to_string(),
     TokenKind::Dot => ".".to_string(),
     // A token with no business inside a type reaches here only if the scan's

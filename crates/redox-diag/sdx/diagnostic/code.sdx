@@ -1,0 +1,481 @@
+import std::collections::BTreeSet
+-- | A stable diagnostic code.
+-- |
+-- | Plan 05 (`docs/10 - 05 - Diagnostics.md`) leaf 1. Every diagnostic is
+-- | citable, and a code never changes meaning once published.
+-- |
+-- | Ranges are chosen to respect what `docs/03 - Redox Surface Design.md` §17
+-- | already published rather than renumbering it:
+-- |
+-- | | Range | Holds |
+-- | |---|---|
+-- | | `RDX0001`–`RDX0039` | lexical errors |
+-- | | `RDX0040`–`RDX0099` | **reserved** for doc 03 §17's surface codes (plans 19–28) |
+-- | | `RDX0100`–`RDX0199` | syntactic errors |
+-- | | `RDX1000`+ | lints, from doc 03 §17's `RDX1001` |
+-- |
+-- | A code is assigned where its error is **constructed**, never matched from
+-- | message text at render time — otherwise improving a message would silently
+-- | change a code.
+export data Code
+  -- ---- lexical: RDX0001–RDX0039 ----
+  -- | A tab in leading whitespace. Doc 01 §3.1 permits rejection, and one
+  -- | branch removes a class of bug that otherwise reports the wrong line.
+  = TabIndent
+  -- | An indentation width matching no enclosing level.
+  | InconsistentDedent
+  -- | A string literal with no closing delimiter.
+  | UnterminatedString
+  -- | A raw string with no closing delimiter.
+  | UnterminatedRawString
+  -- | An interpolation with no closing `}`.
+  | UnterminatedInterpolation
+  -- | A `###` fence with no closing fence.
+  | UnterminatedFence
+  -- | An attribute with no closing `]`.
+  | UnterminatedAttribute
+  -- | A byte or C-string literal with no closing delimiter.
+  | UnterminatedByteLiteral
+  -- | An escape sequence Redox does not define.
+  | UnknownEscape
+  -- | A numeric literal with a radix prefix and no digits, or a bad exponent.
+  | MalformedNumber
+  -- | A character that cannot begin any token.
+  | UnexpectedCharacter
+  -- | An opening delimiter that is never closed.
+  | UnbalancedDelimiter
+  -- | A `'` that opens neither a character literal nor a label.
+  | BadQuote
+
+  -- ---- syntactic: RDX0100–RDX0199 ----
+  -- | A token appeared where the grammar required a different one.
+  | ExpectedToken
+  -- | An expression was required and something else appeared.
+  | ExpectedExpression
+  -- | A name was required.
+  | ExpectedName
+  -- | A type was required after `:`.
+  | ExpectedType
+  -- | A declaration body with no statements.
+  | EmptyBody
+  -- | A module-scope binding written doc 01 §4.3's way — `PI = 3.14159`.
+  -- |
+  -- | Doc 03 §13.4 corrected that spelling out of existence: Rust forbids
+  -- | `let` at module scope and requires a type on a `const`. The generic
+  -- | "expected `::`" is true and unhelpful here, because the author followed
+  -- | a **published** specification — so this code exists to name the
+  -- | correction rather than the token.
+  | ModuleScopeBinding
+  -- | `until Some v <- x` — a pattern test under a keyword that negates.
+  -- |
+  -- | `until c` lowers to `while !(c)`, and a pattern test cannot be negated:
+  -- | `while !(let Some(v) = x)` is not Rust. The nearest Rust that compiles,
+  -- | `while !matches!(x, Some(_))`, **binds nothing** — so it cannot be what
+  -- | a binding construct meant, and lowering to it would be doc 02 §5.2's
+  -- | failure mode. Plan 22 §1.3 reports instead.
+  | PatternUntil
+  -- | `...rest` in a pattern — doc 03 §6.5's published spelling, plan 33.
+  -- |
+  -- | Doc 18 §7 removed `...` from the language, and both of Rust's own tokens
+  -- | were already Redox's: `..` to discard and `rest @ ..` to bind. An author
+  -- | who wrote `...rest` followed a **published** specification, so the
+  -- | message names the correction rather than the token — the same reason
+  -- | `ModuleScopeBinding` exists for doc 01 §4.3.
+  | EllipsisRestPattern
+  -- | `RDX0109` — the input nests brackets deeper than the parser's stack
+  -- | can hold.
+  -- |
+  -- | Found by plan 42's fuzz sweep, which is the first thing that ever
+  -- | handed the parser three hundred nested parentheses. A recursive-descent
+  -- | parser with no limit overflows its stack and **aborts the process** —
+  -- | not a diagnostic, not a panic that can be caught, an abort. Plan 40's
+  -- | language server runs the parser on every keystroke, so that is a crash
+  -- | in front of a user who typed a bracket too many.
+  -- |
+  -- | Measured rather than guessed: 24 levels parse and 32 abort, in a debug
+  -- | build. The limit is 16, which is well below the first failure and far
+  -- | above anything a human writes — the deepest nesting in the whole corpus
+  -- | is a handful.
+  | NestingTooDeep
+
+  -- | A `::` with whitespace before it — plan 52 criterion 2.
+  -- |
+  -- | `::` joins a path, and a path is written tight in both Rust and Redox.
+  -- | Before plan 52 a *spaced* `::` ascribed a type, which made this the one
+  -- | place in the language where a space changed meaning; plan 52 gave
+  -- | ascription its own token and retired the rule.
+  -- |
+  -- | What it did not retire was the old spelling in anybody's fingers. Left
+  -- | alone, `y = x :: u64` is consumed as the path `x::u64` — `u64` is a
+  -- | perfectly good segment — and the first sign of trouble is rustc
+  -- | reporting an unresolved path against a line the author did not write.
+  -- | That is the exact failure mode doc 18 §5.2's whitespace rule existed to
+  -- | prevent, so retiring the rule has to come with this diagnostic rather
+  -- | than with silence.
+  -- |
+  -- | Detected from spans alone: a gap between the previous token's end and
+  -- | the `::`'s start is whitespace. The rule is positional, not a guess
+  -- | about what the author meant.
+  | SpacedPathSeparator
+
+  -- | `RDX0111` — a `newtype` that is not one constructor over one field.
+  -- |
+  -- | Plan 53 leaf 2. `newtype` is `data` narrowed to Haskell's shape, and
+  -- | before this code the narrowing was nowhere: `data_decl.rs` set
+  -- | `is_newtype` and never read it again, so `newtype Bad = Bad f64 f64`
+  -- | emitted a two-field tuple struct and `newtype Multi = A | B` emitted an
+  -- | **enum**, both silently and both exit 0. A keyword that constrains
+  -- | nothing is doc 02 §5.2's failure mode spelled as vocabulary.
+  -- |
+  -- | **One code, three messages** — no field, two-or-more fields,
+  -- | two-or-more constructors. A code names a *rule*, and there is one rule
+  -- | here: the shape `newtype` promises. The remedy is also one word in all
+  -- | three cases, `data`, so three codes would publish three rules a reader
+  -- | then has to work out are the same one. `UnterminatedString` and
+  -- | `UnterminatedRawString` are two codes because they are two constructs
+  -- | with two different closing delimiters; these are three readings of one
+  -- | arity.
+  -- |
+  -- | **rustc is not a backstop for most of it.** Plan 53 §6 claimed a bad
+  -- | payload was *"rejected by rustc, not by Redox"*; §11.3 measured it and
+  -- | only the multi-field case gets `E0690` —
+  -- | `#[repr(transparent)] pub struct Unit;` compiles clean. So for
+  -- | `newtype Foo = Foo` this check is the only thing between the author and
+  -- | a keyword that quietly meant nothing.
+  | NewtypeShape
+
+  -- | `RDX0112` — a `test` declaration inside a body.
+  -- |
+  -- | Plan 55 leaf 6, and the one carve-out from §1.4's *everything in a body
+  -- | is an expression*. It is refused because **rustc does not collect a
+  -- | nested `#[test]`**: the `unnameable_test_items` lint warns
+  -- | `cannot test inner items`, the harness runs one test where two were
+  -- | written, and the build exits 0 either way (§1.5, measured).
+  -- |
+  -- | So lowering a local `test` would ship a construct that compiles and
+  -- | then silently does nothing — worse than one that is refused, because a
+  -- | refusal costs a minute and a test that never runs costs whatever it was
+  -- | guarding. §9 decision 2 declined the alternative, hoisting to module
+  -- | scope, on the ground that AGENTS.md already puts tests elsewhere.
+  -- |
+  -- | **Not a widening of the ground.** A declaration keyword in a body
+  -- | already failed, as `RDX0102` *"expected an expression"* from `prefix`'s
+  -- | default arm — twice over, because the indented body line raised a second
+  -- | one. This names the rule instead of the token, which is the same reason
+  -- | [`Self::ModuleScopeBinding`] and [`Self::EllipsisRestPattern`] exist.
+  -- |
+  -- | The number is the one plan 55 leaf 1 was briefed to take and did not:
+  -- | §10.2 found the position rule it was meant for had no trigger.
+  | LocalTest
+
+  -- | `RDX0113` — a `()`-returning function whose body does not end in `()`.
+  -- |
+  -- | Plan 55 §1.6's rule, and §9 decision 3 priced it before it was built:
+  -- | *"The cost is one line per `()`-returning function and it is paid
+  -- | visibly."* What it buys is the removal of positional silence — a body
+  -- | whose last line is a loop, a binding or an assignment has **no value**,
+  -- | and today it becomes `()` by arriving last rather than by saying so.
+  -- |
+  -- | **rustc does catch the mistake, at the call site rather than the
+  -- | definition.** A function that falls off the end of a `for` type-checks as
+  -- | `()` where it stands; the complaint arrives wherever somebody tried to
+  -- | use the value, which is a different file as often as not. This code moves
+  -- | it to the line that is wrong, which is doc 05 §4's rule and the whole
+  -- | argument for Redox naming anything rustc also names.
+  -- |
+  -- | **Decidable without a type checker**, which is why it may exist at all
+  -- | (AGENTS.md: *every check rustc can make, rustc makes* — and this is one
+  -- | rustc makes elsewhere). Two syntactic facts settle it: the **declared**
+  -- | return type, which doc 18 §2.2 makes mandatory, and whether the body's
+  -- | last element is the literal `()`. Nothing is inferred — `print x` is not
+  -- | *known* to be unit, and does not have to be, because the signature
+  -- | already said so.
+  -- |
+  -- | **Scoped to a declared `()`, and not to "the last element has no
+  -- | value".** The wider reading was measured and declined twice over: for a
+  -- | non-unit return type a valueless tail is already `E0308` *at the
+  -- | definition*, with a better message than a suggestion to write `()` —
+  -- | which is the wrong remedy there — and `Expr::is_statement_form()` is not
+  -- | the predicate it looks like, since `return`, `break` and `continue` are
+  -- | `!` and a block ending in one has no value *and no defect*. Those three
+  -- | are therefore accepted as a unit body's last element: they state the
+  -- | function's value outright, and a `()` after one is unreachable code.
+  | UnitTail
+
+  -- | `RDX0114` — a reserved word used where the language has no construct
+  -- | for it.
+  -- |
+  -- | Plan 55 leaf 7, and `do` is its only trigger. §1.7 retired the construct
+  -- | — an indented block is an expression, so no keyword announces one — and
+  -- | §9 decision 4 kept the **word**: plan 60 takes `<-` as a monadic bind,
+  -- | and `do`'s Haskell meaning is the one still unclaimed, so spending the
+  -- | token on an identifier now would make that row a breaking change.
+  -- |
+  -- | **A reservation nothing says out loud is indistinguishable from an
+  -- | oversight.** Without this code, `found = do` is `RDX0102` *"expected an
+  -- | expression"* and `do = 1` is the same — both true, and both describing
+  -- | the position rather than the rule. An author reading either has no way
+  -- | to tell a retired construct from a word the parser has not learned yet,
+  -- | which is the distinction the help line carries.
+  -- |
+  -- | The same shape as [`Self::LocalTest`]: a construct that *was* available
+  -- | and is now refused by name, because the generic message names the wrong
+  -- | problem.
+  | ReservedWord
+
+  -- | `RDX0115` — Rust's method-call syntax, `x.f (a)`, retired by plan 57.
+  -- |
+  -- | A method is a function whose **last** argument is its receiver, so the
+  -- | call is `.f a x` or `x |> .f a` and `.` keeps exactly one job: field
+  -- | access. §1.1 measured four separate defects in generated Rust that all
+  -- | came from a receiver-bearing call form colliding with juxtaposition —
+  -- | `m.insert (k) (v)` curried, `drain ().len ()` nested, `succeed ()`
+  -- | emptied, `(xs.get i)?.clone ()` chained.
+  -- |
+  -- | **Two AST shapes spell the retired form and both reach this code**,
+  -- | which §11.2 is the finding for: `x.f (a)` was `Expr::MethodCall` and
+  -- | `x.f a` is an application over an `Expr::Field`, because `postfix` has
+  -- | no paren-call step. Refusing only the first would leave the second
+  -- | emitting the identical `x.f(a)` silently, so the parenthesised form is
+  -- | refused in `postfix` and the parenless one where `application` reads its
+  -- | head.
+  | MethodCallSyntax
+
+  -- | `RDX0116` — the `(|> name)` method reference, retired by plan 57.
+  -- |
+  -- | A bare `.name` *is* a method awaiting its receiver and lowers to the
+  -- | same `|__rdx_1| __rdx_1.name()`, so the two spellings were one
+  -- | construct. Plan 65's rule decides which row removes it: **whoever builds
+  -- | the replacement retires what it replaces**, so there is never a window
+  -- | in which neither spelling works.
+  -- |
+  -- | `(.name)` is **not** this code — it is the field selector, and a `)`
+  -- | immediately after the name is what tells the two apart.
+  | PipelineSection
+
+  -- | `RDX0117` — `?.`, optional chaining, retired by plan 57.
+  -- |
+  -- | Doc 18 §8 kept `?.` because deleting it *"would cost reachability or
+  -- | ergonomics with nothing to show"*; with a method callable as a function
+  -- | the chain is writable as the `?` run its own lowering always was, so the
+  -- | cost is gone and the one-token ambiguity is not worth keeping — `(e)?.m
+  -- | ()` meant optional chaining rather than `?` then a call, and rustc
+  -- | caught it two types away.
+  -- |
+  -- | **The token is gone, so this is an adjacency check rather than a
+  -- | branch.** `?` and `.` are separate tokens now, and `x? .name` is two
+  -- | perfectly good postfix steps; only the *glued* `x?.name` is refused, and
+  -- | it is refused because it used to mean something else.
+  | OptionalChaining
+
+  -- | `RDX0118` — one of the six spellings plan 64 retires: `assert`, `panic`,
+  -- | `print`, `todo`, `unimplemented`, `unreachable`.
+  -- |
+  -- | Each existed **only because macros were unreachable**, and each names a
+  -- | Rust macro that is strictly better now that `name! \-> e` reaches it:
+  -- | `println!` has a stderr sibling where the sugar had none, and `assert!`
+  -- | belongs to a family where the keyword stood alone.
+  -- |
+  -- | The retired spelling appears in 29 of the 31 examples, so this message
+  -- | *is* the migration guide — the fifth row in this milestone to answer a
+  -- | retired spelling with a diagnostic rather than with silence.
+  -- |
+  -- | `otherwise` is **not** among them and still works: it is a guard-ladder
+  -- | catch-all with no macro equivalent, so retiring it would mean writing
+  -- | `| true =` (plan 64 §1.5).
+  | RetiredSpelling
+
+  -- | `RDX0119` — a `where` group that is not a set of definitions, plan 61.
+  -- |
+  -- | One code for three refusals, because they are one statement about the
+  -- | construct rather than three restrictions on it. A `where` group is
+  -- | emitted in **dependency order**, which is only meaningful for a set of
+  -- | definitions:
+  -- |
+  -- | - an entry that is neither a binding nor a function declaration has an
+  -- |   **effect**, and an effect has no defined position in a set (§11.2);
+  -- | - an entry that **shadows a parameter** makes a reference's meaning
+  -- |   depend on where the sort put it — `h base = scaled where scaled =
+  -- |   base * 2; base = 100` is `6` today and would be `200` sorted, valid
+  -- |   Rust either way (§11.3);
+  -- | - a **cycle** among bindings has no order to emit at all. Haskell
+  -- |   accepts it and diverges; §1.4 refuses it, and says so in §6 because a
+  -- |   reader porting Haskell will meet it.
+  -- |
+  -- | A binding in a cycle is parameterless **by construction** since leaf 0 —
+  -- | anything taking a parameter is a function entry, and nested `fn` items
+  -- | are order-independent in Rust — which is what made leaf 3 free.
+  | WhereGroupShape
+
+  -- ---- lints: RDX1000+ ----
+  -- | `unwrap` or `expect` used — doc 03 §12.7, plan 38.
+  -- |
+  -- | The **first lint**, and the first diagnostic in the project that is not
+  -- | an error: §12.7 makes these *"lintable rather than prohibited"*, so the
+  -- | build succeeds and the author decides. Suppressible per line with
+  -- | `-- redox: allow unwrap`.
+  -- |
+  -- | Detected lexically — a `.` then the name — so a user's own method called
+  -- | `unwrap` warns too. Plan 38 §1.5 takes that trade: the warning is
+  -- | suppressible, and the alternative needs a type checker AGENTS.md forbids.
+  | UnwrapUsed
+  -- | `RDX1002` — `RDX1001` suppressed by the **comment** pragma, which is
+  -- | deprecated in favour of `#[redox::allow(unwrap)]`.
+  -- |
+  -- | Plan 53 leaf 5. Plan 38 §1.3 put the pragma in a comment on the
+  -- | argument that a comment *"reaches nothing downstream"*; plan 53 §1.3
+  -- | reverses it on evidence plan 38 did not have — plan 48 found `redox fmt`
+  -- | **deleting** four doc comments from a `.sdx`, so a comment is not safe
+  -- | *upstream*. A suppression a formatter run can silently remove turns a
+  -- | deliberate pragma into a surprise `RDX1001`, or removes the record of
+  -- | why a panic was acceptable.
+  -- |
+  -- | A **warning about a warning's spelling**, so it is in the lint band and
+  -- | not the syntactic one: the comment still suppresses, the build still
+  -- | succeeds, and the author is told what to write instead. Removal is plan
+  -- | 64's, with the rest of the comment-carried semantics.
+  | CommentAllowPragma
+  -- | `RDX1003` — a bare `=` rebinding a name already bound in the **same
+  -- | statement list**, which binds a second name rather than reassigning.
+  -- |
+  -- | Plan 54 leaf 3, and the one defect §1.1 measured that nothing caught:
+  -- | of sixteen constructs that refuse or reinterpret, fifteen were caught by
+  -- | a Redox diagnostic or by rustc, and `i = j` after `mut i = 0` was caught
+  -- | by neither. It emits `let i = j;`, which compiles, and the only signal is
+  -- | rustc's `unused variable` on the *outer* binding — a warning pointing at
+  -- | the declaration rather than at the line that went wrong.
+  -- |
+  -- | **A warning, because shadowing is legal Rust and sometimes meant.**
+  -- | Doc 03 §1.4 keeps `=` binding on purpose, so this names a suspicion and
+  -- | not a rule, and `#[redox::allow(shadow)]` is how an author says it was
+  -- | deliberate.
+  -- |
+  -- | **One statement list, deliberately.** Plan 54 decision 4: the lint sees
+  -- | a list and never a scope, so a nested block rebinding an outer name is
+  -- | silent. Widening it is the first step toward the scope table AGENTS.md
+  -- | forbids Redox growing and §1.3 refused on exactly that ground — which is
+  -- | why the boundary is asserted by criterion 5 rather than left to drift.
+  | ShadowedBinding
+
+  -- ---- doc 03 §17's published surface codes: RDX0040-RDX0099 ----
+  -- | `return` inside a `with` callback's tail — doc 03 §7.6, plan 30.
+  -- |
+  -- | Spelled `x <- f` when this was written and `with x = f` since doc 30
+  -- | §3.3; the diagnostic is about the **lowering** — a callback whose body is
+  -- | the rest of the block — so only the word in its message moved.
+  -- |
+  -- | §7.6 calls this a *"disclosed trap, rejected rather than documented
+  -- | away"*: the tail becomes a **closure**, so a `return` there leaves the
+  -- | closure and not the enclosing function. The result is valid Rust meaning
+  -- | something else — doc 02 §5.2's failure mode — and nothing in the source
+  -- | hints that the block became a closure.
+  -- |
+  -- | `?` is deliberately **not** this diagnostic. It propagates out of the
+  -- | closure, which is the construct's purpose and why §7.6's own example
+  -- | type-checks.
+  -- |
+  -- | **44 is doc 03 §17's own number for this**, which is what the reserved
+  -- | band is for. The first code to use it, twenty-nine plans after the band
+  -- | was reserved.
+  | ReturnInCallbackTail
+  deriving (Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)
+
+instance Code
+  -- | The numeric code, which is what users cite and what UI tests assert.
+  export number : self -> u16
+  number self = case self of
+    Code::TabIndent -> 1
+    Code::InconsistentDedent -> 2
+    Code::UnterminatedString -> 3
+    Code::UnterminatedRawString -> 4
+    Code::UnterminatedInterpolation -> 5
+    Code::UnterminatedFence -> 6
+    Code::UnterminatedAttribute -> 7
+    Code::UnterminatedByteLiteral -> 8
+    Code::UnknownEscape -> 9
+    Code::MalformedNumber -> 10
+    Code::UnexpectedCharacter -> 11
+    Code::UnbalancedDelimiter -> 12
+    Code::BadQuote -> 13
+    Code::ExpectedToken -> 101
+    Code::ExpectedExpression -> 102
+    Code::ExpectedName -> 103
+    Code::ExpectedType -> 104
+    Code::EmptyBody -> 105
+    Code::ModuleScopeBinding -> 106
+    Code::PatternUntil -> 107
+    Code::EllipsisRestPattern -> 108
+    Code::NestingTooDeep -> 109
+    Code::SpacedPathSeparator -> 110
+    Code::NewtypeShape -> 111
+    Code::LocalTest -> 112
+    Code::UnitTail -> 113
+    Code::ReservedWord -> 114
+    Code::MethodCallSyntax -> 115
+    Code::PipelineSection -> 116
+    Code::OptionalChaining -> 117
+    Code::RetiredSpelling -> 118
+    Code::WhereGroupShape -> 119
+    Code::UnwrapUsed -> 1001
+    Code::CommentAllowPragma -> 1002
+    Code::ShadowedBinding -> 1003
+    Code::ReturnInCallbackTail -> 44
+
+  -- | The rendered form, `RDX0001`.
+  export text : self -> String
+  text self = format! \-> "RDX#{(.number self):04}"
+
+  -- | Every code, for the uniqueness and range checks.
+  export all : () -> &'static [Code]
+  all () = &[Code::TabIndent, Code::InconsistentDedent, Code::UnterminatedString, Code::UnterminatedRawString, Code::UnterminatedInterpolation, Code::UnterminatedFence, Code::UnterminatedAttribute, Code::UnterminatedByteLiteral, Code::UnknownEscape, Code::MalformedNumber, Code::UnexpectedCharacter, Code::UnbalancedDelimiter, Code::BadQuote, Code::ExpectedToken, Code::ExpectedExpression, Code::ExpectedName, Code::ExpectedType, Code::EmptyBody, Code::ModuleScopeBinding, Code::PatternUntil, Code::EllipsisRestPattern, Code::NestingTooDeep, Code::SpacedPathSeparator, Code::NewtypeShape, Code::LocalTest, Code::UnitTail, Code::ReservedWord, Code::MethodCallSyntax, Code::PipelineSection, Code::OptionalChaining, Code::RetiredSpelling, Code::WhereGroupShape, Code::UnwrapUsed, Code::CommentAllowPragma, Code::ShadowedBinding, Code::ReturnInCallbackTail]
+
+  -- | Whether this code is a lexical one, for the range check.
+  #[cfg(test)]
+  is_lexical : self -> bool
+  is_lexical self = .number self <= 39
+
+-- | Criterion 2: codes are unique.
+test "every code is unique"
+  numbers : BTreeSet<u16> = Code::all ()
+    |> .iter
+    |> .map (\c -> .number c)
+    |> .collect
+  assert_eq! \-> .len numbers \-> .len (Code::all ()) \-> "two codes share a number; a code must never have two meanings"
+
+-- | Criterion 2: codes are inside their declared range.
+test "every code is in its declared range"
+  for code in Code::all ()
+    n = .number code
+    if .is_lexical code
+      assert! \-> .contains (&n) 1 ..= 39 \-> "#{code:?} is #{n}, outside RDX0001-0039"
+    else
+      assert! \-> .contains (&n) 40 ..= 99 || .contains (&n) 100 ..= 199 || n >= 1000 \-> "#{code:?} is #{n}, outside RDX0040-0099, RDX0100-0199 and the RDX1000+ lint band"
+
+-- | Criterion 3: nothing collides with doc 03 §17's published assignments.
+-- |
+-- | Doc 03 published `RDX0042`-`RDX0063` for surface features belonging to
+-- | plans 19-28. A code in that band must be **one §17 published, at the
+-- | number §17 gave it** — otherwise one number ships two meanings.
+-- |
+-- | This test used to assert that *no* code was in the band at all, which is
+-- | the opposite of what its own comment said and would have blocked every
+-- | plan 19-28 surface code. Plan 30 §1.5 found it by being the first plan to
+-- | need one: `RDX0044` is §17's assignment for `return` in a `use` tail, and
+-- | using it is the reservation working rather than a collision.
+test "every reserved code is one doc 03 published"
+  -- Doc 03 §17's table, transcribed. A code in the band and absent here is
+  -- a number taken from a plan that has not claimed it yet.
+  const PUBLISHED : &[(u16, &str)] = &[(44, "ReturnInCallbackTail")]
+
+  for code in Code::all ()
+    n = .number code
+    if !(.contains (&n) 40 ..= 99)
+      continue
+    name = format! \-> "#{code:?}"
+    -- One parameter read with `.0` / `.1`, where the Rust wrote the tuple
+    -- pattern `|(num, who)|`: a lambda parameter is a name, not a pattern.
+    assert! \-> .any (\p -> *p.0 == n && *p.1 == name) (.iter PUBLISHED) \-> "#{code:?} is #{n}, inside the band doc 03 §17 reserved, and is not the diagnostic §17 assigned that number to"
+
+test "renders as a four digit code"
+  assert_eq! \-> .text Code::TabIndent \-> "RDX0001"
+  assert_eq! \-> .text Code::ExpectedToken \-> "RDX0101"

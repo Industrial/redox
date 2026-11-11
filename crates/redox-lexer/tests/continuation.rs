@@ -324,3 +324,41 @@ fn a_trailing_double_angle_bracket_does_not_continue_the_line() {
     "the line must end: {toks:?}"
   );
 }
+
+/// A comment between two pipeline stages does not end the chain.
+///
+/// Plan 69's fourth finding, and the only one of that row's surface findings it
+/// graded a **defect**: `next_line_continues` asked whether the line ahead
+/// opened with `|>`, a comment line opens with `--`, so the chain was closed
+/// and the `|>` below earned `RDX0102`. `AGENTS.md` calls comment preservation
+/// load-bearing, and a trivium that stops its neighbour parsing is the
+/// strongest form of discarding one.
+///
+/// It lived as `tests/ui/comment_between_pipeline_stages` while it was a
+/// defect, with a note that fixing it had to fail there and be reviewed. Plan
+/// 73 fixed it — after meeting it three times in one crate — so the record
+/// moves here and becomes an assertion about what the lexer does rather than
+/// about what it got wrong.
+#[test]
+fn a_comment_between_stages_does_not_end_the_pipeline() {
+  let src = "x = xs\n  |> f\n  -- A comment between two stages.\n  |> g\n";
+  assert_eq!(
+    structural_count(src),
+    structural_count("x = xs\n  |> f\n  |> g\n"),
+    "the comment must not add a statement separator"
+  );
+}
+
+/// A **doc** comment still ends it, which is the boundary the fix draws.
+///
+/// `-- |` documents the item below it and no item begins with `|>`, so
+/// treating one as a continuation would attach documentation to an expression
+/// and hide a real mistake.
+#[test]
+fn a_doc_comment_between_stages_still_ends_the_pipeline() {
+  let src = "x = xs\n  |> f\n  -- | Documentation.\n  |> g\n";
+  assert!(
+    structural_count(src) > structural_count("x = xs\n  |> f\n  |> g\n"),
+    "a doc comment is not a continuation"
+  );
+}

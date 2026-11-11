@@ -1,0 +1,36 @@
+-- ! `redox-diag` — diagnostics: stable codes and `miette` rendering.
+-- !
+-- ! Plan 05 (`docs/10 - 05 - Diagnostics.md`). Doc 02 §6.5 calls diagnostics
+-- ! the largest single gap in doc 01, whose §29 says "pass Rust errors through"
+-- ! without a mechanism. This crate does the first half — Redox's own errors,
+-- ! rendered with a source snippet and a caret. Remapping *rustc's* errors back
+-- ! to `.sdx` is plan 07 and needs plan 06's span map.
+-- !
+-- ! Emerald's inception §14.4 states the principle this crate exists to honour:
+-- ! *"Diagnostics are a first-class compiler feature, not an afterthought."*
+-- !
+-- ! **`miette` reaches this crate and `redox-cli`, and no further.** An error
+-- ! carries a span and a message; only the CLI renders (doc 06 §6 rule 2),
+-- ! which keeps the renderer swappable without the stage crates noticing.
+-- !
+-- ! Layout follows `docs/06 - Redox Code Architecture.md`.
+
+-- | The diagnostic itself, and the code, lint and severity it carries.
+module diagnostic
+-- | Turning a diagnostic into text, graphical or plain.
+module render
+-- | Byte offsets, and the map from generated Rust back to `.sdx`.
+module source
+
+export import diagnostic::Diagnostic
+export import diagnostic::code::Code
+export import diagnostic::diagnostic_code::DiagnosticCode
+export import diagnostic::lint::Lint
+export import diagnostic::severity::Severity
+export import render::render
+export import source::map::SourceMap
+export import source::map::parse_map::parse_map
+export import source::map::render_map::render_map
+export import source::map::version::VERSION as MAP_VERSION
+export import source::origin::Origin
+export import source::span::Span
