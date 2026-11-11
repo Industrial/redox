@@ -1,0 +1,228 @@
+export data Code
+  = TabIndent
+  | InconsistentDedent
+  | UnterminatedString
+  | UnterminatedRawString
+  | UnterminatedInterpolation
+  | UnterminatedFence
+  | UnterminatedAttribute
+  | UnterminatedByteLiteral
+  | UnknownEscape
+  | MalformedNumber
+  | UnexpectedCharacter
+  | UnbalancedDelimiter
+  | BadQuote
+  | ExpectedToken
+  | ExpectedExpression
+  | ExpectedName
+  | ExpectedType
+  | EmptyBody
+  | ModuleScopeBinding
+  | PatternUntil
+  | EllipsisRestPattern
+  | NestingTooDeep
+  | SpacedPathSeparator
+  | NewtypeShape
+  | LocalTest
+  | UnitTail
+  | ReservedWord
+  | MethodCallSyntax
+  | PipelineSection
+  | OptionalChaining
+  | RetiredSpelling
+  | WhereGroupShape
+  | BoundClauseShape
+  | PatternSynonymShape
+  | DeriveTemplateShape
+  | UndeclaredOperator
+  | OperatorPrecedence
+  | NonAssociativeOperator
+  | OperatorShape
+  | OverShape
+  | UnwrapUsed
+  | CommentAllowPragma
+  | ShadowedBinding
+  | ReturnInCallbackTail
+  deriving (Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)
+
+instance Code
+  export number : self -> u16
+  number self = case self of
+    Code::TabIndent -> 1
+    Code::InconsistentDedent -> 2
+    Code::UnterminatedString -> 3
+    Code::UnterminatedRawString -> 4
+    Code::UnterminatedInterpolation -> 5
+    Code::UnterminatedFence -> 6
+    Code::UnterminatedAttribute -> 7
+    Code::UnterminatedByteLiteral -> 8
+    Code::UnknownEscape -> 9
+    Code::MalformedNumber -> 10
+    Code::UnexpectedCharacter -> 11
+    Code::UnbalancedDelimiter -> 12
+    Code::BadQuote -> 13
+    Code::ExpectedToken -> 101
+    Code::ExpectedExpression -> 102
+    Code::ExpectedName -> 103
+    Code::ExpectedType -> 104
+    Code::EmptyBody -> 105
+    Code::ModuleScopeBinding -> 106
+    Code::PatternUntil -> 107
+    Code::EllipsisRestPattern -> 108
+    Code::NestingTooDeep -> 109
+    Code::SpacedPathSeparator -> 110
+    Code::NewtypeShape -> 111
+    Code::LocalTest -> 112
+    Code::UnitTail -> 113
+    Code::ReservedWord -> 114
+    Code::MethodCallSyntax -> 115
+    Code::PipelineSection -> 116
+    Code::OptionalChaining -> 117
+    Code::RetiredSpelling -> 118
+    Code::WhereGroupShape -> 119
+    Code::BoundClauseShape -> 120
+    Code::PatternSynonymShape -> 121
+    Code::DeriveTemplateShape -> 122
+    Code::UndeclaredOperator -> 123
+    Code::OperatorPrecedence -> 124
+    Code::NonAssociativeOperator -> 125
+    Code::OperatorShape -> 126
+    Code::OverShape -> 127
+    Code::UnwrapUsed -> 1001
+    Code::CommentAllowPragma -> 1002
+    Code::ShadowedBinding -> 1003
+    Code::ReturnInCallbackTail -> 44
+
+  export text : self -> String
+  text self = format! \-> "RDX#{(.number self):04}"
+
+  export all : &'static [Code]
+  all = &[Code::TabIndent, Code::InconsistentDedent, Code::UnterminatedString, Code::UnterminatedRawString, Code::UnterminatedInterpolation, Code::UnterminatedFence, Code::UnterminatedAttribute, Code::UnterminatedByteLiteral, Code::UnknownEscape, Code::MalformedNumber, Code::UnexpectedCharacter, Code::UnbalancedDelimiter, Code::BadQuote, Code::ExpectedToken, Code::ExpectedExpression, Code::ExpectedName, Code::ExpectedType, Code::EmptyBody, Code::ModuleScopeBinding, Code::PatternUntil, Code::EllipsisRestPattern, Code::NestingTooDeep, Code::SpacedPathSeparator, Code::NewtypeShape, Code::LocalTest, Code::UnitTail, Code::ReservedWord, Code::MethodCallSyntax, Code::PipelineSection, Code::OptionalChaining, Code::RetiredSpelling, Code::WhereGroupShape, Code::BoundClauseShape, Code::PatternSynonymShape, Code::DeriveTemplateShape, Code::UndeclaredOperator, Code::OperatorPrecedence, Code::NonAssociativeOperator, Code::OperatorShape, Code::OverShape, Code::UnwrapUsed, Code::CommentAllowPragma, Code::ShadowedBinding, Code::ReturnInCallbackTail]
+
+  #[cfg(test)]
+  is_lexical : self -> bool
+  is_lexical self = .number self <= 39
+
+export data DiagnosticCode
+  = Redox Code
+  | Foreign String
+  deriving (Debug, Clone, PartialEq, Eq)
+
+instance DiagnosticCode
+  export text : &self -> String
+  text self = case self of
+    DiagnosticCode::Redox code -> .text code
+    DiagnosticCode::Foreign text -> .clone text
+
+  export is_redox : &self -> bool
+  is_redox self = case self of
+    DiagnosticCode::Redox _ -> true
+    _ -> false
+
+instance From Code DiagnosticCode
+  from : Code -> Self
+  from code = DiagnosticCode::Redox code
+
+export data Lint
+  = Unwrap
+  | Shadow
+  deriving (Debug, Clone, Copy, PartialEq, Eq)
+
+instance Lint
+  export all : &'static [Lint]
+  all = &[Lint::Unwrap, Lint::Shadow]
+
+  export name : self -> &'static str
+  name self = case self of
+    Lint::Unwrap -> "unwrap"
+    Lint::Shadow -> "shadow"
+
+  export code : self -> Code
+  code self = case self of
+    Lint::Unwrap -> Code::UnwrapUsed
+    Lint::Shadow -> Code::ShadowedBinding
+
+  export allow_attribute : self -> String
+  allow_attribute self = format! \-> "redox::allow(#{(.name self)})"
+
+  export allow_comment : self -> String
+  allow_comment self = format! \-> "redox: allow #{(.name self)}"
+
+  export from_allow_attribute : &str -> Option<Self>
+  from_allow_attribute text = Lint::all ()
+    |> .iter
+    |> .copied
+    |> .find (\lint -> text == .allow_attribute lint)
+
+  export from_allow_comment : &str -> Option<Self>
+  from_allow_comment text = Lint::all ()
+    |> .iter
+    |> .copied
+    |> .find (\lint -> text == .allow_comment lint)
+
+test "every code is unique"
+  numbers : std::collections::BTreeSet<u16> = Code::all ()
+    |> .iter
+    |> .map (\c -> .number c)
+    |> .collect
+  assert_eq! \-> .len numbers \-> .len (Code::all ()) \-> "two codes share a number; a code must never have two meanings"
+
+test "every code is in its declared range"
+  for code in Code::all ()
+    n = .number code
+    if .is_lexical code
+      assert! \-> .contains (&n) (1 ..= 39) \-> "#{code:?} is #{n}, outside RDX0001-0039"
+    else
+      assert! \-> .contains (&n) (40 ..= 99) || .contains (&n) (100 ..= 199) || n >= 1000 \-> "#{code:?} is #{n}, outside RDX0040-0099, RDX0100-0199 and the RDX1000+ lint band"
+
+test "every reserved code is one doc 03 published"
+  const PUBLISHED : &[(u16, &str)] = &[(44, "ReturnInCallbackTail")]
+  for code in Code::all ()
+    n = .number code
+    if !.contains (&n) (40 ..= 99)
+      continue
+    name = format! \-> "#{code:?}"
+    assert! \-> .any (\p -> p.0 == n && p.1 == name) (.iter PUBLISHED) \-> "#{code:?} is #{n}, inside the band doc 03 §17 reserved, and is not the diagnostic §17 assigned that number to"
+
+test "renders as a four digit code"
+  assert_eq! \-> .text Code::TabIndent \-> "RDX0001"
+  assert_eq! \-> .text Code::ExpectedToken \-> "RDX0101"
+
+test "renders a redox code from the catalogue"
+  code : DiagnosticCode = .into Code::ExpectedToken
+  assert_eq! \-> .text code \-> "RDX0101"
+  assert! \-> .is_redox code
+
+test "renders a foreign code untouched"
+  code = DiagnosticCode::Foreign $ .to_string "E0308"
+  assert_eq! \-> .text code \-> "E0308"
+  assert! \-> !.is_redox code
+
+test "carries a foreign code that is not a number"
+  code = DiagnosticCode::Foreign $ .to_string "unused_variables"
+  assert_eq! \-> .text code \-> "unused_variables"
+
+test "the published spellings are unchanged"
+  assert_eq! \-> .allow_attribute Lint::Unwrap \-> "redox::allow(unwrap)"
+  assert_eq! \-> .allow_comment Lint::Unwrap \-> "redox: allow unwrap"
+
+test "every lint round trips through both spellings"
+  for lint in Lint::all ()
+    assert_eq! \-> Lint::from_allow_attribute (&.allow_attribute lint) \-> Some (*lint)
+    assert_eq! \-> Lint::from_allow_comment (&.allow_comment lint) \-> Some (*lint)
+
+test "every name is unique"
+  mut names : Vec<&str> = Lint::all () |> .iter |> .map (\l -> .name l) |> .collect
+  .sort_unstable names
+  before = .len names
+  .dedup names
+  assert_eq! \-> before \-> .len names \-> "two lints share a pragma name"
+
+test "every name is one lowercase word"
+  for lint in Lint::all ()
+    name = .name lint
+    assert! \-> .all (\c -> .is_ascii_lowercase c || c == '_') (.chars name) \-> "#{name} is not a lowercase word"
+
+test "the two spellings do not cross"
+  assert_eq! \-> Lint::from_allow_attribute "redox: allow unwrap" \-> None
+  assert_eq! \-> Lint::from_allow_comment "redox::allow(unwrap)" \-> None

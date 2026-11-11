@@ -1,44 +1,184 @@
-import crate::Diagnostic
-import crate::render::graphical_one::graphical_one
-import crate::render::plain_one::plain_one
+import crate::diagnostic::Diagnostic
+import crate::diagnostic::Severity
+import crate::source::Span
+import miette::Diagnostic as MietteDiagnostic
+import std::error::Error
+import std::fmt::Debug
+import std::fmt::Display
+import std::fmt::Formatter
+import std::fmt::Result
+import std::fmt::Write
 
--- | Move a span onto a character that can actually be drawn under.
-export(crate) module anchor_span
--- | How many `^` to draw under a span.
-export(crate) module caret_width
--- | The boxed, coloured rendering, by way of `miette`.
-export(crate) module graphical_one
--- | Resolve a byte offset to a 1-based line and column.
-export(crate) module line_col
--- | The rendering with no colour and no width dependence.
-export(crate) module plain_one
--- | Which source line to show, and where in it to point.
-export(crate) module snippet_line
-
--- | Render every diagnostic, graphically or plainly.
--- |
--- | Plan 05 (`docs/10 - 05 - Diagnostics.md`) leaf 4. One report per
--- | diagnostic, which is Emerald's `report_driver_error` loop — plan 03's
--- | two-level recovery already produces several errors and nothing yet
--- | displayed more than the first.
--- |
--- | `plain` exists for the UI tests, not for users: a corpus comparing bytes
--- | cannot depend on terminal width or colour detection. Making it a flag
--- | rather than an environment sniff keeps the test honest about what it
--- | asserts.
 export render : &[Diagnostic] -> bool -> String
 render diagnostics plain =
-  mut out = String::new ()
-  for pair in .enumerate (.iter diagnostics)
-    -- One parameter and two bindings, where the Rust wrote `for (i, d)`:
-    -- **`for` binds a name, not a pattern** (plan 68's gap), and a lambda
-    -- parameter is a name too (plan 69's third finding).
-    i = pair.0
-    d = pair.1
-    if i > 0
-      .push '\n' out
-    if plain
-      .push_str (&plain_one d) out
-    else
-      .push_str (&graphical_one d) out
+  parts : Vec<String> = if plain
+    diagnostics |> .iter |> .map plain_one |> .collect
+  else
+    diagnostics |> .iter |> .map graphical_one |> .collect
+  .join "\n" parts
+
+anchor_span : &str -> Span -> Span
+anchor_span source span =
+  if span.0 < .len source
+    return span
+  trimmed = .trim_end_matches (['\n', '\r']) source
+  case .next_back (.char_indices trimmed) of
+    Some pair ->
+      i = pair.0
+      c = pair.1
+      (i, i + .len_utf8 c)
+    None -> span
+
+caret_width : &str -> Span -> usize
+caret_width source span = source
+  |> .get (span.0 .. span.1)
+  |> .map_or 1 (\text -> .max 1 (.count (.chars text)))
+
+line_col : &str -> usize -> (usize, usize)
+line_col source offset =
+  clamped = .min (.len source) offset
+  before = &source[0 .. clamped]
+  line = .count (.matches '\n' before) + 1
+  col = before
+    |> .rsplit '\n'
+    |> .next
+    |> .map_or 1 (\l -> .count (.chars l) + 1)
+  (line, col)
+
+snippet_line : &str -> usize -> usize -> Option<(usize, &str, usize)>
+snippet_line source line col =
+  text = source |> .lines |> .nth (line - 1) |> .unwrap_or ""
+  if !.is_empty text
+    return Some (line, text, col)
+  mut n = line
+  while n > 1
+    n -= 1
+    above = (source |> .lines |> .nth (n - 1))?
+    if !.is_empty above
+      return Some (n, above, .count (.chars above) + 1)
+  None
+
+plain_one : &Diagnostic -> String
+plain_one d =
+  at = line_col (&d.source) d.span.0
+  line = at.0
+  col = at.1
+  level = case d.severity of
+    Severity::Error -> "error"
+    Severity::Warning -> "warning"
+  mut out = format! \-> "#{level}[#{(.text d.code)}]: #{d.message}\n"
+  _ = writeln! \-> out \-> "  --> #{d.path}:#{line}:#{col}"
+  if snippet_line (&d.source) line col is Some found
+    shown = found.0
+    text = found.1
+    caret = found.2
+    gutter = .repeat (.len (.to_string shown)) " "
+    _ = writeln! \-> out \-> "#{gutter} |"
+    _ = writeln! \-> out \-> "#{shown} | #{(.replace '\t' " " text)}"
+    pad = .repeat (caret - 1) " "
+    carets = .repeat (caret_width (&d.source) d.span) "^"
+    _ = writeln! \-> out \-> "#{gutter} | #{pad}#{carets}"
+  if &d.help is Some help
+    _ = writeln! \-> out \-> "  = help: #{help}"
   out
+
+graphical_one : &Diagnostic -> String
+graphical_one d = format! \-> "#{(miette::Report::new (Reportable::new d)):?}"
+
+data Reportable = Reportable {
+  message : String,
+  code : String,
+  help : Option<String>,
+  span : (usize, usize),
+  source : miette::NamedSource<String>,
+  severity : Severity,
+}
+
+instance Reportable
+  new : &Diagnostic -> Self
+  new d = Reportable { message = .clone d.message, code = .text d.code, help = .clone d.help, span = anchor_span (&d.source) d.span, source = .with_language "Rust" (miette::NamedSource::new (&d.path) (.clone d.source)), severity = d.severity }
+
+instance Display Reportable
+  fmt : &self -> &mut Formatter<'_> -> Result
+  fmt self f = write! \-> f \-> "#{self.message}"
+
+instance Debug Reportable
+  fmt : &self -> &mut Formatter<'_> -> Result
+  fmt self f = write! \-> f \-> "#{self.message}"
+
+instance Error Reportable
+
+instance MietteDiagnostic Reportable
+  code : &self -> Option<Box<dyn Display + '_>>
+  code self = Some $ Box::new (&self.code)
+  severity : &self -> Option<miette::Severity>
+  severity self = Some $ .to_miette self.severity
+  help : &self -> Option<Box<dyn Display + '_>>
+  help self = self.help
+    |> .as_ref
+    |> .map (\h -> Box::new h : Box<dyn Display>)
+  source_code : &self -> Option<&dyn miette::SourceCode>
+  source_code self = Some (&self.source)
+  labels : &self -> Option<Box<dyn Iterator<Item = miette::LabeledSpan> + '_>>
+  labels self =
+    len = self.span.1 |> .saturating_sub self.span.0 |> .max 1
+    Some $ Box::new $ std::iter::once $ miette::LabeledSpan::new (Some (.to_string "here")) self.span.0 len
+
+test "leaves a span inside the text alone"
+  assert_eq! \-> anchor_span "abc\n" (1, 2) \-> (1, 2)
+
+test "walks back past a trailing newline"
+  src = "ab\n"
+  assert_eq! \-> anchor_span src (3, 3) \-> (1, 2)
+  assert_eq! \-> &src[1 .. 2] \-> "b" \-> "the anchored span covers the last character"
+
+test "respects character boundaries"
+  src = "é\n"
+  assert_eq! \-> anchor_span src (3, 3) \-> (0, 2)
+  assert_eq! \-> &src[0 .. 2] \-> "é"
+
+test "anchors nothing in an empty source"
+  assert_eq! \-> anchor_span "" (0, 0) \-> (0, 0)
+  assert_eq! \-> anchor_span "\n\n" (2, 2) \-> (2, 2)
+
+test "counts characters not bytes"
+  assert_eq! \-> caret_width "1 § 2" (2, 4) \-> 1
+
+test "spans several characters"
+  assert_eq! \-> caret_width "print 0x" (6, 8) \-> 2
+
+test "always draws at least one"
+  assert_eq! \-> caret_width "abc" (1, 1) \-> 1
+
+test "survives a span outside the source"
+  assert_eq! \-> caret_width "ab" (5, 9) \-> 1
+
+test "survives a span off a character boundary"
+  assert_eq! \-> caret_width "é" (1, 2) \-> 1
+
+test "resolves a byte offset"
+  src = "main : ()\nmain =\n  println 1\n"
+  assert_eq! \-> line_col src 0 \-> (1, 1)
+  assert_eq! \-> &src[19 .. 20] \-> "p"
+  assert_eq! \-> line_col src 19 \-> (3, 3)
+
+test "counts columns in characters not bytes"
+  assert_eq! \-> line_col "é x" 3 \-> (1, 3)
+
+test "clamps past the end"
+  assert_eq! \-> line_col "ab" 99 \-> (1, 3)
+
+test "keeps a line that has text"
+  src = "main : ()\nmain =\n  println 1\n"
+  assert_eq! \-> snippet_line src 3 3 \-> Some (3, "  println 1", 3)
+
+test "backs up from the phantom line after a trailing newline"
+  src = "main : ()\nmain =\n  println 1\n"
+  assert_eq! \-> snippet_line src 4 1 \-> Some (3, "  println 1", 12)
+
+test "skips blank lines on the way up"
+  src = "x\n\n\n"
+  assert_eq! \-> snippet_line src 4 1 \-> Some (1, "x", 2)
+
+test "gives up on an empty source"
+  assert_eq! \-> snippet_line "" 1 1 \-> None
