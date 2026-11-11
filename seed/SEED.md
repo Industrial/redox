@@ -30,8 +30,8 @@ verified by a compiler the seed is supposed to underwrite.
 | | |
 |---|---|
 | built from commit | `151df7a97a1789dda0b500f8db69f2e9cc0b0dd9` |
-| size | 1035089 bytes |
-| blake3 | `e3452b075e6a200e860daf622296b2b6160fbf5eb3a7fe7c6e99111bfa153d18` |
+| size | 1005152 bytes |
+| blake3 | `a82558013965ffd46e8f325a322fd4a39f033d752785239296bce78d01e156f2` |
 
 `crates/redox-seed/tests/blob.rs` recomputes the hash and fails if it does not
 match this table, so a hand-edited blob and a stale row are the same failure.

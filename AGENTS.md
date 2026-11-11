@@ -506,6 +506,17 @@ result, which is why they are written down rather than rediscovered.
   `tree-sitter-redox/test/corpus/`, which `tree_sitter.rs` runs, over leaning on the
   examples sweep: the sweep cannot see a construct the grammar never knew it was missing.
 
+- **`moon run :seed-refresh` replays a cached size, so the number it prints can be a
+  previous run's.** The task ends in `echo "... is $(stat -c %s seed/redox1.wasm) bytes"`,
+  which is correct when it runs — but moon caches the task's stdout, so a cache hit prints
+  the *old* size while the blob on disk is the new one. Measured 2026-11-12: it reported
+  `1035089 bytes` with 1,005,152 bytes on disk.
+
+  That is what made plan 91 wave 5 misread its own refresh as a no-op — the printed size
+  matched the committed blob exactly and looked like a coincidence. **Check
+  `git status seed/` and `stat` the file; do not read the task's output.** Two clean
+  rebuilds outside moon gave the same hash, so the blob itself is deterministic.
+
 - **An `instance` must be in the same file as its `class`.** `Parser` carries
   `class_heads: BTreeMap<(String, String), SignatureHead>`, filled by `record_head` when a
   `class` is parsed and read by `borrowed_head` when an instance member is parsed — so the
