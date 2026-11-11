@@ -65,7 +65,7 @@ walk src out =
 test "it mirrors a nested tree"
   pid = std::process::id ()
   root = .join (format! \-> "redox-seed-walk-#{pid}") (std::env::temp_dir ())
-  .expect "should create" $ std::fs::create_dir_all (.join "inner/deeper" (&root))
+  .expect "should create" $ std::fs::create_dir_all (.join "inner/deeper" root)
 
   pairs = walk (&root) (std::path::Path::new "/out")
   _dropped = .ok $ std::fs::remove_dir_all (&root)

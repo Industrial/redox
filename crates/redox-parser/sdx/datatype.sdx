@@ -1,0 +1,269 @@
+import crate::ParseError
+import crate::item::rewritten
+import crate::item::visibility
+import crate::parser::Parser
+import crate::signature::TypeStop
+import crate::signature::capture_type
+import crate::signature::rust_generic
+import crate::signature::starts_a_field_type
+import crate::signature::type_vars
+import crate::type_class::instance_decl
+import redox_ast::Constraint
+import redox_ast::Constructor
+import redox_ast::ConstructorFields
+import redox_ast::DataDecl
+import redox_ast::DeriveTemplate
+import redox_ast::ErrorVariant
+import redox_ast::ErrorsDecl
+import redox_ast::FieldDecl
+import redox_ast::Ident
+import redox_ast::Signature
+import redox_ast::Visibility
+import redox_diag::Code
+import redox_lexer::Keyword
+import redox_lexer::Span
+import redox_lexer::TokenKind
+import redox_lexer::Trivia
+
+export(crate) constructor : &mut Parser -> Vec<redox_lexer::Trivia> -> Result<Constructor, ParseError>
+constructor p leading =
+  start = (.peek_span p).0
+  name = (.ident "expected a constructor name" p)?
+  fields = (constructor_fields p)?
+  Ok (Constructor { name, fields, leading, span = (start, (.prev_span p).1) })
+
+export(crate) constructor_fields : &mut Parser -> Result<ConstructorFields, ParseError>
+constructor_fields p =
+  if .check (&TokenKind::LBrace) p
+    .advance p
+    mut fields = Vec::new ()
+    loop
+      .skip_layout p
+      if .check (&TokenKind::RBrace) p
+        break
+      .push (field_decl p)? fields
+      .skip_layout p
+      if !.check (&TokenKind::Comma) p
+        break
+      .advance p
+    .skip_layout p
+    (.expect (&TokenKind::RBrace) "expected `}` to close the record" p)?
+    return Ok (ConstructorFields::Record fields)
+  mut types = Vec::new ()
+  while starts_a_field_type (&(.peek p).kind)
+    .push (capture_type p "expected a field type" TypeStop::Atom)? types
+  if .is_empty types
+    return Ok ConstructorFields::Unit
+  Ok $ ConstructorFields::Tuple types
+
+export(crate) data_decl : &mut Parser -> Vec<Trivia> -> usize -> Visibility -> Result<DataDecl, ParseError>
+data_decl p leading start visibility =
+  is_newtype = .check (&TokenKind::Kw Keyword::Newtype) p
+  is_union = .check (&TokenKind::Kw Keyword::Union) p
+  .advance p
+  name = (.ident "expected a type name after `data`" p)?
+  mut constructors = Vec::new ()
+  mut derives = Vec::new ()
+  mut depth : usize = 0
+  loop
+    if depth > 0
+      .skip_separators p
+    opens_a_block = .check (&TokenKind::Newline) p && .is_some_and (\t -> t.kind == TokenKind::Indent) (.peek_at 1 p)
+    if opens_a_block
+      .advance p
+      .advance p
+      depth += 1
+      continue
+    if .check (&TokenKind::Eq) p || .check (&TokenKind::Or) p
+      row_leading = .peek_leading p
+      .advance p
+      .push (constructor p row_leading)? constructors
+      continue
+    if .check (&TokenKind::Kw Keyword::Deriving) p
+      derives := (r#deriving p)?
+      continue
+    break
+  for _closer in 0 .. depth
+    .skip_separators p
+    (.expect (&TokenKind::Dedent) "expected the declaration to end" p)?
+  mut decl = DataDecl { name, generics = Vec::new (), constructors, derives, is_newtype, is_union, visibility, span = (start, (.prev_span p).1), leading }
+  generalise_data $ &mut decl
+  (newtype_shape (&decl))?
+  Ok decl
+
+export(crate) derive_template : &mut Parser -> Vec<Trivia> -> usize -> Result<DeriveTemplate, ParseError>
+derive_template p leading start =
+  (.expect (&TokenKind::Kw Keyword::Deriving) "expected `deriving`" p)?
+  word = (.ident "expected `template` after `deriving`" p)?
+  if word.text != "template"
+    return Err $ ParseError::with_help Code::DeriveTemplateShape "expected `template` after `deriving`" "a `deriving` clause belongs indented under its declaration — `newtype Meters = Meters f64` then `deriving (Debug)`. At item position `deriving` begins a template: `deriving template Forward`" word.span
+  name = (.ident "expected a name for the deriving template" p)?
+  (.newline_with_trailing "expected a line break after the template's name" p)?
+  (.expect (&TokenKind::Indent) "expected an indented `instance` as the template's body" p)?
+  body = (instance_decl p (Vec::new ()) (.peek_span p).0)?
+  .skip_separators p
+  (.expect (&TokenKind::Dedent) "expected the template's body to end" p)?
+  if body.target.head.text != "Target"
+    return Err $ ParseError::with_help Code::DeriveTemplateShape "a deriving template's `instance` must be for `Target`" "`Target` is the placeholder the declaration's own type name is substituted for — `instance Display Target`. An `instance` for a concrete type is not a template and belongs at module scope" body.target.head.span
+  Ok (DeriveTemplate { name, body, span = (start, (.prev_span p).1), leading })
+
+export(crate) r#deriving : &mut Parser -> Result<Vec<Ident>, ParseError>
+r#deriving p =
+  if !.check (&TokenKind::Kw Keyword::Deriving) p
+    return Ok (Vec::new ())
+  .advance p
+  (.expect (&TokenKind::LParen) "expected `(` after `deriving`" p)?
+  mut traits = Vec::new ()
+  loop
+    .skip_layout p
+    if .check (&TokenKind::RParen) p
+      break
+    mut name = (.ident "expected a trait name" p)?
+    while .check (&TokenKind::ColonColon) p
+      .advance p
+      segment = (.ident "expected a name after `::`" p)?
+      .push_str "::" name.text
+      .push_str (&segment.text) name.text
+      name.span.1 := segment.span.1
+    .push name traits
+    .skip_layout p
+    if !.check (&TokenKind::Comma) p
+      break
+    .advance p
+  (.expect (&TokenKind::RParen) "expected `)` to close the `deriving` list" p)?
+  Ok traits
+
+export(crate) error_variant : &mut Parser -> Result<ErrorVariant, ParseError>
+error_variant p =
+  start = (.peek_span p).0
+  is_from = case &(.peek p).kind of
+    TokenKind::Ident text | text == "from" -> true
+    _ -> false
+  read = if is_from
+    .advance p
+    ty = (capture_type p "expected a type after `from`" TypeStop::Greedy)?
+    (.expect (&TokenKind::Kw Keyword::As) "expected `as` between the type and the variant's name" p)?
+    named = (.ident "expected the variant's name after `as`" p)?
+    (named, vec! \-> ty, true)
+  else
+    named = (.ident "expected a variant name" p)?
+    mut payload = Vec::new ()
+    while starts_a_field_type (&(.peek p).kind)
+      .push (capture_type p "expected a payload type" TypeStop::Atom)? payload
+    (named, payload, false)
+  message = case &(.peek p).kind of
+    TokenKind::Str { raw, .. } -> .clone raw
+    _ ->
+      return Err (ParseError::expected "expected the variant's `Display` message, as a string literal" (.peek_span p))
+  .advance p
+  (.newline_with_trailing "expected a line break after the variant" p)?
+  Ok (ErrorVariant { name = read.0, fields = read.1, from = read.2, message, span = (start, (.prev_span p).1) })
+
+export(crate) errors_decl : &mut Parser -> Vec<Trivia> -> usize -> Visibility -> Result<ErrorsDecl, ParseError>
+errors_decl p leading start visibility =
+  (.expect (&TokenKind::Kw Keyword::Errors) "expected `errors`" p)?
+  name = (.ident "expected the error type's name" p)?
+  (.newline_with_trailing "expected a line break after the error type's name" p)?
+  (.expect_with Code::EmptyBody (&TokenKind::Indent) "expected indented error variants" p)?
+  mut variants = Vec::new ()
+  loop
+    .skip_separators p
+    if .check (&TokenKind::Dedent) p || .at_eof p
+      break
+    .push (error_variant p)? variants
+  (.expect (&TokenKind::Dedent) "expected the error variants to end" p)?
+  if .is_empty variants
+    return Err (ParseError::r#with Code::EmptyBody "an `errors` declaration must have at least one variant" (start, (.prev_span p).1))
+  Ok (ErrorsDecl { name, variants, visibility, span = (start, (.prev_span p).1), leading })
+
+export(crate) field_decl : &mut Parser -> Result<FieldDecl, ParseError>
+field_decl p =
+  start = (.peek_span p).0
+  leading = .peek_leading p
+  marker = (visibility p)?
+  name = (.ident "expected a field name" p)?
+  (.expect (&TokenKind::Colon) "expected `:` after the field name" p)?
+  ty = (capture_type p "expected a field type" TypeStop::Greedy)?
+  Ok (FieldDecl { name, ty, visibility = marker, leading, span = (start, (.prev_span p).1) })
+
+export(crate) generalise : &mut Signature -> &[Constraint] -> &[String] -> ()
+generalise sig constraints reserved =
+  if .is_some sig.r#given
+    return ()
+  mut texts : Vec<&str> = sig.params
+    |> .iter
+    |> .filter_map (\param -> .map (\t -> .as_str t.text) (.as_ref param.ty))
+    |> .collect
+  if &sig.ret is Some ret
+    .push (.as_str ret.text) texts
+  found : Vec<String> = type_vars (&texts)
+    |> .into_iter
+    |> .filter (\v -> !.contains v reserved)
+    |> .collect
+  sig.bounds := constraints
+    |> .iter
+    |> .filter (\c -> !.contains (&c.var.text) reserved)
+    |> .map (\c -> (rust_generic (&c.var.text), .clone c.trait_name.text))
+    |> .collect
+  if .is_empty found
+    return ()
+  sig.generics := .collect (.map (\v -> rust_generic v) (.iter found))
+  for var in &found
+    if .starts_with '\'' var
+      continue
+    subject = rust_generic var
+    for param in &mut sig.params
+      if &mut param.ty is Some ty
+        ty.text := rewritten (&ty.text) var (&subject)
+    if &mut sig.ret is Some ret
+      ret.text := rewritten (&ret.text) var (&subject)
+  ()
+
+export(crate) generalise_data : &mut DataDecl -> ()
+generalise_data d =
+  mut texts : Vec<String> = Vec::new ()
+  for c in &d.constructors
+    case &c.fields of
+      ConstructorFields::Unit -> ()
+      ConstructorFields::Tuple ts -> .extend (.map (\t -> .clone t.text) (.iter ts)) texts
+      ConstructorFields::Record fs -> .extend (.map (\f -> .clone f.ty.text) (.iter fs)) texts
+  refs : Vec<&str> = texts |> .iter |> .map String::as_str |> .collect
+  found = type_vars (&refs)
+  if .is_empty found
+    return ()
+  d.generics := .collect (.map (\v -> rust_generic v) (.iter found))
+  for c in &mut d.constructors
+    types : Vec<&mut String> = case &mut c.fields of
+      ConstructorFields::Unit -> Vec::new ()
+      ConstructorFields::Tuple ts -> .collect (.map (\t -> &mut t.text) (.iter_mut ts))
+      ConstructorFields::Record fs -> .collect (.map (\f -> &mut f.ty.text) (.iter_mut fs))
+    for text in types
+      for v in &found
+        *text := rewritten text v (&rust_generic v)
+  ()
+
+export(crate) newtype_shape : &DataDecl -> Result<(), ParseError>
+newtype_shape decl =
+  if !decl.is_newtype
+    return Ok ()
+  count = .len decl.constructors
+  if count > 1
+    message = format! \-> "a `newtype` has exactly one constructor, and this declaration has #{count} — write `data` for a choice between constructors"
+    return Err (ParseError::r#with Code::NewtypeShape message decl.constructors[1].span)
+  shape : (Span, Vec<Span>) = case .first decl.constructors of
+    None -> (decl.name.span, Vec::new ())
+    Some only ->
+      spans = case &only.fields of
+        ConstructorFields::Unit -> Vec::new ()
+        ConstructorFields::Tuple types -> .collect (.map (\t -> t.span) (.iter types))
+        ConstructorFields::Record field_decls -> .collect (.map (\f -> f.span) (.iter field_decls))
+      (only.span, spans)
+  blame = shape.0
+  fields = shape.1
+  n = .len fields
+  case n of
+    1 -> Ok ()
+    0 -> Err $ ParseError::r#with Code::NewtypeShape "a `newtype` wraps exactly one field, and this declaration wraps none — write `data` for a type with no payload" blame
+    _ ->
+      message = format! \-> "a `newtype` wraps exactly one field, and this declaration wraps #{n} — write `data` for a constructor with more than one field"
+      Err $ ParseError::r#with Code::NewtypeShape message fields[1]
