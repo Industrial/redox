@@ -4,8 +4,23 @@ import redox_ast::Pattern
 -- |
 -- | An `Apply` with **no** arguments — `None`, `Close` — is a bare name and
 -- | needs nothing, which is why the arity is tested rather than the variant.
+-- |
+-- | **And the name must be one segment.** `Some Kind::Called` does not parse:
+-- | the parser's pattern-argument reader takes a bare name and not a path, so
+-- | a path pattern still needs its parentheses. Saying `Binding -> true` made
+-- | `redox fmt` strip them and write source its own parser refuses — the fifth
+-- | time a round-trip has found that, after plan 69's three and plan 79's one,
+-- | and the second where the formatter was the half at fault.
+-- |
+-- | **It is the `Binding` arm and not the `Apply` one**, which is the part
+-- | that took two attempts: `pattern_app` keeps a bare constructor as a
+-- | `Pattern::Binding` carrying the whole path — *"a bare constructor stays a
+-- | `Binding`, as it was before this plan"* — so a zero-argument `Apply` is a
+-- | shape the parser never builds and guarding it changed nothing. Plan 81 §2
+-- | records it; `binding_text` in `redox-emit` is where it surfaced.
 export(crate) stands_alone : &Pattern -> bool
 stands_alone pattern = case pattern of
-  Pattern::Apply { args, .. } -> .is_empty args
-  Pattern::Binding _ or Pattern::Literal { .. } or Pattern::Wildcard _ or Pattern::Tuple { .. } or Pattern::Slice { .. } or Pattern::Rest _ or Pattern::NamedRest { .. } -> true
+  Pattern::Apply { path, args, .. } -> .is_empty args && !.contains "::" path
+  Pattern::Binding ident -> !.contains "::" ident.text
+  Pattern::Literal { .. } or Pattern::Wildcard _ or Pattern::Tuple { .. } or Pattern::Slice { .. } or Pattern::Rest _ or Pattern::NamedRest { .. } -> true
   Pattern::Range { .. } or Pattern::Record { .. } or Pattern::As { .. } or Pattern::Or _ -> false

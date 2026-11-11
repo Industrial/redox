@@ -1,0 +1,49 @@
+import crate::emit::pad::pad
+import crate::emit::signature::signature
+import crate::emit::sink::Sink
+import crate::emit::trivia::emit_trivia
+import redox_ast::ExternBlock
+
+-- | Emit an `extern` block — plan 45 leaf 3.
+-- |
+-- | ```text
+-- | extern "C"            extern "C" {
+-- |   abs : i32 -> i32  →    fn abs(__rdx_a0: i32) -> i32;
+-- | }
+-- | ```
+-- |
+-- | The ABI goes out exactly as written, quotes included: Redox keeps no list
+-- | of ABIs, so `extern "nonsense"` reaches rustc and rustc rejects it, which
+-- | is AGENTS.md's every-check-rustc-makes rule.
+-- |
+-- | Each declaration ends in `;` and has no body — the one place in the
+-- | emitter where a function signature is written without braces after it.
+-- |
+-- | # `unsafe` is emitted, not written
+-- |
+-- | The `unsafe` in `unsafe extern "C" {` is added here and is **not** part of
+-- | the Redox surface. Edition 2024 made it mandatory — rustc rejects a bare
+-- | `extern` block with *"extern blocks must be unsafe"*, which is how this was
+-- | found — so there is no safe form for a user to choose between. Asking them
+-- | to write a word with exactly one permitted value would be ceremony, and
+-- | doc 03 §2's *"the user writes which"* rule is about choices, not about
+-- | constants.
+export(crate) emit_extern_block : &mut Sink<'_> -> &ExternBlock -> usize -> ()
+emit_extern_block out e indent =
+  .mark e.span out
+  emit_trivia out (&e.leading) indent
+  pad out indent
+  .push_str (&format! \-> "unsafe extern #{e.abi} {\n") out
+  -- `pad` counts spaces, not levels — a declaration sits one four-space step
+  -- inside the block.
+  inner = indent + 4
+  for decl in &e.decls
+    .mark decl.span out
+    emit_trivia out (&decl.leading) inner
+    pad out inner
+    sig = signature (&decl.sig) inner
+    .push_str (&format! \-> "fn #{decl.name.text}#{sig};\n") out
+  .unmark out
+  pad out indent
+  .push_str "}\n" out
+  ()

@@ -1,0 +1,208 @@
+import crate::emit::with_map::emit_with_map
+import redox_ast::Program
+
+-- | A binding's type annotation and the value to emit under it.
+export(crate) module annotated_binding
+-- | Lower an application: a saturated call, or the closure an under-applied one becomes.
+export(crate) module application
+-- | The arity table in scope, empty outside an [`arity_scope::ArityScope`].
+export(crate) module arity_scope
+-- | The declared arity of every function a file names, by name.
+export(crate) module arity_table
+-- | Emit one `match` arm for a clause.
+export(crate) module arm
+-- | The `let` that gives an arm's ascription somewhere to live, or none.
+export(crate) module ascribed_arm
+-- | Lower `[a, b] : C<_>` to `C::from([a, b])`.
+export(crate) module ascribed_list
+-- | Lower an `assert` statement.
+export(crate) module assert_call
+-- | What `<-` means in the block being emitted.
+export(crate) module bind_mode
+-- | What `<-` means right here, awaiting outside any modifier.
+export(crate) module bind_scope
+-- | Which Rust item a parameterless binding becomes.
+export(crate) module binding_kind
+-- | The binding table in scope, empty outside a [`binding_scope::BindingScope`].
+export(crate) module binding_scope
+-- | Every parameterless binding a file declares, and which Rust item it becomes.
+export(crate) module binding_table
+-- | How a bare name or a path reads at a use site.
+export(crate) module binding_text
+-- | Lower `case … of` to Rust's `match`.
+export(crate) module r#case
+-- | Lower `catch`.
+export(crate) module catch_fallback
+-- | Assemble a method chain the way rustfmt writes it.
+export(crate) module chain
+-- | rustfmt's `chain_width` default.
+export(crate) module chain_width
+-- | Emit a `class` as a Rust `trait`.
+export(crate) module r#class
+-- | Write a closure: `|params| body`.
+export(crate) module closure
+-- | The name a generated closure binds for its nth parameter.
+export(crate) module closure_param
+-- | Lower `??`.
+export(crate) module coalesce
+-- | Lower composition — `f >>> g` and `f <<< g` — as a closure.
+export(crate) module compose
+-- | The functions a composition chain applies, in application order.
+export(crate) module compose_chain
+-- | Lower a comprehension to an iterator chain.
+export(crate) module comprehension
+-- | A control-flow statement's keyword, condition and opening brace.
+export(crate) module condition_head
+-- | A control-flow form's Rust as text, for an expression position.
+export(crate) module control_text
+-- | Emit a `data` declaration as a `struct` or an `enum`.
+export(crate) module r#data
+-- | Escape a string literal's braces for use as a `format!` string.
+export(crate) module double_braces
+-- | Lower `<-`, monadic bind, as the enclosing block modifier reads it.
+export(crate) module emit_bind
+-- | Emit an indented block as a Rust block expression.
+export(crate) module emit_block
+-- | Emit a clause's right-hand side.
+export(crate) module emit_body
+-- | Emit a function's body from its clauses.
+export(crate) module emit_clauses
+-- | The Rust text of an `if`, `while` or arm-guard condition.
+export(crate) module emit_condition
+-- | Emit a module-scope `const` or `static`.
+export(crate) module emit_const
+-- | Emit a control-flow statement.
+export(crate) module emit_control
+-- | An `else if`'s nested `if`, written without its leading pad.
+export(crate) module emit_control_inline
+-- | Emit a function declaration.
+export(crate) module emit_fn
+-- | Emit a run of statements, flattening `with` callbacks.
+export(crate) module emit_stmts
+-- | A `where` group's entries, emitted in dependency order.
+export(crate) module emit_where_locals
+-- | Split an error variant's message into a format string and its arguments.
+export(crate) module error_message
+-- | Emit an `errors` declaration: the enum, `Display`, `Error`, and its `From` rows.
+export(crate) module r#errors
+-- | Render an expression as Rust.
+export(crate) module expr
+-- | A comma-separated argument list.
+export(crate) module expr_list
+-- | Emit an `extern` block.
+export(crate) module extern_block
+-- | A record field's value text, with punning expanded.
+export(crate) module field_value
+-- | Emit a constructor's fields.
+export(crate) module fields
+-- | rustfmt's `fn_call_width` default.
+export(crate) module fn_call_width
+-- | An interpolated string's Rust format template and argument list.
+export(crate) module format_template
+-- | The generic parameter list an `instance` needs, or an empty string.
+export(crate) module generics
+-- | Emit one guard ladder as an `if`/`else if`/`else` chain.
+export(crate) module guards
+-- | Emit an `import` as a Rust `use`.
+export(crate) module r#import
+-- | Append a trailing `// …` comment to the current line, if there is one.
+export(crate) module inline_comment
+-- | Emit inline Rust.
+export(crate) module inline_rust
+-- | Emit an `instance` as a Rust `impl`.
+export(crate) module r#instance
+-- | Whether a body is a literal, and so may be shared as a `const`.
+export(crate) module is_shareable
+-- | Emit one declaration.
+export(crate) module item
+-- | Emit a list of items, one blank line between them.
+export(crate) module items
+-- | A loop's or block's label, as the `'name: ` Rust writes before the keyword.
+export(crate) module label_prefix
+-- | Lower a macro invocation.
+export(crate) module macro_call
+-- | Emit one member of a `trait` or `impl`.
+export(crate) module member
+-- | Lower method-as-function: `.name` and its application.
+export(crate) module method_ref
+-- | How many parameters an application has still to be given.
+export(crate) module missing_arity
+-- | Emit a `module` as Rust's `mod`.
+export(crate) module r#module
+-- | Whether a record literal's head names a constructor rather than a value.
+export(crate) module names_a_constructor
+-- | An index chain, as a receiver and its segments.
+export(crate) module nest
+-- | One field of a record literal: `name: value`, or `name` when punned.
+export(crate) module one_field
+-- | An `if … else …` on one line, when rustfmt would put it there.
+export(crate) module one_line_if
+-- | A clause's body as one tail expression statement, when that is what it is.
+export(crate) module one_tail_expression
+-- | Append a number of spaces to the sink.
+export(crate) module pad
+-- | Append a number of spaces to a `String`.
+export(crate) module pad_to
+-- | Lower `|>` as reverse application: `x |> f` is `f x`.
+export(crate) module pipeline
+-- | Render an expression as a method call's receiver, parenthesised when `.` would bind tighter.
+export(crate) module receiver
+-- | Lower a record literal.
+export(crate) module record
+-- | Re-encode a Redox string literal's text as a Rust string literal's text.
+export(crate) module rust_escapes
+-- | A `rust` escape hatch in expression position, at its indentation.
+export(crate) module rust_hatch_text
+-- | Indentation of emitted Rust, in spaces.
+export(crate) module rust_indent
+-- | Lower a section to a one-parameter closure.
+export(crate) module section
+-- | The `const` item a shared binding is emitted as.
+export(crate) module shared_const
+-- | Render a signature, with each part omitted when absent.
+export(crate) module signature
+-- | rustfmt's `single_line_if_else_max_width` default.
+export(crate) module single_line_if_else_max_width
+-- | The emitter's output, recording where each generated line came from.
+export(crate) module sink
+-- | A guard row's body as one expression's text, if that is what it is.
+export(crate) module sole_expression
+-- | Emit one block element.
+export(crate) module stmt
+-- | The widest a record literal's fields may be and still go on one line.
+export(crate) module struct_lit_width
+-- | The widest an enum's record variant may be and still go on one line.
+export(crate) module struct_variant_width
+-- | A deterministic function name for a test's description.
+export(crate) module test_slug
+-- | Emit every `test` block as one attributed module.
+export(crate) module tests_module
+-- | Emit leading trivia.
+export(crate) module trivia
+-- | Lower a `try` block.
+export(crate) module try_block
+-- | A two-armed guard ladder as one line, when rustfmt would write it that way.
+export(crate) module two_armed
+-- | Emit a `type` alias, which is already Rust.
+export(crate) module type_alias
+-- | The refusal for a form that has no Rust expression spelling at all.
+export(crate) module unlowerable
+-- | Strip a grouping parenthesis that the output does not need.
+export(crate) module unparen
+-- | Emit Rust's `unsafe { … }`.
+export(crate) module unsafe_block
+-- | A `where` group's entries in dependency order.
+export(crate) module where_order
+-- | Emit a program, and record where each generated line came from.
+export(crate) module with_map
+-- | Whether an expression needs parentheses as a receiver or callee.
+export(crate) module wraps_as_receiver
+
+-- | Emit `program` as Rust source text.
+-- |
+-- | Kept at its plan 01 signature. Plan 04 made this function's output a
+-- | *measured* property — `rustfmt` leaves it unchanged, and the goldens
+-- | compare exact bytes — so plan 06 added [`emit_with_map`] beside it rather
+-- | than threading a map through it and putting that property at risk.
+export emit : &Program -> String
+emit program = (emit_with_map program "" "").0

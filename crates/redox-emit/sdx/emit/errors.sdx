@@ -1,0 +1,131 @@
+import crate::emit::error_message::error_message
+import crate::emit::pad::pad
+import crate::emit::rust_indent::RUST_INDENT
+import crate::emit::sink::Sink
+import crate::emit::trivia::emit_trivia
+import redox_ast::ErrorsDecl
+
+-- | Emit doc 03 §12.5's `errors` declaration: the enum, `Display`, `Error`,
+-- | and a `From` per `from` row.
+-- |
+-- | ```text
+-- | errors ConfigError                    #[derive(Debug)]
+-- |   Missing String  "missing: #{0}"     pub enum ConfigError {
+-- |   from io::Error as Io "io: #{0}"  →      Missing(String),
+-- |                                           Io(io::Error),
+-- |                                       }
+-- |                                       impl std::fmt::Display for … { … }
+-- |                                       impl std::error::Error for … {}
+-- |                                       impl From<io::Error> for … { … }
+-- | ```
+-- |
+-- | Four items from one declaration, which is the most any Redox construct
+-- | generates — and the reason doc 03 §12.5 is careful to say it "generates
+-- | items for a user-declared type, as `derive` does; it is not runtime
+-- | scaffolding". The distinction is what admits it: every name it emits is
+-- | the author's or `std`'s.
+-- |
+-- | Paths are written in full — `std::fmt::Display`, `std::error::Error` —
+-- | because Redox emits no `use`, so a short path would depend on what the
+-- | author happened to import. Doc 03 §12.5's own Rust does the same.
+export(crate) emit_errors : &mut Sink<'_> -> &ErrorsDecl -> usize -> ()
+emit_errors out d indent =
+  .unmark out
+  emit_trivia out (&d.leading) indent
+  .mark d.span out
+  name = &d.name.text
+  pad out indent
+  .push_str "#[derive(Debug)]\n" out
+  -- Doc 03 §12.5's example shows `pub enum`, which reads as having been
+  -- written `export errors ConfigError`: the marker governs this declaration
+  -- like any other, and §9.6's rule that absent means private is not
+  -- suspended for one construct.
+  pad out indent
+  vis = .rust_text d.visibility
+  .push_str (&format! \-> "#{vis}enum #{name} {\n") out
+  for v in &d.variants
+    .mark v.span out
+    pad out (indent + RUST_INDENT)
+    .push_str (&v.name.text) out
+    if !.is_empty v.fields
+      texts : Vec<&str> = v.fields
+        |> .iter
+        |> .map (\t -> .as_str t.text)
+        |> .collect
+      joined = .join ", " texts
+      .push_str (&format! \-> "(#{joined})") out
+    .push_str ",\n" out
+  .unmark out
+  pad out indent
+  .push_str "}\n\n" out
+  -- The variants come into scope under their own names, exactly as `data`'s
+  -- do — `emit_data`'s enum branch ends with the same two lines, for the same
+  -- reason and with the same wording.
+  --
+  -- Plan 53 leaf 1. Before it, `errors` was the one declaration that
+  -- introduced constructors and then hid them: `data Event = Click | Close`
+  -- gave you `Click`, and `errors ConfigError` with a `Missing` row gave you
+  -- `ConfigError::Missing` and nothing shorter. Haskell has no such
+  -- distinction, and neither document that specifies `errors` — doc 03 §12.5
+  -- and doc 18 §8 — asks for one. It was an omission, and the symptom was
+  -- `E0425: cannot find function, tuple struct or tuple variant` reported
+  -- against a line that reads like ordinary Haskell.
+  --
+  -- Private, and a plain `use` rather than `pub use`: `data`'s is plain, and
+  -- re-exporting the variants from the enclosing module would be a visibility
+  -- decision nobody made. A collision between two names is rustc's error to
+  -- give — the same division of labour `emit_data` records.
+  pad out indent
+  .push_str (&format! \-> "use #{name}::*;\n\n") out
+  pad out indent
+  .push_str (&format! \-> "impl std::fmt::Display for #{name} {\n") out
+  pad out (indent + RUST_INDENT)
+  .push_str "fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {\n" out
+  pad out (indent + RUST_INDENT * 2)
+  .push_str "match self {\n" out
+  for v in &d.variants
+    .mark v.span out
+    -- `built.0` is the template and `built.1` its arguments, where the Rust
+    -- destructured the pair — and `format` would have been a poor name for a
+    -- `String` anyway.
+    built = error_message (&v.message)
+    count = .len v.fields
+    binders : Vec<String> = 0 .. count
+      |> .map (\i -> format! \-> "_#{i}")
+      |> .collect
+    pad out (indent + RUST_INDENT * 3)
+    .push_str (&format! \-> "#{name}::#{v.name.text}") out
+    if !.is_empty binders
+      joined = .join ", " binders
+      .push_str (&format! \-> "(#{joined})") out
+    .push_str (&format! \-> " => write!(f, \"#{built.0}\"") out
+    for arg in &built.1
+      .push_str (&format! \-> ", #{arg}") out
+    .push_str "),\n" out
+  .unmark out
+  pad out (indent + RUST_INDENT * 2)
+  .push_str "}\n" out
+  pad out (indent + RUST_INDENT)
+  .push_str "}\n" out
+  pad out indent
+  .push_str "}\n\n" out
+  pad out indent
+  .push_str (&format! \-> "impl std::error::Error for #{name} {}\n") out
+  for v in &d.variants
+    if !v.from
+      continue
+    ty = &v.fields[0].text
+    .mark v.span out
+    .push '\n' out
+    pad out indent
+    .push_str (&format! \-> "impl From<#{ty}> for #{name} {\n") out
+    pad out (indent + RUST_INDENT)
+    .push_str (&format! \-> "fn from(e: #{ty}) -> Self {\n") out
+    pad out (indent + RUST_INDENT * 2)
+    .push_str (&format! \-> "#{name}::#{v.name.text}(e)\n") out
+    pad out (indent + RUST_INDENT)
+    .push_str "}\n" out
+    pad out indent
+    .push_str "}\n" out
+  .unmark out
+  ()

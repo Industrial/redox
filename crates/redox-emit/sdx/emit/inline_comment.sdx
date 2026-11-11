@@ -1,0 +1,13 @@
+import crate::emit::sink::Sink
+import redox_ast::{Trivia, TriviaKind}
+import std::fmt::Write as _
+
+-- | Append a trailing `// …` comment to the current line, if there is one.
+export(crate) emit_inline_comment : &mut Sink<'_> -> Option<&Trivia> -> ()
+emit_inline_comment out trivia =
+  if trivia is Some t && t.kind == TriviaKind::LineComment
+    if .is_empty t.text
+      .push_str " //" out
+    else
+      _dropped = write! \-> out \-> " // #{t.text}"
+  ()

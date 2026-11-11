@@ -1,0 +1,90 @@
+import crate::emit::where_order::visit::visit
+import redox_ast::{Expr, Stmt, where_edges}
+
+-- | Post-order depth-first, which is what makes the result a topological order.
+export(crate) module visit
+
+-- | A `where` group's entries in **dependency order** — plan 61 leaf 2.
+-- |
+-- | ```text
+-- | area w = scaled              fn area(w: f64) -> f64 {
+-- |   where                          let base = w * w;
+-- |     scaled = base * 2.0          let scaled = base * 2.0;
+-- |     base = w * w                 scaled
+-- |                              }
+-- | ```
+-- |
+-- | The source order reverses and the output does not. Doc 03 §8.3 refused
+-- | this — *"synthesising a correct order would require dependency analysis
+-- | this surface does not admit"* — and plan 61 §1.2 is the argument that it
+-- | refused the wrong thing: the analysis §8.3 declines asks *what does this
+-- | name mean*, and this asks only *which of these names appears in that body*,
+-- | over a set known in advance. No scope, no types, no inference.
+-- |
+-- | # Three properties, each load-bearing
+-- |
+-- | **Stable.** Ties break by source order, so the output is deterministic —
+-- | doc 04's emitter-determinism rule, which a sort could quietly violate. The
+-- | four `where` clauses that were in the corpus before this row are preserved
+-- | byte for byte by that alone.
+-- |
+-- | **Functions do not move.** Since leaf 0 a group holds two kinds of entry,
+-- | and only the bindings are `let`s whose order matters: nested `fn` items are
+-- | order-independent in Rust, verified in either definition order, so a
+-- | mutually recursive pair needs no ordering at all. Each non-binding entry
+-- | keeps its index and the bindings fill the remaining slots in sorted order —
+-- | simpler than sorting a mixed group, and what made leaf 3 free.
+-- |
+-- | **It never rewrites `Program`.** `redox-fmt` and `redox-emit` are two
+-- | readers of one tree, so a pass that mutates the tree to serve one silently
+-- | changes what the other produces — here, a *formatter* reordering lines its
+-- | author wrote, which is an edit and not a formatting change. Plan 56 §11.3
+-- | reaches the same rule from the other side.
+-- |
+-- | # A cycle cannot reach here
+-- |
+-- | `where_group` refuses one in the parser (`RDX0119`), using
+-- | [`where_edges`] — the **same** graph this sorts, which is why the two
+-- | cannot disagree about whether a program has a cycle. The `visiting` guard
+-- | is kept anyway and returns rather than recursing: a parse error that
+-- | somehow reached the emitter would otherwise be an infinite recursion, and
+-- | the emitter must not be the thing that hangs.
+export(crate) where_order : &[Stmt] -> Vec<usize>
+where_order entries =
+  n = .len entries
+  -- `pair.0` and `pair.1`, where the Rust's closure destructured `|(_, e)|`:
+  -- a lambda parameter is a bare name.
+  bindings : Vec<usize> = entries
+    |> .iter
+    |> .enumerate
+    |> .filter (\pair ->
+    case pair.1.expr of
+      Expr::Binding _ -> true
+      _ -> false)
+    |> .map (\pair -> pair.0)
+    |> .collect
+  if .len bindings < 2
+    return .collect (0 .. n)
+  graph = where_edges entries
+  -- `Vec::new` plus `.resize`, where the Rust wrote `vec![false; n]`: the
+  -- repeat form of `vec!` takes a length after a `;`, and a Redox macro
+  -- argument is an expression.
+  mut done : Vec<bool> = Vec::new ()
+  .resize n false done
+  mut visiting : Vec<bool> = Vec::new ()
+  .resize n false visiting
+  mut sorted = Vec::with_capacity (.len bindings)
+  -- `i` is the reference, where the Rust wrote `for &i in …`.
+  for i in &bindings
+    visit (*i) (&graph) (&mut done) (&mut visiting) (&mut sorted)
+  -- Each non-binding entry keeps its slot; the bindings fill the rest in
+  -- sorted order.
+  --
+  -- `queued`, not a rebinding of `sorted`: `RDX1003` reports a shadow.
+  mut queued = .into_iter sorted
+  0 .. n
+    |> .map (\i ->
+    case entries[i].expr of
+      Expr::Binding _ -> .unwrap_or i (.next queued)
+      _ -> i)
+    |> .collect

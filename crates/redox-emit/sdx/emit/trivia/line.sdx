@@ -1,0 +1,15 @@
+import crate::emit::pad::pad
+import crate::emit::sink::Sink
+import std::fmt::Write as _
+
+-- | One comment line at `indent`, with `marker` and no trailing space when the
+-- | comment text is empty.
+export(crate) line : &mut Sink<'_> -> usize -> &str -> &str -> ()
+line out indent marker text =
+  pad out indent
+  if .is_empty text
+    .push_str marker out
+    .push '\n' out
+  else
+    _dropped = writeln! \-> out \-> "#{marker} #{text}"
+  ()

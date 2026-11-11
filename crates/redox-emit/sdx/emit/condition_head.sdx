@@ -1,0 +1,59 @@
+import crate::emit::condition_head::breaks::breaks
+import crate::emit::emit_condition::emit_condition
+import crate::emit::rust_indent::RUST_INDENT
+import redox_ast::Condition
+
+-- | Whether rustfmt would break this condition across lines.
+export(crate) module breaks
+
+-- | A control-flow statement's keyword, condition and opening brace — plan 22.
+-- |
+-- | ```text
+-- | if n > 0 {
+-- |
+-- | if let Some(v) = o && v > 2      ← what Redox would write on one line
+-- |
+-- | if let Some(v) = o               ← what rustfmt writes instead
+-- |     && v > 2
+-- | {
+-- | ```
+-- |
+-- | # rustfmt's rule for let-chains, bisected
+-- |
+-- | A condition holding a `let` operand is written on one line **only** when it
+-- | has exactly two operands and the `let` is the second. Every other chain
+-- | with a `let` is broken one operand per line, with the brace on its own
+-- | line — and it is broken regardless of width, which is why this is a shape
+-- | rule and not another width constant.
+-- |
+-- | | Condition | rustfmt |
+-- | |---|---|
+-- | | `if let Some(v) = o` | one line |
+-- | | `if a && let Some(v) = o` | one line |
+-- | | `if let Some(v) = o && v > 2` | broken |
+-- | | `if let Some(v) = o && let Some(w) = p` | broken |
+-- | | `if a && b && let Some(v) = o` | broken |
+-- | | `if a && b` | one line — no `let`, so not a chain |
+-- |
+-- | Established by running rustfmt over all seven shapes rather than reasoning
+-- | about them, which is how plan 13's five width constants were fixed and for
+-- | the same reason: *reasoning from half of rustfmt's behaviour* is what plan
+-- | 14 §10.2 records going wrong.
+export(crate) condition_head : &str -> &Condition -> usize -> String
+condition_head keyword condition indent =
+  if !breaks condition
+    joined = emit_condition condition indent
+    return format! \-> "#{keyword} #{joined} {\n"
+  inner = .repeat (indent + RUST_INDENT) " "
+  mut out = format! \-> "#{keyword} "
+  -- `i` and `operand` bound from the pair: a `for` binder is a bare name.
+  for pair in .enumerate (.iter condition.operands)
+    i = pair.0
+    operand = pair.1
+    if i > 0
+      .push_str (&format! \-> "\n#{inner}&& ") out
+    one = emit_condition (&Condition { operands = vec! \-> .clone operand }) indent
+    .push_str (&one) out
+  outer = .repeat indent " "
+  .push_str (&format! \-> "\n#{outer}{\n") out
+  out

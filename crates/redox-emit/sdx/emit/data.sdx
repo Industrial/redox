@@ -1,0 +1,137 @@
+import crate::emit::fields::emit_fields
+import crate::emit::pad::pad
+import crate::emit::rust_indent::RUST_INDENT
+import crate::emit::sink::Sink
+import crate::emit::trivia::emit_trivia
+import redox_ast::{ConstructorFields, DataDecl}
+
+-- | Emit doc 18 §2.4's `data` declaration as a `struct` or an `enum`.
+-- |
+-- | **One constructor whose name matches the type is a `struct`; anything else
+-- | is an `enum`.** The rule is syntactic — decidable from the source text
+-- | alone, doc 03 §2's admission test 1 — which is why this needs no name
+-- | resolution and why doc 18 §2.4 calls it "the whole requirement".
+-- |
+-- | ```text
+-- | data Point = Point { x : f64 }   struct Point { x: f64 }
+-- | data Marker = Marker              struct Marker;
+-- | newtype Meters = Meters f64       struct Meters(f64);
+-- | data Event = Key char | Close     enum Event { Key(char), Close }
+-- | ```
+-- |
+-- | A single constructor whose name *differs* from the type is an `enum` of one
+-- | variant, and that is correct rather than a gap: `data Shape = Circle f64`
+-- | introduces `Circle`, and a struct named `Point` would not.
+export(crate) emit_data : &mut Sink<'_> -> &DataDecl -> usize -> ()
+emit_data out d indent =
+  .mark d.span out
+  emit_trivia out (&d.leading) indent
+  if !.is_empty d.derives
+    names : Vec<&str> = d.derives
+      |> .iter
+      |> .map (\i -> .as_str i.text)
+      |> .collect
+    joined = .join ", " names
+    pad out indent
+    .push_str (&format! \-> "\#[derive(#{joined})]\n") out
+  as_struct = case .as_slice d.constructors of
+    [only] -> only.name.text == d.name.text
+    [] -> true
+    _ -> false
+  -- Doc 18 §5.3's synthesised list, in the one slot all three shapes share.
+  -- Empty for a declaration with no type variables, which is almost all of
+  -- them — so `data Point = Point { x : f64 }` emits exactly the Rust it
+  -- emitted before plan 74 existed.
+  params = if .is_empty d.generics
+    String::new ()
+  else
+    joined = .join ", " d.generics
+    format! \-> "<#{joined}>"
+  if as_struct
+    fields = .map_or (&ConstructorFields::Unit) (\c -> &c.fields) (.first d.constructors)
+    -- Plan 53 leaf 3: `newtype` is the single-field case, so it is
+    -- `#[repr(transparent)]` and `data` is not. That is the whole difference
+    -- between the two keywords in the generated Rust, and before this row
+    -- there was none — which made `newtype` a synonym for `data` that three
+    -- doc comments and one test nonetheless described as meaningful.
+    --
+    -- `repr(transparent)` is not decoration. It guarantees the wrapper has
+    -- the layout of its field, which is what makes a `newtype` sound to
+    -- transmute across an FFI boundary and what tells a reader the wrapper
+    -- costs nothing. A `data` declaration promises neither.
+    --
+    -- **After the derive, immediately above the struct.** Both orders compile
+    -- and rustfmt reorders neither, so the choice is for the reader: the
+    -- attribute that describes this struct's layout sits closest to the
+    -- struct, and the derives — which describe its behaviour — stay grouped
+    -- above. `attributes.rs`'s golden pins the order so it cannot drift.
+    --
+    -- rustc only backstops half of the shape rule: a two-field
+    -- `#[repr(transparent)]` is `E0690`, but a *unit* struct with it compiles
+    -- clean. Leaf 2's parser check is the only thing that refuses
+    -- `newtype Foo = Foo`, which is why this emitter does not try to.
+    if d.is_newtype
+      pad out indent
+      .push_str "#[repr(transparent)]\n" out
+    pad out indent
+    -- Plan 45 leaf 4: `union` takes the `struct` slot. Everything after the
+    -- keyword — the fields, the generics, the derives — is a struct's, which
+    -- is the whole argument for it riding on `data` rather than being a
+    -- declaration of its own.
+    vis = .rust_text d.visibility
+    keyword = if d.is_union
+      "union"
+    else
+      "struct"
+    .push_str (&format! \-> "#{vis}#{keyword} #{d.name.text}#{params}") out
+    emit_fields out fields indent true
+    return ()
+  pad out indent
+  vis = .rust_text d.visibility
+  .push_str (&format! \-> "#{vis}enum #{d.name.text}#{params} {\n") out
+  for c in &d.constructors
+    .mark c.span out
+    -- Plan 68: the constructor's own doc comments, which had nowhere to be
+    -- written until this row gave `Constructor` a `leading` field. Emitted
+    -- **before** the padding for the reason `emit_trivia` takes an indent —
+    -- a comment writes its own, and a `pad` here would double it.
+    emit_trivia out (&c.leading) (indent + RUST_INDENT)
+    pad out (indent + RUST_INDENT)
+    .push_str (&c.name.text) out
+    emit_fields out (&c.fields) (indent + RUST_INDENT) false
+  .unmark out
+  pad out indent
+  .push_str "}\n" out
+  -- **A constructor is in scope under its own name**, as it is in Haskell —
+  -- so `Close` and `Key 'k'` are written without the type, and a `case` arm
+  -- spelled `Close ->` *matches the variant*.
+  --
+  -- This is a fourth new lowering, beyond the three doc 18 §6 discloses, and
+  -- it is not optional sugar. Without it `Close` is an ordinary name: as an
+  -- expression it fails to resolve, and as a `case` pattern it silently
+  -- becomes an irrefutable binding, so `describe` would return its first arm
+  -- for every input. That is doc 02 §5.2's worst failure mode exactly —
+  -- output that reads as Rust and means something else — reached by writing
+  -- doc 18 §2.4's own example.
+  --
+  -- Two names colliding is rustc's error to give, which is the same division
+  -- of labour Haskell has: both languages reject the collision, neither
+  -- resolves it.
+  --
+  -- **`#[allow(unused_imports)]`, because a file may only declare the type.**
+  -- Plan 68 found it porting `redox-ast`: four of its modules declare an
+  -- `enum` and never name a constructor, so the glob is an `unused_imports`
+  -- warning — and `moon run :lint` makes that an error. No example caught it,
+  -- because an example that declares a type also uses it.
+  --
+  -- The alternative was to emit the glob only when the program names a
+  -- constructor, and it is refused rather than deferred: that needs a
+  -- program-wide walk over every identifier-shaped reference, and
+  -- **under-inclusion is a silent miscompile** — the irrefutable-binding
+  -- failure this glob exists to prevent, reintroduced by the attempt to tidy
+  -- it away. An `allow` cannot be wrong in that direction.
+  pad out indent
+  .push_str "#[allow(unused_imports)]\n" out
+  pad out indent
+  .push_str (&format! \-> "use #{d.name.text}::*;\n") out
+  ()

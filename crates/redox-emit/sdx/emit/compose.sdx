@@ -1,0 +1,39 @@
+import crate::emit::closure::closure
+import crate::emit::closure_param::closure_param
+import crate::emit::compose_chain::compose_chain
+import crate::emit::expr::emit_expr
+import redox_ast::{BinaryOp, Expr, Ident}
+
+-- | Lower plan 66's composition: `f >>> g` and `f <<< g`, as a closure.
+-- |
+-- | ```text
+-- | .trim >>> .to_lowercase    |__rdx_1| __rdx_1.trim().to_lowercase()
+-- | wrap >>> shout             |__rdx_1| shout(wrap(__rdx_1))
+-- | shout <<< wrap             |__rdx_1| shout(wrap(__rdx_1))
+-- | ```
+-- |
+-- | **One lowering, the operands exchanged.** `f <<< g` is `g >>> f`, which is
+-- | plan 66 §3 case 6's equivalence and the reason keeping both directions is
+-- | two table entries rather than two lowerings.
+-- |
+-- | The body is built as an **application of the AST** rather than as text: the
+-- | chain is folded into nested [`Expr::Call`]s over the parameter and emitted
+-- | once, like any other application. That is what makes
+-- | `.trim >>> .to_lowercase` a method chain instead of two closures called in
+-- | place — plan 57's receiver-last rule writes `__rdx_1.trim()`, and plan 56's
+-- | arity table decides whether an operand that is itself under-applied
+-- | becomes a closure. Composition needed neither of those to be re-stated.
+-- |
+-- | `param` is the index [`closure_param`] binds, so a *section* of composition
+-- | can ask for the second name: `(>>> g)` is `\f -> f >>> g`, so the closure
+-- | `emit_section` writes binds `__rdx_1` and this one binds `__rdx_2`.
+export(crate) compose : BinaryOp -> &Expr -> &Expr -> usize -> usize -> String
+compose op lhs rhs param indent =
+  mut links = Vec::new ()
+  compose_chain op lhs rhs (&mut links)
+  name = closure_param param
+  mut applied = Expr::Ident (Ident { text = .clone name, span = .span lhs })
+  for function in links
+    applied := Expr::Call { callee = Box::new (.clone function), args = vec! \-> applied, is_dollar = false, span = .span function }
+  body = emit_expr (&applied) indent
+  closure (&[name]) (&body)

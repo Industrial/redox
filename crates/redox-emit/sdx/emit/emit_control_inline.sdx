@@ -1,0 +1,47 @@
+import crate::emit::condition_head::condition_head
+import crate::emit::emit_stmts::emit_stmts
+import crate::emit::pad::pad
+import crate::emit::rust_indent::RUST_INDENT
+import crate::emit::sink::Sink
+import redox_ast::Expr
+
+-- | An `else if`'s nested `if`, written without its leading pad.
+-- |
+-- | The `} else ` before it already occupies the line, so the nested statement
+-- | must not pad again. Separate from `emit_control` because the difference is
+-- | one call and merging them would mean a flag on every arm.
+-- |
+-- | `tail` carries the same meaning as in `emit_control`, and must be forwarded
+-- | here too: in `if a then … else if b then … else …` the value can come from
+-- | any rung of the chain, so dropping it at the first `else if` would make the
+-- | deeper branches statements again.
+export(crate) emit_control_inline : &mut Sink<'_> -> &Expr -> usize -> bool -> ()
+emit_control_inline out expr indent tail =
+  guard expr is Expr::If { condition, then_block, r#otherwise, .. } else
+    unreachable! \-> "only an `if` is written inline"
+  .push_str (&condition_head "if" condition indent) out
+  emit_stmts out (&then_block.stmts) (indent + RUST_INDENT) (tail && .is_some r#otherwise)
+  guard r#otherwise is Some other else
+    .unmark out
+    pad out indent
+    .push_str "}\n" out
+    return ()
+  .unmark out
+  pad out indent
+  -- The `matches!` folded into the `case`, because a second function beside
+  -- this one would be a second construct in the file (doc 06 §1).
+  chained = case .as_slice other.stmts of
+    [only] -> case only.expr of
+      Expr::If { .. } -> Some only
+      _ -> None
+    _ -> None
+  if chained is Some only
+    .push_str "} else " out
+    emit_control_inline out (&only.expr) indent tail
+    return ()
+  .push_str "} else {\n" out
+  emit_stmts out (&other.stmts) (indent + RUST_INDENT) tail
+  .unmark out
+  pad out indent
+  .push_str "}\n" out
+  ()

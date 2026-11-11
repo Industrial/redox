@@ -1,0 +1,46 @@
+-- | Escape a string literal's braces for use as a `format!` format string.
+-- |
+-- | Plan 08 (`docs/13 - 08 - Run Expectations.md`) §10.1 — the second defect
+-- | the run corpus caught.
+-- |
+-- | `print "a"` lowers to `println!("a")`, which passes the literal to
+-- | `println!` as its **format string**. That is fine until the literal
+-- | contains a brace: `print "see {this}"` would lower to
+-- | `println!("see {this}")`, where `{this}` is a format placeholder naming a
+-- | variable that does not exist. rustc then reports an error about a line the
+-- | user did not write, pointing at an identifier they did not use.
+-- |
+-- | Doubling each brace is how a format string spells a literal one, so
+-- | `{` becomes `{{` and `}` becomes `}}`.
+-- |
+-- | This is deliberately **not** part of [`super::rust_escapes::rust_escapes`],
+-- | and the distinction is load-bearing: `rust_escapes` makes a literal valid
+-- | *Rust*, and applies wherever a literal is emitted. Doubling braces makes a
+-- | literal mean itself as a *format string*, and applies only where one is
+-- | used as that. A `StrLit` emitted in an ordinary expression position must
+-- | keep its braces single, or `let s = "{}"` would become `let s = "{{}}"`.
+-- |
+-- | When interpolation arrives (plan 23), an interpolated part becomes a real
+-- | `{}` hole *after* this runs on the literal segments, so the two compose:
+-- | holes the author wrote stay holes, braces they wrote stay braces.
+export(crate) double_braces : &str -> String
+double_braces literal = .replace '}' "}}" (.replace '{' "{{" literal)
+
+-- | Every brace-bearing argument below is a **raw** literal — doc 03 §11.2's
+-- | `r"…"`, which §11.2 calls *"pure passthrough"*. A plain `"…"` reaching a
+-- | macro is brace-doubled by `macro_argument`, which would rewrite the very
+-- | strings these assertions are about.
+test "doubles a brace so it prints as itself"
+  assert_eq! \-> double_braces r#""see {this}""# \-> r#""see {{this}}""#
+
+test "leaves a literal with no braces alone"
+  assert_eq! \-> double_braces r#""Hello, world!""# \-> r#""Hello, world!""# \-> "plan 01's golden depends on this being unchanged"
+
+-- | A brace that is already doubled in the source text is user data too, and
+-- | doubling it again is what makes it print as two braces.
+test "doubles each brace independently"
+  assert_eq! \-> double_braces r"{{" \-> r"{{{{"
+  assert_eq! \-> double_braces r"}" \-> r"}}"
+
+test "handles an empty literal"
+  assert_eq! \-> double_braces "" \-> ""

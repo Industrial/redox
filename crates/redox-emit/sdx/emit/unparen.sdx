@@ -1,0 +1,49 @@
+import redox_ast::Expr
+
+-- | Strip a grouping parenthesis that the output does not need.
+-- |
+-- | Doc 18 §2.1: *"`f(x)`, `f (x)` and `f x` are one expression and the
+-- | formatter prints the last."* Parentheses are grouping only, so a `Paren`
+-- | node carries no meaning the tree does not already have — the tree's
+-- | *shape* is what encodes precedence.
+-- |
+-- | Emitting them anyway cost plan 04's guarantee. `print (2 + 3 * 4)` produced
+-- | `println!("{}", (2 + 3 * 4))`, which rustfmt rewrites by removing the
+-- | parentheses — so the generated Rust stopped being rustfmt-clean, which is a
+-- | *measured* property and not a stylistic one.
+-- |
+-- | **Only provably redundant positions are stripped**, and this function is
+-- | called from exactly those: an argument in a list, a `println!` hole, and a
+-- | statement's own expression. In each, the parenthesised group is already
+-- | delimited by something else — a comma, a macro argument, a semicolon — so
+-- | removing the parentheses cannot change how it parses.
+-- |
+-- | A `Paren` *inside* a larger expression is left alone, because re-deriving
+-- | those correctly needs the emitter to know precedence, and guessing would
+-- | change meaning. That is the honest limit: redundant parens elsewhere
+-- | survive into the output and rustfmt would strip them, which
+-- | `examples.rs`'s rustfmt check would then catch.
+export(crate) unparen : &Expr -> &Expr
+unparen expr = case expr of
+  Expr::Paren { inner, .. } -> unparen inner
+  other -> other
+
+-- | `#[cfg(test)]`: an identifier expression, for the tests below.
+#[cfg(test)]
+ident : &str -> Expr
+ident text = Expr::Ident (redox_ast::Ident { text = .to_string text, span = (0, 0) })
+
+-- | `#[cfg(test)]`: one layer of parentheses around `inner`.
+#[cfg(test)]
+paren : Expr -> Expr
+paren inner = Expr::Paren { inner = Box::new inner, span = (0, 0) }
+
+test "strips one layer"
+  assert_eq! \-> unparen (&paren (ident "x")) \-> &ident "x"
+
+-- | `((x))` is as redundant as `(x)`.
+test "strips every layer"
+  assert_eq! \-> unparen (&paren (paren (paren (ident "x")))) \-> &ident "x"
+
+test "leaves an unparenthesised expression alone"
+  assert_eq! \-> unparen (&ident "x") \-> &ident "x"

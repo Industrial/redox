@@ -10,3 +10,7 @@ redox-diag = { path = "../redox-diag" }
 
 [dev-dependencies]
 redox-parser = { path = "../redox-parser" }
+
+# The five surface-fact allows — see the root manifest.
+[lints]
+workspace = true

@@ -1,0 +1,17 @@
+-- | rustfmt's `chain_width` default.
+-- |
+-- | A method chain whose segments — everything after the receiver — total more
+-- | than this is written one segment per line. **Measured on the segments, not
+-- | on the line**, which is what makes it usable here: the emitter knows what
+-- | it is about to write without knowing what column the line already reached.
+-- |
+-- | Determined by bisecting rustfmt's behaviour, the same way
+-- | `STRUCT_VARIANT_WIDTH` was: `.into_iter().map(|n| n * 2).collect()` is 36
+-- | characters and stays on one line, while
+-- | `.into_iter().filter_map(|n| if n % 2 == 1 { Some(n) } else { None }).collect()`
+-- | is 76 and is broken — with the receiver's own length making no difference
+-- | to either.
+-- |
+-- | Pinned rather than discovered at run time, for the reasons given on
+-- | `STRUCT_VARIANT_WIDTH`.
+export(crate) const CHAIN_WIDTH : usize = 60

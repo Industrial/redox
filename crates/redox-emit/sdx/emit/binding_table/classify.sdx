@@ -1,0 +1,32 @@
+import crate::emit::binding_kind::BindingKind
+import crate::emit::binding_table::is_upper_case::is_upper_case
+import crate::emit::is_shareable::is_shareable
+import redox_ast::{ClauseBody, FnDecl}
+
+-- | `decl`'s kind, or `None` when it is not a parameterless binding at all.
+-- |
+-- | Plan 59 (`docs/53 - 59 - Value Bindings.md`) leaf 1. A binding is **one
+-- | clause, no patterns, no `where` locals and a single expression**. A
+-- | multi-equation or guard-laddered declaration is a function however few
+-- | parameters it has, because a `const` has nowhere to put a second equation
+-- | and no way to spell a guard.
+-- |
+-- | The three tests are each syntactic and each decidable from the source text
+-- | alone, which is doc 03 §2's admission test 1 — the shape of the body
+-- | ([`is_shareable`]), the case of the name ([`is_upper_case`]), and the
+-- | absence of parameters. Nothing here evaluates anything, because doc 03
+-- | §13.3 declines transpile-time evaluation permanently.
+export(crate) classify : &FnDecl -> Option<BindingKind>
+classify decl =
+  if !.is_empty decl.sig.params
+    return None
+  guard .as_slice decl.clauses is [clause] else
+    return None
+  if !.is_empty clause.patterns
+    return None
+  guard &clause.body is ClauseBody::Plain block else
+    return Some BindingKind::Called
+  shared = .is_empty clause.wheres && .len block.stmts == 1 && is_shareable (&block.stmts[0].expr) && is_upper_case (&decl.name.text)
+  if shared
+    return Some BindingKind::Shared
+  Some BindingKind::Called

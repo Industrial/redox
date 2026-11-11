@@ -1,0 +1,43 @@
+import crate::emit::bind_mode::BindMode
+import std::cell::Cell
+
+-- The `thread_local!` block, verbatim: a macro whose body is a `static`
+-- declaration has no Redox spelling, because a macro argument is an
+-- expression. Doc 03 §23's hatch, and `redox-emit` §2 records it.
+rust """
+  thread_local! {
+    /// What `<-` means right here. [`BindMode::Await`] outside any modifier,
+    /// which is the meaning doc 30 gave the token and the one `async fn` keeps.
+    static MODE: Cell<BindMode> = const { Cell::new(BindMode::Await) };
+  }
+"""
+
+-- | The bind mode, installed for the body of one block modifier.
+-- |
+-- | Plan 60 (`docs/54 - 60 - The Bind Arrow.md`) leaf 3. A guard rather than a
+-- | setter, because the modes **nest**: a `try` inside an `async` and an
+-- | `async` inside a `try` both have to restore the outer meaning when their
+-- | body ends, and an early return must not leave the wrong one installed.
+-- |
+-- | `Cell` rather than `RefCell`, because the mode is `Copy` and nothing
+-- | borrows it across a call. `thread_local!` for `ArityScope`'s reason: the
+-- | suite's parallel tests must not see each other's blocks.
+export(crate) data BindScope = BindScope {
+  -- | The mode to put back when the guard drops.
+  previous : BindMode,
+}
+
+instance BindScope
+  -- | Install `mode` for as long as the returned guard lives.
+  export(crate) enter : BindMode -> Self
+  enter mode = BindScope { previous = .replace mode MODE }
+
+  -- | What `<-` means at this point in the emission.
+  export(crate) mode : BindMode
+  mode = .get MODE
+
+instance Drop BindScope
+  drop : &mut self -> ()
+  drop self =
+    .set self.previous MODE
+    ()

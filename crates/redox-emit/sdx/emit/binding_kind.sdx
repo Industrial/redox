@@ -1,0 +1,30 @@
+-- | Which Rust item a parameterless binding becomes.
+-- |
+-- | Plan 59 (`docs/53 - 59 - Value Bindings.md`) leaf 1. Doc 03 §13.4 made
+-- | every module-scope binding a `const` or a `static`, and plan 16 implemented
+-- | that for the ones carrying the keyword; a binding carrying a *signature*
+-- | instead became `fn name() -> T`, so the two kinds of top-level value ended
+-- | up with different use-site spellings for reasons that had nothing to do
+-- | with what the author meant.
+-- |
+-- | This is the classification that closes that, and it is **syntactic**: doc
+-- | 03 §13.3 declines transpile-time evaluation permanently, so the question is
+-- | *"is the right-hand side a literal"* and never *"what does it evaluate
+-- | to"*. [`crate::emit::is_shareable::is_shareable`] is the test.
+export(crate) data BindingKind
+  -- | A literal body under an upper-case name: emitted as plan 16's `const`,
+  -- | and read at the use site with no call.
+  -- |
+  -- | The name's case is load-bearing rather than stylistic — §11.8. `const
+  -- | block` earns `non_upper_case_globals`, the examples corpus requires rustc
+  -- | to emit nothing, and `examples/strings.sdx`'s binding is `block`.
+  = Shared
+  -- | Everything else: still `fn name() -> T`, with the call **restored** at
+  -- | the use site so the author writes the name alone either way.
+  -- |
+  -- | A body that does work is recomputed per use, and §1.4 is why that is the
+  -- | point rather than a shortcoming: an `Effect` is a one-shot description,
+  -- | so sharing one would hand `Effect::retry` the same consumed effect on
+  -- | every attempt.
+  | Called
+  deriving (Debug, Clone, Copy, PartialEq, Eq)

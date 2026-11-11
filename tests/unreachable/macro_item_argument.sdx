@@ -1,0 +1,21 @@
+-- A macro invocation whose argument is an **item**, not an expression.
+-- UNREACHABLE, and the gap plan 81 measured: `thread_local!`'s body is a
+-- `static` declaration, and plan 64's `name! \-> e` opens each argument with
+-- a nullary lambda, so an argument is an expression and nothing else.
+--
+-- Plan 64 §6 disclosed the *pattern* half of this — `matches!`'s second
+-- argument cannot be passed — and this is the same gap one step further out.
+-- `redox-emit` needs it three times and reaches for doc 03 §23's inline-Rust
+-- hatch, which is the first thing in the ported compiler that doc 02 §4.8's
+-- criterion cannot claim.
+--
+-- Nearest thing that works: the hatch. `rust """ … """` carries the whole
+-- invocation verbatim, which is what `crates/redox-emit/sdx/emit/bind_scope.sdx`
+-- and its two siblings do, and what `crates/redox-cli/tests/port.rs`'s
+-- `HATCH_ALLOWED` records.
+
+main : ()
+main =
+  thread_local! \-> static MODE : u8 = 0
+  println! \-> "#{1}"
+  ()

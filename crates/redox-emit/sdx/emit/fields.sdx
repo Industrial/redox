@@ -1,0 +1,81 @@
+import crate::emit::pad::pad
+import crate::emit::rust_indent::RUST_INDENT
+import crate::emit::sink::Sink
+import crate::emit::struct_variant_width::STRUCT_VARIANT_WIDTH
+import crate::emit::trivia::emit_trivia
+import redox_ast::ConstructorFields
+
+-- | Emit a constructor's fields, at `indent` spaces.
+-- |
+-- | `top` distinguishes the two places a constructor's fields appear, which
+-- | need different punctuation — and, for a record, a different *layout*:
+-- |
+-- | ```text
+-- | struct Point {            top: a struct body is always one field per line
+-- |     x: f64,
+-- | }
+-- |     Click { x: i32 },     a narrow variant body stays on its line
+-- | struct Marker;            top: a unit needs the `;` that closes an item
+-- |     Close,                a unit variant needs only the comma
+-- | ```
+-- |
+-- | The asymmetry is rustfmt's, not a choice: it expands a struct body
+-- | unconditionally and keeps a *variant* body inline while it fits
+-- | `struct_variant_width`. Plan 04's guarantee is that the emitter never
+-- | writes a line rustfmt would re-break, so the emitter has to know both
+-- | rules rather than pick the tidier-looking one.
+export(crate) emit_fields : &mut Sink<'_> -> &ConstructorFields -> usize -> bool -> ()
+emit_fields out fields indent top =
+  case fields of
+    ConstructorFields::Unit ->
+      closer = if top
+        ";\n"
+      else
+        ",\n"
+      .push_str closer out
+    ConstructorFields::Tuple types ->
+      texts : Vec<&str> = types
+        |> .iter
+        |> .map (\t -> .as_str t.text)
+        |> .collect
+      joined = .join ", " texts
+      .push_str (&format! \-> "(#{joined})") out
+      closer = if top
+        ";\n"
+      else
+        ",\n"
+      .push_str closer out
+    ConstructorFields::Record decls ->
+      -- The comma-joined field text, which is what rustfmt's width thresholds
+      -- are measured against — see `STRUCT_VARIANT_WIDTH`.
+      texts : Vec<String> = decls
+        |> .iter
+        |> .map (\f ->
+        vis = .rust_text f.visibility
+        format! \-> "#{vis}#{f.name.text}: #{f.ty.text}")
+        |> .collect
+      joined = .join ", " texts
+      -- A field carrying its own doc comment cannot take the one-line form:
+      -- the comment has to go on a line of its own, and collapsing the record
+      -- would drop it. Plan 48 leaf 2 found field trivia discarded entirely,
+      -- which AGENTS.md calls a load-bearing rule — "comments are trivia,
+      -- never discarded" (doc 02 §10.1) — so the width test now yields to it.
+      documented = .any (\f -> !.is_empty f.leading) (.iter decls)
+      if !top && !documented && .len joined <= STRUCT_VARIANT_WIDTH
+        .push_str (&format! \-> " { #{joined} },\n") out
+        return ()
+      .push_str " {\n" out
+      for f in decls
+        .mark f.span out
+        emit_trivia out (&f.leading) (indent + RUST_INDENT)
+        pad out (indent + RUST_INDENT)
+        vis = .rust_text f.visibility
+        .push_str (&format! \-> "#{vis}#{f.name.text}: #{f.ty.text},\n") out
+      .unmark out
+      pad out indent
+      closer = if top
+        "}\n"
+      else
+        "},\n"
+      .push_str closer out
+  ()

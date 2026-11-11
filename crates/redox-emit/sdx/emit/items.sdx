@@ -1,0 +1,65 @@
+import crate::emit::item::emit_item
+import crate::emit::sink::Sink
+import crate::emit::tests_module::emit_tests_module
+import redox_ast::{Item, TestDecl}
+
+-- | Emit a list of items at `indent` spaces, one blank line between them.
+-- |
+-- | Lifted out of `emit_with_map` when plan 14's `module` body arrived,
+-- | because a module body is a list of items and wants everything this does:
+-- | the blank-line rule, source order, and **its own** gathered test module.
+-- |
+-- | One blank line between items, driven by position in the tree rather than
+-- | by how many blank lines the source happened to have — so the output is a
+-- | function of structure and therefore byte-stable.
+-- |
+-- | **Items keep source order, imports included**, and the blank line between
+-- | them is what makes that possible. Plan 14 decision 3 is why the order is
+-- | kept — gathering imports to the top would reorder the author's file for no
+-- | gain, which is the opposite of doc 01 §3.4 — and rustfmt is why the blank
+-- | line stays.
+-- |
+-- | rustfmt's `reorder_imports` defaults to **on** and sorts `use` statements
+-- | **within a contiguous block**. Emitting two adjacent imports without a
+-- | blank line between them, which is Rust's own convention and was tried
+-- | first, therefore produced output rustfmt reorders — so keeping the author's
+-- | order would have meant the emitter replicating rustfmt's sort, which is
+-- | not plain lexicographic and would be a fourth width-rule-shaped liability.
+-- | A blank line between every item costs one line each and makes the question
+-- | not arise.
+-- |
+-- | The one exception is doc 03 §15's `test` block, which §15 *forces*: one
+-- | module per file, so the tests are gathered and written after the rest.
+-- | Gathering them per list rather than per file is what puts a test written
+-- | inside a `module` into **that** module's test module, which is plan 14's
+-- | acceptance criterion 5.
+export(crate) emit_items : &mut Sink<'_> -> &[Item] -> usize -> ()
+emit_items out items indent =
+  tests : Vec<&TestDecl> = items
+    |> .iter
+    |> .filter_map (\item ->
+    case item of
+      Item::Test t -> Some t
+      _ -> None)
+    |> .collect
+  mut written : usize = 0
+  for item in items
+    -- The `matches!` as a `case`, because a macro's second argument cannot be
+    -- a pattern.
+    is_test = case item of
+      Item::Test _ -> true
+      _ -> false
+    if is_test
+      continue
+    if written > 0
+      -- The separator belongs to no construct, so it is a synthetic line.
+      .unmark out
+      .push '\n' out
+    written += 1
+    emit_item out item indent
+  if !.is_empty tests
+    if written > 0
+      .unmark out
+      .push '\n' out
+    emit_tests_module out (&tests) indent
+  ()

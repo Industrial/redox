@@ -1,0 +1,40 @@
+import crate::emit::rust_indent::RUST_INDENT
+
+-- | A `rust` escape hatch in expression position, placed at its indentation —
+-- | plan 64 leaf 4.
+-- |
+-- | ```text
+-- | markup = rust                    let markup = html! {
+-- |   html! {                            <div class="x">{ name }</div>
+-- |     <div class="x">{ name }</div>  };
+-- |   }
+-- | ```
+-- |
+-- | The body goes out exactly as it came in, because Redox never parsed it.
+-- | Everything this does is about *placing* it: the first line continues the
+-- | line the expression stands on, and each line after it is re-indented one
+-- | Rust level in, so a multi-line hatch inside a `let` reads as the block it
+-- | is rather than as text pasted at column zero.
+-- |
+-- | The lexer already stripped the block's common prefix (doc 01 §7.2,
+-- | `dedent_block`), so the lines' own relative indentation is the shape the
+-- | author wrote and survives untouched. A blank line is emitted bare rather
+-- | than padded, so the `.xrs` carries no trailing whitespace for
+-- | `cargo fmt --check` to object to — the same rule `emit_inline_rust` keeps
+-- | for the item form.
+export(crate) rust_hatch_text : &str -> usize -> String
+rust_hatch_text code indent =
+  -- `padding`, where the Rust named the local `pad`: that is the name of the
+  -- function one import over, and a binding should not take it.
+  padding = .repeat (indent + RUST_INDENT) " "
+  mut out = String::new ()
+  -- `i` and `text` bound from the pair: a `for` binder is a bare name.
+  for pair in .enumerate (.lines code)
+    i = pair.0
+    text = pair.1
+    if i > 0
+      .push '\n' out
+      if !.is_empty (.trim text)
+        .push_str (&padding) out
+    .push_str text out
+  out

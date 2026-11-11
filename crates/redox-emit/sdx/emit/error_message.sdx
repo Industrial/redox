@@ -1,0 +1,49 @@
+-- | Split an error variant's message into a Rust format string and its
+-- | positional arguments — doc 03 §12.5.
+-- |
+-- | ```text
+-- | "missing key: #{0}"             ("missing key: {}", ["_0"])
+-- | "invalid #{0} at line #{1}"     ("invalid {} at line {}", ["_0", "_1"])
+-- | "closed"                        ("closed", [])
+-- | ```
+-- |
+-- | The holes are **positional** — `#{0}` names the variant's first field —
+-- | and they become `{}` with the field's binding passed alongside, rather
+-- | than Rust's own `{0}`, because the arguments are supplied in hole order
+-- | and a repeated hole must therefore repeat its argument.
+-- |
+-- | This is not string interpolation. Plan 23 owns `#{expr}` in a string
+-- | *expression*; here the holes name a declaration's fields by index, the
+-- | whole grammar is a decimal integer, and the conversion is local to this
+-- | construct. Doing it here rather than waiting for plan 23 is what lets
+-- | §12.5 ship complete.
+-- |
+-- | A brace the author wrote is doubled, for the reason `double_braces`
+-- | gives: the result is a format string, so `{` must print as `{`.
+export(crate) error_message : &str -> (String, Vec<String>)
+error_message raw =
+  text = .trim_matches '"' raw
+  -- `template`, where the Rust named the local `format`: the name of the
+  -- macro one line down is not a good name for a `String`.
+  mut template = String::with_capacity (.len text)
+  mut args = Vec::new ()
+  chars : Vec<char> = .collect (.chars text)
+  mut i = 0
+  while i < .len chars
+    if chars[i] == '#' && .get (i + 1) chars == Some (&'{')
+      mut j = i + 2
+      mut digits = String::new ()
+      while j < .len chars && .is_ascii_digit chars[j]
+        .push chars[j] digits
+        j += 1
+      if !.is_empty digits && .get j chars == Some (&'}')
+        .push_str "{}" template
+        .push (format! \-> "_#{digits}") args
+        i := j + 1
+        continue
+    -- A brace the author wrote prints as a brace, not as a hole.
+    if chars[i] == '{' || chars[i] == '}'
+      .push chars[i] template
+    .push chars[i] template
+    i += 1
+  (template, args)

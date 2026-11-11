@@ -1,0 +1,12 @@
+-- | Append `n` spaces to a `String`.
+-- |
+-- | `pad` writes into a [`crate::emit::sink::Sink`], which records a source
+-- | position per line; the expression emitters build plain strings and have no
+-- | position to record, so they need this instead. Two functions rather than
+-- | one because the two have genuinely different jobs — the `Sink` is where
+-- | plan 06's span map comes from.
+export(crate) pad_to : &mut String -> usize -> ()
+pad_to out n =
+  for _ in 0 .. n
+    .push ' ' out
+  ()

@@ -1,0 +1,93 @@
+import crate::emit::ascribed_arm::ascribed_arm
+import crate::emit::emit_condition::emit_condition
+import crate::emit::expr::emit_expr
+import crate::emit::rust_indent::RUST_INDENT
+import crate::emit::unparen::unparen
+import redox_ast::{CaseArm, Expr}
+
+-- | Lower doc 18 §2.3's `case … of` to Rust's `match`, starting at `indent`.
+-- |
+-- | ```text
+-- | case age of                     match age {
+-- |   n | n > 65      -> "senior"       n if n > 65 => "senior",
+-- |   18..=64         -> "adult"        18..=64 => "adult",
+-- |   Teen or PreTeen -> "young"        Teen | PreTeen => "young",
+-- |   _               -> "newborn"      _ => "newborn",
+-- |                                 }
+-- | ```
+-- |
+-- | A spelling, not a lowering: the arms, the guards and the alternation are
+-- | Rust's already. What changes is the arrow — `->` rather than `=>` — which
+-- | is the single reason `=>` is free to mean a constraint (doc 18 §7), and
+-- | doc 03's `switch` keyword leaves with it.
+-- |
+-- | Every arm is written `pat => value,` on one line, because that is what
+-- | rustfmt does to an arm whose body fits; an arm body that is itself
+-- | multi-line hangs from the `=>`, for the same reason a `println!`'s block
+-- | argument does.
+-- |
+-- | An arm body is an **expression**, and since plan 55 leaf 3 an indented
+-- | block is one — so the braced arm is a body shape rather than a second
+-- | spelling of an arm. Two rustfmt rules decide how it is written, and the
+-- | loop below names both: a one-expression block collapses, and a block body
+-- | takes no trailing comma.
+export(crate) emit_case : &Expr -> &[CaseArm] -> usize -> String
+emit_case scrutinee arms indent =
+  arm_pad = .repeat (indent + RUST_INDENT) " "
+  close_pad = .repeat indent " "
+  head = emit_expr (unparen scrutinee) indent
+  mut out = format! \-> "match #{head} {\n"
+  for arm in arms
+    .push_str (&arm_pad) out
+    .push_str (&.rust_text arm.pattern) out
+    if &arm.r#guard is Some row
+      .push_str " if " out
+      -- A pattern test in an arm guard emits `if let` inside the match
+      -- guard — `if_let_guard`, stable as of rustc 1.97.1 and verified before
+      -- plan 22 was written.
+      .push_str (&emit_condition row (indent + RUST_INDENT)) out
+    .push_str " => " out
+    -- Plan 55 leaf 3: an arm body written as an indented block is a block
+    -- expression, and a block of one plain expression collapses to
+    -- `pat => expr,`. rustfmt *flattens* a one-expression block body, so
+    -- emitting the braces would be output rustfmt rewrites — which is
+    -- `emit_arm`'s reason for making the same choice for a clause.
+    --
+    -- A comment on that one line disqualifies it: a collapsed arm has no line
+    -- to put one on, and a comment must reach the `.xrs` (doc 02 §10.1).
+    -- `sole_expression` answers the rest, and leaves the trivia test to the
+    -- caller for exactly this reason.
+    body = case &arm.body of
+      Expr::Block { label = None, body = block, .. } | .is_some_and (\stmt -> .is_empty stmt.leading && .is_none stmt.trailing) (.first block.stmts) ->
+        .unwrap_or (&arm.body) (.sole_expression block)
+      other -> other
+    -- Plan 62 leaf 3. An ascription on the pattern becomes a `let` at the top
+    -- of the arm body, because rustc takes no type in a `match` pattern — so
+    -- the body must become a block even when it was one expression.
+    ascribed = .and_then (\ty -> ascribed_arm (&arm.pattern) (&ty.text)) (.as_ref arm.ty)
+    case ascribed of
+      Some binding ->
+        inner_pad = .repeat (indent + RUST_INDENT + RUST_INDENT) " "
+        .push_str "{\n" out
+        .push_str (&inner_pad) out
+        .push_str (&binding) out
+        .push '\n' out
+        .push_str (&inner_pad) out
+        .push_str (&emit_expr (unparen body) (indent + RUST_INDENT + RUST_INDENT)) out
+        .push '\n' out
+        .push_str (&arm_pad) out
+        .push '}' out
+      None -> .push_str (&emit_expr (unparen body) (indent + RUST_INDENT)) out
+    -- rustfmt writes **no** trailing comma after an arm whose body is a plain
+    -- block, and one after every other body — `arm_comma`, and it reads the
+    -- body's node kind rather than its width. A block body is what leaf 3
+    -- added, so the comma became a question with it.
+    is_block = case body of
+      Expr::Block { .. } -> true
+      _ -> false
+    if !is_block && .is_none arm.ty
+      .push ',' out
+    .push '\n' out
+  .push_str (&close_pad) out
+  .push '}' out
+  out

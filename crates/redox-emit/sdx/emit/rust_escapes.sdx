@@ -1,0 +1,61 @@
+-- | Re-encode a Redox string literal's text as a Rust string literal's text.
+-- |
+-- | Plan 08 (`docs/13 - 08 - Run Expectations.md`) §10.1 — a defect the run
+-- | corpus caught on its first execution.
+-- |
+-- | Redox's string escapes are Rust's, with **one** addition: `\#`, which
+-- | escapes the `#` that would otherwise open an interpolation (doc 01 §7.1).
+-- | Rust has no `\#`, and rejects it:
+-- |
+-- | ```text
+-- | error: unknown character escape: `#`
+-- | ```
+-- |
+-- | The parser carries a literal's *raw* text through to the emitter — correct
+-- | for every escape the two languages share, and wrong for exactly this one.
+-- | So this function translates `\#` to a bare `#`, which is what Rust spells
+-- | the same character as, and leaves every other backslash sequence alone.
+-- |
+-- | Why not decode the whole literal and re-encode it from
+-- | `TokenKind::Str`'s `parts`? Because that would mean Redox re-encoding
+-- | every escape Rust already understands, and each one is a chance to get a
+-- | character wrong in a way no test would notice. Translating the single
+-- | escape that differs is a smaller claim and a verifiable one.
+export(crate) rust_escapes : &str -> String
+rust_escapes raw =
+  mut out = String::with_capacity (.len raw)
+  mut chars = .chars raw
+  while .next chars is Some ch
+    if ch != '\\'
+      .push ch out
+      continue
+    case .next chars of
+      Some '#' -> .push '#' out
+      Some other ->
+        .push '\\' out
+        .push other out
+      None -> .push '\\' out
+  out
+
+-- | Every fixture below is a **raw** literal — doc 03 §11.2's `r"…"`, which
+-- | reaches this function as the characters it names rather than as the
+-- | escapes they would otherwise spell.
+test "translates the one escape rust lacks"
+  assert_eq! \-> rust_escapes r#""a\#{b""# \-> r#""a#{b""#
+
+test "leaves every shared escape alone"
+  for escape in [r"\n", r"\t", r"\r", r"\0", r#"\""#, r"\'", r"\x41", r"\u{1F600}"]
+    assert_eq! \-> rust_escapes escape \-> escape \-> "#{escape} should be untouched"
+
+-- | The case a naive `replace("\\#", "#")` gets wrong: a literal backslash
+-- | followed by a `#` is not a `\#` escape, and must keep its backslash.
+test "does not mistake an escaped backslash for an escaped hash"
+  assert_eq! \-> rust_escapes r"a\\#b" \-> r"a\\#b"
+  assert_eq! \-> rust_escapes r"a\\\#b" \-> r"a\\#b"
+
+test "leaves text with no escapes alone"
+  assert_eq! \-> rust_escapes "hello world" \-> "hello world"
+  assert_eq! \-> rust_escapes "" \-> ""
+
+test "survives a trailing backslash"
+  assert_eq! \-> rust_escapes r"a\" \-> r"a\"

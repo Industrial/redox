@@ -69,13 +69,13 @@ Each is graded `UNREACHABLE` in `docs/GRAMMAR.md`.
 
 ---
 
-## Ten crates are no longer a count
+## Eleven crates are no longer a count
 
-The table above measures what *could* be ported. Ten crates **have** been, and for them the question is settled by rustc rather than by a blocker count: `redox-diag` (plan 73), `redox-lexer` (plan 74), `redox-ast` (plan 68), `redox-fmt` (plan 69), `redox-fuzz` (plan 75), `redox-bench` (plan 76), `redox-mcp` (plan 77), `redox-lsp` (plan 78), `redox-driver` (plan 80) and `redox-cli` (plan 79) are written in Redox, their `.sdx` living in `crates/<crate>/sdx/` beside the `src/` it generates, and the generated Rust is compiled as part of the workspace.
+The table above measures what *could* be ported. Eleven crates **have** been, and for them the question is settled by rustc rather than by a blocker count: `redox-diag` (plan 73), `redox-lexer` (plan 74), `redox-ast` (plan 68), `redox-fmt` (plan 69), `redox-fuzz` (plan 75), `redox-bench` (plan 76), `redox-mcp` (plan 77), `redox-lsp` (plan 78), `redox-emit` (plan 81), `redox-driver` (plan 80) and `redox-cli` (plan 79) are written in Redox, their `.sdx` living in `crates/<crate>/sdx/` beside the `src/` it generates, and the generated Rust is compiled as part of the workspace.
 
-So **the compiler is now partly compiled from Redox** — 297 files of it. That corrects what this document said until plan 70: *"nothing in the build depends on `conformance/`, and the compiler is not compiled from it"*, which was true when plan 48 lifted one 45-line module out of a crate and checked it with `syn`, and stopped being true the moment a whole crate's `src/` was generated.
+So **the compiler is now partly compiled from Redox** — 406 files of it. That corrects what this document said until plan 70: *"nothing in the build depends on `conformance/`, and the compiler is not compiled from it"*, which was true when plan 48 lifted one 45-line module out of a crate and checked it with `syn`, and stopped being true the moment a whole crate's `src/` was generated.
 
-Plan 48's probe is retired with that sentence. `conformance/clause.sdx` was `clause.rs` expressed in Redox and checked by `syn::parse_file`, because one module lifted out of a crate cannot resolve `crate::Stmt`; the real port has no extraction to concede to, so the weaker oracle expired. Its no-escape-hatch assertion now runs over all 297 files in `port.rs`.
+Plan 48's probe is retired with that sentence. `conformance/clause.sdx` was `clause.rs` expressed in Redox and checked by `syn::parse_file`, because one module lifted out of a crate cannot resolve `crate::Stmt`; the real port has no extraction to concede to, so the weaker oracle expired. Its no-escape-hatch assertion now runs over all 406 files in `port.rs`.
 
 What it found still stands, and is the reason doc 02 §4.8 expected a port to be worth doing: every field doc comment was silently discarded, and `redox fmt` deleted them from the source, because the lexer classified a comment opening a continuation line as *trailing* the previous line and then held it for a `Newline` a continuation never produces. Plans 68 and 69 found three more of that class and two formatter defects, and plan 73 four more in the toolchain that writes the port.
 
@@ -83,4 +83,4 @@ What it found still stands, and is the reason doc 02 §4.8 expected a port to be
 
 ## The Rust implementation is permanent
 
-Doc 02 §4.8 corrects doc 01 §34's own wording: keep the Rust implementation *"permanently rather than as a 'fallback'"*. The three crates that are not ported are hand-written Rust and stay that way until a row says otherwise; the ten that are ported keep their generated Rust **committed**, which is what doc 02 §4.8 means by *"commit the generated `.xrs` so the bootstrap never breaks"* — the committed output is the previous-version compiler every self-hosting language needs, stored as reviewable source rather than as a binary.
+Doc 02 §4.8 corrects doc 01 §34's own wording: keep the Rust implementation *"permanently rather than as a 'fallback'"*. The two crates that are not ported are hand-written Rust and stay that way until a row says otherwise; the eleven that are ported keep their generated Rust **committed**, which is what doc 02 §4.8 means by *"commit the generated `.xrs` so the bootstrap never breaks"* — the committed output is the previous-version compiler every self-hosting language needs, stored as reviewable source rather than as a binary.

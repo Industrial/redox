@@ -17,5 +17,6 @@ redox-fuzz 75
 redox-bench 76
 redox-mcp 77
 redox-lsp 78
+redox-emit 81
 redox-driver 80
 redox-cli 79

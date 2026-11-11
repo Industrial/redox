@@ -1,0 +1,8 @@
+import crate::emit::sink::Sink
+
+-- | Append `n` spaces to `out`.
+export(crate) pad : &mut Sink<'_> -> usize -> ()
+pad out n =
+  for _ in 0 .. n
+    .push ' ' out
+  ()

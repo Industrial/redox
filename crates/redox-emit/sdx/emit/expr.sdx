@@ -1,0 +1,197 @@
+import crate::emit::application::emit_application
+import crate::emit::ascribed_list::ascribed_list
+import crate::emit::bind_mode::BindMode
+import crate::emit::bind_scope::BindScope
+import crate::emit::binding_scope::BindingScope
+import crate::emit::binding_text::binding_text
+import crate::emit::case::emit_case
+import crate::emit::catch_fallback::catch_fallback
+import crate::emit::coalesce::coalesce
+import crate::emit::compose::compose
+import crate::emit::comprehension::emit_comprehension
+import crate::emit::control_text::control_text
+import crate::emit::emit_block::emit_block
+import crate::emit::expr_list::expr_list
+import crate::emit::format_template::format_template
+import crate::emit::macro_call::macro_call
+import crate::emit::method_ref::method_ref
+import crate::emit::pipeline::pipeline
+import crate::emit::receiver::receiver
+import crate::emit::record::emit_record
+import crate::emit::rust_escapes::rust_escapes
+import crate::emit::rust_hatch_text::rust_hatch_text
+import crate::emit::rust_indent::RUST_INDENT
+import crate::emit::section::emit_section
+import crate::emit::try_block::try_block
+import crate::emit::unlowerable::unlowerable
+import crate::emit::unparen::unparen
+import crate::emit::unsafe_block::emit_unsafe_block
+import redox_ast::{BinaryOp, Expr}
+
+-- | Render an expression as Rust, starting at column `indent`.
+-- |
+-- | Plan 03 (`docs/08 - 03 - Parser Core.md`) leaf 6 grew this to every node
+-- | the new grammar produces. The match is deliberately **exhaustive with no
+-- | wildcard**: an AST node with no lowering is a `todo!()` with a delay fuse,
+-- | so a new node must fail to compile here rather than fail at runtime.
+-- |
+-- | `indent` is the column the expression's **first** line begins at, so a
+-- | lowering that spans lines knows where to put the rest. Most arms only pass
+-- | it down; the ones that use it are the ones that emit a `\n`.
+-- |
+-- | It is not a formatting nicety. Plan 04's guarantee is that generated Rust
+-- | is *already* rustfmt-clean, and a multi-line lowering emitted at the wrong
+-- | column is not — which doc 18 §6's ascription had been quietly breaking
+-- | since it landed, unnoticed because no example used it. A guarantee checked
+-- | only through the example corpus holds exactly as far as the corpus reaches.
+export(crate) emit_expr : &Expr -> usize -> String
+emit_expr e indent = case e of
+  Expr::Lambda { params, body, is_move, .. } ->
+    binders : Vec<String> = params
+      |> .iter
+      |> .map (\param ->
+      case &param.ty of
+        Some ty -> format! \-> "#{param.name.text}: #{ty.text}"
+        None -> .clone param.name.text)
+      |> .collect
+    marker = if *is_move
+      "move "
+    else
+      ""
+    joined = .join ", " binders
+    inner = emit_expr body indent
+    format! \-> "#{marker}|#{joined}| #{inner}"
+  Expr::Ascribe { inner, ty, .. } ->
+    inner_pad = .repeat (indent + RUST_INDENT) " "
+    close_pad = .repeat indent " "
+    -- **Through a parenthesis.** `let __rdx_t: T = (e);` is clippy's
+    -- `unnecessary_parens`, which `-D warnings` makes an error — and the
+    -- parenthesis is not the author's to drop: `(Box::new h) : Box<dyn
+    -- Display>` needs it to ascribe the *call* rather than `h`. The value
+    -- lands in `let` position, where no expression needs bracketing, so the
+    -- lowering unwraps it. Plan 69's `Unary` arm is the same fix for the
+    -- same reason; plan 73 found this one in `redox-diag`'s `reportable`.
+    bare = unparen inner
+    -- Doc 18 §6's third lowering: an ascribed list literal names its
+    -- container, so its value is `C::from([…])`. Inside the block, not
+    -- instead of it — see `ascribed_list`.
+    value = .unwrap_or_else (\-> emit_expr bare (indent + RUST_INDENT)) (ascribed_list bare ty (indent + RUST_INDENT))
+    format! \-> "{\n#{inner_pad}let __rdx_t: #{ty.text} = #{value};\n#{inner_pad}__rdx_t\n#{close_pad}}"
+  Expr::Section { section, .. } -> emit_section section indent
+  Expr::Record { head, fields, .. } -> emit_record head fields indent
+  Expr::Case { scrutinee, arms, .. } -> emit_case scrutinee arms indent
+  Expr::Block { label, body, .. } -> emit_block label body indent
+  Expr::Unit { .. } -> .to_string "()"
+  Expr::Try { inner, .. } -> format! \-> "#{receiver inner indent}?"
+  Expr::List { items, .. } -> format! \-> "[#{expr_list items indent}]"
+  Expr::Comprehension { element, qualifiers, .. } -> emit_comprehension element qualifiers indent
+  Expr::StrLit { value, .. } -> rust_escapes value
+  Expr::StrInterp { parts, .. } ->
+    -- `built.0` is the template and `built.1` its arguments.
+    built = format_template parts indent
+    if .is_empty built.1
+      return format! \-> "format!(\"#{built.0}\")"
+    joined = .join ", " built.1
+    format! \-> "format!(\"#{built.0}\", #{joined})"
+  Expr::MethodRef { name, .. } -> method_ref name (&[]) indent
+  Expr::TryBlock { body, .. } ->
+    _bind = BindScope::enter BindMode::Question
+    try_block body indent
+  Expr::AsyncBlock { body, .. } ->
+    -- And inside an `async` block it is `await` again, even when that block
+    -- sits inside a `try`.
+    _bind = BindScope::enter BindMode::Await
+    format! \-> "async #{emit_block (&None) body indent}"
+  Expr::UnsafeBlock { body, .. } -> emit_unsafe_block body indent
+  Expr::Tuple { items, .. } ->
+    -- A one-element tuple keeps Rust's trailing comma, for the reason
+    -- `Pattern::Tuple` records: `(a)` is a group and `(a,)` is a tuple.
+    inner = expr_list items indent
+    if .len items == 1
+      return format! \-> "(#{inner},)"
+    format! \-> "(#{inner})"
+  Expr::ArrayRepeat { value, count, .. } ->
+    v = emit_expr (unparen value) indent
+    n = emit_expr (unparen count) indent
+    format! \-> "[#{v}; #{n}]"
+  Expr::RawLit { text, .. } -> .clone text
+  Expr::Num { text, .. } -> .clone text
+  Expr::Bool { value, .. } -> .to_string value
+  Expr::Char { value, .. } -> format! \-> "#{value:?}"
+  Expr::Ident i -> binding_text (&i.text)
+  Expr::Path { text, .. } -> binding_text text
+  Expr::SelfField { name, .. } -> format! \-> "self.#{name.text}"
+  Expr::SelfType { name, .. } -> format! \-> "Self::#{name.text}"
+  Expr::Paren { inner, .. } -> format! \-> "(#{emit_expr inner indent})"
+  Expr::Unary { op, operand, .. } -> format! \-> "#{.rust_text op}#{emit_expr operand indent}"
+  Expr::Binary { op, lhs, rhs, .. } | *op == BinaryOp::Pipeline -> pipeline lhs rhs indent
+  Expr::Binary { op, lhs, rhs, .. } | *op == BinaryOp::Coalesce -> coalesce lhs rhs indent
+  Expr::Binary { op, lhs, rhs, .. } | *op == BinaryOp::Catch -> catch_fallback lhs rhs indent
+  Expr::Binary { op, lhs, rhs, .. } | *op == BinaryOp::Compose || *op == BinaryOp::ComposeBack -> compose (*op) lhs rhs 0 indent
+  Expr::Binary { op, lhs, rhs, .. } -> case .rust_text op of
+    Some text | .is_range op ->
+      left = emit_expr lhs indent
+      right = emit_expr rhs indent
+      format! \-> "#{left}#{text}#{right}"
+    Some text ->
+      left = emit_expr lhs indent
+      right = emit_expr rhs indent
+      format! \-> "#{left} #{text} #{right}"
+    None -> format! \-> "compile_error!(\"`#{op:?}` is parsed but not yet lowered\")"
+  Expr::Field { recv, name, .. } -> format! \-> "#{receiver recv indent}.#{name.text}"
+  Expr::Index { recv, index, .. } ->
+    head = receiver recv indent
+    at = emit_expr index indent
+    format! \-> "#{head}[#{at}]"
+  Expr::Call { callee, args, .. } ->
+    -- Plan 59 leaf 3. `block ()` and `block` are the same program, so they
+    -- emit the same Rust. A lone unit is the *empty argument list* (doc 18
+    -- §7), so applying a parameterless binding reads it once — where
+    -- routing the callee through `binding_text` and then applying the
+    -- result would write `block()()`.
+    --
+    -- Both spellings are kept working rather than one being broken here:
+    -- criterion 4's diagnostic deprecates the parenthesised form, and a
+    -- diagnostic is a thing a reader can act on where a miscompile is not.
+    lone_unit = case .as_slice args of
+      [Expr::Unit { .. }] -> true
+      _ -> false
+    if .is_empty args || lone_unit
+      named = case .as_ref callee of
+        Expr::Ident name -> Some (.as_str name.text)
+        Expr::Path { text, .. } -> Some (.as_str text)
+        _ -> None
+      if named is Some name && .is_some (BindingScope::kind_of name)
+        return binding_text name
+    -- Doc 18 §2.1's application, and plan 56's currying: a saturated call,
+    -- or the closure an under-applied one becomes. Delegated because the
+    -- decision needs the arity table and the `$` flatten, and neither
+    -- belongs in a match arm.
+    emit_application callee args indent
+  Expr::Return { value, .. } -> case value of
+    Some v -> format! \-> "return #{emit_expr v indent}"
+    None -> .to_string "return"
+  Expr::Break { label, value, .. } ->
+    mut out = .to_string "break"
+    if label is Some name
+      .push_str (&format! \-> " '#{name}") out
+    if value is Some v
+      .push_str (&format! \-> " #{emit_expr (unparen v) indent}") out
+    out
+  Expr::Continue { label, .. } -> case label of
+    Some name -> format! \-> "continue '#{name}"
+    None -> .to_string "continue"
+  Expr::Assign { target, op, value, .. } ->
+    operator = .map_or "" (\o -> .unwrap_or "/* unsupported */" (.rust_text o)) (*op)
+    left = emit_expr (unparen target) indent
+    right = emit_expr (unparen value) indent
+    format! \-> "#{left} #{operator}= #{right}"
+  Expr::MacroCall { name, args, .. } -> macro_call name args indent
+  Expr::RustHatch { code, .. } -> rust_hatch_text code indent
+  Expr::Await { pattern = None, value, .. } -> format! \-> "#{receiver (unparen value) indent}.await"
+  Expr::If { .. } or Expr::While { .. } or Expr::For { .. } or Expr::Loop { .. } -> control_text e indent
+  Expr::Binding _ -> unlowerable "a binding"
+  Expr::Item { .. } -> unlowerable "a declaration"
+  Expr::Guard { .. } -> unlowerable "a `guard`"
+  Expr::Draw { .. } -> unlowerable "a `with` binder"
+  Expr::Await { pattern = Some _, .. } -> unlowerable "an `await` that binds"

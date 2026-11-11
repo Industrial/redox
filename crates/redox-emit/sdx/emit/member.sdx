@@ -1,0 +1,66 @@
+import crate::emit::emit_clauses::emit_clauses
+import crate::emit::expr::emit_expr
+import crate::emit::pad::pad
+import crate::emit::signature::signature
+import crate::emit::sink::Sink
+import crate::emit::trivia::emit_trivia
+import redox_ast::ClassMember
+
+-- | Emit one member of a `trait` or `impl`, at `indent` spaces.
+-- |
+-- | ```text
+-- | type Unit                  type Unit;
+-- | const SIDES : u32     →   const SIDES: u32;
+-- | area : &t -> f64          fn area(&self) -> f64;
+-- | describe self = "…"        fn describe(&self) -> String { "…" }
+-- | ```
+-- |
+-- | **A method with no equations is a required method**, and the whole of the
+-- | difference is the `;` in place of a body. That is why a class and an
+-- | instance can share one member emitter: Rust distinguishes what may appear
+-- | in each, Redox does not, and rustc gives the verdict — the same division
+-- | of labour AGENTS.md states for every other check.
+export(crate) emit_member : &mut Sink<'_> -> &ClassMember -> usize -> ()
+emit_member out m indent =
+  case m of
+    ClassMember::AssocType name ->
+      .mark name.span out
+      pad out indent
+      .push_str (&format! \-> "type #{name.text};\n") out
+    ClassMember::AssocConst { name, ty, value } ->
+      .mark name.span out
+      pad out indent
+      .push_str (&format! \-> "const #{name.text}: #{ty.text}") out
+      if value is Some v
+        .push_str (&format! \-> " = #{emit_expr v indent}") out
+      .push_str ";\n" out
+    ClassMember::Method f ->
+      .unmark out
+      emit_trivia out (&f.leading) indent
+      .mark f.span out
+      pad out indent
+      sig = signature (&f.sig) indent
+      vis = .rust_text f.visibility
+      const_marker = if f.sig.is_const
+        "const "
+      else
+        ""
+      async_marker = if f.sig.is_async
+        "async "
+      else
+        ""
+      .push_str (&format! \-> "#{vis}#{const_marker}#{async_marker}fn #{f.name.text}#{sig}") out
+      if .is_empty f.clauses
+        .push_str ";\n" out
+        return ()
+      if .contains '\n' sig
+        .push '\n' out
+        pad out indent
+      else
+        .push ' ' out
+      .push_str "{\n" out
+      emit_clauses out f indent
+      .unmark out
+      pad out indent
+      .push_str "}\n" out
+  ()
