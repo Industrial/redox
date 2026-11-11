@@ -202,3 +202,26 @@ fn static_and_anonymous_lifetimes_are_not_declared() {
   assert!(out.contains("struct Held {"), "{out}");
   assert!(!out.contains("Held<"), "{out}");
 }
+
+/// An entry in `deriving` may be a **path**, because `#[derive(…)]` takes one.
+///
+/// `deriving (Debug, serde::Deserialize)` was *"expected `)` to close the
+/// `deriving` list"* until plan 77, which found it on `redox-mcp` — nine of
+/// its nineteen files derive `serde::Deserialize` and `schemars::JsonSchema`
+/// by their qualified names.
+#[test]
+fn a_derive_may_be_a_path() {
+  let out = xrs("data R = R { n : u8 }\n  deriving (Debug, serde::Deserialize)\n");
+  assert!(
+    out.contains("#[derive(Debug, serde::Deserialize)]"),
+    "{out}"
+  );
+}
+
+/// And a bare name still reads as one, which is what every existing `deriving`
+/// in the corpus depends on.
+#[test]
+fn a_bare_derive_is_unchanged_by_the_path_rule() {
+  let out = xrs("data P = P { x : f64 }\n  deriving (Debug, Clone)\n");
+  assert!(out.contains("#[derive(Debug, Clone)]"), "{out}");
+}

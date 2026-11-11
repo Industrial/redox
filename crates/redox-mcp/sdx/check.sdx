@@ -1,0 +1,45 @@
+import crate::check::request::CheckRequest
+import crate::check::response::CheckResponse
+import crate::diagnostic::from_redox::diagnostic_from_redox
+
+-- | `redox_check`'s parameters.
+export(crate) module request
+-- | `redox_check`'s result.
+export(crate) module response
+
+-- | `redox_check` — transpile, run rustc, report against the `.sdx`.
+-- |
+-- | Plan 50 (`docs/44 - 50 - MCP Server.md`) leaf 2. The whole body is
+-- | [`redox_driver::check`] plus a projection, which is the row's shape: this
+-- | crate contributes no analysis.
+-- |
+-- | # Why this runs rustc when the language server does not
+-- |
+-- | Plan 40 §6 put the rustc pass out of the **language server's** scope, and
+-- | that was right for a server woken on every keystroke: cancellation and
+-- | debounce are a larger design than the rest of that row. MCP is
+-- | request/response — one explicit call with no successor to race — so there is
+-- | nothing to abandon and the thing plan 40 declined is the thing this tool
+-- | gets cheaply (plan 50 §1.4).
+-- |
+-- | It does mean a call takes as long as rustc does. §6 discloses that rather
+-- | than designing around it.
+-- |
+-- | # Errors
+-- |
+-- | Only the environment: no rustc, no scratch directory, rustc failing with no
+-- | positioned diagnostic. A program that does not compile is a **successful**
+-- | call with `ok: false`, which is what lets a reader tell *your code is wrong*
+-- | from *this machine cannot answer*.
+export check : &CheckRequest -> Result<CheckResponse, String>
+check request =
+  path = std::path::Path::new (&request.path)
+  -- Bound, because a nested string inside `#{…}` ends the interpolation early.
+  shown = .clone request.path
+  source = (.map_err (\e -> format! \-> "cannot read #{shown}: #{e}") (std::fs::read_to_string path))?
+
+  outcome = (redox_driver::check path (&source))?
+  Ok (CheckResponse { ok = !outcome.failed, diagnostics = outcome.diagnostics
+    |> .iter
+    |> .map diagnostic_from_redox
+    |> .collect })

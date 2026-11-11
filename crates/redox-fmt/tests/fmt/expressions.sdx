@@ -65,5 +65,18 @@ main =
   -- wrap fired on a `Paren` the printer then kept.
   ak = f (\q -> q + 1)
   al = f ((x))
+  -- `move` goes **before** the backslash, which is where the parser wants it.
+  -- `lambda_text` opened with the backslash and pushed `"move "` after it, so
+  -- `move \-> e` came back as `\move  -> e` — `RDX0103`, because `move` is a
+  -- keyword and cannot name a parameter. The printer produced source its own
+  -- parser rejects and was **stable** on it, so it never corrected itself.
+  --
+  -- Plan 69 recorded this as a nullary lambda diverging by one parenthesis per
+  -- pass. That is wrong in every part except where it pointed: nothing is
+  -- unbounded, no parenthesis is involved, and the parameterised form below is
+  -- mangled the same way. A nullary lambda is only the shape where the
+  -- mangling has nowhere to hide.
+  am = move \x -> x + 1
+  an = f (move \-> 1)
   println! \-> "#{a}"
   ()

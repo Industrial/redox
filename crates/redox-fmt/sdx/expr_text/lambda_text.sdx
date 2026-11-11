@@ -20,9 +20,21 @@ import redox_ast::{Expr, Param}
 -- | reason, which is what keeps a surrounding parenthesis in place.
 export(crate) lambda_text : &[Param] -> &Expr -> bool -> usize -> &str -> String
 lambda_text params body is_move indent source =
-  mut out = String::from "\\"
-  if is_move
-    .push_str "move " out
+  -- **`move` comes before the backslash**, which is where the parser wants it:
+  -- `move \\x -> …`, not `\\move x -> …`. Opening with the backslash and
+  -- pushing `"move "` after it put the keyword *inside* the parameter list, so
+  -- `move \\-> e` came back as `\\move  -> e` — `RDX0103`, because `move` is a
+  -- keyword and cannot name a parameter. The formatter produced source its own
+  -- parser rejects, and was **stable** on it, so it never corrected itself.
+  --
+  -- Plan 69 recorded this as a nullary lambda diverging by a parenthesis per
+  -- pass; that description is wrong in every part except where it pointed.
+  -- `move \\x -> e` was mangled the same way, and a nullary lambda is only the
+  -- shape where the mangling has nowhere to hide.
+  mut out = if is_move
+    String::from "move \\"
+  else
+    String::from "\\"
   mut first = true
   for param in .iter params
     if !first
@@ -43,9 +55,17 @@ lambda_text params body is_move indent source =
   -- the formatter rewrote every one of them into source that does not parse.
   -- No corpus file had a lambda with a block body before the port wrote them,
   -- which is why `lambda_text` never needed the rule `binding_text` has.
+  -- **No space before the arrow when there is no parameter**: `\\-> e`, not
+  -- `\\ -> e`. The space belongs to the parameter list, and a nullary lambda
+  -- has none. It had never shown up because no corpus file had a true nullary
+  -- lambda — `name! \\-> e` is doc 18's macro call and takes
+  -- `macro_call_text`'s path, so every `\\->` in the repository until plan 77
+  -- was a macro rather than a lambda.
   separator = case body of
-    Expr::Block { label = None, .. } -> " ->\n"
-    _ -> " -> "
+    Expr::Block { label = None, .. } -> "->\n"
+    _ -> "-> "
+  if !.is_empty params
+    .push ' ' out
   -- Piped, because a `case`-valued binding swallows a following `.name`
   -- statement — `format.sdx` has the rule and the probes.
   out |> .push_str separator

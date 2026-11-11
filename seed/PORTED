@@ -15,3 +15,4 @@ redox-ast 68
 redox-fmt 69
 redox-fuzz 75
 redox-bench 76
+redox-mcp 77
