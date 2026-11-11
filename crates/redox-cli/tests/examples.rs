@@ -53,7 +53,7 @@ fn every_example_has_a_golden_expectation() {
   assert!(
     missing.is_empty(),
     "these examples have no golden file under tests/golden/; \
-     run with REDOX_BLESS=1 to create them:\n  {}",
+     run with REDOX_UPDATE=1 to create them:\n  {}",
     missing.join("\n  ")
   );
 }
@@ -93,8 +93,8 @@ fn generated_rust_is_rustfmt_clean() {
 #[test]
 fn every_example_matches_its_golden_and_is_deterministic() {
   let golden_dir = workspace_root().join("tests/golden");
-  let blessing = std::env::var_os("REDOX_BLESS").is_some();
-  let mut blessed = Vec::new();
+  let updating = std::env::var_os("REDOX_UPDATE").is_some();
+  let mut updated = Vec::new();
 
   for example in parseable() {
     let first = support::transpile(&example).rust.clone();
@@ -105,13 +105,13 @@ fn every_example_matches_its_golden_and_is_deterministic() {
     );
 
     let expected_path = golden_dir.join(Path::new(&example).with_extension("xrs"));
-    if blessing {
+    if updating {
       let changed = std::fs::read_to_string(&expected_path)
         .map(|prev| prev != first)
         .unwrap_or(true);
       std::fs::write(&expected_path, &first).expect("should write the expectation");
       if changed {
-        blessed.push(example);
+        updated.push(example);
       }
       continue;
     }
@@ -121,12 +121,12 @@ fn every_example_matches_its_golden_and_is_deterministic() {
     assert_eq!(first, expected, "golden mismatch for {example}");
   }
 
-  // Criterion 7: blessing rewrites and then fails, so a blessed diff is always
+  // Criterion 7: an update rewrites and then fails, so a changed expectation is
   // reviewed rather than absorbed into a green build.
   assert!(
-    blessed.is_empty(),
-    "blessed {} expectation(s); review the diff and re-run without REDOX_BLESS",
-    blessed.len()
+    updated.is_empty(),
+    "updated {} expectation(s); review the diff and re-run without REDOX_UPDATE",
+    updated.len()
   );
 }
 

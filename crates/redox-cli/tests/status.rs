@@ -9,7 +9,7 @@
 //! `tests/ui`, `examples/*.stdout` — and for the same reason:
 //!
 //! ```bash
-//! REDOX_BLESS=1 cargo test -p redox-cli --test status
+//! REDOX_UPDATE=1 cargo test -p redox-cli --test status
 //! ```
 //!
 //! rewrites the document and then **fails**, so a changed number reaches a
@@ -251,7 +251,7 @@ fn render(root: &Path) -> String {
      `crates/redox-cli/tests/status.rs` and compared in the gate, so a drifted\n\
      number fails the build. Rewrite it with:\n\n\
      ```bash\n\
-     REDOX_BLESS=1 cargo test -p redox-cli --test status\n\
+     REDOX_UPDATE=1 cargo test -p redox-cli --test status\n\
      ```\n\n\
      which rewrites and then **fails**, so the diff is reviewed rather than\n\
      absorbed into a green build.\n\n\
@@ -340,10 +340,10 @@ fn status_is_current() {
   let path = root.join("docs/STATUS.md");
   let rendered = render(&root);
 
-  if std::env::var("REDOX_BLESS").is_ok() {
+  if std::env::var("REDOX_UPDATE").is_ok() {
     std::fs::write(&path, &rendered).expect("should write STATUS.md");
     panic!(
-      "blessed docs/STATUS.md. The rewrite is deliberate and this failure is too: \
+      "updated docs/STATUS.md. The rewrite is deliberate and this failure is too: \
        review the diff rather than absorbing a changed number into a green build."
     );
   }
@@ -352,7 +352,7 @@ fn status_is_current() {
   assert_eq!(
     rendered, found,
     "docs/STATUS.md is out of date. Its numbers are measured from the working tree, so a \
-     commit that changes them must update it: REDOX_BLESS=1 cargo test -p redox-cli --test \
+     commit that changes them must update it: REDOX_UPDATE=1 cargo test -p redox-cli --test \
      status"
   );
 }

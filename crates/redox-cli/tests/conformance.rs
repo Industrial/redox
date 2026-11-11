@@ -241,7 +241,7 @@ fn render(root: &Path) -> String {
      `crates/redox-cli/tests/conformance.rs` and compared in the gate. Rewrite\n\
      it with:\n\n\
      ```bash\n\
-     REDOX_BLESS=1 cargo test -p redox-cli --test conformance\n\
+     REDOX_UPDATE=1 cargo test -p redox-cli --test conformance\n\
      ```\n\n\
      Plan 48 (`docs/42 - 48 - Conformance and Self-Hosting.md`) built it, and\n\
      plan 64 changed its answer.\n\n\
@@ -355,15 +355,15 @@ fn conformance_is_current() {
   let path = root.join("docs/CONFORMANCE.md");
   let rendered = render(&root);
 
-  if std::env::var("REDOX_BLESS").is_ok() {
+  if std::env::var("REDOX_UPDATE").is_ok() {
     std::fs::write(&path, &rendered).expect("should write CONFORMANCE.md");
-    panic!("blessed docs/CONFORMANCE.md — review the diff rather than absorbing it");
+    panic!("updated docs/CONFORMANCE.md — review the diff rather than absorbing it");
   }
 
   let found = std::fs::read_to_string(&path).unwrap_or_default();
   assert_eq!(
     rendered, found,
     "docs/CONFORMANCE.md is out of date. If a blocker count fell, that is good news and this \
-     is still a failure: REDOX_BLESS=1 cargo test -p redox-cli --test conformance"
+     is still a failure: REDOX_UPDATE=1 cargo test -p redox-cli --test conformance"
   );
 }

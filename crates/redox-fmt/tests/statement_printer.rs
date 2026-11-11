@@ -253,14 +253,14 @@ fn every_statement_reaches_its_canonical_form() {
       .join("\n")
   );
 
-  if std::env::var_os("REDOX_BLESS").is_some() {
+  if std::env::var_os("REDOX_UPDATE").is_some() {
     std::fs::write(&expected_path, &printed).expect("should write the expectation");
-    panic!("blessed {} — review the diff", expected_path.display());
+    panic!("updated {} — review the diff", expected_path.display());
   }
 
   let expected = std::fs::read_to_string(&expected_path).unwrap_or_else(|_| {
     panic!(
-      "{} is missing; run with REDOX_BLESS=1 to create it",
+      "{} is missing; run with REDOX_UPDATE=1 to create it",
       expected_path.display()
     )
   });

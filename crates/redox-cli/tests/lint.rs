@@ -20,7 +20,7 @@
 //! That is the only way to prove suppression works — a corpus entry that
 //! asserts nothing was printed.
 //!
-//! To accept a deliberate change, run with `REDOX_BLESS=1`.
+//! To accept a deliberate change, run with `REDOX_UPDATE=1`.
 
 use std::path::Path;
 use std::path::PathBuf;
@@ -72,37 +72,37 @@ fn stderr_of(source: &Path) -> String {
 
 #[test]
 fn every_lint_case_matches_its_expectation() {
-  let bless = std::env::var_os("REDOX_BLESS").is_some();
+  let updating = std::env::var_os("REDOX_UPDATE").is_some();
   let cases = cases();
   assert!(!cases.is_empty(), "the lint corpus should not be empty");
 
-  let mut blessed = Vec::new();
+  let mut updated = Vec::new();
   for source in &cases {
     let actual = stderr_of(source);
     let expected_path = source.with_extension("stderr");
-    if bless {
+    if updating {
       std::fs::write(&expected_path, &actual).expect("should write the expectation");
-      blessed.push(expected_path.clone());
+      updated.push(expected_path.clone());
       continue;
     }
     let expected = std::fs::read_to_string(&expected_path).unwrap_or_else(|e| {
       panic!(
-        "{} has no expectation ({e}); run the suite with REDOX_BLESS=1 to record one",
+        "{} has no expectation ({e}); run the suite with REDOX_UPDATE=1 to record one",
         source.display()
       )
     });
     assert_eq!(
       actual,
       expected,
-      "{} printed something other than its expectation; re-run with REDOX_BLESS=1 if the \
+      "{} printed something other than its expectation; re-run with REDOX_UPDATE=1 if the \
        change was deliberate",
       source.display()
     );
   }
 
   assert!(
-    blessed.is_empty() || bless,
-    "blessing happened without REDOX_BLESS"
+    updated.is_empty() || updating,
+    "an expectation was rewritten without REDOX_UPDATE"
   );
 }
 

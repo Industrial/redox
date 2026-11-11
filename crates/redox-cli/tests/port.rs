@@ -38,7 +38,7 @@
 //! repository.
 //!
 //! ```bash
-//! REDOX_BLESS=1 cargo test -p redox-cli --test port
+//! REDOX_UPDATE=1 cargo test -p redox-cli --test port
 //! ```
 //!
 //! # The rustfmt step, and why it is not optional
@@ -252,12 +252,12 @@ fn the_port_regenerates_the_committed_rust() {
     return;
   }
 
-  let blessing = std::env::var("REDOX_BLESS").is_ok();
+  let updating = std::env::var("REDOX_UPDATE").is_ok();
   let mut stale = Vec::new();
   let mut fresh = Vec::new();
   for (sdx, rs) in pairs() {
     let generated = generate(&sdx);
-    if blessing {
+    if updating {
       fresh.push((rs, generated));
       continue;
     }
@@ -269,7 +269,7 @@ fn the_port_regenerates_the_committed_rust() {
 
   // **Nothing is written until the whole generation compiles.**
   //
-  // Found the hard way: blessing a generation with three rustc errors in it
+  // Found the hard way: recording a generation with three rustc errors in it
   // wrote broken Rust into `crates/redox-ast/src/`, and `redox-ast` is the
   // dependency root — so `cargo run -p redox-cli` could no longer build the
   // compiler that would regenerate it. `git checkout -- crates/redox-ast/src/`
@@ -281,7 +281,7 @@ fn the_port_regenerates_the_committed_rust() {
   // against them, and only then do they replace what is committed. A
   // generation that does not compile is reported and discarded, which leaves
   // the bootstrap exactly as it was.
-  if blessing {
+  if updating {
     let root = workspace_root();
     // **Crate by crate, in `seed/PORTED` order**, which is dependency order: a
     // staged check of `redox-fmt` reads `redox-ast`'s types, so the first has
@@ -318,16 +318,16 @@ fn the_port_regenerates_the_committed_rust() {
   }
 
   assert!(
-    blessing || stale.is_empty(),
+    updating || stale.is_empty(),
     "these generated files no longer match their .sdx source:\n  {}\n\
      Either the .sdx was edited without regenerating, or the .rs was edited by \
      hand — the .sdx is the source. Regenerate with:\n  \
-     REDOX_BLESS=1 cargo test -p redox-cli --test port",
+     REDOX_UPDATE=1 cargo test -p redox-cli --test port",
     stale.join("\n  ")
   );
   assert!(
-    !blessing,
-    "blessed the port — review the diff rather than absorbing it"
+    !updating,
+    "regenerated the port — review the diff rather than absorbing it"
   );
 }
 
@@ -517,7 +517,7 @@ fn every_doc_comment_reaches_the_generated_rust() {
 /// generated Rust is *not* tracked, and until plan 75 nothing asserted the
 /// source *is*.
 ///
-/// Plan 75 added `redox-fuzz` to `seed/PORTED`, blessed it, and got a green
+/// Plan 75 added `redox-fuzz` to `seed/PORTED`, regenerated it, and got a green
 /// clippy and a green port suite with the whole `.sdx` tree untracked. The
 /// failure surfaced in the clean-clone test — *"crates/redox-fuzz/sdx is
 /// missing, so redox-fuzz has no source to generate from"* — which is late,

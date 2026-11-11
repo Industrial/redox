@@ -174,15 +174,15 @@ workspace splits along pipeline stages (`docs/02 - Redox Update Blueprint.md` §
   `conformance.rs`, `bootstrap.rs` and `bootstrap.sh`.
 
   Edit the `.sdx`, never the `.rs`. Regenerate with
-  `REDOX_BLESS=1 cargo test -p redox-cli --test port`, which compiles the generated tree
+  `REDOX_UPDATE=1 cargo test -p redox-cli --test port`, which compiles the generated tree
   before writing it and refuses a generation that does not compile — so a bad port leaves
   `src/` untouched rather than broken.
 
   **A clean clone has no `src/` at all, and `./bootstrap.sh` is what fixes that.** It runs
   `seed/redox1.wasm` under `wasmtime` over every crate in `seed/PORTED`, then rustfmt, and
   `cargo build` works afterwards. `seed/SEED.md` is the blob's provenance;
-  `moon run :seed-refresh` rebuilds it and `REDOX_BLESS=1 cargo test -p redox-seed --test
-  blob` records the new hash. Order is **build → bless → seed-refresh**.
+  `moon run :seed-refresh` rebuilds it and `REDOX_UPDATE=1 cargo test -p redox-seed --test
+  blob` records the new hash. Order is **build → update → seed-refresh**.
 
   **This bullet used to say the opposite, and the correction is worth keeping.** Until
   plan 72 it read *"the `.rs` … is committed"* and *"the committed `.rs` is load-bearing
@@ -251,7 +251,7 @@ Within a crate, `src/` is flat and every file is one construct — see the first
   disk locally.
 
   The fix is `moon run :seed-refresh` and
-  `REDOX_BLESS=1 cargo test -p redox-seed --test blob`, in the same commit as the surface
+  `REDOX_UPDATE=1 cargo test -p redox-seed --test blob`, in the same commit as the surface
   change. rustc answers the same problem with `cfg(bootstrap)` double implementations and
   Go with a version chain bumped about once a year; both are expensive because their seeds
   are *releases*. This one is a build artifact, so the answer is two commands — and that is
@@ -271,17 +271,17 @@ cargo run -p redox-cli -- build examples/hello.sdx   # transpile to examples/hel
 cargo run -p redox-cli -- check examples/hello.sdx   # run rustc, report against the .sdx
 ```
 
-**Three blessable corpora**, each asserting a different thing about a program. There is no
+**Three updatable corpora**, each asserting a different thing about a program. There is no
 `--test golden` target — the goldens are checked by `examples.rs`, which is where plan 08
 found this command had been wrong since it was written:
 
 ```bash
-REDOX_BLESS=1 cargo test -p redox-cli --test examples  # tests/golden/*.xrs — the text
-REDOX_BLESS=1 cargo test -p redox-cli --test ui        # tests/ui/*.stderr — the diagnostic
-REDOX_BLESS=1 cargo test -p redox-cli --test run       # *.stdout — what it prints
+REDOX_UPDATE=1 cargo test -p redox-cli --test examples  # tests/golden/*.xrs — the text
+REDOX_UPDATE=1 cargo test -p redox-cli --test ui        # tests/ui/*.stderr — the diagnostic
+REDOX_UPDATE=1 cargo test -p redox-cli --test run       # *.stdout — what it prints
 ```
 
-Blessing rewrites the expectations and then fails the run, so a blessed diff is always
+An update rewrites the expectations and then fails the run, so a changed expectation is always
 reviewed rather than absorbed into a green build.
 
 A run expectation lives **beside its program**: `examples/phase1.sdx` has

@@ -14,7 +14,7 @@
 -- | a *move* error — a worse message about the same mistake — and §3 case 3
 -- | wants rustc's borrow error specifically. Sections also already have a
 -- | golden and a benchmark pair pinning their text, so changing them would
--- | re-bless two corpora to make a new construct match an old one.
+-- | re-record two corpora to make a new construct match an old one.
 export(crate) closure : &[String] -> &str -> String
 closure params body =
   joined = .join ", " params

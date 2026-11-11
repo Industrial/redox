@@ -10,7 +10,7 @@
 //! than no row at all, because the row reads as verification.
 //!
 //! ```bash
-//! REDOX_BLESS=1 cargo test -p redox-seed --test blob
+//! REDOX_UPDATE=1 cargo test -p redox-seed --test blob
 //! ```
 //!
 //! # What this cannot assert
@@ -72,7 +72,7 @@ fn the_committed_seed_matches_what_seed_md_records() {
   let hash = blake3::hash(&bytes).to_hex().to_string();
   let doc = std::fs::read_to_string(&doc_path).expect("should read seed/SEED.md");
 
-  if std::env::var("REDOX_BLESS").is_ok() {
+  if std::env::var("REDOX_UPDATE").is_ok() {
     let mut out = String::new();
     for line in doc.lines() {
       if line.trim_start().starts_with("| blake3 |") {
@@ -86,7 +86,7 @@ fn the_committed_seed_matches_what_seed_md_records() {
     }
     std::fs::write(&doc_path, out).expect("should write seed/SEED.md");
     panic!(
-      "blessed seed/SEED.md — a changed hash is a changed compiler, so review the diff \
+      "updated seed/SEED.md — a changed hash is a changed compiler, so review the diff \
        rather than absorbing it. Also update the commit row by hand."
     );
   }
@@ -101,7 +101,7 @@ fn the_committed_seed_matches_what_seed_md_records() {
     want_hash.as_deref(),
     Some(hash.as_str()),
     "seed/redox1.wasm does not hash to what seed/SEED.md records. Either the blob was \
-     replaced without blessing, or the table is stale — and a provenance row that \
+     replaced without updating, or the table is stale — and a provenance row that \
      disagrees with its bytes reads as verification while providing none."
   );
 }

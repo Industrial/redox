@@ -12,7 +12,7 @@ import std::path::Path
 -- | learn to ignore.
 -- |
 -- | Which is why this is a deny-list of known editor artefacts rather than an
--- | allow-list of blessed events: being wrong about an unfamiliar editor's
+-- | allow-list of approved events: being wrong about an unfamiliar editor's
 -- | temporary file costs a redundant line of output, while being wrong in the
 -- | other direction would silently stop rebuilding.
 export(crate) is_relevant : &Path -> bool

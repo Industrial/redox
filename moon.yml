@@ -158,7 +158,7 @@ tasks:
           -o seed/redox1.wasm \
           target/wasm32-wasip1/release/redox-seed.wasm
         echo "seed/redox1.wasm is $(stat -c %s seed/redox1.wasm) bytes"
-        echo "now: REDOX_BLESS=1 cargo test -p redox-seed --test blob"
+        echo "now: REDOX_UPDATE=1 cargo test -p redox-seed --test blob"
     inputs:
       - 'crates/redox-seed/src/**/*'
       - 'crates/redox-seed/Cargo.toml'

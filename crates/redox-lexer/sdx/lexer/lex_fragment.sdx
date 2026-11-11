@@ -18,7 +18,7 @@ import crate::{LexError, Token, TokenKind}
 -- | Every token's span was shifted and the **failure's** was not, so a lexical
 -- | error inside an interpolation reported an offset into the fragment as
 -- | though it were an offset into the file: `println! \-> "#{'ab'}"` on line 3
--- | blessed to *line 1, column 4*.
+-- | recorded as *line 1, column 4*.
 -- |
 -- | Older than the row that found it — `print "hi #{0x}"` would always have
 -- | done this — and unwitnessed until plan 64 leaf 6's migration moved two

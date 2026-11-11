@@ -153,7 +153,7 @@ lint path source program =
     .extend shadows found
 
   -- One file's warnings are rendered in source order whichever lint found
-  -- them, because a blessed `.stderr` is compared as exact text and two lints
+  -- them, because a recorded `.stderr` is compared as exact text and two lints
   -- concatenated are not sorted.
   .sort_by_key (\\d -> d.span) found
   found

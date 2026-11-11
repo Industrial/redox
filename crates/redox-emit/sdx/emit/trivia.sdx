@@ -12,7 +12,7 @@ export(crate) module line
 -- |
 -- | A blank-line run collapses to a single blank line, and never opens a file
 -- | or a block, which would be noise and would break byte-stability against a
--- | blessed golden file.
+-- | recorded golden file.
 -- |
 -- | The comment forms map onto Rust's, per `docs/03 - Redox Surface Design.md`
 -- | §11.4. Plan 02 added the doc-comment and fence kinds to the lexer, which

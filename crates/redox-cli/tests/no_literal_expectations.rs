@@ -12,7 +12,7 @@
 //! 08 §2.1 found the gap: `phase1.rs` held the whole generated `.xrs` as an
 //! escaped literal, duplicating `tests/golden/phase1.xrs`, plus a ten-line
 //! `concat!` of expected output. Both were updatable only by hand, and one of
-//! them could disagree with the blessable copy of the same fact.
+//! them could disagree with the generated copy of the same fact.
 //!
 //! This test exists so the gap cannot reopen, because it already closed once
 //! by accident and reopened without anyone noticing.
@@ -39,7 +39,7 @@ const ALLOWED: &[(&str, &str)] = &[
     "its literals are the TEMPLATE for a generated document, not an \
      expectation of program output. Plan 08 §2.1's rule is that an \
      expectation must be a file, and this test's expectation is \
-     docs/STATUS.md — a file, compared byte for byte and blessable. The \
+     docs/STATUS.md — a file, compared byte for byte and regenerated. The \
      heuristic sees long prose in a string and cannot tell a generator from \
      a captured stdout (plan 47 §10.2)",
   ),
@@ -48,7 +48,7 @@ const ALLOWED: &[(&str, &str)] = &[
     "the same case as status.rs one row later, which is itself the finding: \
      its literals are the TEMPLATE for docs/CONFORMANCE.md, and that \
      document is the expectation — a file, compared byte for byte and \
-     blessable. Two generated documents in two consecutive plans both trip \
+     regenerated. Two generated documents in two consecutive plans both trip \
      a heuristic written against captured stdout, so the shape is now \
      established rather than exceptional (plan 48 §10.6)",
   ),

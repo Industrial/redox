@@ -17,7 +17,7 @@
 //! `--plain` rather than the graphical renderer because a byte comparison must
 //! not depend on terminal width, colour support or `miette`'s version.
 //!
-//! To accept a deliberate change, run the suite with `REDOX_BLESS=1`: every
+//! To accept a deliberate change, run the suite with `REDOX_UPDATE=1`: every
 //! `.stderr` is rewritten from the current output, and `git diff` then shows
 //! precisely which messages moved. Without it a mismatch fails, so an
 //! *accidental* change cannot pass quietly.
@@ -72,22 +72,22 @@ fn stderr_of(source: &Path) -> String {
 /// Criterion 5: every UI case prints exactly its recorded diagnostic.
 #[test]
 fn every_ui_case_matches_its_expectation() {
-  let bless = std::env::var_os("REDOX_BLESS").is_some();
+  let updating = std::env::var_os("REDOX_UPDATE").is_some();
   let cases = cases();
   assert!(!cases.is_empty(), "the UI corpus should not be empty");
 
-  let mut blessed = Vec::new();
+  let mut updated = Vec::new();
   for source in &cases {
     let actual = stderr_of(source);
     let expected_path = source.with_extension("stderr");
-    if bless {
+    if updating {
       std::fs::write(&expected_path, &actual).expect("should write the expectation");
-      blessed.push(expected_path.clone());
+      updated.push(expected_path.clone());
       continue;
     }
     let expected = std::fs::read_to_string(&expected_path).unwrap_or_else(|e| {
       panic!(
-        "{} has no expectation ({e}); run the suite with REDOX_BLESS=1 to record one",
+        "{} has no expectation ({e}); run the suite with REDOX_UPDATE=1 to record one",
         source.display()
       )
     });
@@ -95,13 +95,13 @@ fn every_ui_case_matches_its_expectation() {
       actual,
       expected,
       "{} printed something other than its expectation; \
-       re-run with REDOX_BLESS=1 if the change was deliberate",
+       re-run with REDOX_UPDATE=1 if the change was deliberate",
       source.display()
     );
   }
   assert!(
-    blessed.is_empty() || bless,
-    "blessing happened without REDOX_BLESS"
+    updated.is_empty() || updating,
+    "an expectation was rewritten without REDOX_UPDATE"
   );
 }
 

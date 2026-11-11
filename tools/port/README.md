@@ -22,7 +22,7 @@ of them twice: the input is a pinned commit's Rust and not the working tree's;
 `git checkout <sha> -- <path>` stages what it writes; every batch states a
 destination rather than a diff; a batch that patches another batch lands one
 build late *and* must tolerate having already run; and the order afterwards is
-**build → bless → seed-refresh**.
+**build → update → seed-refresh**.
 
 ## This is not reproducible from a clean clone, and does not need to be
 

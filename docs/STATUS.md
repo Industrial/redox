@@ -5,7 +5,7 @@
 number fails the build. Rewrite it with:
 
 ```bash
-REDOX_BLESS=1 cargo test -p redox-cli --test status
+REDOX_UPDATE=1 cargo test -p redox-cli --test status
 ```
 
 which rewrites and then **fails**, so the diff is reviewed rather than

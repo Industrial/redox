@@ -10,7 +10,7 @@ import redox_diag::Lint
 -- | Both spellings come from [`Lint`] rather than from a literal, so the
 -- | message cannot name an attribute the emitter does not consume — and the
 -- | text for `unwrap` is byte-identical to the constant this replaced, which
--- | is what keeps plan 53's blessed expectation unchanged.
+-- | is what keeps plan 53's recorded expectation unchanged.
 -- |
 -- | Beside the message, [`UNWRAP_MESSAGE`](super::unwrap_message::UNWRAP_MESSAGE)
 -- | for the same reason — the wording is the feature, so it lives in a named
@@ -23,7 +23,7 @@ comment_pragma_message lint =
   attribute = .allow_attribute lint
   format! \-> "`-- #{comment}` is deprecated — write `\#[#{attribute}]` on the line above instead (plan 53 §1.3)"
 
--- | Plan 53's wording, unchanged: the blessed `.stderr` compares as exact
+-- | Plan 53's wording, unchanged: the recorded `.stderr` compares as exact
 -- | text, so parametrising must not move a character of it.
 test "the unwrap wording is plan 53's"
   assert_eq! \-> comment_pragma_message Lint::Unwrap \-> "`-- redox: allow unwrap` is deprecated — write `\#[redox::allow(unwrap)]` on the line above instead (plan 53 §1.3)"

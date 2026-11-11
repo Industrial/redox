@@ -8,7 +8,7 @@
 #   CRATE=redox-fuzz PIN=<sha> BATCHES="p75b1 p75b2" bash .tmp/port.sh
 #
 # **The input is a pinned commit's Rust, not the working tree's.** `src/` holds
-# the hand-written Rust until the port is blessed and generated Rust
+# the hand-written Rust until the port is recorded and generated Rust
 # afterwards, so a script that rebuilds `sdx/` from `src/` reads its own
 # previous output on every run but the first. `PIN` must name the last commit
 # that has the hand-written tree — the port's own commit untracks it.
@@ -31,9 +31,9 @@
 # aborted on its own `assert`, because the before-state it looked for was the
 # edit it had already made. State the destination, not the diff.
 #
-# **And the order afterwards is build -> bless -> seed-refresh.** The restore
+# **And the order afterwards is build -> update -> seed-refresh.** The restore
 # puts the hand-written Rust back in `src/`, so refreshing the seed before
-# blessing builds it from the Rust being replaced — and the clean-clone test
+# updating builds it from the Rust being replaced — and the clean-clone test
 # then compares the seed's correct output against a tree that is not the
 # port's. It reads as a version skew and is an ordering mistake.
 set -euo pipefail
@@ -54,7 +54,7 @@ done
 # read is *skipped*, not reported — plan 79 found `run/command/state.rs` missing
 # because a wrapped attribute raised `Fail`, and the only evidence was 23 `.sdx`
 # for 24 `.rs` in two numbers nothing compared. `port.rs` would catch it at
-# bless time; this catches it here, where the cause is still on screen.
+# update time; this catches it here, where the cause is still on screen.
 made=$(find "$SDX" -maxdepth 4 -name '*.sdx' | wc -l)
 want=$(find "$SRC" -maxdepth 4 -name '*.rs' | wc -l)
 echo "translator: $made files"

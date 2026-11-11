@@ -137,7 +137,7 @@ fn hello_sdx_transpiles_compiles_and_prints_hello() {
   let (rust, xrs) = transpile("hello.sdx", &dir);
 
   // The generated text is asserted by `tests/golden/hello.xrs` and the output
-  // by `examples/hello.stdout`, both blessable. Plan 08 §2.1: this file held
+  // by `examples/hello.stdout`, both regenerated. Plan 08 §2.1: this file held
   // the whole `.xrs` as an escaped literal, duplicating the golden in a form
   // only a human editing Rust could update.
   assert!(

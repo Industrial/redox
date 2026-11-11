@@ -55,7 +55,7 @@ comment_pragma_message lint =
   attribute = .allow_attribute lint
   format! \\-> "`-- #{comment}` is deprecated — write `\\#[#{attribute}]` on the line above instead (plan 53 §1.3)"
 
--- | Plan 53's wording, unchanged: the blessed `.stderr` compares as exact
+-- | Plan 53's wording, unchanged: the recorded `.stderr` compares as exact
 -- | text, so parametrising must not move a character of it.
 test "the unwrap wording is plan 53's"
   assert_eq! \\-> comment_pragma_message Lint::Unwrap \\-> "`-- redox: allow unwrap` is deprecated — write `\\#[redox::allow(unwrap)]` on the line above instead (plan 53 §1.3)"

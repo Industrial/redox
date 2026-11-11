@@ -26,7 +26,7 @@
 //! answer, and `14` distinguishes a right tree from a wrong one better than
 //! reading a dump ever will.
 //!
-//! `REDOX_BLESS=1` re-records every `.stdout` from what the programs actually
+//! `REDOX_UPDATE=1` re-records every `.stdout` from what the programs actually
 //! printed, so a deliberate change is reviewed as a diff. Without it a
 //! mismatch fails.
 //!
@@ -89,7 +89,7 @@ fn every_run_case_prints_its_expectation() {
   if support::skip_without_rustc("every_run_case_prints_its_expectation") {
     return;
   }
-  let bless = std::env::var_os("REDOX_BLESS").is_some();
+  let updating = std::env::var_os("REDOX_UPDATE").is_some();
   let cases = cases();
   assert!(!cases.is_empty(), "the run corpus should not be empty");
 
@@ -103,17 +103,17 @@ fn every_run_case_prints_its_expectation() {
     let actual = case.run();
     let expected_path = source.with_extension("stdout");
 
-    if bless {
+    if updating {
       std::fs::write(&expected_path, &actual).expect("should write the expectation");
       continue;
     }
     let expected = std::fs::read_to_string(&expected_path).unwrap_or_else(|e| {
-      panic!("{name} has no .stdout ({e}); run with REDOX_BLESS=1 to record one")
+      panic!("{name} has no .stdout ({e}); run with REDOX_UPDATE=1 to record one")
     });
     assert_eq!(
       actual, expected,
       "{name} printed something other than its expectation; \
-       re-run with REDOX_BLESS=1 if the change was deliberate"
+       re-run with REDOX_UPDATE=1 if the change was deliberate"
     );
   }
 }
@@ -123,19 +123,19 @@ fn every_run_case_prints_its_expectation() {
 /// A `.stdout` with no `.sdx` is a stale expectation nothing reads. A runnable
 /// program with no `.stdout` is coverage someone meant to add and did not.
 ///
-/// Skipped under `REDOX_BLESS`, because blessing is when the expectations are
+/// Skipped under `REDOX_UPDATE`, because updating is when the expectations are
 /// written and this would race the test writing them.
 #[test]
 fn every_case_is_a_complete_pair() {
-  if std::env::var_os("REDOX_BLESS").is_some() {
-    eprintln!("skipping every_case_is_a_complete_pair: blessing creates the pairs");
+  if std::env::var_os("REDOX_UPDATE").is_some() {
+    eprintln!("skipping every_case_is_a_complete_pair: updating creates the pairs");
     return;
   }
 
   for source in cases() {
     assert!(
       source.with_extension("stdout").exists(),
-      "{} has no .stdout beside it; add one with REDOX_BLESS=1, or list the \
+      "{} has no .stdout beside it; add one with REDOX_UPDATE=1, or list the \
        program in CANNOT_RUN with a reason",
       label(&source)
     );

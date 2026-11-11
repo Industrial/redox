@@ -9,7 +9,7 @@ calls it *"the property actually worth proving"*.
 it with:
 
 ```bash
-REDOX_BLESS=1 cargo test -p redox-cli --test conformance
+REDOX_UPDATE=1 cargo test -p redox-cli --test conformance
 ```
 
 Plan 48 (`docs/42 - 48 - Conformance and Self-Hosting.md`) built it, and

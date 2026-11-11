@@ -38,19 +38,19 @@ fn formatted(stem: &str) -> (String, String) {
   (source, printed)
 }
 
-/// Compare against the blessable expectation, or rewrite it and fail.
+/// Compare against the recorded expectation, or rewrite it and fail.
 ///
-/// The bless-then-fail shape is the corpus's: a changed expectation is always
+/// The update-then-fail shape is the corpus's: a changed expectation is always
 /// reviewed rather than absorbed into a green build.
 fn against_canonical(stem: &str, printed: &str) {
   let path = fixtures().join(format!("{stem}.canonical.sdx"));
-  if std::env::var_os("REDOX_BLESS").is_some() {
+  if std::env::var_os("REDOX_UPDATE").is_some() {
     std::fs::write(&path, printed).expect("should write the expectation");
-    panic!("blessed {} — review the diff", path.display());
+    panic!("updated {} — review the diff", path.display());
   }
   let expected = std::fs::read_to_string(&path).unwrap_or_else(|_| {
     panic!(
-      "{} is missing; run with REDOX_BLESS=1 to create it",
+      "{} is missing; run with REDOX_UPDATE=1 to create it",
       path.display()
     )
   });

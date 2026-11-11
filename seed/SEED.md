@@ -35,13 +35,13 @@ verified by a compiler the seed is supposed to underwrite.
 
 `crates/redox-seed/tests/blob.rs` recomputes the hash and fails if it does not
 match this table, so a hand-edited blob and a stale row are the same failure.
-It is blessed, not hand-edited:
+It is updated by the test, not hand-edited:
 
 ```bash
-REDOX_BLESS=1 cargo test -p redox-seed --test blob
+REDOX_UPDATE=1 cargo test -p redox-seed --test blob
 ```
 
-Blessing rewrites this table and then **fails**, which is deliberate and is how
+The update rewrites this table and then **fails**, which is deliberate and is how
 every other expectation in this repository behaves: a changed hash is a changed
 compiler and has to be looked at rather than absorbed into a green build.
 

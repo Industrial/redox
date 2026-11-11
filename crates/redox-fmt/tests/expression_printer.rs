@@ -7,7 +7,7 @@
 //!    `fmt/expressions.canonical.sdx`. The expectation is a *file* for
 //!    AGENTS.md's reason: Emerald's one syntax cutover missed 113 fixtures that
 //!    lived as string literals inside test modules, and that cost is paid once
-//!    per syntax change, forever. `REDOX_BLESS=1` rewrites it and then fails,
+//!    per syntax change, forever. `REDOX_UPDATE=1` rewrites it and then fails,
 //!    so a changed expectation is always reviewed.
 //!
 //! 2. **Idempotence** — printing the re-parsed output reproduces it. The same
@@ -228,14 +228,14 @@ fn each_normalisation_reaches_its_canonical_form() {
   }
   let printed = format!("{}\n", lines.join("\n"));
 
-  if std::env::var_os("REDOX_BLESS").is_some() {
+  if std::env::var_os("REDOX_UPDATE").is_some() {
     std::fs::write(&expected_path, &printed).expect("should write the expectation");
-    panic!("blessed {} — review the diff", expected_path.display());
+    panic!("updated {} — review the diff", expected_path.display());
   }
 
   let expected = std::fs::read_to_string(&expected_path).unwrap_or_else(|_| {
     panic!(
-      "{} is missing; run with REDOX_BLESS=1 to create it",
+      "{} is missing; run with REDOX_UPDATE=1 to create it",
       expected_path.display()
     )
   });
