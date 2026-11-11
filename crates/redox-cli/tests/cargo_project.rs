@@ -83,7 +83,17 @@ fn the_build_script_writes_rust_and_a_map_into_out_dir() {
   {
     return;
   }
-  assert!(cargo(&["build", "--quiet"]).status.success());
+  // The message matters: a bare `assert!` here reported only the expression,
+  // and the first CI run on this repository failed on exactly this line with
+  // nothing to read. The module's own doc comment calls an empty stderr from
+  // this nested build "the least debuggable failure there is" — so report it,
+  // as `the_example_project_builds_and_runs` above already does.
+  let out = cargo(&["build", "--quiet"]);
+  assert!(
+    out.status.success(),
+    "`cargo build` should succeed in examples/cargo-project:\n{}",
+    String::from_utf8_lossy(&out.stderr)
+  );
 
   let build_dir = project().join("target/debug/build");
   let mut generated = Vec::new();

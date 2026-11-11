@@ -61,6 +61,20 @@ jobs:
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           components: rustfmt, clippy
+      # Make the pinned toolchain rustup's *default*, not just the one selected
+      # through `RUSTUP_TOOLCHAIN`.
+      #
+      # `crates/redox-cli/tests/cargo_project.rs` builds the nested project in
+      # `examples/cargo-project` from a deliberately scrubbed environment: it
+      # removes every `CARGO_*` and `RUST*` variable so the child builds the way
+      # a user's crate would, then sets `RUSTC` back to the compiler `build.rs`
+      # verified. `RUSTUP_TOOLCHAIN` is a `RUST*` variable, so it goes too — and
+      # the nested `cargo`, which is a rustup proxy, then resolves whatever the
+      # runner's default toolchain is while `RUSTC` still points at the pinned
+      # one. Mixing two toolchains fails in about two seconds, which is what the
+      # first CI run on this workflow did.
+      - name: Make the pinned toolchain the default
+        run: rustup default ${{ env.RUST_TOOLCHAIN }}
       - name: Cache
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - name: Install cargo-nextest
