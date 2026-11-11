@@ -1,7 +1,0 @@
--- | `redox_fmt`'s parameters.
-export data FormatRequest = FormatRequest {
-  -- | Path to the `.sdx` file to format. The file is read and never written —
-  -- | the canonical text comes back in the response.
-  export path : String,
-}
-  deriving (Debug, Clone, serde::Deserialize, schemars::JsonSchema)

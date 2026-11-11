@@ -1,65 +1,18 @@
--- ! `redox-mcp` — the driver over the Model Context Protocol.
--- !
--- ! Plan 50 (`docs/44 - 50 - MCP Server.md`), the register's last row. Doc 02
--- ! §5.5 puts this crate in the layout and §9.3 gives the argument: an agent
--- ! working in a Redox codebase should get the compiler's answers as **data**
--- ! rather than as scraped terminal output.
--- !
--- ! Four tools, each a projection of something the compiler already answers:
--- !
--- ! | Tool | Body | Answers |
--- ! |---|---|---|
--- ! | `redox_check` | [`redox_driver::check`] | rustc's diagnostics, against the `.sdx` |
--- ! | `redox_build` | [`redox_emit::emit_with_map`] | the `.xrs` and its map sidecar |
--- ! | `redox_fmt` | [`redox_fmt::format`] | the canonical `.sdx`, read-only |
--- ! | `redox_source_map` | [`redox_diag::SourceMap::resolve`] | which `.sdx` line an `.xrs` line came from |
--- !
--- ! **This crate contributes no analysis.** That is the row's whole shape, and
--- ! it is why leaf 1 came first: the rustc pass was `pub(crate)` inside
--- ! `redox-cli`, and a copy here would let `redox check` and `redox_check`
--- ! disagree while both compiled. `redox-bench` had already made that copy
--- ! once (plan 50 §1.2).
--- !
--- ! # Stdio only
--- !
--- ! No network listener, per the register. `rmcp`'s HTTP and SSE transports and
--- ! its `client` are off in `Cargo.toml`, and
--- ! `tests/manifest.rs` asserts it rather than trusting the comment — a claim
--- ! about a network listener is the kind that stops being true quietly.
--- !
--- ! # The wire shape is a projection, not a serialization
--- !
--- ! [`Diagnostic`] is this crate's own, because `redox_diag::Diagnostic` carries
--- ! the **whole source file** and **byte offsets** — right for `miette`, wrong
--- ! for a client that has the file open and quotes a line (plan 50 §1.3).
--- !
--- ! Layout follows `docs/06 - Redox Code Architecture.md`: one construct per
--- ! file, one module per tool, public items re-exported from here.
-
--- | `redox_build` — transpile a `.sdx` to `.xrs` and its source-map sidecar.
-module build
--- | `redox_check` — transpile, run rustc, report against the `.sdx`.
-module check
--- | One diagnostic, as an MCP client receives it.
 module diagnostic
--- | `redox_fmt` — the canonical form of a `.sdx`, returned and not written.
-module format
--- | The Redox MCP server: four tools over the driver.
 module server
--- | `redox_source_map` — which `.sdx` line an `.xrs` line came from.
-module source_map
+module tools
 
-export import build::build
-export import build::request::BuildRequest
-export import build::response::BuildResponse
-export import check::check
-export import check::request::CheckRequest
-export import check::response::CheckResponse
 export import diagnostic::Diagnostic
-export import format::format
-export import format::request::FormatRequest
-export import format::response::FormatResponse
 export import server::Server
-export import source_map::request::SourceMapRequest
-export import source_map::response::SourceMapResponse
-export import source_map::source_map
+export import tools::BuildRequest
+export import tools::BuildResponse
+export import tools::CheckRequest
+export import tools::CheckResponse
+export import tools::FormatRequest
+export import tools::FormatResponse
+export import tools::SourceMapRequest
+export import tools::SourceMapResponse
+export import tools::build
+export import tools::check
+export import tools::format
+export import tools::source_map
