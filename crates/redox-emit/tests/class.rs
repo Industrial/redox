@@ -112,6 +112,12 @@ fn every_receiver_form_comes_from_the_type() {
   assert!(unique.contains("fn f(&mut self) -> u32;"), "{unique}");
   let owned = xrs("class C\n  f : self -> u32\n");
   assert!(owned.contains("fn f(self) -> u32;"), "{owned}");
+  // Rust's fourth form, which plan 67's list of three missed and plan 74
+  // found porting `redox-lexer`: a by-value receiver the method may mutate.
+  // Before the fix this emitted `fn f(__rdx_a0: mut self)` — not Rust, and
+  // reported by rustc rather than by Redox.
+  let owned_mut = xrs("class C\n  f : mut self -> u32\n");
+  assert!(owned_mut.contains("fn f(mut self) -> u32;"), "{owned_mut}");
 }
 
 /// No `self` in any of the types means no receiver, which is how an

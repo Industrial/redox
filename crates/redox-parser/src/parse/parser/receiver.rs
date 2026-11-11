@@ -11,6 +11,7 @@ use redox_ast::{Ident, Param, Signature};
 /// area : &self -> f64           fn area(&self) -> f64
 /// retitle : &mut self -> ()     fn retitle(&mut self)
 /// consume : self -> u32         fn consume(self) -> u32
+/// offset : mut self -> Self     fn offset(mut self) -> Self
 /// scaled : &self -> f64 -> Self fn scaled(&self, k: f64) -> Self
 /// scaled : f64 -> &self -> Self the same Rust, from the other order
 /// unit : f64 -> Self            fn unit(__rdx_a0: f64) -> Self

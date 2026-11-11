@@ -1,0 +1,27 @@
+import crate::trivia::kind::TriviaKind
+
+-- | Which comment form a `--` run opens, and how many characters introduce it.
+-- |
+-- | Doc 18 §5.1 — the Haskell-shaped comment surface. `--` replaces `#`, which
+-- | retires four of doc 03 §4.1's six meanings of `#` and reduces that
+-- | longest-match table to a line.
+-- |
+-- | | Written | Kind | Rust |
+-- | |---|---|---|
+-- | | `-- line` | line comment | `// line` |
+-- | | `-- \| outer` | outer doc | `/// outer` |
+-- | | `-- ! inner` | inner doc | `//! inner` |
+-- |
+-- | `-- |` is Haddock's own outer-doc marker. `-- !` is doc 18's invention,
+-- | since Haskell has no module-level analogue of `//!`.
+-- |
+-- | **`--` opens a comment only when followed by whitespace, a line ending, or
+-- | one of the two doc markers.** Doc 18 §5.1 names the hazard this avoids —
+-- | `x - -1` against `x --1` — and gives this as the mitigation. The artifact
+-- | doc 18 was written from states the hazard and the mitigation in successive
+-- | sentences and they disagree about `--1`; the mitigation is the operative
+-- | rule, and the stricter reading is taken deliberately so that `x --1` is
+-- | arithmetic rather than a silently truncated line. Recorded rather than
+-- | resolved silently, because real Haskell takes the looser reading.
+
+-- TODO plan 68: hand-port from line 26

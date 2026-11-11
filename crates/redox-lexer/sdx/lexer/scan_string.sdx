@@ -1,0 +1,19 @@
+-- | Split a string body into literal text and interpolations.
+export(crate) module split_parts
+
+import crate::lexer::cursor::Cursor
+import crate::lexer::scan_string::split_parts::split_parts
+import crate::lexer::skip_interpolation::skip_interpolation
+import crate::{LexError, TokenKind}
+import redox_diag::Code
+
+-- | Scan a `"…"` or `"""…"""` literal, the cursor on the opening quote.
+-- |
+-- | Plan 02 (`docs/07 - 02 - Lexical Surface.md`), leaves 4 and 5.
+-- |
+-- | A `"""` block is dedented and then handed to the same part-splitting logic
+-- | a single-quoted string uses, which is why interpolation works inside it for
+-- | free — the property Emerald's 447-line heredoc pass had to be built to
+-- | obtain, and which a hand-written cursor gives without effort.
+
+-- TODO plan 68: hand-port from line 18

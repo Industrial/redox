@@ -1,0 +1,13 @@
+import crate::lexer::Lexer
+import crate::{LexError, Token}
+
+-- | A lexical error, carrying enough to report against the `.sdx`.
+export(crate) module error
+
+-- | Tokenize `src`.
+-- |
+-- | Returns every token in order, ending with [`crate::TokenKind::Eof`].
+-- | Trivia is attached to the token that follows it; trivia at the end of the
+-- | file is attached to `Eof`.
+export lex : &str -> Result<Vec<Token>, LexError>
+lex src = .run (Lexer::new src)

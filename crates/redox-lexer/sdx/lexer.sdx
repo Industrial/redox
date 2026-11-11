@@ -1,0 +1,78 @@
+-- | A character cursor over the source text.
+export(crate) module cursor
+-- | Strip the common leading indentation from a `"""` block's body.
+export(crate) module dedent_block
+-- | Whether a byte may continue an identifier already begun.
+export(crate) module is_ident_continue
+-- | Whether a byte may begin an identifier.
+export(crate) module is_ident_start
+-- | Lex an expression fragment, offsetting every span by a base.
+export(crate) module lex_fragment
+-- | Every operator and punctuation token, longest match first.
+export(crate) module operator_table
+-- | Scan a `b`-prefixed literal: `b'x'` or `b"…"`.
+export(crate) module scan_byte
+-- | Which comment form a `--` run opens.
+export(crate) module scan_comment
+-- | Scan a `c"…"` nul-terminated string literal.
+export(crate) module scan_cstring
+-- | Decode one escape sequence, the backslash already consumed.
+export(crate) module scan_escape
+-- | Scan a numeric literal, the cursor on its first digit.
+export(crate) module scan_number
+-- | Scan an operator at the cursor, if one is there.
+export(crate) module scan_operator
+-- | Scan a `'`: a char literal, or a lifetime or label.
+export(crate) module scan_quote
+-- | Scan a raw identifier `r#type`, the cursor on the `r`.
+export(crate) module scan_raw_ident
+-- | Scan a raw string `r"…"` or `r#"…"#`, the cursor on the `r`.
+export(crate) module scan_raw_string
+-- | The layout-delimited body of a `rust` block, taken verbatim.
+export(crate) module scan_rust_block
+-- | Scan a `"…"` or `"""…"""` literal, the cursor on the opening quote.
+export(crate) module scan_string
+-- | Advance past an interpolation's body, to just after its `}`.
+export(crate) module skip_interpolation
+-- | Split an interpolation body into its expression and its format spec.
+export(crate) module split_format_spec
+-- | Strip the single optional space after a comment's introducer.
+export(crate) module trim_comment
+
+import crate::lexer::cursor::Cursor
+import crate::lexer::is_ident_continue::is_ident_continue
+import crate::lexer::is_ident_start::is_ident_start
+import crate::lexer::scan_byte::scan_byte
+import crate::lexer::scan_comment::scan_comment
+import crate::lexer::scan_cstring::scan_cstring
+import crate::lexer::scan_number::scan_number
+import crate::lexer::scan_operator::scan_operator
+import crate::lexer::scan_quote::scan_quote
+import crate::lexer::scan_raw_ident::scan_raw_ident
+import crate::lexer::scan_raw_string::scan_raw_string
+import crate::lexer::scan_rust_block::scan_rust_block
+import crate::lexer::scan_string::scan_string
+import crate::lexer::trim_comment::trim_comment
+import crate::token::keyword::Keyword
+import crate::{LexError, Span, Token, TokenKind, Trivia, TriviaKind}
+import redox_diag::Code
+
+-- | The off-side-rule scanner.
+-- |
+-- | Plan 02 (`docs/07 - 02 - Lexical Surface.md`) replaced plan 01's line loop
+-- | with a [`Cursor`], because two features break the line-at-a-time shape
+-- | outright: bracket state has to be carried *across* line boundaries — plan
+-- | 02 for continuation suppression, plan 65 for [`Self::open_delims`]'s layout
+-- | context marks — and a `"""` block is one token spanning several lines.
+-- |
+-- | Private: [`crate::lex`] is the only way in. `Lexer` keeps the off-side rule
+-- | and orchestration; every scanner is a free function over `&mut Cursor`, so
+-- | each is testable without constructing a whole `Lexer`.
+-- |
+-- | Indentation *width* is deliberately not fixed — any increase opens a block
+-- | and the matching decrease closes it, so two-space and four-space sources
+-- | both lex and only inconsistency is an error. Worth stating because doc 01
+-- | §3.1 prescribes four spaces while every example in docs 01–05 uses two; see
+-- | `docs/COMPILER.md` §4.
+
+-- TODO plan 68: hand-port from line 77

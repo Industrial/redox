@@ -1,0 +1,13 @@
+import crate::lexer::dedent_block::dedent_block
+
+-- | A `"""` block's body: delimiter lines dropped, common indentation removed.
+-- |
+-- | Doc 01 §7.2's rule, factored out of `scan_string` by plan 45 so the escape
+-- | hatch can ask for the same body *undecoded*. One implementation rather
+-- | than two, because two would be free to disagree about where a block's body
+-- | begins.
+export(crate) dedent_triple_body : &str -> String
+dedent_triple_body body =
+  inner = .unwrap_or body (.strip_prefix '\n' body)
+  trimmed = .trim_end_matches ' ' inner
+  dedent_block (.unwrap_or trimmed (.strip_suffix '\n' trimmed))

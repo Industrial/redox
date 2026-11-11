@@ -1,0 +1,12 @@
+import crate::LexError
+import crate::lexer::cursor::Cursor
+import redox_diag::Code
+
+-- | Decode one escape sequence, the backslash already consumed.
+-- |
+-- | Plan 02 (`docs/07 - 02 - Lexical Surface.md`), leaf 4. An unknown escape is
+-- | a named error rather than a silent passthrough, because a silently-kept
+-- | `\q` would reach the generated Rust and fail there instead, pointing at a
+-- | line the user never wrote.
+
+-- TODO plan 68: hand-port from line 11

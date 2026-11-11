@@ -1,0 +1,48 @@
+import crate::lexer::cursor::Cursor
+import crate::lexer::scan_escape::scan_escape
+import crate::{LexError, TokenKind}
+import redox_diag::Code
+
+-- | Scan a `b`-prefixed literal: `b'x'` or `b"…"`.
+-- |
+-- | Plan 02 (`docs/07 - 02 - Lexical Surface.md`), leaf 5. Needed for binary
+-- | protocol and parser work (doc 03 §11.2); passed through verbatim by the
+-- | emitter.
+export(crate) scan_byte : &mut Cursor -> Result<TokenKind, LexError>
+scan_byte cur =
+  start = .pos cur
+
+  -- the `b`
+  .bump cur
+
+  if .eat "'" cur
+    ch = if .peek cur == Some '\\'
+      .bump cur
+      (scan_escape cur)?
+    else
+      case .bump cur of
+        Some c -> c
+        None ->
+          return Err (LexError { code = Code::UnterminatedByteLiteral, help = None, message = .to_string "unterminated byte literal", span = (start, .pos cur) })
+    if !.eat "'" cur
+      return Err (LexError { code = Code::UnterminatedByteLiteral, help = None, message = .to_string "unterminated byte literal", span = (start, .pos cur) })
+    value = case u8::try_from (u32::from ch) of
+      Ok v -> v
+      Err _ ->
+        return Err (LexError { code = Code::UnterminatedByteLiteral, help = None, message = format! \-> "`#{ch}` is not a single byte", span = (start, .pos cur) })
+    return Ok (TokenKind::Byte value)
+
+  if .eat "\"" cur
+    mut text = String::new ()
+    while !.starts_with "\"" cur
+      if .is_eof cur
+        return Err (LexError { code = Code::UnterminatedByteLiteral, help = None, message = .to_string "unterminated byte string", span = (start, .pos cur) })
+      if .peek cur == Some '\\'
+        .bump cur
+        .push (scan_escape cur)? text
+      else
+        .push (.expect "not at eof" (.bump cur)) text
+    .eat "\"" cur
+    return Ok (TokenKind::ByteStr text)
+
+  Err (LexError { code = Code::UnterminatedByteLiteral, help = None, message = .to_string "`b` must be followed by `'` or `\"`", span = (start, .pos cur) })

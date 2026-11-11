@@ -1,0 +1,27 @@
+-- | A reserved word.
+export(crate) module keyword
+-- | Every token Redox's lexical surface produces.
+export(crate) module kind
+-- | One piece of a string literal: literal text, or an interpolation.
+export(crate) module str_part
+
+import crate::{Span, TokenKind, Trivia}
+
+-- | A token, its span, the trivia preceding it, and whether whitespace
+-- | immediately preceded it.
+export data Token = Token {
+  export kind : TokenKind,
+  export span : Span,
+  -- | Whether whitespace immediately preceded this token.
+  -- |
+  -- | Unused by plan 01's slice and free to collect here. Doc 03 §5.1's call
+  -- | grammar needs it to tell `f(x)` from `f (x)`, and §5.4's
+  -- | `(-1)`-versus-`(- 1)` rule needs it to tell a negative literal from a
+  -- | subtraction section.
+  export ws_before : bool,
+  export leading : Vec<Trivia>,
+  -- | Trivia on the same line, after this token. Only ever set on the
+  -- | [`TokenKind::Newline`] that closes the line.
+  export trailing : Option<Trivia>,
+}
+  deriving (Debug, Clone, PartialEq, Eq)

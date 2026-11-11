@@ -1,0 +1,72 @@
+import crate::LexError
+import crate::lexer::cursor::Cursor
+import redox_diag::Code
+
+-- | Advance past an interpolation's body, the cursor just after `#{`, leaving
+-- | it just after the matching `}` — plan 23.
+-- |
+-- | ```text
+-- | "outer #{String::from("inner")} done"
+-- |          ^ cursor in                ^ ... out is here, after the `}`
+-- | ```
+-- |
+-- | # Why a string inside an interpolation needs its own skipping
+-- |
+-- | `lex_fragment`'s doc comment has claimed since plan 02 that
+-- | `"#{f(x, "y")}"` works, *"and nothing needs a second tokenizer"*. It did
+-- | not: the **outer** string's scanner stopped at the first unescaped `"`,
+-- | which is the one opening `"y"`, so the string ended mid-interpolation and
+-- | the error was `unterminated interpolation; expected }`. Plan 23 found it by
+-- | writing the case into an example — it is the kind of claim only trying
+-- | catches, because every simpler interpolation works.
+-- |
+-- | So the two scanners that walk an interpolation's body — the one finding the
+-- | outer string's closing quote and the one finding the interpolation's own
+-- | `}` — must agree, and they agree by both calling this.
+-- |
+-- | Braces are counted outside string literals; inside one they are text. A
+-- | nested interpolation inside that nested string is skipped with it and
+-- | handled when the fragment is lexed recursively, which is the same
+-- | mechanism one level down.
+-- |
+-- | Returns the **body's** byte range — what lies between `#{` and its `}` —
+-- | so the caller that needs to lex it does not have to recompute where it
+-- | began.
+-- |
+-- | The cursor enters **on** the `#{` and leaves after the matching `}`, so the
+-- | function owns the whole region and the diagnostic span covers the `#{` that
+-- | opened it. Entering after the `#{` instead moved the span four columns
+-- | right and dropped the two characters the message is about, which the UI
+-- | corpus caught.
+export(crate) skip_interpolation : &mut Cursor -> usize -> Result<(usize, usize), LexError>
+skip_interpolation cur base =
+  start = .pos cur
+  .eat "\#{" cur
+  body_start = .pos cur
+
+  -- The Rust's `unterminated` closure is written out at each of its three
+  -- sites: a Redox lambda parameter is a bare name, so `|cur: &Cursor|` has no
+  -- spelling, and the parameter would shadow the enclosing `cur` besides.
+  mut depth : i32 = 1
+  while depth > 0
+    ch = case .bump cur of
+      Some c -> c
+      None ->
+        return Err (LexError { code = Code::UnterminatedInterpolation, help = None, message = .to_string "unterminated interpolation; expected `}`", span = (base + start, base + .pos cur) })
+    case ch of
+      '{' -> depth += 1
+      '}' -> depth -= 1
+      '"' ->
+        loop
+          case .bump cur of
+            None ->
+              return Err (LexError { code = Code::UnterminatedInterpolation, help = None, message = .to_string "unterminated interpolation; expected `}`", span = (base + start, base + .pos cur) })
+            Some '\\' ->
+              .bump cur
+              ()
+            Some '"' ->
+              break
+            Some _ -> ()
+      _ -> ()
+  -- Less the closing `}`, which is not part of the body.
+  Ok (body_start, .pos cur - 1)

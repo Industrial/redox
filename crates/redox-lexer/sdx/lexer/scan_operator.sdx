@@ -1,0 +1,10 @@
+import crate::TokenKind
+import crate::lexer::cursor::Cursor
+import crate::lexer::operator_table::OPERATOR_TABLE
+
+-- | Scan an operator at the cursor, if one is there.
+-- |
+-- | Plan 02 (`docs/07 - 02 - Lexical Surface.md`), leaf 7. The matching order
+-- | lives in [`OPERATOR_TABLE`], longest first.
+
+-- TODO plan 68: hand-port from line 9

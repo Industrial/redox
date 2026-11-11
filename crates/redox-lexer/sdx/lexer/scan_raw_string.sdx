@@ -1,0 +1,34 @@
+import crate::lexer::cursor::Cursor
+import crate::{LexError, TokenKind}
+import redox_diag::Code
+
+-- | Scan a raw string `r"…"` or `r#"…"#`, the cursor on the `r`.
+-- |
+-- | Plan 02 (`docs/07 - 02 - Lexical Surface.md`), leaf 5. No escape processing
+-- | and no interpolation — more necessary in Redox than in Rust, because `#{`
+-- | is live inside an ordinary string literal, so a regex or a Windows path
+-- | needs a form that does not interpret it.
+export(crate) scan_raw_string : &mut Cursor -> Result<TokenKind, LexError>
+scan_raw_string cur =
+  start = .pos cur
+  -- the `r`
+  .bump cur
+
+  hash_span = .eat_while (\c -> c == '#') cur
+  hashes = .len (.slice hash_span cur)
+
+  if !.eat "\"" cur
+    return Err (LexError { code = Code::UnterminatedRawString, help = None, message = .to_string "a raw string must open with `\"` after `r` and any `#`", span = (start, .pos cur) })
+
+  -- `pad` is bound rather than interpolated inline: a nested string literal
+  -- inside `#{…}` ends the interpolation early, which `RDX0005` reports as an
+  -- unterminated one several lines later.
+  pad = .repeat hashes "#"
+  closing = format! \-> "\"#{pad}"
+  text_start = .pos cur
+  while !.starts_with (&closing) cur
+    if .is_none (.bump cur)
+      return Err (LexError { code = Code::UnterminatedRawString, help = None, message = format! \-> "unterminated raw string; expected closing `#{closing}`", span = (start, .pos cur) })
+  text = .to_string (.slice (text_start, .pos cur) cur)
+  .eat (&closing) cur
+  Ok (TokenKind::RawStr { text, hashes })

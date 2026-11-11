@@ -5,6 +5,7 @@
 /// &self      → &self
 /// &mut self  → &mut self
 /// self       → self
+/// mut self   → mut self
 /// u32        → not a receiver
 /// Self       → not a receiver; `unit : f64 -> Self` is an associated fn
 /// ```
@@ -31,6 +32,18 @@ pub(crate) fn receiver_text(ty: &str) -> Option<String> {
     ("&mut ", rest)
   } else if let Some(rest) = ty.strip_prefix('&') {
     ("&", rest)
+  } else if let Some(rest) = ty.strip_prefix("mut ") {
+    // **Rust's fourth receiver form**, and the one plan 67's list of three
+    // missed: a by-value receiver the method may mutate. Plan 74 found it
+    // porting `redox-lexer`, whose `LexError::offset_by` is written that way.
+    //
+    // Without this the type matched no receiver, stayed an ordinary
+    // parameter, and emitted `fn offset_by(base: usize, self: mut self)` —
+    // not Rust, and reported by rustc rather than by Redox, which is the
+    // worse of the two failures.
+    //
+    // After `&mut `, because that prefix also contains `mut `.
+    ("mut ", rest)
   } else {
     ("", ty)
   };

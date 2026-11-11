@@ -1,0 +1,20 @@
+import crate::Span
+
+-- | A character cursor over the source text.
+-- |
+-- | Plan 02 (`docs/07 - 02 - Lexical Surface.md`), leaf 1. Replaces plan 01's
+-- | line loop, which could not carry bracket depth across a line boundary and
+-- | could not let one token span several lines.
+-- |
+-- | The cursor tracks a byte offset and nothing else. It tracked a line and
+-- | column too until plan 05: those existed only to stamp a position onto a
+-- | [`crate::LexError`], and the UI corpus showed that a scanner running over a
+-- | *sub-slice* — a string's body — stamped a position relative to that slice
+-- | and so named the wrong line. Deriving line and column from the span in one
+-- | place (`redox_diag`'s `line_col`) removed both the duplicate computation
+-- | and the class of bug.
+-- |
+-- | Every scanner takes `&mut Cursor` and nothing else, so each is testable
+-- | without constructing a whole [`super::Lexer`].
+
+-- TODO plan 68: hand-port from line 19

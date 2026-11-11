@@ -1,0 +1,12 @@
+import crate::lexer::cursor::Cursor
+import crate::{LexError, TokenKind}
+import redox_diag::Code
+
+-- | Scan a numeric literal, the cursor on its first digit.
+-- |
+-- | Plan 02 (`docs/07 - 02 - Lexical Surface.md`), leaf 6. The text is carried
+-- | **verbatim**, including `_` separators and any Rust type suffix, so the
+-- | emitter passes it straight through and Redox never has to agree with rustc
+-- | about numeric limits.
+
+-- TODO plan 68: hand-port from line 11

@@ -1,0 +1,57 @@
+import crate::LexError
+import crate::lexer::cursor::Cursor
+import crate::lexer::lex_fragment::lex_fragment
+import crate::lexer::scan_escape::scan_escape
+import crate::lexer::skip_interpolation::skip_interpolation
+import crate::lexer::split_format_spec::split_format_spec
+import crate::token::str_part::StrPart
+
+-- | Split a string body into literal text and interpolations.
+-- |
+-- | Plan 02 (`docs/07 - 02 - Lexical Surface.md`), leaf 4. `base` is the body's
+-- | byte offset in the original file, so interpolated tokens carry spans that
+-- | index the real source.
+export(crate) split_parts : &str -> usize -> Result<Vec<StrPart>, LexError>
+split_parts body base =
+  mut parts = Vec::new ()
+  mut text = String::new ()
+  mut cur = Cursor::new body
+
+  while !.is_eof cur
+    -- `"\#{"`, escaped: in Redox that spelling **opens an interpolation**,
+    -- and `\#` is the escape for a literal `#`. This crate is the one place
+    -- where the language's own syntax collides with the text it is about.
+    if .starts_with "\#{" cur
+      if !.is_empty text
+        .push (StrPart::Text (std::mem::take (&mut text))) parts
+
+      -- The body ends at the `}` that returns brace depth to zero, so a
+      -- struct literal or a closure inside an interpolation stays intact —
+      -- and a *string* inside it keeps its braces, which is why this is the
+      -- same function the outer scanner uses. Two scanners walking the same
+      -- text must agree about where it ends; plan 23 §10 records what it cost
+      -- when they did not.
+      bounds = (skip_interpolation (&mut cur) base)?
+      open = bounds.0
+      close = bounds.1
+
+      inner = .unwrap_or "" (.get (open .. close) body)
+      split = split_format_spec inner
+      expr = split.0
+      spec = split.1
+      .push (StrPart::Interp { tokens = (lex_fragment expr (base + open))?, spec = .map str::to_string spec }) parts
+      continue
+
+    if .peek cur == Some '\\'
+      .bump cur
+      -- `cur` runs over the string's body, so an escape error reports an
+      -- offset into that body; rebase it onto the file or the diagnostic
+      -- names the wrong line entirely.
+      .push (.map_err (\e -> .offset_by base e) (scan_escape (&mut cur)))? text
+      continue
+
+    .push (.expect "not at eof" (.bump cur)) text
+
+  if !.is_empty text
+    .push (StrPart::Text text) parts
+  Ok parts

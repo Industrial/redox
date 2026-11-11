@@ -1,0 +1,54 @@
+import crate::lexer::cursor::Cursor
+import crate::lexer::scan_escape::scan_escape
+import crate::{LexError, TokenKind}
+import redox_diag::Code
+
+-- | Scan a `'`: a char literal, or a lifetime/label.
+-- |
+-- | Plan 02 (`docs/07 - 02 - Lexical Surface.md`), leaf 7. Doc 03 §4.3 fixes
+-- | this as **Rust's own rule — lookahead, never context**: `'x'` is a char
+-- | when a closing quote follows one character or one escape; otherwise
+-- | `'name` is a lifetime or a block label.
+-- |
+-- | Context-sensitivity here would make `'a'` mean different things in
+-- | different positions, which doc 02 §5.2 names as the worst available failure
+-- | mode.
+export(crate) scan_quote : &mut Cursor -> Result<TokenKind, LexError>
+scan_quote cur =
+  start = .pos cur
+  mark = .mark cur
+
+  -- the `'`
+  .bump cur
+
+  -- Try a char literal first: one character (or one escape), then `'`.
+  decoded = if .peek cur == Some '\\'
+    .bump cur
+    .ok (scan_escape cur)
+  else
+    .bump cur
+
+  -- A guarded `case` arm where the Rust had a let-chain: Redox has no
+  -- `if let … && …`, and one construct reads better than two glued together.
+  case decoded of
+    Some ch | .peek cur == Some '\'' ->
+      .bump cur
+      return Ok (TokenKind::Char ch)
+    _ -> ()
+
+  -- Not a char literal: rewind and read a lifetime or label name.
+  --
+  -- `cur |> .reset_to mark` rather than `.reset_to mark cur`, because the
+  -- statement above is a `case`. Plan 69's block-valued-binding finding
+  -- **also applies to a `case` in statement position**, which the UI fixture
+  -- for it says it does not: an `if`/`else` statement followed by `.name`
+  -- really is safe, and a `case` statement is not. So the contrast pins the
+  -- rule to the construct, not to the binding.
+  cur |> .reset_to mark
+  -- the `'`
+  .bump cur
+  name_span = .eat_while (\c -> .is_ascii_alphanumeric c || c == '_') cur
+  name = .to_string (.slice name_span cur)
+  if .is_empty name
+    return Err (LexError { code = Code::BadQuote, help = None, message = .to_string "a `'` must open a character literal or name a lifetime or label", span = (start, .pos cur) })
+  Ok (TokenKind::Label name)

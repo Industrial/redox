@@ -1,0 +1,28 @@
+import crate::lexer::cursor::Cursor
+import crate::lexer::scan_escape::scan_escape
+import crate::{LexError, TokenKind}
+import redox_diag::Code
+
+-- | Scan a `c"…"` nul-terminated string literal.
+-- |
+-- | Plan 02 (`docs/07 - 02 - Lexical Surface.md`), leaf 5. Required for FFI,
+-- | which doc 01 §26 lists as a requirement and doc 03 §18 still records as
+-- | otherwise unreachable.
+export(crate) scan_cstring : &mut Cursor -> Result<TokenKind, LexError>
+scan_cstring cur =
+  start = .pos cur
+  -- the `c`
+  .bump cur
+  .eat "\"" cur
+
+  mut text = String::new ()
+  while !.starts_with "\"" cur
+    if .is_eof cur
+      return Err (LexError { code = Code::UnterminatedByteLiteral, help = None, message = .to_string "unterminated C string", span = (start, .pos cur) })
+    if .peek cur == Some '\\'
+      .bump cur
+      .push (scan_escape cur)? text
+    else
+      .push (.expect "not at eof" (.bump cur)) text
+  .eat "\"" cur
+  Ok (TokenKind::CStr text)

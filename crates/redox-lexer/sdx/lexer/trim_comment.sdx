@@ -1,0 +1,12 @@
+-- | Strip the single optional space after a comment's `#`.
+-- |
+-- | `# text` and `#text` both yield `text`, so the emitter can write `// text`
+-- | uniformly without re-inspecting the original spacing.
+export(crate) trim_comment : &str -> String
+trim_comment rest = .to_string (.unwrap_or rest (.strip_prefix ' ' rest))
+
+test "strips one leading space and no more"
+  assert_eq! \-> trim_comment " text" \-> "text"
+  assert_eq! \-> trim_comment "text" \-> "text"
+  assert_eq! \-> trim_comment "  text" \-> " text"
+  assert_eq! \-> trim_comment "" \-> ""
