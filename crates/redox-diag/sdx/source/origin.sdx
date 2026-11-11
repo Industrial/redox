@@ -32,8 +32,13 @@ instance Origin
   map_col self gen_col = self.src_col + .saturating_sub self.gen_col gen_col
 
 -- | Source `  a + b` at line 2 column 3; generated `    a + b` at column 5.
-origin : () -> Origin
-origin () = Origin { span = (10, 15), src_line = 2, src_col = 3, gen_col = 5 }
+-- |
+-- | `#[cfg(test)]` because a `test` declaration emits its own
+-- | `mod __rdx_tests` and gives a helper no home inside it, so at module
+-- | scope this is dead code in a non-test build.
+#[cfg(test)]
+origin : Origin
+origin = Origin { span = (10, 15), src_line = 2, src_col = 3, gen_col = 5 }
 
 test "shifts a column by the indentation difference"
   assert_eq! \-> .map_col 5 (origin ()) \-> 3 \-> "the first character"

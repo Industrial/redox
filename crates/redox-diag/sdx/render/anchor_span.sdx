@@ -11,18 +11,6 @@ import crate::Span
 -- |
 -- | A span already inside the text is returned untouched, so this costs nothing
 -- | in the common case.
-
--- | Move a span onto a character that can actually be drawn under.
--- |
--- | A parse error at end of input carries a span starting at `source.len()`,
--- | and `miette` renders such a label as nothing at all: the snippet box
--- | appears with no `┬` and no `here`. Rather than widen the label — which
--- | would underline the wrong text — the span is walked back to the last
--- | character that is not a line ending, so "unexpected end of input" points at
--- | the last thing the author wrote.
--- |
--- | A span already inside the text is returned untouched, so this costs nothing
--- | in the common case.
 export(crate) anchor_span : &str -> Span -> Span
 anchor_span source span =
   if span.0 < .len source

@@ -2,11 +2,6 @@
 -- |
 -- | Columns are counted in characters, not bytes, so a diagnostic under a
 -- | multi-byte character points at the right place.
-
--- | Resolve a byte offset to a 1-based line and column.
--- |
--- | Columns are counted in characters, not bytes, so a diagnostic under a
--- | multi-byte character points at the right place.
 export(crate) line_col : &str -> usize -> (usize, usize)
 line_col source offset =
   clamped = .min (.len source) offset

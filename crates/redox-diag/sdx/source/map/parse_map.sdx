@@ -16,37 +16,24 @@ import crate::source::origin::Origin
 -- | a field that can disagree with the other three. A parsed origin therefore
 -- | carries an empty span, which is the one way a parsed map differs from the
 -- | map the emitter produced.
-
--- | Read a `.xrs.map` sidecar back.
--- |
--- | Plan 06 (`docs/11 - 06 - Source Map.md`) leaf 4. Every failure is an `Err`
--- | with a sentence, never a partial map: a map that silently dropped records
--- | would resolve some lines and decline others, and the declined ones are
--- | indistinguishable from genuinely synthetic lines. Refusing the whole file
--- | makes the caller fall back to reporting against the `.xrs`, which is worse
--- | output but not *wrong* output.
--- |
--- | The span is not stored in the sidecar — the consumer (plan 07) needs line
--- | and column, and a byte range it would have to recompute the text for adds
--- | a field that can disagree with the other three. A parsed origin therefore
--- | carries an empty span, which is the one way a parsed map differs from the
--- | map the emitter produced.
 export parse_map : &str -> Result<SourceMap, String>
 parse_map text =
   mut lines = .lines text
-  header = .ok_or "the map is empty" (.next lines)?
+  -- The `?` outside the `.ok_or`, not inside its receiver: the inner form
+  -- unwraps first and then calls `Option::ok_or` on the value.
+  header = (.ok_or "the map is empty" (.next lines))?
 
   mut parts = .split ' ' header
   if .next parts != Some "redox-map"
     return Err (.to_string "not a Redox source map: the header does not begin `redox-map`")
   -- `version : u32 = .parse …` where the Rust wrote `.parse::<u32>()`: Redox
   -- has no turbofish, and an ascription says the same thing.
-  raw = .ok_or "the map header has no version" (.next parts)?
+  raw = (.ok_or "the map header has no version" (.next parts))?
   -- Two names where the Rust chained: `.parse::<u32>()` has no turbofish in
   -- Redox, so the type arrives by ascription on a binding, and rebinding the
   -- same name would be `RDX1003` rather than a reassignment.
   parsed_version : Result<u32, _> = .parse raw
-  version = .map_err (\_ -> .to_string "the map header's version is not a number") parsed_version?
+  version = (.map_err (\_ -> .to_string "the map header's version is not a number") parsed_version)?
   if version != VERSION
     return Err (format! \-> "this map is version #{version}; this Redox writes version #{VERSION}")
   collected : Vec<&str> = .collect parts
@@ -71,20 +58,27 @@ parse_map text =
     --
     -- Eager costs nothing here: the `?` above has already established the
     -- record exists, so the message is formatted exactly as often either way.
-    gen_line : usize = fields
+    gen_line : usize = (fields
       |> .first
       |> .and_then (\f -> .ok (.parse f))
-      |> .ok_or (format! \-> "record #{expected} does not begin with a line number")?
+      |> .ok_or (format! \-> "record #{expected} does not begin with a line number"))?
     if gen_line != expected
       return Err (format! \-> "record #{expected} claims to be line #{gen_line}; the records must be in order with no gaps")
 
     case .as_slice fields of
       [_, "-"] -> .push None origins
       [_, src_line, src_col, gen_col] ->
-        num = \f what ->
-          parsed : Result<usize, _> = .parse f
-          .map_err (\_ -> format! \-> "record #{expected}'s #{what} is not a number") parsed
-        origin = Origin { span = (0, 0), src_line = (num src_line "source line")?, src_col = (num src_col "source column")?, gen_col = (num gen_col "generated column")? }
+        -- Three ascribed bindings where the Rust had one annotated closure.
+        -- `|f: &str, what: &str|` annotated its parameters for inference, and
+        -- a **lambda parameter in Redox is a bare name** — neither a pattern
+        -- nor an annotation, which is plan 69's third finding wider than it
+        -- was recorded. Without the annotation the closure cannot be written,
+        -- and `Result<usize, _>` on a binding says the same thing with the
+        -- field named in its own message.
+        parsed_src_line : Result<usize, _> = .parse src_line
+        parsed_src_col : Result<usize, _> = .parse src_col
+        parsed_gen_col : Result<usize, _> = .parse gen_col
+        origin = Origin { span = (0, 0), src_line = (.map_err (\_ -> format! \-> "record #{expected}'s source line is not a number") parsed_src_line)?, src_col = (.map_err (\_ -> format! \-> "record #{expected}'s source column is not a number") parsed_src_col)?, gen_col = (.map_err (\_ -> format! \-> "record #{expected}'s generated column is not a number") parsed_gen_col)? }
         if origin.src_line == 0 || origin.src_col == 0 || origin.gen_col == 0
           return Err (format! \-> "record #{expected} has a zero line or column; both are 1-based")
         .push (Some origin) origins
@@ -93,38 +87,42 @@ parse_map text =
 
   Ok (SourceMap::new source_path origins)
 
-sample : () -> SourceMap
-sample () = SourceMap::new "examples/phase1.sdx" (vec! \-> Some (Origin { span = (0, 0), src_line = 1, src_col = 1, gen_col = 4 }) \-> None \-> Some (Origin { span = (0, 0), src_line = 2, src_col = 3, gen_col = 5 }))
+-- | `#[cfg(test)]`: a helper for the tests below, dead code otherwise.
+#[cfg(test)]
+sample : SourceMap
+sample = SourceMap::new "examples/phase1.sdx" (vec! \-> Some (Origin { span = (0, 0), src_line = 1, src_col = 1, gen_col = 4 }) \-> None \-> Some (Origin { span = (0, 0), src_line = 2, src_col = 3, gen_col = 5 }))
 
 test "round trips"
-  text = render_map (&sample ())
+  -- `crate::render_map` via the re-export `lib.sdx` makes, rather than
+  -- an import: this is the only mention, and it is inside a `test`.
+  text = crate::render_map (&sample ())
   assert_eq! \-> .expect "should parse" (parse_map (&text)) \-> sample ()
 
 test "rejects a foreign file"
   err = .expect_err "should fail" (parse_map "{\"version\":3}\n")
-  assert! \-> .contains "does not begin" (&err) \-> "#{err}"
+  assert! \-> .contains "does not begin" err \-> "#{err}"
 
 test "rejects a future version"
   err = .expect_err "should fail" (parse_map "redox-map 99 a.sdx\n")
-  assert! \-> .contains "version 99" (&err) \-> "#{err}"
+  assert! \-> .contains "version 99" err \-> "#{err}"
 
 test "rejects a header with no source"
   err = .expect_err "should fail" (parse_map "redox-map 1\n")
-  assert! \-> .contains "names no source" (&err) \-> "#{err}"
+  assert! \-> .contains "names no source" err \-> "#{err}"
 
 -- | Records are positional, so a gap would shift every line after it. Better
 -- | to refuse the file than to resolve the wrong line.
 test "rejects records out of order"
   err = .expect_err "should fail" (parse_map "redox-map 1 a.sdx\n1 1 1 1\n3 2 1 1\n")
-  assert! \-> .contains "must be in order" (&err) \-> "#{err}"
+  assert! \-> .contains "must be in order" err \-> "#{err}"
 
 test "rejects a malformed record"
   err = .expect_err "should fail" (parse_map "redox-map 1 a.sdx\n1 2 3\n")
-  assert! \-> .contains "3 fields" (&err) \-> "#{err}"
+  assert! \-> .contains "3 fields" err \-> "#{err}"
 
 test "rejects a zero column"
   err = .expect_err "should fail" (parse_map "redox-map 1 a.sdx\n1 1 0 1\n")
-  assert! \-> .contains "1-based" (&err) \-> "#{err}"
+  assert! \-> .contains "1-based" err \-> "#{err}"
 
 test "parses a map with no records"
   map = .expect "should parse" (parse_map "redox-map 1 a.sdx\n")

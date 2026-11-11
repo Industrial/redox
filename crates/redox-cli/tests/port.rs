@@ -17,7 +17,7 @@
 //! Plan 69 leaf 0. This file hard-coded `redox-ast` in five places, and a
 //! second copy of its four assertions for `redox-fmt` would be the
 //! one-predicate-two-positions defect plan 34 §10.31 found five times and plan
-//! 61 found again. [`PORTED`] is the list; everything below iterates it.
+//! 61 found again. `seed/PORTED` is the list; everything below iterates it.
 //!
 //! # Why a test and not a `build.rs`
 //!
@@ -63,20 +63,11 @@ fn workspace_root() -> PathBuf {
   PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
-/// Every crate whose `src/` is generated from Redox.
-///
-/// Adding one here is what wires it into all four assertions. The order is
-/// the order they were ported, which is also dependency order — `redox-fmt`
-/// reads `redox-ast`'s types, so a staged check of the second needs the first
-/// already in place.
-// `redox-diag` joins this list when its port compiles. All 21 files are
-// written and every one parses; what remains is rustc's verdict on the bodies.
-// A half-ported crate here makes the staging guard refuse every bless —
-// correctly — which would leave the gate red for the length of a port rather
-// than at the end of one. Its `.sdx` tree is in `crates/redox-diag/sdx/`
-// meanwhile, and `.tmp/p73build.sh` rebuilds it from the translator and nine
-// batches.
-const PORTED: &[&str] = &["redox-ast", "redox-fmt"];
+/// The ported crates, from `seed/PORTED` via [`support`]. `bootstrap.sh`,
+/// `bootstrap.rs` and `docs/CONFORMANCE.md` read the same file, which is why
+/// the list is not declared here — it was declared in four places, and three
+/// of them were stale when `redox-diag` landed.
+use support::ported;
 
 /// Every `.sdx` of the port, with the `.rs` it generates.
 ///
@@ -86,7 +77,7 @@ const PORTED: &[&str] = &["redox-ast", "redox-fmt"];
 /// **generated** tree — correctly, since the rules are about the Rust module
 /// tree — and the `.sdx` tree inherits them through the mirror.
 fn pairs() -> Vec<(PathBuf, PathBuf)> {
-  PORTED.iter().flat_map(|c| pairs_of(c)).collect()
+  ported().iter().flat_map(|(c, _)| pairs_of(c)).collect()
 }
 
 /// Where one ported crate's Redox source lives.
@@ -212,7 +203,8 @@ fn the_sdx_tree_mirrors_the_rust_tree() {
   }
 
   let mut unported = Vec::new();
-  for crate_name in PORTED {
+  let crates = ported();
+  for (crate_name, _) in &crates {
     let src = src_root(crate_name);
     let mut rust = Vec::new();
     collect_rs(&src, &mut rust);
@@ -291,11 +283,12 @@ fn the_port_regenerates_the_committed_rust() {
   // the bootstrap exactly as it was.
   if blessing {
     let root = workspace_root();
-    // **Crate by crate, in `PORTED` order**, which is dependency order: a
+    // **Crate by crate, in `seed/PORTED` order**, which is dependency order: a
     // staged check of `redox-fmt` reads `redox-ast`'s types, so the first has
     // to be live before the second is checked. Writing them all and then
     // checking once would also work and would lose which crate broke.
-    for crate_name in PORTED {
+    let crates = ported();
+    for (crate_name, _) in &crates {
       let into = root.join("crates").join(crate_name).join("src");
       let staging = root.join("target/redox-port-staging");
       std::fs::remove_dir_all(&staging).ok();

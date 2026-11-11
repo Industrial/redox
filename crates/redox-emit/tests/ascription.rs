@@ -101,3 +101,17 @@ fn a_colon_colon_no_longer_ascribes() {
     "it should be a parse error, not a misreading: {message}"
   );
 }
+
+#[test]
+fn an_ascription_looks_through_a_parenthesis() {
+  // Plan 73. A parenthesis is the only way to ascribe a *call* rather than its
+  // last argument — `(Box::new h) : Box<dyn Display>` in `redox-diag`'s
+  // `reportable` — so it is load-bearing in the source. It is not load-bearing
+  // in the lowering: `let __rdx_t: T = (e);` is clippy's `unnecessary_parens`,
+  // and `-D warnings` makes that an error. A `let` brackets nothing, so the
+  // lowering unwraps. Plan 69's `Unary` arm looks through one for the same
+  // reason, which is what makes this a shape rather than a special case.
+  let out = body("xs = .map (\\h -> (h + 1) : u64) ys");
+  assert!(out.contains("let __rdx_t: u64 = h + 1;"), "{out}");
+  assert!(!out.contains("= (h + 1)"), "{out}");
+}

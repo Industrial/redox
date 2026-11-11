@@ -5,5 +5,4 @@
 -- | misread: the records are positional, so a changed field order would parse
 -- | successfully and resolve wrongly — the worst failure a source map can have,
 -- | because every position it reports would still look plausible.
-
 export const VERSION : u32 = 1

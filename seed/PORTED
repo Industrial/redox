@@ -1,0 +1,14 @@
+# The crates whose `src/` is generated from Redox, with the plan that ported
+# each. One `crate plan` per line; `#` opens a comment.
+#
+# **This is the only copy.** It was four — `port.rs`, `conformance.rs`,
+# `bootstrap.rs` and `bootstrap.sh` — and three had drifted when `redox-diag`
+# landed, including the pair that proves a clean clone rebuilds every generated
+# tree. A duplicated list drifts consistently: the check and the thing checked
+# agree while both are wrong.
+#
+# Order is dependency order, which is also the order to rebuild in: a crate's
+# `.sdx` may name types from a crate above it.
+redox-diag 73
+redox-ast 68
+redox-fmt 69

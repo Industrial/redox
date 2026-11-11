@@ -43,41 +43,79 @@ fn sources(dir: &Path, out: &mut Vec<PathBuf>) {
 /// Deliberately line-based rather than a real parse: the check must not need a
 /// Rust parser to run, and column-0 matching is sufficient because `rustfmt`
 /// guarantees indentation of nested items.
+///
+/// **A `#[cfg(test)]` construct does not count**, which is why this carries
+/// state rather than filtering line by line. Doc 06 §7 exempts `tests/`
+/// because *"an integration test's helpers are not part of the crate's
+/// vocabulary"*; a `#[cfg(test)]` item is not in the crate at all, and the
+/// rule exists so a reader can find a construct from its path.
+///
+/// Plan 73 is what asked for it. A `test "name"` declaration emits a `#[test]
+/// fn` inside a generated `mod __rdx_tests`, and Redox can put **nothing
+/// else** in there — so a helper several tests share must sit at module scope,
+/// where `#[cfg(test)]` is the only thing keeping it from being dead code that
+/// `-D warnings` rejects. `redox-diag`'s `sample`, `map` and `origin` are
+/// those helpers, and without this they are each a second construct.
 fn constructs(text: &str) -> Vec<String> {
-  text
-    .lines()
-    .filter_map(|line| {
-      // Column 0 only. Anything nested is indented by rustfmt.
-      if line.starts_with(char::is_whitespace) {
-        return None;
-      }
-      // Comments and attributes are not declarations, and a comment can
-      // legitimately contain the word `fn`.
-      if line.starts_with("//") || line.starts_with("#[") || line.starts_with("#!") {
-        return None;
-      }
+  let mut out = Vec::new();
+  // Whether the attribute run immediately above the next declaration carries
+  // `cfg(test)`. Only a column-0 line that is neither a comment nor an
+  // attribute ends that run, which is why this is a loop with `continue`
+  // rather than a filter: in a filter, "this line is skipped" and "this line
+  // ends the run" are the same step, and the flag was cleared by the very
+  // attribute line that set it.
+  let mut test_only = false;
 
-      // Scan words left to right for the first construct keyword, so leading
-      // modifiers — `pub`, `pub(crate)`, `const fn`, `unsafe fn`, `async fn` —
-      // are passed over rather than stripped in a fixed order. Stripping
-      // `const` first is what previously made `pub(crate) const USAGE`
-      // register as no construct at all.
-      let words: Vec<&str> = line.split_whitespace().collect();
-      let at = words.iter().position(|w| CONSTRUCT_KEYWORDS.contains(w))?;
+  for line in text.lines() {
+    // Column 0 only. Anything nested is indented by rustfmt.
+    if line.is_empty() || line.starts_with(char::is_whitespace) {
+      continue;
+    }
+    // Comments are not declarations, and a comment can legitimately contain
+    // the word `fn`. A doc comment sits *above* the attribute, so skipping it
+    // must not end the run either.
+    if line.starts_with("//") {
+      continue;
+    }
+    // An attribute is not a declaration, but it decides whether the
+    // declaration below it is one this rule governs.
+    if line.starts_with("#[") || line.starts_with("#!") {
+      test_only |= line.contains("cfg(test)");
+      continue;
+    }
 
-      // `static mut NAME` carries a modifier between keyword and name.
-      let mut rest = &words[at + 1..];
-      if rest.first() == Some(&"mut") {
-        rest = &rest[1..];
-      }
-      let name: String = rest
-        .first()?
-        .chars()
-        .take_while(|c| c.is_alphanumeric() || *c == '_')
-        .collect();
-      (!name.is_empty()).then_some(name)
-    })
-    .collect()
+    // Anything else at column 0 ends the run: the declaration the attributes
+    // belonged to, or a closing brace.
+    let was_test_only = std::mem::take(&mut test_only);
+
+    // Scan words left to right for the first construct keyword, so leading
+    // modifiers — `pub`, `pub(crate)`, `const fn`, `unsafe fn`, `async fn` —
+    // are passed over rather than stripped in a fixed order. Stripping
+    // `const` first is what previously made `pub(crate) const USAGE`
+    // register as no construct at all.
+    let words: Vec<&str> = line.split_whitespace().collect();
+    let Some(at) = words.iter().position(|w| CONSTRUCT_KEYWORDS.contains(w)) else {
+      continue;
+    };
+
+    // `static mut NAME` carries a modifier between keyword and name.
+    let mut rest = &words[at + 1..];
+    if rest.first() == Some(&"mut") {
+      rest = &rest[1..];
+    }
+    let Some(first) = rest.first() else {
+      continue;
+    };
+    let name: String = first
+      .chars()
+      .take_while(|c| c.is_alphanumeric() || *c == '_')
+      .collect();
+
+    if !name.is_empty() && !was_test_only {
+      out.push(name);
+    }
+  }
+  out
 }
 
 #[test]
@@ -230,5 +268,60 @@ mod snake_case_tests {
     assert_eq!(to_snake_case("lex"), "lex");
     assert_eq!(to_snake_case("is_ident_start"), "is_ident_start");
     assert_eq!(to_snake_case("ParseFailure"), "parse_failure");
+  }
+}
+
+/// What `constructs` counts, and what it does not.
+///
+/// Inline, because `constructs` is private — doc 06's rule, and the one
+/// AGENTS.md records a session searching `tests/` for and wrongly concluding
+/// was missing.
+#[cfg(test)]
+mod constructs_tests {
+  use super::constructs;
+
+  /// The input is a **list of lines**, which is `constructs`'s real unit: it
+  /// is line-based by design. It also keeps every literal free of a newline,
+  /// so `no_literal_expectations.rs` sees no pasted block of generated Rust —
+  /// plan 08 §2.1's rule, which the first version of these tests broke.
+  fn scan(lines: &[&str]) -> Vec<String> {
+    constructs(&lines.join("\n"))
+  }
+
+  #[test]
+  fn a_plain_declaration_counts() {
+    assert_eq!(scan(&["pub fn origin() -> Origin {", "}"]), ["origin"]);
+  }
+
+  #[test]
+  fn a_cfg_test_declaration_does_not() {
+    let got = scan(&["#[cfg(test)]", "fn origin() -> Origin {", "}"]);
+    assert!(got.is_empty(), "{got:?}");
+  }
+
+  /// The doc comment sits **above** the attribute, so skipping it must not end
+  /// the attribute run. Getting this wrong is what made the first version of
+  /// the exemption do nothing: the flag was cleared once per line, including
+  /// by the attribute line that set it.
+  #[test]
+  fn a_doc_comment_above_the_attribute_does_not_end_the_run() {
+    let got = scan(&["/// A helper.", "#[cfg(test)]", "fn sample() -> Map {", "}"]);
+    assert!(got.is_empty(), "{got:?}");
+  }
+
+  /// The exemption must not swallow the rule: a second *non-exempt* construct
+  /// is still a second construct.
+  #[test]
+  fn a_second_plain_declaration_still_counts() {
+    let got = scan(&[
+      "pub struct Origin {",
+      "}",
+      "#[cfg(test)]",
+      "fn origin() -> Origin {",
+      "}",
+      "pub fn other() {",
+      "}",
+    ]);
+    assert_eq!(got, ["Origin", "other"]);
   }
 }

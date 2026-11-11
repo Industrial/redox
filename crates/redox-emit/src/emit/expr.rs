@@ -76,6 +76,17 @@ pub(crate) fn emit_expr(e: &Expr, indent: usize) -> String {
     Expr::Ascribe { inner, ty, .. } => {
       let inner_pad = " ".repeat(indent + RUST_INDENT);
       let close_pad = " ".repeat(indent);
+      // **Through a parenthesis.** `let __rdx_t: T = (e);` is clippy's
+      // `unnecessary_parens`, which `-D warnings` makes an error — and the
+      // parenthesis is not the author's to drop: `(Box::new h) : Box<dyn
+      // Display>` needs it to ascribe the *call* rather than `h`. The value
+      // lands in `let` position, where no expression needs bracketing, so the
+      // lowering unwraps it. Plan 69's `Unary` arm is the same fix for the
+      // same reason; plan 73 found this one in `redox-diag`'s `reportable`.
+      let mut inner = inner;
+      while let Expr::Paren { inner: within, .. } = inner.as_ref() {
+        inner = within;
+      }
       // Doc 18 §6's third lowering: an ascribed list literal names its
       // container, so its value is `C::from([…])`. Inside the block, not
       // instead of it — see `ascribed_list`.

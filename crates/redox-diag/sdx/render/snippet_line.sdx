@@ -8,17 +8,6 @@
 -- | all is the least useful diagnostic there is. So when the resolved line is
 -- | empty and there is a line above it, this backs up and points just past the
 -- | end of that line — which is where the reader has to type.
-
--- | Choose the source line to show under a diagnostic, and where to point.
--- |
--- | Returns `(line number, line text, column)`, all 1-based.
--- |
--- | The subtlety is end-of-file. A file ending in a newline makes the offset
--- | one past the last character resolve to a line that exists but holds no
--- | text, and an "unexpected end of file" error rendered with no snippet at
--- | all is the least useful diagnostic there is. So when the resolved line is
--- | empty and there is a line above it, this backs up and points just past the
--- | end of that line — which is where the reader has to type.
 export(crate) snippet_line : &str -> usize -> usize -> Option<(usize, &str, usize)>
 snippet_line source line col =
   text = source |> .lines |> .nth (line - 1) |> .unwrap_or ""
@@ -26,8 +15,11 @@ snippet_line source line col =
     return Some (line, text, col)
   mut n = line
   while n > 1
-    n := n - 1
-    above = source |> .lines |> .nth (n - 1)?
+    n -= 1
+    -- The `?` outside the whole call. `.nth (n - 1)?` puts it **inside the
+    -- argument** — `.nth((n - 1)?)` — because a parenthesised argument is
+    -- where it binds.
+    above = (source |> .lines |> .nth (n - 1))?
     if !.is_empty above
       return Some (n, above, .count (.chars above) + 1)
   None

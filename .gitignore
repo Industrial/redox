@@ -102,6 +102,12 @@ crates/*/sdx/**/*.xrs.map
 # `crates/redox-seed/tests/bootstrap.rs` clones `HEAD`, deletes these trees,
 # bootstraps, and requires byte-identical output; `tests/fixpoint.rs` requires
 # the compiler the seed produces to reproduce the seed's own output.
+#
+# The list of ported crates itself is `seed/PORTED`, which the two tests above
+# and `bootstrap.sh` all read. These paths are the one copy that is checked
+# rather than duplicated: `the_generated_trees_are_ignored` asks git, per
+# crate named in that file, so a crate added there and forgotten here fails.
+crates/redox-diag/src/
 crates/redox-ast/src/
 crates/redox-fmt/src/
 

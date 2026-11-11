@@ -1,4 +1,3 @@
-import std::collections::BTreeSet
 -- | A stable diagnostic code.
 -- |
 -- | Plan 05 (`docs/10 - 05 - Diagnostics.md`) leaf 1. Every diagnostic is
@@ -426,8 +425,9 @@ instance Code
   text self = format! \-> "RDX#{(.number self):04}"
 
   -- | Every code, for the uniqueness and range checks.
-  export all : () -> &'static [Code]
-  all () = &[Code::TabIndent, Code::InconsistentDedent, Code::UnterminatedString, Code::UnterminatedRawString, Code::UnterminatedInterpolation, Code::UnterminatedFence, Code::UnterminatedAttribute, Code::UnterminatedByteLiteral, Code::UnknownEscape, Code::MalformedNumber, Code::UnexpectedCharacter, Code::UnbalancedDelimiter, Code::BadQuote, Code::ExpectedToken, Code::ExpectedExpression, Code::ExpectedName, Code::ExpectedType, Code::EmptyBody, Code::ModuleScopeBinding, Code::PatternUntil, Code::EllipsisRestPattern, Code::NestingTooDeep, Code::SpacedPathSeparator, Code::NewtypeShape, Code::LocalTest, Code::UnitTail, Code::ReservedWord, Code::MethodCallSyntax, Code::PipelineSection, Code::OptionalChaining, Code::RetiredSpelling, Code::WhereGroupShape, Code::UnwrapUsed, Code::CommentAllowPragma, Code::ShadowedBinding, Code::ReturnInCallbackTail]
+  -- A nullary signature is the return type alone; see `lint.sdx`.
+  export all : &'static [Code]
+  all = &[Code::TabIndent, Code::InconsistentDedent, Code::UnterminatedString, Code::UnterminatedRawString, Code::UnterminatedInterpolation, Code::UnterminatedFence, Code::UnterminatedAttribute, Code::UnterminatedByteLiteral, Code::UnknownEscape, Code::MalformedNumber, Code::UnexpectedCharacter, Code::UnbalancedDelimiter, Code::BadQuote, Code::ExpectedToken, Code::ExpectedExpression, Code::ExpectedName, Code::ExpectedType, Code::EmptyBody, Code::ModuleScopeBinding, Code::PatternUntil, Code::EllipsisRestPattern, Code::NestingTooDeep, Code::SpacedPathSeparator, Code::NewtypeShape, Code::LocalTest, Code::UnitTail, Code::ReservedWord, Code::MethodCallSyntax, Code::PipelineSection, Code::OptionalChaining, Code::RetiredSpelling, Code::WhereGroupShape, Code::UnwrapUsed, Code::CommentAllowPragma, Code::ShadowedBinding, Code::ReturnInCallbackTail]
 
   -- | Whether this code is a lexical one, for the range check.
   #[cfg(test)]
@@ -436,7 +436,11 @@ instance Code
 
 -- | Criterion 2: codes are unique.
 test "every code is unique"
-  numbers : BTreeSet<u16> = Code::all ()
+  -- The path is written out rather than imported: `BTreeSet` is named
+  -- only here, inside a `test` block, and a module-scope import that
+  -- only `mod __rdx_tests` resolves is `unused_imports` in the library
+  -- build.
+  numbers : std::collections::BTreeSet<u16> = Code::all ()
     |> .iter
     |> .map (\c -> .number c)
     |> .collect
@@ -447,9 +451,9 @@ test "every code is in its declared range"
   for code in Code::all ()
     n = .number code
     if .is_lexical code
-      assert! \-> .contains (&n) 1 ..= 39 \-> "#{code:?} is #{n}, outside RDX0001-0039"
+      assert! \-> .contains (&n) (1 ..= 39) \-> "#{code:?} is #{n}, outside RDX0001-0039"
     else
-      assert! \-> .contains (&n) 40 ..= 99 || .contains (&n) 100 ..= 199 || n >= 1000 \-> "#{code:?} is #{n}, outside RDX0040-0099, RDX0100-0199 and the RDX1000+ lint band"
+      assert! \-> .contains (&n) (40 ..= 99) || .contains (&n) (100 ..= 199) || n >= 1000 \-> "#{code:?} is #{n}, outside RDX0040-0099, RDX0100-0199 and the RDX1000+ lint band"
 
 -- | Criterion 3: nothing collides with doc 03 §17's published assignments.
 -- |
@@ -469,12 +473,12 @@ test "every reserved code is one doc 03 published"
 
   for code in Code::all ()
     n = .number code
-    if !(.contains (&n) 40 ..= 99)
+    if !.contains (&n) (40 ..= 99)
       continue
     name = format! \-> "#{code:?}"
     -- One parameter read with `.0` / `.1`, where the Rust wrote the tuple
     -- pattern `|(num, who)|`: a lambda parameter is a name, not a pattern.
-    assert! \-> .any (\p -> *p.0 == n && *p.1 == name) (.iter PUBLISHED) \-> "#{code:?} is #{n}, inside the band doc 03 §17 reserved, and is not the diagnostic §17 assigned that number to"
+    assert! \-> .any (\p -> p.0 == n && p.1 == name) (.iter PUBLISHED) \-> "#{code:?} is #{n}, inside the band doc 03 §17 reserved, and is not the diagnostic §17 assigned that number to"
 
 test "renders as a four digit code"
   assert_eq! \-> .text Code::TabIndent \-> "RDX0001"

@@ -41,8 +41,25 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 
-/// The crates whose `src/` is generated. Mirrors `bootstrap.sh`'s `PORTED`.
-const PORTED: &[&str] = &["redox-ast", "redox-fmt"];
+/// The crates whose `src/` is generated, read from `seed/PORTED`.
+///
+/// **Not a constant, because this copy was one of the stale ones.** The list
+/// lived in four places — here, `bootstrap.sh`, `port.rs` and a sentence in
+/// `conformance.rs` — and this one named two crates when three were ported.
+/// That is the worst place for it to go stale: `the_generated_trees_are_ignored`
+/// is the assertion that a generated tree is never committed, and a crate
+/// missing from the list is simply not asserted about. The check and the thing
+/// it checks drifted together, which is what a duplicated list does.
+fn ported() -> Vec<String> {
+  let path = workspace_root().join("seed/PORTED");
+  std::fs::read_to_string(&path)
+    .unwrap_or_else(|e| panic!("should read {}: {e}", path.display()))
+    .lines()
+    .map(str::trim)
+    .filter(|l| !l.is_empty() && !l.starts_with('#'))
+    .filter_map(|l| l.split_whitespace().next().map(str::to_string))
+    .collect()
+}
 
 fn workspace_root() -> PathBuf {
   PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -116,7 +133,8 @@ fn a_clone_without_the_generated_rust_bootstraps_from_the_seed() {
   // contain them. Asserted rather than assumed: if the ignore flip were ever
   // reverted they would arrive here and the bootstrap would be graded against
   // files it did not write.
-  for crate_name in PORTED {
+  let crates = ported();
+  for crate_name in &crates {
     let generated = clone.join("crates").join(crate_name).join("src");
     assert!(
       !generated.exists(),
@@ -139,7 +157,8 @@ fn a_clone_without_the_generated_rust_bootstraps_from_the_seed() {
     String::from_utf8_lossy(&boot.stderr)
   );
 
-  for crate_name in PORTED {
+  let crates = ported();
+  for crate_name in &crates {
     let here = root.join("crates").join(crate_name).join("src");
     let there = clone.join("crates").join(crate_name).join("src");
 
@@ -189,7 +208,8 @@ fn a_clone_without_the_generated_rust_bootstraps_from_the_seed() {
 #[test]
 fn the_generated_trees_are_ignored() {
   let root = workspace_root();
-  for crate_name in PORTED {
+  let crates = ported();
+  for crate_name in &crates {
     let dir = format!("crates/{crate_name}/src");
     let path = format!("{dir}/lib.rs");
 

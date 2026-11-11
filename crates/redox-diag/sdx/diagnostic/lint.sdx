@@ -54,8 +54,10 @@ export data Lint
 
 instance Lint
   -- | Every suppressible lint, which is what makes recognition total.
-  export all : () -> &'static [Lint]
-  all () = &[Lint::Unwrap, Lint::Shadow]
+  -- A nullary signature is the return type alone — `() -> T` would declare
+  -- one unit argument, as `examples/hello.sdx`'s `main : ()` shows.
+  export all : &'static [Lint]
+  all = &[Lint::Unwrap, Lint::Shadow]
 
   -- | The name an author writes inside the pragma.
   -- |
@@ -126,8 +128,8 @@ test "the published spellings are unchanged"
 -- | the property hard-coded strings could not have.
 test "every lint round trips through both spellings"
   for lint in Lint::all ()
-    assert_eq! \-> Lint::from_allow_attribute (&.allow_attribute lint) \-> Some * lint
-    assert_eq! \-> Lint::from_allow_comment (&.allow_comment lint) \-> Some * lint
+    assert_eq! \-> Lint::from_allow_attribute (&.allow_attribute lint) \-> Some (*lint)
+    assert_eq! \-> Lint::from_allow_comment (&.allow_comment lint) \-> Some (*lint)
 
 -- | Two names would mean one pragma suppressing two lints.
 test "every name is unique"

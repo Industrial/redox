@@ -29,6 +29,45 @@ static RUSTC: LazyLock<String> = LazyLock::new(|| {
     .unwrap_or_else(|| "rustc".to_string())
 });
 
+/// Every crate whose `src/` is generated from Redox, with the plan that ported
+/// it, read from `seed/PORTED`.
+///
+/// **A file rather than a constant, because the list was in four places and
+/// three had drifted.** `conformance.rs` said *"Two crates"* with three
+/// ported; `bootstrap.rs` and `bootstrap.sh` both named two, so a clean clone
+/// did not rebuild the third and the test that would have caught it read the
+/// same stale list. `seed/PORTED` is now the only copy, and `bootstrap.sh`
+/// reads the same file.
+///
+/// The order is the order they were ported, which is also dependency order:
+/// `redox-fmt` reads `redox-ast`'s types, so a staged check of the second
+/// needs the first already in place.
+pub fn ported() -> Vec<(String, u32)> {
+  let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../seed/PORTED");
+  let text = std::fs::read_to_string(&path)
+    .unwrap_or_else(|e| panic!("should read {}: {e}", path.display()));
+  let out: Vec<(String, u32)> = text
+    .lines()
+    .map(str::trim)
+    .filter(|l| !l.is_empty() && !l.starts_with('#'))
+    .map(|l| {
+      let (name, plan) = l
+        .split_once(char::is_whitespace)
+        .unwrap_or_else(|| panic!("seed/PORTED: `{l}` is not `crate plan`"));
+      let plan = plan
+        .trim()
+        .parse()
+        .unwrap_or_else(|e| panic!("seed/PORTED: `{l}` has no plan number: {e}"));
+      (name.to_string(), plan)
+    })
+    .collect();
+  assert!(
+    !out.is_empty(),
+    "seed/PORTED should name at least one crate"
+  );
+  out
+}
+
 pub struct Case {
   pub rust: String,
   xrs: PathBuf,

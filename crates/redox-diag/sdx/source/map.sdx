@@ -31,7 +31,7 @@ export data SourceMap = SourceMap {
 
 instance SourceMap
   export new : impl Into<String> -> Vec<Option<Origin>> -> Self
-  new source_path origins = SourceMap { source_path = .into source_path, origins = origins }
+  new source_path origins = SourceMap { source_path = .into source_path, origins }
 
   -- | How many generated lines this map covers.
   export len : &self -> usize
@@ -42,7 +42,12 @@ instance SourceMap
 
   -- | The origin of a 1-based generated line, if it has one.
   export origin : &self -> usize -> Option<&Origin>
-  origin self gen_line = self.origins |> .get (.checked_sub 1 gen_line)? |> .as_ref
+  origin self gen_line =
+    -- Two steps, with each `?` outside the call it belongs to rather than
+    -- inside an argument.
+    at = (.checked_sub 1 gen_line)?
+    slot = (.get at self.origins)?
+    .as_ref slot
 
   -- | Resolve a 1-based generated position to a 1-based source position.
   -- |
@@ -51,7 +56,8 @@ instance SourceMap
   -- | instead, never by guessing.
   export resolve : &self -> usize -> usize -> Option<(usize, usize)>
   resolve self gen_line gen_col =
-    found = .origin self gen_line?
+    -- `.origin gen_line self`: the receiver is the last argument.
+    found = (.origin gen_line self)?
     Some (found.src_line, .map_col gen_col found)
 
   -- | Every line with no origin, as 1-based line numbers.
@@ -66,8 +72,10 @@ instance SourceMap
     |> .map (\pair -> pair.0 + 1)
     |> .collect
 
-map : () -> SourceMap
-map () = SourceMap::new "a.sdx" (vec! \-> Some (Origin { span = (0, 5), src_line = 1, src_col = 1, gen_col = 1 }) \-> None \-> Some (Origin { span = (10, 15), src_line = 2, src_col = 3, gen_col = 5 }))
+-- | `#[cfg(test)]`: a helper for the tests below, dead code otherwise.
+#[cfg(test)]
+map : SourceMap
+map = SourceMap::new "a.sdx" (vec! \-> Some (Origin { span = (0, 5), src_line = 1, src_col = 1, gen_col = 1 }) \-> None \-> Some (Origin { span = (10, 15), src_line = 2, src_col = 3, gen_col = 5 }))
 
 test "resolves a mapped line"
   assert_eq! \-> .resolve 3 7 (map ()) \-> Some (2, 5)

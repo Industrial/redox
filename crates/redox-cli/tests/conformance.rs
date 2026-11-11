@@ -17,6 +17,8 @@
 //! drops, this fails, and whoever spelled it sees how much of the compiler
 //! they just unblocked.
 
+mod support;
+
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
@@ -159,6 +161,26 @@ fn sources(root: &Path) -> Vec<PathBuf> {
   out
 }
 
+/// A count as a word, because the heading it lands in reads as prose.
+fn word(n: usize) -> String {
+  const WORDS: &[&str] = &[
+    "No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven",
+    "Twelve",
+  ];
+  WORDS
+    .get(n)
+    .map_or_else(|| n.to_string(), |w| (*w).to_string())
+}
+
+/// `a`, `b` and `c`. An English list, for the same reason.
+fn and_list(items: &[String]) -> String {
+  match items {
+    [] => String::new(),
+    [one] => one.clone(),
+    [init @ .., last] => format!("{} and {last}", init.join(", ")),
+  }
+}
+
 /// Render the document.
 fn render(root: &Path) -> String {
   let files = sources(root);
@@ -253,36 +275,56 @@ fn render(root: &Path) -> String {
     files.len()
   );
 
-  out.push_str(
-    "\n---\n\n## Two crates are no longer a count\n\n\
-     The table above measures what *could* be ported. Two crates **have** been, and for them \
-     the question is settled by rustc rather than by a blocker count: `redox-ast` (plan 68) \
-     and `redox-fmt` (plan 69) are written in Redox, their `.sdx` living in \
-     `crates/<crate>/sdx/` beside the `src/` it generates, and the generated Rust is \
-     committed and compiled as part of the workspace.\n\n\
-     So **the compiler is now partly compiled from Redox** — 110 files of it. That corrects \
-     what this document said until plan 70: *\"nothing in the build depends on \
-     `conformance/`, and the compiler is not compiled from it\"*, which was true when plan \
-     48 lifted one 45-line module out of a crate and checked it with `syn`, and stopped \
-     being true the moment a whole crate's `src/` was generated.\n\n\
+  // **Every number here is derived from `seed/PORTED`.** This section was
+  // prose, and said "Two crates" and "110 files" with three crates ported —
+  // because the list was in `port.rs` and the sentence was here. A generated
+  // document that contradicts its generator reads as measured.
+  let ported = support::ported();
+  let names: Vec<String> = ported
+    .iter()
+    .map(|(c, plan)| format!("`{c}` (plan {plan})"))
+    .collect();
+  let ported_files: usize = per_crate
+    .iter()
+    .filter(|(n, _, _)| ported.iter().any(|(c, _)| c == n))
+    .map(|(_, total, _)| *total)
+    .sum();
+  let n = ported.len();
+  let rest = word(per_crate.len().saturating_sub(n)).to_lowercase();
+  let _ = write!(
+    out,
+    "\n---\n\n## {heading} crates are no longer a count\n\n\
+     The table above measures what *could* be ported. {heading} crates **have** been, and \
+     for them the question is settled by rustc rather than by a blocker count: {list} are \
+     written in Redox, their `.sdx` living in `crates/<crate>/sdx/` beside the `src/` it \
+     generates, and the generated Rust is compiled as part of the workspace.\n\n\
+     So **the compiler is now partly compiled from Redox** — {ported_files} files of it. \
+     That corrects what this document said until plan 70: *\"nothing in the build depends \
+     on `conformance/`, and the compiler is not compiled from it\"*, which was true when \
+     plan 48 lifted one 45-line module out of a crate and checked it with `syn`, and \
+     stopped being true the moment a whole crate's `src/` was generated.\n\n\
      Plan 48's probe is retired with that sentence. `conformance/clause.sdx` was \
      `clause.rs` expressed in Redox and checked by `syn::parse_file`, because one module \
-     lifted out of a crate cannot resolve `crate::Stmt`; the real port has no extraction to \
-     concede to, so the weaker oracle expired. Its no-escape-hatch assertion now runs over \
-     all 110 files in `port.rs`.\n\n\
-     What it found still stands, and is the reason doc 02 §4.8 expected a port to be worth \
-     doing: every field doc comment was silently discarded, and `redox fmt` deleted them \
-     from the source, because the lexer classified a comment opening a continuation line as \
-     *trailing* the previous line and then held it for a `Newline` a continuation never \
-     produces. Plans 68 and 69 found three more of that class and two formatter defects.\n\n\
+     lifted out of a crate cannot resolve `crate::Stmt`; the real port has no extraction \
+     to concede to, so the weaker oracle expired. Its no-escape-hatch assertion now runs \
+     over all {ported_files} files in `port.rs`.\n\n\
+     What it found still stands, and is the reason doc 02 §4.8 expected a port to be \
+     worth doing: every field doc comment was silently discarded, and `redox fmt` deleted \
+     them from the source, because the lexer classified a comment opening a continuation \
+     line as *trailing* the previous line and then held it for a `Newline` a continuation \
+     never produces. Plans 68 and 69 found three more of that class and two formatter \
+     defects, and plan 73 four more in the toolchain that writes the port.\n\n\
      ---\n\n## The Rust implementation is permanent\n\n\
-     Doc 02 §4.8 corrects doc 01 §34's own wording: keep the Rust implementation *\"permanently \
-     rather than as a 'fallback'\"*. The nine crates that are not ported are hand-written \
-     Rust and stay that way until a row says otherwise; the two that are ported keep their \
-     generated Rust **committed**, which is what doc 02 §4.8 means by *\"commit the generated \
-     `.xrs` so the bootstrap never breaks\"* — the committed output is the previous-version \
-     compiler every self-hosting language needs, stored as reviewable source rather than as \
-     a binary.\n",
+     Doc 02 §4.8 corrects doc 01 §34's own wording: keep the Rust implementation \
+     *\"permanently rather than as a 'fallback'\"*. The {rest} crates that are not ported \
+     are hand-written Rust and stay that way until a row says otherwise; the {lower} that \
+     are ported keep their generated Rust **committed**, which is what doc 02 §4.8 means \
+     by *\"commit the generated `.xrs` so the bootstrap never breaks\"* — the committed \
+     output is the previous-version compiler every self-hosting language needs, stored as \
+     reviewable source rather than as a binary.\n",
+    heading = word(n),
+    lower = word(n).to_lowercase(),
+    list = and_list(&names),
   );
   out
 }
