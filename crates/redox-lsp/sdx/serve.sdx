@@ -1,0 +1,62 @@
+import crate::serve::absorb::absorb
+import crate::serve::answer::answer
+import crate::serve::documents::Documents
+import crate::serve::publish::publish
+import lsp_server::{Connection, Message}
+
+-- | Fold a notification into the document store.
+export(crate) module absorb
+-- | Answer one request.
+export(crate) module answer
+-- | Deserialise a request's parameters for a known method.
+export(crate) module cast
+-- | Every diagnostic Redox itself can report for one document.
+export(crate) module diagnostics
+-- | The open documents, keyed by URI.
+export(crate) module documents
+-- | The edit that makes a document canonical, or none.
+export(crate) module formatting
+export(crate) module positions
+-- | Send the current diagnostics for one document.
+export(crate) module publish
+-- | Turn a handler's output into a response.
+export(crate) module reply
+-- | The document's tokens, delta-encoded as the protocol wants them.
+export(crate) module semantic_tokens
+-- | The document's items, as a symbol tree.
+export(crate) module symbols
+
+-- | Run the server over a connection until the editor says to stop.
+-- |
+-- | The connection is a parameter rather than being built here, which is plan
+-- | 40 decision 6: `lsp-server` offers an in-process pair, so the test drives
+-- | **this function** over the same protocol path the binary uses, with no
+-- | process to spawn and no pipes to drain. A hanging test is then a deadlock
+-- | in the code rather than in the harness.
+-- |
+-- | # The loop answers everything, including about a document that is broken
+-- |
+-- | Plan 40's criterion 7. An editor sends requests while the user is
+-- | mid-keystroke, so a document that does not parse is the **normal** state,
+-- | not an edge case — and a server that panics there is useless in exactly
+-- | the moment it is needed. Every handler below takes a `&str` and returns
+-- | something, which is how that criterion is met structurally rather than by
+-- | remembering to check.
+export serve : &Connection -> Result<(), String>
+serve connection =
+  mut documents = Documents::new ()
+  for message in &connection.receiver
+    case message of
+      Message::Request request ->
+        stopping = (.map_err (\e -> .to_string e) (.handle_shutdown (&request) connection))?
+        if stopping
+          return Ok ()
+        response = answer (&request) (&documents)
+        (.map_err (\e -> .to_string e) (.send (Message::Response response) connection.sender))?
+      Message::Notification notification ->
+        case absorb (&notification) (&mut documents) of
+          Some uri ->
+            (publish connection (&uri) (&documents))?
+          None -> ()
+      Message::Response _ -> ()
+  Ok ()

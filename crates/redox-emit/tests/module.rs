@@ -129,3 +129,29 @@ fn a_glob_import_does_not_swallow_the_next_item() {
   assert!(out.contains("use crate::models::*;"), "{out}");
   assert!(out.contains("fn main() {"), "{out}");
 }
+
+/// A **renamed item inside an import tree** keeps the spaces around `as`.
+///
+/// `import_path` breaks its scan on `as` at depth zero, so the only one that
+/// reaches the push is inside a brace group — and it arrived with no space on
+/// either side, making
+/// `import lsp_types::notification::{Notification as NotificationTrait}` into
+/// `{NotificationasNotificationTrait}`. The path is one string in the AST, so
+/// that came out of the emitter *and* the formatter: Rust that does not
+/// compile, and a `redox fmt` that rewrote the source to match it.
+///
+/// Plan 78 found it porting `redox-lsp`. A **top-level** `as` survived all
+/// along — `import std::fmt::Write as _` goes through `import_decl`'s alias
+/// handling — which is why four ported crates went by without catching this.
+#[test]
+fn an_item_renamed_inside_a_tree_keeps_its_spaces() {
+  let out = xrs("import a::b::{C as D, E}\n");
+  assert!(out.contains("use a::b::{C as D, E};"), "{out}");
+}
+
+/// And the top-level form, which was never broken and must stay that way.
+#[test]
+fn a_top_level_rename_is_unchanged() {
+  let out = xrs("import std::fmt::Write as _\n");
+  assert!(out.contains("use std::fmt::Write as _;"), "{out}");
+}

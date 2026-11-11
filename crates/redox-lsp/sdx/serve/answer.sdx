@@ -1,0 +1,42 @@
+import crate::serve::cast::cast
+import crate::serve::documents::Documents
+import crate::serve::formatting::formatting
+import crate::serve::reply::reply
+import crate::serve::semantic_tokens::semantic_tokens
+import crate::serve::symbols::symbols
+import lsp_server::ExtractError
+import lsp_server::{Request, Response}
+import lsp_types::request::{DocumentSymbolRequest, Formatting, Request as RequestTrait, SemanticTokensFullRequest}
+import lsp_types::{DocumentFormattingParams, DocumentSymbolParams, SemanticTokensParams}
+
+-- | Answer one request.
+-- |
+-- | An unknown method gets a result of `null` rather than an error. The
+-- | protocol allows either, and `null` is the kinder one: a capability this
+-- | server did not advertise should not have been asked for, and an error reply
+-- | shows up in the user's log as though they had done something wrong.
+export(crate) answer : &Request -> &Documents -> Response
+answer request documents =
+  id = .clone request.id
+  method = .as_str request.method
+
+  -- An ascription per arm, where the Rust wrote `cast::<DocumentSymbolRequest>`.
+  -- Doc 03 §18 has no turbofish and names ascription as the replacement; `cast`
+  -- takes the method as a value for the reason its own doc comment records.
+  if method == DocumentSymbolRequest::METHOD
+    got : Result<DocumentSymbolParams, ExtractError<Request>> = cast request DocumentSymbolRequest::METHOD
+    return reply id got (\params -> symbols (.unwrap_or_default (.text (&params.text_document.uri) documents)))
+
+  if method == Formatting::METHOD
+    got : Result<DocumentFormattingParams, ExtractError<Request>> = cast request Formatting::METHOD
+    return reply id got (\params -> formatting (.unwrap_or_default (.text (&params.text_document.uri) documents)))
+
+  if method == SemanticTokensFullRequest::METHOD
+    got : Result<SemanticTokensParams, ExtractError<Request>> = cast request SemanticTokensFullRequest::METHOD
+    return reply id got (\params -> semantic_tokens (.unwrap_or_default (.text (&params.text_document.uri) documents)))
+
+  -- A method this server did not advertise gets a `null` **result** rather
+  -- than an error. The protocol allows either, and `null` is the kinder
+  -- one: an error reply shows up in the user's log as though they had done
+  -- something wrong, when it was the editor that asked.
+  Response { id, response_result = Ok serde_json::Value::Null }

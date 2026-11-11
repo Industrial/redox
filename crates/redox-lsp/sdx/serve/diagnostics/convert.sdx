@@ -1,0 +1,26 @@
+import crate::serve::positions::range_of::range_of
+import lsp_types::{Diagnostic, DiagnosticSeverity, NumberOrString}
+
+-- | One Redox diagnostic as the protocol's.
+-- |
+-- | The mapping is field for field, which is what made this row small:
+-- | `redox_diag::Diagnostic` already carries a code, a severity, a span, a
+-- | message and a help string.
+-- |
+-- | `help` becomes part of the message rather than a `relatedInformation`
+-- | entry. A related-information item needs a location of its own, and a help
+-- | string has none — it is advice about the diagnostic, not a second place to
+-- | look.
+export(crate) convert : &redox_diag::Diagnostic -> &str -> Diagnostic
+convert diagnostic source =
+  message = case &diagnostic.help of
+    Some help -> format! \-> "#{diagnostic.message}\nhelp: #{help}"
+    None -> .clone diagnostic.message
+  -- `is_fatal` rather than a match on the variant: plan 38 made `Severity`
+  -- the thing that knows, and an integer in a protocol is exactly where an
+  -- off-by-one would be invisible.
+  severity = if .is_fatal diagnostic.severity
+    DiagnosticSeverity::ERROR
+  else
+    DiagnosticSeverity::WARNING
+  Diagnostic { range = range_of source diagnostic.span, severity = Some severity, code = Some (NumberOrString::String (.text diagnostic.code)), code_description = None, source = Some (.to_string "redox"), message, related_information = None, tags = None, r#data = None }

@@ -53,9 +53,25 @@ pub(crate) fn import_path(p: &mut Parser) -> Result<String, ParseError> {
       _ => {}
     }
 
-    // No spaces are inserted. A path has none at depth zero, and inside a
-    // tree Rust's own style is `{self, Read, Write}` — one space after each
-    // comma, which is what the comma arm writes.
+    // **`as` inside a tree takes its spaces.** The scan breaks on `as` at
+    // depth *zero*, so the only one that reaches here is inside a brace group
+    // — `{Notification as NotificationTrait}` — and Rust needs the spaces
+    // around it. The note below is true of doc 03 §13.1's five forms and not
+    // of a renamed item inside a tree.
+    //
+    // Plan 78 found it porting `redox-lsp`: the path is one string in the AST,
+    // so `{NotificationasNotificationTrait}` came out of *both* the emitter
+    // and the formatter — Rust that does not compile, and a `redox fmt` that
+    // rewrote the source to match it.
+    if matches!(kind, TokenKind::Kw(redox_lexer::Keyword::As)) {
+      text.push_str(" as ");
+      p.advance();
+      continue;
+    }
+
+    // No spaces are inserted otherwise. A path has none at depth zero, and
+    // inside a tree Rust's own style is `{self, Read, Write}` — one space
+    // after each comma, which is what the comma arm writes.
     text.push_str(&token_text(kind));
     if matches!(kind, TokenKind::Comma) {
       text.push(' ');

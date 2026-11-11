@@ -1,0 +1,20 @@
+import lsp_server::{ExtractError, Request}
+import serde::de::DeserializeOwned
+
+-- | **The method is a value, where the Rust made it a turbofish.**
+-- |
+-- | `cast::<Formatting>(request)` picks the request type at the call site, and
+-- | the Rust's `R` appears only as `R::Params` and `R::METHOD`. Redox has no
+-- | turbofish, and ascription cannot stand in — `R` is not inferable from
+-- | `R::Params`, and `type_vars` would not register `r` at all, because it
+-- | skips an identifier adjacent to `::` so that `fmt` in `fmt::Result` is not
+-- | a type parameter.
+-- |
+-- | So the discriminator is passed: the caller writes the method and ascribes
+-- | the params type. More explicit than the turbofish, no longer, and the
+-- | general answer — a function generic only through an associated type has to
+-- | take its discriminator as an argument.
+export(crate) cast : DeserializeOwned p => &Request -> &str -> Result<p, ExtractError<Request>>
+cast request method =
+  extracted = .extract method (.clone request)
+  .map (\pair -> pair.1) extracted

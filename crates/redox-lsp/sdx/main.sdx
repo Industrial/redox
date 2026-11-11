@@ -1,0 +1,51 @@
+-- ! The `redox-lsp` binary: stdio transport, then `serve`.
+-- !
+-- ! Thin on purpose. Plan 40 decision 6 puts the whole server in the library so
+-- ! the tests drive `serve` over an in-process `Connection` — the same protocol
+-- ! path with no process to spawn — and what is left here is the part a test
+-- ! cannot exercise without a terminal.
+-- !
+-- ! # `--version`, and why a protocol server needs one
+-- !
+-- ! Plan 71 leaf 1. Everything else here speaks JSON-RPC on stdin, so until
+-- ! this existed the only way to ask the binary what it was was to start a
+-- ! server and watch it fail: `redox-lsp --version` answered
+-- ! `Error: "disconnected channel"`, because the flag was not a flag and the
+-- ! empty stdin was the error. A packaged binary has to answer — the Nix
+-- ! derivation, `editors/vscode`'s `redox.server.path` setting and anyone
+-- ! debugging a version skew all ask the same question first.
+
+import lsp_server::Connection
+import lsp_types::InitializeParams
+
+main : Result<(), String>
+main =
+  -- Before the transport: `Connection::stdio()` takes the handles and the
+  -- handshake blocks, so a flag checked after it would never be reached.
+  wants_version = std::env::args ()
+    |> .skip 1
+    |> .any (\arg -> arg == "--version" || arg == "-V")
+  if wants_version
+    version = env! \-> "CARGO_PKG_VERSION"
+    println! \-> "redox-lsp #{version}"
+    return Ok ()
+
+  stdio = Connection::stdio ()
+  connection = stdio.0
+  threads = stdio.1
+
+  -- The handshake has to come before the loop: an editor sends no request
+  -- until it has the capability list, so a server that started serving first
+  -- would wait forever on a connection the editor is also waiting on.
+  advertised = (.map_err (\e -> .to_string e) (serde_json::to_value (redox_lsp::capabilities ())))?
+  params = (.map_err (\e -> .to_string e) (.initialize advertised connection))?
+  -- Deserialised and dropped. Nothing here needs a workspace root — every
+  -- capability answers from the document the editor sent — and parsing it
+  -- anyway means a malformed `initialize` fails here rather than somewhere
+  -- later and stranger.
+  _settings : InitializeParams = (.map_err (\e -> .to_string e) (serde_json::from_value params))?
+
+  (redox_lsp::serve (&connection))?
+  -- The join matters: `lsp-server`'s threads own the stdio handles, and
+  -- returning without it can drop a reply the editor is still reading.
+  .map_err (\e -> .to_string e) (.join threads)
