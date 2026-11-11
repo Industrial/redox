@@ -1,8 +1,16 @@
 //! Enforces `docs/06 - Redox Code Architecture.md` §2: directory structure.
 //!
-//! §1 alone produces a correct but shapeless crate — forty files in one
-//! directory with no indication of what owns what. These checks make the
-//! module tree part of the design rather than an accident.
+//! Plan 91 retired one-construct-per-file and with it four of this file's
+//! seven checks — the module-head rule and the depth cap describe a tree that
+//! no longer exists. The three that remain never depended on it:
+//!
+//! * `no_directory_groups_by_item_kind` is the hazard of merging 572 files
+//!   into 52. The lazy merge is a `helpers/` directory, and this refuses it.
+//! * `no_module_uses_mod_rs` and `no_directory_is_empty` are layout hygiene,
+//!   orthogonal to how many constructs a file holds.
+//!
+//! Deleting the file wholesale would have discarded three working checks in
+//! order to retire one rule.
 
 use std::path::{Path, PathBuf};
 
@@ -11,9 +19,6 @@ const BANNED_DIRS: [&str; 13] = [
   "types", "structs", "enums", "traits", "impls", "helpers", "utils", "util", "common", "misc",
   "shared", "internal", "private",
 ];
-
-/// Doc 06 §2.4.
-const MAX_DEPTH: usize = 3;
 
 fn workspace_root() -> PathBuf {
   PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -69,45 +74,6 @@ fn dirs(dir: &Path, out: &mut Vec<PathBuf>) {
   }
 }
 
-/// Doc 06 §2.1: a file directly under `src/` is legal only as the module root
-/// or as a module head — a construct with a sibling directory of the same name.
-#[test]
-fn every_root_level_file_is_a_module_head() {
-  let mut offenders = Vec::new();
-  for src in crate_sources() {
-    let Ok(entries) = std::fs::read_dir(&src) else {
-      continue;
-    };
-    for entry in entries {
-      let path = entry.expect("should read a directory entry").path();
-      if path.is_dir() || path.extension().is_none_or(|e| e != "rs") {
-        continue;
-      }
-      let stem = path
-        .file_stem()
-        .expect("a file stem")
-        .to_string_lossy()
-        .to_string();
-      if stem == "lib" || stem == "main" {
-        continue;
-      }
-      if !src.join(&stem).is_dir() {
-        offenders.push(format!(
-          "{} is not a module head: create {}/ for its children, or move it under an \
-           existing module",
-          path.display(),
-          src.join(&stem).display()
-        ));
-      }
-    }
-  }
-  assert!(
-    offenders.is_empty(),
-    "doc 06 §2.1 requires every root-level file to be a module head:\n  {}",
-    offenders.join("\n  ")
-  );
-}
-
 /// Doc 06 §2.2: directories name domain concepts, never item kinds.
 #[test]
 fn no_directory_groups_by_item_kind() {
@@ -132,32 +98,6 @@ fn no_directory_groups_by_item_kind() {
   assert!(
     offenders.is_empty(),
     "doc 06 §2.2 bans kind-based and bucket directory names:\n  {}",
-    offenders.join("\n  ")
-  );
-}
-
-/// Doc 06 §2.4: depth mirrors containment, and a fourth level means the crate
-/// boundary should have split instead.
-#[test]
-fn no_file_is_deeper_than_the_depth_cap() {
-  let mut offenders = Vec::new();
-  for src in crate_sources() {
-    let mut files = Vec::new();
-    rs_files(&src, &mut files);
-    for path in files {
-      let depth = path
-        .strip_prefix(&src)
-        .expect("file is under src/")
-        .components()
-        .count();
-      if depth > MAX_DEPTH {
-        offenders.push(format!("{} is {depth} levels below src/", path.display()));
-      }
-    }
-  }
-  assert!(
-    offenders.is_empty(),
-    "doc 06 §2.4 caps depth at {MAX_DEPTH} levels below src/:\n  {}",
     offenders.join("\n  ")
   );
 }

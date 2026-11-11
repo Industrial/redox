@@ -71,11 +71,11 @@ use support::ported;
 
 /// Every `.sdx` of the port, with the `.rs` it generates.
 ///
-/// The mirror is one file for one file and the same relative path, which is
-/// what keeps `docs/06`'s architecture rules applying: `one_construct_per_file`
-/// and `directory_structure` scan `crates/**/src/**/*.rs`, so they grade the
-/// **generated** tree — correctly, since the rules are about the Rust module
-/// tree — and the `.sdx` tree inherits them through the mirror.
+/// The mirror is one file for one file and the same relative path. Plan 91
+/// retired one-construct-per-file, so what the mirror now carries across is
+/// `directory_structure`'s three surviving checks and `line_cap` — all of
+/// which scan `crates/**/src/**/*.rs` and so grade the **generated** tree,
+/// correctly, since the rules are about the Rust module tree.
 fn pairs() -> Vec<(PathBuf, PathBuf)> {
   ported().iter().flat_map(|(c, _)| pairs_of(c)).collect()
 }
@@ -449,82 +449,6 @@ fn every_hatch_allowance_is_used() {
   assert!(
     offenders.is_empty(),
     "the hatch allowance list has drifted:\n{}",
-    offenders.join("\n")
-  );
-}
-
-/// Criterion 5, and plan 68 leaf 4: every doc comment is still a doc comment.
-///
-/// **The only property here no other test could notice.** A doc comment in
-/// Redox is decided **per line** — `-- |` is one and `--` is an ordinary
-/// comment — so writing `-- |` once and `--` after produces valid Redox whose
-/// output is `///` and then `//`. The text survives, so nothing that checks
-/// for comment *loss* sees anything wrong, and the line is no longer
-/// documentation. `redox-ast` is roughly 60% doc comment by line, and most of
-/// them are multi-line.
-///
-/// Asserted as an equality between the two trees rather than against a
-/// recorded figure: a count written down here would be one more number to
-/// chase, and the `.sdx` is the source of truth for how many there should be.
-#[test]
-fn every_doc_comment_reaches_the_generated_rust() {
-  let mut offenders = Vec::new();
-  for (sdx, rs) in pairs() {
-    let source = std::fs::read_to_string(&sdx).expect("should read the port source");
-    let generated = std::fs::read_to_string(&rs).unwrap_or_default();
-
-    // **A verbatim block's own doc comments count on both sides.** Inside a
-    // `rust` hatch the text is Rust, so a `///` there is spelled `///` in the
-    // `.sdx` too — it is neither lost nor invented, and counting only `-- |`
-    // made the hatch look like a comment appearing out of nowhere. Plan 81
-    // found it on the three `thread_local!` files; the alternative was to
-    // downgrade real doc comments to `//` to satisfy the arithmetic, which is
-    // the test changing the code rather than reading it.
-    let mut outer = 0;
-    let mut inner = 0;
-    let mut verbatim = false;
-    for line in source.lines() {
-      let t = line.trim_start();
-      if verbatim {
-        if t == "\"\"\"" {
-          verbatim = false;
-        } else if t.starts_with("///") {
-          outer += 1;
-        } else if t.starts_with("//!") {
-          inner += 1;
-        }
-        continue;
-      }
-      let code = line.split("--").next().unwrap_or("");
-      if code.split_whitespace().any(|w| w == "rust") && code.contains("\"\"\"") {
-        verbatim = true;
-      } else if t.starts_with("-- |") {
-        outer += 1;
-      } else if t.starts_with("-- !") {
-        inner += 1;
-      }
-    }
-    let got_outer = generated
-      .lines()
-      .filter(|l| l.trim_start().starts_with("///"))
-      .count();
-    let got_inner = generated
-      .lines()
-      .filter(|l| l.trim_start().starts_with("//!"))
-      .count();
-
-    if outer != got_outer || inner != got_inner {
-      offenders.push(format!(
-        "  {}: {outer} `-- |` and {inner} `-- !` became {got_outer} `///` and {got_inner} `//!`",
-        sdx.display()
-      ));
-    }
-  }
-  assert!(
-    offenders.is_empty(),
-    "doc comments did not survive the port:\n{}\n\
-     A `--` continuation line is an *ordinary* comment: its text reaches the \
-     output and its `///` does not, which no other test in this gate notices.",
     offenders.join("\n")
   );
 }

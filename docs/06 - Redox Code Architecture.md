@@ -1,262 +1,152 @@
 # Redox — Code Architecture
 
-Version: 2.0.0
-Status: normative. Enforced by `crates/redox-cli/tests/one_construct_per_file.rs`,
-`crates/redox-cli/tests/directory_structure.rs` and `crates/redox-cli/tests/line_cap.rs`.
-Applies to: every crate in the workspace, including crates that are currently empty, and to
-every crate added later.
+Version: 3.0.0
+Status: normative. Enforced by `crates/redox-cli/tests/directory_structure.rs`,
+`crates/redox-cli/tests/line_cap.rs` and `crates/redox-cli/tests/no_comments.rs`.
+Applies to: every crate in the workspace, and to every crate added later.
 
-This document governs how Redox's Rust source is organised. It is normative, not advisory:
-the central rules are machine-checked and a violation fails the ordinary test gate.
+This document governs how Redox's source is organised. It is normative, not advisory: the
+central rules are machine-checked and a violation fails the ordinary test gate.
 
-**Version 2.0.0** adds §2, the directory-structure rule, and the path-aware naming it
-implies. §1 is unchanged.
+**Version 3.0.0 replaces §§1–2.** Version 2.0.0 required *one construct per file* with
+path-aware naming and a three-level depth cap. Plan 91 retired all three and the measurement
+is why:
+
+| | 2.0.0 | 3.0.0 |
+|---|---|---|
+| `.sdx` files | 572 | ~52 |
+| mean code lines per file | 23.5 | ~215 |
+| files under 15 code lines | 271 (47%) | 0 |
+| `import` / `module` ceremony | 2,358 lines, **18% of all code** | one import block per module |
+| comments | 16,125 lines, **52% of the source** | **none** |
+
+One construct per file was a sound trade while every file also held a paragraph explaining
+itself: the comment was the unit of value and the file was its envelope. With no comments, a
+15-line file is an import list and a function, and 271 of those are not an architecture.
+
+§§3–11 are unchanged and still govern crate layering, visibility, re-exports, error
+handling, test placement and dependencies.
 
 ---
 
-## 1. The rule: one construct per file
+## 1. The rule: one cohesive group per file
 
-> **Every construct lives in its own file, named after it in `snake_case`.**
+> **A module is a syntactic category or a pipeline stage. Everything belonging to it lives
+> in one file, and that file holds no comments.**
 
-A **construct** is a named, top-level item that forms part of a crate's vocabulary:
+The compiler is organised by the two things it is actually about:
 
-| Item kind | Example | File |
-|---|---|---|
-| `struct` | `Token` | `token.rs` |
-| `enum` | `TokenKind` | `token/kind.rs` |
-| `union` | `Payload` | `payload.rs` |
-| `trait` | `Reporter` | `reporter.rs` |
-| `type` alias | `Span` | `source/span.rs` |
-| `fn` | `lex` | `lex.rs` |
-| `const` / `static` | `RUST_INDENT` | `emit/rust_indent.rs` |
+- **Syntactic categories** — `expr`, `pattern`, `item`, `type`, `block`. These are the
+  shapes the language has, and every stage has an opinion about each of them.
+- **Pipeline stages** — `scan`, `layout`, `precedence`, `scope`, `render`. These are the
+  passes a shape goes through.
 
-**Exactly one** such item may appear at the top level of a file. This holds regardless of
-visibility — a private helper function is a construct and gets its own file.
+A file is named for one of those and holds all of it: the types, the functions over them,
+their `impl` blocks and their inline tests.
 
-### 1.1 What travels with a construct
+```text
+crates/redox-parser/sdx/
+  parser.sdx       state, dispatch, the item loop
+  expr.sdx         the Pratt loop and every expression production
+  pattern.sdx      every pattern production
+  item.sdx         every declaration production
+  type.sdx         verbatim type capture
+  layout.sdx       the off-side rule as the parser sees it
+  precedence.sdx   binding powers and fixity
+  recover.sdx      error recovery
+```
 
-These are part of the construct, not separate constructs, and belong in its file:
+Eight files for what was 134. The categories are not buckets and the stages are not buckets,
+which is the distinction §2.1 enforces: `expr` names a thing the language has, where
+`helpers` names where code went when nobody decided.
 
-- **`impl` blocks for the type**, inherent and trait alike. A type and its behaviour are one
-  unit; splitting them is how you get a type whose invariants are enforced in three places.
-- **Derive and attribute macros** on the item.
-- **The construct's own tests**, as `#[cfg(test)] mod tests` — but see §7, which prefers
+### 1.1 What a module holds
+
+Everything that belongs to its category or stage:
+
+- the **types** of that category, with their `impl` blocks — a type and its behaviour are
+  one unit, and splitting them is how invariants end up enforced in three places;
+- the **functions** over them, public and private alike;
+- the **constants** they need;
+- **inline tests** for private constructs, as `test "…"` blocks — but see §7, which prefers
   integration tests for anything reachable through the public API.
 
-Nothing else. A constant used by two functions is its own construct in its own file.
+A construct used by two modules belongs to the one that owns the concept, and is imported by
+the other. A construct used by *every* module is the crate's vocabulary and belongs in the
+module root.
 
-### 1.2 Module roots and grouping modules hold no constructs
+### 1.2 Module roots
 
-`lib.rs` and `main.rs` are **module roots**, not construct files. They contain only:
-
-1. the crate-level doc comment (`//!`);
-2. `mod` / `pub mod` declarations;
-3. `pub use` re-exports that form the crate's public surface (§5);
-4. crate-level attributes (`#![forbid(unsafe_code)]`).
-
-`main.rs` additionally holds `fn main`, which has no other legal home.
-
-A **grouping module** is the same thing one level down: a file that declares child modules
-and a doc comment explaining what the group is for, and holds no construct of its own.
-`redox-diag/src/source.rs` is one — it groups `span.rs` and will group plan 06's span map.
-
-A grouping module is legal **only** with a sibling directory; a file declaring no construct
-and no children is dead. Prefer a module head (§2.1) where the group has a natural
-head construct, and reach for a grouping module when it genuinely does not.
+`lib.sdx` and `main.sdx` contain only `module` declarations, `export import` re-exports, the
+crate's vocabulary types if it has any, and `main`.
 
 ### 1.3 No `mod.rs`
 
-Use the 2018-and-later layout: a module with children is `foo.rs` beside a `foo/`
-directory, never `foo/mod.rs`. A tree full of files all named `mod.rs` is unnavigable in an
-editor tab bar and in a diff.
+The 2018-and-later layout: `foo.sdx` beside `foo/`, never `foo/mod.rs`. Enforced by
+`no_module_uses_mod_rs`.
 
-### 1.4 What this costs, stated plainly
+A module with children is the common case now that files are groups — `expr.sdx` with
+`expr/precedence.sdx` beneath it is fine where the child is genuinely a sub-stage. It is not
+an excuse to recreate 572 files one level down, and §2.2's line cap is what bounds it.
 
-The rule is not free, and pretending otherwise would make it easy to abandon under pressure:
+### 1.4 No comments
 
-- **More files.** `redox-lexer` is twelve source files where it was one.
-- **Cohesive small types get separated.** §5's re-exports are what keep this from leaking
-  into every caller's `use` block.
-- **Visibility widens slightly.** A helper that was a private `fn` in one file now needs
-  `pub(crate)` to be reachable from the construct it serves. Use the narrowest visibility
-  that compiles — `pub(super)` before `pub(crate)`, `pub(crate)` before `pub` — and never
-  widen a helper to `pub` to satisfy the rule.
+> **No `.sdx` under `crates/` contains a comment.**
 
-What it buys: every name has exactly one home, so finding a construct never requires
-searching; two people editing two constructs never touch the same file, so the diffs cannot
-conflict; and a file's length becomes a direct signal that one construct is doing too much.
+Not doc comments, not line comments, not a commented-out line. Enforced per crate by
+`no_comments.rs`.
 
-### 1.5 The failure mode this prevents
+What this costs is real and is stated here rather than discovered: the reasoning that was in
+16,125 comment lines is **gone, not relocated**. What remains is this document and the plan
+records — `docs/NN - MM - Title.md`, each with a §10 recording what its row measured and
+corrected. `plan_orientation.rs` asserts that every orientation is cited by the plan it
+corrects, so the citation path survives; the convenience of reading it beside the code does
+not.
 
-Emerald — the comparable compiler audited in `docs/02 - Redox Update Blueprint.md` — has
-**34,429 lines in `crates/emerald-codegen/src/lib.rs`** and **22,589 in
-`emerald-sema/src/lib.rs`**, each a single file. Doc 02 §5.4 identifies this as the one clear
-structural defect in an otherwise well-organised repository, and notes the contrast: its
-`emerald-driver` is 2,658 lines across four named modules and is by far the most readable
-crate in it.
-
-Nothing about that outcome was a decision. It is what happens when a file has no rule
-telling it when to stop growing.
+The one thing that did **not** change: a *user's* comments are still trivia that reach their
+generated `.xrs`. Doc 02 §10.1 is intact. This rule is about the compiler's own source.
 
 ---
 
 ## 2. Directory structure
 
-> **`src/` is not a flat list of files.** Constructs are grouped into modules that mirror
-> the crate's internal structure, and the module tree is part of the design.
+> **Directories name domain concepts. A file is a group, and a group has a size limit.**
 
-§1 alone produces a correct but shapeless crate: forty files in one directory, alphabetical,
-with no indication of what owns what. The one-construct rule says where a construct *starts*;
-this section says where it *belongs*.
+### 2.1 Group by role, never by item kind
 
-### 2.1 Every root-level file is a module head
-
-A file directly under `src/` is legal only if it is:
-
-1. the **module root** — `lib.rs` or `main.rs`;
-2. a **module head** — a construct with a sibling directory of the same name holding its
-   children; or
-3. a **grouping module** (§1.2) — child declarations and a doc comment, no construct, with a
-   sibling directory.
-
-```text
-src/
-  lib.rs            module root
-  token.rs          module head — declares Token
-  token/            its children
-    kind.rs         declares TokenKind
-```
-
-Everything else lives at least one level down. A construct that belongs to no group is a
-signal, not an exception: either it belongs under an existing module, or it heads a new one.
-
-This is the rule that actually forces structure. Without it, §1 permits a flat pile and the
-module tree never gets designed.
-
-### 2.2 Group by role, never by item kind
-
-Directory names are **domain nouns, singular**, naming the concept that owns the children:
-`token/`, `trivia/`, `source/`, `emit/`, `build_command/`.
-
+Directory names are **domain nouns, singular**, naming the concept that owns the children.
 Never group by what an item *is*:
 
 | Banned | Why |
 |---|---|
-| `types/`, `structs/`, `enums/`, `traits/` | Groups by item kind. Tells a reader nothing about the domain, and every change touches every directory. |
-| `helpers/`, `utils/`, `common/`, `misc/`, `shared/`, `core/` | Buckets. A helper belongs under the construct it serves. |
-| `impls/` | An `impl` travels with its type (§1.1). |
+| `types/`, `structs/`, `enums/`, `traits/`, `impls/` | Groups by item kind. Tells a reader nothing about the domain, and every change touches every directory. |
+| `helpers/`, `utils/`, `common/`, `misc/`, `shared/`, `core/` | Buckets. A helper belongs with the concept it serves. |
 | `mod/`, `internal/`, `private/` | Visibility is a keyword, not a directory (§4). |
 
-The same prohibition as §1's ban on `types.rs` and `helpers.rs`, one level up. A directory
-whose name does not name a domain concept is a bucket.
+Enforced by `no_directory_groups_by_item_kind`, and **this is the rule that matters most
+under 3.0.0**. Merging 572 files into 52 has exactly one lazy failure mode, and it is a
+`helpers/` directory. The check that refuses it is the one check from 2.0.0 §2 that was kept
+when the other four were retired.
 
-### 2.3 Naming is path-aware
+### 2.2 A file has a size limit
 
-A directory must pay for itself by shortening the names beneath it. The construct's
-`snake_case` name must equal **either**:
+**No generated `.rs` file exceeds 1,500 lines**, enforced by `line_cap.rs`.
 
-- the file stem — `lexer/trim_comment.rs` holds `trim_comment`; or
-- the parent directory name joined to the stem by `_` — `token/kind.rs` holds `TokenKind`.
+Under 2.0.0 this cap was nearly unreachable and never bound anything except
+`parse/parser.rs`. Under 3.0.0 it is the only thing standing between *a module per group*
+and *one file per crate*. The measurement says there is room: the largest group projects to
+roughly 600 generated lines.
 
-So `token/token_kind.rs` is wrong: it stutters, and the directory has bought nothing. Write
-`token/kind.rs`.
+A module that reaches the cap is a module whose category has two categories in it. Split on
+the seam, not by line count.
 
-```text
-source/span.rs              → Span              stem matches
-token/kind.rs               → TokenKind         parent + stem
-lex/error.rs                → LexError          parent + stem
-block/stmt/binding.rs       → Binding           parent + stem
-lexer/is_ident_start.rs     → is_ident_start    stem matches
-```
-
-**One exception, for keywords.** If prefix-dropping would produce a Rust keyword as the
-module name, keep the full name: `emit_fn` lives at `emit/emit_fn.rs`, because `emit/fn.rs`
-would need `mod r#fn`. Prefer renaming the construct to avoid this where a better name
-exists.
-
-### 2.4 Depth
-
-**At most three levels below `src/`.** `block/stmt/binding.rs` is the limit.
-
-This read `block/stmt/kind.rs` until plan 55 leaf 8: plan 55 leaf 1 deleted
-`StmtKind`, so the path this rule illustrated itself with was no longer in the
-tree. Its sibling is, and §2.6's worked example already named it.
-
-Depth mirrors containment, so a fourth level means the crate is modelling something the
-crate boundary should have split. Reach for a new crate (§3), not a fourth directory.
-
-### 2.5 A directory earns its existence
+### 2.3 A directory earns its existence
 
 - **Two or more children** is the normal case.
-- **One child** is permitted but is a smell. It is justified only when the module is a
-  named place with known growth ahead of it — `source/` holds only `span.rs` today and will
-  hold plan 06's span map. Write the reason in the head file's doc comment.
-- **Zero children** is not a directory, it is a deleted directory.
-
-### 2.6 Worked example
-
-The whole workspace, as it stands, read as a demonstration of §§2.1–2.5:
-
-```text
-crates/redox-lexer/src/
-  lib.rs
-  lex.rs                      fn lex              entry point, head
-  lex/error.rs                LexError
-  lexer.rs                    Lexer               the scanner, head
-  lexer/is_ident_continue.rs  fn
-  lexer/is_ident_start.rs     fn
-  lexer/trim_comment.rs       fn
-  source/span.rs              Span                single child, growth declared
-  token.rs                    Token               head
-  token/kind.rs               TokenKind
-  trivia.rs                   Trivia              head
-  trivia/kind.rs              TriviaKind
-
-crates/redox-ast/src/         # mirrors the containment hierarchy
-  lib.rs
-  block.rs                    Block
-  block/stmt.rs               Stmt
-  block/stmt/binding.rs       Binding
-  expr.rs                     Expr
-  expr/ident.rs               Ident
-  program.rs                  Program
-  program/item.rs             Item
-  program/item/fn_decl.rs     FnDecl
-
-crates/redox-parser/src/
-  lib.rs
-  parse.rs                    fn parse            entry point, head
-  parse/error.rs              ParseError
-  parse/failure.rs            ParseFailure
-  parse/parser.rs             Parser
-  parse/source.rs             fn parse_source
-
-crates/redox-emit/src/
-  lib.rs
-  emit.rs                     fn emit             entry point, head
-  emit/emit_fn.rs             fn emit_fn          keyword exception (§2.3)
-  emit/expr.rs                fn emit_expr
-  emit/inline_comment.rs      fn emit_inline_comment
-  emit/pad.rs                 fn pad
-  emit/rust_indent.rs         const RUST_INDENT
-  emit/stmt.rs                fn emit_stmt
-  emit/trivia.rs              fn emit_trivia
-
-crates/redox-cli/src/
-  main.rs
-  build_command.rs                   fn build_command    head
-  build_command/default_output.rs    fn
-  build_command/parse_build_args.rs  fn
-  build_command/render.rs            fn render           head
-  build_command/render/line_col.rs   fn                  owned by render
-  run.rs                             fn run              head
-  run/usage.rs                       const USAGE
-```
-
-Note what the tree tells a reader that a flat directory could not: `line_col` exists only
-for `render`; the three `is_ident_*`/`trim_comment` helpers belong to the `Lexer` and to
-nothing else; `ParseError` and `ParseFailure` are part of parsing rather than free-floating
-error types; and the AST's directory nesting *is* the grammar's containment hierarchy.
+- **One child** is permitted but is a smell, justified only when the module is a named place
+  with known growth ahead of it.
+- **Zero children** is not a directory, it is a deleted directory. Enforced by
+  `no_directory_is_empty`.
 
 ---
 
@@ -293,7 +183,7 @@ Rules:
    is a *diagnostic* concept the lexer happens to produce, moving it down into
    `redox-diag`, and re-exporting it (`pub use redox_diag::Span;`) so no caller changed.
    The re-export matters: it means a layering correction need not be a breaking one.
-5. **Reach for a crate before a fourth directory level** (§2.4).
+5. **Reach for a crate before a module that holds two categories** (§2.2).
 6. **One computation, one home.** If two crates compute the same thing, the copies will
    disagree, and the disagreement will surface as a wrong answer rather than a failed
    build. `Cursor` tracked a line and column while `redox-diag` derived them from the
@@ -439,14 +329,12 @@ Run by the ordinary gate. None is optional and none may be weakened to make a ch
 
 | Check | Test |
 |---|---|
-| Exactly one construct per file | `one_construct_per_file.rs` |
-| File name matches its construct, path-aware (§2.3) | `one_construct_per_file.rs` |
-| Every root-level file is a module head or grouping module (§2.1) | `directory_structure.rs` |
-| No kind-based or bucket directory names (§2.2) | `directory_structure.rs` |
-| At most three levels below `src/` (§2.4) | `directory_structure.rs` |
-| No directory without children (§2.5) | `directory_structure.rs` |
+| No comments in any rewritten crate's `.sdx` (§1.4) | `no_comments.rs` |
+| Every name in that gate's list is a real crate | `no_comments.rs` |
+| No kind-based or bucket directory names (§2.1) | `directory_structure.rs` |
+| No directory without children (§2.3) | `directory_structure.rs` |
 | No `mod.rs` (§1.3) | `directory_structure.rs` |
-| File length under 1,500 lines | `line_cap.rs` |
+| File length under 1,500 lines (§2.2) | `line_cap.rs` |
 | Every declared diagnostic code is reached by a UI case | `code_coverage.rs` |
 | No `.stderr` expectation without its `.sdx` | `ui.rs` |
 | Every diagnostic prints a well-formed `RDX####` code | `ui.rs` |
@@ -464,8 +352,16 @@ directories are exempt per §7.
 
 All live in `crates/redox-cli/tests/`.
 
-The line cap is a backstop, not a primary rule. Under §1 a file should rarely approach it;
-if one does, the construct inside it is doing too much.
+**The line cap stopped being a backstop and became a primary rule.** Under 2.0.0 it was
+nearly unreachable, because a file held one construct. Under 3.0.0 it is the only thing
+between *a module per group* and *one file per crate*, and §2.2 says what to do when a module
+reaches it: split on the seam, not by line count.
+
+Four checks were retired with 2.0.0's §§1–2 and one was deleted for a different reason.
+`every_doc_comment_reaches_the_generated_rust` compared the `.sdx` tree's `-- |` count to the
+generated tree's `///` count; at zero comments that is `0 == 0`, so it passed while asserting
+nothing. Its own doc comment named that hazard. A test that cannot fail is worse than a
+missing one, so it is gone rather than green.
 
 ### 10.1 Why enforce rather than document
 
@@ -473,23 +369,25 @@ Doc 02 §3.1 records Emerald's habit of correcting stale plan labels in place, b
 convention that is only written down drifts. A rule with a test attached does not drift — it
 either holds or the build is red.
 
-The value is not hypothetical: the one-construct check caught two real violations within a
-minute of being written, and the violation turned out to be in the *checker's* own matcher
-rather than the layout — which is itself the argument for writing the check rather than
-eyeballing the tree.
+The value is not hypothetical, and it cuts both ways. The one-construct check caught two
+real violations within a minute of being written, and the violation turned out to be in the
+*checker's* own matcher rather than the layout. That is the argument for writing the check.
+Its retirement at 3.0.0 is the argument for measuring the rule: 271 of 572 files held under
+15 code lines, which no amount of enforcement would have told anyone.
 
 ---
 
 ## 11. Checklist for a new construct
 
 1. Pick the crate, obeying §3's layering.
-2. Decide where it belongs in the module tree (§2). If it heads a new module, create
-   `<name>.rs` **and** `<name>/`; if it belongs to an existing one, put it inside.
-3. Name the file per §2.3 — drop the parent's prefix if it would stutter.
-4. Put that one construct in it, with its `impl` blocks, and nothing else (§1).
-5. Declare it with `mod` in its parent, and `pub use` it from the module root if it is
-   public (§5).
-6. Give it the narrowest visibility that compiles (§4).
-7. If it is an error type, make sure it carries a `Span` (§6).
-8. Put its tests in `crates/<crate>/tests/` if they use only the public API (§7).
-9. Run the gate: `moon run :check :lint :test :cargo-check :cargo-test :ci-format`.
+2. Decide which **category or stage** owns it (§1) and open that module's file. Creating a
+   new file means claiming a new category or stage, which is a bigger decision than adding a
+   construct — most additions do not need one.
+3. Put it there with its `impl` blocks. **No comment** (§1.4) — if it needs explaining, the
+   explanation belongs in the plan document for the row that adds it.
+4. Give it the narrowest visibility that compiles (§4), and `export import` it from the
+   module root if it is public (§5).
+5. If it is an error type, make sure it carries a `Span` (§6).
+6. Put its tests in `crates/<crate>/tests/` if they use only the public API (§7); inline
+   `test "…"` blocks are for private constructs.
+7. Run the gate: `moon run :format :check :lint :test`.

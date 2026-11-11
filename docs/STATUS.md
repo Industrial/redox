@@ -35,7 +35,7 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 |---|---:|---:|
 | `redox-ast` | 3990 | 0 |
 | `redox-bench` | 645 | 217 |
-| `redox-cli` | 1494 | 9855 |
+| `redox-cli` | 1494 | 9509 |
 | `redox-diag` | 2037 | 0 |
 | `redox-driver` | 3253 | 0 |
 | `redox-emit` | 7594 | 4572 |
@@ -46,7 +46,7 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 | `redox-mcp` | 884 | 776 |
 | `redox-parser` | 10165 | 706 |
 | `redox-seed` | 337 | 676 |
-| **total** | **38854** | **20542** |
+| **total** | **38854** | **20196** |
 
 ---
 
