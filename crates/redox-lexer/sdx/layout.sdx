@@ -1,0 +1,55 @@
+import crate::LexError
+import crate::Token
+import crate::TokenKind
+import crate::lex::Lexer
+
+export(crate) dedent_block : &str -> String
+dedent_block body =
+  lines : Vec<&str> = body |> .lines |> .collect
+
+  common = lines
+    |> .iter
+    |> .filter (\l -> !.is_empty (.trim l))
+    |> .map (\l -> .len l - .len (.trim_start_matches ' ' l))
+    |> .min
+    |> .unwrap_or 0
+
+  mut out = String::new ()
+  for pair in .enumerate (.iter lines)
+    i = pair.0
+    line = pair.1
+    if i > 0
+      .push '\n' out
+    if .is_empty (.trim line)
+      continue
+    cut = .min (.len line) common
+    end = .len line
+    .push_str (.unwrap_or "" (.get (cut .. end) line)) out
+  out
+
+test "strips the common prefix and keeps relative indentation"
+  body = "    indented\n      relative\n    back"
+  assert_eq! \-> dedent_block body \-> "indented\n  relative\nback"
+
+test "a blank line does not force the prefix to zero"
+  body = "    one\n\n    two"
+  assert_eq! \-> dedent_block body \-> "one\n\ntwo"
+
+test "leaves an unindented body alone"
+  assert_eq! \-> dedent_block "a\nb" \-> "a\nb"
+
+test "handles an empty body"
+  assert_eq! \-> dedent_block "" \-> ""
+
+test "strips trailing spaces from a whitespace only line"
+  assert_eq! \-> dedent_block "  a\n    \n  b" \-> "a\n\nb"
+
+export(crate) lex_fragment : &str -> usize -> Result<Vec<Token>, LexError>
+lex_fragment src base =
+  mut toks = (.map_err (\e -> .offset_by base e) (.run (Lexer::new src)))?
+  .retain (\t -> !.is_structural t.kind && t.kind != TokenKind::Eof) toks
+  for t in .iter_mut toks
+    t.span := (t.span.0 + base, t.span.1 + base)
+    for trivium in .iter_mut t.leading
+      trivium.span := (trivium.span.0 + base, trivium.span.1 + base)
+  Ok toks

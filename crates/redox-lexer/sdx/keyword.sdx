@@ -1,0 +1,193 @@
+export data Keyword
+  = Mut
+  | Const
+  | Static
+  | Type
+  | Struct
+  | Enum
+  | Trait
+  | Impl
+  | Class
+  | Instance
+  | Module
+  | Errors
+  | Data
+  | Newtype
+  | Deriving
+  | If
+  | Else
+  | While
+  | Until
+  | For
+  | In
+  | With
+  | Loop
+  | Case
+  | Of
+  | Otherwise
+  | When
+  | Do
+  | Break
+  | Continue
+  | Return
+  | Guard
+  | Is
+  | Try
+  | Catch
+  | Where
+  | Given
+  | Or
+  | Not
+  | As
+  | Dyn
+  | Impls
+  | Fn
+  | Move
+  | Async
+  | Await
+  | Pure
+  | Import
+  | Export
+  | SelfValue
+  | SelfType
+  | True
+  | False
+  | Test
+  | Rust
+  | Unsafe
+  | Extern
+  | Union
+  deriving (Debug, Clone, Copy, PartialEq, Eq)
+
+instance Keyword
+  export from_text : &str -> Option<Self>
+  from_text text = case text of
+    "mut" -> Some Mut
+    "const" -> Some Const
+    "static" -> Some Static
+    "type" -> Some Type
+    "struct" -> Some Struct
+    "enum" -> Some Enum
+    "trait" -> Some Trait
+    "impl" -> Some Impl
+    "class" -> Some Class
+    "instance" -> Some Instance
+    "module" -> Some Module
+    "data" -> Some Data
+    "newtype" -> Some Newtype
+    "deriving" -> Some Deriving
+    "errors" -> Some Errors
+    "if" -> Some If
+    "else" -> Some Else
+    "while" -> Some While
+    "until" -> Some Until
+    "for" -> Some For
+    "in" -> Some In
+    "with" -> Some With
+    "loop" -> Some Loop
+    "case" -> Some Case
+    "of" -> Some Of
+    "otherwise" -> Some Otherwise
+    "when" -> Some When
+    "do" -> Some Do
+    "break" -> Some Break
+    "continue" -> Some Continue
+    "return" -> Some Return
+    "guard" -> Some Guard
+    "is" -> Some Is
+    "try" -> Some Try
+    "catch" -> Some Catch
+    "where" -> Some Where
+    "given" -> Some Given
+    "or" -> Some Or
+    "not" -> Some Not
+    "as" -> Some As
+    "dyn" -> Some Dyn
+    "implements" -> Some Impls
+    "fn" -> Some Fn
+    "move" -> Some Move
+    "async" -> Some Async
+    "await" -> Some Await
+    "pure" -> Some Pure
+    "import" -> Some Import
+    "export" -> Some Export
+    "self" -> Some SelfValue
+    "Self" -> Some SelfType
+    "true" -> Some True
+    "false" -> Some False
+    "test" -> Some Test
+    "rust" -> Some Rust
+    "unsafe" -> Some Unsafe
+    "extern" -> Some Extern
+    "union" -> Some Union
+    _ -> None
+
+  export text : self -> &'static str
+  text self = case self of
+    Mut -> "mut"
+    Const -> "const"
+    Static -> "static"
+    Type -> "type"
+    Struct -> "struct"
+    Enum -> "enum"
+    Trait -> "trait"
+    Impl -> "impl"
+    Class -> "class"
+    Instance -> "instance"
+    Module -> "module"
+    Data -> "data"
+    Newtype -> "newtype"
+    Deriving -> "deriving"
+    Errors -> "errors"
+    If -> "if"
+    Else -> "else"
+    While -> "while"
+    Until -> "until"
+    For -> "for"
+    In -> "in"
+    With -> "with"
+    Loop -> "loop"
+    Case -> "case"
+    Of -> "of"
+    Otherwise -> "otherwise"
+    When -> "when"
+    Do -> "do"
+    Break -> "break"
+    Continue -> "continue"
+    Return -> "return"
+    Guard -> "guard"
+    Is -> "is"
+    Try -> "try"
+    Catch -> "catch"
+    Where -> "where"
+    Given -> "given"
+    Or -> "or"
+    Not -> "not"
+    As -> "as"
+    Dyn -> "dyn"
+    Impls -> "implements"
+    Fn -> "fn"
+    Move -> "move"
+    Async -> "async"
+    Await -> "await"
+    Pure -> "pure"
+    Import -> "import"
+    Export -> "export"
+    SelfValue -> "self"
+    SelfType -> "Self"
+    True -> "true"
+    False -> "false"
+    Test -> "test"
+    Rust -> "rust"
+    Unsafe -> "unsafe"
+    Extern -> "extern"
+    Union -> "union"
+
+test "round trips every spelling"
+  for word in ["mut", "if", "do", "case", "of", "otherwise", "data", "newtype", "deriving", "instance", "module", "not", "or", "guard", "catch", "loop", "Self", "self", "true", "errors", "implements"]
+    kw = .expect "should be reserved" $ Keyword::from_text word
+    assert_eq! \-> .text kw \-> word
+
+test "leaves ordinary identifiers alone"
+  for word in ["main", "print", "iff", "switched", "island", "notable", "Selfish", "and", "use", "defer", "cond", "into", "derive", "mod", "unless", "switch", "withhold", "then"]
+    assert! \-> .is_none (Keyword::from_text word) \-> "#{word} should not reserve"

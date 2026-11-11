@@ -41,12 +41,12 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 | `redox-emit` | 7594 | 4572 |
 | `redox-fmt` | 3149 | 1496 |
 | `redox-fuzz` | 142 | 292 |
-| `redox-lexer` | 3538 | 1196 |
+| `redox-lexer` | 2176 | 1196 |
 | `redox-lsp` | 1626 | 756 |
 | `redox-mcp` | 884 | 776 |
 | `redox-parser` | 10165 | 706 |
 | `redox-seed` | 337 | 676 |
-| **total** | **37834** | **20196** |
+| **total** | **36472** | **20196** |
 
 ---
 

@@ -1,3 +1,0 @@
--- | Takes a `char`, for the reason `is_ident_start` records.
-export(crate) is_ident_continue : char -> bool
-is_ident_continue c = .is_ascii_alphanumeric c || c == '_'

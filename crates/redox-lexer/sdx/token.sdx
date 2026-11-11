@@ -1,27 +1,116 @@
--- | A reserved word.
-export(crate) module keyword
--- | Every token Redox's lexical surface produces.
-export(crate) module kind
--- | One piece of a string literal: literal text, or an interpolation.
-export(crate) module str_part
+import crate::Span
+import crate::Trivia
+import crate::keyword::Keyword
 
-import crate::{Span, TokenKind, Trivia}
-
--- | A token, its span, the trivia preceding it, and whether whitespace
--- | immediately preceded it.
 export data Token = Token {
   export kind : TokenKind,
   export span : Span,
-  -- | Whether whitespace immediately preceded this token.
-  -- |
-  -- | Unused by plan 01's slice and free to collect here. Doc 03 §5.1's call
-  -- | grammar needs it to tell `f(x)` from `f (x)`, and §5.4's
-  -- | `(-1)`-versus-`(- 1)` rule needs it to tell a negative literal from a
-  -- | subtraction section.
   export ws_before : bool,
   export leading : Vec<Trivia>,
-  -- | Trivia on the same line, after this token. Only ever set on the
-  -- | [`TokenKind::Newline`] that closes the line.
   export trailing : Option<Trivia>,
 }
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data TokenKind
+  = Ident String
+  | Kw Keyword
+  | Label String
+  | UserOp String
+
+  | Int String
+  | Float String
+  | Str { parts : Vec<StrPart>, raw : String }
+  | RawStr { text : String, hashes : usize }
+  | ByteStr String
+  | CStr String
+  | Char char
+  | Byte u8
+
+  | Newline
+  | Indent
+  | Dedent
+  | Eof
+
+  | LParen
+  | RParen
+  | LBracket
+  | RBracket
+  | LBrace
+  | RBrace
+  | Eq
+  | Arrow
+  | DrawArrow
+  | FatArrow
+  | Pipe
+  | Compose
+  | ComposeBack
+  | Coalesce
+  | CoalesceEq
+  | Question
+  | DotDotDot
+  | DotDot
+  | DotDotEq
+  | DotParen
+  | DotPlus
+  | DotMinus
+  | DotStar
+  | DotSlash
+  | DotPercent
+  | AmpColon
+  | Backslash
+  | RustBlock String
+  | Dollar
+  | At
+  | AtAt
+  | ColonColon
+  | ColonEq
+  | Colon
+  | Comma
+  | Dot
+  | Semi
+  | Plus
+  | Minus
+  | Star
+  | Slash
+  | Percent
+  | PlusEq
+  | MinusEq
+  | StarEq
+  | SlashEq
+  | PercentEq
+  | EqEq
+  | Ne
+  | Lt
+  | Gt
+  | Le
+  | Ge
+  | AndAnd
+  | OrOr
+  | Bang
+  | Amp
+  | Or
+  | Caret
+  | Tilde
+  | Shl
+  | Shr
+  deriving (Debug, Clone, PartialEq, Eq)
+
+instance TokenKind
+  export(crate) is_structural : &self -> bool
+  is_structural self = case self of
+    Indent or Dedent or Newline -> true
+    _ -> false
+
+  export(crate) continues_line : &self -> bool
+  continues_line self = case self of
+    Pipe or ComposeBack or Comma or Plus or Minus or Slash or Percent or EqEq or Ne or Lt or Le or Ge or AndAnd or OrOr or Amp or Or or Caret or Shl or Coalesce or DotDot or DotDotEq -> true
+    UserOp _ -> true
+    _ -> false
+
+export data StrPart
+  = Text String
+  | Interp {
+    tokens : Vec<Token>,
+    spec : Option<String>,
+  }
   deriving (Debug, Clone, PartialEq, Eq)

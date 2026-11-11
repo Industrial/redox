@@ -1,0 +1,107 @@
+import crate::Span
+
+export(crate) data Cursor = Cursor {
+  src : &'a str,
+  pos : usize,
+}
+
+instance (Cursor 'a)
+  export(crate) new : &'a str -> Self
+  new src = Cursor { src, pos = 0 }
+
+  export(crate) pos : &self -> usize
+  pos self = self.pos
+
+  export(crate) is_eof : &self -> bool
+  is_eof self = self.pos >= .len self.src
+
+  export(crate) peek : &self -> Option<char>
+  peek self = self.src
+    |> .get (self.pos .. .len self.src)
+    |> .unwrap_or ""
+    |> .chars
+    |> .next
+
+  export(crate) peek_at : usize -> &self -> Option<char>
+  peek_at n self = self.src
+    |> .get (self.pos .. .len self.src)
+    |> .unwrap_or ""
+    |> .chars
+    |> .nth n
+
+  export(crate) starts_with : &str -> &self -> bool
+  starts_with s self = self.src
+    |> .get (self.pos .. .len self.src)
+    |> .unwrap_or ""
+    |> .starts_with s
+
+  export(crate) rest : &self -> &'a str
+  rest self = self.src
+    |> .get (self.pos .. .len self.src)
+    |> .unwrap_or ""
+
+  export(crate) bump : &mut self -> Option<char>
+  bump self =
+    ch = (.peek self)?
+    self.pos += .len_utf8 ch
+    Some ch
+
+  export(crate) eat : &str -> &mut self -> bool
+  eat s self =
+    if !.starts_with s self
+      return false
+    for _step in 0 .. .count (.chars s)
+      .bump self
+    true
+
+  export(crate) eat_while : (impl Fn(char) -> bool) -> &mut self -> Span
+  eat_while pred self =
+    start = self.pos
+    while .is_some_and (&pred) (.peek self)
+      .bump self
+    (start, self.pos)
+
+  export(crate) eat_spaces : &mut self -> usize
+  eat_spaces self =
+    mut n = 0
+    while .peek self == Some ' '
+      .bump self
+      n += 1
+    n
+
+  export(crate) slice : Span -> &self -> &'a str
+  slice span self = self.src |> .get (span.0 .. span.1) |> .unwrap_or ""
+
+  export(crate) reset_to : usize -> &mut self -> ()
+  reset_to at self =
+    self.pos := at
+    ()
+
+  export(crate) mark : &self -> usize
+  mark self = self.pos
+
+test "eat matches only an exact prefix"
+  mut c = Cursor::new "...x"
+  assert! \-> !.eat "..=" c
+  assert! \-> .eat "..." c
+  assert_eq! \-> .peek c \-> Some 'x'
+
+test "eat while returns the consumed span"
+  mut c = Cursor::new "abc123"
+  span = .eat_while (\ch -> .is_ascii_alphabetic ch) c
+  assert_eq! \-> span \-> (0, 3)
+  assert_eq! \-> .slice span c \-> "abc"
+
+test "mark and reset restore the position"
+  mut c = Cursor::new "a\nb"
+  mark = .mark c
+  c |> .bump
+  c |> .bump
+  assert_eq! \-> .pos c \-> 2
+  c |> .reset_to mark
+  assert_eq! \-> .pos c \-> 0
+
+test "bump advances by the encoded width"
+  mut c = Cursor::new "é x"
+  assert_eq! \-> .bump c \-> Some 'é'
+  assert_eq! \-> .pos c \-> 2

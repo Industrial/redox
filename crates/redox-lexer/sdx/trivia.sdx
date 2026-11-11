@@ -1,23 +1,27 @@
-import crate::{Span, TriviaKind}
+import crate::Span
 
--- | What a piece of [`crate::Trivia`] is.
-export(crate) module kind
-
--- | Non-semantic source text that must survive to the emitter.
--- |
--- | Comments are trivia, **never discarded**. The generated `.xrs` is a
--- | human-facing artifact, so comments have to reach it — doc 02 §10.1 corrects
--- | doc 01 §4.1 on this point. Emerald's formatter loses every non-doc comment
--- | because its lexer treats them as whitespace; that is the defect this type
--- | exists to prevent.
 export data Trivia = Trivia { export kind : TriviaKind, export text : String, export span : Span }
   deriving (Debug, Clone, PartialEq, Eq)
 
 instance Trivia
-  -- | A comment of the given form, with its text and span.
   export(crate) comment : TriviaKind -> String -> Span -> Self
   comment kind text span = Trivia { kind, text, span }
 
-  -- | A run of blank lines, which carries no text of its own.
   export(crate) blank : Span -> Self
   blank span = Trivia { kind = TriviaKind::BlankLines, text = String::new (), span }
+
+export data TriviaKind
+  = LineComment
+  | DocComment
+  | InnerDocComment
+  | FencedComment
+  | Attribute
+  | InnerAttribute
+  | BlankLines
+  deriving (Debug, Clone, PartialEq, Eq)
+
+instance TriviaKind
+  export is_doc : &self -> bool
+  is_doc self = case self of
+    DocComment or InnerDocComment -> true
+    _ -> false

@@ -1,7 +1,0 @@
--- | **Takes a `char`, where the Rust took a `u8`.** Every one of the four call
--- | sites had a `char` and wrote `is_ident_start(c as u8)`, and an `as` cast is
--- | graded `UNREACHABLE` in `docs/GRAMMAR.md` — but the cast was also
--- | *truncating*, so `'é' as u8` is `0xE9` and the right answer came out by
--- | luck. `char` has the predicate directly.
-export(crate) is_ident_start : char -> bool
-is_ident_start c = .is_ascii_alphabetic c || c == '_'
