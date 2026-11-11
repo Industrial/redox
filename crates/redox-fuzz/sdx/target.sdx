@@ -1,19 +1,27 @@
--- ! The four fuzz targets.
--- !
--- ! A grouping module (doc 06 §1.2): four peers with no natural head, and
--- ! `target` is the domain word rather than a bucket — these are *the targets*,
--- ! which is what `fuzz/fuzz_targets/` wraps one-for-one.
--- !
--- ! Three of them assert **totality**: lexing, parsing and emitting never
--- ! panic, for any bytes at all. The fourth, `roundtrip`, hands back the
--- ! generated Rust so the sweep can check plan 42 §1.4's invariant — that the
--- ! emitter never produces Rust which does not parse.
+export emit_program : &[u8] -> ()
+emit_program bytes =
+  text = String::from_utf8_lossy bytes
+  program = case redox_parser::parse_source (&text) of
+    Ok p -> p
+    Err _ ->
+      return ()
+  _dropped = redox_emit::emit (&program)
+  ()
 
--- | Parse arbitrary bytes and, if that succeeds, emit.
-export(crate) module emit_program
--- | Lex arbitrary bytes.
-export(crate) module lex_source
--- | Parse arbitrary bytes.
-export(crate) module parse_program
--- | Parse, emit, and hand the generated Rust back to the oracle.
-export(crate) module roundtrip
+export lex_source : &[u8] -> ()
+lex_source bytes =
+  text = String::from_utf8_lossy bytes
+  _dropped = redox_lexer::lex (&text)
+  ()
+
+export parse_program : &[u8] -> ()
+parse_program bytes =
+  text = String::from_utf8_lossy bytes
+  _dropped = redox_parser::parse_source (&text)
+  ()
+
+export roundtrip : &[u8] -> Option<String>
+roundtrip bytes =
+  text = String::from_utf8_lossy bytes
+  program = (.ok (redox_parser::parse_source (&text)))?
+  Some (redox_emit::emit (&program))
