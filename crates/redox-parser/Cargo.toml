@@ -8,3 +8,6 @@ license.workspace = true
 redox-ast = { path = "../redox-ast" }
 redox-diag = { path = "../redox-diag" }
 redox-lexer = { path = "../redox-lexer" }
+
+[lints]
+workspace = true

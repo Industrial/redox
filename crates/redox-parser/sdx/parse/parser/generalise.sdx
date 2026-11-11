@@ -1,0 +1,65 @@
+import crate::parse::parser::rewritten::rewritten
+import crate::parse::parser::rust_generic::rust_generic
+import crate::parse::parser::type_vars::type_vars
+import redox_ast::{Constraint, Signature}
+
+-- | Fill in a signature's generic list and bounds, and rewrite its types —
+-- | doc 18 §§2.2 and 5.3.
+-- |
+-- | ```text
+-- | largest : Ord t => &[t] -> &t     fn largest<T>(xs: &[T]) -> &T
+-- |                                    where
+-- |                                        T: Ord,
+-- | ```
+-- |
+-- | Three steps, in this order because each needs the last:
+-- |
+-- | 1. **the variables**, from the types in order of first appearance, with
+-- |    lifetimes before type parameters because rustc requires that order;
+-- | 2. **the bounds**, by matching each `=>` constraint to the variable it
+-- |    names — a constraint naming a variable the signature does not use is
+-- |    kept anyway, because rustc reports it and Redox has no name resolution
+-- |    to do better (AGENTS.md);
+-- | 3. **the rewrite**, replacing each variable with its Rust spelling
+-- |    throughout the parameter and return types.
+-- |
+-- | A signature with no variables is left exactly as it was, which is what
+-- | keeps `add : i32 -> i32 -> i32` emitting the Rust it emitted before any
+-- | of this existed.
+-- |
+-- | `reserved` names variables that are **not** the method's own: inside a
+-- | `class Shape t`, the `t` in `area : &t -> f64` is the implementing type,
+-- | so making it a generic parameter of `area` produces
+-- | `fn area<T>(__rdx_a0: &T)` where the trait wanted `fn area(&self)`. Found
+-- | exactly that way — the class example stopped compiling the moment
+-- | functions grew generics.
+export(crate) generalise : &mut Signature -> &[Constraint] -> &[String] -> ()
+generalise sig constraints reserved =
+  mut texts : Vec<&str> = sig.params
+    |> .iter
+    |> .filter_map (\param -> .map (\t -> .as_str t.text) (.as_ref param.ty))
+    |> .collect
+  if &sig.ret is Some ret
+    .push (.as_str ret.text) texts
+  found : Vec<String> = type_vars (&texts)
+    |> .into_iter
+    |> .filter (\v -> !.contains v reserved)
+    |> .collect
+  if .is_empty found
+    return ()
+  sig.generics := .collect (.map (\v -> rust_generic v) (.iter found))
+  sig.bounds := constraints
+    |> .iter
+    |> .filter (\c -> .contains (&c.var.text) found)
+    |> .map (\c -> (rust_generic (&c.var.text), .clone c.trait_name.text))
+    |> .collect
+  for var in &found
+    if .starts_with '\'' var
+      continue
+    subject = rust_generic var
+    for param in &mut sig.params
+      if &mut param.ty is Some ty
+        ty.text := rewritten (&ty.text) var (&subject)
+    if &mut sig.ret is Some ret
+      ret.text := rewritten (&ret.text) var (&subject)
+  ()

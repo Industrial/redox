@@ -1,0 +1,44 @@
+import crate::ParseError
+import crate::parse::parser::Parser
+import redox_ast::Ident
+import redox_lexer::TokenKind
+
+-- | The `Show =>` or `(Show, Debug) =>` clause of a `class` head, if one is
+-- | here — doc 18 §2.5.
+-- |
+-- | ```text
+-- | class Show => Shape          trait Shape: Show
+-- | class (Show, Debug) => Shape trait Shape: Show + Debug
+-- | class Shape                  trait Shape
+-- | ```
+-- |
+-- | Trait names alone, where a signature's `constraints` reads a trait *and*
+-- | the variable it bounds. A superclass constrains `Self`, which has no
+-- | spelling to read, and plan 67 §6 keeps a bound on a trait parameter out of
+-- | scope — so there is nothing here for a second name to be.
+-- |
+-- | Speculative for `constraints`' reason, and one token cheaper than it was:
+-- | `class Debug t => Shape t` and `class Shape t` began identically, so the
+-- | clause had to be read and abandoned. `class Show => Shape` and
+-- | `class Shape` differ at the `=>`, which is still past the first name — so
+-- | the rewind stays, and it is now a rewind over exactly one name list.
+export(crate) class_supers : &mut Parser -> Result<Vec<Ident>, ParseError>
+class_supers p =
+  mark = .position p
+  mut found = Vec::new ()
+  -- Haskell parenthesises a list of two or more; one needs no parentheses.
+  parenthesised = .check (&TokenKind::LParen) p
+  if parenthesised
+    .advance p
+  while .try_ident p is Some name
+    .push name found
+    if !.check (&TokenKind::Comma) p
+      break
+    .advance p
+  if parenthesised && .check (&TokenKind::RParen) p
+    .advance p
+  if .is_empty found || !.check (&TokenKind::FatArrow) p
+    .rewind mark p
+    return Ok (Vec::new ())
+  .advance p
+  Ok found

@@ -1,0 +1,19 @@
+import crate::parse::parser::Parser
+import crate::parse::precedence::binary_power::binary_power
+import redox_ast::BinaryOp
+
+-- | The binary operator at the cursor, consumed — doc 18 §4.
+-- |
+-- | Reads the operator **without** its precedence, which a section does not
+-- | need: a section's operand is already delimited by the parentheses, so
+-- | there is nothing to bind more or less tightly than.
+-- |
+-- | Goes through `binary_power` rather than a second table, so a new operator
+-- | cannot be added to the expression grammar and forgotten here.
+export(crate) binary_op : &mut Parser -> Option<BinaryOp>
+binary_op p =
+  -- `found.0` is the operator, where the Rust destructured and discarded the
+  -- two powers.
+  found = (binary_power (&(.peek p).kind))?
+  .advance p
+  Some found.0

@@ -110,6 +110,7 @@ crates/*/sdx/**/*.xrs.map
 crates/redox-diag/src/
 crates/redox-lexer/src/
 crates/redox-ast/src/
+crates/redox-parser/src/
 crates/redox-fmt/src/
 crates/redox-bench/src/
 crates/redox-fuzz/src/

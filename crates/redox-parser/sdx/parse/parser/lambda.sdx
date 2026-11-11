@@ -1,0 +1,44 @@
+import crate::ParseError
+import crate::parse::parser::Parser
+import crate::parse::parser::capture_type::capture_type
+import crate::parse::parser::parse_expr::parse_expr
+import crate::parse::parser::type_stop::TypeStop
+import redox_ast::{Expr, Param}
+import redox_lexer::{Keyword, TokenKind}
+
+-- | Parse doc 18 §4's lambda: `\x -> e`, optionally `move` and typed.
+-- |
+-- | ```text
+-- | \n -> n * n              |n| n * n
+-- | \x : i32 -> x + 1        |x: i32| x + 1
+-- | move \x -> x + captured  move |x| x + captured
+-- | \ -> 0                   || 0
+-- | ```
+-- |
+-- | The binder's type uses the **same `:`** as a signature line and an
+-- | ascription (plan 52), which is why the type is captured with
+-- | `capture_type` rather than a second notation: there is one way to write a
+-- | type in Redox and this is it.
+-- |
+-- | Doc 18 §8 declines currying, so a lambda's parameters are a list rather
+-- | than nested single-parameter lambdas — `\x y -> e` is one closure of two
+-- | arguments, matching how application works (§2.1).
+export(crate) lambda : &mut Parser -> Result<Expr, ParseError>
+lambda p =
+  start = (.peek_span p).0
+  is_move = .eat_keyword Keyword::Move p
+  (.expect (&TokenKind::Backslash) "expected `\\` to open a lambda" p)?
+  mut params = Vec::new ()
+  while !.check (&TokenKind::Arrow) p && !.at_eof p
+    name = (.ident "expected a lambda parameter name" p)?
+    ty = if .check (&TokenKind::Colon) p
+      .advance p
+      Some (capture_type p "expected a type after `:`" TypeStop::Greedy)?
+    else
+      None
+    at = name.span
+    .push (Param { name, ty, is_mut = false, span = at }) params
+  (.expect (&TokenKind::Arrow) "expected `->` after the lambda's parameters" p)?
+  body = (parse_expr p 0)?
+  span = (start, (.span body).1)
+  Ok (Expr::Lambda { params, body = Box::new body, is_move, span })

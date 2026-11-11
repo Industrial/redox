@@ -1,0 +1,171 @@
+import crate::ParseError
+import crate::parse::parser::Parser
+import crate::parse::parser::block_expr::block_expr
+import crate::parse::parser::bracketed::bracketed
+import crate::parse::parser::byte_literal::byte_literal
+import crate::parse::parser::case_of::case_of
+import crate::parse::parser::interpolated_string::interpolated_string
+import crate::parse::parser::lambda::lambda
+import crate::parse::parser::macro_call::macro_call
+import crate::parse::parser::modified_block::modified_block
+import crate::parse::parser::parse_expr::parse_expr
+import crate::parse::parser::reserved_word::reserved_word
+import crate::parse::parser::rust_hatch::rust_hatch
+import crate::parse::parser::rust_string_body::rust_string_body
+import crate::parse::parser::section::section
+import crate::parse::parser::unary_op::unary_op
+import crate::parse::precedence::prefix_power::PREFIX_POWER
+import redox_ast::Expr
+import redox_ast::Ident
+import redox_diag::Code
+import redox_lexer::{Keyword, StrPart, TokenKind}
+
+-- | A prefix position: a literal, a name, a grouping, a receiver sigil, or a
+-- | unary operator.
+export(crate) prefix : &mut Parser -> Result<Expr, ParseError>
+prefix p =
+  start = (.peek_span p).0
+  if unary_op p is Some op
+    operand = (parse_expr p PREFIX_POWER)?
+    span = (start, (.span operand).1)
+    return Ok (Expr::Unary { op, operand = Box::new operand, span })
+  case .clone (.peek p).kind of
+    TokenKind::Int text or TokenKind::Float text ->
+      span = .peek_span p
+      .advance p
+      Ok (Expr::Num { text, span })
+    TokenKind::Str { parts, raw } ->
+      span = .peek_span p
+      .advance p
+      -- A `for` with a `case`, where the Rust wrote `any(|part| matches!(…))`:
+      -- a `case` needs a line of its own, so it cannot be a one-line lambda
+      -- body.
+      mut interpolates = false
+      for part in &parts
+        case part of
+          StrPart::Interp { .. } -> interpolates := true
+          _ -> ()
+      if interpolates
+        return interpolated_string (&parts) span
+      if .starts_with "\"\"\"" raw
+        mut joined = String::new ()
+        for part in &parts
+          case part of
+            StrPart::Text text -> .push_str (.as_str text) joined
+            StrPart::Interp { .. } ->
+              unreachable! \-> "checked above"
+        body = rust_string_body (&joined)
+        return Ok (Expr::StrLit { value = format! \-> "\"#{body}\"", span })
+      Ok (Expr::StrLit { value = raw, span })
+    TokenKind::RawStr { text, hashes } ->
+      span = .peek_span p
+      .advance p
+      pad = .repeat hashes "#"
+      Ok (Expr::RawLit { text = format! \-> "r#{pad}\"#{text}\"#{pad}", span })
+    TokenKind::ByteStr text ->
+      span = .peek_span p
+      .advance p
+      body = rust_string_body (&text)
+      Ok (Expr::RawLit { text = format! \-> "b\"#{body}\"", span })
+    TokenKind::CStr text ->
+      span = .peek_span p
+      .advance p
+      body = rust_string_body (&text)
+      Ok (Expr::RawLit { text = format! \-> "c\"#{body}\"", span })
+    TokenKind::Byte value ->
+      span = .peek_span p
+      .advance p
+      Ok (Expr::RawLit { text = byte_literal value, span })
+    TokenKind::Kw (Keyword::Async) -> modified_block p Keyword::Async start
+    TokenKind::Kw (Keyword::Unsafe) -> modified_block p Keyword::Unsafe start
+    TokenKind::Kw (Keyword::Try) -> modified_block p Keyword::Try start
+    TokenKind::Char value ->
+      span = .peek_span p
+      .advance p
+      Ok (Expr::Char { value, span })
+    TokenKind::Kw (Keyword::True) ->
+      span = .peek_span p
+      .advance p
+      Ok (Expr::Bool { value = true, span })
+    TokenKind::Kw (Keyword::False) ->
+      span = .peek_span p
+      .advance p
+      Ok (Expr::Bool { value = false, span })
+    TokenKind::At ->
+      .advance p
+      name = (.ident "expected a field name after `@`" p)?
+      span = (start, name.span.1)
+      Ok (Expr::SelfField { name, span })
+    TokenKind::AtAt ->
+      .advance p
+      name = (.ident "expected a name after `@@`" p)?
+      span = (start, name.span.1)
+      Ok (Expr::SelfType { name, span })
+    TokenKind::LBracket -> bracketed p
+    TokenKind::LParen ->
+      .advance p
+      -- Plan 65 leaf 1 gave `(` a layout context, so a group whose content
+      -- opens on the next line arrives with a `Newline` and an `Indent` in
+      -- front of it. Grouping reads none of that — the construct *inside*
+      -- the group reads its own layout, which is the whole point of the row.
+      .skip_layout p
+      -- `()` — the unit value. Doc 18 §7 replaces the `!` zero-argument
+      -- suffix with `f ()`, so this is what makes a no-argument call
+      -- writable: juxtaposition needs something to juxtapose.
+      if .check (&TokenKind::RParen) p
+        .advance p
+        return Ok (Expr::Unit { span = (start, (.prev_span p).1) })
+      -- Doc 18 §4's sections. Tried before the grouping, because `(> 0)` is
+      -- not an expression at all — and `section` puts the cursor back when
+      -- what follows turns out to be an ordinary group.
+      sectioned = (section p start)?
+      if sectioned is Some found
+        return Ok found
+      inner = (parse_expr p 0)?
+      .skip_layout p
+      -- A tuple, told from a group by its **comma** — plan 33, and the same
+      -- rule the tuple *pattern* uses one position over.
+      if .check (&TokenKind::Comma) p
+        mut items = vec! \-> inner
+        while .check (&TokenKind::Comma) p
+          .advance p
+          .skip_layout p
+          if .check (&TokenKind::RParen) p
+            break
+          .push (parse_expr p 0)? items
+          .skip_layout p
+        (.expect (&TokenKind::RParen) "expected `)` to close the tuple" p)?
+        return Ok (Expr::Tuple { items, span = (start, (.prev_span p).1) })
+      (.expect (&TokenKind::RParen) "expected `)` to close the group" p)?
+      Ok (Expr::Paren { inner = Box::new inner, span = (start, (.prev_span p).1) })
+    TokenKind::Kw (Keyword::Rust) ->
+      .advance p
+      -- `hatched.0` is the code, where the Rust destructured and discarded
+      -- the span.
+      hatched = (rust_hatch p)?
+      Ok (Expr::RustHatch { code = hatched.0, span = (start, (.prev_span p).1) })
+    TokenKind::Backslash -> lambda p
+    TokenKind::Kw (Keyword::Move) -> lambda p
+    TokenKind::Kw (Keyword::If) -> .if_statement p
+    TokenKind::Kw (Keyword::Do) -> Err (reserved_word p)
+    TokenKind::Newline -> block_expr p None start
+    TokenKind::Label name ->
+      .advance p
+      block_expr p (Some name) start
+    TokenKind::Kw (Keyword::Case) -> case_of p
+    TokenKind::Kw (Keyword::SelfValue) ->
+      span = .peek_span p
+      .advance p
+      Ok (Expr::Ident (Ident { text = .to_string "self", span }))
+    TokenKind::Kw (Keyword::SelfType) ->
+      span = .peek_span p
+      .advance p
+      Ok (Expr::Ident (Ident { text = .to_string "Self", span }))
+    TokenKind::Dot ->
+      .advance p
+      name = (.ident "expected a method name after `.`" p)?
+      span = (start, name.span.1)
+      Ok (Expr::MethodRef { name, span })
+    TokenKind::Ident _ -> macro_call p
+    _ ->
+      Err (ParseError::r#with Code::ExpectedExpression "expected an expression" (.peek_span p))

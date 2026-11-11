@@ -1,0 +1,30 @@
+import crate::ParseError
+import crate::parse::parser::Parser
+import crate::parse::parser::import_path::import_path
+import redox_ast::{ImportDecl, Visibility}
+import redox_lexer::{Keyword, TokenKind, Trivia}
+
+-- | Parse doc 03 §13.1's `import` declaration — plan 14.
+-- |
+-- | ```text
+-- | import std::collections::HashMap
+-- | import std::io::{self, Read, Write}
+-- | import std::collections::HashMap as Map
+-- | import crate::models::*
+-- | export import crate::models::User
+-- | ```
+-- |
+-- | Five forms, one grammar: a path and an optional alias. The path is
+-- | verbatim text (§1.3), and `export import` needs nothing of its own —
+-- | `visibility` is read before the dispatch, so the re-export form is the
+-- | marker plus this declaration.
+export(crate) import_decl : &mut Parser -> Vec<Trivia> -> usize -> Visibility -> Result<ImportDecl, ParseError>
+import_decl p leading start visibility =
+  (.expect (&TokenKind::Kw Keyword::Import) "expected `import`" p)?
+  path = (import_path p)?
+  alias = if .check (&TokenKind::Kw Keyword::As) p
+    .advance p
+    Some (.ident "expected a name after `as`" p)?
+  else
+    None
+  Ok (ImportDecl { path, alias, visibility, span = (start, (.prev_span p).1), leading })

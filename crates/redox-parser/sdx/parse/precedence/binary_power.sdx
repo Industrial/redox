@@ -1,0 +1,111 @@
+import redox_ast::BinaryOp
+import redox_lexer::{Keyword, TokenKind}
+
+-- | Which operator a token spells, and its `(left, right)` binding powers.
+-- |
+-- | Left-associative operators have `right = left + 1`, so an equal-precedence
+-- | operator on the right does not pull.
+-- |
+-- | # The powers are no longer here
+-- |
+-- | They moved to `BinaryOp::power` in `redox-ast` when plan 34 leaf 3 made the
+-- | formatter a second reader of them: dropping a redundant parenthesis is a
+-- | precedence decision, and a formatter working from a *copy* of this table
+-- | would drop a needed parenthesis as soon as the two drifted — silently,
+-- | because both spellings still compile.
+-- |
+-- | What stays here is the half that is genuinely the parser's: the mapping
+-- | from **token** to operator. The AST does not know about tokens and should
+-- | not.
+export(crate) binary_power : &TokenKind -> Option<(BinaryOp, u8, u8)>
+binary_power kind =
+  -- Loosest first, so the table still reads in precedence order even though
+  -- the numbers now live on the operator.
+  op = case kind of
+    TokenKind::Pipe -> BinaryOp::Pipeline
+    TokenKind::Coalesce -> BinaryOp::Coalesce
+    TokenKind::Kw (Keyword::Catch) -> BinaryOp::Catch
+    TokenKind::DotDot -> BinaryOp::Range
+    TokenKind::DotDotEq -> BinaryOp::RangeInclusive
+    TokenKind::OrOr -> BinaryOp::Or
+    TokenKind::AndAnd -> BinaryOp::And
+    TokenKind::EqEq -> BinaryOp::Eq
+    TokenKind::Ne -> BinaryOp::Ne
+    TokenKind::Lt -> BinaryOp::Lt
+    TokenKind::Gt -> BinaryOp::Gt
+    TokenKind::Le -> BinaryOp::Le
+    TokenKind::Ge -> BinaryOp::Ge
+    TokenKind::Or -> BinaryOp::BitOr
+    TokenKind::Caret -> BinaryOp::BitXor
+    TokenKind::Amp -> BinaryOp::BitAnd
+    TokenKind::Shl -> BinaryOp::Shl
+    TokenKind::Shr -> BinaryOp::Shr
+    TokenKind::Plus -> BinaryOp::Add
+    TokenKind::Minus -> BinaryOp::Sub
+    TokenKind::Star -> BinaryOp::Mul
+    TokenKind::Slash -> BinaryOp::Div
+    TokenKind::Percent -> BinaryOp::Rem
+    TokenKind::Compose -> BinaryOp::Compose
+    TokenKind::ComposeBack -> BinaryOp::ComposeBack
+    _ ->
+      return None
+  left = .power op
+  Some (op, left, left + 1)
+
+-- | `#[cfg(test)]`: the helper every test below shares. Redox can put nothing
+-- | but `#[test] fn`s inside its generated `mod __rdx_tests` — plan 73 §2.9.
+#[cfg(test)]
+power : TokenKind -> u8
+power kind = (.expect "should have a precedence" (binary_power (&kind))).1
+
+-- | Rust's ordering, asserted rather than assumed.
+test "precedence follows rust"
+  assert! \-> power TokenKind::Star > power TokenKind::Plus
+  assert! \-> power TokenKind::Plus > power TokenKind::Shl
+  assert! \-> power TokenKind::Shl > power TokenKind::Amp
+  assert! \-> power TokenKind::Amp > power TokenKind::Caret
+  assert! \-> power TokenKind::Caret > power TokenKind::Or
+  assert! \-> power TokenKind::Or > power TokenKind::EqEq
+  assert! \-> power TokenKind::EqEq > power TokenKind::AndAnd
+  assert! \-> power TokenKind::AndAnd > power TokenKind::OrOr
+
+-- | Doc 03 §4.5's placement for the operators Rust does not have.
+test "the new operators sit where doc 03 places them"
+  assert! \-> power TokenKind::Coalesce < power TokenKind::OrOr
+  assert! \-> power TokenKind::Pipe < power TokenKind::Coalesce
+
+-- `PREFIX_POWER` is reached by its path rather than imported: nothing at
+-- module scope wants it, and an import used only under `#[cfg(test)]` is an
+-- `unused_imports` error in an ordinary build.
+test "unary and postfix bind tighter than any binary"
+  assert! \-> crate::parse::precedence::prefix_power::PREFIX_POWER > power TokenKind::Star
+
+-- `POSTFIX_POWER` was asserted here against `PREFIX_POWER` until doc 18 §2.1
+-- made application the primary: postfix is now consumed inside
+-- `application::atom` rather than ranked on the precedence ladder, so the
+-- constant has no value to compare and was deleted with the ladder rung.
+
+test "binary operators are left associative"
+  for kind in [TokenKind::Plus, TokenKind::Star, TokenKind::Pipe]
+    -- `rung.1` is the left power and `rung.2` the right, where the Rust
+    -- destructured the triple.
+    rung = .expect "should have a precedence" (binary_power (&kind))
+    assert_eq! \-> rung.2 \-> rung.1 + 1 \-> "#{kind:?} should be left-associative"
+
+test "a non operator has no precedence"
+  assert! \-> .is_none (binary_power (&TokenKind::Ident (.into "x")))
+  assert! \-> .is_none (binary_power (&TokenKind::Newline))
+
+-- | The powers this file reports are the operator's own, not a second copy.
+-- |
+-- | This is the assertion that the move was a move. If anyone re-introduces
+-- | a literal here, it fails.
+test "the powers come from the operator"
+  for kind in [TokenKind::Pipe, TokenKind::Coalesce, TokenKind::OrOr, TokenKind::EqEq, TokenKind::Plus, TokenKind::Percent]
+    rung = .expect "should have a precedence" (binary_power (&kind))
+    assert_eq! \-> rung.1 \-> .power rung.0 \-> "#{kind:?} reports a power of its own"
+    assert_eq! \-> rung.2 \-> .power rung.0 + 1
+
+test "maps tokens to their operators"
+  assert_eq! \-> .map (\pair -> pair.0) (binary_power (&TokenKind::Plus)) \-> Some BinaryOp::Add
+  assert_eq! \-> .map (\pair -> pair.0) (binary_power (&TokenKind::DotDot)) \-> Some BinaryOp::Range \-> "`..` is exclusive (doc 03 §4.2)"

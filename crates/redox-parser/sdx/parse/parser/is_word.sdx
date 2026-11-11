@@ -1,0 +1,7 @@
+-- | Whether a character can appear inside an identifier.
+-- |
+-- | Used to walk a captured type's text, which is a token sequence (doc 03
+-- | §14.1) — so an identifier in it is delimited by characters this rejects,
+-- | and a word scan is exact without parsing the type.
+export(crate) is_word : char -> bool
+is_word ch = .is_alphanumeric ch || ch == '_'

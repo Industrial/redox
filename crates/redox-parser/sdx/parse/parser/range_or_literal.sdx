@@ -1,0 +1,28 @@
+import crate::parse::parser::Parser
+import crate::parse::parser::token_text::token_text
+import redox_ast::Pattern
+import redox_lexer::{Span, TokenKind}
+
+-- | A literal pattern, grown into a range if `..` or `..=` follows it.
+-- |
+-- | `18..=64` and `18..64`, doc 18 §2.3's `case` example. Both endpoints are
+-- | carried as **verbatim source text**, the discipline doc 03 §14.1 applies
+-- | to types: Redox never has to agree with rustc about what a literal means,
+-- | and a range is two literals and a token.
+-- |
+-- | A range with no high end — Rust's `18..` — is not read here. The low end
+-- | has already been consumed when this is called, so an absent high end would
+-- | have to be distinguished from a malformed one, and doc 18 §2.3 uses
+-- | neither form. Plan 33 owns the full pattern grammar.
+export(crate) range_or_literal : &mut Parser -> String -> Span -> Pattern
+range_or_literal p lo span =
+  inclusive = case &(.peek p).kind of
+    TokenKind::DotDotEq -> true
+    TokenKind::DotDot -> false
+    _ ->
+      return Pattern::Literal { text = lo, span }
+  .advance p
+  hi = token_text (&(.peek p).kind)
+  end = (.peek_span p).1
+  .advance p
+  Pattern::Range { lo, hi, inclusive, span = (span.0, end) }

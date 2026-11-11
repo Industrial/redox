@@ -120,7 +120,14 @@ def write(rel, text):
         while head and not head[-1].strip():
             head.pop()
         out += head
-        if out and out[-1].strip() and not out[-1].lstrip().startswith('--'):
+        # **An attribute is not a construct either**, so no separator goes
+        # after one: `#[allow(…)]` followed by a blank line and then the
+        # declaration is `empty_line_after_outer_attribute`, which `-D warnings`
+        # makes an error. Plan 82 found it on `redox-parser/parse/parser/postfix`,
+        # the first ported file whose head ends in an attribute rather than in a
+        # doc comment.
+        tail = out[-1].lstrip() if out else ''
+        if out and out[-1].strip() and not tail.startswith('--') and not tail.startswith('#['):
             out.append('')
     out += body
 

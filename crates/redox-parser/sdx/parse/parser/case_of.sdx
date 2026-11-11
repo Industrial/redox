@@ -1,0 +1,44 @@
+import crate::ParseError
+import crate::parse::parser::Parser
+import crate::parse::parser::case_arm::case_arm
+import crate::parse::parser::parse_expr::parse_expr
+import redox_ast::Expr
+import redox_diag::Code
+import redox_lexer::{Keyword, TokenKind}
+
+-- | Parse doc 18 §2.3's `case e of`, with one `->` arm per indented line.
+-- |
+-- | ```text
+-- | case age of
+-- |   n | n > 65      -> "senior"
+-- |   18..=64         -> "adult"
+-- |   Teen or PreTeen -> "young"
+-- |   _               -> "newborn"
+-- | ```
+-- |
+-- | The scrutinee needs no terminator token of its own: `of` is a reserved
+-- | word (doc 18 §7), so the Pratt loop stops at it the way it stops at any
+-- | keyword. That is the second thing the keyword commit bought — the first
+-- | being that `otherwise` cannot be shadowed.
+-- |
+-- | The arm arrow is `->`, which is what frees `=>` for constraints (§7), and
+-- | the guard is `|` after the pattern, which is unambiguous only because
+-- | alternation is spelled `or` (§5.4).
+export(crate) case_of : &mut Parser -> Result<Expr, ParseError>
+case_of p =
+  start = (.peek_span p).0
+  (.expect (&TokenKind::Kw Keyword::Case) "expected `case`" p)?
+  scrutinee = (parse_expr p 0)?
+  (.expect (&TokenKind::Kw Keyword::Of) "expected `of` after the scrutinee" p)?
+  (.expect (&TokenKind::Newline) "expected a line break after `of`" p)?
+  (.expect_with Code::EmptyBody (&TokenKind::Indent) "expected indented `case` arms" p)?
+  mut arms = Vec::new ()
+  loop
+    .skip_separators p
+    if .check (&TokenKind::Dedent) p || .at_eof p
+      break
+    .push (case_arm p)? arms
+  (.expect (&TokenKind::Dedent) "expected the `case` arms to end" p)?
+  if .is_empty arms
+    return Err (ParseError::r#with Code::EmptyBody "a `case` must have at least one arm" (start, (.prev_span p).1))
+  Ok (Expr::Case { scrutinee = Box::new scrutinee, arms, span = (start, (.prev_span p).1) })

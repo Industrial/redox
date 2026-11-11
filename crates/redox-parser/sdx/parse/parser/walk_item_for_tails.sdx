@@ -1,0 +1,37 @@
+import crate::ParseError
+import crate::parse::parser::return_in_tail::return_in_tail
+import crate::parse::parser::walk_member_for_tails::walk_member_for_tails
+import redox_ast::Block
+import redox_ast::Item
+
+-- | Walk one item for `RDX0044` — plan 30. A sibling of
+-- | [`check_callback_tails`](super::check_callback_tails) rather than a
+-- | private helper, because doc 06 §1 permits one construct per file.
+export(crate) walk_item_for_tails : &Item -> &mut Vec<ParseError> -> ()
+walk_item_for_tails item problems =
+  case item of
+    Item::Fn decl ->
+      for clause in &decl.clauses
+        if .plain clause.body is Some block
+          .extend (return_in_tail block) problems
+        -- A guarded clause's bodies are expressions, not blocks, so a draw
+        -- arrow cannot appear in one — doc 18 §2.3's guard list takes an
+        -- expression per arm.
+        --
+        -- `where` bindings are statements of the clause's own scope, and a
+        -- draw arrow in one would flatten the rest of that scope, so they are
+        -- walked as a run.
+        if !.is_empty clause.wheres
+          .extend (return_in_tail (&Block { stmts = .clone clause.wheres, span = clause.span })) problems
+    Item::Class decl ->
+      for member in &decl.members
+        walk_member_for_tails member problems
+    Item::Instance decl ->
+      for member in &decl.members
+        walk_member_for_tails member problems
+    Item::Test decl -> .extend (return_in_tail (&decl.body)) problems
+    Item::Module decl ->
+      for inner in .flatten (.iter decl.items)
+        walk_item_for_tails inner problems
+    Item::Data _ or Item::Type _ or Item::Errors _ or Item::Import _ or Item::Const _ or Item::InlineRust _ or Item::Extern _ -> ()
+  ()

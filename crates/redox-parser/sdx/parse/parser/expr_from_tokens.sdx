@@ -1,0 +1,25 @@
+import crate::ParseError
+import crate::parse::parser::Parser
+import crate::parse::parser::parse_expr::parse_expr
+import redox_ast::Expr
+import redox_lexer::{Span, Token, TokenKind}
+
+-- | Parse one expression from a detached token slice.
+-- |
+-- | `lex_fragment` strips structural tokens **and** `Eof`, so the slice needs a
+-- | terminator before `Parser` runs over it: `peek` clamps to the last token
+-- | rather than reading past the end, and a clamp that is not `Eof` is a token
+-- | the grammar would try again. The synthetic `Eof` takes the string's span so
+-- | an error at the end of an interpolation points inside the string.
+export(crate) expr_from_tokens : &[Token] -> Span -> Result<Expr, ParseError>
+expr_from_tokens tokens span =
+  mut toks = .to_vec tokens
+  .push (Token { kind = TokenKind::Eof, span, ws_before = false, leading = Vec::new (), trailing = None }) toks
+  mut p = Parser::new (&toks)
+  expr = (parse_expr (&mut p) 0)?
+  -- An interpolation holds **one** expression. Leftover tokens mean the body
+  -- was something else — `#{a b c}` with no application, say — and silently
+  -- dropping them would emit a format argument the author did not write.
+  if !.at_eof p
+    return Err (ParseError::r#with redox_diag::Code::ExpectedToken "an interpolation holds one expression; `}` was expected here" (.peek_span p))
+  Ok expr

@@ -1,0 +1,51 @@
+import crate::ParseError
+import crate::parse::parser::Parser
+import crate::parse::parser::token_text::token_text
+import redox_ast::Visibility
+import redox_lexer::{Keyword, TokenKind}
+
+-- | Parse doc 03 §9.6's visibility marker, if one is here.
+-- |
+-- | ```text
+-- | export                 pub
+-- | export(crate)          pub(crate)
+-- | export(super)          pub(super)
+-- | export(in path::to)    pub(in path::to)
+-- | (absent)               private
+-- | ```
+-- |
+-- | Absent means private, so this returns [`Visibility::Private`] rather than
+-- | an error when there is no marker — a caller can ask unconditionally, and
+-- | every declaration does.
+-- |
+-- | The `in` path is captured as **verbatim token text**, as every path in
+-- | Redox is (doc 03 §13.1). `in` and `crate` are reserved words and `super`
+-- | is not, which is why the three arms are matched differently; the shape is
+-- | the lexer's and not a choice made here.
+export(crate) visibility : &mut Parser -> Result<Visibility, ParseError>
+visibility p =
+  if !.check (&TokenKind::Kw Keyword::Export) p
+    return Ok Visibility::Private
+  .advance p
+  if !.check (&TokenKind::LParen) p
+    return Ok Visibility::Public
+  .advance p
+  scope = if .check (&TokenKind::Kw Keyword::In) p
+    .advance p
+    mut path = String::new ()
+    while !.check (&TokenKind::RParen) p && !.at_eof p
+      .push_str (&token_text (&(.peek p).kind)) path
+      .advance p
+    if .is_empty path
+      return Err (ParseError::expected "expected a module path after `in`" (.peek_span p))
+    Visibility::In path
+  else
+    word = token_text (&(.peek p).kind)
+    .advance p
+    case .as_str word of
+      "crate" -> Visibility::Crate
+      "super" -> Visibility::Super
+      _ ->
+        return Err (ParseError::expected "expected `crate`, `super` or `in` inside `export(…)`" (.prev_span p))
+  (.expect (&TokenKind::RParen) "expected `)` to close `export(…)`" p)?
+  Ok scope

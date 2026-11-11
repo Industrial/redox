@@ -1,0 +1,39 @@
+import crate::ParseError
+import crate::parse::parser::Parser
+import crate::parse::parser::field_init::field_init
+import redox_ast::Expr
+import redox_lexer::TokenKind
+
+-- | Parse `head { name = value, … }` — doc 18 §2.4's record literal.
+-- |
+-- | ```text
+-- | Point { x = 10, y = 20 }    construction
+-- | Point { x, y }              punning
+-- | p { x = 99 }                update
+-- | ```
+-- |
+-- | Called from `postfix`, so the head is whatever expression preceded the
+-- | brace. That is what makes update fall out of construction rather than
+-- | needing a form of its own: both are `head { fields }`, and the *emitter*
+-- | decides which by the case of the head (doc 18 §5.3).
+-- |
+-- | A `{` after an expression is unambiguous here because Redox has no
+-- | brace-delimited block in expression position — layout does that job — so
+-- | nothing else a `{` could open is in the grammar.
+export(crate) record_literal : &mut Parser -> Expr -> Result<Expr, ParseError>
+record_literal p head =
+  start = (.span head).0
+  (.expect (&TokenKind::LBrace) "expected `{` to open a record" p)?
+  mut fields = Vec::new ()
+  loop
+    .skip_layout p
+    if .check (&TokenKind::RBrace) p
+      break
+    .push (field_init p)? fields
+    .skip_layout p
+    if !.check (&TokenKind::Comma) p
+      break
+    .advance p
+  .skip_layout p
+  (.expect (&TokenKind::RBrace) "expected `}` to close the record" p)?
+  Ok (Expr::Record { head = Box::new head, fields, span = (start, (.prev_span p).1) })

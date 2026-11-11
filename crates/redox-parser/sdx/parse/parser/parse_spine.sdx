@@ -1,0 +1,28 @@
+import crate::ParseError
+import crate::parse::parser::Parser
+import crate::parse::parser::capture_type::capture_type
+import crate::parse::parser::type_stop::TypeStop
+import redox_ast::TypeExpr
+import redox_lexer::TokenKind
+
+-- | Parse a signature line's type spine: the types between top-level `->`s.
+-- |
+-- | Doc 18 §2.2. `load : &str -> Result<Config, Error>` has the spine
+-- | `[&str, Result<Config, Error>]` — the last element is the return type and
+-- | the rest are parameter types, matched against the equation's binders.
+-- |
+-- | Every atom between the arrows is still a **verbatim Rust type** (doc 03
+-- | §14.1), so `capture_type` does the work unchanged. It already stops at a
+-- | top-level `->` and already keeps going through `Fn(i32) -> i32`, which is
+-- | the refinement plan 03 added for exactly this shape — so the spine costs
+-- | nothing but the loop.
+-- |
+-- | Only the spine becomes Haskell; doc 18 §8 declines type application by
+-- | juxtaposition *in types* precisely so that this stays true.
+export(crate) parse_spine : &mut Parser -> Result<Vec<TypeExpr>, ParseError>
+parse_spine p =
+  mut spine = vec! \-> (capture_type p "expected a type after `::`" TypeStop::Greedy)?
+  while .check (&TokenKind::Arrow) p
+    .advance p
+    .push (capture_type p "expected a type after `->`" TypeStop::Greedy)? spine
+  Ok spine

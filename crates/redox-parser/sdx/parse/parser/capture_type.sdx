@@ -1,0 +1,109 @@
+import crate::ParseError
+import crate::parse::parser::Parser
+import crate::parse::parser::can_end_a_type::can_end_a_type
+import crate::parse::parser::token_text::token_text
+import crate::parse::parser::type_stop::TypeStop
+import crate::parse::parser::ungrouped::ungrouped
+import redox_ast::TypeExpr
+import redox_diag::Code
+import redox_lexer::Keyword
+import redox_lexer::TokenKind
+
+-- | Capture a type as its **verbatim source text**.
+-- |
+-- | Plan 03 (`docs/08 - 03 - Parser Core.md`) §1.1. Doc 03 §14.1 fixes type
+-- | expressions as copied through unchanged, so this does not parse a type
+-- | grammar — it finds where the type ends and keeps the span.
+-- |
+-- | The scan stops at the first `,`, `)`, `}`, `|` , `=` or `->` at angle,
+-- | paren, bracket and brace depth zero, with one refinement that earns its
+-- | place: **an `->` after a parenthesised group that followed a name does not
+-- | end a type**, because that is `Fn(i32) -> i32` rather than a signature's
+-- | arrow. Without it, `&dyn Fn(i32) -> i32` could not be a parameter type and
+-- | doc 03 §14.1's "every Rust type form is reachable" would be false on day
+-- | one.
+-- |
+-- | "That followed a name" is the half the first version left out, and it cost
+-- | a wrong answer rather than a missing one: `() -> Option<T>` is a spine
+-- | whose first type is **unit**, and testing only for a preceding `)`
+-- | swallowed the arrow and the return type into it. The function then
+-- | reported zero parameters where the equation bound one, so the diagnostic
+-- | blamed the equation.
+-- |
+-- | `}` and `|` joined the set with doc 18 §2.4's declarations, which are the
+-- | first place a type is followed by either: `{ x : f64, y : f64 }` ended
+-- | its last field's type with the brace *inside* it, and `Key char | Close`
+-- | swallowed the bar. A string literal joined it with doc 03 §12.5's
+-- | `errors` rows, where the `Display` message follows the payload types with
+-- | no separator. None of them can occur in a Rust type at depth zero, so
+-- | none costs a type form.
+export(crate) capture_type : &mut Parser -> &str -> TypeStop -> Result<TypeExpr, ParseError>
+capture_type p message stop =
+  start = (.peek_span p).0
+  mut depth : i32 = 0
+  mut text = String::new ()
+  -- Whether the `(` of the group just closed followed an identifier, which
+  -- is what makes it `Fn(…)` rather than a unit or a tuple.
+  mut group_followed_a_name = false
+  mut prev_was_a_name = false
+  mut closed_a_named_group = false
+  mut prev_kind = TokenKind::Eof
+  loop
+    kind = &(.peek p).kind
+    -- A juxtaposed payload list reads one type per item, so a whitespace
+    -- boundary between something that can *end* a type and something that
+    -- can *begin* one ends this atom. Without it `Invalid String u32` is a
+    -- single field spelled `String u32`.
+    --
+    -- One line, where the Rust wrapped the condition: a continuation is a
+    -- line *ending* in an operator, so a `&&` opening a line is `RDX0102`.
+    if depth == 0 && stop == TypeStop::Atom && !.is_empty text && (.peek p).ws_before && can_end_a_type (&prev_kind)
+      break
+    -- **`Eof` ends the loop at any depth**, and this is a termination proof
+    -- rather than a convenience. Every other condition below is guarded by
+    -- `depth == 0`, and `p.advance()` at `Eof` does not advance — so a depth
+    -- that is wrong by even one turns this loop into a hang that grows `text`
+    -- until the process is killed. That happened: see the stray-closer note
+    -- on the match below.
+    at_eof = case kind of
+      TokenKind::Eof -> true
+      _ -> false
+    if at_eof
+      break
+    if depth == 0
+      ends = case kind of
+        TokenKind::Comma or TokenKind::RParen or TokenKind::Eq -> true
+        TokenKind::RBrace or TokenKind::Or or TokenKind::Pipe -> true
+        TokenKind::Str { .. } or TokenKind::RawStr { .. } -> true
+        TokenKind::Kw (Keyword::As) -> true
+        TokenKind::Arrow -> !closed_a_named_group
+        TokenKind::Newline or TokenKind::Indent or TokenKind::Dedent or TokenKind::Eof -> true
+        TokenKind::Gt or TokenKind::Shr or TokenKind::Compose or TokenKind::RBracket -> true
+        _ -> false
+      if ends
+        break
+    case kind of
+      TokenKind::LParen ->
+        if depth == 0
+          group_followed_a_name := prev_was_a_name
+        depth += 1
+      TokenKind::Lt or TokenKind::LBracket or TokenKind::LBrace -> depth += 1
+      TokenKind::Gt or TokenKind::RParen or TokenKind::RBracket or TokenKind::RBrace -> depth -= 1
+      TokenKind::Shr -> depth -= 2
+      TokenKind::Compose -> depth -= 3
+      _ -> ()
+    is_rparen = case kind of
+      TokenKind::RParen -> true
+      _ -> false
+    closed_a_named_group := is_rparen && group_followed_a_name
+    prev_was_a_name := case kind of
+      TokenKind::Ident _ or TokenKind::Kw (Keyword::Fn) -> true
+      _ -> false
+    if !.is_empty text && (.peek p).ws_before
+      .push ' ' text
+    .push_str (&token_text kind) text
+    prev_kind := .clone kind
+    .advance p
+  if .is_empty text
+    return Err (ParseError::r#with Code::ExpectedType message (.peek_span p))
+  Ok (TypeExpr { text = ungrouped (&text), span = (start, (.prev_span p).1) })

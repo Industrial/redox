@@ -1,0 +1,92 @@
+import crate::ParseError
+import crate::parse::parser::Parser
+import crate::parse::parser::class_body::class_body
+import crate::parse::parser::constraints::constraints
+import crate::parse::parser::method_context::MethodContext
+import crate::parse::parser::type_app::type_app
+import redox_ast::{InstanceDecl, TypeApp}
+import redox_lexer::{Keyword, TokenKind, Trivia}
+
+-- | Parse doc 18 §2.5's `instance` — Rust's `impl`, trait or inherent.
+-- |
+-- | ```text
+-- | instance Display t => Describe (Wrapper t)   impl<T: Display> Describe for Wrapper<T> {
+-- |   describe self = "…"                    →       fn describe(&self) -> String { "…" }
+-- |                                              }
+-- |
+-- | instance Counter                             impl Counter {
+-- |   increment self = self.value += 1       →       fn increment(&mut self) { … }
+-- |                                              }
+-- | ```
+-- |
+-- | One keyword covers both of Rust's forms. Which is written is decided by
+-- | **what follows `instance`**, in readings that between them cover
+-- | everything Haskell can write and the one thing it cannot:
+-- |
+-- | | Source | Reading |
+-- | |---|---|
+-- | | `instance Counter` | inherent, on `Counter` |
+-- | | `instance Show Point` | `Show` for `Point` |
+-- | | `instance Convert f64 Meters` | `Convert<f64>` for `Meters` |
+-- | | `instance Describe (Wrapper t)` | `Describe` for `Wrapper<T>` |
+-- | | `instance (Wrapper t)` | inherent, on `Wrapper<T>` |
+-- |
+-- | **The last name is the implementing type and the rest are the class's own
+-- | arguments** — plan 67 §9 decision 3, chosen so
+-- | `instance Convert f64 Meters` and `impl Convert<f64> for Meters` read in
+-- | the same order. That reverses the previous split, which took the *first*
+-- | argument as the target and so put the implementing type between the trait
+-- | and its arguments; a two-name head reads the same under both, which is why
+-- | nothing in the corpus observed the change.
+-- |
+-- | The parentheses are grouping, as they are in an expression — they say
+-- | where the target begins, which is the only thing juxtaposition alone
+-- | cannot. The last row is the case Haskell has no need for and Rust does:
+-- | an inherent `impl` on a generic type.
+-- |
+-- | The impl's own generic parameter is the first type variable of the
+-- | **target**. An inherent instance on a concrete type has none.
+export(crate) instance_decl : &mut Parser -> Vec<Trivia> -> usize -> Result<InstanceDecl, ParseError>
+instance_decl p leading start =
+  (.expect (&TokenKind::Kw Keyword::Instance) "expected `instance`" p)?
+  limits = (constraints p)?
+  -- Parentheses on the *first* type mean it is the target and there is no
+  -- class — nothing else would be worth grouping there.
+  grouped = .check (&TokenKind::LParen) p
+  first = (type_app p)?
+  -- `split.0` is the class and `split.1` the target, where the Rust
+  -- destructured the pair.
+  split = if grouped
+    (None, first)
+  else if .check (&TokenKind::LParen) p
+    -- `instance Describe (Wrapper t)`, and `instance Convert f64 (Wrapper t)`
+    -- — the whole juxtaposition before the group is the class.
+    (Some first, (type_app p)?)
+  else if .is_empty first.args
+    (None, first)
+  else
+    -- `instance Show Point` and `instance Convert f64 Meters` — juxtaposition
+    -- put the target in the argument list, and it is the **last** one.
+    mut args = .clone first.args
+    head = .expect "the argument list is not empty" (.pop args)
+    class_end = .map_or first.head.span.1 (\a -> a.span.1) (.last args)
+    class_app = TypeApp { head = .clone first.head, args, span = (first.head.span.0, class_end) }
+    target_app = TypeApp { head = .clone head, args = Vec::new (), span = head.span }
+    (Some class_app, target_app)
+  -- `implemented`, where the Rust named the local `class`: `class` is doc 03
+  -- §15's keyword. The field keeps its own name as `r#class`, which is how
+  -- `redox-ast` declares it and how `emit::instance` already reads it.
+  implemented = split.0
+  target = split.1
+  var = .map (\v -> .to_string v) (.first (.vars target))
+  -- Inside an `instance` a target's type variable is the impl's generic
+  -- parameter, so it is that parameter's uppercase name — doc 18 §5.3.
+  subject = .map_or_else String::new TypeApp::rust_name (.as_deref var)
+  mut ctx = MethodContext::for_instance (.as_deref var) (&subject)
+  -- Plan 63 leaf 1: the class this instance implements is where an elided
+  -- member's signature comes from. `None` for an inherent `instance`, which
+  -- has no class and so cannot elide — the diagnostic in `class_member` says
+  -- exactly that.
+  ctx.implementing := .map (\c -> .clone c.head.text) (.as_ref implemented)
+  members = (class_body p (&ctx))?
+  Ok (InstanceDecl { r#class = implemented, target, constraints = limits, members, span = (start, (.prev_span p).1), leading })

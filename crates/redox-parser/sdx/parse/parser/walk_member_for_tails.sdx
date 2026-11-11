@@ -1,0 +1,11 @@
+import crate::ParseError
+import crate::parse::parser::walk_item_for_tails::walk_item_for_tails
+import redox_ast::ClassMember
+import redox_ast::Item
+
+-- | Walk one class or instance member for `RDX0044` — plan 30.
+export(crate) walk_member_for_tails : &ClassMember -> &mut Vec<ParseError> -> ()
+walk_member_for_tails member problems =
+  if member is ClassMember::Method decl
+    walk_item_for_tails (&Item::Fn (.clone decl)) problems
+  ()

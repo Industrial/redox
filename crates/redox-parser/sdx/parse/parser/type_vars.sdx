@@ -1,0 +1,112 @@
+import crate::parse::parser::is_word::is_word
+import redox_ast::primitive_type
+
+-- | The type variables and lifetimes a signature's types mention, in order of
+-- | first appearance — doc 18 §§2.2, 5.3.
+-- |
+-- | > Lowercase type names are type variables, as in Haskell; the generic list
+-- | > is the order of their first appearance … lifetimes included.
+-- |
+-- | ```text
+-- | &[t] -> &t            ["t"]
+-- | (t, u) -> (u, t)      ["t", "u"]
+-- | &'a str -> &'a str    ["'a"]
+-- | i32 -> i32            []
+-- | ```
+-- |
+-- | The names are the **source's**, not Rust's: a caller needs both, to write
+-- | `<T>` in the generic list and to replace `t` with `T` in the types.
+-- |
+-- | **Lifetimes come first**, which is rustc's requirement rather than a
+-- | style: a type parameter before a lifetime is an error, not a lint. Within
+-- | each group the order is the source's, because the emitter's output has to
+-- | be byte-stable.
+-- |
+-- | Five things are excluded, each for a reason worth stating:
+-- |
+-- | - **primitives** — `i32` is lowercase and concrete; see
+-- |   [`primitive_type`];
+-- | - **`self`** — plan 67's receiver marker. `area : &self -> f64` would
+-- |   otherwise synthesise `fn area<Self_>(…)`, and the failure mode is a
+-- |   program that still compiles in simple cases. Checked here as its own
+-- |   condition rather than added to `primitive_type`, because `self` is not a
+-- |   primitive type and a list whose name stops describing its contents is
+-- |   how a reader learns to stop trusting the names — plan 67 §9 decision 4;
+-- | - **`'static`** — a lifetime that needs no declaration;
+-- | - **`'_`** — the *anonymous* lifetime, which asks rustc to infer one.
+-- |   Declaring it is not merely unnecessary but a hard error, `E0637: `'_`
+-- |   cannot be used here`, so `&mut Formatter<'_>` emitted `fn fmt<'_>(…)` and
+-- |   would not compile. Found porting `redox-diag`, where every `impl Display`
+-- |   takes one;
+-- | - **the type keywords** `dyn`, `impl`, `mut` and `as`, which are lowercase
+-- |   words inside a type and name nothing;
+-- | - **path segments** — `fmt` in `fmt::Result` is a module. A type variable
+-- |   is never part of a path, so an identifier adjacent to `::` on either
+-- |   side is skipped. Found by `fmt::Result` in a signature emitting
+-- |   `fn write_ok<FMT>(…) -> FMT::Result`.
+-- |
+-- | Reads the captured type **text**, which is a token sequence (doc 03
+-- | §14.1), so an identifier in it is delimited by characters that cannot
+-- | appear in one. That makes a word scan exact without parsing the type.
+export(crate) type_vars : &[&str] -> Vec<String>
+type_vars types =
+  mut lifetimes : Vec<String> = Vec::new ()
+  mut vars : Vec<String> = Vec::new ()
+  for text in types
+    chars : Vec<char> = .collect (.chars text)
+    mut i = 0
+    n = .len chars
+    while i < n
+      if !is_word chars[i]
+        i += 1
+        continue
+      start = i
+      while i < n && is_word chars[i]
+        i += 1
+      word : String = .collect (.iter chars[start .. i])
+      is_lifetime = start > 0 && chars[start - 1] == '\''
+      -- **A path segment is not a type variable.** `fmt::Result` has a
+      -- lowercase `fmt` and `fmt` is a *module*; making it a parameter emitted
+      -- `fn write_ok<FMT>(…) -> FMT::Result`, which rustc rejects with
+      -- "associated type `Result` not found". Doc 18 §5.3's rule is about a
+      -- type variable, and a variable is never part of a path — so an
+      -- identifier adjacent to `::` on either side is skipped.
+      after_colons = start >= 2 && chars[start - 2] == ':' && chars[start - 1] == ':'
+      before_colons = .get i chars == Some (&':') && .get (i + 1) chars == Some (&':')
+      if after_colons || before_colons
+        continue
+      if is_lifetime
+        -- `'static` needs no declaration and `'_` must not have one: it is
+        -- the anonymous lifetime, and `fn f<'_>(…)` is `E0637`. See the
+        -- doc comment's exclusion list.
+        if word != "static" && word != "_"
+          named = format! \-> "'#{word}"
+          if !.contains (&named) lifetimes
+            .push named lifetimes
+        continue
+      -- `case … of` with a `_ -> false`, where the Rust wrote `matches!`.
+      is_type_word = case .as_str word of
+        "dyn" or "impl" or "mut" or "as" -> true
+        _ -> false
+      -- `.chars |> .next |> .is_some_and char::is_lowercase`, where the Rust
+      -- wrote `starts_with(|c: char| c.is_lowercase())`. A lambda parameter
+      -- takes no annotation in Redox, and here the annotation is
+      -- **load-bearing**: `str::starts_with` is generic over `Pattern`, so a
+      -- bare closure has nothing to infer its parameter from. An empty word
+      -- answers `false` either way, which is the one case the two spellings
+      -- could have differed on.
+      lowercase_head = .is_some_and char::is_lowercase (.next (.chars word))
+      -- One line, where the Rust wrapped the condition over five: a
+      -- continuation is a line *ending* in an operator, so a `||` opening a
+      -- line is `RDX0102`.
+      --
+      -- `word == "self"` is plan 67's receiver marker, and not a type at all
+      -- — see the doc comment's fifth exclusion for why it is not in
+      -- `primitive_type`.
+      excluded = !lowercase_head || primitive_type (&word) || word == "self" || is_type_word
+      if excluded
+        continue
+      if !.contains (&word) vars
+        .push word vars
+  .extend vars lifetimes
+  lifetimes

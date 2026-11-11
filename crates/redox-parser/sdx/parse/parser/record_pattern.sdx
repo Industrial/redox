@@ -1,0 +1,66 @@
+import crate::ParseError
+import crate::parse::parser::Parser
+import crate::parse::parser::pattern_alt::pattern_alt
+import redox_ast::{Pattern, RecordPatternField}
+import redox_lexer::TokenKind
+
+-- | `Point { x = 0, y, .. }` — doc 03 §6.3's named record pattern, plan 33.
+-- |
+-- | The cursor is on the `{`; `path` is the head already read.
+-- |
+-- | # `=` and not `:`
+-- |
+-- | §6.3 published `Point{x: 0, y}`. Doc 18 §2.4 changed the record *literal*
+-- | to `=` — `Point { x = 10, y = 20 }` — and plan 52 made `:` the type marker
+-- | everywhere, which leaves it no job supplying a *value* inside braces. So
+-- | the pattern uses `=` and reads identically to the literal that builds it,
+-- | lowering to Rust's `Point { x: 0, y }`.
+-- |
+-- | Two spellings of one shape differing only by position is exactly what doc
+-- | 18 §5.3 exists to remove.
+-- |
+-- | # The anonymous form is deleted, not missing
+-- |
+-- | §6.3's second spelling — `{active: true, age: > 18}` with no path — is
+-- | deleted by doc 18 §2.3 along with the relational patterns it was built on,
+-- | and `RDX0042` and `RDX0043` go with it. It lowered to
+-- | `u.active && u.age > 18`, which is *shorter written directly*.
+export(crate) record_pattern : &mut Parser -> String -> usize -> Result<Pattern, ParseError>
+record_pattern p head start =
+  -- A `::`-joined path, for `Event::Click { x }`. `::` is a path separator and
+  -- nothing else — plan 52 made `:` the type marker.
+  mut path = head
+  while .check (&TokenKind::ColonColon) p
+    .advance p
+    segment = (.ident "expected a name after `::`" p)?
+    .push_str "::" path
+    .push_str (&segment.text) path
+  (.expect (&TokenKind::LBrace) "expected `{` to open a record pattern" p)?
+  mut fields = Vec::new ()
+  mut rest = false
+  -- Plan 65 leaf 1: `{` opens a layout context, so a field list spanning
+  -- lines carries layout tokens this loop has no use for.
+  .skip_layout p
+  while !.check (&TokenKind::RBrace) p
+    -- `..` ends the field list — *"and other fields"*. Rust requires it last,
+    -- so nothing follows it here either.
+    if .check (&TokenKind::DotDot) p
+      .advance p
+      rest := true
+      break
+    name = (.ident "expected a field name in a record pattern" p)?
+    -- No `=` is doc 03 §6.3's *"field pun"*: the field binds under its own
+    -- name, which is Rust's own shorthand and needs no spelling.
+    bound = if .check (&TokenKind::Eq) p
+      .advance p
+      Some (pattern_alt p)?
+    else
+      None
+    .push (RecordPatternField { name, pattern = bound }) fields
+    .skip_layout p
+    if !.check (&TokenKind::Comma) p
+      break
+    .advance p
+    .skip_layout p
+  (.expect (&TokenKind::RBrace) "expected `}` to close the record pattern" p)?
+  Ok (Pattern::Record { path, fields, rest, span = (start, (.prev_span p).1) })

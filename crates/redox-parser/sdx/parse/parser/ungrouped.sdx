@@ -1,0 +1,76 @@
+-- | A function type's grouping parentheses, removed — `(impl Fn(char) -> bool)`
+-- | is `impl Fn(char) -> bool`.
+-- |
+-- | They are needed to *capture* the type: a type is source text, and the arrow
+-- | inside `Fn(char) -> bool` would otherwise split the signature at the wrong
+-- | place. They are the same grouping as doc 18 §2.5's `instance … (Wrapper t)`
+-- | — for the reader of the signature, carrying no meaning of their own — and
+-- | `clippy::unnecessary_parens` is right that they do not belong in the Rust.
+-- | Plan 74 found it on `Cursor::eat_while`, the first ported signature to take
+-- | a function.
+-- |
+-- | **Only a single balanced group whose content has a top-level arrow.** That
+-- | is the one shape the parentheses exist for, and the test is what keeps
+-- | `(i32, u32)`, `()` and `(dyn Display)` intact — each of those is also a
+-- | single group, and none of them has the arrow.
+export(crate) ungrouped : &str -> String
+ungrouped text =
+  guard .and_then (\t -> .strip_suffix ')' t) (.strip_prefix '(' text) is Some inner else
+    return .to_string text
+  -- One group, not two side by side: `(a) -> (b)` must not lose its arrow.
+  chars : Vec<char> = .collect (.chars inner)
+  mut depth : i32 = 0
+  mut top_level_arrow = false
+  mut top_level_comma = false
+  mut i = 0
+  n = .len chars
+  while i < n
+    -- **`->` is one token, and its `>` is not a closing angle bracket.**
+    -- Counting it as one took the depth negative on the very shape this
+    -- exists for, so the strip never fired.
+    if chars[i] == '-' && .get (i + 1) chars == Some (&'>')
+      -- `:=` over an `||`, where the Rust wrote `|=`: `compound_assign` reads
+      -- the five arithmetic forms and no bitwise one, so an or-assignment is
+      -- spelled out.
+      top_level_arrow := top_level_arrow || depth == 0
+      i += 2
+      continue
+    case chars[i] of
+      '(' or '[' or '<' -> depth += 1
+      ')' or ']' or '>' -> depth -= 1
+      ',' | depth == 0 -> top_level_comma := true
+      _ -> ()
+    -- A closer with no opener means the outer parentheses did not match each
+    -- other — `(a) -> (b)` is two groups, not one — so the text stands.
+    if depth < 0
+      return .to_string text
+    i += 1
+  if depth != 0 || !top_level_arrow || top_level_comma
+    return .to_string text
+  .to_string inner
+
+test "a function types grouping goes"
+  assert_eq! \-> ungrouped "(impl Fn(char) -> bool)" \-> "impl Fn(char) -> bool"
+
+-- | Each of these is also a single balanced group, and none has a top-level
+-- | arrow — which is the whole of why the test is the arrow and not the
+-- | brackets.
+test "a tuple a unit and a trait object keep theirs"
+  assert_eq! \-> ungrouped "(i32, u32)" \-> "(i32, u32)"
+  assert_eq! \-> ungrouped "()" \-> "()"
+  assert_eq! \-> ungrouped "(dyn Display)" \-> "(dyn Display)"
+
+-- | **A tuple whose element is a function type has both marks**, so the
+-- | comma has to be tested as well as the arrow. `scan_number`'s
+-- | `(&str, fn(char) -> bool)` is the type that caught the first version.
+test "a tuple holding a function type keeps its parentheses"
+  assert_eq! \-> ungrouped "(&str, fn(char) -> bool)" \-> "(&str, fn(char) -> bool)"
+
+-- | Two groups side by side are not one group, so the arrow between them is
+-- | the type's own and the text is left alone.
+test "two groups are not one"
+  assert_eq! \-> ungrouped "(a) -> (b)" \-> "(a) -> (b)"
+
+test "an unparenthesised type is untouched"
+  assert_eq! \-> ungrouped "Vec<Vec<u8>>" \-> "Vec<Vec<u8>>"
+  assert_eq! \-> ungrouped "&'a str" \-> "&'a str"

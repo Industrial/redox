@@ -1,0 +1,78 @@
+import crate::ParseError
+import crate::parse::parser::Parser
+import crate::parse::parser::stmt::stmt
+import crate::parse::parser::where_entry_is_a_function::where_entry_is_a_function
+import crate::parse::parser::where_group::where_group
+import redox_ast::{Expr, Item, Pattern, Stmt}
+import redox_diag::Code
+import redox_lexer::{Keyword, TokenKind}
+
+-- | Doc 18 §2.2's `where` locals, if the clause has any.
+-- |
+-- | ```text
+-- | largest xs = best
+-- |   where
+-- |     best = xs |> iter |> max |> unwrap
+-- | ```
+-- |
+-- | An indented `where`, then its own indented block of entries. Two levels
+-- | because that is how Haskell writes it and how the doc's example is
+-- | written.
+-- |
+-- | **An entry is a binding, a function declaration, or a statement** — plan
+-- | 61 leaf 0. The first two are what doc 03 §8.3 always specified; the third
+-- | is what this function accepted by reusing `stmt`, and plan 61 §11.2
+-- | found it reaches further than §6 claimed: *"the inner block is an
+-- | ordinary statement block, so a local may be anything a statement may
+-- | be"* is the sentence this comment used to end with, and it let a `print`
+-- | into a group the row goes on to **sort**.
+-- |
+-- | A function entry is `Parser::function` reused wholesale, so a local
+-- | declaration and a module-scope one are the same parse and cannot drift:
+-- | multi-equation bodies, guard ladders, `where`-within-`where` and
+-- | generics all arrive without being written again. It is carried as
+-- | `Expr::Item`, which plan 55 leaf 5 already built and `emit_stmt` already
+-- | routes to `emit_item` — so leaf 3's *"nothing in the emitter emits an
+-- | item inside a function body today"* was true when it was written and is
+-- | not now.
+-- |
+-- | Returns an empty vector when there is no clause, so a caller can ask
+-- | unconditionally — there are three clause shapes and each has to.
+export(super) where_locals : &[Pattern] -> &mut Parser -> Result<Vec<Stmt>, ParseError>
+where_locals params p =
+  opens = .check (&TokenKind::Indent) p && .is_some_and (\t -> t.kind == TokenKind::Kw Keyword::Where) (.peek_at 1 p)
+  if !opens
+    return Ok (Vec::new ())
+  .advance p
+  .advance p
+  (.newline_with_trailing "expected a line break after `where`" p)?
+  (.expect_with Code::EmptyBody (&TokenKind::Indent) "expected indented `where` bindings" p)?
+  mut locals = Vec::new ()
+  loop
+    .skip_separators p
+    if .check (&TokenKind::Dedent) p || .at_eof p
+      break
+    -- Plan 61 leaf 0. Asked before `stmt` because a function entry's
+    -- first token is a *name*, which is the one thing `stmt` cannot tell
+    -- apart on its own: `looks_like_a_binding` wants `=`, `:` or `{` at the
+    -- second token, so `go 0 = 0` parsed as a call and the `=` was
+    -- unexpected.
+    if where_entry_is_a_function p
+      start = (.peek_span p).0
+      decl = (.where_function p)?
+      end = (.prev_span p).1
+      -- `leading` is empty for `Parser::stmt`'s reason, in the same words:
+      -- `item` captured this trivia a moment ago and the declaration owns
+      -- it, so a copy here printed every comment twice.
+      entry = Expr::Item { item = Box::new (Item::Fn decl), span = (start, end) }
+      .push (Stmt { expr = entry, span = (start, end), leading = Vec::new (), trailing = None }) locals
+      continue
+    .push (stmt p)? locals
+  (.expect (&TokenKind::Dedent) "expected the `where` bindings to end" p)?
+  .skip_separators p
+  (.expect (&TokenKind::Dedent) "expected the `where` clause to end" p)?
+  -- Plan 61 leaf 4's three refusals, checked once the whole group is read —
+  -- a cycle is not a property of any one entry, and the shadow check needs
+  -- the equation's parameters, which only a caller has.
+  (where_group (&locals) params)?
+  Ok locals

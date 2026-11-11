@@ -1,0 +1,56 @@
+import crate::ParseError
+import crate::parse::parser::Parser
+import crate::parse::parser::unit_tail::unit_tail
+import crate::parse::parser::where_locals::where_locals
+import redox_ast::{Clause, ClauseBody, Ident, Pattern}
+import redox_diag::Code
+import redox_lexer::TokenKind
+
+-- | One clause's right-hand side, after its pattern row.
+-- |
+-- | Either `= body` or doc 18 §2.3's guard ladder. A guard list arrives on
+-- | the *next* line, indented, so the newline and `Indent` are consumed
+-- | before the `|` can be seen — which is why the two forms are told apart
+-- | after the layout tokens rather than before them.
+-- |
+-- | `name` and `returns_unit` are the function's, carried in for plan 55
+-- | §1.6's unit rule: the rule is decided by the declared return type and
+-- | applies to an **indented** body only, so the one place that can ask it is
+-- | the branch below that reads one.
+-- |
+-- | `row`, where the Rust named the parameter `patterns`: that is the name
+-- | of the function this file imports, and `RDX1003` reports the shadow.
+export(super) clause : Vec<Pattern> -> &Ident -> bool -> &mut Parser -> Result<Clause, ParseError>
+clause row name returns_unit p =
+  start = .map_or (.peek_span p).0 (\first -> (.span first).0) (.first row)
+  if .opens_a_guard_list p
+    .advance p
+    .advance p
+    rungs = (.guards p)?
+    (.expect (&TokenKind::Dedent) "expected the guard list to end" p)?
+    wheres = (where_locals (&row) p)?
+    return Ok (Clause { patterns = row, body = ClauseBody::Guarded rungs, wheres, span = (start, (.prev_span p).1), trailing = None })
+  (.expect (&TokenKind::Eq) "expected `=` after the equation's parameters, or an indented `|` guard list" p)?
+  -- Doc 18 §2.3's own examples put short bodies on the `=` line — `fib 0 =
+  -- 0` — and reserve the indented block for bodies that need statements.
+  -- Both are the same construct, so both are read here rather than in two
+  -- places that could drift apart.
+  if !.check (&TokenKind::Newline) p
+    body = (.inline_body p)?
+    trailing = (.newline_with_trailing "expected a line break after the body" p)?
+    wheres = (where_locals (&row) p)?
+    return Ok (Clause { patterns = row, body = ClauseBody::Plain body, wheres, span = (start, (.prev_span p).1), trailing })
+  trailing = (.newline_with_trailing "expected a line break after `=`" p)?
+  (.expect_with Code::EmptyBody (&TokenKind::Indent) "expected an indented body" p)?
+  reported = .len p.r#errors
+  block = (.statements p)?
+  -- Plan 55 §1.6's unit rule, and only of a block that parsed cleanly. The
+  -- error count is how that is told: `statements` recovers a bad element
+  -- into `p.errors` and carries on, so a body with a fault already
+  -- reported still has a last element — and doc 05 §4's rule is that the
+  -- first error names the actual defect, not that the second one names the
+  -- tail of a body nobody has fixed yet.
+  if returns_unit && .len p.r#errors == reported
+    (unit_tail name (&block))?
+  wheres = (where_locals (&row) p)?
+  Ok (Clause { patterns = row, body = ClauseBody::Plain (.clone block), wheres, span = (start, (.prev_span p).1), trailing })

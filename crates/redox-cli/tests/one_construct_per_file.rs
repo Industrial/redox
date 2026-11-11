@@ -106,7 +106,17 @@ fn constructs(text: &str) -> Vec<String> {
     let Some(first) = rest.first() else {
       continue;
     };
-    let name: String = first
+    // **A raw identifier is the identifier.** `fn r#deriving` declares
+    // `deriving`, and the `r#` is syntax for "this is a name, not the keyword
+    // it looks like" — so the prefix comes off before the stem is compared.
+    //
+    // Without this the name read as `r`, because the scan stops at `#`, and
+    // `redox-parser`'s `parse/parser/deriving.rs` was reported as declaring
+    // `r` in a file that should then be `r.rs`. It is the first construct in
+    // the workspace that needs one: `deriving` is a Redox keyword (doc 03
+    // §9.5), so the ported source cannot name the function anything else.
+    let stem = first.strip_prefix("r#").unwrap_or(first);
+    let name: String = stem
       .chars()
       .take_while(|c| c.is_alphanumeric() || *c == '_')
       .collect();

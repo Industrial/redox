@@ -1,0 +1,28 @@
+import crate::parse::parser::Parser
+import redox_lexer::TokenKind
+
+-- | Whether a `<-` appears at depth zero before this statement ends.
+-- |
+-- | A `<-` inside brackets belongs to something nested and is not this
+-- | statement's, so the depth count is what keeps a `[ … ]` or a `( … )` from
+-- | claiming one.
+export(crate) reaches_a_draw_arrow : &Parser -> bool
+reaches_a_draw_arrow p =
+  mut depth : i32 = 0
+  mut i = 0
+  while .peek_at i p is Some tok
+    case &tok.kind of
+      TokenKind::DrawArrow | depth == 0 ->
+        return true
+      TokenKind::LParen or TokenKind::LBracket or TokenKind::LBrace -> depth += 1
+      TokenKind::RParen or TokenKind::RBracket or TokenKind::RBrace ->
+        depth -= 1
+        if depth < 0
+          return false
+      TokenKind::Eq | depth == 0 ->
+        return false
+      TokenKind::Newline or TokenKind::Indent or TokenKind::Dedent or TokenKind::Eof ->
+        return false
+      _ -> ()
+    i += 1
+  false

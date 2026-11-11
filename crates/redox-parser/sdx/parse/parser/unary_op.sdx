@@ -1,0 +1,23 @@
+import crate::parse::parser::Parser
+import redox_ast::UnaryOp
+import redox_lexer::{Keyword, TokenKind}
+
+-- | A unary prefix operator at the cursor, consumed if present.
+-- |
+-- | `&mut` is two tokens, so `&` is consumed first and `mut` probed after —
+-- | which is why this returns rather than peeking.
+export(crate) unary_op : &mut Parser -> Option<UnaryOp>
+unary_op p =
+  op = case (.peek p).kind of
+    TokenKind::Minus -> UnaryOp::Neg
+    TokenKind::Bang -> UnaryOp::Not
+    TokenKind::Star -> UnaryOp::Deref
+    TokenKind::Amp ->
+      .advance p
+      if .eat_keyword Keyword::Mut p
+        return Some UnaryOp::RefMut
+      return Some UnaryOp::Ref
+    _ ->
+      return None
+  .advance p
+  Some op

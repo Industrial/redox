@@ -1,0 +1,57 @@
+import crate::ParseError
+import crate::parse::parser::Parser
+import crate::parse::parser::capture_type::capture_type
+import crate::parse::parser::starts_a_field_type::starts_a_field_type
+import crate::parse::parser::type_stop::TypeStop
+import redox_ast::ErrorVariant
+import redox_lexer::{Keyword, TokenKind}
+
+-- | One row of an `errors` declaration — doc 03 §12.5.
+-- |
+-- | ```text
+-- | Missing String        "missing key: #{0}"
+-- | Invalid String u32    "invalid value #{0} at line #{1}"
+-- | Closed                "closed"
+-- | from io::Error as Io  "io error: #{0}"
+-- | ```
+-- |
+-- | Two shapes. `from T as Name` names the type first and the variant second,
+-- | which is the order it reads in — *from* this, call it that — and it is
+-- | what asks for the extra `From` implementation. Everything else is a
+-- | variant name followed by its juxtaposed payload types (doc 18 §2.1).
+-- |
+-- | The message terminates the field list, needing no separator: a string
+-- | literal cannot begin a type. That is what lets the rows line up as a
+-- | table, which is how doc 03 §12.5 and doc 18 §9 both write them.
+export(crate) error_variant : &mut Parser -> Result<ErrorVariant, ParseError>
+error_variant p =
+  start = (.peek_span p).0
+  -- `from` is not a reserved word — doc 18 §7's table does not add one — so
+  -- it is matched as the identifier it is. A variant genuinely named `from`
+  -- would be lowercase, which doc 18 §5.3 reserves for values, so the
+  -- collision is already ruled out by the capitalisation rule.
+  is_from = case &(.peek p).kind of
+    TokenKind::Ident text | text == "from" -> true
+    _ -> false
+  -- `read.0` is the name, `read.1` the payload types and `read.2` the `from`
+  -- flag, where the Rust destructured the triple.
+  read = if is_from
+    .advance p
+    ty = (capture_type p "expected a type after `from`" TypeStop::Greedy)?
+    -- `as` is a reserved word, so it is matched as the keyword it is.
+    (.expect (&TokenKind::Kw Keyword::As) "expected `as` between the type and the variant's name" p)?
+    named = (.ident "expected the variant's name after `as`" p)?
+    (named, vec! \-> ty, true)
+  else
+    named = (.ident "expected a variant name" p)?
+    mut payload = Vec::new ()
+    while starts_a_field_type (&(.peek p).kind)
+      .push (capture_type p "expected a payload type" TypeStop::Atom)? payload
+    (named, payload, false)
+  message = case &(.peek p).kind of
+    TokenKind::Str { raw, .. } -> .clone raw
+    _ ->
+      return Err (ParseError::expected "expected the variant's `Display` message, as a string literal" (.peek_span p))
+  .advance p
+  (.newline_with_trailing "expected a line break after the variant" p)?
+  Ok (ErrorVariant { name = read.0, fields = read.1, from = read.2, message, span = (start, (.prev_span p).1) })

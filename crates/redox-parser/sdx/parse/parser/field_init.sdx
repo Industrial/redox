@@ -1,0 +1,24 @@
+import crate::ParseError
+import crate::parse::parser::Parser
+import crate::parse::parser::parse_expr::parse_expr
+import redox_ast::FieldInit
+import redox_lexer::TokenKind
+
+-- | One `name = value` field of a record literal, or a punned `name`.
+-- |
+-- | Doc 18 §2.4. `=` for a value, against `::` for a type — one token
+-- | introduces a type wherever it appears, the other introduces a value, in a
+-- | declaration and a literal alike.
+-- |
+-- | Punning is recorded as an **absent** value rather than a synthesised
+-- | `Expr::Ident`, so the formatter can write back what the author wrote.
+export(crate) field_init : &mut Parser -> Result<FieldInit, ParseError>
+field_init p =
+  start = (.peek_span p).0
+  name = (.ident "expected a field name" p)?
+  value = if .check (&TokenKind::Eq) p
+    .advance p
+    Some (parse_expr p 0)?
+  else
+    None
+  Ok (FieldInit { name, value, span = (start, (.prev_span p).1) })

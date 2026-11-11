@@ -1,0 +1,28 @@
+import crate::ParseError
+import crate::parse::parser::Parser
+import redox_ast::TestDecl
+import redox_diag::Code
+import redox_lexer::{Keyword, TokenKind, Trivia}
+
+-- | Parse doc 03 §15's `test` block, kept by doc 18 §8.
+-- |
+-- | ```text
+-- | test "adds two numbers"
+-- |   assert! \-> add 1 2 == 3
+-- | ```
+-- |
+-- | A description and an indented body, which is the same body shape a
+-- | function's clause has — so a test may contain anything a function may,
+-- | including the draw arrows and `case` expressions that need layout of
+-- | their own.
+export(crate) test_decl : &mut Parser -> Vec<Trivia> -> usize -> Result<TestDecl, ParseError>
+test_decl p leading start =
+  (.expect (&TokenKind::Kw Keyword::Test) "expected `test`" p)?
+  description = case &(.peek p).kind of
+    TokenKind::Str { raw, .. } -> .clone raw
+    _ ->
+      return Err (ParseError::expected "expected the test's description, as a string literal" (.peek_span p))
+  .advance p
+  (.newline_with_trailing "expected a line break after the description" p)?
+  body = (.indented_block Code::EmptyBody "expected an indented test body" p)?
+  Ok (TestDecl { description, body, span = (start, (.prev_span p).1), leading })

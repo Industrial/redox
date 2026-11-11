@@ -1,0 +1,37 @@
+import crate::ParseError
+import crate::parse::parser::Parser
+import redox_ast::{ModuleDecl, Visibility}
+import redox_lexer::{Keyword, TokenKind, Trivia}
+
+-- | Parse doc 18 §7's `module` — plan 14 §1.2.
+-- |
+-- | ```text
+-- | module config
+-- | export module parser
+-- |
+-- | module tests
+-- |   test "it parses"
+-- |     assert! \-> 1 == 1
+-- | ```
+-- |
+-- | A name, and an optional indented body of items. The body is **recursive**:
+-- | a `module` inside a `module` is the same declaration, and nothing stops
+-- | it, because nothing in Rust does either.
+-- |
+-- | Doc 18 §8 declines Haskell's module header, so this is `mod` and not a
+-- | file-level declaration — see [`ModuleDecl`] for the whole of that
+-- | argument.
+export(crate) module_decl : &mut Parser -> Vec<Trivia> -> usize -> Visibility -> Result<ModuleDecl, ParseError>
+module_decl p leading start visibility =
+  (.expect (&TokenKind::Kw Keyword::Module) "expected `module`" p)?
+  name = (.ident "expected the module's name" p)?
+  -- A body is a line break then an indent. Without one this is `mod name;`,
+  -- which loads a sibling file — a different declaration, not an empty one,
+  -- which is why `items` is an `Option`.
+  has_body = .check (&TokenKind::Newline) p && .is_some_and (\t -> t.kind == TokenKind::Indent) (.peek_at 1 p)
+  if !has_body
+    return Ok (ModuleDecl { name, items = None, visibility, span = (start, (.prev_span p).1), leading })
+  .advance p
+  .advance p
+  items = (.items_until_dedent p)?
+  Ok (ModuleDecl { name, items = Some items, visibility, span = (start, (.prev_span p).1), leading })

@@ -1,0 +1,42 @@
+import crate::ParseError
+import crate::parse::parser::Parser
+import redox_ast::Constraint
+import redox_lexer::TokenKind
+
+-- | The `Trait t, Other u =>` clause, if one is here — doc 18 §2.5.
+-- |
+-- | `=>` means a constraint and nothing else, which is exactly what doc 18 §7
+-- | retires it as an arm arrow for. Recognising it needs **arbitrary
+-- | lookahead**, because `class Shape t` and `class Debug t => Shape t` begin
+-- | identically: the constraints are read speculatively and the parser rewinds
+-- | if no `=>` arrives.
+-- |
+-- | Rewinding rather than restructuring the grammar is the cheap answer here
+-- | and stays cheap: the span scanned is one line of names, and the
+-- | alternative — reading a name list and deciding afterwards what it was —
+-- | would put the ambiguity in two places instead of one.
+export(crate) constraints : &mut Parser -> Result<Vec<Constraint>, ParseError>
+constraints p =
+  mark = .position p
+  mut found = Vec::new ()
+  -- Haskell parenthesises a list of two or more; one needs no parentheses.
+  parenthesised = .check (&TokenKind::LParen) p
+  if parenthesised
+    .advance p
+  loop
+    start = (.peek_span p).0
+    guard .try_ident p is Some trait_name else
+      break
+    guard .try_ident p is Some var else
+      break
+    .push (Constraint { trait_name, var, span = (start, (.prev_span p).1) }) found
+    if !.check (&TokenKind::Comma) p
+      break
+    .advance p
+  if parenthesised && .check (&TokenKind::RParen) p
+    .advance p
+  if .is_empty found || !.check (&TokenKind::FatArrow) p
+    .rewind mark p
+    return Ok (Vec::new ())
+  .advance p
+  Ok found

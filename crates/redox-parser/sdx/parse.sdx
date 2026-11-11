@@ -1,0 +1,41 @@
+import crate::ParseError
+import crate::parse::max_nesting::MAX_NESTING
+import crate::parse::nesting_depth::nesting_depth
+import crate::parse::parser::Parser
+import redox_ast::Program
+import redox_diag::Code
+import redox_lexer::Token
+
+-- | A parse error, carrying enough to report against the `.sdx`.
+export(crate) module error
+-- | Everything that can go wrong turning source text into a program.
+export(crate) module failure
+-- | How deeply the input may nest brackets before the parser refuses it.
+export(crate) module max_nesting
+-- | The deepest bracket nesting in a token stream.
+export(crate) module nesting_depth
+-- | The recursive-descent parser.
+export(crate) module parser
+export(crate) module precedence
+-- | Lex and parse a source.
+export(crate) module source
+
+-- | Parse an already-lexed token stream.
+-- |
+-- | `src_len` is the source's byte length, used for the program's own span.
+-- |
+-- | The nesting check is here rather than in `parse_source` because this is the
+-- | chokepoint: every caller arrives through it, so nothing can reach the
+-- | recursive descent unchecked.
+export parse : &[Token] -> usize -> Result<Program, Vec<ParseError>>
+parse toks src_len =
+  deepest = nesting_depth toks
+  if deepest > MAX_NESTING
+    -- Reported at the start of the file rather than at the offending bracket.
+    -- Finding *which* bracket crossed the line would mean another scan for a
+    -- span nobody can act on differently — the answer is always "this file
+    -- nests too deeply", and it is almost always generated input rather than
+    -- something a person wrote.
+    message = format! \-> "this input nests brackets #{deepest} deep, and the limit is #{MAX_NESTING}: deeper than that overflows the parser's stack"
+    return Err (vec! \-> ParseError { code = Code::NestingTooDeep, message, span = (0, 0), help = None })
+  .run src_len (Parser::new toks)

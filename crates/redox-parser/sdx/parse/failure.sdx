@@ -1,0 +1,14 @@
+import crate::ParseError
+import redox_lexer::LexError
+
+-- | Everything that can go wrong turning source text into a
+-- | [`redox_ast::Program`].
+-- |
+-- | Lexical and syntactic failure are kept distinct because they are reported
+-- | differently: a lex error is always single and already positioned, while
+-- | parse errors arrive as a recovered batch.
+export data ParseFailure
+  = Lex LexError
+  -- | One or more parse errors, recovered at item boundaries.
+  | Parse Vec<ParseError>
+  deriving (Debug, Clone, PartialEq, Eq)
