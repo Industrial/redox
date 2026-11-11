@@ -1,0 +1,11 @@
+import crate::run::command::Command
+import crate::run::commands::COMMANDS
+
+-- | The command `arg` selects, if any.
+-- |
+-- | Plan 11 (`docs/16 - 11 - CLI Surface.md`) leaf 3. The single way an
+-- | argument becomes a command, so dispatch cannot recognise something the
+-- | usage text does not — the defect §2.1 describes, where `USAGE` and the
+-- | dispatch `match` were two independent lists that nothing kept in step.
+
+-- TODO plan 68: hand-port from line 10

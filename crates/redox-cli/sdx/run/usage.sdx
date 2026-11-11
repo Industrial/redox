@@ -1,0 +1,19 @@
+import crate::run::command::state::State
+import crate::run::commands::COMMANDS
+import std::fmt::Write as _
+
+-- | The one-screen usage message, **generated from the command table**.
+-- |
+-- | Plan 11 (`docs/16 - 11 - CLI Surface.md`) leaf 2. This was a hand-written
+-- | `const` until plan 11, which made it a second independent list of the same
+-- | six commands the dispatch `match` listed. Plan 07 had to edit both and
+-- | nothing would have objected if it had edited only one — leaving either a
+-- | subcommand that works and is undocumented, or one that is documented and
+-- | does not work. No test covered either case (plan 11 §2.1).
+-- |
+-- | Generating it removes the possibility rather than that instance.
+-- |
+-- | A planned command appears with its plan, so `--help` tells the truth about
+-- | what works rather than advertising six commands when four run.
+
+-- TODO plan 68: hand-port from line 18

@@ -1,0 +1,13 @@
+import std::path::Path
+
+-- | Every `.sdx` directly in `dir`, sorted.
+-- |
+-- | Plan 12 (`docs/17 - 12 - Watcher.md`) leaf 3. The same rule
+-- | `redox_driver`'s `sdx_in` applies — one level deep, sorted — so
+-- | `redox watch <dir>` compiles the same set of files a build script would,
+-- | and a user does not discover the two disagree.
+-- |
+-- | Sorted for the same reason it is sorted there: unsorted directory order
+-- | would make the diagnostics reorder between runs for no reason.
+
+-- TODO plan 68: hand-port from line 12

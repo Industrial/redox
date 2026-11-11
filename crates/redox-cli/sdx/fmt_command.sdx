@@ -1,0 +1,26 @@
+export(crate) module fmt_args
+export(crate) module parse_fmt_args
+
+import crate::fmt_command::parse_fmt_args::parse_fmt_args
+import redox_driver::diagnose
+
+-- | `redox fmt FILE…` and `redox fmt --check FILE…` — plan 34, leaf 1.
+-- |
+-- | Formats in place, or with `--check` reports which files are not canonical
+-- | and exits non-zero without writing anything.
+-- |
+-- | # Why `--check` prints names rather than a diff
+-- |
+-- | A diff needs a diff algorithm, and the information a reader needs from
+-- | `--check` is *which files*; the diff they want after that is
+-- | `redox fmt FILE && git diff`, which they already know how to read. Plan 34
+-- | criterion 1 asks for a diff and this gives a file list — recorded in §10 as
+-- | a narrowing rather than done quietly.
+-- |
+-- | # A file that does not parse is left alone
+-- |
+-- | Criterion 8. The parse error is reported and nothing is written, because a
+-- | formatter that rewrites a file it could not understand is the one way this
+-- | command could destroy work.
+
+-- TODO plan 68: hand-port from line 25

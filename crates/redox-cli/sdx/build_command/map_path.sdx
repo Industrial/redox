@@ -1,0 +1,12 @@
+import std::ffi::OsString
+import std::path::{Path, PathBuf}
+
+-- | Where the source map sits for a given output file.
+-- |
+-- | Plan 06 (`docs/11 - 06 - Source Map.md`) leaf 4. The whole file name plus
+-- | `.map`, so `main.xrs` has `main.xrs.map` — *not* `Path::with_extension`,
+-- | which would replace `.xrs` and give `main.map`. Keeping the `.xrs` visible
+-- | means a directory listing says which generated file a map belongs to, and
+-- | a map can never collide with the output of a differently-suffixed input.
+
+-- TODO plan 68: hand-port from line 11

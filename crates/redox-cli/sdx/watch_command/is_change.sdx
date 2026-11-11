@@ -1,0 +1,33 @@
+import notify::EventKind
+import notify::event::ModifyKind
+
+-- | Whether an event kind represents a **change** to a file.
+-- |
+-- | Plan 12 (`docs/17 - 12 - Watcher.md`) §10.1 — the defect that makes this
+-- | function exist, and the one correction to the plan's own reasoning.
+-- |
+-- | `is_relevant` filters by *path*: the generated `.xrs` is not a `.sdx`, so
+-- | writing it cannot retrigger a build. That is necessary and it is not
+-- | sufficient, because **the build reads its own input**, and `inotify`
+-- | reports that read:
+-- |
+-- | ```text
+-- | EVENT Access(Open(Any)) ["main.sdx"]
+-- | ```
+-- |
+-- | A `.sdx` path, so `is_relevant` says yes, so the loop compiles, which opens
+-- | the file, which is another event. Measured: **97,442 builds in six
+-- | seconds** on a file nobody was editing.
+-- |
+-- | Plan 12 §1.1 claimed the cache meant the watcher *"does not need to be
+-- | correct about which events matter"*. That is wrong, and this is the
+-- | correction: a cache makes a redundant compile cheap, but it cannot break a
+-- | loop whose trigger is the compile itself. Cheap multiplied by unbounded is
+-- | still unbounded.
+-- |
+-- | So `Access` is excluded — reading a file is not changing it. So is
+-- | `Modify(Metadata)`: a `chmod` or an `atime` update is not a content change,
+-- | and under `relatime` the build's own read can update `atime`, which would
+-- | reopen the same loop by another door.
+
+-- TODO plan 68: hand-port from line 32

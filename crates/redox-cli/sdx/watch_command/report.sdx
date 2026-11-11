@@ -1,0 +1,11 @@
+import crate::watch_command::run_build::run_build
+import crate::watch_command::sources::sources
+import crate::watch_command::target::Target
+
+-- | Compile the target once, printing whatever happened.
+-- |
+-- | Plan 12 (`docs/17 - 12 - Watcher.md`) leaf 3. Called before the loop starts
+-- | and on every relevant event, so an already-broken file is reported
+-- | immediately rather than after the user's next keystroke.
+
+-- TODO plan 68: hand-port from line 10

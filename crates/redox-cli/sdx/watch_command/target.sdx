@@ -1,0 +1,23 @@
+import std::path::{Path, PathBuf}
+
+-- | What `redox watch` was pointed at, and where to watch.
+-- |
+-- | Plan 12 (`docs/17 - 12 - Watcher.md`) leaf 1.
+-- |
+-- | The `dir` is the directory handed to `notify`, and for a single file it is
+-- | that file's **parent**, not the file. This matters and is easy to get
+-- | wrong: editors overwhelmingly replace a file rather than writing it in
+-- | place — write a temporary, `rename` over the original — so a watch
+-- | registered on the file's inode stops receiving events after the first save.
+-- | The symptom is "the watcher worked once and then went quiet", which looks
+-- | like a race and is not.
+export(crate) data Target = Target {
+  -- | The directory to register with the watcher.
+  export(crate) dir : PathBuf,
+  -- | The single file to compile, or `None` to compile the whole directory.
+  export(crate) file : Option<PathBuf>,
+}
+  deriving (Debug, Clone, PartialEq, Eq)
+
+
+-- TODO plan 68: hand-port from line 22

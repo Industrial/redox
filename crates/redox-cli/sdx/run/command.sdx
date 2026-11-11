@@ -1,0 +1,28 @@
+export(crate) module state
+
+import crate::run::command::state::State
+-- | One entry in Redox's command-line surface.
+-- |
+-- | Plan 11 (`docs/16 - 11 - CLI Surface.md`) leaf 1. Doc 01 §27 fixes that
+-- | surface at six entries — `build`, `check`, `fmt`, `watch`, `--version`,
+-- | `--help` — because *"Cargo owns build, test, docs and dependencies"*, and
+-- | doc 01 §1.3 forbids replacing the build system.
+-- |
+-- | Making it a table rather than a `match` is not tidiness. A CLI grows by
+-- | accident: every single addition looks reasonable, and the sum is the tool
+-- | doc 01 §1.3 says Redox must not become. Emerald's reached seventeen
+-- | subcommands (doc 02 §3), eleven of which Redox declines. One table that
+-- | dispatch, the usage text and the test all read is what makes a seventh
+-- | entry a deliberate act.
+export(crate) data Command = Command {
+  -- | As typed — `build`, or `--version`.
+  export(crate) name : &'static str,
+  -- | One line, for the usage text.
+  export(crate) summary : &'static str,
+  -- | What it does today.
+  export(crate) state : State,
+}
+  deriving (Debug, Clone, Copy, PartialEq, Eq)
+
+
+-- TODO plan 68: hand-port from line 27

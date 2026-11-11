@@ -1,0 +1,93 @@
+# -*- coding: utf-8 -*-
+"""redox-diag batch 6 — source/map.
+
+New shapes: `impl Into<String>` as a parameter bound, `?` on a chained
+`Option`, and `.filter`/`.map` over `.enumerate()` where the closure takes a
+tuple — which is plan 69's lambda-parameter finding again, so the pair is taken
+whole and read with `.0` / `.1`.
+
+`SourceMap::new` takes `impl Into<String>`, which is an `impl` bound inside a
+parameter type. `type_vars` excludes `impl` as a type keyword, so it does not
+become a parameter.
+"""
+import sys
+
+sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+from write import write  # noqa: E402
+
+BODY = '''instance SourceMap
+  export new : impl Into<String> -> Vec<Option<Origin>> -> Self
+  new source_path origins = SourceMap {
+    source_path = .into source_path,
+    origins = origins,
+  }
+
+  -- | How many generated lines this map covers.
+  export len : &self -> usize
+  len self = .len self.origins
+
+  export is_empty : &self -> bool
+  is_empty self = .is_empty self.origins
+
+  -- | The origin of a 1-based generated line, if it has one.
+  export origin : &self -> usize -> Option<&Origin>
+  origin self gen_line =
+    -- Two steps, with each `?` outside the call it belongs to rather than
+    -- inside an argument.
+    at = (.checked_sub 1 gen_line)?
+    slot = (.get at self.origins)?
+    .as_ref slot
+
+  -- | Resolve a 1-based generated position to a 1-based source position.
+  -- |
+  -- | `None` means the line is synthetic, or past the end of the map — both of
+  -- | which a caller must handle by reporting against the generated file
+  -- | instead, never by guessing.
+  export resolve : &self -> usize -> usize -> Option<(usize, usize)>
+  resolve self gen_line gen_col =
+    -- `.origin gen_line self`: the receiver is the last argument.
+    found = (.origin gen_line self)?
+    Some (found.src_line, .map_col gen_col found)
+
+  -- | Every line with no origin, as 1-based line numbers.
+  -- |
+  -- | The totality test (plan 06 criterion 1) uses this to check the synthetic
+  -- | lines are the ones it expects, rather than counting them.
+  export synthetic_lines : &self -> Vec<usize>
+  synthetic_lines self = self.origins
+    |> .iter
+    |> .enumerate
+    -- One parameter read with `.0` / `.1`, where the Rust wrote the tuple
+    -- patterns `|(_, o)|` and `|(i, _)|`: a **lambda parameter is a name, not
+    -- a pattern** — plan 69's third finding, fixture
+    -- `tests/ui/lambda_parameter_is_not_a_pattern`.
+    |> .filter (\\pair -> .is_none pair.1)
+    |> .map (\\pair -> pair.0 + 1)
+    |> .collect
+
+-- | `#[cfg(test)]`: a helper for the tests below, dead code otherwise.
+#[cfg(test)]
+map : SourceMap
+map = SourceMap::new "a.sdx" (vec! \\-> (Some (Origin { span = (0, 5), src_line = 1, src_col = 1, gen_col = 1 })) \\-> None \\-> (Some (Origin { span = (10, 15), src_line = 2, src_col = 3, gen_col = 5 })))
+
+test "resolves a mapped line"
+  assert_eq! \\-> (.resolve 3 7 (map ())) \\-> (Some (2, 5))
+
+test "declines a synthetic line"
+  assert_eq! \\-> (.resolve 2 1 (map ())) \\-> None
+
+-- | A line past the end must decline rather than panic: a caller holding a
+-- | stale map would otherwise take down the compiler.
+test "declines a line past the end"
+  assert_eq! \\-> (.resolve 99 1 (map ())) \\-> None
+
+-- | And a zero line, which a 1-based API will be handed sooner or later.
+test "declines line zero"
+  assert_eq! \\-> (.resolve 0 1 (map ())) \\-> None
+
+test "reports its synthetic lines"
+  assert_eq! \\-> (.synthetic_lines (map ())) \\-> (vec! \\-> 2)
+  assert_eq! \\-> (.len (map ())) \\-> 3
+'''
+
+print('%-40s written' % write('source/map', BODY))

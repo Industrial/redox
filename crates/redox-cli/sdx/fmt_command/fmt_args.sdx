@@ -1,0 +1,14 @@
+import std::path::PathBuf
+
+-- | `fmt`'s resolved arguments — plan 34, leaf 1.
+export(crate) data FmtArgs = FmtArgs {
+  -- | One or more `.sdx` files. Plural, unlike `build`'s single input, because
+  -- | `redox fmt --check examples/*.sdx` is the gate plan 34 §1.5 wants and a
+  -- | one-file-at-a-time command would make it a shell loop whose exit status
+  -- | nobody checks.
+  export(crate) inputs : Vec<PathBuf>,
+  -- | Report and exit non-zero instead of writing.
+  export(crate) check : bool,
+  export(crate) plain : bool,
+}
+  deriving (Debug, Clone, PartialEq, Eq)

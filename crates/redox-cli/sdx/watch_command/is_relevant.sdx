@@ -1,0 +1,19 @@
+import std::path::Path
+
+-- | Whether a changed path warrants a compile.
+-- |
+-- | Plan 12 (`docs/17 - 12 - Watcher.md`) leaf 2.
+-- |
+-- | **Not a correctness filter.** Plan 10's cache makes a spurious compile cost
+-- | a hash rather than a parse, so letting an irrelevant event through is
+-- | merely wasteful (plan 12 §1.1). The filter exists for the *output*: some
+-- | editors touch a temporary file on every keystroke, and
+-- | `[cache] a.sdx HIT` printed thirty times a second is noise a user has to
+-- | learn to ignore.
+-- |
+-- | Which is why this is a deny-list of known editor artefacts rather than an
+-- | allow-list of blessed events: being wrong about an unfamiliar editor's
+-- | temporary file costs a redundant line of output, while being wrong in the
+-- | other direction would silently stop rebuilding.
+
+-- TODO plan 68: hand-port from line 18

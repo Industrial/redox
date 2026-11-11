@@ -1,0 +1,13 @@
+import std::path::PathBuf
+
+-- | What `redox build` was asked to do.
+-- |
+-- | A struct rather than a tuple because plan 05 added a third field and a
+-- | `(PathBuf, PathBuf, bool)` return no longer says which bool.
+export(crate) data BuildArgs = BuildArgs {
+  export(crate) input : PathBuf,
+  export(crate) output : PathBuf,
+  -- | Render diagnostics without colour, Unicode or terminal-width wrapping.
+  export(crate) plain : bool,
+}
+  deriving (Debug, Clone, PartialEq, Eq)

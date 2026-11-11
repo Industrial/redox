@@ -1,0 +1,8 @@
+import std::path::{Path, PathBuf}
+
+-- | The output path for an input with no explicit `-o`.
+-- |
+-- | `main.sdx` becomes `main.xrs` (doc 01 §3.4). A path with any other
+-- | extension, or none, *gains* `.xrs` rather than losing what it has.
+
+-- TODO plan 68: hand-port from line 7

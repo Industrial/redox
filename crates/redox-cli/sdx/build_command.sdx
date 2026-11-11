@@ -1,0 +1,15 @@
+export(crate) module build_args
+export(crate) module default_output
+export(crate) module map_path
+export(crate) module parse_build_args
+
+import crate::build_command::map_path::map_path
+import crate::build_command::parse_build_args::parse_build_args
+import redox_driver::diagnose
+
+-- | `redox build <file.sdx> [-o <output.xrs>] [--plain]`.
+-- |
+-- | Named `build_command` rather than `build` so this module is never confused
+-- | with the crate's `build.rs` build script, which does an unrelated job.
+
+-- TODO plan 68: hand-port from line 14

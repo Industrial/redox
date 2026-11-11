@@ -107,6 +107,6 @@ Seven crates, roughly 20,900 lines: `redox-bench` (597), `redox-mcp` (808),
 `redox-lsp` (934), `redox-cli` (1,376), `redox-driver` (2,981), `redox-emit`
 (6,156), `redox-parser` (7,974).
 
-`.tmp/port.sh` and `.tmp/write.py` are generic over the crate now, where plan
+`tools/port/port.sh` and `tools/port/write.py` are generic over the crate now, where plan
 73 and plan 74 each had their own copy — and three of the four lessons in
 `port.sh`'s header had already been learned twice when it was written.

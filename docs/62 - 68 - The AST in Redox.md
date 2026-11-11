@@ -480,7 +480,7 @@ Three changes beyond the trivia fixes:
 ### 10.6 How the port was made
 
 38 of the 53 files are pure data types, and those shapes are regular enough to
-translate mechanically; `.tmp/p68tr.py` did them and then emitted the
+translate mechanically; `tools/port/translate.py` did them and then emitted the
 declaration half of the other 15 and stopped. Every file it wrote was read
 against its original before it was kept, and it asserts rather than guesses
 when it meets a shape it has no rule for.

@@ -75,7 +75,7 @@ than write a shorter file.**
 
 ### 2.3 The port read its own output
 
-`.tmp/p73build.sh` rebuilt `sdx/` from `crates/redox-diag/src`, which holds
+`tools/port/port.sh` rebuilt `sdx/` from `crates/redox-diag/src`, which holds
 hand-written Rust *until the port is blessed* and generated Rust afterwards. So
 every run but the first read back what the previous run produced.
 
