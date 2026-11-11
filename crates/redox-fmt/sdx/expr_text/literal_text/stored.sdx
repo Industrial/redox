@@ -1,9 +1,0 @@
-import redox_ast::Expr
-
--- | The lexer's own text for a literal, for the no-source case.
-export(crate) stored : &Expr -> String
-stored expr = case expr of
-  Expr::StrLit { value, .. } -> .clone value
-  Expr::RawLit { text, .. } or Expr::Num { text, .. } -> .clone text
-  Expr::Char { value, .. } -> format! \-> "'#{(.escape_default value)}'"
-  _ -> String::new ()

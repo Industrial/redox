@@ -1,78 +1,30 @@
--- | A `class` declaration and its members.
-export(crate) module class_text
--- | One equation, or a guard ladder, with its `where`.
-export(crate) module clause_text
--- | A `const` or `static` item.
-export(crate) module const_text
--- | One `data` alternative — `Click`, `Meters f64`, `Square { side : f64 }`.
-export(crate) module constructor_text
--- | A `data` or `newtype` declaration, with its `deriving` clause.
-export(crate) module data_text
--- | An `errors` declaration — a table of variants and their messages.
-export(crate) module errors_text
--- | A function — its signature line, then one line per equation.
-export(crate) module fn_text
--- | An `instance` declaration and its members.
-export(crate) module instance_text
--- | An item's leading trivia, as complete lines — or nothing.
-export(crate) module leading_text
--- | One member of a `class` or `instance`.
-export(crate) module member_text
--- | Whether two byte offsets fall on the same source line.
-export(crate) module same_line
--- | A function's signature line, verbatim from the source.
-export(crate) module signature_line
--- | A visibility marker, with its trailing space — or nothing.
-export(crate) module visibility_text
-
-import crate::item_text::class_text::class_text
-import crate::item_text::const_text::const_text
-import crate::item_text::data_text::data_text
-import crate::item_text::errors_text::errors_text
-import crate::item_text::fn_text::fn_text
-import crate::item_text::instance_text::instance_text
-import crate::item_text::leading_text::leading_text
-import crate::item_text::visibility_text::visibility_text
+import crate::expr_text::expr_text
+import crate::pattern_text::pattern_argument
 import crate::pattern_text::pattern_text
-import crate::stmt_text::block_text::block_text
-import crate::stmt_text::indent_text::indent_text
+import crate::stmt_text::block_text
+import crate::stmt_text::indent_text
+import crate::stmt_text::stmt_text
+import crate::stmt_text::trivia_text
+import redox_ast::Block
+import redox_ast::ClassDecl
+import redox_ast::ClassMember
+import redox_ast::Clause
+import redox_ast::ClauseBody
+import redox_ast::ConstDecl
+import redox_ast::Constructor
+import redox_ast::ConstructorFields
+import redox_ast::DataDecl
+import redox_ast::ErrorsDecl
+import redox_ast::FnDecl
+import redox_ast::InstanceDecl
 import redox_ast::Item
+import redox_ast::TypeApp
+import redox_ast::Visibility
 
--- | One item in canonical Redox, with its leading trivia — plan 34, leaf 2.
--- |
--- | `indent` is the item's depth: 0 at the top of a file, deeper inside a
--- | `module`. Leaf 4's `indent_text` is the only place a level becomes spaces.
--- |
--- | # `export`, not `pub`
--- |
--- | `Visibility::rust_text` gives `pub `, `pub(crate) ` and so on. Redox spells
--- | the same thing `export` and `export(crate)`, which is why
--- | `visibility_text` exists beside it rather than reusing it — the third
--- | printer in this plan to need a Redox spelling where the AST held only the
--- | Rust one.
--- |
--- | # A function's signature is sliced, and that is a recorded defect
--- |
--- | Every item here is printed from the tree except a function's **signature
--- | line**, which is sliced verbatim out of the source. The reason is in §10:
--- | `parser::generalise` rewrites a signature's types in place, replacing each
--- | type variable with its uppercase Rust spelling, so the AST no longer knows
--- | the author wrote `Ord t => Option<t> -> t` rather than
--- | `Ord T => Option<T> -> T`. Printing from it would rewrite every generic
--- | signature in the corpus into Rust's convention, which is the opposite of
--- | doc 18 §5.3's surface.
--- |
--- | Criterion 7 exists for exactly this, so the slice is correct rather than a
--- | shortcut — but it does mean the formatter cannot normalise a signature's
--- | spacing, and the fix is a change to the AST, not to this file.
 export item_text : &Item -> usize -> &str -> String
 item_text item indent source =
   mut out = leading_text item indent
   .push_str (&indent_text indent) out
-  -- Bound, where the Rust wrote `out.push_str(&match item { … })`. The
-  -- `case` then has to be piped into the push rather than dotted onto it,
-  -- for the reason `format.sdx` records: a binding whose value is a block
-  -- swallows a following statement that opens with `.name`.
   body = case item of
     Item::Fn decl -> fn_text decl indent source
     Item::Data decl -> data_text decl indent source
@@ -113,36 +65,308 @@ item_text item indent source =
         |> .map (\d -> format! \-> "#{(indent_text (indent + 1))}#{(.trim source[d.span.0..d.span.1])}\n")
         |> .collect
       format! \-> "extern #{decl.abi}\n#{(.trim_end body)}"
-    -- Plan 87. Printed from the tree, so the parameters and the body are both
-    -- re-spelled — plan 84 §10.4's lesson one construct over: a declaration
-    -- the printer does not know is simply dropped, and `redox fmt` then writes
-    -- a different program.
     Item::PatternSynonym decl ->
       params : Vec<String> = decl.params |> .iter |> .map (\i -> .clone i.text) |> .collect
       spelled = if .is_empty params
         .clone decl.name.text
       else
         format! \-> "#{decl.name.text} #{(.join " " params)}"
-      -- `pattern_text`, **not** `Pattern::rust_text`: this is a Redox printer,
-      -- and the AST method gives the *Rust* spelling. The first version used it
-      -- and wrote `pattern Both a b = (Some(a), Some(b))` — valid Rust, not a
-      -- Redox program, and the fourth printer in this plan to want a Redox
-      -- spelling where the AST held only the Rust one (`visibility_text`'s own
-      -- doc comment counts the first three).
       format! \-> "pattern #{spelled} = #{(pattern_text (&decl.body))}"
-    -- Plan 89. The body is an ordinary `InstanceDecl`, so it prints through the
-    -- ordinary printer one level deeper — which is the whole benefit of having
-    -- stored it as one rather than as a captured block of text. A text body
-    -- would round-trip only the bytes the author typed, and `redox fmt` exists
-    -- to re-spell them.
     Item::DeriveTemplate decl ->
       inner = instance_text (&decl.body) (indent + 1) source
       format! \-> "deriving template #{decl.name.text}\n#{(indent_text (indent + 1))}#{inner}"
-    -- Plan 90. Printed from the tree in all four parts, because all four are
-    -- in it: the fixity's keyword, the precedence as written, the spelling and
-    -- the verbatim target. `precedence` is stored as the author's digit rather
-    -- than as the internal binding power for exactly this line.
     Item::OperatorDecl decl ->
       format! \-> "#{(.keyword decl.fixity)} #{decl.precedence} #{decl.spelling.text} = #{decl.target}"
   out |> .push_str (&body)
   out
+
+
+export(crate) class_text : &ClassDecl -> usize -> &str -> String
+class_text decl indent source =
+  supers = if .is_empty decl.supers
+    String::new ()
+  else
+    names : Vec<&str> = decl.supers
+      |> .iter
+      |> .map (\s -> .as_str s.text)
+      |> .collect
+    format! \-> "#{(.join ", " names)} => "
+  params : String = decl.params
+    |> .iter
+    |> .map (\p -> format! \-> " #{p.text}")
+    |> .collect
+  vis = visibility_text (&decl.visibility)
+  header = format! \-> "#{vis}class #{supers}#{decl.name.text}#{params}"
+  if .is_empty decl.members
+    return header
+  printed : Vec<String> = decl.members
+    |> .iter
+    |> .map (\member -> member_text member (indent + 1) source)
+    |> .collect
+  format! \-> "#{header}\n#{(.join "\n" printed)}"
+
+export(crate) clause_text : &Clause -> &str -> usize -> &str -> String
+clause_text clause name indent source =
+  mut head = .to_string name
+  for pattern in &clause.patterns
+    .push ' ' head
+    .push_str (&pattern_argument pattern) head
+  body = case &clause.body of
+    ClauseBody::Guarded guards ->
+      pad = indent_text $ indent + 1
+      printed : Vec<String> = guards
+        |> .iter
+        |> .map (\r#guard ->
+        r#test = case &r#guard.condition of
+          Some condition -> expr_text condition 0 (indent + 1) source
+          None -> String::from "otherwise"
+        arm = if same_line source r#guard.span.0 r#guard.body.span.0
+          format! \-> " = #{(inline_body (&r#guard.body) (indent + 1) source)}"
+        else
+          format! \-> " =\n#{(block_text (&r#guard.body) (indent + 2) source)}"
+        format! \-> "#{pad}| #{r#test}#{arm}")
+        |> .collect
+      format! \-> "\n#{(.join "\n" printed)}"
+    ClauseBody::Plain block ->
+      if same_line source clause.span.0 block.span.0
+        format! \-> " = #{(inline_body block indent source)}"
+      else
+        format! \-> " =\n#{(block_text block (indent + 1) source)}"
+  wheres = if .is_empty clause.wheres
+    String::new ()
+  else
+    printed : Vec<String> = clause.wheres
+      |> .iter
+      |> .map (\stmt -> stmt_text stmt (indent + 2) source)
+      |> .collect
+    format! \-> "\n#{(indent_text (indent + 1))}where\n#{(.join "\n" printed)}"
+  format! \-> "#{head}#{body}#{wheres}"
+
+export(crate) inline_body : &Block -> usize -> &str -> String
+inline_body block indent source =
+  pad = indent_text indent
+  parts : Vec<String> = block.stmts
+    |> .iter
+    |> .map (\stmt ->
+    text = stmt_text stmt indent source
+    .to_string (.unwrap_or (&text) (.strip_prefix (&pad) text)))
+    |> .collect
+  .join "\n" parts
+
+export(crate) const_text : &ConstDecl -> &str -> String
+const_text decl source =
+  keyword = if decl.is_static
+    "static"
+  else
+    "const"
+  value = expr_text (&decl.value) 0 0 source
+  vis = visibility_text (&decl.visibility)
+  format! \-> "#{vis}#{keyword} #{decl.name.text} : #{decl.ty.text} = #{value}"
+
+export(crate) constructor_text : &Constructor -> usize -> String
+constructor_text constructor indent = case &constructor.fields of
+  ConstructorFields::Unit -> .clone constructor.name.text
+  ConstructorFields::Tuple types ->
+    mut out = .clone constructor.name.text
+    for ty in types
+      .push ' ' out
+      .push_str (&ty.text) out
+    out
+  ConstructorFields::Record fields ->
+    printed : Vec<String> = fields
+      |> .iter
+      |> .map (\field ->
+      vis = visibility_text (&field.visibility)
+      format! \-> "#{vis}#{field.name.text} : #{field.ty.text}")
+      |> .collect
+    if .is_empty printed
+      return format! \-> "#{constructor.name.text} {}"
+    documented = fields
+      |> .iter
+      |> .any (\field -> !.is_empty field.leading)
+    if !documented
+      return format! \-> "#{constructor.name.text} { #{(.join ", " printed)} }"
+    pad = indent_text $ indent + 1
+    mut lines : Vec<String> = Vec::new ()
+    for field in fields
+      for trivium in &field.leading
+        .push (trivia_text trivium (indent + 1)) lines
+      vis = visibility_text (&field.visibility)
+      .push (format! \-> "#{pad}#{vis}#{field.name.text} : #{field.ty.text},") lines
+    format! \-> "#{constructor.name.text} {\n#{(.join "\n" lines)}\n#{(indent_text indent)}}"
+
+export(crate) data_text : &DataDecl -> usize -> &str -> String
+data_text decl indent source =
+  keyword = if decl.is_union
+    "union"
+  else if decl.is_newtype
+    "newtype"
+  else
+    "data"
+  pad = indent_text $ indent + 1
+  header = format! \-> "#{(visibility_text (&decl.visibility))}#{keyword} #{decl.name.text}"
+  mut out = case .as_slice decl.constructors of
+    [only] | same_line source decl.span.0 only.span.0 ->
+      format! \-> "#{header} = #{(constructor_text only indent)}"
+    many ->
+      printed : Vec<String> = many
+        |> .iter
+        |> .enumerate
+        |> .map (\pair ->
+        i = pair.0
+        constructor = pair.1
+        lead = if i == 0
+          '='
+        else
+          '|'
+        mut head = String::new ()
+        for trivium in &constructor.leading
+          head
+            |> .push_str (&trivia_text trivium (indent + 1))
+          head |> .push '\n'
+        format! \-> "#{head}#{pad}#{lead} #{(constructor_text constructor (indent + 1))}")
+        |> .collect
+      format! \-> "#{header}\n#{(.join "\n" printed)}"
+  if !.is_empty decl.derives
+    names : Vec<&str> = decl.derives
+      |> .iter
+      |> .map (\d -> .as_str d.text)
+      |> .collect
+    out
+      |> .push_str (&format! \-> "\n#{pad}deriving (#{(.join ", " names)})")
+  out
+
+export(crate) errors_text : &ErrorsDecl -> usize -> String
+errors_text decl indent =
+  pad = indent_text $ indent + 1
+  header = format! \-> "#{(visibility_text (&decl.visibility))}errors #{decl.name.text}"
+  if .is_empty decl.variants
+    return header
+  heads : Vec<String> = decl.variants
+    |> .iter
+    |> .map (\variant ->
+    mut head = if variant.from
+      path = variant.fields
+        |> .first
+        |> .map_or (String::new ()) (\ty -> .clone ty.text)
+      format! \-> "from #{path} as #{variant.name.text}"
+    else
+      .clone variant.name.text
+    if !variant.from
+      for ty in &variant.fields
+        .push ' ' head
+        .push_str (&ty.text) head
+    head)
+    |> .collect
+  width = heads |> .iter |> .map String::len |> .max |> .unwrap_or 0
+  rows : Vec<String> = heads
+    |> .iter
+    |> .zip (&decl.variants)
+    |> .map (\row ->
+    head = row.0
+    variant = row.1
+    gap = .repeat (width - .len head) " "
+    format! \-> "#{pad}#{head}#{gap}  #{variant.message}")
+    |> .collect
+  format! \-> "#{header}\n#{(.join "\n" rows)}"
+
+export(crate) fn_text : &FnDecl -> usize -> &str -> String
+fn_text decl indent source =
+  pad = indent_text indent
+  mut lines : Vec<String> = Vec::new ()
+  if signature_line decl source is Some signature
+    .push signature lines
+  for clause in &decl.clauses
+    .push (clause_text clause (&decl.name.text) indent source) lines
+  .join (&format! \-> "\n#{pad}") lines
+
+export(crate) instance_text : &InstanceDecl -> usize -> &str -> String
+instance_text decl indent source =
+  constraints = if .is_empty decl.constraints
+    String::new ()
+  else
+    printed : Vec<String> = decl.constraints
+      |> .iter
+      |> .map (\c -> format! \-> "#{c.trait_name.text} #{c.var.text}")
+      |> .collect
+    format! \-> "#{(.join ", " printed)} => "
+  r#class = case &decl.r#class of
+    Some r#class -> format! \-> "#{(target_text r#class)} "
+    None -> String::new ()
+  target = if .is_empty decl.target.args
+    target_text (&decl.target)
+  else
+    format! \-> "(#{(target_text (&decl.target))})"
+  binder = case &decl.r#given of
+    Some text -> format! \-> "given #{text} "
+    None -> String::new ()
+  header = format! \-> "instance #{binder}#{constraints}#{r#class}#{target}"
+  if .is_empty decl.members
+    return header
+  printed : Vec<String> = decl.members
+    |> .iter
+    |> .map (\member -> member_text member (indent + 1) source)
+    |> .collect
+  format! \-> "#{header}\n#{(.join "\n" printed)}"
+
+export(crate) target_text : &TypeApp -> String
+target_text target =
+  mut out = .clone target.head.text
+  for arg in &target.args
+    .push ' ' out
+    .push_str (&arg.text) out
+  out
+
+export(crate) leading_text : &Item -> usize -> String
+leading_text item indent =
+  mut out = String::new ()
+  for trivium in redox_ast::leading item
+    .push_str (&trivia_text trivium indent) out
+    .push '\n' out
+  out
+
+export(crate) member_text : &ClassMember -> usize -> &str -> String
+member_text member indent source =
+  pad = indent_text indent
+  case member of
+    ClassMember::AssocType name -> format! \-> "#{pad}type #{name.text}"
+    ClassMember::AssocConst { name, ty, value } ->
+      assigned = case value of
+        Some v -> format! \-> " = #{(expr_text v 0 indent source)}"
+        None -> String::new ()
+      format! \-> "#{pad}const #{name.text} : #{ty.text}#{assigned}"
+    ClassMember::Method decl ->
+      mut out = String::new ()
+      for trivium in &decl.leading
+        .push_str (&trivia_text trivium indent) out
+        .push '\n' out
+      format! \-> "#{out}#{pad}#{(fn_text decl indent source)}"
+
+export(crate) same_line : &str -> usize -> usize -> bool
+same_line source left right =
+  lo = .min left right
+  hi = .max left right
+  n = .len source
+  !.contains '\n' source[.min lo n .. .min hi n]
+
+export(crate) signature_line : &FnDecl -> &str -> Option<String>
+signature_line decl source =
+  start = decl.span.0
+  n = .len source
+  end = source[start .. n]
+    |> .find '\n'
+    |> .map_or n (\at -> start + at)
+  line = .to_string (.trim_end source[start .. end])
+  guard .first decl.clauses is Some clause else
+    return Some line
+  if clause.span.0 <= end
+    return None
+  Some line
+
+export(crate) visibility_text : &Visibility -> String
+visibility_text visibility = case visibility of
+  Visibility::Private -> String::new ()
+  Visibility::Public -> .to_string "export "
+  Visibility::Crate -> .to_string "export(crate) "
+  Visibility::Super -> .to_string "export(super) "
+  Visibility::In path -> format! \-> "export(in #{path}) "

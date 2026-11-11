@@ -1,53 +1,12 @@
--- | One pattern where the next token is a keyword or an arrow.
-export(crate) module beside_a_keyword
--- | A comma-separated run of patterns, with no trailing comma.
-export(crate) module joined
--- | One pattern where the next token could extend it, parenthesised unless it cannot be.
-export(crate) module pattern_argument
--- | One field of a record pattern — `x = 0`, or `y` for the shorthand.
-export(crate) module record_field_text
-
-import crate::pattern_text::beside_a_keyword::beside_a_keyword
-import crate::pattern_text::joined::joined
-import crate::pattern_text::pattern_argument::pattern_argument
-import crate::pattern_text::record_field_text::record_field_text
 import redox_ast::Pattern
+import redox_ast::RecordPatternField
 
--- | One pattern in canonical Redox — plan 34, leaf 4, first half.
--- |
--- | # Why this is not `Pattern::rust_text`
--- |
--- | `rust_text` exists on the AST and is close enough to be tempting. Three of
--- | the eleven forms differ, and each difference is one a formatter must get
--- | right rather than nearly right:
--- |
--- | | Redox | Rust | |
--- | |---|---|---|
--- | | `Some v` | `Some(v)` | Juxtaposition, doc 18 §2.1 — the same rule as a call |
--- | | `Point { x = 0, .. }` | `Point { x: 0, .. }` | `=`, because `:` is half of the `::` that ascribes |
--- | | `13 or 14` | `13 \| 14` | `or`, because `\|` is the guard ladder's separator |
--- |
--- | The other eight are spelled identically, including the two that look like
--- | they would not be: a slice's rest is `..` and a named rest is `name @ ..`,
--- | exactly as in Rust. `examples/destructuring.sdx` settles both. The `...`
--- | spread that `lexical.sdx` lexes is a token the pattern grammar does not
--- | use.
--- |
--- | # Patterns carry no indentation and no trivia
--- |
--- | Which is why this half of leaf 4 ships before the other: a pattern is
--- | always one line, and a comment inside one is attached to the enclosing
--- | statement. So there is no `indent` and no `source` here — nothing is
--- | sliced, and everything is printed.
 export pattern_text : &Pattern -> String
 pattern_text pattern = case pattern of
   Pattern::Binding ident -> .clone ident.text
   Pattern::Literal { text, .. } -> .clone text
   Pattern::Wildcard _ -> String::from "_"
   Pattern::Range { lo, hi, inclusive, .. } ->
-    -- Bound, where the Rust put the `if` in `format!`'s argument list: a
-    -- `#{…}` hole takes an expression and the two-arm choice reads better
-    -- with a name on it anyway.
     dots = if *inclusive
       "..="
     else
@@ -80,3 +39,33 @@ pattern_text pattern = case pattern of
   Pattern::Or alts ->
     printed : Vec<String> = alts |> .iter |> .map beside_a_keyword |> .collect
     .join " or " printed
+
+
+export(crate) beside_a_keyword : &Pattern -> String
+beside_a_keyword pattern = case pattern of
+  Pattern::Or _ -> format! \-> "(#{(pattern_text pattern)})"
+  other -> pattern_text other
+
+export(crate) joined : &[Pattern] -> String
+joined items =
+  parts : Vec<String> = items |> .iter |> .map pattern_text |> .collect
+  .join ", " parts
+
+export(crate) pattern_argument : &Pattern -> String
+pattern_argument pattern =
+  if stands_alone pattern
+    pattern_text pattern
+  else
+    format! \-> "(#{(pattern_text pattern)})"
+
+export(crate) stands_alone : &Pattern -> bool
+stands_alone pattern = case pattern of
+  Pattern::Apply { path, args, .. } -> .is_empty args && !.contains "::" path
+  Pattern::Binding ident -> !.contains "::" ident.text
+  Pattern::Literal { .. } or Pattern::Wildcard _ or Pattern::Tuple { .. } or Pattern::Slice { .. } or Pattern::Rest _ or Pattern::NamedRest { .. } -> true
+  Pattern::Range { .. } or Pattern::Record { .. } or Pattern::As { .. } or Pattern::Or _ -> false
+
+export(crate) record_field_text : &RecordPatternField -> String
+record_field_text field = case &field.pattern of
+  Some pattern -> format! \-> "#{field.name.text} = #{(pattern_text pattern)}"
+  None -> .clone field.name.text

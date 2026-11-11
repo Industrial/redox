@@ -25,7 +25,13 @@ use std::path::{Path, PathBuf};
 use support::ported;
 
 /// The crates plan 91 has rewritten. Each wave appends one.
-const REWRITTEN: &[&str] = &["redox-diag", "redox-lexer", "redox-ast", "redox-parser"];
+const REWRITTEN: &[&str] = &[
+  "redox-diag",
+  "redox-lexer",
+  "redox-ast",
+  "redox-parser",
+  "redox-fmt",
+];
 
 fn workspace_root() -> PathBuf {
   PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
