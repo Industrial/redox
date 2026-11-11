@@ -15,8 +15,8 @@
 //! check green while it asserts less than it looks like it does.
 //!
 //! So [`every_name_in_the_list_is_a_ported_crate`] refuses a name that is not a
-//! crate, and [`the_rewrite_is_complete`] is the end-state equality, `#[ignore]`d
-//! until wave 13 and reporting what is left when run with `--ignored`.
+//! crate, and [`the_rewrite_is_complete`] is the end-state equality, armed at
+//! wave 13 now that every ported crate is on the list.
 
 mod support;
 
@@ -38,6 +38,7 @@ const REWRITTEN: &[&str] = &[
   "redox-emit",
   "redox-driver",
   "redox-cli",
+  "redox-seed",
 ];
 
 fn workspace_root() -> PathBuf {
@@ -120,10 +121,8 @@ fn every_name_in_the_list_is_a_ported_crate() {
   );
 }
 
-/// Plan 91's end state. `#[ignore]`d until wave 13; run with `--ignored` to see
-/// what is left.
+/// Plan 91's end state: every ported crate is rewritten. Armed at wave 13.
 #[test]
-#[ignore = "red until plan 91's wave 13 rewrites the last crate"]
 fn the_rewrite_is_complete() {
   let remaining: Vec<String> = ported()
     .iter()

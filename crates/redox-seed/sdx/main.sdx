@@ -1,49 +1,4 @@
--- ! `redox-seed` — the bootstrap seed. `.sdx` in, `.rs` out, and nothing else.
--- !
--- ! Plan 72 (`docs/66 - 72 - The Seed Compiler.md`) leaf 1. This binary exists
--- ! to be compiled to `wasm32-wasip1`, checked in as `redox1.wasm`, and used to
--- ! regenerate the ported crates' `src/` on a clean clone — so that a crate
--- ! written in Redox need not also commit the Rust it generates.
--- !
--- ! # Why this is not `redox-cli`
--- !
--- ! Plan 72 §2 measured two obstacles, and this crate is the answer to one of
--- ! them by construction and to the other by omission:
--- !
--- ! - **`notify`**, the `redox watch` file watcher, is inotify / kqueue /
--- !   FSEvents. It is only in `redox-cli`, so a seed that is not `redox-cli`
--- !   does not have it.
--- ! - **`miette`'s `fancy` feature** arrives through `redox-diag`. This binary
--- !   renders with `render(.., plain: true)`, whose `plain_one` path references
--- !   `miette` nowhere — but *rendering* plainly is not the same as not
--- !   *linking* it, and cargo's feature unification means the dependency is
--- !   still in the graph. Whether that matters is measured rather than assumed:
--- !   see the note in `Cargo.toml` and plan 72 §10.
--- !
--- ! # What it deliberately cannot do
--- !
--- ! No `check`, because that spawns rustc and `std::process` is unavailable
--- ! under WASI. No `fmt`, because `init.sh` runs the native rustfmt afterwards —
--- ! the committed Rust is formatted with *this repository's* config and Redox
--- ! targets rustfmt's defaults, so the formatting step cannot move into the
--- ! emitter (plan 72 §6). No `watch`. No colour.
--- !
--- ! The seed is the smallest thing that turns Redox into Rust, and smallest is
--- ! the point: every dependency is one more thing that has to work on a target
--- ! with no processes, no terminal and no clock.
-
 module run
 
--- | Transpile a directory of `.sdx` into a directory of `.rs`.
--- |
--- | Exit codes follow `redox-cli`'s so a caller cannot tell the two apart on
--- | the outcome: `0` for success, `1` for a diagnostic, `2` for misuse.
--- One line, deliberately: `std::process::exit` has type `!`, and plan 55
--- §1.6's unit rule grades an **indented** body only. A trailing `()` after a
--- diverging call is `unreachable_code`, which `-D warnings` makes an error.
---
--- **Above the signature line, not between it and the equation.** A comment in
--- that position parses and is then dropped by the emitter *and* the formatter
--- — §2.2 of this row's plan has the reproduction.
 main : ()
 main = std::process::exit $ run::run ()
