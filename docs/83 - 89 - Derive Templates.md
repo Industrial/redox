@@ -319,7 +319,7 @@ What it got wrong is the **cost** of that form. It concluded:
 It is not, because the substitution does not have to happen on the tree. The
 body is emitted through `emit_instance` **first**, exactly as a hand-written
 `instance` is, and the placeholders are replaced in the **resulting string**.
-`crates/redox-emit/sdx/emit/expanded_template.sdx` is 70 lines, most of them
+`crates/redox-emit/sdx/pattern.sdx` is 70 lines, most of them
 comment, and does the whole job in two `.replace` calls.
 
 So the row's two halves were assessed independently and both assessments were

@@ -1,0 +1,381 @@
+import crate::expr::emit_expr
+import crate::expr::field_value
+import crate::expr::unparen
+import crate::item::emit_clauses
+import crate::item::generics
+import crate::item::signature
+import crate::pattern::emit_templates
+import crate::sink::RUST_INDENT
+import crate::sink::Sink
+import crate::sink::emit_trivia
+import crate::sink::pad
+import crate::template::TemplateScope
+import redox_ast::ClassDecl
+import redox_ast::ClassMember
+import redox_ast::ConstructorFields
+import redox_ast::DataDecl
+import redox_ast::ErrorsDecl
+import redox_ast::Expr
+import redox_ast::FieldInit
+import redox_ast::Ident
+import redox_ast::InstanceDecl
+import redox_ast::TypeApp
+
+export(crate) emit_class : &mut Sink<'_> -> &ClassDecl -> usize -> ()
+emit_class out c indent =
+  .unmark out
+  emit_trivia out (&c.leading) indent
+  .mark c.span out
+  pad out indent
+  vis = .rust_text c.visibility
+  .push_str (&format! \-> "#{vis}trait #{c.name.text}") out
+  if !.is_empty c.params
+    params : Vec<String> = c.params
+      |> .iter
+      |> .map (\p -> TypeApp::rust_name (&p.text))
+      |> .collect
+    joined = .join ", " params
+    .push_str (&format! \-> "<#{joined}>") out
+  if !.is_empty c.supers
+    names : Vec<&str> = c.supers
+      |> .iter
+      |> .map (\s -> .as_str s.text)
+      |> .collect
+    joined = .join " + " names
+    .push_str (&format! \-> ": #{joined}") out
+  .push_str " {\n" out
+  for m in &c.members
+    emit_member out m (indent + RUST_INDENT)
+  .unmark out
+  pad out indent
+  .push_str "}\n" out
+  ()
+
+export(crate) emit_data : &mut Sink<'_> -> &DataDecl -> usize -> ()
+emit_data out d indent =
+  .mark d.span out
+  emit_trivia out (&d.leading) indent
+  templated : Vec<Ident> = d.derives
+    |> .iter
+    |> .filter (\i -> .is_some (TemplateScope::lookup (.as_str i.text)))
+    |> .cloned
+    |> .collect
+  builtin : Vec<&str> = d.derives
+    |> .iter
+    |> .filter (\i -> .is_none (TemplateScope::lookup (.as_str i.text)))
+    |> .map (\i -> .as_str i.text)
+    |> .collect
+  if !.is_empty builtin
+    joined = .join ", " builtin
+    pad out indent
+    .push_str (&format! \-> "\#[derive(#{joined})]\n") out
+  as_struct = case .as_slice d.constructors of
+    [only] -> only.name.text == d.name.text
+    [] -> true
+    _ -> false
+  params = if .is_empty d.generics
+    String::new ()
+  else
+    joined = .join ", " d.generics
+    format! \-> "<#{joined}>"
+  if as_struct
+    fields = .map_or (&ConstructorFields::Unit) (\c -> &c.fields) (.first d.constructors)
+    if d.is_newtype
+      pad out indent
+      .push_str "#[repr(transparent)]\n" out
+    pad out indent
+    vis = .rust_text d.visibility
+    keyword = if d.is_union
+      "union"
+    else
+      "struct"
+    .push_str (&format! \-> "#{vis}#{keyword} #{d.name.text}#{params}") out
+    emit_fields out fields indent true
+    emit_templates out (&templated) d indent
+    return ()
+  pad out indent
+  vis = .rust_text d.visibility
+  .push_str (&format! \-> "#{vis}enum #{d.name.text}#{params} {\n") out
+  for c in &d.constructors
+    .mark c.span out
+    emit_trivia out (&c.leading) (indent + RUST_INDENT)
+    pad out (indent + RUST_INDENT)
+    .push_str (&c.name.text) out
+    emit_fields out (&c.fields) (indent + RUST_INDENT) false
+  .unmark out
+  pad out indent
+  .push_str "}\n" out
+  pad out indent
+  .push_str "#[allow(unused_imports)]\n" out
+  pad out indent
+  .push_str (&format! \-> "use #{d.name.text}::*;\n") out
+  emit_templates out (&templated) d indent
+  ()
+
+export(crate) error_message : &str -> (String, Vec<String>)
+error_message raw =
+  text = .trim_matches '"' raw
+  mut template = String::with_capacity (.len text)
+  mut args = Vec::new ()
+  chars : Vec<char> = text |> .chars |> .collect
+  mut i = 0
+  while i < .len chars
+    if chars[i] == '#' && .get (i + 1) chars == Some (&'{')
+      mut j = i + 2
+      mut digits = String::new ()
+      while j < .len chars && .is_ascii_digit chars[j]
+        .push chars[j] digits
+        j += 1
+      if !.is_empty digits && .get j chars == Some (&'}')
+        .push_str "{}" template
+        .push (format! \-> "_#{digits}") args
+        i := j + 1
+        continue
+    if chars[i] == '{' || chars[i] == '}'
+      .push chars[i] template
+    .push chars[i] template
+    i += 1
+  (template, args)
+
+export(crate) emit_errors : &mut Sink<'_> -> &ErrorsDecl -> usize -> ()
+emit_errors out d indent =
+  .unmark out
+  emit_trivia out (&d.leading) indent
+  .mark d.span out
+  name = &d.name.text
+  pad out indent
+  .push_str "#[derive(Debug)]\n" out
+  pad out indent
+  vis = .rust_text d.visibility
+  .push_str (&format! \-> "#{vis}enum #{name} {\n") out
+  for v in &d.variants
+    .mark v.span out
+    pad out (indent + RUST_INDENT)
+    .push_str (&v.name.text) out
+    if !.is_empty v.fields
+      texts : Vec<&str> = v.fields
+        |> .iter
+        |> .map (\t -> .as_str t.text)
+        |> .collect
+      joined = .join ", " texts
+      .push_str (&format! \-> "(#{joined})") out
+    .push_str ",\n" out
+  .unmark out
+  pad out indent
+  .push_str "}\n\n" out
+  pad out indent
+  .push_str (&format! \-> "use #{name}::*;\n\n") out
+  pad out indent
+  .push_str (&format! \-> "impl std::fmt::Display for #{name} {\n") out
+  pad out (indent + RUST_INDENT)
+  .push_str "fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {\n" out
+  pad out (indent + RUST_INDENT * 2)
+  .push_str "match self {\n" out
+  for v in &d.variants
+    .mark v.span out
+    built = error_message (&v.message)
+    count = .len v.fields
+    binders : Vec<String> = 0 .. count
+      |> .map (\i -> format! \-> "_#{i}")
+      |> .collect
+    pad out (indent + RUST_INDENT * 3)
+    .push_str (&format! \-> "#{name}::#{v.name.text}") out
+    if !.is_empty binders
+      joined = .join ", " binders
+      .push_str (&format! \-> "(#{joined})") out
+    .push_str (&format! \-> " => write!(f, \"#{built.0}\"") out
+    for arg in &built.1
+      .push_str (&format! \-> ", #{arg}") out
+    .push_str "),\n" out
+  .unmark out
+  pad out (indent + RUST_INDENT * 2)
+  .push_str "}\n" out
+  pad out (indent + RUST_INDENT)
+  .push_str "}\n" out
+  pad out indent
+  .push_str "}\n\n" out
+  pad out indent
+  .push_str (&format! \-> "impl std::error::Error for #{name} {}\n") out
+  for v in &d.variants
+    if !v.from
+      continue
+    ty = &v.fields[0].text
+    .mark v.span out
+    .push '\n' out
+    pad out indent
+    .push_str (&format! \-> "impl From<#{ty}> for #{name} {\n") out
+    pad out (indent + RUST_INDENT)
+    .push_str (&format! \-> "fn from(e: #{ty}) -> Self {\n") out
+    pad out (indent + RUST_INDENT * 2)
+    .push_str (&format! \-> "#{name}::#{v.name.text}(e)\n") out
+    pad out (indent + RUST_INDENT)
+    .push_str "}\n" out
+    pad out indent
+    .push_str "}\n" out
+  .unmark out
+  ()
+
+export(crate) emit_fields : &mut Sink<'_> -> &ConstructorFields -> usize -> bool -> ()
+emit_fields out fields indent top =
+  case fields of
+    ConstructorFields::Unit ->
+      closer = if top
+        ";\n"
+      else
+        ",\n"
+      .push_str closer out
+    ConstructorFields::Tuple types ->
+      texts : Vec<&str> = types
+        |> .iter
+        |> .map (\t -> .as_str t.text)
+        |> .collect
+      joined = .join ", " texts
+      .push_str (&format! \-> "(#{joined})") out
+      closer = if top
+        ";\n"
+      else
+        ",\n"
+      .push_str closer out
+    ConstructorFields::Record decls ->
+      texts : Vec<String> = decls
+        |> .iter
+        |> .map (\f ->
+        vis = .rust_text f.visibility
+        format! \-> "#{vis}#{f.name.text}: #{f.ty.text}")
+        |> .collect
+      joined = .join ", " texts
+      documented = .any (\f -> !.is_empty f.leading) (.iter decls)
+      if !top && !documented && .len joined <= STRUCT_VARIANT_WIDTH
+        .push_str (&format! \-> " { #{joined} },\n") out
+        return ()
+      .push_str " {\n" out
+      for f in decls
+        .mark f.span out
+        emit_trivia out (&f.leading) (indent + RUST_INDENT)
+        pad out (indent + RUST_INDENT)
+        vis = .rust_text f.visibility
+        .push_str (&format! \-> "#{vis}#{f.name.text}: #{f.ty.text},\n") out
+      .unmark out
+      pad out indent
+      closer = if top
+        "}\n"
+      else
+        "},\n"
+      .push_str closer out
+  ()
+
+export(crate) emit_instance : &mut Sink<'_> -> &InstanceDecl -> usize -> ()
+emit_instance out i indent =
+  .unmark out
+  emit_trivia out (&i.leading) indent
+  .mark i.span out
+  pad out indent
+  .push_str "impl" out
+  if &i.r#given is Some text
+    .push_str text out
+  else
+    .push_str (&generics (&i.target) (&i.constraints)) out
+  .push ' ' out
+  if &i.r#class is Some named
+    lowered = .rust_text named
+    .push_str (&format! \-> "#{lowered} for ") out
+  .push_str (&.rust_text i.target) out
+  .push_str " {\n" out
+  for m in &i.members
+    emit_member out m (indent + RUST_INDENT)
+  .unmark out
+  pad out indent
+  .push_str "}\n" out
+  ()
+
+export(crate) emit_member : &mut Sink<'_> -> &ClassMember -> usize -> ()
+emit_member out m indent =
+  case m of
+    ClassMember::AssocType name ->
+      .mark name.span out
+      pad out indent
+      .push_str (&format! \-> "type #{name.text};\n") out
+    ClassMember::AssocConst { name, ty, value } ->
+      .mark name.span out
+      pad out indent
+      .push_str (&format! \-> "const #{name.text}: #{ty.text}") out
+      if value is Some v
+        .push_str (&format! \-> " = #{emit_expr v indent}") out
+      .push_str ";\n" out
+    ClassMember::Method f ->
+      .unmark out
+      emit_trivia out (&f.leading) indent
+      .mark f.span out
+      pad out indent
+      sig = signature (&f.sig) indent
+      vis = .rust_text f.visibility
+      const_marker = if f.sig.is_const
+        "const "
+      else
+        ""
+      async_marker = if f.sig.is_async
+        "async "
+      else
+        ""
+      .push_str (&format! \-> "#{vis}#{const_marker}#{async_marker}fn #{f.name.text}#{sig}") out
+      if .is_empty f.clauses
+        .push_str ";\n" out
+        return ()
+      if .contains '\n' sig
+        .push '\n' out
+        pad out indent
+      else
+        .push ' ' out
+      .push_str "{\n" out
+      emit_clauses out f indent
+      .unmark out
+      pad out indent
+      .push_str "}\n" out
+  ()
+
+export(crate) names_a_constructor : &Expr -> bool
+names_a_constructor head =
+  name = case head of
+    Expr::Ident i -> .as_str i.text
+    Expr::Path { text, .. } -> .unwrap_or text (.next (.rsplit "::" text))
+    _ ->
+      return false
+  name |> .chars |> .next |> .is_some_and char::is_uppercase
+
+export(crate) one_field : &FieldInit -> usize -> String
+one_field f indent = case &f.value of
+  Some _ -> format! \-> "#{f.name.text}: #{field_value f indent}"
+  None -> .clone f.name.text
+
+export(crate) emit_record : &Expr -> &[FieldInit] -> usize -> String
+emit_record head fields indent =
+  inner_pad = .repeat (indent + RUST_INDENT) " "
+  close_pad = .repeat indent " "
+  if !names_a_constructor head
+    base = emit_expr (unparen head) (indent + RUST_INDENT)
+    mut updated = format! \-> "{\n#{inner_pad}let mut __rdx_r = #{base};\n"
+    for f in fields
+      value = field_value f (indent + RUST_INDENT)
+      .push_str (&format! \-> "#{inner_pad}__rdx_r.#{f.name.text} = #{value};\n") updated
+    .push_str (&format! \-> "#{inner_pad}__rdx_r\n#{close_pad}}") updated
+    return updated
+  head_text = emit_expr (unparen head) indent
+  if .is_empty fields
+    return head_text
+  texts : Vec<String> = fields
+    |> .iter
+    |> .map (\f -> one_field f indent)
+    |> .collect
+  joined = .join ", " texts
+  if .len joined <= STRUCT_LIT_WIDTH && !.contains '\n' joined
+    return format! \-> "#{head_text} { #{joined} }"
+  mut text = format! \-> "#{head_text} {\n"
+  for f in fields
+    one = one_field f (indent + RUST_INDENT)
+    .push_str (&format! \-> "#{inner_pad}#{one},\n") text
+  .push_str (&format! \-> "#{close_pad}}") text
+  text
+
+export(crate) const STRUCT_LIT_WIDTH : usize = 18
+
+export(crate) const STRUCT_VARIANT_WIDTH : usize = 34

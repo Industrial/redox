@@ -1,0 +1,343 @@
+import crate::expr::chain
+import crate::expr::emit_expr
+import crate::expr::receiver
+import crate::expr::unparen
+import redox_ast::Expr
+import redox_ast::StrInterpPart
+import redox_ast::Trivia
+import redox_ast::TriviaKind
+import redox_diag::Lint
+import redox_diag::Origin
+import redox_diag::SourceMap
+import redox_diag::Span
+import std::fmt::Write
+
+export(crate) double_braces : &str -> String
+double_braces literal = literal |> .replace '{' "{{" |> .replace '}' "}}"
+
+test "doubles a brace so it prints as itself"
+  assert_eq! \-> double_braces r#""see {this}""# \-> r#""see {{this}}""#
+
+test "leaves a literal with no braces alone"
+  assert_eq! \-> double_braces r#""Hello, world!""# \-> r#""Hello, world!""# \-> "plan 01's golden depends on this being unchanged"
+
+test "doubles each brace independently"
+  assert_eq! \-> double_braces r"{{" \-> r"{{{{"
+  assert_eq! \-> double_braces r"}" \-> r"}}"
+
+test "handles an empty literal"
+  assert_eq! \-> double_braces "" \-> ""
+
+export(crate) format_template : &[StrInterpPart] -> usize -> (String, Vec<String>)
+format_template parts indent =
+  mut template = String::new ()
+  mut args = Vec::new ()
+  for part in parts
+    case part of
+      StrInterpPart::Text text -> .push_str (&double_braces text) template
+      StrInterpPart::Interp { expr, spec } ->
+        case spec of
+          Some s -> .push_str (&format! \-> "{:#{s}}") template
+          None -> .push_str "{}" template
+        .push (emit_expr (unparen expr) indent) args
+  (template, args)
+
+export(crate) holes : &[Expr] -> Vec<usize>
+holes args =
+  mut found : Vec<usize> = Vec::new ()
+  for pair in .enumerate (.iter args)
+    is_hole = case pair.1 of
+      Expr::Ident i -> i.text == "_"
+      _ -> false
+    if is_hole
+      .push pair.0 found
+  found
+
+export(crate) emit_inline_comment : &mut Sink<'_> -> Option<&Trivia> -> ()
+emit_inline_comment out trivia =
+  if trivia is Some t && t.kind == TriviaKind::LineComment
+    if .is_empty t.text
+      .push_str " //" out
+    else
+      _dropped = write! \-> out \-> " // #{t.text}"
+  ()
+
+export(crate) nest : &[(&str, &Expr)] -> &[String] -> &str -> usize -> bool -> (String, Vec<String>)
+nest draws guards item base nested =
+  head = draws
+    |> .split_first
+    |> .expect "the caller checked that there is at least one generator"
+  first = head.0
+  rest = head.1
+  name = first.0
+  source = first.1
+  mv = if nested
+    "move "
+  else
+    ""
+  if .is_empty rest
+    last = if .is_empty guards
+      format! \-> ".map(#{mv}|#{name}| #{item})"
+    else
+      joined = .join " && " guards
+      format! \-> ".filter_map(#{mv}|#{name}| if #{joined} { Some(#{item}) } else { None })"
+    return (receiver source base, vec! \-> .to_string ".into_iter()" \-> last)
+  inner_base = base + RUST_INDENT * 2
+  built = nest rest guards item inner_base nested
+  inner = chain (&built.0) (&built.1) inner_base
+  arg = if .contains '\n' inner
+    mut text = format! \-> "move |#{name}| {\n"
+    pad_to (&mut text) inner_base
+    .push_str (&inner) text
+    .push '\n' text
+    pad_to (&mut text) (base + RUST_INDENT)
+    .push '}' text
+    text
+  else
+    format! \-> "move |#{name}| #{inner}"
+  flat = format! \-> ".flat_map(#{arg})"
+  (receiver source base, vec! \-> .to_string ".into_iter()" \-> flat)
+
+export(crate) pad : &mut Sink<'_> -> usize -> ()
+pad out n =
+  for _ in 0 .. n
+    .push ' ' out
+  ()
+
+export(crate) pad_to : &mut String -> usize -> ()
+pad_to out n =
+  for _ in 0 .. n
+    .push ' ' out
+  ()
+
+export(crate) rust_escapes : &str -> String
+rust_escapes raw =
+  mut out = String::with_capacity (.len raw)
+  mut chars = .chars raw
+  while .next chars is Some ch
+    if ch != '\\'
+      .push ch out
+      continue
+    case .next chars of
+      Some '#' -> .push '#' out
+      Some other ->
+        .push '\\' out
+        .push other out
+      None -> .push '\\' out
+  out
+
+test "translates the one escape rust lacks"
+  assert_eq! \-> rust_escapes r#""a\#{b""# \-> r#""a#{b""#
+
+test "leaves every shared escape alone"
+  for escape in [r"\n", r"\t", r"\r", r"\0", r#"\""#, r"\'", r"\x41", r"\u{1F600}"]
+    assert_eq! \-> rust_escapes escape \-> escape \-> "#{escape} should be untouched"
+
+test "does not mistake an escaped backslash for an escaped hash"
+  assert_eq! \-> rust_escapes r"a\\#b" \-> r"a\\#b"
+  assert_eq! \-> rust_escapes r"a\\\#b" \-> r"a\\#b"
+
+test "leaves text with no escapes alone"
+  assert_eq! \-> rust_escapes "hello world" \-> "hello world"
+  assert_eq! \-> rust_escapes "" \-> ""
+
+test "survives a trailing backslash"
+  assert_eq! \-> rust_escapes r"a\" \-> r"a\"
+
+export(crate) rust_hatch_text : &str -> usize -> String
+rust_hatch_text code indent =
+  padding = .repeat (indent + RUST_INDENT) " "
+  mut out = String::new ()
+  for pair in .enumerate (.lines code)
+    i = pair.0
+    text = pair.1
+    if i > 0
+      .push '\n' out
+      if !.is_empty (.trim text)
+        .push_str (&padding) out
+    .push_str text out
+  out
+
+export(crate) const RUST_INDENT : usize = 4
+
+export(crate) data Sink = Sink {
+  out : String,
+  source : &'a str,
+  current : Option<Span>,
+  origins : Vec<Option<Origin>>,
+}
+
+instance (Sink 'a)
+  export(crate) new : &'a str -> Self
+  new source = Sink { out = String::new (), source, current = None, origins = Vec::new () }
+
+  export(crate) mark : Span -> &mut self -> ()
+  mark span self =
+    self.current := Some span
+    ()
+
+  export(crate) unmark : &mut self -> ()
+  unmark self =
+    self.current := None
+    ()
+
+  export(crate) push : char -> &mut self -> ()
+  push ch self =
+    .write_text (&.to_string ch) self
+    ()
+
+  export(crate) push_str : &str -> &mut self -> ()
+  push_str s self =
+    .write_text s self
+    ()
+
+  export(crate) pop : &mut self -> Option<char>
+  pop self =
+    ch = .pop self.out
+    if ch == Some '\n'
+      .pop self.origins
+    ch
+
+  export(crate) ends_with : &str -> &self -> bool
+  ends_with s self = .ends_with s self.out
+
+  export(crate) is_empty : &self -> bool
+  is_empty self = .is_empty self.out
+
+  export(crate) finish : &str -> mut self -> (String, SourceMap)
+  finish source_path self =
+    if !.is_empty self.out && !.ends_with '\n' self.out
+      .close_line self
+    (self.out, SourceMap::new source_path self.origins)
+
+  close_line : &mut self -> ()
+  close_line self =
+    origin = .and_then (\span -> .origin_of span self) self.current
+    .push origin self.origins
+    ()
+
+  origin_of : Span -> &self -> Option<Origin>
+  origin_of span self =
+    if span.0 > .len self.source
+      return None
+    before = &self.source[0 .. span.0]
+    src_line = .count (.matches '\n' before) + 1
+    src_col = .map_or 1 (\l -> .count (.chars l) + 1) (.next (.rsplit '\n' before))
+    Some (Origin { span, src_line, src_col, gen_col = .gen_col_of_current_line self })
+
+  gen_col_of_current_line : &self -> usize
+  gen_col_of_current_line self =
+    line_start = .map_or 0 (+ 1) (.rfind '\n' self.out)
+    n = .len self.out
+    text = &self.out[line_start .. n]
+    trimmed = .trim_start text
+    if .is_empty trimmed
+      return .count (.chars text) + 1
+    .count (.chars text) - .count (.chars trimmed) + 1
+
+  write_text : &str -> &mut self -> ()
+  write_text s self =
+    for part in .split_inclusive '\n' s
+      .push_str part self.out
+      if .ends_with '\n' part
+        .pop self.out
+        .close_line self
+        .push '\n' self.out
+    ()
+
+instance Write (Sink '_)
+  write_str : &str -> &mut self -> std::fmt::Result
+  write_str s self =
+    .write_text s self
+    Ok ()
+
+test "attributes a line to the current mark"
+  source = "main : ()\nmain =\n  println! \\-> \"\#{1}\"\n"
+  assert_eq! \-> &source[19 .. 38] \-> r##"println! \-> "#{1}""## \-> "the premise of this test"
+  mut sink = Sink::new source
+  .mark (0, 16) sink
+  .push_str "fn main() {\n" sink
+  .mark (19, 38) sink
+  .push_str "    println!();\n" sink
+  .unmark sink
+  .push_str "}\n" sink
+  finished = .finish "a.sdx" sink
+  expected = String::from "fn main() {\n    println!();\n}\n"
+  assert_eq! \-> finished.0 \-> expected
+  assert_eq! \-> .len finished.1 \-> 3
+  assert_eq! \-> .resolve 1 1 finished.1 \-> Some (1, 1)
+  assert_eq! \-> .resolve 2 5 finished.1 \-> Some (3, 3) \-> "content column aligns"
+  assert_eq! \-> .resolve 3 1 finished.1 \-> None \-> "the closing brace is synthetic"
+
+test "carries a mark across lines"
+  mut sink = Sink::new "a\nb\n"
+  .mark (0, 1) sink
+  .push_str "one\ntwo\nthree\n" sink
+  finished = .finish "a.sdx" sink
+  assert_eq! \-> .len finished.1 \-> 3
+  for line in 1 ..= 3
+    assert_eq! \-> .resolve line 1 finished.1 \-> Some (1, 1) \-> "line #{line}"
+
+test "counts a final line without a newline"
+  mut sink = Sink::new "a\n"
+  .mark (0, 1) sink
+  .push_str "x" sink
+  finished = .finish "a.sdx" sink
+  assert_eq! \-> finished.0 \-> "x"
+  assert_eq! \-> .len finished.1 \-> 1
+
+test "write macro records the same way"
+  mut sink = Sink::new "ab\n"
+  .mark (0, 2) sink
+  _dropped = writeln! \-> sink \-> "hello"
+  finished = .finish "a.sdx" sink
+  assert_eq! \-> finished.0 \-> "hello\n"
+  assert_eq! \-> .len finished.1 \-> 1
+
+test "pop removes the line it removes"
+  mut sink = Sink::new "a\n"
+  .mark (0, 1) sink
+  .push_str "one\n\n" sink
+  assert_eq! \-> .pop sink \-> Some '\n'
+  finished = .finish "a.sdx" sink
+  assert_eq! \-> finished.0 \-> "one\n"
+  assert_eq! \-> .len finished.1 \-> 1
+
+export(crate) emit_trivia : &mut Sink<'_> -> &[Trivia] -> usize -> ()
+emit_trivia out trivia indent =
+  for t in trivia
+    is_attribute = case t.kind of
+      TriviaKind::Attribute -> true
+      _ -> false
+    if is_attribute && .is_some (Lint::from_allow_attribute (.trim t.text))
+      continue
+    case t.kind of
+      TriviaKind::BlankLines -> .unmark out
+      _ -> .mark t.span out
+    case t.kind of
+      TriviaKind::LineComment -> line out indent "//" (&t.text)
+      TriviaKind::DocComment -> line out indent "///" (&t.text)
+      TriviaKind::InnerDocComment -> line out indent "//!" (&t.text)
+      TriviaKind::FencedComment ->
+        pad out indent
+        _dropped = writeln! \-> out \-> "/* #{t.text} */"
+      TriviaKind::Attribute ->
+        pad out indent
+        _dropped = writeln! \-> out \-> "\#[#{t.text}]"
+      TriviaKind::InnerAttribute ->
+        pad out indent
+        _dropped = writeln! \-> out \-> "\#![#{t.text}]"
+      TriviaKind::BlankLines ->
+        if !.is_empty out && !.ends_with "{\n" out && !.ends_with "\n\n" out
+          .push '\n' out
+  ()
+
+export(crate) line : &mut Sink<'_> -> usize -> &str -> &str -> ()
+line out indent marker text =
+  pad out indent
+  if .is_empty text
+    .push_str marker out
+    .push '\n' out
+  else
+    _dropped = writeln! \-> out \-> "#{marker} #{text}"
+  ()

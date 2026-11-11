@@ -320,7 +320,7 @@ measurement even when it is zero. It is not zero.
 
 Findings 6 and 7 are what §1.3 was hoping for and did not expect to get: the
 formatter, reading its own ported source, mis-printed it. Both are fixed **in
-Redox** — the edits are to `crates/redox-fmt/sdx/expr_text/lambda_text.sdx`
+Redox** — the edits are to `crates/redox-fmt/sdx/expr_text.sdx`
 and `crates/redox-fmt/sdx/expr_text.sdx`, and the `.rs` is regenerated. They
 are the first defects in this project fixed in Redox source rather than Rust.
 

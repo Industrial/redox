@@ -373,7 +373,7 @@ Every sentence of that is correct **given one assumption**, and the assumption
 is not stated: that the set of admissible *spellings* is open. It is not, and
 nothing required it to be.
 
-`crates/redox-lexer/sdx/lexer/assignable_operators.sdx` is a `const` of twelve
+`crates/redox-lexer/sdx/scan.sdx` is a `const` of twelve
 spellings — `<+>`, `<->`, `<*>`, `</>`, `<%>`, `<|>`, `<&>`, `<^>`, `<=>`,
 `<~>`, `<$>`, `<?>` — and `scan_operator` tries that run before
 `OPERATOR_TABLE`. The lexer scans every one of them **whether or not any file

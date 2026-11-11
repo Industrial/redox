@@ -345,37 +345,33 @@ fn the_port_regenerates_the_committed_rust() {
 /// number in a generated document is harder to forget than a list in a test.
 const HATCH_ALLOWED: &[(&str, &str)] = &[
   (
-    "crates/redox-emit/sdx/emit/arity_scope.sdx",
+    "crates/redox-emit/sdx/expr.sdx",
     "`thread_local!`'s body is a `static` declaration, and a Redox macro \
      argument is an *expression* (plan 64 §6). The table must be \
      thread-local — the suite's parallel tests must not see each other's \
      files — and a plain `static` cannot hold a `RefCell`, which is not \
-     `Sync`",
+     `Sync`. This one is the arity table",
   ),
   (
-    "crates/redox-emit/sdx/emit/binding_scope.sdx",
-    "the same `thread_local!`, for the same reason, over `BindingTable`",
+    "crates/redox-emit/sdx/binding.sdx",
+    "the same `thread_local!`, for the same reason, twice: over \
+     `BindingTable` and over a `Cell<BindMode>`",
   ),
   (
-    "crates/redox-emit/sdx/emit/bind_scope.sdx",
-    "the same `thread_local!`, for the same reason, over a `Cell<BindMode>`",
-  ),
-  (
-    "crates/redox-emit/sdx/emit/synonym_scope.sdx",
+    "crates/redox-emit/sdx/pattern.sdx",
     "the same `thread_local!`, for the same reason, over a \
-     `RefCell<SynonymTable>` — plan 87's pattern synonyms. The **fourth** \
-     entry of one shape, which is the finding rather than four separate \
-     concessions: every ambient table the emitter installs at `emit_with_map` \
-     needs this hatch, so closing plan 81's `macro_item_argument` gap would \
-     retire all four at once",
+     `RefCell<SynonymTable>` — plan 87's pattern synonyms",
   ),
   (
-    "crates/redox-emit/sdx/emit/template_scope.sdx",
+    "crates/redox-emit/sdx/template.sdx",
     "the same `thread_local!`, for the same reason, over a \
-     `RefCell<TemplateTable>` — plan 89's deriving templates. The **fifth**, \
-     and the sentence above needed no amendment to cover it, which is what \
-     makes it a finding about `macro_item_argument` rather than a fifth \
-     concession",
+     `RefCell<TemplateTable>` — plan 89's deriving templates. **Five tables \
+     of one shape, in four files.** That is the finding rather than five \
+     separate concessions: every ambient table the emitter installs at \
+     `emit_with_map` needs this hatch, so closing plan 81's \
+     `macro_item_argument` gap would retire all five at once. Plan 91 wave 10 \
+     merged the five one-construct files into four and the count of *reasons* \
+     did not change, which is the same point from the other direction",
   ),
 ];
 

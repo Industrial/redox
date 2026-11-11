@@ -486,7 +486,7 @@ layout context, and criterion 5 asserts the file compiles with an unchanged
 
 That file is **gone**, retired with plan 48's probe when plan 70 removed the
 `conformance/` directory. The witness is not: the same module, ported for real,
-is `crates/redox-ast/sdx/program/item/clause.sdx`, and its record declaration
+is `crates/redox-ast/sdx/item.sdx`, and its record declaration
 is the same shape. It is now graded better than it was — `tests/port.rs`
 compares it byte for byte against the committed Rust, and rustc compiles that
 Rust as part of the workspace, where the retired fixture was only checked by

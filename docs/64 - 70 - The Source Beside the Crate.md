@@ -150,7 +150,7 @@ regeneration looks like a refresh. Rewritten.
 Plans 48 and 65 cite the deleted fixture and keep their bodies; each gained an unnumbered
 closing note. Plan 65's matters more — it used `clause.sdx`'s multi-line record declaration
 as its bracket-layout **witness**, and that witness is now
-`crates/redox-ast/sdx/program/item/clause.sdx`, the real port of the same module, compared
+`crates/redox-ast/sdx/item.sdx`, the real port of the same module, compared
 byte for byte by `port.rs` and compiled by rustc rather than checked by `syn`.
 
 The notes are **unnumbered** because `## 11.` is reserved for *"Corrections from
