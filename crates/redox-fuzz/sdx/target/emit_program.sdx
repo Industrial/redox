@@ -1,0 +1,22 @@
+-- | Parse arbitrary bytes and, if that succeeds, emit.
+-- |
+-- | The emitter cannot be fuzzed directly — it takes a `Program`, and
+-- | constructing an arbitrary one would need `arbitrary` derived over the whole
+-- | AST, which plan 42 §6 declines as most of a second parser. So the input is
+-- | bytes and the parser is the generator: whatever it accepts is a tree the
+-- | emitter must survive.
+-- |
+-- | That is weaker than generating trees and it is not nothing: the parser
+-- | accepts a great deal more than the corpus contains, and every tree it
+-- | produces is one a real program could produce.
+export emit_program : &[u8] -> ()
+emit_program bytes =
+  text = String::from_utf8_lossy bytes
+  -- A `case` where the Rust had a let-else: Redox has no `let … else`, and an
+  -- arm that returns says the same thing.
+  program = case redox_parser::parse_source (&text) of
+    Ok p -> p
+    Err _ ->
+      return ()
+  _dropped = redox_emit::emit (&program)
+  ()

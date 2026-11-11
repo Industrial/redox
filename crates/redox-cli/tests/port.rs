@@ -411,3 +411,42 @@ fn every_doc_comment_reaches_the_generated_rust() {
     offenders.join("\n")
   );
 }
+
+/// **A ported crate's `.sdx` is in git.** The mirror of
+/// `bootstrap.rs`'s `the_generated_trees_are_ignored`: one asserts the
+/// generated Rust is *not* tracked, and until plan 75 nothing asserted the
+/// source *is*.
+///
+/// Plan 75 added `redox-fuzz` to `seed/PORTED`, blessed it, and got a green
+/// clippy and a green port suite with the whole `.sdx` tree untracked. The
+/// failure surfaced in the clean-clone test — *"crates/redox-fuzz/sdx is
+/// missing, so redox-fuzz has no source to generate from"* — which is late,
+/// and reads as a bootstrap problem rather than a forgotten `git add`.
+#[test]
+fn every_ported_crates_sdx_is_tracked() {
+  let root = workspace_root();
+  let mut missing = Vec::new();
+  for (crate_name, _) in &ported() {
+    let dir = format!("crates/{crate_name}/sdx");
+    let listed = Command::new("git")
+      .args(["ls-files", "--", &dir])
+      .current_dir(&root)
+      .output()
+      .expect("should run git ls-files");
+    let count = String::from_utf8_lossy(&listed.stdout).lines().count();
+    let on_disk = pairs()
+      .iter()
+      .filter(|(sdx, _)| sdx.starts_with(root.join(&dir)))
+      .count();
+    if count < on_disk {
+      missing.push(format!("  {dir}: {on_disk} files, {count} tracked"));
+    }
+  }
+  assert!(
+    missing.is_empty(),
+    "a ported crate's `.sdx` is its source and must be in git — a clean clone \
+     has nothing to bootstrap from otherwise:\n{}\n\
+     Run `git add` on the listed directories.",
+    missing.join("\n")
+  );
+}

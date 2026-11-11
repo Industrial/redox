@@ -1,0 +1,11 @@
+-- | Parse arbitrary bytes.
+-- |
+-- | The target that matters most for an editor: plan 40's language server runs
+-- | `parse_source` on every keystroke, so a panic here is a crash in front of
+-- | someone who merely has not finished typing. Totality is a product property,
+-- | not hygiene.
+export parse_program : &[u8] -> ()
+parse_program bytes =
+  text = String::from_utf8_lossy bytes
+  _dropped = redox_parser::parse_source (&text)
+  ()
