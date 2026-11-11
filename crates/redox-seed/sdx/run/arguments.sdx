@@ -1,0 +1,34 @@
+-- ! Two positional paths, parsed without a dependency.
+
+import std::path::PathBuf
+
+-- | The source directory and the output directory, or `None` for misuse.
+-- |
+-- | Hand-rolled rather than `clap`, for the reason this crate's module doc
+-- | gives: a seed with two positional arguments does not need a parser, and
+-- | every dependency is one more thing that has to compile for a target with no
+-- | processes and no terminal.
+-- |
+-- | Anything other than exactly two arguments is misuse, `--help` included.
+-- | A seed is run by `init.sh` and by CI, not by a person exploring it.
+export(crate) arguments : Option<(PathBuf, PathBuf)>
+arguments =
+  mut args = .skip 1 (std::env::args_os ())
+  src = (.next args)?
+  out = (.next args)?
+  if .is_some (.next args)
+    return None
+  Some (PathBuf::from src, PathBuf::from out)
+
+-- | Inline because `arguments` is private and reads the real process
+-- | arguments, which an integration test cannot set without spawning — and
+-- | spawning is the one thing the seed's target cannot do. AGENTS.md's rule
+-- | is that inline tests are for private constructs, which this is.
+-- |
+-- | Under `cargo test` the arguments are the harness's, so the only
+-- | behaviour assertable here is that it does not panic on whatever it is
+-- | handed. The real coverage is `tests/seed.rs`, which runs the binary.
+test "it does not panic on the harness arguments"
+  -- `_dropped`, where the Rust wrote `let _ = …`: `_` is not a Redox pattern,
+  -- and the binding is still what satisfies `Option`'s `#[must_use]`.
+  _dropped = arguments ()

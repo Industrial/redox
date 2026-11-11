@@ -1,0 +1,70 @@
+-- ! Every directory under the source root, paired with its output directory.
+
+import std::path::Path
+import std::path::PathBuf
+
+-- | `(src_dir, out_dir)` for the root and every directory beneath it.
+-- |
+-- | # Why the seed walks and `compile_dir` does not
+-- |
+-- | **`compile_dir` is flat.** Measured at plan 72 leaf 1: pointed at
+-- | `crates/redox-ast/sdx`, it wrote **7** files where the crate has 53, because
+-- | `sdx_in` lists one directory and does not descend. Plan 09 built it for a
+-- | *user's* crate and `examples/cargo-project/src/` holds a single
+-- | `greeting.sdx`, so nothing had ever handed it a nested module tree —
+-- | and `tests/port.rs` sidesteps it entirely by invoking `redox build` once
+-- | per file.
+-- |
+-- | That is a real gap in the cargo integration and not only in the seed: a
+-- | user whose `src/` has subdirectories gets a silent partial build from the
+-- | documented `build.rs` path. It is **not fixed here**, because
+-- | `compile_dir`'s cache is keyed by file stem — `cache/store.rs` writes
+-- | `{key}.rs` — so two `expr.sdx` in different directories would collide, and
+-- | re-keying a cache is a change to shared code that wants its own row.
+-- |
+-- | Walking here costs nothing and needs no such change: one
+-- | `compile_dir_with` call per directory keeps every cache key unique, because
+-- | the store is scoped to the output directory it was handed.
+export(crate) walk : &Path -> &Path -> Vec<(PathBuf, PathBuf)>
+walk src out =
+  mut pairs = vec! \-> (.to_path_buf src, .to_path_buf out)
+  mut at = 0
+  while at < .len pairs
+    -- `from` and `into` projected from the pair, where the Rust destructured
+    -- it: there is no tuple-destructuring binding.
+    pair = .clone pairs[at]
+    from = pair.0
+    into = pair.1
+    at += 1
+    guard std::fs::read_dir (&from) is Ok entries else
+      continue
+    mut children : Vec<PathBuf> = entries
+      |> .flatten
+      |> .map (\e -> .path e)
+      |> .filter (\p -> .is_dir p)
+      |> .collect
+    -- Sorted, so the file list the seed prints is the same on every machine.
+    -- A bootstrap log that reorders itself is a diff nobody can read.
+    .sort children
+    for child in children
+      guard .file_name child is Some name else
+        continue
+      -- Joined before the push, not inside it: `name` borrows `child`, and
+      -- moving `child` into the tuple while that borrow is live is `E0505`.
+      target = .join name into
+      .push (child, target) pairs
+  pairs
+
+-- | Inline because `walk` is private, per AGENTS.md's rule that inline tests
+-- | are for private constructs.
+test "it mirrors a nested tree"
+  root = std::path::Path::new "../redox-ast/sdx"
+  if !.is_dir root
+    -- The crate layout moved; `port.rs` is what grades that, not this.
+    return ()
+  pairs = walk root (std::path::Path::new "/out")
+  assert! \-> .len pairs > 1 \-> "redox-ast's sdx tree is nested, so walking it must find more than the root"
+  -- `pairs[1].1` read in place, where the Rust bound `(_, out)` from a
+  -- reference to it.
+  shown = .display pairs[1].1
+  assert! \-> .starts_with "/out" pairs[1].1 \-> "every output directory mirrors under the root it was given, got #{shown}"

@@ -1,0 +1,80 @@
+-- ! The seed's whole behaviour, as one function returning an exit code.
+
+import arguments::arguments
+import redox_diag::render
+import redox_driver::Silent
+import redox_driver::compile_dir_with
+import report::report
+import tidy::tidy
+import walk::walk
+
+module arguments
+module report
+module tidy
+module walk
+
+-- | Parse the arguments, transpile the tree, and answer with an exit code.
+-- |
+-- | An exit code rather than a `Result`, because `main` has nothing to add to
+-- | it and a seed has no error type worth exporting. The three codes match
+-- | `redox-cli`'s so a caller cannot tell them apart on the outcome.
+export(crate) run : i32
+run =
+  -- `paths.0` is the source directory and `paths.1` the output one, where the
+  -- Rust destructured the pair in its `let … else`.
+  guard arguments () is Some paths else
+    eprintln! \-> "usage: redox-seed <src-dir> <out-dir>"
+    return 2
+  src = paths.0
+  out = paths.1
+  -- Every directory, not just the root: `compile_dir` does not descend, and
+  -- `walk`'s doc records why that is its own row's problem rather than this
+  -- one's.
+  mut diagnostics = Vec::new ()
+  mut failed = false
+  mut written : usize = 0
+  for pair in walk (&src) (&out)
+    from = pair.0
+    into = pair.1
+    case compile_dir_with (&from) (&into) (&Silent) of
+      Ok compiled ->
+        written += .len compiled.outputs
+        report (&compiled)
+      Err found ->
+        -- **Collected, not returned.** A seed reporting the first directory's
+        -- errors and stopping would make a clean clone take as many runs to
+        -- diagnose as it has broken directories. Everything that compiles is
+        -- still written, which is what `init.sh` wants: the failure is loud and
+        -- the tree is as complete as it can be.
+        --
+        -- Inside the arm rather than above it: a comment between two `case`
+        -- arms parses and is then dropped (§2.2).
+        failed := true
+        .extend found diagnostics
+    -- The cache `compile_dir_with` just wrote into the destination. Right for
+    -- plan 09's `OUT_DIR`, wrong for a crate's `src/` — `tidy`'s doc has the
+    -- three reasons.
+    tidy (&into)
+  if failed
+    -- `plain: true`, and not because stderr might not be a terminal. The
+    -- graphical renderer is what reaches for `miette`, and the seed's entire
+    -- reason for existing is to be the smallest binary that transpiles — see
+    -- this crate's module doc.
+    rendered = render (&diagnostics) true
+    eprintln! \-> "#{rendered}"
+    return 1
+  -- **Writing nothing is a failure.** `compile_dir_with` returns `Ok` with an
+  -- empty output list for a directory holding no `.sdx` — including one it
+  -- could not read at all — so without this the seed exits 0 having produced
+  -- an empty tree. Found by plan 72 leaf 4's first run, which handed a WASI
+  -- binary an absolute path: `wasmtime` exited 0, the seed exited 0, and the
+  -- output directory was empty.
+  --
+  -- For a bootstrap tool that is the worst available failure mode. On a clean
+  -- clone the consequence is an empty `src/`, a green exit, and a cargo error
+  -- minutes later naming a missing crate rather than a missing argument.
+  if written == 0
+    shown = .display src
+    eprintln! \-> "error: no .sdx found under #{shown}, so nothing was written. If this is a WASI run, the path must be relative to the directory preopened with --dir."
+    return 1
+  0

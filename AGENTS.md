@@ -167,20 +167,33 @@ workspace splits along pipeline stages (`docs/02 - Redox Update Blueprint.md` §
 - `crates/redox-diag/`, `redox-driver/`, `redox-fmt/` — diagnostics, the incremental
   driver and the canonical formatter, filled by plans 05, 10 and 34. This bullet said
   *"declared empty"* until plan 70; all three have shipped
-- **`crates/redox-ast/sdx/` and `crates/redox-fmt/sdx/` — these two crates are written in
-  Redox.** The `.sdx` under `sdx/` is the source; the `.rs` under the same crate's `src/`
-  is generated from it by `redox build`, committed, and compiled by cargo like any other
-  Rust. Edit the `.sdx`, never the `.rs`, and regenerate with
-  `REDOX_BLESS=1 cargo test -p redox-cli --test port`, which also refuses to write a
-  generation that does not compile. `.gitattributes` marks the `src/` trees generated so
-  a regeneration is one line in a review rather than a thousand.
+- **Every crate under `crates/` is written in Redox.** All thirteen, as of plan 83: the
+  `.sdx` under a crate's `sdx/` is the source, and the `.rs` under its `src/` is generated
+  from it, **`.gitignore`d, and not in the index**. `seed/PORTED` is the single list of
+  which crate was ported by which plan, and four things read it — `port.rs`,
+  `conformance.rs`, `bootstrap.rs` and `bootstrap.sh`.
 
-  **The committed `.rs` is load-bearing and must stay committed.** It is this project's
-  previous-version compiler: `redox-cli` is built from `redox-fmt`, which is built from
-  `redox-ast`, so untracking either crate's `src/` leaves a clean checkout with nothing to
-  build the compiler that would regenerate it. Doc 02 §4.8 chose this; plan 68 proved it by
-  breaking the bootstrap within the hour, and plan 70 §1 is the survey of what every other
-  self-hosting language does instead
+  Edit the `.sdx`, never the `.rs`. Regenerate with
+  `REDOX_BLESS=1 cargo test -p redox-cli --test port`, which compiles the generated tree
+  before writing it and refuses a generation that does not compile — so a bad port leaves
+  `src/` untouched rather than broken.
+
+  **A clean clone has no `src/` at all, and `./bootstrap.sh` is what fixes that.** It runs
+  `seed/redox1.wasm` under `wasmtime` over every crate in `seed/PORTED`, then rustfmt, and
+  `cargo build` works afterwards. `seed/SEED.md` is the blob's provenance;
+  `moon run :seed-refresh` rebuilds it and `REDOX_BLESS=1 cargo test -p redox-seed --test
+  blob` records the new hash. Order is **build → bless → seed-refresh**.
+
+  **This bullet used to say the opposite, and the correction is worth keeping.** Until
+  plan 72 it read *"the `.rs` … is committed"* and *"the committed `.rs` is load-bearing
+  and must stay committed"*, because the generated Rust *was* this project's
+  previous-version compiler — untracking it left a clean checkout with nothing to build
+  the compiler that would regenerate it. Doc 02 §4.8 chose that, plan 68 proved it by
+  breaking the bootstrap within the hour, and plan 70 §1 surveyed what other self-hosting
+  languages do. Plan 72 replaced the committed trees with the seed blob, which is the same
+  previous-version compiler stored once instead of thirteen times — so the rule is
+  withdrawn, and `the_generated_trees_are_ignored` now asserts the reverse of what it used
+  to
 - `examples/*.sdx` — the CI-checked source of truth for what works today
 - `tests/golden/` — `.sdx` beside its expected `.xrs`, compared as exact text
 - `docs/` — numbered: 01 specification, 02 blueprint, 03 surface design, 04 plan of plans,

@@ -165,11 +165,29 @@ fn sources(root: &Path) -> Vec<PathBuf> {
 fn word(n: usize) -> String {
   const WORDS: &[&str] = &[
     "No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven",
-    "Twelve",
+    "Twelve", "Thirteen", "Fourteen",
   ];
   WORDS
     .get(n)
     .map_or_else(|| n.to_string(), |w| (*w).to_string())
+}
+
+/// What the paragraph on permanence says about the crates that are *not*
+/// ported.
+///
+/// **Two sentences, because the count reached zero.** The template read *"The
+/// {rest} crates that are not ported are hand-written Rust"*, which plan 83
+/// rendered as *"The no crates that are not ported"* — a generated document
+/// going ungrammatical at exactly the milestone it exists to record. Doc 02
+/// §4.8's rule is unchanged either way; what changes is where the Rust is.
+fn remainder(unported: usize, rest: &str) -> String {
+  if unported == 0 {
+    return "**No crate's `src/` is hand-written Rust any more.** What stays Rust is what             plan 72 §6 named: the integration tests, which `AGENTS.md` requires to be             Rust asserting over Redox-generated code, and `crates/redox-driver/build.rs`,             which cargo runs on the host before anything exists."
+      .to_string();
+  }
+  format!(
+    "The {rest} crates that are not ported are hand-written Rust and stay that way until      a row says otherwise;"
+  )
 }
 
 /// `a`, `b` and `c`. An English list, for the same reason.
@@ -290,7 +308,8 @@ fn render(root: &Path) -> String {
     .map(|(_, total, _)| *total)
     .sum();
   let n = ported.len();
-  let rest = word(per_crate.len().saturating_sub(n)).to_lowercase();
+  let unported = per_crate.len().saturating_sub(n);
+  let rest = word(unported).to_lowercase();
   let _ = write!(
     out,
     "\n---\n\n## {heading} crates are no longer a count\n\n\
@@ -298,7 +317,7 @@ fn render(root: &Path) -> String {
      for them the question is settled by rustc rather than by a blocker count: {list} are \
      written in Redox, their `.sdx` living in `crates/<crate>/sdx/` beside the `src/` it \
      generates, and the generated Rust is compiled as part of the workspace.\n\n\
-     So **the compiler is now partly compiled from Redox** — {ported_files} files of it. \
+     So **the compiler is now{partly} compiled from Redox** — {ported_files} files of it. \
      That corrects what this document said until plan 70: *\"nothing in the build depends \
      on `conformance/`, and the compiler is not compiled from it\"*, which was true when \
      plan 48 lifted one 45-line module out of a crate and checked it with `syn`, and \
@@ -316,8 +335,7 @@ fn render(root: &Path) -> String {
      defects, and plan 73 four more in the toolchain that writes the port.\n\n\
      ---\n\n## The Rust implementation is permanent\n\n\
      Doc 02 §4.8 corrects doc 01 §34's own wording: keep the Rust implementation \
-     *\"permanently rather than as a 'fallback'\"*. The {rest} crates that are not ported \
-     are hand-written Rust and stay that way until a row says otherwise; the {lower} that \
+     *\"permanently rather than as a 'fallback'\"*. {remainder} The {lower} that \
      are ported keep their generated Rust **committed**, which is what doc 02 §4.8 means \
      by *\"commit the generated `.xrs` so the bootstrap never breaks\"* — the committed \
      output is the previous-version compiler every self-hosting language needs, stored as \
@@ -325,6 +343,8 @@ fn render(root: &Path) -> String {
     heading = word(n),
     lower = word(n).to_lowercase(),
     list = and_list(&names),
+    partly = if unported == 0 { "" } else { " partly" },
+    remainder = remainder(unported, &rest),
   );
   out
 }

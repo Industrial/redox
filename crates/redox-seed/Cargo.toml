@@ -32,3 +32,6 @@ blake3 = "1"
 # `std::env::args` in `src/run/arguments.rs` rather than a dependency, because
 # a seed with two positional arguments does not need a parser and every
 # dependency is one more thing to port to a target that has no `std::process`.
+
+[lints]
+workspace = true
