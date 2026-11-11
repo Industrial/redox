@@ -1,9 +1,0 @@
-import lsp_server::{ExtractError, Request, RequestId, Response}
-import serde::Serialize
-
--- | Turn a handler's output into a response, or `null` if the parameters did
--- | not deserialise.
-export(crate) reply : Serialize t => RequestId -> Result<p, ExtractError<Request>> -> (impl FnOnce(p) -> t) -> Response
-reply id params handle = case params of
-  Ok got -> Response { id, response_result = Ok (.unwrap_or serde_json::Value::Null (serde_json::to_value (handle got))) }
-  Err _ -> Response { id, response_result = Ok serde_json::Value::Null }

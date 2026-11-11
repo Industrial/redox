@@ -35,18 +35,18 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 |---|---:|---:|
 | `redox-ast` | 1626 | 0 |
 | `redox-bench` | 355 | 217 |
-| `redox-cli` | 1494 | 9518 |
+| `redox-cli` | 1494 | 9519 |
 | `redox-diag` | 1017 | 0 |
 | `redox-driver` | 3253 | 0 |
 | `redox-emit` | 7594 | 4572 |
 | `redox-fmt` | 1494 | 1496 |
 | `redox-fuzz` | 38 | 292 |
 | `redox-lexer` | 2176 | 1196 |
-| `redox-lsp` | 1626 | 756 |
+| `redox-lsp` | 880 | 756 |
 | `redox-mcp` | 446 | 776 |
 | `redox-parser` | 5601 | 706 |
 | `redox-seed` | 348 | 676 |
-| **total** | **27068** | **20205** |
+| **total** | **26322** | **20206** |
 
 ---
 
