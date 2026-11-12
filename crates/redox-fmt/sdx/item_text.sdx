@@ -27,7 +27,7 @@ item_text item indent source =
   .push_str (&indent_text indent) out
   body = case item of
     Item::Fn decl -> fn_text decl indent source
-    Item::Data decl -> data_text decl indent source
+    Item::Data decl -> data_text decl indent
     Item::Type decl -> format! \-> "#{(visibility_text (&decl.visibility))}type #{decl.name.text} = #{decl.ty.text}"
     Item::Class decl -> class_text decl indent source
     Item::Instance decl -> instance_text decl indent source
@@ -107,8 +107,8 @@ class_text decl indent source =
     |> .collect
   format! \-> "#{header}\n#{(.join "\n" printed)}"
 
-export(crate) clause_text : &Clause -> &str -> usize -> &str -> String
-clause_text clause name indent source =
+export(crate) clause_text : &Clause -> &str -> usize -> bool -> &str -> String
+clause_text clause name indent unit source =
   mut head = .to_string name
   for pattern in &clause.patterns
     .push ' ' head
@@ -122,18 +122,15 @@ clause_text clause name indent source =
         r#test = case &r#guard.condition of
           Some condition -> expr_text condition 0 (indent + 1) source
           None -> String::from "otherwise"
-        arm = if same_line source r#guard.span.0 r#guard.body.span.0
-          format! \-> " = #{(inline_body (&r#guard.body) (indent + 1) source)}"
-        else
-          format! \-> " =\n#{(block_text (&r#guard.body) (indent + 2) source)}"
+        arm = format! \-> " = #{(inline_body (&r#guard.body) (indent + 1) source)}"
         format! \-> "#{pad}| #{r#test}#{arm}")
         |> .collect
       format! \-> "\n#{(.join "\n" printed)}"
     ClauseBody::Plain block ->
-      if same_line source clause.span.0 block.span.0
-        format! \-> " = #{(inline_body block indent source)}"
-      else
+      if .is_empty clause.wheres && !(unit && .len block.stmts == 1)
         format! \-> " =\n#{(block_text block (indent + 1) source)}"
+      else
+        format! \-> " = #{(inline_body block indent source)}"
   wheres = if .is_empty clause.wheres
     String::new ()
   else
@@ -166,69 +163,55 @@ const_text decl source =
   format! \-> "#{vis}#{keyword} #{decl.name.text} : #{decl.ty.text} = #{value}"
 
 export(crate) constructor_text : &Constructor -> usize -> String
-constructor_text constructor indent = case &constructor.fields of
-  ConstructorFields::Unit -> .clone constructor.name.text
-  ConstructorFields::Tuple types ->
-    mut out = .clone constructor.name.text
-    for ty in types
-      .push ' ' out
-      .push_str (&ty.text) out
-    out
-  ConstructorFields::Record fields ->
-    printed : Vec<String> = fields
-      |> .iter
-      |> .map (\field ->
-      vis = visibility_text (&field.visibility)
-      format! \-> "#{vis}#{field.name.text} : #{field.ty.text}")
-      |> .collect
-    if .is_empty printed
-      return format! \-> "#{constructor.name.text} {}"
-    documented = fields
-      |> .iter
-      |> .any (\field -> !.is_empty field.leading)
-    if !documented
-      return format! \-> "#{constructor.name.text} { #{(.join ", " printed)} }"
-    pad = indent_text $ indent + 1
-    mut lines : Vec<String> = Vec::new ()
-    for field in fields
-      for trivium in &field.leading
-        .push (trivia_text trivium (indent + 1)) lines
-      vis = visibility_text (&field.visibility)
-      .push (format! \-> "#{pad}#{vis}#{field.name.text} : #{field.ty.text},") lines
-    format! \-> "#{constructor.name.text} {\n#{(.join "\n" lines)}\n#{(indent_text indent)}}"
+constructor_text constructor indent =
+  case &constructor.fields of
+    ConstructorFields::Unit -> .clone constructor.name.text
+    ConstructorFields::Tuple types ->
+      mut out = .clone constructor.name.text
+      for ty in types
+        .push ' ' out
+        .push_str (&ty.text) out
+      out
+    ConstructorFields::Record fields ->
+      if .is_empty fields
+        return format! \-> "#{constructor.name.text} {}"
+      pad = indent_text $ indent + 1
+      mut lines : Vec<String> = Vec::new ()
+      for field in fields
+        for trivium in &field.leading
+          .push (trivia_text trivium (indent + 1)) lines
+        vis = visibility_text (&field.visibility)
+        .push (format! \-> "#{pad}#{vis}#{field.name.text} : #{field.ty.text},") lines
+      format! \-> "#{constructor.name.text} {\n#{(.join "\n" lines)}\n#{(indent_text indent)}}"
 
-export(crate) data_text : &DataDecl -> usize -> &str -> String
-data_text decl indent source =
+export(crate) data_text : &DataDecl -> usize -> String
+data_text decl indent =
   keyword = if decl.is_union
     "union"
-  else if decl.is_newtype
-    "newtype"
   else
-    "data"
+    if decl.is_newtype
+      "newtype"
+    else
+      "data"
   pad = indent_text $ indent + 1
   header = format! \-> "#{(visibility_text (&decl.visibility))}#{keyword} #{decl.name.text}"
-  mut out = case .as_slice decl.constructors of
-    [only] | same_line source decl.span.0 only.span.0 ->
-      format! \-> "#{header} = #{(constructor_text only indent)}"
-    many ->
-      printed : Vec<String> = many
-        |> .iter
-        |> .enumerate
-        |> .map (\pair ->
-        i = pair.0
-        constructor = pair.1
-        lead = if i == 0
-          '='
-        else
-          '|'
-        mut head = String::new ()
-        for trivium in &constructor.leading
-          head
-            |> .push_str (&trivia_text trivium (indent + 1))
-          head |> .push '\n'
-        format! \-> "#{head}#{pad}#{lead} #{(constructor_text constructor (indent + 1))}")
-        |> .collect
-      format! \-> "#{header}\n#{(.join "\n" printed)}"
+  printed : Vec<String> = decl.constructors
+    |> .iter
+    |> .enumerate
+    |> .map (\pair ->
+    i = pair.0
+    constructor = pair.1
+    lead = if i == 0
+      '='
+    else
+      '|'
+    mut head = String::new ()
+    for trivium in &constructor.leading
+      head |> .push_str (&trivia_text trivium (indent + 1))
+      head |> .push '\n'
+    format! \-> "#{head}#{pad}#{lead} #{(constructor_text constructor (indent + 1))}")
+    |> .collect
+  mut out = format! \-> "#{header}\n#{(.join "\n" printed)}"
   if !.is_empty decl.derives
     names : Vec<&str> = decl.derives
       |> .iter
@@ -279,7 +262,7 @@ fn_text decl indent source =
   if signature_line decl source is Some signature
     .push signature lines
   for clause in &decl.clauses
-    .push (clause_text clause (&decl.name.text) indent source) lines
+    .push (clause_text clause (&decl.name.text) indent (.returns_unit (&decl.sig)) source) lines
   .join (&format! \-> "\n#{pad}") lines
 
 export(crate) instance_text : &InstanceDecl -> usize -> &str -> String
@@ -344,13 +327,6 @@ member_text member indent source =
         .push '\n' out
       format! \-> "#{out}#{pad}#{(fn_text decl indent source)}"
 
-export(crate) same_line : &str -> usize -> usize -> bool
-same_line source left right =
-  lo = .min left right
-  hi = .max left right
-  n = .len source
-  !.contains '\n' source[.min lo n .. .min hi n]
-
 export(crate) signature_line : &FnDecl -> &str -> Option<String>
 signature_line decl source =
   start = decl.span.0
@@ -366,9 +342,10 @@ signature_line decl source =
   Some line
 
 export(crate) visibility_text : &Visibility -> String
-visibility_text visibility = case visibility of
-  Visibility::Private -> String::new ()
-  Visibility::Public -> .to_string "export "
-  Visibility::Crate -> .to_string "export(crate) "
-  Visibility::Super -> .to_string "export(super) "
-  Visibility::In path -> format! \-> "export(in #{path}) "
+visibility_text visibility =
+  case visibility of
+    Visibility::Private -> String::new ()
+    Visibility::Public -> .to_string "export "
+    Visibility::Crate -> .to_string "export(crate) "
+    Visibility::Super -> .to_string "export(super) "
+    Visibility::In path -> format! \-> "export(in #{path}) "

@@ -20,7 +20,11 @@ extern "C"
 -- Leaf 4: a `union`. Doc 18 §2.4's rule reads a *shape* off the
 -- constructors, and a union is not a shape — it is a struct's shape with
 -- overlapping storage — so it takes a keyword, as `newtype` does.
-union Word = Word { whole : u32, halves : u16 }
+union Word
+  = Word {
+    whole : u32,
+    halves : u16,
+  }
 
 -- Leaf 2: `unsafe` as a block. Reading a union field is unsafe in Rust
 -- because nothing says which field was last written.
@@ -48,7 +52,8 @@ r#type =
 -- both directions, because fixing one by breaking the other is the failure
 -- mode a one-character lookahead invites.
 raw_pattern : &'static str
-raw_pattern = r#"back\slash"#
+raw_pattern =
+  r#"back\slash"#
 
 -- Leaf 1: inline Rust. Doc 01 §23.1's escape hatch, which before this row
 -- parsed as a **call** to a function named `rust` and emitted `rust("…")` —

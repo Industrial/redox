@@ -3,4 +3,5 @@
 -- its closure a reference and `&i32 > i32` does not compile.
 
 total : Vec<i32> -> i32
-total xs = xs |> .into_iter |> .filter (> 1) |> .sum : i32
+total xs =
+  xs |> .into_iter |> .filter (> 1) |> .sum : i32

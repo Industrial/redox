@@ -30,9 +30,10 @@ anchor_span source span =
     None -> span
 
 caret_width : &str -> Span -> usize
-caret_width source span = source
-  |> .get (span.0 .. span.1)
-  |> .map_or 1 (\text -> .max 1 (.count (.chars text)))
+caret_width source span =
+  source
+    |> .get (span.0 .. span.1)
+    |> .map_or 1 (\text -> .max 1 (.count (.chars text)))
 
 line_col : &str -> usize -> (usize, usize)
 line_col source offset =
@@ -83,35 +84,51 @@ plain_one d =
   out
 
 graphical_one : &Diagnostic -> String
-graphical_one d = format! \-> "#{(miette::Report::new (Reportable::new d)):?}"
+graphical_one d =
+  format! \-> "#{(miette::Report::new (Reportable::new d)):?}"
 
-data Reportable = Reportable { message : String, code : String, help : Option<String>, span : (usize, usize), source : miette::NamedSource<String>, severity : Severity }
+data Reportable
+  = Reportable {
+    message : String,
+    code : String,
+    help : Option<String>,
+    span : (usize, usize),
+    source : miette::NamedSource<String>,
+    severity : Severity,
+  }
 
 instance Reportable
   new : &Diagnostic -> Self
-  new d = Reportable { message = .clone d.message, code = .text d.code, help = .clone d.help, span = anchor_span (&d.source) d.span, source = .with_language "Rust" (miette::NamedSource::new (&d.path) (.clone d.source)), severity = d.severity }
+  new d =
+    Reportable { message = .clone d.message, code = .text d.code, help = .clone d.help, span = anchor_span (&d.source) d.span, source = .with_language "Rust" (miette::NamedSource::new (&d.path) (.clone d.source)), severity = d.severity }
 
 instance Display Reportable
   fmt : &self -> &mut Formatter<'_> -> Result
-  fmt self f = write! \-> f \-> "#{self.message}"
+  fmt self f =
+    write! \-> f \-> "#{self.message}"
 
 instance Debug Reportable
   fmt : &self -> &mut Formatter<'_> -> Result
-  fmt self f = write! \-> f \-> "#{self.message}"
+  fmt self f =
+    write! \-> f \-> "#{self.message}"
 
 instance Error Reportable
 
 instance MietteDiagnostic Reportable
   code : &self -> Option<Box<dyn Display + '_>>
-  code self = Some $ Box::new (&self.code)
+  code self =
+    Some $ Box::new (&self.code)
   severity : &self -> Option<miette::Severity>
-  severity self = Some $ .to_miette self.severity
+  severity self =
+    Some $ .to_miette self.severity
   help : &self -> Option<Box<dyn Display + '_>>
-  help self = self.help
-    |> .as_ref
-    |> .map (\h -> Box::new h : Box<dyn Display>)
+  help self =
+    self.help
+      |> .as_ref
+      |> .map (\h -> Box::new h : Box<dyn Display>)
   source_code : &self -> Option<&dyn miette::SourceCode>
-  source_code self = Some (&self.source)
+  source_code self =
+    Some (&self.source)
   labels : &self -> Option<Box<dyn Iterator<Item = miette::LabeledSpan> + '_>>
   labels self =
     len = self.span.1 |> .saturating_sub self.span.0 |> .max 1

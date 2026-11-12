@@ -26,7 +26,12 @@ build_command args =
   (.map_err (\e -> format! \-> "error: cannot write #{sidecar_shown}: #{e}") (std::fs::write (&sidecar) (redox_diag::render_map (&emitted.1))))?
   Ok ()
 
-export(crate) data BuildArgs = BuildArgs { export(crate) input : PathBuf, export(crate) output : PathBuf, export(crate) plain : bool }
+export(crate) data BuildArgs
+  = BuildArgs {
+    export(crate) input : PathBuf,
+    export(crate) output : PathBuf,
+    export(crate) plain : bool,
+  }
   deriving (Debug, Clone, PartialEq, Eq)
 
 export(crate) default_output : &Path -> PathBuf

@@ -18,10 +18,11 @@ classify : i32 -> ()
 classify n =
   if n > 0
     println! \-> "positive"
-  else if n < 0
-    println! \-> "negative"
   else
-    println! \-> "zero"
+    if n < 0
+      println! \-> "negative"
+    else
+      println! \-> "zero"
   ()
 
 -- The same `if` as a function's whole body, which is where it carries a
@@ -53,10 +54,11 @@ labelled : i32 -> &'static str
 labelled n =
   out = if n > 9
     "big"
-  else if n > 4
-    "middling"
   else
-    "small"
+    if n > 4
+      "middling"
+    else
+      "small"
   out
 
 -- A conditional reaching a string interpolation, which is the one position
@@ -69,7 +71,8 @@ labelled n =
 -- line for an indented branch to go on at any bracket depth. A conditional
 -- in an interpolation is now written as a call to one, which is what this is.
 bracketed : i32 -> String
-bracketed n = "#{tier n}"
+bracketed n =
+  "#{tier n}"
 
 -- And the same conditional as a parenthesised argument, indented — plan 65.
 -- A `(`, `[` or `{` now opens a layout *context* rather than suppressing
@@ -150,11 +153,12 @@ nested =
 -- to give `<-` a monadic reading and the Haskell meaning of `do` is the one
 -- still unclaimed.
 first_square_over : i32 -> i32
-first_square_over limit = 'search
-  for c in 1 .. 20
-    if c * c > limit
-      break 'search c
-  0
+first_square_over limit =
+  'search
+    for c in 1 .. 20
+      if c * c > limit
+        break 'search c
+    0
 
 -- `return` inside a loop inside a function needs nothing from this plan: the
 -- statement already existed, and a loop body is a statement list like any

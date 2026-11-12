@@ -36,17 +36,21 @@ build request =
     |> .map diagnostic_from_redox
     |> .collect })
 
-export data BuildRequest = BuildRequest { export path : String }
+export data BuildRequest
+  = BuildRequest {
+    export path : String,
+  }
   deriving (Debug, Clone, serde::Deserialize, schemars::JsonSchema)
 
-export data BuildResponse = BuildResponse {
-  export ok : bool,
-  #[serde(skip_serializing_if = "Option::is_none")]
-  export output : Option<String>,
-  #[serde(skip_serializing_if = "Option::is_none")]
-  export map : Option<String>,
-  export diagnostics : Vec<Diagnostic>,
-}
+export data BuildResponse
+  = BuildResponse {
+    export ok : bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    export output : Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    export map : Option<String>,
+    export diagnostics : Vec<Diagnostic>,
+  }
   deriving (Debug, Clone, serde::Serialize, schemars::JsonSchema)
 
 export check : &CheckRequest -> Result<CheckResponse, String>
@@ -61,10 +65,17 @@ check request =
     |> .map diagnostic_from_redox
     |> .collect })
 
-export data CheckRequest = CheckRequest { export path : String }
+export data CheckRequest
+  = CheckRequest {
+    export path : String,
+  }
   deriving (Debug, Clone, serde::Deserialize, schemars::JsonSchema)
 
-export data CheckResponse = CheckResponse { export ok : bool, export diagnostics : Vec<Diagnostic> }
+export data CheckResponse
+  = CheckResponse {
+    export ok : bool,
+    export diagnostics : Vec<Diagnostic>,
+  }
   deriving (Debug, Clone, serde::Serialize, schemars::JsonSchema)
 
 export format : &FormatRequest -> Result<FormatResponse, String>
@@ -84,16 +95,20 @@ format request =
   formatted = redox_fmt::format (&program) (&source)
   Ok (FormatResponse { ok = true, changed = formatted != source, formatted = Some formatted, diagnostics = Vec::new () })
 
-export data FormatRequest = FormatRequest { export path : String }
+export data FormatRequest
+  = FormatRequest {
+    export path : String,
+  }
   deriving (Debug, Clone, serde::Deserialize, schemars::JsonSchema)
 
-export data FormatResponse = FormatResponse {
-  export ok : bool,
-  #[serde(skip_serializing_if = "Option::is_none")]
-  export formatted : Option<String>,
-  export changed : bool,
-  export diagnostics : Vec<Diagnostic>,
-}
+export data FormatResponse
+  = FormatResponse {
+    export ok : bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    export formatted : Option<String>,
+    export changed : bool,
+    export diagnostics : Vec<Diagnostic>,
+  }
   deriving (Debug, Clone, serde::Serialize, schemars::JsonSchema)
 
 export source_map : &SourceMapRequest -> Result<SourceMapResponse, String>
@@ -124,22 +139,24 @@ source_map request =
         "synthetic: Redox emitted this line and no .sdx line is behind it"
       Ok (SourceMapResponse { source = Some (.clone map.source_path), line = None, column = None, reason = Some (.to_string reason) })
 
-export data SourceMapRequest = SourceMapRequest {
-  export path : String,
-  export line : usize,
-  #[serde(default)]
-  export column : Option<usize>,
-}
+export data SourceMapRequest
+  = SourceMapRequest {
+    export path : String,
+    export line : usize,
+    #[serde(default)]
+    export column : Option<usize>,
+  }
   deriving (Debug, Clone, serde::Deserialize, schemars::JsonSchema)
 
-export data SourceMapResponse = SourceMapResponse {
-  #[serde(skip_serializing_if = "Option::is_none")]
-  export source : Option<String>,
-  #[serde(skip_serializing_if = "Option::is_none")]
-  export line : Option<usize>,
-  #[serde(skip_serializing_if = "Option::is_none")]
-  export column : Option<usize>,
-  #[serde(skip_serializing_if = "Option::is_none")]
-  export reason : Option<String>,
-}
+export data SourceMapResponse
+  = SourceMapResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    export source : Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    export line : Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    export column : Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    export reason : Option<String>,
+  }
   deriving (Debug, Clone, serde::Serialize, schemars::JsonSchema)

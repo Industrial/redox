@@ -31,7 +31,8 @@ retries raw = Ok n
     n = (.parse raw)?
 
 describe : &ConfigError -> String
-describe e = .to_string e
+describe e =
+  .to_string e
 
 main : ()
 main =

@@ -21,9 +21,16 @@ import crate::scan::trim_comment
 import redox_diag::Code
 
 export lex : &str -> Result<Vec<Token>, LexError>
-lex src = .run $ Lexer::new src
+lex src =
+  .run $ Lexer::new src
 
-export data LexError = LexError { export code : Code, export message : String, export span : Span, export help : Option<String> }
+export data LexError
+  = LexError {
+    export code : Code,
+    export message : String,
+    export span : Span,
+    export help : Option<String>,
+  }
   deriving (Debug, Clone, PartialEq, Eq)
 
 instance LexError
@@ -32,11 +39,21 @@ instance LexError
     self.span := (self.span.0 + base, self.span.1 + base)
     self
 
-export(crate) data Lexer = Lexer { cur : Cursor<'a>, toks : Vec<Token>, indents : Vec<usize>, pending : Vec<Trivia>, open_delims : Vec<(usize, usize)>, trailing : Option<Trivia>, at_line_start : bool }
+export(crate) data Lexer
+  = Lexer {
+    cur : Cursor<'a>,
+    toks : Vec<Token>,
+    indents : Vec<usize>,
+    pending : Vec<Trivia>,
+    open_delims : Vec<(usize, usize)>,
+    trailing : Option<Trivia>,
+    at_line_start : bool,
+  }
 
 instance (Lexer 'a)
   export(crate) new : &'a str -> Self
-  new src = Lexer { cur = Cursor::new src, toks = Vec::new (), indents = vec! \-> 0, pending = Vec::new (), open_delims = Vec::new (), trailing = None, at_line_start = true }
+  new src =
+    Lexer { cur = Cursor::new src, toks = Vec::new (), indents = vec! \-> 0, pending = Vec::new (), open_delims = Vec::new (), trailing = None, at_line_start = true }
 
   export(crate) run : mut self -> Result<Vec<Token>, LexError>
   run self =

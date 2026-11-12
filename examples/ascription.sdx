@@ -22,12 +22,14 @@ errors Oops
 -- — `total : u64 = 1 + 2` — reads its pattern through the same path and would
 -- lose its type to it. An arm is unambiguous because `->` ends the type.
 explain : Result<i32, Oops> -> String
-explain parsed = case parsed of
-  Ok v -> "ok #{v}"
-  Err e : Oops -> "error: #{e}"
+explain parsed =
+  case parsed of
+    Ok v -> "ok #{v}"
+    Err e : Oops -> "error: #{e}"
 
 parse_one : &str -> Result<usize, Oops>
-parse_one raw = Ok (.len raw)
+parse_one raw =
+  Ok (.len raw)
 
 -- Plan 62 leaf 4. A `try` whose `?`s widen through `From` has an ambiguous
 -- error type and rustc says so — `E0282: type annotations needed`. The

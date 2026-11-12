@@ -33,13 +33,17 @@ trimmed_tail text =
   text
 
 instance Render Item
-  render indent src self = item_text self indent src
+  render indent src self =
+    item_text self indent src
 
 instance Render Stmt
-  render indent src self = stmt_text self indent src
+  render indent src self =
+    stmt_text self indent src
 
 instance Render Expr
-  render indent src self = expr_text self 0 indent src
+  render indent src self =
+    expr_text self 0 indent src
 
 instance Render Pattern
-  render _indent _src self = pattern_text self
+  render _indent _src self =
+    pattern_text self

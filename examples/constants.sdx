@@ -31,12 +31,14 @@ export(crate) const SCALE : u32 = 3
 -- consumed there rather than left in the first type, because a type is
 -- verbatim text and `const u32` is not a Rust type.
 square : const u32 -> u32
-square n = n * n
+square n =
+  n * n
 
 -- A `const fn` is an ordinary function too, so it composes with everything
 -- else a signature can say.
 scaled : const u32 -> u32
-scaled n = n * SCALE
+scaled n =
+  n * SCALE
 
 main : ()
 main =

@@ -34,23 +34,27 @@ pattern Both a b = (Some a, Some b)
 -- that rustc answers with `E0005`. Pre-existing, and nothing in the corpus had
 -- a bare constructor as a clause's whole pattern.
 describe : (i32, i32) -> &'static str
-describe Origin = "the origin"
-describe _ = "elsewhere"
+describe Origin =
+  "the origin"
+describe _ =
+  "elsewhere"
 
 -- A synonym in a **`case` arm**, which is the other position it has to reach.
 -- `Both l r` substitutes `l` and `r` into `(Some a, Some b)`, giving
 -- `(Some(l), Some(r))` — and `l` and `r` are bound here, at the use site.
 added : (Option<i32>, Option<i32>) -> i32
-added pair = case pair of
-  Both l r -> l + r
-  _ -> 0
+added pair =
+  case pair of
+    Both l r -> l + r
+    _ -> 0
 
 -- A synonym **nested inside another pattern**, so the expansion has to be
 -- recursive rather than top-level only.
 holds_origin : Option<(i32, i32)> -> bool
-holds_origin slot = case slot of
-  Some Origin -> true
-  _ -> false
+holds_origin slot =
+  case slot of
+    Some Origin -> true
+    _ -> false
 
 main : ()
 main =

@@ -13,24 +13,28 @@
 -- was **rustc's**: `ui.rs` runs `redox build`, which never invokes rustc, so
 -- the program built clean even when it could not compile. Plans 54, 56 and 57
 -- each recorded that; this is the fourth.
-newtype Meters = Meters f64
+newtype Meters
+  = Meters f64
 
 class Convert t
   wrap : t -> Self
 
 instance Convert f64 Meters
   wrap : f64 -> Self
-  wrap n = Meters n
+  wrap n =
+    Meters n
 
 instance Convert u32 Meters
   wrap : u32 -> Self
-  wrap n = Meters (f64::from n)
+  wrap n =
+    Meters (f64::from n)
 
 -- An inherent `instance` beside the trait ones, so the result can be read
 -- without a destructuring `let` the surface does not have.
 instance Meters
   value : &self -> f64
-  value self = self.0
+  value self =
+    self.0
 
 main : ()
 main =

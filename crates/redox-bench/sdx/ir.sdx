@@ -97,6 +97,7 @@ mark_target source name =
   .join "\n" parts
 
 export(crate) strip_debug : &str -> &str
-strip_debug line = case .find ", !dbg" line of
-  Some at -> line |> .get (0 .. at) |> .unwrap_or line
-  None -> line
+strip_debug line =
+  case .find ", !dbg" line of
+    Some at -> line |> .get (0 .. at) |> .unwrap_or line
+    None -> line

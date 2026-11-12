@@ -2,4 +2,5 @@
 -- adaptor receives is handed the *value* — doc 03 §3.2's own spelling.
 
 doubled : Vec<i32> -> Vec<i32>
-doubled xs = [ n * 2 | n in xs, n % 2 == 1 ] : Vec<i32>
+doubled xs =
+  [ n * 2 | n in xs, n % 2 == 1 ] : Vec<i32>

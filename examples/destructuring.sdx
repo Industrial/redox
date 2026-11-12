@@ -10,11 +10,20 @@
 -- run time, and only on an array of more than two elements.
 
 data Point
-  = Point { x : i32, y : i32, label : String }
+  = Point {
+    x : i32,
+    y : i32,
+    label : String,
+  }
 
 data Shape
-  = Circle { radius : i32 }
-  | Rect { w : i32, h : i32 }
+  = Circle {
+    radius : i32,
+  }
+  | Rect {
+    w : i32,
+    h : i32,
+  }
 
 -- §6.5's tuple destructuring. Both bindings are used, so a lowering that
 -- bound one name to the pair fails to compile.
@@ -55,36 +64,41 @@ tail_len row =
 -- Rust, which is doc 01 §25.1's no-silent-clone rule staying visible at the
 -- use site rather than hidden in the lowering.
 origin_label : &Point -> i32
-origin_label p = case p of
-  Point { x = 0, y, .. } -> *y
-  Point { x, y = 0, .. } -> *x
-  Point { x, y, .. } -> *x + *y
+origin_label p =
+  case p of
+    Point { x = 0, y, .. } -> *y
+    Point { x, y = 0, .. } -> *x
+    Point { x, y, .. } -> *x + *y
 
 -- A pun binding a field that is not `Copy`, which the pattern borrows rather
 -- than moves — so `label` reaches the caller without a clone.
 label_of : &Point -> &String
-label_of p = case p of
-  Point { label, .. } -> label
+label_of p =
+  case p of
+    Point { label, .. } -> label
 
 -- A record pattern on an enum variant, so the path is a test as well as a
 -- destructuring.
 area : &Shape -> i32
-area s = case s of
-  Circle { radius } -> 3 * *radius * *radius
-  Rect { w, h } -> *w * *h
+area s =
+  case s of
+    Circle { radius } -> 3 * *radius * *radius
+    Rect { w, h } -> *w * *h
 
 -- §6.4's as-pattern. `@`'s one remaining meaning after doc 18 §4.3 dropped
 -- `@name` and `@@name`, and Haskell's spelling too. The bound name is used
 -- **beside** the bindings from the pattern it names, which is the whole point.
 describe : &Shape -> i32
-describe s = case s of
-  whole @ Rect { w, h } -> *w + *h + area whole
-  other -> area other
+describe s =
+  case s of
+    whole @ Rect { w, h } -> *w + *h + area whole
+    other -> area other
 
 -- Every form works in an equation's **row** too, parenthesised where
 -- juxtaposition would be ambiguous — plan 22 §10.2's rule.
 first_of : (i32, i32) -> i32
-first_of (a, _) = a
+first_of (a, _) =
+  a
 
 -- And in a `<-` condition, because the vocabulary is shared and sharing it is
 -- the point.

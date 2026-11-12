@@ -47,61 +47,65 @@ export data Code
 
 instance Code
   export number : self -> u16
-  number self = case self of
-    Code::TabIndent -> 1
-    Code::InconsistentDedent -> 2
-    Code::UnterminatedString -> 3
-    Code::UnterminatedRawString -> 4
-    Code::UnterminatedInterpolation -> 5
-    Code::UnterminatedFence -> 6
-    Code::UnterminatedAttribute -> 7
-    Code::UnterminatedByteLiteral -> 8
-    Code::UnknownEscape -> 9
-    Code::MalformedNumber -> 10
-    Code::UnexpectedCharacter -> 11
-    Code::UnbalancedDelimiter -> 12
-    Code::BadQuote -> 13
-    Code::ExpectedToken -> 101
-    Code::ExpectedExpression -> 102
-    Code::ExpectedName -> 103
-    Code::ExpectedType -> 104
-    Code::EmptyBody -> 105
-    Code::ModuleScopeBinding -> 106
-    Code::PatternUntil -> 107
-    Code::EllipsisRestPattern -> 108
-    Code::NestingTooDeep -> 109
-    Code::SpacedPathSeparator -> 110
-    Code::NewtypeShape -> 111
-    Code::LocalTest -> 112
-    Code::UnitTail -> 113
-    Code::ReservedWord -> 114
-    Code::MethodCallSyntax -> 115
-    Code::PipelineSection -> 116
-    Code::OptionalChaining -> 117
-    Code::RetiredSpelling -> 118
-    Code::WhereGroupShape -> 119
-    Code::BoundClauseShape -> 120
-    Code::PatternSynonymShape -> 121
-    Code::DeriveTemplateShape -> 122
-    Code::UndeclaredOperator -> 123
-    Code::OperatorPrecedence -> 124
-    Code::NonAssociativeOperator -> 125
-    Code::OperatorShape -> 126
-    Code::OverShape -> 127
-    Code::UnwrapUsed -> 1001
-    Code::CommentAllowPragma -> 1002
-    Code::ShadowedBinding -> 1003
-    Code::ReturnInCallbackTail -> 44
+  number self =
+    case self of
+      Code::TabIndent -> 1
+      Code::InconsistentDedent -> 2
+      Code::UnterminatedString -> 3
+      Code::UnterminatedRawString -> 4
+      Code::UnterminatedInterpolation -> 5
+      Code::UnterminatedFence -> 6
+      Code::UnterminatedAttribute -> 7
+      Code::UnterminatedByteLiteral -> 8
+      Code::UnknownEscape -> 9
+      Code::MalformedNumber -> 10
+      Code::UnexpectedCharacter -> 11
+      Code::UnbalancedDelimiter -> 12
+      Code::BadQuote -> 13
+      Code::ExpectedToken -> 101
+      Code::ExpectedExpression -> 102
+      Code::ExpectedName -> 103
+      Code::ExpectedType -> 104
+      Code::EmptyBody -> 105
+      Code::ModuleScopeBinding -> 106
+      Code::PatternUntil -> 107
+      Code::EllipsisRestPattern -> 108
+      Code::NestingTooDeep -> 109
+      Code::SpacedPathSeparator -> 110
+      Code::NewtypeShape -> 111
+      Code::LocalTest -> 112
+      Code::UnitTail -> 113
+      Code::ReservedWord -> 114
+      Code::MethodCallSyntax -> 115
+      Code::PipelineSection -> 116
+      Code::OptionalChaining -> 117
+      Code::RetiredSpelling -> 118
+      Code::WhereGroupShape -> 119
+      Code::BoundClauseShape -> 120
+      Code::PatternSynonymShape -> 121
+      Code::DeriveTemplateShape -> 122
+      Code::UndeclaredOperator -> 123
+      Code::OperatorPrecedence -> 124
+      Code::NonAssociativeOperator -> 125
+      Code::OperatorShape -> 126
+      Code::OverShape -> 127
+      Code::UnwrapUsed -> 1001
+      Code::CommentAllowPragma -> 1002
+      Code::ShadowedBinding -> 1003
+      Code::ReturnInCallbackTail -> 44
 
   export text : self -> String
-  text self = format! \-> "RDX#{(.number self):04}"
+  text self =
+    format! \-> "RDX#{(.number self):04}"
 
   export all : &'static [Code]
-  all = &[Code::TabIndent, Code::InconsistentDedent, Code::UnterminatedString, Code::UnterminatedRawString, Code::UnterminatedInterpolation, Code::UnterminatedFence, Code::UnterminatedAttribute, Code::UnterminatedByteLiteral, Code::UnknownEscape, Code::MalformedNumber, Code::UnexpectedCharacter, Code::UnbalancedDelimiter, Code::BadQuote, Code::ExpectedToken, Code::ExpectedExpression, Code::ExpectedName, Code::ExpectedType, Code::EmptyBody, Code::ModuleScopeBinding, Code::PatternUntil, Code::EllipsisRestPattern, Code::NestingTooDeep, Code::SpacedPathSeparator, Code::NewtypeShape, Code::LocalTest, Code::UnitTail, Code::ReservedWord, Code::MethodCallSyntax, Code::PipelineSection, Code::OptionalChaining, Code::RetiredSpelling, Code::WhereGroupShape, Code::BoundClauseShape, Code::PatternSynonymShape, Code::DeriveTemplateShape, Code::UndeclaredOperator, Code::OperatorPrecedence, Code::NonAssociativeOperator, Code::OperatorShape, Code::OverShape, Code::UnwrapUsed, Code::CommentAllowPragma, Code::ShadowedBinding, Code::ReturnInCallbackTail]
+  all =
+    &[Code::TabIndent, Code::InconsistentDedent, Code::UnterminatedString, Code::UnterminatedRawString, Code::UnterminatedInterpolation, Code::UnterminatedFence, Code::UnterminatedAttribute, Code::UnterminatedByteLiteral, Code::UnknownEscape, Code::MalformedNumber, Code::UnexpectedCharacter, Code::UnbalancedDelimiter, Code::BadQuote, Code::ExpectedToken, Code::ExpectedExpression, Code::ExpectedName, Code::ExpectedType, Code::EmptyBody, Code::ModuleScopeBinding, Code::PatternUntil, Code::EllipsisRestPattern, Code::NestingTooDeep, Code::SpacedPathSeparator, Code::NewtypeShape, Code::LocalTest, Code::UnitTail, Code::ReservedWord, Code::MethodCallSyntax, Code::PipelineSection, Code::OptionalChaining, Code::RetiredSpelling, Code::WhereGroupShape, Code::BoundClauseShape, Code::PatternSynonymShape, Code::DeriveTemplateShape, Code::UndeclaredOperator, Code::OperatorPrecedence, Code::NonAssociativeOperator, Code::OperatorShape, Code::OverShape, Code::UnwrapUsed, Code::CommentAllowPragma, Code::ShadowedBinding, Code::ReturnInCallbackTail]
 
   #[cfg(test)]
   is_lexical : self -> bool
-  is_lexical self = .number self <= 39
+  is_lexical self =
+    .number self <= 39
 
 export data DiagnosticCode
   = Redox Code
@@ -110,18 +114,21 @@ export data DiagnosticCode
 
 instance DiagnosticCode
   export text : &self -> String
-  text self = case self of
-    DiagnosticCode::Redox code -> .text code
-    DiagnosticCode::Foreign text -> .clone text
+  text self =
+    case self of
+      DiagnosticCode::Redox code -> .text code
+      DiagnosticCode::Foreign text -> .clone text
 
   export is_redox : &self -> bool
-  is_redox self = case self of
-    DiagnosticCode::Redox _ -> true
-    _ -> false
+  is_redox self =
+    case self of
+      DiagnosticCode::Redox _ -> true
+      _ -> false
 
 instance From Code DiagnosticCode
   from : Code -> Self
-  from code = DiagnosticCode::Redox code
+  from code =
+    DiagnosticCode::Redox code
 
 export data Lint
   = Unwrap
@@ -130,35 +137,42 @@ export data Lint
 
 instance Lint
   export all : &'static [Lint]
-  all = &[Lint::Unwrap, Lint::Shadow]
+  all =
+    &[Lint::Unwrap, Lint::Shadow]
 
   export name : self -> &'static str
-  name self = case self of
-    Lint::Unwrap -> "unwrap"
-    Lint::Shadow -> "shadow"
+  name self =
+    case self of
+      Lint::Unwrap -> "unwrap"
+      Lint::Shadow -> "shadow"
 
   export code : self -> Code
-  code self = case self of
-    Lint::Unwrap -> Code::UnwrapUsed
-    Lint::Shadow -> Code::ShadowedBinding
+  code self =
+    case self of
+      Lint::Unwrap -> Code::UnwrapUsed
+      Lint::Shadow -> Code::ShadowedBinding
 
   export allow_attribute : self -> String
-  allow_attribute self = format! \-> "redox::allow(#{(.name self)})"
+  allow_attribute self =
+    format! \-> "redox::allow(#{(.name self)})"
 
   export allow_comment : self -> String
-  allow_comment self = format! \-> "redox: allow #{(.name self)}"
+  allow_comment self =
+    format! \-> "redox: allow #{(.name self)}"
 
   export from_allow_attribute : &str -> Option<Self>
-  from_allow_attribute text = Lint::all ()
-    |> .iter
-    |> .copied
-    |> .find (\lint -> text == .allow_attribute lint)
+  from_allow_attribute text =
+    Lint::all ()
+      |> .iter
+      |> .copied
+      |> .find (\lint -> text == .allow_attribute lint)
 
   export from_allow_comment : &str -> Option<Self>
-  from_allow_comment text = Lint::all ()
-    |> .iter
-    |> .copied
-    |> .find (\lint -> text == .allow_comment lint)
+  from_allow_comment text =
+    Lint::all ()
+      |> .iter
+      |> .copied
+      |> .find (\lint -> text == .allow_comment lint)
 
 test "every code is unique"
   numbers : std::collections::BTreeSet<u16> = Code::all ()

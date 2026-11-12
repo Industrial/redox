@@ -11,12 +11,14 @@
 -- prints a different number.
 
 add : i32 -> i32 -> i32
-add a b = a + b
+add a b =
+  a + b
 
 -- Saturated. One call, no closure — the other half of criterion 1, and the
 -- line `tests/golden/currying.xrs` is compared against.
 saturated : i32
-saturated = add 1 2
+saturated =
+  add 1 2
 
 -- One of two, bound to a name and then called. The call is the interesting
 -- half: `inc` is a `where` local, so Redox has no arity for it and emits
@@ -31,7 +33,8 @@ one_of_two = inc 5
 -- case above and fails. Two parameters are still missing, so two are bound,
 -- and `__rdx_2` is why `SECTION_PARAM` had to become a generator.
 tagged : &str -> i32 -> i32 -> String
-tagged tag a b = "#{tag} #{a} #{b}"
+tagged tag a b =
+  "#{tag} #{a} #{b}"
 
 one_of_three : String
 one_of_three = two 2 3
@@ -44,7 +47,8 @@ one_of_three = two 2 3
 -- the closure is never allocated — plan 56 §11.6. If one spelling allocated
 -- and the other did not, `$` would have become semantically significant.
 through_dollar : i32
-through_dollar = add 1 $ 2
+through_dollar =
+  add 1 $ 2
 
 -- The other half of criterion 5, and the row's whole safety argument. `op` is
 -- a `where` local, so no signature in this file names it and Redox cannot
@@ -62,7 +66,8 @@ applied = op 7 8
 -- works because a path in value position is already a `fn` item, which `map`
 -- accepts (plan 56 §1.5).
 joined : String
-joined = .into_iter (["a", "b"]) |> .map String::from |> .collect
+joined =
+  .into_iter (["a", "b"]) |> .map String::from |> .collect
 
 -- Criterion 6. An operator section and a one-of-two partial application share
 -- one lowering, so the closure they write has the same shape and **neither
@@ -70,10 +75,12 @@ joined = .into_iter (["a", "b"]) |> .map String::from |> .collect
 -- borrow error into a move error, which is a worse message about the same
 -- mistake.
 sectioned : i32
-sectioned = .into_iter ([1, 2]) |> .map (+ 1) |> .sum
+sectioned =
+  .into_iter ([1, 2]) |> .map (+ 1) |> .sum
 
 partial : i32
-partial = .into_iter ([1, 2]) |> .map (add 1) |> .sum
+partial =
+  .into_iter ([1, 2]) |> .map (add 1) |> .sum
 
 main : ()
 main =

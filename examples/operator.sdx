@@ -23,10 +23,12 @@ merge a b =
   out
 
 diff : u32 -> u32 -> u32
-diff n m = n - m
+diff n m =
+  n - m
 
 set : &[u32] -> BTreeSet<u32>
-set xs = xs |> .iter |> .copied |> .collect
+set xs =
+  xs |> .iter |> .copied |> .collect
 
 -- Left-associative at 6, so `a <+> b <+> c` is `(a <+> b) <+> c` — visible in
 -- the generated Rust as `merge(merge(a, b), c)`.

@@ -32,27 +32,32 @@ data Event
 -- a keyword with nothing to say, and three further doc comments described the
 -- distinction as meaningful while the emitter ignored it. `tests/golden/data.xrs`
 -- is where the difference is now visible.
-newtype Meters = Meters f64
+newtype Meters
+  = Meters f64
 
-data Celsius = Celsius f64
+data Celsius
+  = Celsius f64
 
 -- The one declaration form that is already Rust.
 type Depth = f64
 
 -- A constructor is applied by juxtaposition, like any other function.
 describe : Event -> &'static str
-describe e = case e of
-  Close -> "close"
-  _ -> "click"
+describe e =
+  case e of
+    Close -> "close"
+    _ -> "click"
 
 depth : Meters -> Depth
-depth m = m.0
+depth m =
+  m.0
 
 -- The `data` half of the contrast. Its field is read for the same reason
 -- every other declared thing here is used: this corpus requires rustc to emit
 -- nothing, so an unread field is a `dead_code` warning and a red gate.
 warmer : Celsius -> f64
-warmer c = c.0 + 1.0
+warmer c =
+  c.0 + 1.0
 
 main : ()
 main =

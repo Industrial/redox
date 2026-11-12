@@ -140,26 +140,28 @@ cast request method =
   .map (\pair -> pair.1) extracted
 
 export(crate) declared : &Item -> Option<(&'static str, String)>
-declared item = case item of
-  Item::Fn decl -> Some ("fn", .clone decl.name.text)
-  Item::Data decl ->
-    keyword = if decl.is_newtype
-      "newtype"
-    else if decl.is_union
-      "union"
-    else
-      "data"
-    Some (keyword, .clone decl.name.text)
-  Item::Type decl -> Some ("type", .clone decl.name.text)
-  Item::Class decl -> Some ("class", .clone decl.name.text)
-  Item::Errors decl -> Some ("errors", .clone decl.name.text)
-  Item::Const decl -> Some ("const", .clone decl.name.text)
-  Item::Module decl -> Some ("module", .clone decl.name.text)
-  Item::Test decl -> Some ("test", .clone decl.description)
-  Item::PatternSynonym decl -> Some ("pattern", .clone decl.name.text)
-  Item::DeriveTemplate decl -> Some ("deriving template", .clone decl.name.text)
-  Item::OperatorDecl decl -> Some ("infix", .clone decl.spelling.text)
-  Item::Import _ or Item::Instance _ or Item::InlineRust _ or Item::Extern _ -> None
+declared item =
+  case item of
+    Item::Fn decl -> Some ("fn", .clone decl.name.text)
+    Item::Data decl ->
+      keyword = if decl.is_newtype
+        "newtype"
+      else
+        if decl.is_union
+          "union"
+        else
+          "data"
+      Some (keyword, .clone decl.name.text)
+    Item::Type decl -> Some ("type", .clone decl.name.text)
+    Item::Class decl -> Some ("class", .clone decl.name.text)
+    Item::Errors decl -> Some ("errors", .clone decl.name.text)
+    Item::Const decl -> Some ("const", .clone decl.name.text)
+    Item::Module decl -> Some ("module", .clone decl.name.text)
+    Item::Test decl -> Some ("test", .clone decl.description)
+    Item::PatternSynonym decl -> Some ("pattern", .clone decl.name.text)
+    Item::DeriveTemplate decl -> Some ("deriving template", .clone decl.name.text)
+    Item::OperatorDecl decl -> Some ("infix", .clone decl.spelling.text)
+    Item::Import _ or Item::Instance _ or Item::InlineRust _ or Item::Extern _ -> None
 
 export(crate) definition : &str -> &Uri -> Position -> Option<GotoDefinitionResponse>
 definition source uri at =
@@ -250,12 +252,16 @@ path_of uri =
   text = .as_str uri
   .to_path_buf $ Path::new $ .unwrap_or text $ .strip_prefix "file://" text
 
-export(crate) data Documents = Documents { open : HashMap<Uri, String> }
+export(crate) data Documents
+  = Documents {
+    open : HashMap<Uri, String>,
+  }
   deriving (Debug, Default)
 
 instance Documents
   export(crate) new : Self
-  new = Documents::default ()
+  new =
+    Documents::default ()
 
   export(crate) set : Uri -> String -> &mut self -> ()
   set uri text self =
@@ -268,7 +274,8 @@ instance Documents
     ()
 
   export(crate) text : &Uri -> &self -> Option<&str>
-  text uri self = self.open |> .get uri |> .map String::as_str
+  text uri self =
+    self.open |> .get uri |> .map String::as_str
 
 export(crate) folding : &str -> Vec<FoldingRange>
 folding source =
@@ -369,7 +376,8 @@ position_of source offset =
   Position { line = .unwrap_or u32::MAX (.ok (u32::try_from line)), character = .unwrap_or u32::MAX (.ok (u32::try_from character)) }
 
 export(crate) range_of : &str -> (usize, usize) -> Range
-range_of source span = Range { start = position_of source span.0, end = position_of source span.1 }
+range_of source span =
+  Range { start = position_of source span.0, end = position_of source span.1 }
 
 export(crate) publish : &Connection -> &Uri -> &Documents -> Result<(), String>
 publish connection uri documents =
@@ -380,9 +388,10 @@ publish connection uri documents =
   .map_err (\e -> .to_string e) (.send message connection.sender)
 
 export(crate) reply : Serialize t => RequestId -> Result<p, ExtractError<Request>> -> (impl FnOnce(p) -> t) -> Response
-reply id params handle = case params of
-  Ok got -> Response { id, response_result = Ok (.unwrap_or serde_json::Value::Null (serde_json::to_value (handle got))) }
-  Err _ -> Response { id, response_result = Ok serde_json::Value::Null }
+reply id params handle =
+  case params of
+    Ok got -> Response { id, response_result = Ok (.unwrap_or serde_json::Value::Null (serde_json::to_value (handle got))) }
+    Err _ -> Response { id, response_result = Ok serde_json::Value::Null }
 
 export(crate) semantic_tokens : &str -> SemanticTokensResult
 semantic_tokens source =
@@ -416,14 +425,15 @@ semantic_tokens source =
   SemanticTokensResult::Tokens (SemanticTokens { result_id = None, r#data = collected })
 
 export(crate) token_index : &TokenKind -> Option<u32>
-token_index kind = case kind of
-  TokenKind::Kw _ -> Some 0
-  TokenKind::Label _ -> Some 1
-  TokenKind::Ident _ -> Some 3
-  TokenKind::Int _ or TokenKind::Float _ or TokenKind::Byte _ -> Some 4
-  TokenKind::Str { .. } or TokenKind::RawStr { .. } or TokenKind::ByteStr _ or TokenKind::CStr _ or TokenKind::Char _ -> Some 5
-  TokenKind::Newline or TokenKind::Indent or TokenKind::Dedent or TokenKind::Eof -> None
-  _ -> Some 6
+token_index kind =
+  case kind of
+    TokenKind::Kw _ -> Some 0
+    TokenKind::Label _ -> Some 1
+    TokenKind::Ident _ -> Some 3
+    TokenKind::Int _ or TokenKind::Float _ or TokenKind::Byte _ -> Some 4
+    TokenKind::Str { .. } or TokenKind::RawStr { .. } or TokenKind::ByteStr _ or TokenKind::CStr _ or TokenKind::Char _ -> Some 5
+    TokenKind::Newline or TokenKind::Indent or TokenKind::Dedent or TokenKind::Eof -> None
+    _ -> Some 6
 
 export(crate) symbols : &str -> DocumentSymbolResponse
 symbols source =

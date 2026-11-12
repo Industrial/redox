@@ -21,10 +21,11 @@ import redox_lexer::Keyword
 import redox_lexer::TokenKind
 
 export(crate) can_end_a_type : &TokenKind -> bool
-can_end_a_type kind = case kind of
-  TokenKind::Ident _ or TokenKind::Gt or TokenKind::Shr or TokenKind::Compose or TokenKind::RParen or TokenKind::RBracket -> true
-  TokenKind::Kw (Keyword::SelfType) -> true
-  _ -> false
+can_end_a_type kind =
+  case kind of
+    TokenKind::Ident _ or TokenKind::Gt or TokenKind::Shr or TokenKind::Compose or TokenKind::RParen or TokenKind::RBracket -> true
+    TokenKind::Kw (Keyword::SelfType) -> true
+    _ -> false
 
 export(crate) capture_type : &mut Parser -> &str -> TypeStop -> Result<TypeExpr, ParseError>
 capture_type p message stop =
@@ -157,11 +158,13 @@ signature_from spine bound span =
 
 #[cfg(test)]
 ty : &str -> TypeExpr
-ty text = TypeExpr { text = .to_string text, span = (0, 0) }
+ty text =
+  TypeExpr { text = .to_string text, span = (0, 0) }
 
 #[cfg(test)]
 id : &str -> Pattern
-id text = Pattern::Binding (Ident { text = .to_string text, span = (0, 0) })
+id text =
+  Pattern::Binding (Ident { text = .to_string text, span = (0, 0) })
 
 test "pairs the spine with the binders"
   sig = .expect "should build" $ signature_from (&[ty "i32", ty "i32", ty "i32"]) (&[id "a", id "b"]) (0, 0)
@@ -193,7 +196,16 @@ test "a zero parameter function can still return something"
   assert_eq! \-> (.expect "a return type" (.as_ref sig.ret)).text \-> "u32"
   assert! \-> !.returns_unit sig
 
-export(crate) data SignatureHead = SignatureHead { export types : Vec<TypeExpr>, export bounds : Vec<Constraint>, export r#given : Option<String>, export predicates : Option<String>, export is_const : bool, export is_async : bool, export is_unsafe : bool }
+export(crate) data SignatureHead
+  = SignatureHead {
+    export types : Vec<TypeExpr>,
+    export bounds : Vec<Constraint>,
+    export r#given : Option<String>,
+    export predicates : Option<String>,
+    export is_const : bool,
+    export is_async : bool,
+    export is_unsafe : bool,
+  }
   deriving (Debug, Clone)
 
 export(crate) signature_only : &[TypeExpr] -> Span -> Signature
@@ -212,10 +224,11 @@ signature_only spine span =
   Signature { params, ret = Some (.clone split.0), generics = Vec::new (), is_const = false, is_async = false, is_unsafe = false, bounds = Vec::new (), r#given = None, predicates = None, span }
 
 export(crate) starts_a_field_type : &TokenKind -> bool
-starts_a_field_type kind = case kind of
-  TokenKind::Ident _ or TokenKind::Amp or TokenKind::Star or TokenKind::LParen or TokenKind::LBracket -> true
-  TokenKind::Kw (Keyword::SelfType or Keyword::Dyn or Keyword::Impl) -> true
-  _ -> false
+starts_a_field_type kind =
+  case kind of
+    TokenKind::Ident _ or TokenKind::Amp or TokenKind::Star or TokenKind::LParen or TokenKind::LBracket -> true
+    TokenKind::Kw (Keyword::SelfType or Keyword::Dyn or Keyword::Impl) -> true
+    _ -> false
 
 export(crate) type_app : &mut Parser -> Result<TypeApp, ParseError>
 type_app p =

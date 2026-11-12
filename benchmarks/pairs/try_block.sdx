@@ -15,6 +15,7 @@
 -- parameter leaves the closure as the only variable.
 
 attempt : Result<i32, String> -> Result<i32, String>
-attempt r = try
-  a = r?
-  Ok (a + 1)
+attempt r =
+  try
+    a = r?
+    Ok (a + 1)

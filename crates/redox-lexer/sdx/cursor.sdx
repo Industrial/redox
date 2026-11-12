@@ -1,41 +1,52 @@
 import crate::Span
 
-export(crate) data Cursor = Cursor { src : &'a str, pos : usize }
+export(crate) data Cursor
+  = Cursor {
+    src : &'a str,
+    pos : usize,
+  }
 
 instance (Cursor 'a)
   export(crate) new : &'a str -> Self
-  new src = Cursor { src, pos = 0 }
+  new src =
+    Cursor { src, pos = 0 }
 
   export(crate) pos : &self -> usize
-  pos self = self.pos
+  pos self =
+    self.pos
 
   export(crate) is_eof : &self -> bool
-  is_eof self = self.pos >= .len self.src
+  is_eof self =
+    self.pos >= .len self.src
 
   export(crate) peek : &self -> Option<char>
-  peek self = self.src
-    |> .get (self.pos .. .len self.src)
-    |> .unwrap_or ""
-    |> .chars
-    |> .next
+  peek self =
+    self.src
+      |> .get (self.pos .. .len self.src)
+      |> .unwrap_or ""
+      |> .chars
+      |> .next
 
   export(crate) peek_at : usize -> &self -> Option<char>
-  peek_at n self = self.src
-    |> .get (self.pos .. .len self.src)
-    |> .unwrap_or ""
-    |> .chars
-    |> .nth n
+  peek_at n self =
+    self.src
+      |> .get (self.pos .. .len self.src)
+      |> .unwrap_or ""
+      |> .chars
+      |> .nth n
 
   export(crate) starts_with : &str -> &self -> bool
-  starts_with s self = self.src
-    |> .get (self.pos .. .len self.src)
-    |> .unwrap_or ""
-    |> .starts_with s
+  starts_with s self =
+    self.src
+      |> .get (self.pos .. .len self.src)
+      |> .unwrap_or ""
+      |> .starts_with s
 
   export(crate) rest : &self -> &'a str
-  rest self = self.src
-    |> .get (self.pos .. .len self.src)
-    |> .unwrap_or ""
+  rest self =
+    self.src
+      |> .get (self.pos .. .len self.src)
+      |> .unwrap_or ""
 
   export(crate) bump : &mut self -> Option<char>
   bump self =
@@ -67,7 +78,8 @@ instance (Cursor 'a)
     n
 
   export(crate) slice : Span -> &self -> &'a str
-  slice span self = self.src |> .get (span.0 .. span.1) |> .unwrap_or ""
+  slice span self =
+    self.src |> .get (span.0 .. span.1) |> .unwrap_or ""
 
   export(crate) reset_to : usize -> &mut self -> ()
   reset_to at self =
@@ -75,7 +87,8 @@ instance (Cursor 'a)
     ()
 
   export(crate) mark : &self -> usize
-  mark self = self.pos
+  mark self =
+    self.pos
 
 test "eat matches only an exact prefix"
   mut c = Cursor::new "...x"

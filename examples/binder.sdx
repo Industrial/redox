@@ -24,45 +24,52 @@ import std::fmt::Display
 -- variable and emits `fn first_of<N>(xs: [u8; N])`, which uses a type as a
 -- value: rustc answers `E0423`.
 first_of : given <const N: usize> [u8; N] -> u8
-first_of xs = xs[0]
+first_of xs =
+  xs[0]
 
 -- A bound whose trait carries **type arguments** — the most common shape of
 -- bound in Rust, and the one the `=>` clause cannot read at all. `Ord t` works
 -- there; anything with a `<` in the trait does not.
 shout : given <T: Into<String>> T -> String
-shout x = .into x
+shout x =
+  .into x
 
 -- A **projection predicate**. The `=>` clause pairs a trait with a *variable*,
 -- so a path has no position in it. This is doc 03 §14.2's signature-position
 -- `where`, whose role that document declared and nothing implemented until
 -- plan 84 leaf 3.
 total : given <I: IntoIterator<Item = u64>> I -> u64 where I::IntoIter: Clone
-total xs = xs |> .into_iter |> .sum
+total xs =
+  xs |> .into_iter |> .sum
 
 -- A **relaxed bound**. There is no `=>` spelling for a negative bound, and the
 -- `?` had no respelling either — plan 84 leaf 0 found it reaching generated
 -- Rust as a `TokenKind`'s own Debug name, which `token_text` now spells.
 width : given <T: ?Sized> &T -> usize
-width _ = 4
+width _ =
+  4
 
 -- A parameter mentioned **only in a bound**, and a **chosen** parameter order.
 -- Synthesis takes the order from first appearance in the spine, so `<U, T>`
 -- cannot be asked for and a `T` the spine never mentions is not declared at
 -- all.
 widen : given <U: From<T>, T> T -> U
-widen x = .into x
+widen x =
+  .into x
 
 -- A **bound between two lifetimes**. The `=>` clause has one trait slot and
 -- this has a lifetime on both sides, so it has no spelling there at all.
 -- Verbatim, it is just Rust.
 longer : given <'a, 'b: 'a> &'a str -> &'b str -> usize
-longer a b = .len a + .len b
+longer a b =
+  .len a + .len b
 
 -- A **higher-ranked bound**. Synthesis excludes only `dyn`, `impl`, `mut` and
 -- `as` from its lowercase scan, so `for` and `fn` both became type parameters:
 -- `fn calls<'a, FOR, FN>(f: FOR<'a> FN(&'a str) -> &'a str)`.
 trimmed : given <F> F -> String where for<'a> F: Fn(&'a str) -> &'a str
-trimmed f = .to_string (f "  x  ")
+trimmed f =
+  .to_string (f "  x  ")
 
 -- The binder on an **`instance` head**, which is what closes `blanket_impl` —
 -- a gap `docs/STATUS.md` carried until plan 84 leaf 4.
@@ -77,7 +84,8 @@ class Describe
 
 instance given <T: Display> Describe T
   describe : &self -> String
-  describe self = format! \-> "<#{self}>"
+  describe self =
+    format! \-> "<#{self}>"
 
 main : ()
 main =

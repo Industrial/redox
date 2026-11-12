@@ -13,20 +13,32 @@ export data Severity
 
 instance Severity
   export is_fatal : self -> bool
-  is_fatal self = case self of
-    Severity::Error -> true
-    _ -> false
+  is_fatal self =
+    case self of
+      Severity::Error -> true
+      _ -> false
 
   export to_miette : self -> miette::Severity
-  to_miette self = case self of
-    Severity::Error -> miette::Severity::Error
-    Severity::Warning -> miette::Severity::Warning
+  to_miette self =
+    case self of
+      Severity::Error -> miette::Severity::Error
+      Severity::Warning -> miette::Severity::Warning
 
-export data Diagnostic = Diagnostic { export code : DiagnosticCode, export severity : Severity, export message : String, export span : Span, export help : Option<String>, export path : String, export source : String }
+export data Diagnostic
+  = Diagnostic {
+    export code : DiagnosticCode,
+    export severity : Severity,
+    export message : String,
+    export span : Span,
+    export help : Option<String>,
+    export path : String,
+    export source : String,
+  }
   deriving (Debug, Clone)
 
 instance Display Diagnostic
   fmt : &self -> &mut Formatter<'_> -> Result
-  fmt self f = write! \-> f \-> "#{self.message}"
+  fmt self f =
+    write! \-> f \-> "#{self.message}"
 
 instance Error Diagnostic

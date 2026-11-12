@@ -1,15 +1,16 @@
 import redox_diag::Severity
 
-export data Diagnostic = Diagnostic {
-  export code : String,
-  export severity : String,
-  export message : String,
-  export path : String,
-  export line : usize,
-  export column : usize,
-  #[serde(skip_serializing_if = "Option::is_none")]
-  export help : Option<String>,
-}
+export data Diagnostic
+  = Diagnostic {
+    export code : String,
+    export severity : String,
+    export message : String,
+    export path : String,
+    export line : usize,
+    export column : usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    export help : Option<String>,
+  }
   deriving (Debug, Clone, PartialEq, Eq, serde::Serialize, schemars::JsonSchema)
 
 export(crate) diagnostic_from_redox : &redox_diag::Diagnostic -> Diagnostic

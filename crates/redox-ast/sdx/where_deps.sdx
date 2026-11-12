@@ -65,31 +65,32 @@ mentions e named into =
   ()
 
 export(crate) operands : &Expr -> Vec<&Expr>
-operands e = case e of
-  Expr::Call { callee, args, .. } ->
-    mut out = [.as_ref callee] : Vec<&Expr>
-    .extend (.iter args) out
-    out
-  Expr::Binary { lhs, rhs, .. } -> [.as_ref lhs, .as_ref rhs] : Vec<&Expr>
-  Expr::Unary { operand, .. } -> [.as_ref operand] : Vec<&Expr>
-  Expr::Paren { inner, .. } or Expr::Ascribe { inner, .. } or Expr::Try { inner, .. } ->
-    [.as_ref inner] : Vec<&Expr>
-  Expr::Field { recv, .. } -> [.as_ref recv] : Vec<&Expr>
-  Expr::Index { recv, index, .. } -> [.as_ref recv, .as_ref index] : Vec<&Expr>
-  Expr::Lambda { body, .. } -> [.as_ref body] : Vec<&Expr>
-  Expr::Tuple { items, .. } or Expr::List { items, .. } -> .collect (.iter items)
-  Expr::ArrayRepeat { value, count, .. } -> [.as_ref value, .as_ref count] : Vec<&Expr>
-  Expr::MacroCall { args, .. } -> .collect (.iter args)
-  Expr::StrInterp { parts, .. } ->
-    parts
-      |> .iter
-      |> .filter_map (\p -> case p of
-      StrInterpPart::Interp { expr, .. } -> Some expr
-      StrInterpPart::Text _ -> None)
-      |> .collect
-  Expr::Record { fields, .. } ->
-    fields
-      |> .iter
-      |> .filter_map (\f -> .as_ref f.value)
-      |> .collect
-  _ -> Vec::new ()
+operands e =
+  case e of
+    Expr::Call { callee, args, .. } ->
+      mut out = [.as_ref callee] : Vec<&Expr>
+      .extend (.iter args) out
+      out
+    Expr::Binary { lhs, rhs, .. } -> [.as_ref lhs, .as_ref rhs] : Vec<&Expr>
+    Expr::Unary { operand, .. } -> [.as_ref operand] : Vec<&Expr>
+    Expr::Paren { inner, .. } or Expr::Ascribe { inner, .. } or Expr::Try { inner, .. } ->
+      [.as_ref inner] : Vec<&Expr>
+    Expr::Field { recv, .. } -> [.as_ref recv] : Vec<&Expr>
+    Expr::Index { recv, index, .. } -> [.as_ref recv, .as_ref index] : Vec<&Expr>
+    Expr::Lambda { body, .. } -> [.as_ref body] : Vec<&Expr>
+    Expr::Tuple { items, .. } or Expr::List { items, .. } -> .collect (.iter items)
+    Expr::ArrayRepeat { value, count, .. } -> [.as_ref value, .as_ref count] : Vec<&Expr>
+    Expr::MacroCall { args, .. } -> .collect (.iter args)
+    Expr::StrInterp { parts, .. } ->
+      parts
+        |> .iter
+        |> .filter_map (\p -> case p of
+        StrInterpPart::Interp { expr, .. } -> Some expr
+        StrInterpPart::Text _ -> None)
+        |> .collect
+    Expr::Record { fields, .. } ->
+      fields
+        |> .iter
+        |> .filter_map (\f -> .as_ref f.value)
+        |> .collect
+    _ -> Vec::new ()

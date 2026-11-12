@@ -22,18 +22,21 @@ import std::collections::HashMap
 
 -- An ordinary two-argument function, for the holes to be taken out of.
 add : i32 -> i32 -> i32
-add a b = a + b
+add a b =
+  a + b
 
 -- A function whose first parameter is a function, so the nesting case below has
 -- somewhere to put the closure a hole makes.
 twice : impl Fn(i32) -> i32 -> i32 -> i32
-twice f x = f (f x)
+twice f x =
+  f (f x)
 
 -- The wildcard **parameter**, unchanged by this row: a `_` in a pattern row is
 -- a binder that discards, and its generated name begins with an underscore so
 -- rustc's unused-variable lint stays silent.
 pick : i32 -> i32 -> i32
-pick a _ = a
+pick a _ =
+  a
 
 main : ()
 main =

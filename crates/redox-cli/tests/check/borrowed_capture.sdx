@@ -14,7 +14,8 @@
 -- operator section's. §11.2 is the finding.
 
 prefix : &str -> &str -> String
-prefix a b = "#{a}#{b}"
+prefix a b =
+  "#{a}#{b}"
 
 make_prefixer : Box<dyn Fn(&str) -> String>
 make_prefixer = Box::new (prefix (.as_str s))

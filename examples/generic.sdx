@@ -32,17 +32,20 @@ largest xs = best
 -- underscore — so rustc's unused-variable lint is silent without the emitter
 -- knowing the lint exists.
 pick : t -> u -> t
-pick a _ = a
+pick a _ =
+  a
 
 -- A lifetime is a generic parameter too, and comes first in the list —
 -- rustc's requirement, not a style.
 first : &'a str -> &'a str
-first s = s
+first s =
+  s
 
 -- No variables at all, so no generic list: this is the Rust it emitted before
 -- any of §2.2 existed.
 add : i32 -> i32 -> i32
-add a b = a + b
+add a b =
+  a + b
 
 -- Several `where` locals. Haskell writes them after the expression that uses
 -- them and Rust needs them before it, so moving them up is half of doc 03

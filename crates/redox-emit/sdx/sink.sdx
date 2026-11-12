@@ -13,7 +13,8 @@ import redox_diag::Span
 import std::fmt::Write
 
 export(crate) double_braces : &str -> String
-double_braces literal = literal |> .replace '{' "{{" |> .replace '}' "}}"
+double_braces literal =
+  literal |> .replace '{' "{{" |> .replace '}' "}}"
 
 test "doubles a brace so it prints as itself"
   assert_eq! \-> double_braces r#""see {this}""# \-> r#""see {{this}}""#
@@ -160,11 +161,18 @@ rust_hatch_text code indent =
 
 export(crate) const RUST_INDENT : usize = 4
 
-export(crate) data Sink = Sink { out : String, source : &'a str, current : Option<Span>, origins : Vec<Option<Origin>> }
+export(crate) data Sink
+  = Sink {
+    out : String,
+    source : &'a str,
+    current : Option<Span>,
+    origins : Vec<Option<Origin>>,
+  }
 
 instance (Sink 'a)
   export(crate) new : &'a str -> Self
-  new source = Sink { out = String::new (), source, current = None, origins = Vec::new () }
+  new source =
+    Sink { out = String::new (), source, current = None, origins = Vec::new () }
 
   export(crate) mark : Span -> &mut self -> ()
   mark span self =
@@ -194,10 +202,12 @@ instance (Sink 'a)
     ch
 
   export(crate) ends_with : &str -> &self -> bool
-  ends_with s self = .ends_with s self.out
+  ends_with s self =
+    .ends_with s self.out
 
   export(crate) is_empty : &self -> bool
-  is_empty self = .is_empty self.out
+  is_empty self =
+    .is_empty self.out
 
   export(crate) finish : &str -> mut self -> (String, SourceMap)
   finish source_path self =

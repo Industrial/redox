@@ -61,11 +61,19 @@ parse toks src_len =
     return Err (vec! \-> ParseError { code = Code::NestingTooDeep, message, span = (0, 0), help = None })
   .run src_len $ Parser::new toks
 
-export(crate) data Parser = Parser { toks : &'a [Token], pos : usize, export(crate) r#errors : Vec<ParseError>, class_heads : std::collections::BTreeMap<(String, String), SignatureHead>, export(crate) fixities : std::collections::BTreeMap<String, (Fixity, u8, String)> }
+export(crate) data Parser
+  = Parser {
+    toks : &'a [Token],
+    pos : usize,
+    export(crate) r#errors : Vec<ParseError>,
+    class_heads : std::collections::BTreeMap<(String, String), SignatureHead>,
+    export(crate) fixities : std::collections::BTreeMap<String, (Fixity, u8, String)>,
+  }
 
 instance (Parser 'a)
   export(crate) new : &'a [Token] -> Self
-  new toks = Parser { toks, pos = 0, r#errors = Vec::new (), class_heads = std::collections::BTreeMap::new (), fixities = std::collections::BTreeMap::new () }
+  new toks =
+    Parser { toks, pos = 0, r#errors = Vec::new (), class_heads = std::collections::BTreeMap::new (), fixities = std::collections::BTreeMap::new () }
   export(crate) run : usize -> mut self -> Result<Program, Vec<ParseError>>
   run src_len self =
     items = .program self
@@ -280,7 +288,8 @@ instance (Parser 'a)
     (.newline_with_trailing "expected a line break before the body" self)?
     .indented_block Code::EmptyBody message self
   export(crate) at_statement_end : &self -> bool
-  at_statement_end self = .check (&TokenKind::Newline) self || .check (&TokenKind::Dedent) self || .at_eof self
+  at_statement_end self =
+    .check (&TokenKind::Newline) self || .check (&TokenKind::Dedent) self || .at_eof self
   export(crate) if_statement : &mut self -> Result<Expr, ParseError>
   if_statement self =
     open = (.peek_span self).0
@@ -308,7 +317,8 @@ instance (Parser 'a)
     only = Stmt { expr = value, span = (start, end), leading = Vec::new (), trailing = None }
     Ok (Block { stmts = vec! \-> only, span = (start, end) })
   export(crate) opens_a_guard_list : &self -> bool
-  opens_a_guard_list self = .check (&TokenKind::Newline) self && .is_some_and (\t -> t.kind == TokenKind::Indent) (.peek_at 1 self) && .is_some_and (\t -> t.kind == TokenKind::Or) (.peek_at 2 self)
+  opens_a_guard_list self =
+    .check (&TokenKind::Newline) self && .is_some_and (\t -> t.kind == TokenKind::Indent) (.peek_at 1 self) && .is_some_and (\t -> t.kind == TokenKind::Or) (.peek_at 2 self)
   export(crate) guards : &mut self -> Result<Vec<Guard>, ParseError>
   guards self =
     mut rows = Vec::new ()
@@ -357,17 +367,18 @@ instance (Parser 'a)
     value = (parse_expr self 0)?
     Ok $ Some $ Binding { pattern = bound, ty, value, is_mut, span = (start, (.prev_span self).1) }
   looks_like_a_binding : &self -> bool
-  looks_like_a_binding self = case &(.peek self).kind of
-    TokenKind::Ident _ ->
-      opener = if .peek_at 1 self is Some next
-        case next.kind of
-          TokenKind::Eq or TokenKind::Colon or TokenKind::LBrace -> true
-          _ -> false
-      else
-        false
-      opener && .reaches_a_binding_eq self
-    TokenKind::LParen or TokenKind::LBracket -> .reaches_a_binding_eq self
-    _ -> false
+  looks_like_a_binding self =
+    case &(.peek self).kind of
+      TokenKind::Ident _ ->
+        opener = if .peek_at 1 self is Some next
+          case next.kind of
+            TokenKind::Eq or TokenKind::Colon or TokenKind::LBrace -> true
+            _ -> false
+        else
+          false
+        opener && .reaches_a_binding_eq self
+      TokenKind::LParen or TokenKind::LBracket -> .reaches_a_binding_eq self
+      _ -> false
   export(crate) reaches_a_binding_eq : &self -> bool
   reaches_a_binding_eq self =
     mut depth : i32 = 0
@@ -387,35 +398,42 @@ instance (Parser 'a)
       i += 1
     false
   export(crate) type_expr : &str -> &mut self -> Result<TypeExpr, ParseError>
-  type_expr message self = capture_type self message TypeStop::Greedy
+  type_expr message self =
+    capture_type self message TypeStop::Greedy
 
   export(crate) peek : &self -> &'a Token
   peek self =
     .unwrap_or_else (\-> .expect "the token stream always contains at least Eof" (.last self.toks)) (.get self.pos self.toks)
   export(crate) peek_at : usize -> &self -> Option<&'a Token>
-  peek_at n self = .get (self.pos + n) self.toks
+  peek_at n self =
+    .get (self.pos + n) self.toks
   export(crate) peek_span : &self -> Span
-  peek_span self = (.peek self).span
+  peek_span self =
+    (.peek self).span
   export(crate) peek_leading : &self -> Vec<Trivia>
-  peek_leading self = .clone (.peek self).leading
+  peek_leading self =
+    .clone (.peek self).leading
   export(crate) prev_span : &self -> Span
   prev_span self =
     if self.pos == 0
       return (0, 0)
     self.toks[self.pos - 1].span
   export(crate) at_eof : &self -> bool
-  at_eof self = case (.peek self).kind of
-    TokenKind::Eof -> true
-    _ -> false
+  at_eof self =
+    case (.peek self).kind of
+      TokenKind::Eof -> true
+      _ -> false
   export(crate) check : &TokenKind -> &self -> bool
-  check kind self = &(.peek self).kind == kind
+  check kind self =
+    &(.peek self).kind == kind
   export(crate) advance : &mut self -> ()
   advance self =
     if !.at_eof self
       self.pos += 1
     ()
   export(crate) expect : &TokenKind -> &str -> &mut self -> Result<(), ParseError>
-  expect kind message self = .expect_with Code::ExpectedToken kind message self
+  expect kind message self =
+    .expect_with Code::ExpectedToken kind message self
   export(crate) expect_with : Code -> &TokenKind -> &str -> &mut self -> Result<(), ParseError>
   expect_with code kind message self =
     if .check kind self
@@ -429,7 +447,8 @@ instance (Parser 'a)
       return true
     false
   export(crate) position : &self -> usize
-  position self = self.pos
+  position self =
+    self.pos
   export(crate) rewind : usize -> &mut self -> ()
   rewind mark self =
     self.pos := mark

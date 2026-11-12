@@ -11,4 +11,5 @@
 -- found an **empty** body — passing every equality assertion vacuously.
 
 unequal : Vec<String> -> usize
-unequal xs = .len xs
+unequal xs =
+  .len xs

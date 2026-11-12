@@ -43,7 +43,8 @@ block_on fut =
 -- one keyword over — and for the same reason: a type is verbatim text, so a
 -- marker left inside one would make the first parameter's type `async u64`.
 double : async i32 -> i32
-double n = n * 2
+double n =
+  n * 2
 
 -- An `async fn` awaiting **another** one. A missing `async` on the inner
 -- function is a rustc error against the line that wrote it, which is doc 03

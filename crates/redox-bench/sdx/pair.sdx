@@ -1,7 +1,13 @@
 import std::path::Path
 import std::path::PathBuf
 
-export data Pair = Pair { export stem : String, export function : String, export sdx : PathBuf, export r#rust : PathBuf }
+export data Pair
+  = Pair {
+    export stem : String,
+    export function : String,
+    export sdx : PathBuf,
+    export r#rust : PathBuf,
+  }
   deriving (Debug, Clone)
 
 export pairs : &Path -> Vec<Pair>

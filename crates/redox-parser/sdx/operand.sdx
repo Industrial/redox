@@ -78,11 +78,12 @@ bracketed p =
   Ok (Expr::List { items, span = (start, (.prev_span p).1) })
 
 export(crate) byte_literal : u8 -> String
-byte_literal value = case value of
-  b'\\' -> .to_string "b'\\\\'"
-  b'\'' -> .to_string "b'\\''"
-  0x20..=0x7E -> format! \-> "b'#{char::from value}'"
-  _ -> format! \-> "b'\\x#{value:02X}'"
+byte_literal value =
+  case value of
+    b'\\' -> .to_string "b'\\\\'"
+    b'\'' -> .to_string "b'\\''"
+    0x20..=0x7E -> format! \-> "b'#{char::from value}'"
+    _ -> format! \-> "b'\\x#{value:02X}'"
 
 export(crate) compound_assign : &mut Parser -> Option<BinaryOp>
 compound_assign p =
@@ -181,7 +182,12 @@ method_call_syntax name span =
   help = format! \-> "a method is a function whose last argument is its receiver, so write `.#{name} args recv` or `recv |> .#{name} args`. `.` is field access and nothing else (plan 57 §1.1)"
   ParseError::with_help Code::MethodCallSyntax "method-call syntax is retired" help span
 
-export(crate) data MethodContext = MethodContext { export vars : Vec<(String, String)>, export recording : Option<String>, export implementing : Option<String> }
+export(crate) data MethodContext
+  = MethodContext {
+    export vars : Vec<(String, String)>,
+    export recording : Option<String>,
+    export implementing : Option<String>,
+  }
 
 instance MethodContext
   export(crate) for_class : &[Ident] -> Self
@@ -208,9 +214,10 @@ instance MethodContext
       |> .collect
 
 export(crate) opens_a_section : &TokenKind -> bool
-opens_a_section kind = case kind of
-  TokenKind::Minus or TokenKind::Amp or TokenKind::Star or TokenKind::Bang -> false
-  _ -> true
+opens_a_section kind =
+  case kind of
+    TokenKind::Minus or TokenKind::Amp or TokenKind::Star or TokenKind::Bang -> false
+    _ -> true
 
 export(crate) opens_an_over : &Parser -> bool
 opens_an_over p =
@@ -304,12 +311,14 @@ export(crate) receiver_text : &str -> Option<String>
 receiver_text ty =
   split = if .strip_prefix "&mut " ty is Some rest
     ("&mut ", rest)
-  else if .strip_prefix '&' ty is Some rest
-    ("&", rest)
-  else if .strip_prefix "mut " ty is Some rest
-    ("mut ", rest)
   else
-    ("", ty)
+    if .strip_prefix '&' ty is Some rest
+      ("&", rest)
+    else
+      if .strip_prefix "mut " ty is Some rest
+        ("mut ", rest)
+      else
+        ("", ty)
   if .trim split.1 != "self"
     return None
   prefix = split.0

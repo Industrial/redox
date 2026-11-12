@@ -55,13 +55,15 @@ allow_pragma trivium lint =
   attribute_pragma trivium == Some lint || comment_pragma trivium == Some lint
 
 export(crate) attribute_pragma : &Trivia -> Option<Lint>
-attribute_pragma trivium_attribute_pragma = case trivium_attribute_pragma.kind of
-  TriviaKind::Attribute -> Lint::from_allow_attribute $ .trim trivium_attribute_pragma.text
-  _ -> None
+attribute_pragma trivium_attribute_pragma =
+  case trivium_attribute_pragma.kind of
+    TriviaKind::Attribute -> Lint::from_allow_attribute $ .trim trivium_attribute_pragma.text
+    _ -> None
 
 #[cfg(test)]
 trivium_attribute_pragma : TriviaKind -> &str -> Trivia
-trivium_attribute_pragma kind text = Trivia { kind, text = .to_string text, span = (0, 0) }
+trivium_attribute_pragma kind text =
+  Trivia { kind, text = .to_string text, span = (0, 0) }
 
 test "the attribute suppresses"
   assert_eq! \-> attribute_pragma (&trivium_attribute_pragma TriviaKind::Attribute "redox::allow(unwrap)") \-> Some Lint::Unwrap
@@ -82,18 +84,21 @@ test "an inner attribute does not suppress"
   assert_eq! \-> attribute_pragma (&trivium_attribute_pragma TriviaKind::InnerAttribute "redox::allow(unwrap)") \-> None
 
 export(crate) binding_name : &Binding -> Option<&Ident>
-binding_name binding = case &binding.pattern of
-  Pattern::Binding ident -> Some ident
-  Pattern::Literal { .. } or Pattern::Wildcard _ or Pattern::Range { .. } or Pattern::Apply { .. } or Pattern::Tuple { .. } or Pattern::Slice { .. } or Pattern::Record { .. } or Pattern::As { .. } or Pattern::Rest _ or Pattern::NamedRest { .. } or Pattern::Or _ -> None
+binding_name binding =
+  case &binding.pattern of
+    Pattern::Binding ident -> Some ident
+    Pattern::Literal { .. } or Pattern::Wildcard _ or Pattern::Range { .. } or Pattern::Apply { .. } or Pattern::Tuple { .. } or Pattern::Slice { .. } or Pattern::Record { .. } or Pattern::As { .. } or Pattern::Rest _ or Pattern::NamedRest { .. } or Pattern::Or _ -> None
 
 export(crate) comment_pragma : &Trivia -> Option<Lint>
-comment_pragma trivium_comment_pragma = case trivium_comment_pragma.kind of
-  TriviaKind::LineComment -> Lint::from_allow_comment $ .trim trivium_comment_pragma.text
-  _ -> None
+comment_pragma trivium_comment_pragma =
+  case trivium_comment_pragma.kind of
+    TriviaKind::LineComment -> Lint::from_allow_comment $ .trim trivium_comment_pragma.text
+    _ -> None
 
 #[cfg(test)]
 trivium_comment_pragma : TriviaKind -> &str -> Trivia
-trivium_comment_pragma kind text = Trivia { kind, text = .to_string text, span = (0, 0) }
+trivium_comment_pragma kind text =
+  Trivia { kind, text = .to_string text, span = (0, 0) }
 
 test "the pragma suppresses"
   assert_eq! \-> comment_pragma (&trivium_comment_pragma TriviaKind::LineComment "redox: allow unwrap") \-> Some Lint::Unwrap
@@ -137,7 +142,11 @@ line_of source offset =
   end = .min (.len source) offset
   .count (.matches '\n' source[0 .. end]) + 1
 
-export(crate) data PragmaWalk = PragmaWalk { export(crate) lint : Lint, export(crate) found : Vec<Span> }
+export(crate) data PragmaWalk
+  = PragmaWalk {
+    export(crate) lint : Lint,
+    export(crate) found : Vec<Span>,
+  }
 
 instance ProgramWalk PragmaWalk
   item : &mut self -> &Item -> ()
@@ -180,7 +189,10 @@ shadow_sites program =
     !.any (\r -> r.0 <= span.0 && span.1 <= r.1) (.iter ranges))
     |> .collect
 
-export(crate) data ShadowWalk = ShadowWalk { export(crate) found : Vec<(Span, String)> }
+export(crate) data ShadowWalk
+  = ShadowWalk {
+    export(crate) found : Vec<(Span, String)>,
+  }
 
 instance ProgramWalk ShadowWalk
   item : &mut self -> &Item -> ()

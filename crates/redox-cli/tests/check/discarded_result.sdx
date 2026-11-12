@@ -27,7 +27,8 @@
 -- on the line above silences it, because the emitter passes an attribute that
 -- is not Redox's own straight through. Measured 2026-11-10.
 save : i32 -> Result<i32, String>
-save n = Ok n
+save n =
+  Ok n
 
 main : ()
 main =

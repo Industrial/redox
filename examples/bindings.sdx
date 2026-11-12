@@ -14,10 +14,12 @@
 -- A literal body under an upper-case name is **shared**, and emits the `const`
 -- §13.4 makes the default with no keyword written.
 LIMIT : usize
-LIMIT = 1024
+LIMIT =
+  1024
 
 GREETING : &'static str
-GREETING = "hello"
+GREETING =
+  "hello"
 
 -- A literal body under a **lower-case** name stays a function, and plan 59
 -- §11.8 is why: `const block` earns `non_upper_case_globals`, and this corpus
@@ -26,7 +28,8 @@ GREETING = "hello"
 --
 -- The use site cannot tell, which is the point.
 block : &'static str
-block = "indented"
+block =
+  "indented"
 
 -- A body that does work is recomputed per use. That is not a shortcoming, it
 -- is §1.4: an `Effect` is a one-shot description, so memoising this would hand
@@ -41,7 +44,8 @@ built =
 -- another file and there is nothing in this `Program` to classify.
 module inner
   export depth : u32
-  depth = 2 + 1
+  depth =
+    2 + 1
 
 -- And the factory, which is the shape §11.10 resolved. A bare name is the
 -- binding's *value*, so passing the function item needs a spelling of its
@@ -50,7 +54,8 @@ module inner
 -- `f ()` keeps its parentheses: `f` is a **parameter**, not a binding this
 -- file declares, so it is absent from the table and absent means unchanged.
 twice : impl Fn() -> u32 -> u32
-twice f = f () + f ()
+twice f =
+  f () + f ()
 
 main : ()
 main =

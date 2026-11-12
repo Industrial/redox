@@ -20,13 +20,20 @@
 -- to compile here. Plan 57 §11.4 re-sites the claim onto the new spelling
 -- without weakening it: every `&` below is load-bearing, and dropping one is
 -- `E0507`.
-newtype Tag = Tag String
+newtype Tag
+  = Tag String
 
 data Profile
-  = Profile { name : String, tag : Tag, nickname : Option<String> }
+  = Profile {
+    name : String,
+    tag : Tag,
+    nickname : Option<String>,
+  }
 
 data User
-  = User { profile : Option<Profile> }
+  = User {
+    profile : Option<Profile>,
+  }
 
 -- The fallible operation everything below uses. `::` ascribes the parse's
 -- type, because `parse` is generic over its target and nothing else here says
@@ -47,13 +54,15 @@ parse_it s =
 -- terminator set, which dissolved with plan 19 — plan 28 §1.4 verified the
 -- property survived rather than assuming it.
 fallback : &str -> i32
-fallback s = parse_it s catch 0
+fallback s =
+  parse_it s catch 0
 
 -- The fallback may **bind** the error. The right-hand side is doc 18 §4's
 -- lambda, so its parameter becomes the `Err` arm's pattern — no second syntax
 -- for a shape the language already has.
 reason : &str -> String
-reason s = .map (\n -> .to_string n) (parse_it s) catch (\e -> e)
+reason s =
+  .map (\n -> .to_string n) (parse_it s) catch (\e -> e)
 
 -- What `u?.profile?.name` used to spell, written out. The construct is gone
 -- and the lowering is not: doc 02 §6.3 always handed the whole
@@ -70,35 +79,39 @@ reason s = .map (\n -> .to_string n) (parse_it s) catch (\e -> e)
 -- `? .profile` has a space, and it is not optional: `?.` glued is `RDX0117`,
 -- so the retirement cannot be escaped by writing the old spelling.
 first_name : &Option<User> -> Option<&String>
-first_name u = try
-  profile = &(.as_ref u)? .profile
-  Some (&(.as_ref profile)? .name)
+first_name u =
+  try
+    profile = &(.as_ref u)? .profile
+    Some (&(.as_ref profile)? .name)
 
 -- The same chain ending on the non-`Clone` field. If this compiles, the chain
 -- borrows.
 first_tag : &Option<User> -> Option<&Tag>
-first_tag u = try
-  profile = &(.as_ref u)? .profile
-  Some (&(.as_ref profile)? .tag)
+first_tag u =
+  try
+    profile = &(.as_ref u)? .profile
+    Some (&(.as_ref profile)? .tag)
 
 -- Nested options are **not** flattened — doc 01 §13.1 — and that costs
 -- nothing to honour, because `?` does not flatten. A final field of type
 -- `Option<String>` yields `Option<&Option<String>>`, nested exactly once, and
 -- the property survives the respelling because it was always `?`'s.
 nickname_of : &Option<User> -> Option<&Option<String>>
-nickname_of u = try
-  profile = &(.as_ref u)? .profile
-  Some (&(.as_ref profile)? .nickname)
+nickname_of u =
+  try
+    profile = &(.as_ref u)? .profile
+    Some (&(.as_ref profile)? .nickname)
 
 -- `try` is a block in which `?` returns from the **block**. Rust has wanted
 -- this for years and has it only unstably; the immediately-invoked closure
 -- gives it on stable today, which is doc 03 §2's reachability test answered
 -- without qualification.
 attempt : &str -> &str -> Result<i32, String>
-attempt x y = try
-  a = (parse_it x)?
-  b = (parse_it y)?
-  Ok (a + b)
+attempt x y =
+  try
+    a = (parse_it x)?
+    b = (parse_it y)?
+    Ok (a + b)
 
 -- `print_outcome`'s parameter is what pins the `try` block's error type
 -- below: the closure's return type is inferred from its tail and its `?`s, so
@@ -125,7 +138,8 @@ after_a_failed_try =
   "reached"
 
 describe_tag : &Tag -> &String
-describe_tag t = &t.0
+describe_tag t =
+  &t.0
 
 main : ()
 main =

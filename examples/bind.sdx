@@ -28,10 +28,11 @@ import std::iter::once
 
 -- `and_then` over `Option`. Two binds, a written final row.
 first_word : &str -> Option<&str>
-first_word s = do .and_then
-  t <- Some (.trim s)
-  w <- .next (.split_whitespace t)
-  Some w
+first_word s =
+  do .and_then
+    t <- Some (.trim s)
+    w <- .next (.split_whitespace t)
+    Some w
 
 -- `flat_map` over a range — the case that needs `move` on the inner closure
 -- and does not compile without it. The comprehension in
@@ -47,7 +48,10 @@ grid = pairs |> .collect
 
 -- A **user type with its own `and_then`**, which is what proves the construct
 -- is not a `Try` special case in disguise: nothing in `std` is involved.
-data Tally = Tally { value : u64 }
+data Tally
+  = Tally {
+    value : u64,
+  }
   deriving (Debug, Clone, Copy)
 
 instance Tally
@@ -66,27 +70,31 @@ instance Tally
   -- precedent, and `and_then` needs no visibility because its only caller is
   -- in this file.
   and_then : self -> impl Fn(u64) -> Tally -> Tally
-  and_then self f = f self.value
+  and_then self f =
+    f self.value
 
 doubled : Tally
-doubled = do .and_then
-  n <- Tally { value = 5 }
-  Tally { value = n * 2 }
+doubled =
+  do .and_then
+    n <- Tally { value = 5 }
+    Tally { value = n * 2 }
 
 -- An **intermediate row with no binder** sequences, which is Haskell's `>>`:
 -- it lowers to the same method with a discarded binder, so the rows keep their
 -- source order.
 checked : Option<u64>
-checked = do .and_then
-  Some 1
-  n <- Some 7
-  Some (n + 1)
+checked =
+  do .and_then
+    Some 1
+    n <- Some 7
+    Some (n + 1)
 
 -- A **single-row block** — the degenerate case, which must emit one expression
 -- and no nesting at all.
 lone : Option<u64>
-lone = do .and_then
-  Some 3
+lone =
+  do .and_then
+    Some 3
 
 main : ()
 main =

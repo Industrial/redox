@@ -2,7 +2,11 @@
 -- running the generated Rust — an update lowered to the wrong order prints
 -- the wrong number.
 
-data Point = Point { x : i32, y : i32 }
+data Point
+  = Point {
+    x : i32,
+    y : i32,
+  }
   deriving (Debug, Clone, PartialEq)
 
 main : ()

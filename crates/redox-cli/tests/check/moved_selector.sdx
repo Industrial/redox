@@ -16,13 +16,17 @@
 -- a borrow error builds clean and that harness fails on its own expectation.
 -- Plans 54, 56 and now 57 have each named `tests/ui/` for a rustc error.
 
-newtype Tag = Tag String
+newtype Tag
+  = Tag String
 
 data Profile
-  = Profile { tag : Tag }
+  = Profile {
+    tag : Tag,
+  }
 
 tags : &Vec<Profile> -> Vec<Tag>
-tags ps = ps |> .iter |> .map (.tag) |> .collect
+tags ps =
+  ps |> .iter |> .map (.tag) |> .collect
 
 main : ()
 main =

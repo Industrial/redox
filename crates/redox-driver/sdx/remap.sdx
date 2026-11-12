@@ -29,15 +29,18 @@ const XRS : &str = "fn add(a: i32, b: i32) -> i32 {\n    a + \"x\"\n}\n"
 
 #[cfg(test)]
 map_of : SourceMap
-map_of = SourceMap::new "p.sdx" (vec! \-> Some (redox_diag::Origin { span = (0, 30), src_line = 1, src_col = 1, gen_col = 1 }) \-> Some (redox_diag::Origin { span = (33, 40), src_line = 2, src_col = 3, gen_col = 5 }) \-> None)
+map_of =
+  SourceMap::new "p.sdx" (vec! \-> Some (redox_diag::Origin { span = (0, 30), src_line = 1, src_col = 1, gen_col = 1 }) \-> Some (redox_diag::Origin { span = (33, 40), src_line = 2, src_col = 3, gen_col = 5 }) \-> None)
 
 #[cfg(test)]
 message_at : usize -> usize -> RustcMessage
-message_at line col = RustcMessage { path = .to_string "p.xrs", line, col, level = .to_string "error", code = Some (.to_string "E0277"), message = .to_string "cannot add `&str` to `i32`" }
+message_at line col =
+  RustcMessage { path = .to_string "p.xrs", line, col, level = .to_string "error", code = Some (.to_string "E0277"), message = .to_string "cannot add `&str` to `i32`" }
 
 #[cfg(test)]
 run : &RustcMessage -> redox_diag::Diagnostic
-run m = remap m (&map_of ()) "p.sdx" SDX "p.xrs" XRS
+run m =
+  remap m (&map_of ()) "p.sdx" SDX "p.xrs" XRS
 
 test "narrows to the exact character on a verbatim line"
   d = run $ &message_at 2 7
@@ -168,7 +171,15 @@ test "narrows to a whole multibyte character"
   got = narrow span src 3 3
   assert_eq! \-> &src[got.0 .. got.1] \-> "é"
 
-export data RustcMessage = RustcMessage { export path : String, export line : usize, export col : usize, export level : String, export code : Option<String>, export message : String }
+export data RustcMessage
+  = RustcMessage {
+    export path : String,
+    export line : usize,
+    export col : usize,
+    export level : String,
+    export code : Option<String>,
+    export message : String,
+  }
   deriving (Debug, Clone, PartialEq, Eq)
 
 instance RustcMessage
@@ -195,7 +206,8 @@ instance RustcMessage
     Some (RustcMessage { path = .to_string stem.0, line = line_no, col, level = .to_string level, code, message = .to_string message })
 
   export is_error : &self -> bool
-  is_error self = self.level == "error"
+  is_error self =
+    self.level == "error"
 
 test "parses a coded error"
   m = .expect "should parse" $ RustcMessage::parse ".tmp/typeerr.xrs:6:24: error[E0308]: mismatched types: expected `i32`, found `&str`"

@@ -2,7 +2,14 @@ import crate::Span
 import crate::Trivia
 import crate::keyword::Keyword
 
-export data Token = Token { export kind : TokenKind, export span : Span, export ws_before : bool, export leading : Vec<Trivia>, export trailing : Option<Trivia> }
+export data Token
+  = Token {
+    export kind : TokenKind,
+    export span : Span,
+    export ws_before : bool,
+    export leading : Vec<Trivia>,
+    export trailing : Option<Trivia>,
+  }
   deriving (Debug, Clone, PartialEq, Eq)
 
 export data TokenKind
@@ -13,8 +20,14 @@ export data TokenKind
 
   | Int String
   | Float String
-  | Str { parts : Vec<StrPart>, raw : String }
-  | RawStr { text : String, hashes : usize }
+  | Str {
+    parts : Vec<StrPart>,
+    raw : String,
+  }
+  | RawStr {
+    text : String,
+    hashes : usize,
+  }
   | ByteStr String
   | CStr String
   | Char char
@@ -91,17 +104,22 @@ export data TokenKind
 
 instance TokenKind
   export(crate) is_structural : &self -> bool
-  is_structural self = case self of
-    Indent or Dedent or Newline -> true
-    _ -> false
+  is_structural self =
+    case self of
+      Indent or Dedent or Newline -> true
+      _ -> false
 
   export(crate) continues_line : &self -> bool
-  continues_line self = case self of
-    Pipe or ComposeBack or Comma or Plus or Minus or Slash or Percent or EqEq or Ne or Lt or Le or Ge or AndAnd or OrOr or Amp or Or or Caret or Shl or Coalesce or DotDot or DotDotEq -> true
-    UserOp _ -> true
-    _ -> false
+  continues_line self =
+    case self of
+      Pipe or ComposeBack or Comma or Plus or Minus or Slash or Percent or EqEq or Ne or Lt or Le or Ge or AndAnd or OrOr or Amp or Or or Caret or Shl or Coalesce or DotDot or DotDotEq -> true
+      UserOp _ -> true
+      _ -> false
 
 export data StrPart
   = Text String
-  | Interp { tokens : Vec<Token>, spec : Option<String> }
+  | Interp {
+    tokens : Vec<Token>,
+    spec : Option<String>,
+  }
   deriving (Debug, Clone, PartialEq, Eq)

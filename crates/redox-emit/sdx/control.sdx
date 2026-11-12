@@ -58,9 +58,10 @@ ascribed_arm pattern ty =
   Some $ format! \-> "let #{binder}: #{ty} = #{binder};"
 
 export(crate) sole_binder : &Pattern -> Option<String>
-sole_binder pattern = case .as_slice (.binders pattern) of
-  [one] -> Some (.clone one)
-  _ -> None
+sole_binder pattern =
+  case .as_slice (.binders pattern) of
+    [one] -> Some (.clone one)
+    _ -> None
 
 export(crate) ascribed_list : &Expr -> &TypeExpr -> usize -> Option<String>
 ascribed_list inner ty indent =
@@ -406,9 +407,10 @@ emit_guards out guards indent tail joinable =
   ()
 
 export(crate) label_prefix : &Option<String> -> String
-label_prefix label = case label of
-  Some name -> format! \-> "'#{name}: "
-  None -> String::new ()
+label_prefix label =
+  case label of
+    Some name -> format! \-> "'#{name}: "
+    None -> String::new ()
 
 export(crate) one_line_if : &Condition -> &Block -> Option<&Block> -> usize -> Option<String>
 one_line_if condition then_block else_block indent =

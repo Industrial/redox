@@ -14,7 +14,11 @@
 -- `deriving` clause. §13.2 is careful that the native spelling is "not a
 -- replacement", so both reach the same Rust.
 #[derive(Debug, Clone)]
-data Point = Point { x : f64, y : f64 }
+data Point
+  = Point {
+    x : f64,
+    y : f64,
+  }
 
 -- A `deriving` clause on a `newtype`, which is where plan 53's
 -- `#[repr(transparent)]` has to slot in. The order is fixed and this golden
@@ -40,7 +44,8 @@ data Point = Point { x : f64, y : f64 }
 -- 03 §13.2 designed attributes to avoid. Plan 53 criterion 4 asked for this
 -- in a golden; the golden it gets is this one, and the native half is a unit
 -- test.
-newtype Tally = Tally u32
+newtype Tally
+  = Tally u32
   deriving (Debug, Clone, PartialEq)
 
 -- A doc comment, an attribute and the item in that order — three trivia and
@@ -49,7 +54,8 @@ newtype Tally = Tally u32
 -- | The squared magnitude of a point.
 #[inline]
 magnitude : &Point -> f64
-magnitude p = p.x * p.x + p.y * p.y
+magnitude p =
+  p.x * p.x + p.y * p.y
 
 -- `#[allow(…)]` is only *proven* by a lint that would otherwise fire. A
 -- lowercase `const` is rustc's `non_upper_case_globals`, which doc 03 §13.4
@@ -64,14 +70,16 @@ const threshold : f64 = 2.0
 -- the wrong item is still valid Rust, so a *use* is the only thing that
 -- distinguishes the two — the same argument this file opens with.
 counted : u32 -> String
-counted n = "#{Tally n == Tally 7} #{.clone (Tally n):?}"
+counted n =
+  "#{Tally n == Tally 7} #{.clone (Tally n):?}"
 
 -- An attribute with a string and an `=` inside it, which is the form §13.2's
 -- own `#[serde(rename = "id")]` example uses. `must_use` is in `core`, so
 -- this needs no dependency to prove the shape round-trips.
 #[must_use = "a magnitude is worth looking at"]
 scaled : &Point -> f64
-scaled p = magnitude p * threshold
+scaled p =
+  magnitude p * threshold
 
 main : ()
 main =

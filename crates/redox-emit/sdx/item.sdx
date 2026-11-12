@@ -189,12 +189,13 @@ emit_inline_rust out r indent =
   ()
 
 export(crate) is_shareable : &Expr -> bool
-is_shareable body = case body of
-  Expr::Num { .. } or Expr::Bool { .. } or Expr::Char { .. } or Expr::StrLit { .. } or Expr::RawLit { .. } or Expr::Path { .. } or Expr::Unit { .. } -> true
-  Expr::Paren { inner, .. } -> is_shareable inner
-  Expr::Unary { operand, .. } -> is_shareable operand
-  Expr::Tuple { items, .. } or Expr::List { items, .. } -> .all is_shareable (.iter items)
-  _ -> false
+is_shareable body =
+  case body of
+    Expr::Num { .. } or Expr::Bool { .. } or Expr::Char { .. } or Expr::StrLit { .. } or Expr::RawLit { .. } or Expr::Path { .. } or Expr::Unit { .. } -> true
+    Expr::Paren { inner, .. } -> is_shareable inner
+    Expr::Unary { operand, .. } -> is_shareable operand
+    Expr::Tuple { items, .. } or Expr::List { items, .. } -> .all is_shareable (.iter items)
+    _ -> false
 
 export(crate) class Emit
   emit : &mut Sink<'_> -> usize -> &self -> ()
@@ -330,11 +331,12 @@ export(crate) signature : &Signature -> usize -> String
 signature sig indent =
   generic_list = if &sig.r#given is Some text
     .clone text
-  else if .is_empty sig.generics
-    String::new ()
   else
-    joined = .join ", " sig.generics
-    format! \-> "<#{joined}>"
+    if .is_empty sig.generics
+      String::new ()
+    else
+      joined = .join ", " sig.generics
+      format! \-> "<#{joined}>"
   mut ordered : Vec<&Param> = .collect (.iter sig.params)
   if .position (\p -> .is_none p.ty) (.iter ordered) is Some at
     marked = .remove at ordered
@@ -373,8 +375,9 @@ test_slug description =
   for ch in .chars text
     if .is_alphanumeric ch
       .extend (.to_lowercase ch) out
-    else if !.ends_with '_' out
-      .push '_' out
+    else
+      if !.ends_with '_' out
+        .push '_' out
   trimmed = out |> .trim_matches '_' |> .to_string
   if .is_empty trimmed
     return .to_string "_"

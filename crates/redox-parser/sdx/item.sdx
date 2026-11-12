@@ -233,9 +233,10 @@ rewritten text var subject =
   out
 
 export(crate) starts_a_declaration : &Parser -> bool
-starts_a_declaration p = case (.peek p).kind of
-  TokenKind::Kw (Keyword::Data or Keyword::Newtype or Keyword::Union or Keyword::Type or Keyword::Class or Keyword::Instance or Keyword::Errors or Keyword::Import or Keyword::Const or Keyword::Static) -> true
-  _ -> false
+starts_a_declaration p =
+  case (.peek p).kind of
+    TokenKind::Kw (Keyword::Data or Keyword::Newtype or Keyword::Union or Keyword::Type or Keyword::Class or Keyword::Instance or Keyword::Errors or Keyword::Import or Keyword::Const or Keyword::Static) -> true
+    _ -> false
 
 export(crate) test_decl : &mut Parser -> Vec<Trivia> -> usize -> Result<TestDecl, ParseError>
 test_decl p leading start =

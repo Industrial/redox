@@ -35,10 +35,11 @@ describe : Option<i32> -> &'static str
 describe o =
   if o is Some v && v > 2
     "big"
-  else if o is Some _
-    "small"
   else
-    "nothing"
+    if o is Some _
+      "small"
+    else
+      "nothing"
 
 -- `while P <- e` drains, and the collection is mutated by a **method** — not
 -- by rebinding `stack`, which plan 20 §10.2 records as unspelled. A wrong
@@ -69,10 +70,11 @@ halve o =
 -- and means nothing. rustc rejects the arity, which is the division of labour
 -- AGENTS.md states — but the parentheses are the spelling.
 unwrap_nested : Option<Option<i32>> -> i32
-unwrap_nested o = case o of
-  y | y is Some (Some v) -> v
-  y | y is Some _ -> -1
-  _ -> -2
+unwrap_nested o =
+  case o of
+    y | y is Some (Some v) -> v
+    y | y is Some _ -> -1
+    _ -> -2
 
 -- A pattern test carries a **value** out of an `if`, not only an effect.
 --
@@ -92,8 +94,10 @@ label o =
 -- there is ambiguous — `f Some v` could be `f (Some v)` or three patterns —
 -- so the parentheses are required, as they are in Haskell.
 doubled : Option<i32> -> i32
-doubled (Some n) = n * 2
-doubled _ = 0
+doubled (Some n) =
+  n * 2
+doubled _ =
+  0
 
 main : ()
 main =

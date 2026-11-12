@@ -2,25 +2,39 @@ export type Span = (usize, usize)
 
 export const VERSION : u32 = 1
 
-export data Origin = Origin { export span : Span, export src_line : usize, export src_col : usize, export gen_col : usize }
+export data Origin
+  = Origin {
+    export span : Span,
+    export src_line : usize,
+    export src_col : usize,
+    export gen_col : usize,
+  }
   deriving (Debug, Clone, Copy, PartialEq, Eq)
 
 instance Origin
   export map_col : &self -> usize -> usize
-  map_col self gen_col = self.src_col + .saturating_sub self.gen_col gen_col
+  map_col self gen_col =
+    self.src_col + .saturating_sub self.gen_col gen_col
 
-export data SourceMap = SourceMap { export source_path : String, origins : Vec<Option<Origin>> }
+export data SourceMap
+  = SourceMap {
+    export source_path : String,
+    origins : Vec<Option<Origin>>,
+  }
   deriving (Debug, Clone, Default, PartialEq, Eq)
 
 instance SourceMap
   export new : impl Into<String> -> Vec<Option<Origin>> -> Self
-  new source_path origins = SourceMap { source_path = .into source_path, origins }
+  new source_path origins =
+    SourceMap { source_path = .into source_path, origins }
 
   export len : &self -> usize
-  len self = .len self.origins
+  len self =
+    .len self.origins
 
   export is_empty : &self -> bool
-  is_empty self = .is_empty self.origins
+  is_empty self =
+    .is_empty self.origins
 
   export origin : &self -> usize -> Option<&Origin>
   origin self gen_line =
@@ -29,17 +43,19 @@ instance SourceMap
     .as_ref slot
 
   export resolve : &self -> usize -> usize -> Option<(usize, usize)>
-  resolve self gen_line gen_col = do .map
-    found <- .origin gen_line self
-    (found.src_line, .map_col gen_col found)
+  resolve self gen_line gen_col =
+    do .map
+      found <- .origin gen_line self
+      (found.src_line, .map_col gen_col found)
 
   export synthetic_lines : &self -> Vec<usize>
-  synthetic_lines self = self.origins
-    |> .iter
-    |> .enumerate
-    |> .filter (\pair -> .is_none pair.1)
-    |> .map (\pair -> pair.0 + 1)
-    |> .collect
+  synthetic_lines self =
+    self.origins
+      |> .iter
+      |> .enumerate
+      |> .filter (\pair -> .is_none pair.1)
+      |> .map (\pair -> pair.0 + 1)
+      |> .collect
 
 export render_map : &SourceMap -> String
 render_map map =
@@ -96,15 +112,18 @@ parse_map text =
 
 #[cfg(test)]
 sample_origin : Origin
-sample_origin = Origin { span = (10, 15), src_line = 2, src_col = 3, gen_col = 5 }
+sample_origin =
+  Origin { span = (10, 15), src_line = 2, src_col = 3, gen_col = 5 }
 
 #[cfg(test)]
 sample_map : SourceMap
-sample_map = SourceMap::new "a.sdx" (vec! \-> Some (Origin { span = (0, 5), src_line = 1, src_col = 1, gen_col = 1 }) \-> None \-> Some (Origin { span = (10, 15), src_line = 2, src_col = 3, gen_col = 5 }))
+sample_map =
+  SourceMap::new "a.sdx" (vec! \-> Some (Origin { span = (0, 5), src_line = 1, src_col = 1, gen_col = 1 }) \-> None \-> Some (Origin { span = (10, 15), src_line = 2, src_col = 3, gen_col = 5 }))
 
 #[cfg(test)]
 sample : SourceMap
-sample = SourceMap::new "examples/phase1.sdx" (vec! \-> Some (Origin { span = (0, 0), src_line = 1, src_col = 1, gen_col = 4 }) \-> None \-> Some (Origin { span = (0, 0), src_line = 2, src_col = 3, gen_col = 5 }))
+sample =
+  SourceMap::new "examples/phase1.sdx" (vec! \-> Some (Origin { span = (0, 0), src_line = 1, src_col = 1, gen_col = 4 }) \-> None \-> Some (Origin { span = (0, 0), src_line = 2, src_col = 3, gen_col = 5 }))
 
 test "shifts a column by the indentation difference"
   assert_eq! \-> .map_col 5 (sample_origin ()) \-> 3 \-> "the first character"

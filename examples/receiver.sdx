@@ -9,9 +9,13 @@
 
 import std::fmt::Debug
 
-newtype Meters = Meters f64
+newtype Meters
+  = Meters f64
 
-data Counter = Counter { value : u32 }
+data Counter
+  = Counter {
+    value : u32,
+  }
   deriving (Debug)
 
 -- A superclass survives the class losing its variable: `=>` before the name,
@@ -42,21 +46,27 @@ class Debug => Tally
 
 instance Tally Counter
   current : &self -> u32
-  current self = self.value
+  current self =
+    self.value
   bump : &mut self -> ()
   bump self =
     self.value += 1
     ()
   total : self -> u32
-  total self = self.value
+  total self =
+    self.value
   plus : &self -> u32 -> u32
-  plus self n = self.value + n
+  plus self n =
+    self.value + n
   minus : u32 -> &self -> u32
-  minus n self = self.value - n
+  minus n self =
+    self.value - n
   start : u32 -> Self
-  start n = Counter { value = n }
+  start n =
+    Counter { value = n }
   label : &self -> String
-  label self = .to_string self.value
+  label self =
+    .to_string self.value
 
 -- A class with a parameter of its own, which is `trait From<T>`'s shape and
 -- was unreachable until plan 67: the one slot a class head had was spent on
@@ -72,11 +82,13 @@ class Scale t
 -- it becomes.
 instance Scale f64 Meters
   times : &self -> f64 -> f64
-  times self k = self.0 * k
+  times self k =
+    self.0 * k
 
 instance Scale u32 Meters
   times : &self -> u32 -> f64
-  times self k = self.0 * f64::from k
+  times self k =
+    self.0 * f64::from k
 
 main : ()
 main =

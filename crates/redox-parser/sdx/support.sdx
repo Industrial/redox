@@ -8,7 +8,13 @@ import redox_lexer::LexError
 import redox_lexer::Token
 import redox_lexer::TokenKind
 
-export data ParseError = ParseError { export code : Code, export message : String, export span : Span, export help : Option<String> }
+export data ParseError
+  = ParseError {
+    export code : Code,
+    export message : String,
+    export span : Span,
+    export help : Option<String>,
+  }
   deriving (Debug, Clone, PartialEq, Eq)
 
 instance ParseError
@@ -85,7 +91,8 @@ binary_power kind =
 
 #[cfg(test)]
 power : TokenKind -> u8
-power kind = (.expect "should have a precedence" (binary_power (&kind))).1
+power kind =
+  (.expect "should have a precedence" (binary_power (&kind))).1
 
 test "precedence follows rust"
   assert! \-> power TokenKind::Star > power TokenKind::Plus

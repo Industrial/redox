@@ -20,15 +20,17 @@ import std::cell::RefCell
 import std::collections::BTreeMap
 
 export(crate) annotated_binding : &Binding -> (Option<String>, &Expr)
-annotated_binding b = case (&b.ty, &b.value) of
-  (None, Expr::Ascribe { inner, ty, .. }) | !selects_a_container inner -> (Some (.clone ty.text), .as_ref inner)
-  (Some ty, value) -> (Some (.clone ty.text), value)
-  (None, value) -> (None, value)
+annotated_binding b =
+  case (&b.ty, &b.value) of
+    (None, Expr::Ascribe { inner, ty, .. }) | !selects_a_container inner -> (Some (.clone ty.text), .as_ref inner)
+    (Some ty, value) -> (Some (.clone ty.text), value)
+    (None, value) -> (None, value)
 
 export(crate) selects_a_container : &Expr -> bool
-selects_a_container inner = case inner of
-  Expr::List { .. } or Expr::ArrayRepeat { .. } -> true
-  _ -> false
+selects_a_container inner =
+  case inner of
+    Expr::List { .. } or Expr::ArrayRepeat { .. } -> true
+    _ -> false
 
 export(crate) bind_block : &Ident -> &[Stmt] -> usize -> String
 bind_block method stmts indent =
@@ -65,14 +67,19 @@ rust """
   }
 """
 
-export(crate) data BindScope = BindScope { previous : BindMode }
+export(crate) data BindScope
+  = BindScope {
+    previous : BindMode,
+  }
 
 instance BindScope
   export(crate) enter : BindMode -> Self
-  enter mode = BindScope { previous = .replace mode MODE }
+  enter mode =
+    BindScope { previous = .replace mode MODE }
 
   export(crate) mode : BindMode
-  mode = .get MODE
+  mode =
+    .get MODE
 
 instance Drop BindScope
   drop : &mut self -> ()
@@ -92,7 +99,10 @@ rust """
   }
 """
 
-export(crate) data BindingScope = BindingScope { previous : BindingTable }
+export(crate) data BindingScope
+  = BindingScope {
+    previous : BindingTable,
+  }
 
 instance BindingScope
   export(crate) enter : BindingTable -> Self
@@ -101,7 +111,8 @@ instance BindingScope
     BindingScope { previous }
 
   export(crate) kind_of : &str -> Option<BindingKind>
-  kind_of name = .with_borrow (\table -> .kind_of name table) IN_SCOPE
+  kind_of name =
+    .with_borrow (\table -> .kind_of name table) IN_SCOPE
 
 instance Drop BindingScope
   drop : &mut self -> ()
@@ -110,7 +121,10 @@ instance Drop BindingScope
     _dropped = .with_borrow_mut (\slot -> std::mem::replace slot restored) IN_SCOPE
     ()
 
-export(crate) data BindingTable = BindingTable { kinds : BTreeMap<String, BindingKind> }
+export(crate) data BindingTable
+  = BindingTable {
+    kinds : BTreeMap<String, BindingKind>,
+  }
   deriving (Debug, Clone, Default)
 
 instance BindingTable
@@ -152,7 +166,8 @@ instance BindingTable
     ()
 
   export(crate) kind_of : &str -> &self -> Option<BindingKind>
-  kind_of name self = self.kinds |> .get name |> .copied
+  kind_of name self =
+    self.kinds |> .get name |> .copied
 
 export(crate) classify : &FnDecl -> Option<BindingKind>
 classify decl =
@@ -174,9 +189,10 @@ is_upper_case name =
   .any char::is_alphabetic (.chars name) && !.any (\c -> .is_ascii_lowercase c) (.chars name)
 
 export(crate) binding_text : &str -> String
-binding_text name = case BindingScope::kind_of name of
-  Some (BindingKind::Called) -> format! \-> "#{name}()"
-  _ -> .to_string name
+binding_text name =
+  case BindingScope::kind_of name of
+    Some (BindingKind::Called) -> format! \-> "#{name}()"
+    _ -> .to_string name
 
 export(crate) emit_bind : &Option<Pattern> -> &Expr -> usize -> String
 emit_bind pattern value indent =

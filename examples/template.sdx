@@ -15,19 +15,23 @@ import std::fmt::Result
 deriving template Forward
   instance Display Target
     fmt : &self -> &mut Formatter<'_> -> Result
-    fmt self f = Display::fmt (&self.Field0) f
+    fmt self f =
+      Display::fmt (&self.Field0) f
 
 -- A second one, because the table is a table: a `deriving` list may name both,
 -- and each emits its own `impl` in the order written.
 deriving template Zeroed
   instance Target
     export zero : Self
-    zero = Target (Default::default ())
+    zero =
+      Target (Default::default ())
 
-newtype Meters = Meters f64
+newtype Meters
+  = Meters f64
   deriving (Debug, Clone, Copy, PartialEq, Forward, Zeroed)
 
-newtype Label = Label String
+newtype Label
+  = Label String
   deriving (Debug, Clone, Forward)
 
 -- Leaf 3's **repetition**. `Fields` is every field as a `self` access and
@@ -37,12 +41,22 @@ newtype Label = Label String
 deriving template Labelled
   instance Labelled Target
     labelled : &self -> String
-    labelled self = zip_pairs (&[FieldNames]) (&[Fields])
+    labelled self =
+      zip_pairs (&[FieldNames]) (&[Fields])
 
-data Point = Point { export x : u32, export y : u32 }
+data Point
+  = Point {
+    export x : u32,
+    export y : u32,
+  }
   deriving (Debug, Clone, Labelled)
 
-data Triple = Triple { export a : u32, export b : u32, export c : u32 }
+data Triple
+  = Triple {
+    export a : u32,
+    export b : u32,
+    export c : u32,
+  }
   deriving (Debug, Clone, Labelled)
 
 -- The class the template implements, and the helper its body calls. Both are
@@ -57,7 +71,8 @@ class Labelled
 -- `chain_width` constant for the shapes it controls; a chain the author writes
 -- is the author's to keep short.
 one_pair : (&&str, &u32) -> String
-one_pair pair = format! \-> "#{pair.0}=#{pair.1}"
+one_pair pair =
+  format! \-> "#{pair.0}=#{pair.1}"
 
 zip_pairs : &[&str] -> &[u32] -> String
 zip_pairs names values =

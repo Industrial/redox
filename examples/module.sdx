@@ -21,12 +21,14 @@ import std::collections::BTreeMap as Sorted
 -- reachable from outside, exactly as in Rust.
 module inner
   export hello : &'static str
-  hello = "hi"
+  hello =
+    "hi"
 
   -- Modules nest, because nothing in Rust stops them either.
   export module deeper
     export deep : u32
-    deep = 1
+    deep =
+      1
 
   -- A `test` block inside a module body lands in **that** module's test
   -- module, not the file's. Both exist in the output below.
@@ -43,7 +45,8 @@ sizes = .len a + .len b
     b = Sorted::new () : Sorted<String, u32>
 
 write_ok : &mut String -> fmt::Result
-write_ok s = .write_str "ok" s
+write_ok s =
+  .write_str "ok" s
 
 main : ()
 main =

@@ -21,37 +21,52 @@
 -- was the whole of the construct and nothing said so — milestone 9's worst
 -- class, found by writing the second dot.
 
-data Zip = Zip { code : u32 }
+data Zip
+  = Zip {
+    code : u32,
+  }
   deriving (Debug, Clone, Copy)
 
-data Address = Address { zip : Zip }
+data Address
+  = Address {
+    zip : Zip,
+  }
   deriving (Debug, Clone, Copy)
 
-data Person = Person { age : u32, addr : Address }
+data Person
+  = Person {
+    age : u32,
+    addr : Address,
+  }
   deriving (Debug, Clone, Copy)
 
 -- Depth **one**, which is what `(.name)` always did. Here as the control: it
 -- emits byte-identical Rust to what it emitted before this row.
 ages : &[Person] -> Vec<u32>
-ages people = people |> .iter |> .map (.age) |> .collect
+ages people =
+  people |> .iter |> .map (.age) |> .collect
 
 -- Depth **two**. A reader writes `person.addr.zip`; before this row the only
 -- spelling was a written lambda.
 zips : &[Person] -> Vec<Zip>
-zips people = people |> .iter |> .map (.addr.zip) |> .collect
+zips people =
+  people |> .iter |> .map (.addr.zip) |> .collect
 
 -- Depth **three**, which is the case a one-level-deep implementation passes at
 -- depth two and fails here — the selector has to be a loop, not a pair.
 codes : &[Person] -> Vec<u32>
-codes people = people |> .iter |> .map (.addr.zip.code) |> .collect
+codes people =
+  people |> .iter |> .map (.addr.zip.code) |> .collect
 
 -- The functions `over` applies. Named rather than inline, because `over` reads
 -- its function as an **atom** — a bare `.method` is one, and so is a name.
 doubled : u32 -> u32
-doubled n = n * 2
+doubled n =
+  n * 2
 
 succ : u32 -> u32
-succ n = n + 1
+succ n =
+  n + 1
 
 main : ()
 main =

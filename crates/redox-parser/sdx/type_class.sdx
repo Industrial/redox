@@ -199,17 +199,21 @@ instance_decl p leading start =
   first = (type_app p)?
   split = if grouped
     (None, first)
-  else if .check (&TokenKind::LParen) p
-    (Some first, (type_app p)?)
-  else if .is_empty first.args
-    (None, first)
   else
-    mut args = .clone first.args
-    head = args |> .pop |> .expect "the argument list is not empty"
-    class_end = .map_or first.head.span.1 (\a -> a.span.1) (.last args)
-    class_app = TypeApp { head = .clone first.head, args, span = (first.head.span.0, class_end) }
-    target_app = TypeApp { head = .clone head, args = Vec::new (), span = head.span }
-    (Some class_app, target_app)
+    if .check (&TokenKind::LParen) p
+      (Some first, (type_app p)?)
+    else
+      if .is_empty first.args
+        (None, first)
+      else
+        mut args = .clone first.args
+        head = args
+          |> .pop
+          |> .expect "the argument list is not empty"
+        class_end = .map_or first.head.span.1 (\a -> a.span.1) (.last args)
+        class_app = TypeApp { head = .clone first.head, args, span = (first.head.span.0, class_end) }
+        target_app = TypeApp { head = .clone head, args = Vec::new (), span = head.span }
+        (Some class_app, target_app)
   implemented = split.0
   target = split.1
   var = .map (\v -> .to_string v) (.first (.vars target))

@@ -5,7 +5,8 @@ import std::time::Duration
 const RUNS : u32 = 200
 
 root : PathBuf
-root = .join "../.." $ Path::new $ env! \-> "CARGO_MANIFEST_DIR"
+root =
+  .join "../.." $ Path::new $ env! \-> "CARGO_MANIFEST_DIR"
 
 main : Result<(), String>
 main =

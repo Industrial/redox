@@ -11,7 +11,8 @@ import std::path::Path
 import std::path::PathBuf
 
 export compile_dir : &Path -> &Path -> Result<Compiled, Vec<Diagnostic>>
-compile_dir src out = compile_dir_with src out (&Silent)
+compile_dir src out =
+  compile_dir_with src out (&Silent)
 
 export(crate) compile_file : &Path -> &Path -> &Store -> &Fingerprint -> Result<Outcome, Vec<Diagnostic>>
 compile_file source out store fingerprint =
@@ -31,7 +32,11 @@ compile_file source out store fingerprint =
   .put (&key) (&fresh) store
   Ok (Outcome { written, was_cached = false })
 
-export(crate) data Outcome = Outcome { export(crate) written : PathBuf, export(crate) was_cached : bool }
+export(crate) data Outcome
+  = Outcome {
+    export(crate) written : PathBuf,
+    export(crate) was_cached : bool,
+  }
   deriving (Debug, Clone, PartialEq, Eq)
 
 export(crate) write_outputs : &Path -> &Path -> &str -> &Cached -> Result<PathBuf, Vec<Diagnostic>>
@@ -52,7 +57,11 @@ write_outputs source out path content =
 
   Ok target
 
-export data Compiled = Compiled { export inputs : Vec<PathBuf>, export outputs : Vec<PathBuf> }
+export data Compiled
+  = Compiled {
+    export inputs : Vec<PathBuf>,
+    export outputs : Vec<PathBuf>,
+  }
   deriving (Debug, Clone, Default, PartialEq, Eq)
 
 instance Compiled
@@ -66,7 +75,8 @@ instance Compiled
       |> .collect
 
   export is_empty : &self -> bool
-  is_empty self = .is_empty self.inputs
+  is_empty self =
+    .is_empty self.inputs
 
 test "names every input for cargo"
   compiled = Compiled { inputs = vec! \-> PathBuf::from "src/a.sdx" \-> PathBuf::from "src/b.sdx", outputs = vec! \-> PathBuf::from "out/a.rs" \-> PathBuf::from "out/b.rs" }
@@ -94,7 +104,8 @@ sdx_in dir =
 static NEXT : std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new 0
 
 #[cfg(test)]
-data Dir = Dir std::path::PathBuf
+data Dir
+  = Dir std::path::PathBuf
 
 #[cfg(test)]
 instance Dir

@@ -2,48 +2,50 @@ import redox_ast::Pattern
 import redox_ast::RecordPatternField
 
 export pattern_text : &Pattern -> String
-pattern_text pattern = case pattern of
-  Pattern::Binding ident -> .clone ident.text
-  Pattern::Literal { text, .. } -> .clone text
-  Pattern::Wildcard _ -> String::from "_"
-  Pattern::Range { lo, hi, inclusive, .. } ->
-    dots = if *inclusive
-      "..="
-    else
-      ".."
-    format! \-> "#{lo}#{dots}#{hi}"
-  Pattern::Apply { path, args, .. } ->
-    mut out = .clone path
-    for arg in args
-      .push ' ' out
-      .push_str (&pattern_argument arg) out
-    out
-  Pattern::Tuple { items, .. } ->
-    inner = joined items
-    if .len items == 1
-      format! \-> "(#{inner},)"
-    else
-      format! \-> "(#{inner})"
-  Pattern::Slice { items, .. } -> format! \-> "[#{(joined items)}]"
-  Pattern::Record { path, fields, rest, .. } ->
-    mut parts : Vec<String> = fields |> .iter |> .map record_field_text |> .collect
-    if *rest
-      .push (String::from "..") parts
-    if .is_empty parts
-      format! \-> "#{path} {}"
-    else
-      format! \-> "#{path} { #{(.join ", " parts)} }"
-  Pattern::As { name, inner, .. } -> format! \-> "#{name.text} @ #{(beside_a_keyword inner)}"
-  Pattern::Rest _ -> String::from ".."
-  Pattern::NamedRest { name, .. } -> format! \-> "#{name.text} @ .."
-  Pattern::Or alts ->
-    printed : Vec<String> = alts |> .iter |> .map beside_a_keyword |> .collect
-    .join " or " printed
+pattern_text pattern =
+  case pattern of
+    Pattern::Binding ident -> .clone ident.text
+    Pattern::Literal { text, .. } -> .clone text
+    Pattern::Wildcard _ -> String::from "_"
+    Pattern::Range { lo, hi, inclusive, .. } ->
+      dots = if *inclusive
+        "..="
+      else
+        ".."
+      format! \-> "#{lo}#{dots}#{hi}"
+    Pattern::Apply { path, args, .. } ->
+      mut out = .clone path
+      for arg in args
+        .push ' ' out
+        .push_str (&pattern_argument arg) out
+      out
+    Pattern::Tuple { items, .. } ->
+      inner = joined items
+      if .len items == 1
+        format! \-> "(#{inner},)"
+      else
+        format! \-> "(#{inner})"
+    Pattern::Slice { items, .. } -> format! \-> "[#{(joined items)}]"
+    Pattern::Record { path, fields, rest, .. } ->
+      mut parts : Vec<String> = fields |> .iter |> .map record_field_text |> .collect
+      if *rest
+        .push (String::from "..") parts
+      if .is_empty parts
+        format! \-> "#{path} {}"
+      else
+        format! \-> "#{path} { #{(.join ", " parts)} }"
+    Pattern::As { name, inner, .. } -> format! \-> "#{name.text} @ #{(beside_a_keyword inner)}"
+    Pattern::Rest _ -> String::from ".."
+    Pattern::NamedRest { name, .. } -> format! \-> "#{name.text} @ .."
+    Pattern::Or alts ->
+      printed : Vec<String> = alts |> .iter |> .map beside_a_keyword |> .collect
+      .join " or " printed
 
 export(crate) beside_a_keyword : &Pattern -> String
-beside_a_keyword pattern = case pattern of
-  Pattern::Or _ -> format! \-> "(#{(pattern_text pattern)})"
-  other -> pattern_text other
+beside_a_keyword pattern =
+  case pattern of
+    Pattern::Or _ -> format! \-> "(#{(pattern_text pattern)})"
+    other -> pattern_text other
 
 export(crate) joined : &[Pattern] -> String
 joined items =
@@ -58,13 +60,15 @@ pattern_argument pattern =
     format! \-> "(#{(pattern_text pattern)})"
 
 export(crate) stands_alone : &Pattern -> bool
-stands_alone pattern = case pattern of
-  Pattern::Apply { path, args, .. } -> .is_empty args && !.contains "::" path
-  Pattern::Binding ident -> !.contains "::" ident.text
-  Pattern::Literal { .. } or Pattern::Wildcard _ or Pattern::Tuple { .. } or Pattern::Slice { .. } or Pattern::Rest _ or Pattern::NamedRest { .. } -> true
-  Pattern::Range { .. } or Pattern::Record { .. } or Pattern::As { .. } or Pattern::Or _ -> false
+stands_alone pattern =
+  case pattern of
+    Pattern::Apply { path, args, .. } -> .is_empty args && !.contains "::" path
+    Pattern::Binding ident -> !.contains "::" ident.text
+    Pattern::Literal { .. } or Pattern::Wildcard _ or Pattern::Tuple { .. } or Pattern::Slice { .. } or Pattern::Rest _ or Pattern::NamedRest { .. } -> true
+    Pattern::Range { .. } or Pattern::Record { .. } or Pattern::As { .. } or Pattern::Or _ -> false
 
 export(crate) record_field_text : &RecordPatternField -> String
-record_field_text field = case &field.pattern of
-  Some pattern -> format! \-> "#{field.name.text} = #{(pattern_text pattern)}"
-  None -> .clone field.name.text
+record_field_text field =
+  case &field.pattern of
+    Some pattern -> format! \-> "#{field.name.text} = #{(pattern_text pattern)}"
+    None -> .clone field.name.text

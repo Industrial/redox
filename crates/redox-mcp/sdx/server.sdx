@@ -13,7 +13,8 @@ import rmcp::tool_handler
 import rmcp::tool_router
 import serde::Serialize
 
-export data Server = Server
+export data Server
+  = Server
   deriving (Clone, Copy, Default)
 
 #[tool_router]
@@ -21,7 +22,8 @@ export data Server = Server
 instance Server
   #[must_use]
   export new : Self
-  new = Server
+  new =
+    Server
 
   #[tool(description = "Check a .sdx file: transpile it, compile the generated Rust with rustc, and return rustc's diagnostics reported against the .sdx. Returns {ok, diagnostics}.")]
   redox_check : async Parameters<CheckRequest> -> &self -> Result<CallToolResult, ErrorData>

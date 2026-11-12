@@ -51,10 +51,15 @@ check path source =
 
   Ok (CheckOutcome { diagnostics, failed })
 
-export data CheckOutcome = CheckOutcome { export diagnostics : Vec<Diagnostic>, export failed : bool }
+export data CheckOutcome
+  = CheckOutcome {
+    export diagnostics : Vec<Diagnostic>,
+    export failed : bool,
+  }
   deriving (Debug, Clone, Default)
 
-export(crate) data ScratchDir = ScratchDir PathBuf
+export(crate) data ScratchDir
+  = ScratchDir PathBuf
 
 instance ScratchDir
   export(crate) new : &str -> Result<Self, String>
@@ -67,7 +72,8 @@ instance ScratchDir
     Ok $ ScratchDir dir
 
   export(crate) path : &self -> &Path
-  path self = &self.0
+  path self =
+    &self.0
 
 instance Drop ScratchDir
   drop : &mut self -> ()

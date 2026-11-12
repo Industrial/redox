@@ -96,7 +96,10 @@ rust """
   }
 """
 
-export(crate) data ArityScope = ArityScope { previous : ArityTable }
+export(crate) data ArityScope
+  = ArityScope {
+    previous : ArityTable,
+  }
 
 instance ArityScope
   export(crate) enter : ArityTable -> Self
@@ -105,7 +108,8 @@ instance ArityScope
     ArityScope { previous }
 
   export(crate) arity_of : &str -> Option<usize>
-  arity_of name = .with_borrow (\table -> .arity_of name table) IN_SCOPE
+  arity_of name =
+    .with_borrow (\table -> .arity_of name table) IN_SCOPE
 
 instance Drop ArityScope
   drop : &mut self -> ()
@@ -114,7 +118,10 @@ instance Drop ArityScope
     _dropped = .with_borrow_mut (\slot -> std::mem::replace slot restored) IN_SCOPE
     ()
 
-export(crate) data ArityTable = ArityTable { arities : BTreeMap<String, usize> }
+export(crate) data ArityTable
+  = ArityTable {
+    arities : BTreeMap<String, usize>,
+  }
   deriving (Debug, Clone, Default)
 
 instance ArityTable
@@ -143,7 +150,8 @@ instance ArityTable
     ()
 
   export(crate) arity_of : &str -> &self -> Option<usize>
-  arity_of name self = self.arities |> .get name |> .copied
+  arity_of name self =
+    self.arities |> .get name |> .copied
 
 export(crate) chain : &str -> &[String] -> usize -> String
 chain receiver segments base =
@@ -165,7 +173,8 @@ closure params body =
   format! \-> "|#{joined}| #{body}"
 
 export(crate) closure_param : usize -> String
-closure_param index = format! \-> "__rdx_#{index + 1}"
+closure_param index =
+  format! \-> "__rdx_#{index + 1}"
 
 export(crate) coalesce : &Expr -> &Expr -> usize -> String
 coalesce lhs rhs indent =
@@ -207,134 +216,135 @@ compose_chain op lhs rhs out =
   ()
 
 export(crate) emit_expr : &Expr -> usize -> String
-emit_expr e indent = case e of
-  Expr::Lambda { params, body, is_move, .. } ->
-    binders : Vec<String> = params
-      |> .iter
-      |> .map (\param ->
-      case &param.ty of
-        Some ty -> format! \-> "#{param.name.text}: #{ty.text}"
-        None -> .clone param.name.text)
-      |> .collect
-    marker = if *is_move
-      "move "
-    else
-      ""
-    joined = .join ", " binders
-    inner = emit_expr body indent
-    format! \-> "#{marker}|#{joined}| #{inner}"
-  Expr::Ascribe { inner, ty, .. } ->
-    inner_pad = .repeat (indent + RUST_INDENT) " "
-    close_pad = .repeat indent " "
-    bare = unparen inner
-    value = .unwrap_or_else (\-> emit_expr bare (indent + RUST_INDENT)) (ascribed_list bare ty (indent + RUST_INDENT))
-    format! \-> "{\n#{inner_pad}let __rdx_t: #{ty.text} = #{value};\n#{inner_pad}__rdx_t\n#{close_pad}}"
-  Expr::Section { section, .. } -> emit_section section indent
-  Expr::Record { head, fields, .. } -> emit_record head fields indent
-  Expr::Case { scrutinee, arms, .. } -> emit_case scrutinee arms indent
-  Expr::Block { label, body, .. } -> emit_block label body indent
-  Expr::Unit { .. } -> .to_string "()"
-  Expr::Try { inner, .. } -> format! \-> "#{receiver inner indent}?"
-  Expr::List { items, .. } -> format! \-> "[#{expr_list items indent}]"
-  Expr::Comprehension { element, qualifiers, .. } -> emit_comprehension element qualifiers indent
-  Expr::StrLit { value, .. } -> rust_escapes value
-  Expr::StrInterp { parts, .. } ->
-    built = format_template parts indent
-    if .is_empty built.1
-      return format! \-> "format!(\"#{built.0}\")"
-    joined = .join ", " built.1
-    format! \-> "format!(\"#{built.0}\", #{joined})"
-  Expr::MethodRef { name, .. } -> method_ref name (&[]) indent
-  Expr::TryBlock { body, .. } ->
-    _bind = BindScope::enter BindMode::Question
-    try_block body indent
-  Expr::AsyncBlock { body, .. } ->
-    _bind = BindScope::enter BindMode::Await
-    format! \-> "async #{emit_block (&None) body indent}"
-  Expr::BindBlock { method, body, .. } -> bind_block method (&body.stmts) indent
-  Expr::UnsafeBlock { body, .. } -> emit_unsafe_block body indent
-  Expr::Tuple { items, .. } ->
-    inner = expr_list items indent
-    if .len items == 1
-      return format! \-> "(#{inner},)"
-    format! \-> "(#{inner})"
-  Expr::ArrayRepeat { value, count, .. } ->
-    v = emit_expr (unparen value) indent
-    n = emit_expr (unparen count) indent
-    format! \-> "[#{v}; #{n}]"
-  Expr::RawLit { text, .. } -> .clone text
-  Expr::Num { text, .. } -> .clone text
-  Expr::Bool { value, .. } -> .to_string value
-  Expr::Char { value, .. } -> format! \-> "#{value:?}"
-  Expr::Ident i -> binding_text (&i.text)
-  Expr::Path { text, .. } -> binding_text text
-  Expr::SelfField { name, .. } -> format! \-> "self.#{name.text}"
-  Expr::SelfType { name, .. } -> format! \-> "Self::#{name.text}"
-  Expr::Paren { inner, .. } -> format! \-> "(#{emit_expr inner indent})"
-  Expr::Unary { op, operand, .. } -> format! \-> "#{.rust_text op}#{emit_expr operand indent}"
-  Expr::Over { selector, function, place, .. } -> emit_over selector function place indent
-  Expr::UserBinary { target, lhs, rhs, .. } ->
-    left = emit_expr lhs indent
-    right = emit_expr rhs indent
-    format! \-> "#{target}(#{left}, #{right})"
-  Expr::Binary { op, lhs, rhs, .. } | *op == BinaryOp::Pipeline -> pipeline lhs rhs indent
-  Expr::Binary { op, lhs, rhs, .. } | *op == BinaryOp::Coalesce -> coalesce lhs rhs indent
-  Expr::Binary { op, lhs, rhs, .. } | *op == BinaryOp::Catch -> catch_fallback lhs rhs indent
-  Expr::Binary { op, lhs, rhs, .. } | *op == BinaryOp::Compose || *op == BinaryOp::ComposeBack -> compose (*op) lhs rhs 0 indent
-  Expr::Binary { op, lhs, rhs, .. } -> case .rust_text op of
-    Some text | .is_range op ->
+emit_expr e indent =
+  case e of
+    Expr::Lambda { params, body, is_move, .. } ->
+      binders : Vec<String> = params
+        |> .iter
+        |> .map (\param ->
+        case &param.ty of
+          Some ty -> format! \-> "#{param.name.text}: #{ty.text}"
+          None -> .clone param.name.text)
+        |> .collect
+      marker = if *is_move
+        "move "
+      else
+        ""
+      joined = .join ", " binders
+      inner = emit_expr body indent
+      format! \-> "#{marker}|#{joined}| #{inner}"
+    Expr::Ascribe { inner, ty, .. } ->
+      inner_pad = .repeat (indent + RUST_INDENT) " "
+      close_pad = .repeat indent " "
+      bare = unparen inner
+      value = .unwrap_or_else (\-> emit_expr bare (indent + RUST_INDENT)) (ascribed_list bare ty (indent + RUST_INDENT))
+      format! \-> "{\n#{inner_pad}let __rdx_t: #{ty.text} = #{value};\n#{inner_pad}__rdx_t\n#{close_pad}}"
+    Expr::Section { section, .. } -> emit_section section indent
+    Expr::Record { head, fields, .. } -> emit_record head fields indent
+    Expr::Case { scrutinee, arms, .. } -> emit_case scrutinee arms indent
+    Expr::Block { label, body, .. } -> emit_block label body indent
+    Expr::Unit { .. } -> .to_string "()"
+    Expr::Try { inner, .. } -> format! \-> "#{receiver inner indent}?"
+    Expr::List { items, .. } -> format! \-> "[#{expr_list items indent}]"
+    Expr::Comprehension { element, qualifiers, .. } -> emit_comprehension element qualifiers indent
+    Expr::StrLit { value, .. } -> rust_escapes value
+    Expr::StrInterp { parts, .. } ->
+      built = format_template parts indent
+      if .is_empty built.1
+        return format! \-> "format!(\"#{built.0}\")"
+      joined = .join ", " built.1
+      format! \-> "format!(\"#{built.0}\", #{joined})"
+    Expr::MethodRef { name, .. } -> method_ref name (&[]) indent
+    Expr::TryBlock { body, .. } ->
+      _bind = BindScope::enter BindMode::Question
+      try_block body indent
+    Expr::AsyncBlock { body, .. } ->
+      _bind = BindScope::enter BindMode::Await
+      format! \-> "async #{emit_block (&None) body indent}"
+    Expr::BindBlock { method, body, .. } -> bind_block method (&body.stmts) indent
+    Expr::UnsafeBlock { body, .. } -> emit_unsafe_block body indent
+    Expr::Tuple { items, .. } ->
+      inner = expr_list items indent
+      if .len items == 1
+        return format! \-> "(#{inner},)"
+      format! \-> "(#{inner})"
+    Expr::ArrayRepeat { value, count, .. } ->
+      v = emit_expr (unparen value) indent
+      n = emit_expr (unparen count) indent
+      format! \-> "[#{v}; #{n}]"
+    Expr::RawLit { text, .. } -> .clone text
+    Expr::Num { text, .. } -> .clone text
+    Expr::Bool { value, .. } -> .to_string value
+    Expr::Char { value, .. } -> format! \-> "#{value:?}"
+    Expr::Ident i -> binding_text (&i.text)
+    Expr::Path { text, .. } -> binding_text text
+    Expr::SelfField { name, .. } -> format! \-> "self.#{name.text}"
+    Expr::SelfType { name, .. } -> format! \-> "Self::#{name.text}"
+    Expr::Paren { inner, .. } -> format! \-> "(#{emit_expr inner indent})"
+    Expr::Unary { op, operand, .. } -> format! \-> "#{.rust_text op}#{emit_expr operand indent}"
+    Expr::Over { selector, function, place, .. } -> emit_over selector function place indent
+    Expr::UserBinary { target, lhs, rhs, .. } ->
       left = emit_expr lhs indent
       right = emit_expr rhs indent
-      format! \-> "#{left}#{text}#{right}"
-    Some text ->
-      left = emit_expr lhs indent
-      right = emit_expr rhs indent
-      format! \-> "#{left} #{text} #{right}"
-    None -> format! \-> "compile_error!(\"`#{op:?}` is parsed but not yet lowered\")"
-  Expr::Field { recv, name, .. } -> format! \-> "#{receiver recv indent}.#{name.text}"
-  Expr::Index { recv, index, .. } ->
-    head = receiver recv indent
-    at = emit_expr index indent
-    format! \-> "#{head}[#{at}]"
-  Expr::Call { callee, args, .. } ->
-    lone_unit = case .as_slice args of
-      [Expr::Unit { .. }] -> true
-      _ -> false
-    if .is_empty args || lone_unit
-      named = case .as_ref callee of
-        Expr::Ident name -> Some $ .as_str name.text
-        Expr::Path { text, .. } -> Some (.as_str text)
-        _ -> None
-      if named is Some name && .is_some (BindingScope::kind_of name)
-        return binding_text name
-    emit_application callee args indent
-  Expr::Return { value, .. } -> case value of
-    Some v -> format! \-> "return #{emit_expr v indent}"
-    None -> .to_string "return"
-  Expr::Break { label, value, .. } ->
-    mut out = .to_string "break"
-    if label is Some name
-      .push_str (&format! \-> " '#{name}") out
-    if value is Some v
-      .push_str (&format! \-> " #{emit_expr (unparen v) indent}") out
-    out
-  Expr::Continue { label, .. } -> case label of
-    Some name -> format! \-> "continue '#{name}"
-    None -> .to_string "continue"
-  Expr::Assign { target, op, value, .. } ->
-    operator = .map_or "" (\o -> .unwrap_or "/* unsupported */" (.rust_text o)) (*op)
-    left = emit_expr (unparen target) indent
-    right = emit_expr (unparen value) indent
-    format! \-> "#{left} #{operator}= #{right}"
-  Expr::MacroCall { name, args, .. } -> macro_call name args indent
-  Expr::RustHatch { code, .. } -> rust_hatch_text code indent
-  Expr::Await { pattern = None, value, .. } -> format! \-> "#{receiver (unparen value) indent}.await"
-  Expr::If { .. } or Expr::While { .. } or Expr::For { .. } or Expr::Loop { .. } -> control_text e indent
-  Expr::Binding _ -> unlowerable "a binding"
-  Expr::Item { .. } -> unlowerable "a declaration"
-  Expr::Guard { .. } -> unlowerable "a `guard`"
-  Expr::Draw { .. } -> unlowerable "a `with` binder"
-  Expr::Await { pattern = Some _, .. } -> unlowerable "an `await` that binds"
+      format! \-> "#{target}(#{left}, #{right})"
+    Expr::Binary { op, lhs, rhs, .. } | *op == BinaryOp::Pipeline -> pipeline lhs rhs indent
+    Expr::Binary { op, lhs, rhs, .. } | *op == BinaryOp::Coalesce -> coalesce lhs rhs indent
+    Expr::Binary { op, lhs, rhs, .. } | *op == BinaryOp::Catch -> catch_fallback lhs rhs indent
+    Expr::Binary { op, lhs, rhs, .. } | *op == BinaryOp::Compose || *op == BinaryOp::ComposeBack -> compose (*op) lhs rhs 0 indent
+    Expr::Binary { op, lhs, rhs, .. } -> case .rust_text op of
+      Some text | .is_range op ->
+        left = emit_expr lhs indent
+        right = emit_expr rhs indent
+        format! \-> "#{left}#{text}#{right}"
+      Some text ->
+        left = emit_expr lhs indent
+        right = emit_expr rhs indent
+        format! \-> "#{left} #{text} #{right}"
+      None -> format! \-> "compile_error!(\"`#{op:?}` is parsed but not yet lowered\")"
+    Expr::Field { recv, name, .. } -> format! \-> "#{receiver recv indent}.#{name.text}"
+    Expr::Index { recv, index, .. } ->
+      head = receiver recv indent
+      at = emit_expr index indent
+      format! \-> "#{head}[#{at}]"
+    Expr::Call { callee, args, .. } ->
+      lone_unit = case .as_slice args of
+        [Expr::Unit { .. }] -> true
+        _ -> false
+      if .is_empty args || lone_unit
+        named = case .as_ref callee of
+          Expr::Ident name -> Some $ .as_str name.text
+          Expr::Path { text, .. } -> Some (.as_str text)
+          _ -> None
+        if named is Some name && .is_some (BindingScope::kind_of name)
+          return binding_text name
+      emit_application callee args indent
+    Expr::Return { value, .. } -> case value of
+      Some v -> format! \-> "return #{emit_expr v indent}"
+      None -> .to_string "return"
+    Expr::Break { label, value, .. } ->
+      mut out = .to_string "break"
+      if label is Some name
+        .push_str (&format! \-> " '#{name}") out
+      if value is Some v
+        .push_str (&format! \-> " #{emit_expr (unparen v) indent}") out
+      out
+    Expr::Continue { label, .. } -> case label of
+      Some name -> format! \-> "continue '#{name}"
+      None -> .to_string "continue"
+    Expr::Assign { target, op, value, .. } ->
+      operator = .map_or "" (\o -> .unwrap_or "/* unsupported */" (.rust_text o)) (*op)
+      left = emit_expr (unparen target) indent
+      right = emit_expr (unparen value) indent
+      format! \-> "#{left} #{operator}= #{right}"
+    Expr::MacroCall { name, args, .. } -> macro_call name args indent
+    Expr::RustHatch { code, .. } -> rust_hatch_text code indent
+    Expr::Await { pattern = None, value, .. } -> format! \-> "#{receiver (unparen value) indent}.await"
+    Expr::If { .. } or Expr::While { .. } or Expr::For { .. } or Expr::Loop { .. } -> control_text e indent
+    Expr::Binding _ -> unlowerable "a binding"
+    Expr::Item { .. } -> unlowerable "a declaration"
+    Expr::Guard { .. } -> unlowerable "a `guard`"
+    Expr::Draw { .. } -> unlowerable "a `with` binder"
+    Expr::Await { pattern = Some _, .. } -> unlowerable "an `await` that binds"
 
 export(crate) expr_list : &[Expr] -> usize -> String
 expr_list args indent =
@@ -350,9 +360,10 @@ expr_list args indent =
   .join ", " parts
 
 export(crate) field_value : &FieldInit -> usize -> String
-field_value f indent = case &f.value of
-  Some e -> emit_expr (unparen e) indent
-  None -> .clone f.name.text
+field_value f indent =
+  case &f.value of
+    Some e -> emit_expr (unparen e) indent
+    None -> .clone f.name.text
 
 export(crate) const FN_CALL_WIDTH : usize = 60
 
@@ -383,14 +394,15 @@ macro_call name args indent =
   format! \-> "#{name}!(\n#{inner_pad}#{spread}\n#{close_pad})"
 
 export(crate) macro_argument : &Expr -> usize -> Vec<String>
-macro_argument arg indent = case unparen arg of
-  Expr::StrLit { value, .. } -> vec! \-> double_braces (&rust_escapes value)
-  Expr::StrInterp { parts, .. } ->
-    built = format_template parts indent
-    mut supplied = vec! \-> format! \-> "\"#{built.0}\""
-    .extend built.1 supplied
-    supplied
-  other -> vec! \-> emit_expr other indent
+macro_argument arg indent =
+  case unparen arg of
+    Expr::StrLit { value, .. } -> vec! \-> double_braces (&rust_escapes value)
+    Expr::StrInterp { parts, .. } ->
+      built = format_template parts indent
+      mut supplied = vec! \-> format! \-> "\"#{built.0}\""
+      .extend built.1 supplied
+      supplied
+    other -> vec! \-> emit_expr other indent
 
 export(crate) method_ref : &Ident -> &[Expr] -> usize -> String
 method_ref name args indent =
@@ -425,27 +437,29 @@ emit_over selector function place indent =
   format! \-> "#{target} = #{value}"
 
 export(crate) pipeline : &Expr -> &Expr -> usize -> String
-pipeline lhs rhs indent = case unparen rhs of
-  Expr::MethodRef { name, .. } -> format! \-> "#{receiver lhs indent}.#{name.text}()"
-  Expr::Call { callee, args, .. } -> case unparen callee of
-    Expr::MethodRef { name, .. } ->
-      recv = receiver lhs indent
-      listed = expr_list args indent
-      format! \-> "#{recv}.#{name.text}(#{listed})"
-    other ->
-      mut supplied : Vec<String> = args
-        |> .iter
-        |> .map (\a -> emit_expr a indent)
-        |> .collect
-      .push (emit_expr lhs indent) supplied
-      joined = .join ", " supplied
-      format! \-> "#{callable other indent}(#{joined})"
-  other -> format! \-> "#{callable other indent}(#{emit_expr lhs indent})"
+pipeline lhs rhs indent =
+  case unparen rhs of
+    Expr::MethodRef { name, .. } -> format! \-> "#{receiver lhs indent}.#{name.text}()"
+    Expr::Call { callee, args, .. } -> case unparen callee of
+      Expr::MethodRef { name, .. } ->
+        recv = receiver lhs indent
+        listed = expr_list args indent
+        format! \-> "#{recv}.#{name.text}(#{listed})"
+      other ->
+        mut supplied : Vec<String> = args
+          |> .iter
+          |> .map (\a -> emit_expr a indent)
+          |> .collect
+        .push (emit_expr lhs indent) supplied
+        joined = .join ", " supplied
+        format! \-> "#{callable other indent}(#{joined})"
+    other -> format! \-> "#{callable other indent}(#{emit_expr lhs indent})"
 
 export(crate) callable : &Expr -> usize -> String
-callable callee indent = case callee of
-  Expr::Ident _ or Expr::Path { .. } -> emit_expr callee indent
-  _ -> format! \-> "(#{emit_expr callee indent})"
+callable callee indent =
+  case callee of
+    Expr::Ident _ or Expr::Path { .. } -> emit_expr callee indent
+    _ -> format! \-> "(#{emit_expr callee indent})"
 
 export(crate) receiver : &Expr -> usize -> String
 receiver e indent =
@@ -503,17 +517,20 @@ sole_expression row indent =
   .map (\e -> emit_expr (unparen e) indent) $ .sole_expression row.body
 
 export(crate) unparen : &Expr -> &Expr
-unparen expr = case expr of
-  Expr::Paren { inner, .. } -> unparen inner
-  other -> other
+unparen expr =
+  case expr of
+    Expr::Paren { inner, .. } -> unparen inner
+    other -> other
 
 #[cfg(test)]
 ident : &str -> Expr
-ident text = Expr::Ident (redox_ast::Ident { text = .to_string text, span = (0, 0) })
+ident text =
+  Expr::Ident (redox_ast::Ident { text = .to_string text, span = (0, 0) })
 
 #[cfg(test)]
 paren : Expr -> Expr
-paren inner = Expr::Paren { inner = Box::new inner, span = (0, 0) }
+paren inner =
+  Expr::Paren { inner = Box::new inner, span = (0, 0) }
 
 test "strips one layer"
   assert_eq! \-> unparen (&paren (ident "x")) \-> &ident "x"

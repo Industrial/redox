@@ -6,7 +6,11 @@
 -- is not parsed yet. That is enough: a section's lowering does not depend on
 -- what it is mapped over.
 
-data User = User { name : &'static str, age : u32 }
+data User
+  = User {
+    name : &'static str,
+    age : u32,
+  }
 
 main : ()
 main =

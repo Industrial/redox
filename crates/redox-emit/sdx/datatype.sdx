@@ -343,9 +343,10 @@ names_a_constructor head =
   name |> .chars |> .next |> .is_some_and char::is_uppercase
 
 export(crate) one_field : &FieldInit -> usize -> String
-one_field f indent = case &f.value of
-  Some _ -> format! \-> "#{f.name.text}: #{field_value f indent}"
-  None -> .clone f.name.text
+one_field f indent =
+  case &f.value of
+    Some _ -> format! \-> "#{f.name.text}: #{field_value f indent}"
+    None -> .clone f.name.text
 
 export(crate) emit_record : &Expr -> &[FieldInit] -> usize -> String
 emit_record head fields indent =

@@ -326,15 +326,18 @@ stmt p =
     else
       Some $ Box::new (parse_expr p 0)?
     Expr::Return { value, span = (start, (.prev_span p).1) }
-  else if (.try_draw p)? is Some drawn
-    drawn
-  else if (try_await p)? is Some awaited
-    awaited
-  else if (.try_binding p)? is Some bound
-    Expr::Binding $ Box::new bound
   else
-    value = (parse_expr p 0)?
-    (assign_tail p value start)?
+    if (.try_draw p)? is Some drawn
+      drawn
+    else
+      if (try_await p)? is Some awaited
+        awaited
+      else
+        if (.try_binding p)? is Some bound
+          Expr::Binding $ Box::new bound
+        else
+          value = (parse_expr p 0)?
+          (assign_tail p value start)?
   end = (.prev_span p).1
   trailing = (.newline_with_trailing "expected a line break after the statement" p)?
   Ok (Stmt { expr, span = (start, end), leading, trailing })

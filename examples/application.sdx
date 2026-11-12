@@ -11,28 +11,33 @@
 -- the wrong operand still compiles and prints a different number.
 
 show : i32 -> String
-show n = "#{n}"
+show n =
+  "#{n}"
 
 twice : String -> String
-twice s = "#{s}#{s}"
+twice s =
+  "#{s}#{s}"
 
 -- `$` is **lower** than every operator, so the sum is the argument and not
 -- just the `1`. Written with parentheses this is `print (1 + 2)`; the point
 -- of `$` is that it does not need them.
 sum_of : i32 -> i32 -> String
-sum_of a b = "#{a} + #{b}"
+sum_of a b =
+  "#{a} + #{b}"
 
 -- `$` is **right**-associative, so this is `twice (show 7)` and never
 -- `(twice show) 7` — which would not compile, and so is the one case here
 -- that a wrong lowering cannot hide.
 nested : String
-nested = twice $ show 7
+nested =
+  twice $ show 7
 
 -- And it does not swallow a method: the receiver of `.len` is `show 3`, not
 -- the whole application. Plan 57 made the receiver the **last** argument, so
 -- the grouping that used to be the receiver's is now an argument's.
 chained : usize
-chained = .len (show 3)
+chained =
+  .len (show 3)
 
 -- The multi-line pipeline. The receiver sits on the `=` line and every
 -- continuation indents beneath it — which is the one layout that parses, and
@@ -55,11 +60,12 @@ chained = .len (show 3)
 -- rather than worked around in silence — plan 58 makes long chains the normal
 -- case and is where the emitter learns to break them.
 evens_doubled : Vec<i32> -> usize
-evens_doubled xs = xs
-  |> .iter
-  |> .filter (\n -> *n % 2 == 0)
-  |> .map (\n -> n * 2)
-  |> .count
+evens_doubled xs =
+  xs
+    |> .iter
+    |> .filter (\n -> *n % 2 == 0)
+    |> .map (\n -> n * 2)
+    |> .count
 
 main : ()
 main =

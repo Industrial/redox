@@ -25,7 +25,9 @@ main =
 -- all — juxtaposition needs something to juxtapose. A lone `()` argument
 -- *is* the empty argument list, so `none_str ()` is `none_str()`.
 none_str : Option<&'static str>
-none_str = None
+none_str =
+  None
 
 expensive : &'static str
-expensive = "computed"
+expensive =
+  "computed"

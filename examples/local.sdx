@@ -42,9 +42,10 @@ describe n =
 
   instance Named Shade
     name : &self -> &'static str
-    name self = case self of
-      Deep -> "deep"
-      _ -> "pale"
+    name self =
+      case self of
+        Deep -> "deep"
+        _ -> "pale"
 
   const LIMIT : i32 = 5
 

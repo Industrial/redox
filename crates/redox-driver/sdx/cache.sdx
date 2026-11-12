@@ -12,7 +12,8 @@ cache_key source fingerprint =
 
 #[cfg(test)]
 fp : Fingerprint
-fp = Fingerprint::r#of b"compiler"
+fp =
+  Fingerprint::r#of b"compiler"
 
 test "the same source and compiler give the same key"
   assert_eq! \-> cache_key "main : ()\nmain =\n" (&fp ()) \-> cache_key "main : ()\nmain =\n" (&fp ())
@@ -33,14 +34,16 @@ test "renders as hex"
   assert_eq! \-> .len hex \-> 64
   assert! \-> .all (\c -> .is_ascii_hexdigit c) (.chars hex)
 
-export newtype Fingerprint = Fingerprint blake3::Hash
+export newtype Fingerprint
+  = Fingerprint blake3::Hash
   deriving (Debug, Clone, Copy, PartialEq, Eq)
 
 instance Fingerprint
   export current : Self
-  current = case .and_then std::fs::read (std::env::current_exe ()) of
-    Ok bytes -> Fingerprint::r#of (&bytes)
-    Err _ -> Fingerprint::r#of $ &.to_le_bytes (Fingerprint::now ())
+  current =
+    case .and_then std::fs::read (std::env::current_exe ()) of
+      Ok bytes -> Fingerprint::r#of (&bytes)
+      Err _ -> Fingerprint::r#of $ &.to_le_bytes (Fingerprint::now ())
 
   now : u128
   now =
@@ -49,10 +52,12 @@ instance Fingerprint
       |> .map_or 0 (\d -> .as_nanos d)
 
   export r#of : &[u8] -> Self
-  r#of bytes = Fingerprint $ blake3::hash bytes
+  r#of bytes =
+    Fingerprint $ blake3::hash bytes
 
   export(crate) as_bytes : &self -> &[u8; 32]
-  as_bytes self = .as_bytes self.0
+  as_bytes self =
+    .as_bytes self.0
 
 test "differs for different bytes"
   assert_ne! \-> Fingerprint::r#of b"compiler-a" \-> Fingerprint::r#of b"compiler-b"
@@ -67,7 +72,8 @@ export class CacheReporter
   report : &self -> &str -> bool -> ()
 
 #[cfg(test)]
-data Collect = Collect std::cell::RefCell<Vec<String>>
+data Collect
+  = Collect std::cell::RefCell<Vec<String>>
 
 #[cfg(test)]
 instance CacheReporter Collect
@@ -85,7 +91,8 @@ test "a reporter sees both outcomes"
   .report "a.sdx" true collect
   assert_eq! \-> .as_slice (.borrow collect.0) \-> ["a.sdx MISS", "a.sdx HIT"]
 
-export data Silent = Silent
+export data Silent
+  = Silent
 
 instance CacheReporter Silent
   report : &self -> &str -> bool -> ()
@@ -95,11 +102,15 @@ test "accepts everything and says nothing"
   .report "a.sdx" true Silent
   .report "a.sdx" false Silent
 
-export(crate) data Store = Store { dir : PathBuf }
+export(crate) data Store
+  = Store {
+    dir : PathBuf,
+  }
 
 instance Store
   export(crate) new : &Path -> Self
-  new out = Store { dir = .join ".redox-cache" out }
+  new out =
+    Store { dir = .join ".redox-cache" out }
 
   paths : &blake3::Hash -> &self -> (PathBuf, PathBuf)
   paths key self =
@@ -130,7 +141,8 @@ instance Store
 static NEXT : std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new 0
 
 #[cfg(test)]
-data Dir = Dir std::path::PathBuf
+data Dir
+  = Dir std::path::PathBuf
 
 #[cfg(test)]
 instance Dir
@@ -151,7 +163,8 @@ instance Drop Dir
 
 #[cfg(test)]
 entry : Cached
-entry = Cached { r#rust = .to_string "fn main() {}\n", map = .to_string "redox-map 1 a.sdx\n1 1 1 1\n" }
+entry =
+  Cached { r#rust = .to_string "fn main() {}\n", map = .to_string "redox-map 1 a.sdx\n1 1 1 1\n" }
 
 test "a stored entry comes back"
   dir = Dir::new "roundtrip"
@@ -193,5 +206,9 @@ test "an unwritable store is simply always a miss"
   .put (&key) (&entry ()) store
   assert_eq! \-> .get (&key) store \-> None
 
-export(crate) data Cached = Cached { export(crate) r#rust : String, export(crate) map : String }
+export(crate) data Cached
+  = Cached {
+    export(crate) r#rust : String,
+    export(crate) map : String,
+  }
   deriving (Debug, Clone, PartialEq, Eq)

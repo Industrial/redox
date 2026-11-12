@@ -49,11 +49,15 @@ parity : u64 -> bool
 parity n = even n
   where
     even : u64 -> bool
-    even 0 = true
-    even k = odd (k - 1)
+    even 0 =
+      true
+    even k =
+      odd (k - 1)
     odd : u64 -> bool
-    odd 0 = false
-    odd k = even (k - 1)
+    odd 0 =
+      false
+    odd k =
+      even (k - 1)
 
 -- Mutual recursion needs no ordering at all, which is what made leaf 3 free:
 -- `even` calls `odd` and `odd` calls `even`, and Rust accepts nested `fn`
@@ -69,7 +73,8 @@ mixed n = trebled
   where
     doubled = half n * 2
     half : u64 -> u64
-    half k = k / 2
+    half k =
+      k / 2
     trebled = doubled * 3
 
 -- A reference to a **parameter** or to a module-scope name is not an edge,

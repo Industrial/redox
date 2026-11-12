@@ -8,9 +8,15 @@
 -- resolution to copy one from the class — AGENTS.md forbids growing any.
 -- Doc 18 §2.5 records the deviation.
 
-data Square = Square { side : f64 }
+data Square
+  = Square {
+    side : f64,
+  }
 
-data Circle = Circle { radius : f64 }
+data Circle
+  = Circle {
+    radius : f64,
+  }
 
 -- `class` is Rust's `trait`. The superclass becomes a supertrait bound, and
 -- `self` in a type marks the receiver — doc 18 §2.5, plan 67. The class
@@ -21,23 +27,28 @@ class Shape
   -- A default method, which is an ordinary equation: anything a function's
   -- body can be, this can be.
   describe : &self -> &'static str
-  describe self = "a shape"
+  describe self =
+    "a shape"
 
 instance Shape Square
   const SIDES : u32 = 4
-  area self = self.side * self.side
-  describe self = "a square"
+  area self =
+    self.side * self.side
+  describe self =
+    "a square"
 
 -- No `describe`, so the class's default is used.
 instance Shape Circle
   const SIDES : u32 = 0
-  area self = 3.0 * self.radius * self.radius
+  area self =
+    3.0 * self.radius * self.radius
 
 -- An inherent `instance`: no class name, so no `for`. The receiver is marked
 -- the same way here, which is what makes one notation serve both forms.
 instance Square
   perimeter : &self -> f64
-  perimeter self = 4.0 * self.side
+  perimeter self =
+    4.0 * self.side
 
 main : ()
 main =
