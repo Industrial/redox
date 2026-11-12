@@ -32,7 +32,10 @@ expr_text expr required indent source = case expr of
   Expr::Binary { op = BinaryOp::Pipeline, lhs, rhs, .. } ->
     pipeline_text lhs rhs indent source
   Expr::Over { selector, function, place, .. } ->
-    path : Vec<String> = selector |> .iter |> .map (\i -> .clone i.text) |> .collect
+    path : Vec<String> = selector
+      |> .iter
+      |> .map (\i -> .clone i.text)
+      |> .collect
     spelled = .join "." path
     format! \-> "over (.#{spelled}) #{(operand function u8::MAX indent source)} #{(operand place u8::MAX indent source)}"
   Expr::UserBinary { spelling, fixity, precedence, lhs, rhs, .. } ->
@@ -99,7 +102,6 @@ expr_text expr required indent source = case expr of
     format! \-> "case #{(expr_text scrutinee 0 indent source)} of\n#{(.join "\n" printed)}"
   Expr::If { .. } or Expr::Binding _ or Expr::Item { .. } or Expr::Return { .. } or Expr::Draw { .. } or Expr::Await { .. } or Expr::Assign { .. } -> code_text expr indent source
   Expr::Guard { .. } or Expr::While { .. } or Expr::For { .. } or Expr::Loop { .. } or Expr::Break { .. } or Expr::Continue { .. } -> code_text expr indent source
-
 
 export(crate) argument : &Expr -> usize -> &str -> String
 argument expr indent source = case expr of

@@ -40,7 +40,6 @@ pattern_text pattern = case pattern of
     printed : Vec<String> = alts |> .iter |> .map beside_a_keyword |> .collect
     .join " or " printed
 
-
 export(crate) beside_a_keyword : &Pattern -> String
 beside_a_keyword pattern = case pattern of
   Pattern::Or _ -> format! \-> "(#{(pattern_text pattern)})"

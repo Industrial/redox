@@ -2,22 +2,14 @@ export type Span = (usize, usize)
 
 export const VERSION : u32 = 1
 
-export data Origin = Origin {
-  export span : Span,
-  export src_line : usize,
-  export src_col : usize,
-  export gen_col : usize,
-}
+export data Origin = Origin { export span : Span, export src_line : usize, export src_col : usize, export gen_col : usize }
   deriving (Debug, Clone, Copy, PartialEq, Eq)
 
 instance Origin
   export map_col : &self -> usize -> usize
   map_col self gen_col = self.src_col + .saturating_sub self.gen_col gen_col
 
-export data SourceMap = SourceMap {
-  export source_path : String,
-  origins : Vec<Option<Origin>>,
-}
+export data SourceMap = SourceMap { export source_path : String, origins : Vec<Option<Origin>> }
   deriving (Debug, Clone, Default, PartialEq, Eq)
 
 instance SourceMap
@@ -53,8 +45,8 @@ export render_map : &SourceMap -> String
 render_map map =
   rows : Vec<String> = 1 ..= .len map
     |> .map (\n -> case .origin n map of
-      Some o -> format! \-> "#{n} #{o.src_line} #{o.src_col} #{o.gen_col}\n"
-      None -> format! \-> "#{n} -\n")
+    Some o -> format! \-> "#{n} #{o.src_line} #{o.src_col} #{o.gen_col}\n"
+    None -> format! \-> "#{n} -\n")
     |> .collect
   format! \-> "redox-map #{VERSION} #{map.source_path}\n#{(.concat rows)}"
 

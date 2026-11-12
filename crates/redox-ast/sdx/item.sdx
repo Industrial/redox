@@ -6,11 +6,7 @@ import crate::TypeExpr
 import redox_lexer::Span
 import redox_lexer::Trivia
 
-export data Program = Program {
-  export items : Vec<Item>,
-  export span : Span,
-  export trailing : Vec<Trivia>,
-}
+export data Program = Program { export items : Vec<Item>, export span : Span, export trailing : Vec<Trivia> }
   deriving (Debug, Clone, PartialEq, Eq)
 
 export data Item
@@ -49,15 +45,7 @@ instance Item
     Item::DeriveTemplate t -> t.span
     Item::OperatorDecl o -> o.span
 
-export data ClassDecl = ClassDecl {
-  export name : Ident,
-  export params : Vec<Ident>,
-  export supers : Vec<Ident>,
-  export members : Vec<ClassMember>,
-  export visibility : Visibility,
-  export span : Span,
-  export leading : Vec<Trivia>,
-}
+export data ClassDecl = ClassDecl { export name : Ident, export params : Vec<Ident>, export supers : Vec<Ident>, export members : Vec<ClassMember>, export visibility : Visibility, export span : Span, export leading : Vec<Trivia> }
   deriving (Debug, Clone, PartialEq, Eq)
 
 export data ClassMember
@@ -66,13 +54,7 @@ export data ClassMember
   | Method FnDecl
   deriving (Debug, Clone, PartialEq, Eq)
 
-export data Clause = Clause {
-  export patterns : Vec<Pattern>,
-  export body : ClauseBody,
-  export wheres : Vec<crate::Stmt>,
-  export span : Span,
-  export trailing : Option<Trivia>,
-}
+export data Clause = Clause { export patterns : Vec<Pattern>, export body : ClauseBody, export wheres : Vec<crate::Stmt>, export span : Span, export trailing : Option<Trivia> }
   deriving (Debug, Clone, PartialEq, Eq)
 
 export data ClauseBody
@@ -85,30 +67,13 @@ instance ClauseBody
     Plain block -> Some block
     Guarded _ -> None
 
-export data ConstDecl = ConstDecl {
-  export name : Ident,
-  export ty : TypeExpr,
-  export value : Expr,
-  export is_static : bool,
-  export visibility : Visibility,
-  export span : Span,
-  export leading : Vec<Trivia>,
-}
+export data ConstDecl = ConstDecl { export name : Ident, export ty : TypeExpr, export value : Expr, export is_static : bool, export visibility : Visibility, export span : Span, export leading : Vec<Trivia> }
   deriving (Debug, Clone, PartialEq, Eq)
 
-export data Constraint = Constraint {
-  export trait_name : Ident,
-  export var : Ident,
-  export span : Span,
-}
+export data Constraint = Constraint { export trait_name : Ident, export var : Ident, export span : Span }
   deriving (Debug, Clone, PartialEq, Eq)
 
-export data Constructor = Constructor {
-  export name : Ident,
-  export fields : ConstructorFields,
-  export leading : Vec<Trivia>,
-  export span : Span,
-}
+export data Constructor = Constructor { export name : Ident, export fields : ConstructorFields, export leading : Vec<Trivia>, export span : Span }
   deriving (Debug, Clone, PartialEq, Eq)
 
 export data ConstructorFields
@@ -117,60 +82,22 @@ export data ConstructorFields
   | Record Vec<FieldDecl>
   deriving (Debug, Clone, PartialEq, Eq)
 
-export data DataDecl = DataDecl {
-  export name : Ident,
-  export generics : Vec<String>,
-  export constructors : Vec<Constructor>,
-  export derives : Vec<Ident>,
-  export is_newtype : bool,
-  export is_union : bool,
-  export visibility : Visibility,
-  export span : Span,
-  export leading : Vec<Trivia>,
-}
+export data DataDecl = DataDecl { export name : Ident, export generics : Vec<String>, export constructors : Vec<Constructor>, export derives : Vec<Ident>, export is_newtype : bool, export is_union : bool, export visibility : Visibility, export span : Span, export leading : Vec<Trivia> }
   deriving (Debug, Clone, PartialEq, Eq)
 
-export data DeriveTemplate = DeriveTemplate {
-  export name : Ident,
-  export body : InstanceDecl,
-  export span : Span,
-  export leading : Vec<Trivia>,
-}
+export data DeriveTemplate = DeriveTemplate { export name : Ident, export body : InstanceDecl, export span : Span, export leading : Vec<Trivia> }
   deriving (Debug, Clone, PartialEq, Eq)
 
-export data ErrorVariant = ErrorVariant {
-  export name : Ident,
-  export fields : Vec<TypeExpr>,
-  export from : bool,
-  export message : String,
-  export span : Span,
-}
+export data ErrorVariant = ErrorVariant { export name : Ident, export fields : Vec<TypeExpr>, export from : bool, export message : String, export span : Span }
   deriving (Debug, Clone, PartialEq, Eq)
 
-export data ErrorsDecl = ErrorsDecl {
-  export name : Ident,
-  export variants : Vec<ErrorVariant>,
-  export visibility : Visibility,
-  export span : Span,
-  export leading : Vec<Trivia>,
-}
+export data ErrorsDecl = ErrorsDecl { export name : Ident, export variants : Vec<ErrorVariant>, export visibility : Visibility, export span : Span, export leading : Vec<Trivia> }
   deriving (Debug, Clone, PartialEq, Eq)
 
-export data ExternBlock = ExternBlock {
-  export abi : String,
-  export decls : Vec<ForeignFn>,
-  export span : Span,
-  export leading : Vec<Trivia>,
-}
+export data ExternBlock = ExternBlock { export abi : String, export decls : Vec<ForeignFn>, export span : Span, export leading : Vec<Trivia> }
   deriving (Debug, Clone, PartialEq, Eq)
 
-export data FieldDecl = FieldDecl {
-  export name : Ident,
-  export ty : TypeExpr,
-  export visibility : Visibility,
-  export leading : Vec<Trivia>,
-  export span : Span,
-}
+export data FieldDecl = FieldDecl { export name : Ident, export ty : TypeExpr, export visibility : Visibility, export leading : Vec<Trivia>, export span : Span }
   deriving (Debug, Clone, PartialEq, Eq)
 
 export data Fixity
@@ -200,52 +127,22 @@ instance Fixity
     "infix" -> Some Fixity::NonAssoc
     _ -> None
 
-export data FnDecl = FnDecl {
-  export name : Ident,
-  export sig : Signature,
-  export clauses : Vec<Clause>,
-  export visibility : Visibility,
-  export span : Span,
-  export leading : Vec<Trivia>,
-  export trailing : Option<Trivia>,
-}
+export data FnDecl = FnDecl { export name : Ident, export sig : Signature, export clauses : Vec<Clause>, export visibility : Visibility, export span : Span, export leading : Vec<Trivia>, export trailing : Option<Trivia> }
   deriving (Debug, Clone, PartialEq, Eq)
 
 export data ForeignFn = ForeignFn { export name : Ident, export sig : Signature, export span : Span, export leading : Vec<Trivia> }
   deriving (Debug, Clone, PartialEq, Eq)
 
-export data Guard = Guard {
-  export condition : Option<Expr>,
-  export body : Block,
-  export span : Span,
-}
+export data Guard = Guard { export condition : Option<Expr>, export body : Block, export span : Span }
   deriving (Debug, Clone, PartialEq, Eq)
 
-export data ImportDecl = ImportDecl {
-  export path : String,
-  export alias : Option<Ident>,
-  export visibility : Visibility,
-  export span : Span,
-  export leading : Vec<Trivia>,
-}
+export data ImportDecl = ImportDecl { export path : String, export alias : Option<Ident>, export visibility : Visibility, export span : Span, export leading : Vec<Trivia> }
   deriving (Debug, Clone, PartialEq, Eq)
 
-export data InlineRust = InlineRust {
-  export code : String,
-  export span : Span,
-  export leading : Vec<Trivia>,
-}
+export data InlineRust = InlineRust { export code : String, export span : Span, export leading : Vec<Trivia> }
   deriving (Debug, Clone, PartialEq, Eq)
 
-export data InstanceDecl = InstanceDecl {
-  export r#class : Option<TypeApp>,
-  export target : TypeApp,
-  export constraints : Vec<Constraint>,
-  export r#given : Option<String>,
-  export members : Vec<ClassMember>,
-  export span : Span,
-  export leading : Vec<Trivia>,
-}
+export data InstanceDecl = InstanceDecl { export r#class : Option<TypeApp>, export target : TypeApp, export constraints : Vec<Constraint>, export r#given : Option<String>, export members : Vec<ClassMember>, export span : Span, export leading : Vec<Trivia> }
   deriving (Debug, Clone, PartialEq, Eq)
 
 export leading : &Item -> &[Trivia]
@@ -266,35 +163,16 @@ leading item = case item of
   Item::DeriveTemplate t -> &t.leading
   Item::OperatorDecl o -> &o.leading
 
-export data ModuleDecl = ModuleDecl {
-  export name : Ident,
-  export items : Option<Vec<crate::Item>>,
-  export visibility : Visibility,
-  export span : Span,
-  export leading : Vec<Trivia>,
-}
+export data ModuleDecl = ModuleDecl { export name : Ident, export items : Option<Vec<crate::Item>>, export visibility : Visibility, export span : Span, export leading : Vec<Trivia> }
   deriving (Debug, Clone, PartialEq, Eq)
 
-export data OperatorDecl = OperatorDecl {
-  export spelling : Ident,
-  export fixity : Fixity,
-  export precedence : u8,
-  export target : String,
-  export span : Span,
-  export leading : Vec<Trivia>,
-}
+export data OperatorDecl = OperatorDecl { export spelling : Ident, export fixity : Fixity, export precedence : u8, export target : String, export span : Span, export leading : Vec<Trivia> }
   deriving (Debug, Clone, PartialEq, Eq)
 
 export data Param = Param { export name : Ident, export ty : Option<TypeExpr>, export is_mut : bool, export span : Span }
   deriving (Debug, Clone, PartialEq, Eq)
 
-export data PatternSynonym = PatternSynonym {
-  export name : Ident,
-  export params : Vec<Ident>,
-  export body : Pattern,
-  export span : Span,
-  export leading : Vec<Trivia>,
-}
+export data PatternSynonym = PatternSynonym { export name : Ident, export params : Vec<Ident>, export body : Pattern, export span : Span, export leading : Vec<Trivia> }
   deriving (Debug, Clone, PartialEq, Eq)
 
 export primitive_type : &str -> bool
@@ -304,45 +182,19 @@ primitive_type name = case name of
   "f32" or "f64" or "bool" or "char" or "str" -> true
   _ -> false
 
-export data Signature = Signature {
-  export params : Vec<Param>,
-  export ret : Option<TypeExpr>,
-  export generics : Vec<String>,
-  export bounds : Vec<(String, String)>,
-  export r#given : Option<String>,
-  export predicates : Option<String>,
-  export is_const : bool,
-  export is_async : bool,
-  export is_unsafe : bool,
-  export span : Span,
-}
+export data Signature = Signature { export params : Vec<Param>, export ret : Option<TypeExpr>, export generics : Vec<String>, export bounds : Vec<(String, String)>, export r#given : Option<String>, export predicates : Option<String>, export is_const : bool, export is_async : bool, export is_unsafe : bool, export span : Span }
   deriving (Debug, Clone, PartialEq, Eq, Default)
 instance Signature
   export returns_unit : &self -> bool
   returns_unit self = .is_none_or (\ret -> ret.text == "()") (.as_ref self.ret)
 
-export data TestDecl = TestDecl {
-  export description : String,
-  export body : Block,
-  export span : Span,
-  export leading : Vec<Trivia>,
-}
+export data TestDecl = TestDecl { export description : String, export body : Block, export span : Span, export leading : Vec<Trivia> }
   deriving (Debug, Clone, PartialEq, Eq)
 
-export data TypeAlias = TypeAlias {
-  export name : Ident,
-  export ty : TypeExpr,
-  export visibility : Visibility,
-  export span : Span,
-  export leading : Vec<Trivia>,
-}
+export data TypeAlias = TypeAlias { export name : Ident, export ty : TypeExpr, export visibility : Visibility, export span : Span, export leading : Vec<Trivia> }
   deriving (Debug, Clone, PartialEq, Eq)
 
-export data TypeApp = TypeApp {
-  export head : Ident,
-  export args : Vec<Ident>,
-  export span : Span,
-}
+export data TypeApp = TypeApp { export head : Ident, export args : Vec<Ident>, export span : Span }
   deriving (Debug, Clone, PartialEq, Eq)
 instance TypeApp
   export rust_text : &self -> String

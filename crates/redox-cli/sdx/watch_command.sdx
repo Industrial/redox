@@ -158,10 +158,7 @@ test "an unreadable directory yields nothing"
   found = sources $ std::path::Path::new "/nonexistent/redox"
   assert! \-> .is_empty found
 
-export(crate) data Target = Target {
-  export(crate) dir : PathBuf,
-  export(crate) file : Option<PathBuf>,
-}
+export(crate) data Target = Target { export(crate) dir : PathBuf, export(crate) file : Option<PathBuf> }
   deriving (Debug, Clone, PartialEq, Eq)
 
 instance Target

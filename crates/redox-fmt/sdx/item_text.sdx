@@ -66,7 +66,10 @@ item_text item indent source =
         |> .collect
       format! \-> "extern #{decl.abi}\n#{(.trim_end body)}"
     Item::PatternSynonym decl ->
-      params : Vec<String> = decl.params |> .iter |> .map (\i -> .clone i.text) |> .collect
+      params : Vec<String> = decl.params
+        |> .iter
+        |> .map (\i -> .clone i.text)
+        |> .collect
       spelled = if .is_empty params
         .clone decl.name.text
       else
@@ -79,7 +82,6 @@ item_text item indent source =
       format! \-> "#{(.keyword decl.fixity)} #{decl.precedence} #{decl.spelling.text} = #{decl.target}"
   out |> .push_str (&body)
   out
-
 
 export(crate) class_text : &ClassDecl -> usize -> &str -> String
 class_text decl indent source =

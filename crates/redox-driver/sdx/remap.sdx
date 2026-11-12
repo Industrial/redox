@@ -168,14 +168,7 @@ test "narrows to a whole multibyte character"
   got = narrow span src 3 3
   assert_eq! \-> &src[got.0 .. got.1] \-> "é"
 
-export data RustcMessage = RustcMessage {
-  export path : String,
-  export line : usize,
-  export col : usize,
-  export level : String,
-  export code : Option<String>,
-  export message : String,
-}
+export data RustcMessage = RustcMessage { export path : String, export line : usize, export col : usize, export level : String, export code : Option<String>, export message : String }
   deriving (Debug, Clone, PartialEq, Eq)
 
 instance RustcMessage

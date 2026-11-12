@@ -31,10 +31,7 @@ compile_file source out store fingerprint =
   .put (&key) (&fresh) store
   Ok (Outcome { written, was_cached = false })
 
-export(crate) data Outcome = Outcome {
-  export(crate) written : PathBuf,
-  export(crate) was_cached : bool,
-}
+export(crate) data Outcome = Outcome { export(crate) written : PathBuf, export(crate) was_cached : bool }
   deriving (Debug, Clone, PartialEq, Eq)
 
 export(crate) write_outputs : &Path -> &Path -> &str -> &Cached -> Result<PathBuf, Vec<Diagnostic>>
@@ -55,10 +52,7 @@ write_outputs source out path content =
 
   Ok target
 
-export data Compiled = Compiled {
-  export inputs : Vec<PathBuf>,
-  export outputs : Vec<PathBuf>,
-}
+export data Compiled = Compiled { export inputs : Vec<PathBuf>, export outputs : Vec<PathBuf> }
   deriving (Debug, Clone, Default, PartialEq, Eq)
 
 instance Compiled

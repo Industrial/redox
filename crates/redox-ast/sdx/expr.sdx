@@ -4,12 +4,7 @@ import crate::section::Section
 import redox_lexer::Span
 
 export data Expr
-  = Call {
-    callee : Box<Expr>,
-    args : Vec<Expr>,
-    is_dollar : bool,
-    span : Span,
-  }
+  = Call { callee : Box<Expr>, args : Vec<Expr>, is_dollar : bool, span : Span }
   | Field { recv : Box<Expr>, name : Ident, span : Span }
   | Index { recv : Box<Expr>, index : Box<Expr>, span : Span }
   | Binary { op : BinaryOp, lhs : Box<Expr>, rhs : Box<Expr>, span : Span }
@@ -49,26 +44,11 @@ export data Expr
   | Binding Box<crate::Binding>
   | Item { item : Box<crate::Item>, span : Span }
   | Return { value : Option<Box<Expr>>, span : Span }
-  | Draw {
-    name : Ident,
-    value : Box<Expr>,
-    span : Span,
-  }
+  | Draw { name : Ident, value : Box<Expr>, span : Span }
   | Await { pattern : Option<crate::Pattern>, value : Box<Expr>, span : Span }
-  | Assign {
-    target : Box<Expr>,
-    op : Option<BinaryOp>,
-    value : Box<Expr>,
-    span : Span,
-  }
+  | Assign { target : Box<Expr>, op : Option<BinaryOp>, value : Box<Expr>, span : Span }
   | Guard { pattern : crate::Pattern, source : Box<Expr>, r#otherwise : crate::Block, span : Span }
-  | While {
-    condition : crate::Condition,
-    negated : bool,
-    body : crate::Block,
-    label : Option<String>,
-    span : Span,
-  }
+  | While { condition : crate::Condition, negated : bool, body : crate::Block, label : Option<String>, span : Span }
   | For { binder : Ident, source : Box<Expr>, body : crate::Block, label : Option<String>, span : Span }
   | Loop { body : crate::Block, label : Option<String>, span : Span }
   | Break { label : Option<String>, value : Option<Box<Expr>>, span : Span }
@@ -208,20 +188,10 @@ instance BinaryOp
     Ge -> Some Le
     _ -> None
 
-export data CaseArm = CaseArm {
-  export pattern : Pattern,
-  export ty : Option<crate::TypeExpr>,
-  export r#guard : Option<crate::Condition>,
-  export body : Expr,
-  export span : Span,
-}
+export data CaseArm = CaseArm { export pattern : Pattern, export ty : Option<crate::TypeExpr>, export r#guard : Option<crate::Condition>, export body : Expr, export span : Span }
   deriving (Debug, Clone, PartialEq, Eq)
 
-export data FieldInit = FieldInit {
-  export name : Ident,
-  export value : Option<Expr>,
-  export span : Span,
-}
+export data FieldInit = FieldInit { export name : Ident, export value : Option<Expr>, export span : Span }
   deriving (Debug, Clone, PartialEq, Eq)
 
 export data Ident = Ident { export text : String, export span : Span }
@@ -229,16 +199,10 @@ export data Ident = Ident { export text : String, export span : Span }
 
 export data StrInterpPart
   = Text String
-  | Interp {
-    expr : crate::Expr,
-    spec : Option<String>,
-  }
+  | Interp { expr : crate::Expr, spec : Option<String> }
   deriving (Debug, Clone, PartialEq, Eq)
 
-export data TypeExpr = TypeExpr {
-  export text : String,
-  export span : Span,
-}
+export data TypeExpr = TypeExpr { export text : String, export span : Span }
   deriving (Debug, Clone, PartialEq, Eq)
 
 export data UnaryOp

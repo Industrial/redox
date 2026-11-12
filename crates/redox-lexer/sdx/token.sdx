@@ -2,13 +2,7 @@ import crate::Span
 import crate::Trivia
 import crate::keyword::Keyword
 
-export data Token = Token {
-  export kind : TokenKind,
-  export span : Span,
-  export ws_before : bool,
-  export leading : Vec<Trivia>,
-  export trailing : Option<Trivia>,
-}
+export data Token = Token { export kind : TokenKind, export span : Span, export ws_before : bool, export leading : Vec<Trivia>, export trailing : Option<Trivia> }
   deriving (Debug, Clone, PartialEq, Eq)
 
 export data TokenKind
@@ -109,8 +103,5 @@ instance TokenKind
 
 export data StrPart
   = Text String
-  | Interp {
-    tokens : Vec<Token>,
-    spec : Option<String>,
-  }
+  | Interp { tokens : Vec<Token>, spec : Option<String> }
   deriving (Debug, Clone, PartialEq, Eq)

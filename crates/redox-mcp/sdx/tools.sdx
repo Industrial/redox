@@ -36,9 +36,7 @@ build request =
     |> .map diagnostic_from_redox
     |> .collect })
 
-export data BuildRequest = BuildRequest {
-  export path : String,
-}
+export data BuildRequest = BuildRequest { export path : String }
   deriving (Debug, Clone, serde::Deserialize, schemars::JsonSchema)
 
 export data BuildResponse = BuildResponse {
@@ -63,15 +61,10 @@ check request =
     |> .map diagnostic_from_redox
     |> .collect })
 
-export data CheckRequest = CheckRequest {
-  export path : String,
-}
+export data CheckRequest = CheckRequest { export path : String }
   deriving (Debug, Clone, serde::Deserialize, schemars::JsonSchema)
 
-export data CheckResponse = CheckResponse {
-  export ok : bool,
-  export diagnostics : Vec<Diagnostic>,
-}
+export data CheckResponse = CheckResponse { export ok : bool, export diagnostics : Vec<Diagnostic> }
   deriving (Debug, Clone, serde::Serialize, schemars::JsonSchema)
 
 export format : &FormatRequest -> Result<FormatResponse, String>
@@ -91,9 +84,7 @@ format request =
   formatted = redox_fmt::format (&program) (&source)
   Ok (FormatResponse { ok = true, changed = formatted != source, formatted = Some formatted, diagnostics = Vec::new () })
 
-export data FormatRequest = FormatRequest {
-  export path : String,
-}
+export data FormatRequest = FormatRequest { export path : String }
   deriving (Debug, Clone, serde::Deserialize, schemars::JsonSchema)
 
 export data FormatResponse = FormatResponse {

@@ -96,9 +96,7 @@ rust """
   }
 """
 
-export(crate) data ArityScope = ArityScope {
-  previous : ArityTable,
-}
+export(crate) data ArityScope = ArityScope { previous : ArityTable }
 
 instance ArityScope
   export(crate) enter : ArityTable -> Self
@@ -116,9 +114,7 @@ instance Drop ArityScope
     _dropped = .with_borrow_mut (\slot -> std::mem::replace slot restored) IN_SCOPE
     ()
 
-export(crate) data ArityTable = ArityTable {
-  arities : BTreeMap<String, usize>,
-}
+export(crate) data ArityTable = ArityTable { arities : BTreeMap<String, usize> }
   deriving (Debug, Clone, Default)
 
 instance ArityTable
@@ -481,7 +477,10 @@ emit_section section indent =
     return closure (&[typed]) (&moved)
   body = case section of
     Section::Field path ->
-      joined : Vec<&str> = path |> .iter |> .map (\n -> .as_str n.text) |> .collect
+      joined : Vec<&str> = path
+        |> .iter
+        |> .map (\n -> .as_str n.text)
+        |> .collect
       format! \-> "#{param}.#{(.join "." joined)}"
     Section::Right { op, operand } ->
       value = emit_expr (unparen operand) indent

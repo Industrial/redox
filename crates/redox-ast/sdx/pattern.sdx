@@ -5,12 +5,7 @@ export data Pattern
   = Binding crate::Ident
   | Literal { text : String, span : Span }
   | Wildcard Span
-  | Range {
-    lo : String,
-    hi : String,
-    inclusive : bool,
-    span : Span,
-  }
+  | Range { lo : String, hi : String, inclusive : bool, span : Span }
   | Apply { path : String, args : Vec<Pattern>, span : Span }
   | Tuple { items : Vec<Pattern>, span : Span }
   | Slice { items : Vec<Pattern>, span : Span }
@@ -112,10 +107,7 @@ instance Pattern
       Literal { .. } or Wildcard _ or Range { .. } or Rest _ -> ()
     ()
 
-export data RecordPatternField = RecordPatternField {
-  export name : Ident,
-  export pattern : Option<Pattern>,
-}
+export data RecordPatternField = RecordPatternField { export name : Ident, export pattern : Option<Pattern> }
   deriving (Debug, Clone, PartialEq, Eq)
 instance RecordPatternField
   export rust_text : &self -> String

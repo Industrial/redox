@@ -95,9 +95,7 @@ test "accepts everything and says nothing"
   .report "a.sdx" true Silent
   .report "a.sdx" false Silent
 
-export(crate) data Store = Store {
-  dir : PathBuf,
-}
+export(crate) data Store = Store { dir : PathBuf }
 
 instance Store
   export(crate) new : &Path -> Self
@@ -195,8 +193,5 @@ test "an unwritable store is simply always a miss"
   .put (&key) (&entry ()) store
   assert_eq! \-> .get (&key) store \-> None
 
-export(crate) data Cached = Cached {
-  export(crate) r#rust : String,
-  export(crate) map : String,
-}
+export(crate) data Cached = Cached { export(crate) r#rust : String, export(crate) map : String }
   deriving (Debug, Clone, PartialEq, Eq)

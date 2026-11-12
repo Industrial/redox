@@ -85,14 +85,7 @@ plain_one d =
 graphical_one : &Diagnostic -> String
 graphical_one d = format! \-> "#{(miette::Report::new (Reportable::new d)):?}"
 
-data Reportable = Reportable {
-  message : String,
-  code : String,
-  help : Option<String>,
-  span : (usize, usize),
-  source : miette::NamedSource<String>,
-  severity : Severity,
-}
+data Reportable = Reportable { message : String, code : String, help : Option<String>, span : (usize, usize), source : miette::NamedSource<String>, severity : Severity }
 
 instance Reportable
   new : &Diagnostic -> Self

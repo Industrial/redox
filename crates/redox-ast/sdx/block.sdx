@@ -30,9 +30,7 @@ instance Stmt
 export data Binding = Binding { export pattern : Pattern, export ty : Option<TypeExpr>, export value : Expr, export is_mut : bool, export span : Span }
   deriving (Debug, Clone, PartialEq, Eq)
 
-export data Condition = Condition {
-  export operands : Vec<crate::ConditionOperand>,
-}
+export data Condition = Condition { export operands : Vec<crate::ConditionOperand> }
   deriving (Debug, Clone, PartialEq, Eq)
 instance Condition
   export plain : Expr -> Self

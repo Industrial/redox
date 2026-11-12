@@ -30,8 +30,14 @@ expanded_template template d indent =
   finished = .finish "" inner
   mut out = .replace "Target" (.as_str d.name.text) (.as_str finished.0)
   names = field_names d
-  accesses : Vec<String> = names |> .iter |> .map (\name -> format! \-> "self.#{name}") |> .collect
-  quoted : Vec<String> = names |> .iter |> .map (\name -> format! \-> "\"#{name}\"") |> .collect
+  accesses : Vec<String> = names
+    |> .iter
+    |> .map (\name -> format! \-> "self.#{name}")
+    |> .collect
+  quoted : Vec<String> = names
+    |> .iter
+    |> .map (\name -> format! \-> "\"#{name}\"")
+    |> .collect
   out := .replace "FieldNames" (.as_str (.join ", " quoted)) (.as_str out)
   out := .replace "Fields" (.as_str (.join ", " accesses)) (.as_str out)
   mut i = .len names
@@ -44,8 +50,13 @@ expanded_template template d indent =
 export(crate) field_names : &DataDecl -> Vec<String>
 field_names d = case .as_slice d.constructors of
   [only] -> case &only.fields of
-    ConstructorFields::Tuple types -> 0 .. .len types |> .map (\i -> format! \-> "#{i}") |> .collect
-    ConstructorFields::Record fields -> fields |> .iter |> .map (\f -> .clone f.name.text) |> .collect
+    ConstructorFields::Tuple types -> 0 .. .len types
+      |> .map (\i -> format! \-> "#{i}")
+      |> .collect
+    ConstructorFields::Record fields -> fields
+      |> .iter
+      |> .map (\f -> .clone f.name.text)
+      |> .collect
     ConstructorFields::Unit -> Vec::new ()
   _ -> Vec::new ()
 
@@ -77,16 +88,28 @@ expanded pattern depth =
 export(crate) rebuilt : &Pattern -> usize -> Pattern
 rebuilt pattern depth = case pattern of
   Pattern::Apply { path, args, span } ->
-    grown : Vec<Pattern> = args |> .iter |> .map (\a -> expanded a (depth + 1)) |> .collect
+    grown : Vec<Pattern> = args
+      |> .iter
+      |> .map (\a -> expanded a (depth + 1))
+      |> .collect
     Pattern::Apply { path = .clone path, args = grown, span = *span }
   Pattern::Tuple { items, span } ->
-    grown : Vec<Pattern> = items |> .iter |> .map (\i -> expanded i (depth + 1)) |> .collect
+    grown : Vec<Pattern> = items
+      |> .iter
+      |> .map (\i -> expanded i (depth + 1))
+      |> .collect
     Pattern::Tuple { items = grown, span = *span }
   Pattern::Slice { items, span } ->
-    grown : Vec<Pattern> = items |> .iter |> .map (\i -> expanded i (depth + 1)) |> .collect
+    grown : Vec<Pattern> = items
+      |> .iter
+      |> .map (\i -> expanded i (depth + 1))
+      |> .collect
     Pattern::Slice { items = grown, span = *span }
   Pattern::Or alts ->
-    grown : Vec<Pattern> = alts |> .iter |> .map (\a -> expanded a (depth + 1)) |> .collect
+    grown : Vec<Pattern> = alts
+      |> .iter
+      |> .map (\a -> expanded a (depth + 1))
+      |> .collect
     Pattern::Or grown
   Pattern::As { name, inner, span } ->
     Pattern::As { name = .clone name, inner = Box::new (expanded inner (depth + 1)), span = *span }
@@ -100,16 +123,28 @@ substituted body param actual = case body of
     else
       .clone body
   Pattern::Apply { path, args, span } ->
-    grown : Vec<Pattern> = args |> .iter |> .map (\a -> substituted a param actual) |> .collect
+    grown : Vec<Pattern> = args
+      |> .iter
+      |> .map (\a -> substituted a param actual)
+      |> .collect
     Pattern::Apply { path = .clone path, args = grown, span = *span }
   Pattern::Tuple { items, span } ->
-    grown : Vec<Pattern> = items |> .iter |> .map (\i -> substituted i param actual) |> .collect
+    grown : Vec<Pattern> = items
+      |> .iter
+      |> .map (\i -> substituted i param actual)
+      |> .collect
     Pattern::Tuple { items = grown, span = *span }
   Pattern::Slice { items, span } ->
-    grown : Vec<Pattern> = items |> .iter |> .map (\i -> substituted i param actual) |> .collect
+    grown : Vec<Pattern> = items
+      |> .iter
+      |> .map (\i -> substituted i param actual)
+      |> .collect
     Pattern::Slice { items = grown, span = *span }
   Pattern::Or alts ->
-    grown : Vec<Pattern> = alts |> .iter |> .map (\a -> substituted a param actual) |> .collect
+    grown : Vec<Pattern> = alts
+      |> .iter
+      |> .map (\a -> substituted a param actual)
+      |> .collect
     Pattern::Or grown
   Pattern::As { name, inner, span } ->
     Pattern::As { name = .clone name, inner = Box::new (substituted inner param actual), span = *span }
@@ -126,9 +161,7 @@ rust """
   }
 """
 
-export(crate) data SynonymScope = SynonymScope {
-  previous : SynonymTable,
-}
+export(crate) data SynonymScope = SynonymScope { previous : SynonymTable }
 
 instance SynonymScope
   export(crate) enter : SynonymTable -> Self
@@ -146,9 +179,7 @@ instance Drop SynonymScope
     _dropped = .with_borrow_mut (\slot -> std::mem::replace slot restored) IN_SCOPE
     ()
 
-export(crate) data SynonymTable = SynonymTable {
-  by_name : std::collections::BTreeMap<String, PatternSynonym>,
-}
+export(crate) data SynonymTable = SynonymTable { by_name : std::collections::BTreeMap<String, PatternSynonym> }
   deriving (Debug, Clone, Default)
 
 instance SynonymTable

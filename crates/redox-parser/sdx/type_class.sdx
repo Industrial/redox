@@ -158,7 +158,7 @@ constraints p =
 
 export(crate) given_clause : &mut Parser -> Result<Option<String>, ParseError>
 given_clause p =
-  if !.check (&TokenKind::Kw (Keyword::Given)) p
+  if !.check (&TokenKind::Kw Keyword::Given) p
     return Ok None
   opened = .peek_span p
   .advance p

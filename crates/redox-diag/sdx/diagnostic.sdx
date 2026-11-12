@@ -22,15 +22,7 @@ instance Severity
     Severity::Error -> miette::Severity::Error
     Severity::Warning -> miette::Severity::Warning
 
-export data Diagnostic = Diagnostic {
-  export code : DiagnosticCode,
-  export severity : Severity,
-  export message : String,
-  export span : Span,
-  export help : Option<String>,
-  export path : String,
-  export source : String,
-}
+export data Diagnostic = Diagnostic { export code : DiagnosticCode, export severity : Severity, export message : String, export span : Span, export help : Option<String>, export path : String, export source : String }
   deriving (Debug, Clone)
 
 instance Display Diagnostic

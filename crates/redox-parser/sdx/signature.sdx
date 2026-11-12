@@ -193,15 +193,7 @@ test "a zero parameter function can still return something"
   assert_eq! \-> (.expect "a return type" (.as_ref sig.ret)).text \-> "u32"
   assert! \-> !.returns_unit sig
 
-export(crate) data SignatureHead = SignatureHead {
-  export types : Vec<TypeExpr>,
-  export bounds : Vec<Constraint>,
-  export r#given : Option<String>,
-  export predicates : Option<String>,
-  export is_const : bool,
-  export is_async : bool,
-  export is_unsafe : bool,
-}
+export(crate) data SignatureHead = SignatureHead { export types : Vec<TypeExpr>, export bounds : Vec<Constraint>, export r#given : Option<String>, export predicates : Option<String>, export is_const : bool, export is_async : bool, export is_unsafe : bool }
   deriving (Debug, Clone)
 
 export(crate) signature_only : &[TypeExpr] -> Span -> Signature

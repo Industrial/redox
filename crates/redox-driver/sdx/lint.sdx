@@ -137,10 +137,7 @@ line_of source offset =
   end = .min (.len source) offset
   .count (.matches '\n' source[0 .. end]) + 1
 
-export(crate) data PragmaWalk = PragmaWalk {
-  export(crate) lint : Lint,
-  export(crate) found : Vec<Span>,
-}
+export(crate) data PragmaWalk = PragmaWalk { export(crate) lint : Lint, export(crate) found : Vec<Span> }
 
 instance ProgramWalk PragmaWalk
   item : &mut self -> &Item -> ()
@@ -183,9 +180,7 @@ shadow_sites program =
     !.any (\r -> r.0 <= span.0 && span.1 <= r.1) (.iter ranges))
     |> .collect
 
-export(crate) data ShadowWalk = ShadowWalk {
-  export(crate) found : Vec<(Span, String)>,
-}
+export(crate) data ShadowWalk = ShadowWalk { export(crate) found : Vec<(Span, String)> }
 
 instance ProgramWalk ShadowWalk
   item : &mut self -> &Item -> ()

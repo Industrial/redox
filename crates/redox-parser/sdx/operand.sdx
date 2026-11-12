@@ -181,11 +181,7 @@ method_call_syntax name span =
   help = format! \-> "a method is a function whose last argument is its receiver, so write `.#{name} args recv` or `recv |> .#{name} args`. `.` is field access and nothing else (plan 57 §1.1)"
   ParseError::with_help Code::MethodCallSyntax "method-call syntax is retired" help span
 
-export(crate) data MethodContext = MethodContext {
-  export vars : Vec<(String, String)>,
-  export recording : Option<String>,
-  export implementing : Option<String>,
-}
+export(crate) data MethodContext = MethodContext { export vars : Vec<(String, String)>, export recording : Option<String>, export implementing : Option<String> }
 
 instance MethodContext
   export(crate) for_class : &[Ident] -> Self

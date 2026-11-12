@@ -37,11 +37,7 @@ run args =
     other ->
       unreachable! \-> "`#{other}` is Ready in COMMANDS but has no dispatch arm"
 
-export(crate) data Command = Command {
-  export(crate) name : &'static str,
-  export(crate) summary : &'static str,
-  export(crate) state : State,
-}
+export(crate) data Command = Command { export(crate) name : &'static str, export(crate) summary : &'static str, export(crate) state : State }
   deriving (Debug, Clone, Copy, PartialEq, Eq)
 
 instance Command
@@ -91,10 +87,7 @@ test "an ordinary command matches only itself"
 export(crate) data State
   = Ready
   #[allow(dead_code, reason = "the next declared-before-built command uses it; see above")]
-  | Planned {
-    plan : u32,
-    id : &'static str,
-  }
+  | Planned { plan : u32, id : &'static str }
   deriving (Debug, Clone, Copy, PartialEq, Eq)
 
 export(crate) const COMMANDS : &[Command] = &[Command { name = "build", summary = "transpile a .sdx to .xrs", state = State::Ready }, Command { name = "check", summary = "transpile, then report rustc's errors against the .sdx", state = State::Ready }, Command { name = "fmt", summary = "format .sdx files in place, or --check them", state = State::Ready }, Command { name = "watch", summary = "rebuild on change", state = State::Ready }, Command { name = "--version", summary = "print the version", state = State::Ready }, Command { name = "--help", summary = "print this message", state = State::Ready }]

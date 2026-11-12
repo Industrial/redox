@@ -51,10 +51,7 @@ check path source =
 
   Ok (CheckOutcome { diagnostics, failed })
 
-export data CheckOutcome = CheckOutcome {
-  export diagnostics : Vec<Diagnostic>,
-  export failed : bool,
-}
+export data CheckOutcome = CheckOutcome { export diagnostics : Vec<Diagnostic>, export failed : bool }
   deriving (Debug, Clone, Default)
 
 export(crate) data ScratchDir = ScratchDir PathBuf

@@ -52,11 +52,7 @@ fmt_command args =
   listed = .join "\n" indented
   Err $ format! \-> "error: not formatted:\n#{listed}\nrun `redox fmt` on them\n"
 
-export(crate) data FmtArgs = FmtArgs {
-  export(crate) inputs : Vec<PathBuf>,
-  export(crate) check : bool,
-  export(crate) plain : bool,
-}
+export(crate) data FmtArgs = FmtArgs { export(crate) inputs : Vec<PathBuf>, export(crate) check : bool, export(crate) plain : bool }
   deriving (Debug, Clone, PartialEq, Eq)
 
 export(crate) parse_fmt_args : &[String] -> Result<FmtArgs, String>

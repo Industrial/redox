@@ -197,7 +197,9 @@ word_at source offset =
     return None
   start = chars[lo].0
   end = chars[hi].0 + .len_utf8 chars[hi].1
-  source |> .get (start .. end) |> .map (\text -> .to_string text)
+  source
+    |> .get (start .. end)
+    |> .map (\text -> .to_string text)
 
 test "the word boundary matches the lexer"
   source = "a_b1 + c"
@@ -248,9 +250,7 @@ path_of uri =
   text = .as_str uri
   .to_path_buf $ Path::new $ .unwrap_or text $ .strip_prefix "file://" text
 
-export(crate) data Documents = Documents {
-  open : HashMap<Uri, String>,
-}
+export(crate) data Documents = Documents { open : HashMap<Uri, String> }
   deriving (Debug, Default)
 
 instance Documents

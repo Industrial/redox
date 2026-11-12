@@ -25,7 +25,6 @@ stmt_text stmt indent source =
     return .join "\n" lines
   item_text item indent source
 
-
 export(crate) binding_text : &Binding -> usize -> &str -> String
 binding_text binding indent source =
   prefix = if binding.is_mut

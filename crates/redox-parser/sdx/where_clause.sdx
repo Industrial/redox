@@ -80,7 +80,7 @@ where_locals params p =
 
 export(crate) where_predicates : &mut Parser -> Result<Option<String>, ParseError>
 where_predicates p =
-  if !.check (&TokenKind::Kw (Keyword::Where)) p
+  if !.check (&TokenKind::Kw Keyword::Where) p
     return Ok None
   opened = .peek_span p
   .advance p

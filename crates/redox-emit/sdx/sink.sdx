@@ -160,12 +160,7 @@ rust_hatch_text code indent =
 
 export(crate) const RUST_INDENT : usize = 4
 
-export(crate) data Sink = Sink {
-  out : String,
-  source : &'a str,
-  current : Option<Span>,
-  origins : Vec<Option<Origin>>,
-}
+export(crate) data Sink = Sink { out : String, source : &'a str, current : Option<Span>, origins : Vec<Option<Origin>> }
 
 instance (Sink 'a)
   export(crate) new : &'a str -> Self

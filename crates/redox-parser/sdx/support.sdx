@@ -8,12 +8,7 @@ import redox_lexer::LexError
 import redox_lexer::Token
 import redox_lexer::TokenKind
 
-export data ParseError = ParseError {
-  export code : Code,
-  export message : String,
-  export span : Span,
-  export help : Option<String>,
-}
+export data ParseError = ParseError { export code : Code, export message : String, export span : Span, export help : Option<String> }
   deriving (Debug, Clone, PartialEq, Eq)
 
 instance ParseError

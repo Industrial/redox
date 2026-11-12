@@ -61,13 +61,7 @@ parse toks src_len =
     return Err (vec! \-> ParseError { code = Code::NestingTooDeep, message, span = (0, 0), help = None })
   .run src_len $ Parser::new toks
 
-export(crate) data Parser = Parser {
-  toks : &'a [Token],
-  pos : usize,
-  export(crate) r#errors : Vec<ParseError>,
-  class_heads : std::collections::BTreeMap<(String, String), SignatureHead>,
-  export(crate) fixities : std::collections::BTreeMap<String, (Fixity, u8, String)>,
-}
+export(crate) data Parser = Parser { toks : &'a [Token], pos : usize, export(crate) r#errors : Vec<ParseError>, class_heads : std::collections::BTreeMap<(String, String), SignatureHead>, export(crate) fixities : std::collections::BTreeMap<String, (Fixity, u8, String)> }
 
 instance (Parser 'a)
   export(crate) new : &'a [Token] -> Self

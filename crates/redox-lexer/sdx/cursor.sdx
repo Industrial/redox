@@ -1,9 +1,6 @@
 import crate::Span
 
-export(crate) data Cursor = Cursor {
-  src : &'a str,
-  pos : usize,
-}
+export(crate) data Cursor = Cursor { src : &'a str, pos : usize }
 
 instance (Cursor 'a)
   export(crate) new : &'a str -> Self
