@@ -48,7 +48,31 @@
         # string Nix finds it when it scans the output and keeps it as a
         # runtime reference. That is what makes `redox check` work after a
         # garbage collection.
-        nativeBuildInputs = [pkgs.rustc];
+        nativeBuildInputs = [pkgs.rustc pkgs.wasmtime pkgs.rustfmt];
+
+        # **A checkout has no Rust to compile.** Plan 72 untracked every
+        # `crates/*/src/`, so `git archive HEAD` — which is what a
+        # `github:Industrial/redox` flake input is served as — contains zero
+        # files under any crate's `src/`. Verified rather than assumed:
+        # `git archive HEAD | tar -t | grep -c '^crates/.*/src/'` is 0, while
+        # `bootstrap.sh` and `seed/` are present.
+        #
+        # So the derivation has to do what `AGENTS.md` tells a human to do
+        # before the first build: run the seed over every `.sdx`. `wasmtime`
+        # runs `seed/redox1.wasm` and `rustfmt` formats what it writes; both
+        # are `bootstrap.sh`'s own declared tool requirements.
+        #
+        # This ran locally for a year without being noticed because
+        # `cleanSource ./.` picks up the *working tree*, which has a
+        # bootstrapped `src/` on any developer's machine. The tarball does not.
+        # `HOME` is `/homeless-shelter` in the sandbox and wasmtime wants a
+        # writable cache directory, so it gets one.
+        preBuild = ''
+          export HOME="$NIX_BUILD_TOP/home"
+          mkdir -p "$HOME"
+          patchShebangs bootstrap.sh
+          ./bootstrap.sh
+        '';
 
         # The suite is not runnable here, and saying so is better than a
         # `checkPhase` that quietly skips most of it: `editors.rs` wants
