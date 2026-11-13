@@ -276,7 +276,7 @@ shadowed =
 -- §1.3 and §3 case 1 both quote this as `(b.1.cmp (&a.1)).then (…)`, and the
 -- **parentheses are not needed**: a method call is a receiver, so `.then`
 -- binds to the whole of `cmp (&a.1)` and the two spellings emit the same
--- Rust. `redox fmt` is what says so — it removed them, and
+-- Rust. `voltaic fmt` is what says so — it removed them, and
 -- `formatting_preserves_meaning` then held the claim to the AST.
 ordered : String
 ordered =

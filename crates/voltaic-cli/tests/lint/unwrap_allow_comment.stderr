@@ -1,0 +1,13 @@
+warning[RDX1002]: `-- voltaic: allow unwrap` is deprecated — write `#[voltaic::allow(unwrap)]` on the line above instead (plan 53 §1.3)
+  --> unwrap_allow_comment.sdx:16:23
+   |
+16 |   port = .unwrap raw  -- voltaic: allow unwrap
+   |                       ^^^^^^^^^^^^^^^^^^^^^^^^
+  = help: the comment still suppresses `RDX1001` for this milestone; the attribute is what plan 64 keeps
+
+warning[RDX1002]: `-- voltaic: allow unwrap` is deprecated — write `#[voltaic::allow(unwrap)]` on the line above instead (plan 53 §1.3)
+  --> unwrap_allow_comment.sdx:23:3
+   |
+23 |   -- voltaic: allow unwrap
+   |   ^^^^^^^^^^^^^^^^^^^^^^^^
+  = help: the comment still suppresses `RDX1001` for this milestone; the attribute is what plan 64 keeps

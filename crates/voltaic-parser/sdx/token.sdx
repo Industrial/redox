@@ -1,0 +1,220 @@
+import crate::ParseError
+import crate::block::block_expr
+import crate::expr::parse_expr
+import crate::item::rewritten
+import crate::parser::Parser
+import voltaic_ast::Expr
+import voltaic_ast::InlineRust
+import voltaic_ast::Signature
+import voltaic_ast::Stmt
+import voltaic_diag::Code
+import voltaic_lexer::Keyword
+import voltaic_lexer::Span
+import voltaic_lexer::Token
+import voltaic_lexer::TokenKind
+import voltaic_lexer::Trivia
+import voltaic_lexer::verbatim_triple
+
+export(crate) expr_from_tokens : &[Token] -> Span -> Result<Expr, ParseError>
+expr_from_tokens tokens span =
+  mut toks = .to_vec tokens
+  .push (Token { kind = TokenKind::Eof, span, ws_before = false, leading = Vec::new (), trailing = None }) toks
+  mut p = Parser::new (&toks)
+  expr = (parse_expr (&mut p) 0)?
+  if !.at_eof p
+    return Err (ParseError::r#with voltaic_diag::Code::ExpectedToken "an interpolation holds one expression; `}` was expected here" (.peek_span p))
+  Ok expr
+
+export(crate) flush_word : &mut String -> &mut String -> &str -> &str -> ()
+flush_word out word var subject =
+  if .is_empty word
+    return ()
+  if word == var
+    .push_str subject out
+  else
+    .push_str word out
+  .clear word
+  ()
+
+export(crate) inline_rust : &mut Parser -> Vec<Trivia> -> usize -> Result<InlineRust, ParseError>
+inline_rust p leading start =
+  (.expect (&TokenKind::Kw Keyword::Rust) "expected `rust`" p)?
+  hatched = (rust_hatch p)?
+  Ok (InlineRust { code = hatched.0, span = (start, (.prev_span p).1), leading })
+
+export(crate) is_word : char -> bool
+is_word ch = .is_alphanumeric ch || ch == '_'
+
+export(crate) reserved_word : &mut Parser -> ParseError
+reserved_word p =
+  debug_assert! \-> .check (&TokenKind::Kw Keyword::Do) p \-> "`do` is the only reserved word with no construct"
+  keyword = .peek_span p
+  .advance p
+  labelled = case (.peek p).kind of
+    TokenKind::Label _ -> true
+    _ -> false
+  if labelled
+    .advance p
+  if .check (&TokenKind::Newline) p
+    _dropped = block_expr p None keyword.0
+    ()
+  ParseError::with_help Code::ReservedWord "`do` is a reserved word and names no construct" "an indented block is an expression on its own, so drop the `do` and keep the block — `found = 'search` for the labelled form. The word stays reserved for plan 60's do-notation (plan 55 §1.7)" keyword
+
+export(crate) rust_hatch : &mut Parser -> Result<(String, Span), ParseError>
+rust_hatch p =
+  span = .peek_span p
+  if &(.peek p).kind is TokenKind::RustBlock code
+    block_code = .clone code
+    .advance p
+    return Ok (block_code, span)
+  guard &(.peek p).kind is TokenKind::Str { raw, .. } else
+    return Err (ParseError::expected "expected a `\"\"\"` block of Rust after `rust`, or an indented block on the lines under it" span)
+  literal = .clone raw
+  .advance p
+  verbatim_triple (&literal)
+    |> .map (\code -> (code, span))
+    |> .ok_or_else (\-> ParseError::expected "inline Rust needs a `\"\"\"` block or an indented one: a single-quoted string cannot hold Rust's own quotes" span)
+
+export(crate) rust_string_body : &str -> String
+rust_string_body text =
+  mut out = String::with_capacity (.len text)
+  for ch in .chars text
+    case ch of
+      '\\' -> .push_str "\\\\" out
+      '"' -> .push_str "\\\"" out
+      '\n' -> .push_str "\\n" out
+      '\r' -> .push_str "\\r" out
+      '\t' -> .push_str "\\t" out
+      '\0' -> .push_str "\\0" out
+      c | .is_ascii_control c || c == '\u{7f}' ->
+        point = u32::from c
+        .push_str (&format! \-> "\\x#{point:02X}") out
+      _ -> .push ch out
+  out
+
+export(crate) scan_run : &[Stmt] -> bool -> &mut Vec<ParseError> -> ()
+scan_run stmts in_tail problems =
+  for pair in .enumerate (.iter stmts)
+    i = pair.0
+    stmt = pair.1
+    if &stmt.expr is Expr::Draw { .. }
+      from = i + 1
+      n = .len stmts
+      scan_run (&stmts[from .. n]) true problems
+      return ()
+    if in_tail && &stmt.expr is Expr::Return { .. }
+      .push (ParseError::r#with Code::ReturnInCallbackTail "`return` here returns from the closure `with` generates, not from the enclosing function — doc 03 §7.6. Use `?` to propagate, or restructure so the value is the callback's" stmt.span) problems
+    for nested in .statement_blocks stmt.expr
+      scan_run (&nested.stmts) in_tail problems
+  ()
+
+export(crate) substitute_var : &mut Signature -> &str -> &str -> ()
+substitute_var sig var subject =
+  for param in &mut sig.params
+    if &mut param.ty is Some ty
+      ty.text := rewritten (&ty.text) var subject
+  if &mut sig.ret is Some ret
+    ret.text := rewritten (&ret.text) var subject
+  ()
+
+export(crate) token_text : &TokenKind -> String
+token_text kind = case kind of
+  TokenKind::Ident t -> .clone t
+  TokenKind::Kw kw -> kw |> .text |> .to_string
+  TokenKind::Int t or TokenKind::Float t -> .clone t
+  TokenKind::Char c -> format! \-> "#{c:?}"
+  TokenKind::Byte b ->
+    value = *b
+    ch = char::from value
+    format! \-> "b#{ch:?}"
+  TokenKind::Str { raw, .. } -> .clone raw
+  TokenKind::Label name -> format! \-> "'#{name}"
+  TokenKind::ColonColon -> .to_string "::"
+  TokenKind::Lt -> .to_string "<"
+  TokenKind::Gt -> .to_string ">"
+  TokenKind::Shr -> .to_string ">>"
+  TokenKind::Compose -> .to_string ">>>"
+  TokenKind::LParen -> .to_string "("
+  TokenKind::RParen -> .to_string ")"
+  TokenKind::LBracket -> .to_string "["
+  TokenKind::RBracket -> .to_string "]"
+  TokenKind::LBrace -> .to_string "{"
+  TokenKind::RBrace -> .to_string "}"
+  TokenKind::Comma -> .to_string ","
+  TokenKind::Semi -> .to_string ";"
+  TokenKind::Amp -> .to_string "&"
+  TokenKind::Star -> .to_string "*"
+  TokenKind::Plus -> .to_string "+"
+  TokenKind::Arrow -> .to_string "->"
+  TokenKind::Colon -> .to_string ":"
+  TokenKind::Eq -> .to_string "="
+  TokenKind::Bang -> .to_string "!"
+  TokenKind::Dot -> .to_string "."
+  TokenKind::Question -> .to_string "?"
+  TokenKind::FatArrow -> .to_string "=>"
+  TokenKind::DrawArrow -> .to_string "<-"
+  TokenKind::ComposeBack -> .to_string "<<<"
+  TokenKind::Pipe -> .to_string "|>"
+  TokenKind::Coalesce -> .to_string "??"
+  TokenKind::CoalesceEq -> .to_string "??="
+  TokenKind::DotDotDot -> .to_string "..."
+  TokenKind::DotDot -> .to_string ".."
+  TokenKind::DotDotEq -> .to_string "..="
+  TokenKind::DotParen -> .to_string ".("
+  TokenKind::DotPlus -> .to_string ".+"
+  TokenKind::DotMinus -> .to_string ".-"
+  TokenKind::DotStar -> .to_string ".*"
+  TokenKind::DotSlash -> .to_string "./"
+  TokenKind::DotPercent -> .to_string ".%"
+  TokenKind::AmpColon -> .to_string "&:"
+  TokenKind::Backslash -> .to_string "\\"
+  TokenKind::Dollar -> .to_string "$"
+  TokenKind::At -> .to_string "@"
+  TokenKind::AtAt -> .to_string "@@"
+  TokenKind::ColonEq -> .to_string ":="
+  TokenKind::Minus -> .to_string "-"
+  TokenKind::Slash -> .to_string "/"
+  TokenKind::Percent -> .to_string "%"
+  TokenKind::PlusEq -> .to_string "+="
+  TokenKind::MinusEq -> .to_string "-="
+  TokenKind::StarEq -> .to_string "*="
+  TokenKind::SlashEq -> .to_string "/="
+  TokenKind::PercentEq -> .to_string "%="
+  TokenKind::EqEq -> .to_string "=="
+  TokenKind::Ne -> .to_string "!="
+  TokenKind::Le -> .to_string "<="
+  TokenKind::Ge -> .to_string ">="
+  TokenKind::AndAnd -> .to_string "&&"
+  TokenKind::OrOr -> .to_string "||"
+  TokenKind::Or -> .to_string "|"
+  TokenKind::Caret -> .to_string "^"
+  TokenKind::Tilde -> .to_string "~"
+  TokenKind::Shl -> .to_string "<<"
+  TokenKind::UserOp text -> .clone text
+  other -> format! \-> "#{other:?}"
+
+test "respells the tokens a type can contain"
+  assert_eq! \-> token_text (&TokenKind::Ident (.into "Vec")) \-> "Vec"
+  assert_eq! \-> token_text (&TokenKind::Lt) \-> "<"
+  assert_eq! \-> token_text (&TokenKind::Shr) \-> ">>"
+  assert_eq! \-> token_text (&TokenKind::Compose) \-> ">>>"
+  assert_eq! \-> token_text (&TokenKind::Amp) \-> "&"
+  assert_eq! \-> token_text (&TokenKind::Kw voltaic_lexer::Keyword::Mut) \-> "mut"
+  assert_eq! \-> token_text (&TokenKind::Label (.into "a")) \-> "'a"
+
+test "respells every operator the lexer produces"
+  const SOURCE : &str = "... ..= ??= >>> <<< .. .( .+ .- .* ./ .% ?? |> &: :: := -> <- => == != <= >= && || += -= *= /= %= << >> ( ) [ ] { } @@ @ ? : \\\\ $ , . ; = + - * / % < > ! & | ^ ~"
+  #[voltaic::allow(unwrap)]
+  toks = .expect "the operator source should lex" (voltaic_lexer::lex SOURCE)
+  mut checked = 0
+  for tok in &toks
+    skip = case tok.kind of
+      TokenKind::Newline or TokenKind::Indent or TokenKind::Dedent or TokenKind::Eof -> true
+      _ -> false
+    if skip
+      continue
+    slice = &SOURCE[tok.span.0 .. tok.span.1]
+    spelled = token_text (&tok.kind)
+    assert_eq! \-> .as_str spelled \-> slice \-> "#{tok.kind:?} respells as `#{spelled}` but its source is `#{slice}` — an unlisted token answers with its own Debug name, which reaches generated Rust"
+    checked += 1
+  assert! \-> checked > 50 \-> "only #{checked} operators were checked, so this test is not reading the source it thinks it is"

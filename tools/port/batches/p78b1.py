@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Plan 78 batch 1: six of `redox-lsp`'s twenty bodies.
+"""Plan 78 batch 1: six of `voltaic-lsp`'s twenty bodies.
 
 **`cast` had to change shape, and the reason is worth stating.** Its Rust is
 generic over `R: RequestTrait` and mentions `R` *only* as `R::Params` and
 `R::METHOD`, so callers pick it with a turbofish — `cast::<Formatting>(request)`.
-Redox has no turbofish, and ascription cannot stand in: `R` is not inferable
+Voltaic has no turbofish, and ascription cannot stand in: `R` is not inferable
 from `R::Params`, which is not injective. `type_vars` would not even register
 `r` as a variable, because it skips an identifier adjacent to `::` — the rule
 that keeps `fmt` in `fmt::Result` from becoming a type parameter.
@@ -20,7 +20,7 @@ replacement: `sum::<usize>()` and `extract::<P>(…)`.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('serve/diagnostics/path_of', '''
@@ -36,7 +36,7 @@ import serde::de::DeserializeOwned
 -- | **The method is a value, where the Rust made it a turbofish.**
 -- |
 -- | `cast::<Formatting>(request)` picks the request type at the call site, and
--- | the Rust's `R` appears only as `R::Params` and `R::METHOD`. Redox has no
+-- | the Rust's `R` appears only as `R::Params` and `R::METHOD`. Voltaic has no
 -- | turbofish, and ascription cannot stand in — `R` is not inferable from
 -- | `R::Params`, and `type_vars` would not register `r` at all, because it
 -- | skips an identifier adjacent to `::` so that `fmt` in `fmt::Result` is not
@@ -107,7 +107,7 @@ reply id params handle = case params of
 # and would carry it back on every rebuild.
 import io  # noqa: E402
 
-P = '/home/tom/Code/rust/redox/crates/redox-lsp/sdx/serve/cast.sdx'
+P = '/home/tom/Code/rust/voltaic/crates/voltaic-lsp/sdx/serve/cast.sdx'
 s = io.open(P, encoding='utf-8').read()
 DROP = 'import lsp_types::request::Request as RequestTrait\n'
 if DROP in s:

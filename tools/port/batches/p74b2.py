@@ -4,7 +4,7 @@
 Two shapes appear here for the first time in this port.
 
 **A let-chain becomes a guarded `case` arm.** `scan_quote` is written
-`if let Some(ch) = decoded && cur.peek() == Some('\\'')`, and Redox has no
+`if let Some(ch) = decoded && cur.peek() == Some('\\'')`, and Voltaic has no
 `if let … && …`; a `case` arm with a `|` guard says the same thing, and reads
 better for being one construct rather than two glued together.
 
@@ -13,12 +13,12 @@ found it swallowing the statement below. The hazard is specifically a following
 statement that opens with `.name`: the value goes through the Pratt loop, a
 block ends on a `Dedent` that does not stop it, and `postfix` reads the `.` as
 field access. `scan_quote`'s binding is followed by a `case`, so it does not
-arise — and `crates/redox-cli/tests/ui/block_valued_binding_eats_the_next_statement.sdx`
+arise — and `crates/voltaic-cli/tests/ui/block_valued_binding_eats_the_next_statement.sdx`
 is the fixture that pins the rule to the binding.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('trivia', '''
@@ -126,7 +126,7 @@ scan_quote cur =
   else
     .bump cur
 
-  -- A guarded `case` arm where the Rust had a let-chain: Redox has no
+  -- A guarded `case` arm where the Rust had a let-chain: Voltaic has no
   -- `if let … && …`, and one construct reads better than two glued together.
   case decoded of
     Some ch | .peek cur == Some '\\'' ->

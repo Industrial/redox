@@ -45,7 +45,7 @@ fn lengths(xs: Vec<&str>) -> usize {
 
 // A mixed chain, which is legal and left-associative: `a >>> b <<< c` reads
 // as `(a >>> b) <<< c`, so `c` applies first. Refusing a mixed chain would be
-// a *check*, and AGENTS.md's rule is that Redox grows none — rustc judges the
+// a *check*, and AGENTS.md's rule is that Voltaic grows none — rustc judges the
 // types, and here they line up: `&str` to `String` to `&str` to `usize`.
 //
 // It is also the token run `construct_coverage` indexes the pair with, for a
@@ -75,11 +75,11 @@ fn main() {
     println!("{}", wrap_then(shout)("  hi  "));
 
     // A three-stage chain, left-associative, so the functions apply left to
-    // right. It is written on one line because **`redox fmt` collapses it**:
+    // right. It is written on one line because **`voltaic fmt` collapses it**:
     // `|>` is the one operator with a multi-line layout of its own, and nothing
     // gives composition one. The leading-operator form does lex — plan 66 leaf
     // 2 taught `next_line_continues` to admit it, and
-    // `redox-lexer/tests/continuation.rs` is where criterion 3 asserts it —
+    // `voltaic-lexer/tests/continuation.rs` is where criterion 3 asserts it —
     // so the two spellings differ in what the formatter keeps, not in what the
     // lexer accepts.
     let long = |__rdx_1| shout(wrap(trimmed(__rdx_1)));

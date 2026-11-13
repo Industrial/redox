@@ -9,12 +9,12 @@ Status: `done`
 
 ## 1. What this plan is
 
-The answer to **"what does a Redox project look like?"** — doc 02 §6.6 calls it unresolved
-and says it *"must be closed before Phase 2, because it determines what a Redox project
+The answer to **"what does a Voltaic project look like?"** — doc 02 §6.6 calls it unresolved
+and says it *"must be closed before Phase 2, because it determines what a Voltaic project
 even looks like."*
 
 Doc 02 offers three options and recommends (a): a user's crate has a `build.rs` that calls
-Redox over `src/**/*.sdx`, writes `.rs` into `OUT_DIR`, and a thin `mod` wrapper brings it
+Voltaic over `src/**/*.sdx`, writes `.rs` into `OUT_DIR`, and a thin `mod` wrapper brings it
 in with `include!`. This plan implements (a) and proves it by building and running a real
 crate.
 
@@ -22,7 +22,7 @@ Three properties make (a) the right call, and all three are asserted rather than
 
 1. **Pure Cargo.** No new tool, no build-system replacement — doc 01 §1.3 forbids one.
    Cargo already knows how to rerun a build script when inputs change.
-2. **`.xrs` stays the canonical human-facing artifact.** `redox build` writes it for
+2. **`.xrs` stays the canonical human-facing artifact.** `voltaic build` writes it for
    reading and review; the build path writes `.rs` into `OUT_DIR` because that is the
    extension rustc accepts. The pun survives without fighting the toolchain.
 3. **`include!` preserves the path to the generated file**, so the span rustc reports is
@@ -32,11 +32,11 @@ Three properties make (a) the right call, and all three are asserted rather than
 
 ### 1.1 Where the API lives, and why not a new crate
 
-In `redox-driver`, whose own module doc already calls it *"orchestration"*. A build script
+In `voltaic-driver`, whose own module doc already calls it *"orchestration"*. A build script
 is an orchestration client: "compile this set of files into that directory." Plan 10 then
 adds the `blake3` cache behind the same function, and no caller changes.
 
-The alternative — a `redox-build` crate — would add a crate boundary to express a
+The alternative — a `voltaic-build` crate — would add a crate boundary to express a
 difference in *audience* rather than in *layer*, and doc 06 §3 orders crates by layer.
 
 ---
@@ -45,16 +45,16 @@ difference in *audience* rather than in *layer*, and doc 06 §3 orders crates by
 
 | Claim | How checked | Result |
 |---|---|---|
-| `redox-driver` is empty and declared for this kind of work | `crates/redox-driver/src/lib.rs` | Module doc names orchestration; no constructs |
-| The pieces a build script needs are already public | `redox_parser::parse_source`, `redox_emit::emit_with_map`, `redox_diag::render` | All `pub` |
+| `voltaic-driver` is empty and declared for this kind of work | `crates/voltaic-driver/src/lib.rs` | Module doc names orchestration; no constructs |
+| The pieces a build script needs are already public | `voltaic_parser::parse_source`, `voltaic_emit::emit_with_map`, `voltaic_diag::render` | All `pub` |
 | `include!` is usable for this | Rust reference | `include!(concat!(env!("OUT_DIR"), "/x.rs"))` is the standard idiom |
 | A nested crate needs its own workspace | Cargo | An empty `[workspace]` table in its manifest detaches it from the parent |
 
 ### 2.1 The constraint that shaped the design
 
-A build script **cannot** use `redox-cli`: Cargo build scripts depend on *libraries*, and
-shelling out to a binary the user may not have installed would make a Redox crate depend
-on a globally-installed tool. So the API has to be a library function, and `redox build`'s
+A build script **cannot** use `voltaic-cli`: Cargo build scripts depend on *libraries*, and
+shelling out to a binary the user may not have installed would make a Voltaic crate depend
+on a globally-installed tool. So the API has to be a library function, and `voltaic build`'s
 own code must not be where the logic lives.
 
 That is why `build_command` is left alone and the new `compile_dir` is not layered on top
@@ -80,7 +80,7 @@ written and correct and unread.
 
 So the honest position, and criterion 6 is rewritten to match it:
 
-- `redox check` reports against the `.sdx`. That is the authoring workflow, it is plan 07's
+- `voltaic check` reports against the `.sdx`. That is the authoring workflow, it is plan 07's
   machinery, and it works on a project laid out this way.
 - `cargo build` reports against `OUT_DIR`. The file it names is real and openable, with the
   map sitting beside it, but the user is reading generated Rust.
@@ -93,7 +93,7 @@ Closing that gap needs something between Cargo and rustc — a `RUSTC_WRAPPER`, 
 
 ## 3. Concrete proof this plan targets
 
-Doc 02 §6.6's standard is that the design "determines what a Redox project even looks
+Doc 02 §6.6's standard is that the design "determines what a Voltaic project even looks
 like", so the proof is a project:
 
 **A real crate in the repository, with its own `Cargo.toml`, `build.rs`, and a `.sdx`
@@ -101,7 +101,7 @@ source, which `cargo run` builds and executes — asserted by running it.** Not 
 of the API: an actual cargo build, because the claim is about Cargo.
 
 Plus the property that makes the layout worth choosing: a **type error in the project's
-`.sdx` surfaces against the `.sdx` under `redox check`**. Not under plain `cargo build` —
+`.sdx` surfaces against the `.sdx` under `voltaic check`**. Not under plain `cargo build` —
 §2.2 measured that and says why.
 
 ---
@@ -110,7 +110,7 @@ Plus the property that makes the layout worth choosing: a **type error in the pr
 
 ### Leaf 1 — `leaf-compile-dir`
 
-`redox-driver/src/compile_dir.rs` and children — named for its construct, which doc 06
+`voltaic-driver/src/compile_dir.rs` and children — named for its construct, which doc 06
 §2.3 requires and the architecture test caught (§10.3). One entry point:
 
 ```rust
@@ -119,7 +119,7 @@ pub fn compile_dir(src: &Path, out: &Path) -> Result<Compiled, Vec<Diagnostic>>
 
 Walks `src` for `.sdx`, writes `<stem>.rs` into `out` plus the `.xrs.map` sidecar, and
 returns what was written. Errors come back as `Vec<Diagnostic>` — the type plan 05
-defined — so a build script can render them with `redox_diag::render` and Cargo shows
+defined — so a build script can render them with `voltaic_diag::render` and Cargo shows
 them.
 
 ### Leaf 2 — `leaf-rerun-directives`
@@ -137,8 +137,8 @@ This is the artifact a user copies, so it is written to be read.
 
 ### Leaf 4 — `leaf-proof`
 
-`redox-cli/tests/cargo_project.rs`: `cargo run` the example crate and assert its output,
-read back what Cargo wrote into `OUT_DIR`, and assert `redox check` names the `.sdx` for a
+`voltaic-cli/tests/cargo_project.rs`: `cargo run` the example crate and assert its output,
+read back what Cargo wrote into `OUT_DIR`, and assert `voltaic check` names the `.sdx` for a
 type error in it (§2.2 for why `cargo build` does not).
 
 ### Leaf 5 — `leaf-tests-and-gate`
@@ -153,12 +153,12 @@ shape.
 | # | Criterion |
 |---|---|
 | 1 | `compile_dir` turns a directory of `.sdx` into `.rs` in `OUT_DIR`, with maps |
-| 2 | A lex or parse error comes back as `Vec<Diagnostic>`, renderable by `redox_diag::render` |
+| 2 | A lex or parse error comes back as `Vec<Diagnostic>`, renderable by `voltaic_diag::render` |
 | 3 | `Compiled` names every input, so a build script can emit `rerun-if-changed` |
 | 4 | `examples/cargo-project/` builds and runs under plain `cargo run`, asserted by a test |
 | 5 | Editing the `.sdx` rebuilds — the rerun directives are emitted and correct |
-| 6 | `redox check` reports a type error in a project's `.sdx` against the `.sdx`; plain `cargo build` reports against `OUT_DIR`, and that is disclosed (§2.2) |
-| 7 | `redox build` still writes `.xrs`, unchanged |
+| 6 | `voltaic check` reports a type error in a project's `.sdx` against the `.sdx`; plain `cargo build` reports against `OUT_DIR`, and that is disclosed (§2.2) |
+| 7 | `voltaic build` still writes `.xrs`, unchanged |
 | 8 | No new third-party dependency |
 | 9 | Full gate green |
 
@@ -171,9 +171,9 @@ shape.
 | Caching | **plan 10** | `compile_dir` recompiles every `.sdx` every time the script runs. Cargo's own rerun logic limits how often that is, and plan 10 puts a `blake3` cache behind the same signature |
 | Nested directories | — | `compile_dir` is one level. Module support is what would make nesting meaningful, and that is a later plan |
 | Mixed `.sdx`/`.rs` in one module tree | partly here | A crate can hold both — `main.rs` is ordinary Rust and the `.sdx` arrives by `include!`. What is *not* supported is a `.sdx` declaring `mod` over a `.rs` file |
-| Remapping under plain `cargo build` | open | §2.2. Needs a `RUSTC_WRAPPER` or option (c); the first is a plan of its own and the second is forbidden by doc 01 §1.3. `redox check` is the workflow until then |
+| Remapping under plain `cargo build` | open | §2.2. Needs a `RUSTC_WRAPPER` or option (c); the first is a plan of its own and the second is forbidden by doc 01 §1.3. `voltaic check` is the workflow until then |
 | `export` → `pub`, so a `.sdx` can fill a `mod` | **plan 24** | Doc 03 §9.6 specifies it and nothing implements it, so a `.sdx`'s items are private and the example includes at the crate root. Found by building the project |
-| `cargo redox` | **rejected** | Doc 02 §6.6 option (c); doc 01 §1.3 forbids replacing the build system |
+| `cargo voltaic` | **rejected** | Doc 02 §6.6 option (c); doc 01 §1.3 forbids replacing the build system |
 
 ---
 
@@ -199,9 +199,9 @@ problem *different in kind* rather than merely easier.
 
 - **Option (a), as doc 02 recommended**, with its three properties asserted rather than
   assumed (§1).
-- **The API lives in `redox-driver`, not a new crate** (§1.1): a build script differs from
+- **The API lives in `voltaic-driver`, not a new crate** (§1.1): a build script differs from
   the CLI in audience, not in layer.
-- **A build script may not shell out to `redox`** (§2.1). A Redox crate must build with
+- **A build script may not shell out to `voltaic`** (§2.1). A Voltaic crate must build with
   `cargo build` and a path dependency, not with a globally-installed binary.
 - **`compile_dir` returns `Vec<Diagnostic>`, not a formatted string.** The caller chooses
   the renderer; a build script wants `render(.., plain: true)` because Cargo's output is
@@ -220,13 +220,13 @@ problem *different in kind* rather than merely easier.
 `done`. 263 tests pass; `fmt`, `clippy -D warnings`, `cargo audit` and the full gate are
 green.
 
-A Redox project looks like this, and it is in the repository:
+A Voltaic project looks like this, and it is in the repository:
 
 ```text
 examples/cargo-project/
-  Cargo.toml          [build-dependencies] redox-driver, redox-diag; empty [workspace]
+  Cargo.toml          [build-dependencies] voltaic-driver, voltaic-diag; empty [workspace]
   build.rs            compile_dir("src", OUT_DIR) + rerun directives — 30 lines
-  src/greeting.sdx    Redox
+  src/greeting.sdx    Voltaic
   src/main.rs         include!(concat!(env!("OUT_DIR"), "/greeting.rs")) — plain Rust
 ```
 
@@ -239,19 +239,19 @@ examples/cargo-project/
 | 3 | `Compiled` names every input | `the_build_script_asks_cargo_to_watch_the_sdx` |
 | 4 | Builds and runs under plain Cargo | `the_example_project_builds_and_runs`, asserting exact stdout |
 | 5 | Editing a `.sdx` rebuilds | criterion 3's directives, plus `cargo::rerun-if-changed=src` for additions |
-| 6 | `redox check` against the `.sdx`; `cargo build` against `OUT_DIR` | `redox_check_reports_a_project_error_against_the_sdx`, and §2.2 for the limit |
-| 7 | `redox build` unchanged | plan 01–08's tests, untouched |
+| 6 | `voltaic check` against the `.sdx`; `cargo build` against `OUT_DIR` | `voltaic_check_reports_a_project_error_against_the_sdx`, and §2.2 for the limit |
+| 7 | `voltaic build` unchanged | plan 01–08's tests, untouched |
 | 8 | No new dependency | `Cargo.lock` unchanged |
 | 9 | Full gate green | `moon run :check :lint :test :cargo-check :cargo-test` |
 
 ### 10.1 What building a real project found
 
 Three things, none of which a unit test of `compile_dir` would have reached. This is the
-argument for doc 02 §6.6's own standard — that the answer "determines what a Redox project
+argument for doc 02 §6.6's own standard — that the answer "determines what a Voltaic project
 even looks like", so the proof has to be a project.
 
-**Redox cannot yet produce a reachable item inside a module.** The natural shape is
-`mod greeting { include!(…) }`, and it fails: Redox emits `fn greet(…)` with no
+**Voltaic cannot yet produce a reachable item inside a module.** The natural shape is
+`mod greeting { include!(…) }`, and it fails: Voltaic emits `fn greet(…)` with no
 visibility, so every item is private to that module. Doc 03 §9.6 already specifies the fix
 — `export` lowers to `pub`, `export(crate)` to `pub(crate)` — and **plan 24** owns it. The
 example includes at the crate root instead, where private items are still crate-visible,
@@ -265,7 +265,7 @@ library work, and nothing before now had tried.
 generated file, so rustc's span is one a map can translate — but Cargo invokes rustc
 directly, so **nothing reads the map**, and plain `cargo build` reports
 `out/greeting.rs:3:7`. Measured, not assumed. Criterion 6 was rewritten to say what is
-delivered: `redox check` remaps, `cargo build` does not, closing the gap needs a
+delivered: `voltaic check` remaps, `cargo build` does not, closing the gap needs a
 `RUSTC_WRAPPER` or the option doc 01 §1.3 forbids.
 
 **A fourth toolchain shim.** `env!("CARGO")` under `blaze test` is
@@ -284,7 +284,7 @@ crate does" must not hand the child the outer build's environment.
 
 `diagnose` was in the CLI, where plan 05 put it because the CLI was its only caller. This
 plan gave it a second caller that must not depend on the CLI (§2.1), so it moved **down**
-into `redox-driver` — above the stages, below the CLI — rather than being copied. Doc 06
+into `voltaic-driver` — above the stages, below the CLI — rather than being copied. Doc 06
 §3 rule 6 applied in advance instead of after the two copies drifted, which is the only
 time applying it is cheap.
 
@@ -307,10 +307,10 @@ The checks named all three; none was visible while writing:
 - **`compile_dir` is one level deep** and recompiles everything each run. Nesting needs
   module support to mean anything; caching is plan 10, behind this signature.
 - **A build script cannot report against the `.sdx` under `cargo build`** (§2.2). Authors
-  should run `redox check`.
+  should run `voltaic check`.
 - **The example project builds in place**, so `examples/*/target/` and
   `examples/*/Cargo.lock` are gitignored. Making it a workspace member would have given it
   the parent's lockfile and profile, which is precisely what the plan needs it not to have.
 - **`.sdx` declaring `mod` over a `.rs` file is not supported**, and is not the same
   question as plan 24's `export`. A crate *can* mix both kinds of source; what it cannot do
-  is have the Redox side own the module tree.
+  is have the Voltaic side own the module tree.

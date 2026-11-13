@@ -4,7 +4,7 @@
 -- word.
 --
 -- An instance method **restates its signature**, which doc 18 §2.5's own
--- example does not. Rust's `impl` restates it too, and Redox has no name
+-- example does not. Rust's `impl` restates it too, and Voltaic has no name
 -- resolution to copy one from the class — AGENTS.md forbids growing any.
 -- Doc 18 §2.5 records the deviation.
 

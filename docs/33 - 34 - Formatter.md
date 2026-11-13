@@ -9,7 +9,7 @@ Status: `done` — all six leaves shipped 2026-11-09
 
 ## 1. What this plan is
 
-`redox fmt`: one canonical spelling per construct, trivia preserved, and therefore the
+`voltaic fmt`: one canonical spelling per construct, trivia preserved, and therefore the
 migration tool doc 02 §4.5 calls for.
 
 It is the **largest row left**, and §1.2 says so plainly rather than discovering it halfway.
@@ -49,7 +49,7 @@ place that would have said so.
 
 A printer needs an arm per construct. The language has roughly fifteen item kinds, forty-odd
 expression variants, a dozen statement kinds and a dozen pattern forms — which is why
-`redox-emit` is about eighty files. A Redox-output printer is comparable, and one
+`voltaic-emit` is about eighty files. A Voltaic-output printer is comparable, and one
 construct per file (doc 06 §1) means comparably many.
 
 So this plan is **not** finishable in one sitting at the standard the rest of the project
@@ -61,7 +61,7 @@ carried.
 ### 1.3 Trivia-preserving is the whole design, and the lexer already paid for it
 
 Doc 02 §3.2: Emerald's formatter *"loses every non-doc comment because its lexer discards
-them"*. Redox's lexer keeps all four comment forms and attributes as trivia (plans 17 and
+them"*. Voltaic's lexer keeps all four comment forms and attributes as trivia (plans 17 and
 18), attached to the item or statement they belong to, and the emitter already re-emits them
 into the `.xrs`.
 
@@ -89,7 +89,7 @@ there are more than thirty of them covering every construct that exists.
 
 ### 1.5 The corpus becomes the style guide
 
-`redox fmt --check examples/*.sdx` passing means **every example is already canonical**.
+`voltaic fmt --check examples/*.sdx` passing means **every example is already canonical**.
 
 That is a strong claim and a cheap test, and it inverts the usual relationship: rather than
 the formatter being tested against hand-written expectations, the hand-written corpus is
@@ -149,8 +149,8 @@ Ordered so each is shippable alone, and so the row can stop between any two.
 ### Leaf 1 — `leaf-printer-and-trivia`
 
 The `Printer`: an indent-aware sink, the trivia traversal lifted from the emitter's shape,
-and the top-level `format(program, source) -> String`. Plus `redox fmt` and
-`redox fmt --check` in the CLI, so the thing is reachable the moment it prints anything.
+and the top-level `format(program, source) -> String`. Plus `voltaic fmt` and
+`voltaic fmt --check` in the CLI, so the thing is reachable the moment it prints anything.
 
 > **The order of leaves 2 to 4 is wrong, and §10 records it.** Items were listed first and
 > most of them *delegate* to the expression printer: a `const`'s value is an `Expr`, a
@@ -197,7 +197,7 @@ with a reason.
 
 ## 5. Acceptance criteria
 
-1. `redox fmt FILE` formats in place; `--check` exits non-zero and prints a diff when the
+1. `voltaic fmt FILE` formats in place; `--check` exits non-zero and prints a diff when the
    file is not canonical.
 2. **Idempotence** over every `.sdx` in the repository.
 3. **Meaning preservation** over every `.sdx`: `parse(fmt(x))` equals `parse(x)`, compared as
@@ -206,11 +206,11 @@ with a reason.
    by counting trivia before and after, because a formatter that drops a comment is doc 02
    §3.2's defect and the one thing this plan may not do.
 5. Every normalisation in §3 is asserted, both directions where both are meaningful.
-6. `redox fmt --check` passes on every file in `examples/`, so the corpus is the style guide.
+6. `voltaic fmt --check` passes on every file in `examples/`, so the corpus is the style guide.
 7. A construct the formatter does not yet print is passed through **verbatim** rather than
    mangled, and `--check` does not claim it is canonical. This is what makes a partial
    formatter safe to ship.
-8. `redox fmt` on a file that does not parse fails with the parse error and changes nothing.
+8. `voltaic fmt` on a file that does not parse fails with the parse error and changes nothing.
 
 ---
 
@@ -219,7 +219,7 @@ with a reason.
 - **Moving a comment.** A comment inside a construct the formatter reflows has nowhere
   canonical to go, so such a construct is left as written — §1.3. Conservative, and it
   cannot lose text.
-- **A line-width limit.** Rust's formatter has one and Redox's layout is significant, so
+- **A line-width limit.** Rust's formatter has one and Voltaic's layout is significant, so
   wrapping a line can change what a program means. Declined until someone shows a wrap that
   provably cannot.
 - **Sorting anything.** Imports keep their order, because plan 14 §10.2 found that
@@ -243,12 +243,12 @@ moon run :check :lint :test :cargo-check :cargo-test :ci-format :audit
 ## 8. Emerald reuse
 
 **The goal and its disclosed failure.** `crates/emerald-fmt` wanted exactly this and got two
-things wrong, both recorded in Redox's own docs before a line was written: it ran off a bare
+things wrong, both recorded in Voltaic's own docs before a line was written: it ran off a bare
 AST and so lost every comment (doc 02 §3.2), and it re-added parentheses it could not know
 were redundant, so its CI gate silently reverted the style its examples were written in
 (§16's own opening).
 
-Redox avoids the first by keeping trivia from the lexer up — already done, for the emitter's
+Voltaic avoids the first by keeping trivia from the lexer up — already done, for the emitter's
 sake. It avoids the second because the emitter already has `receiver` and
 `wraps_as_receiver`, which decide exactly when a parenthesis is load-bearing, and the
 formatter uses the same functions rather than a second opinion.
@@ -265,7 +265,7 @@ formatter is a solved problem *in this repository* because the emitter had to so
 | 1 | Rewrite §16's table rather than implement it | Implement §16 as published | Eleven of thirteen rows describe constructs that no longer exist. Implementing them would normalise toward a language doc 18 deleted |
 | 2 | Share the emitter's parenthesis logic | A formatter-side copy | Emerald's formatter sank on exactly this, and a second opinion about when a parenthesis matters is a second thing to keep right |
 | 3 | Unprinted constructs pass through verbatim | Print everything or nothing | It is what makes a partial formatter safe, and §1.2 says a partial formatter is what this row will have for a while |
-| 4 | No line-width limit | Wrap at 100, like rustfmt | Redox's layout is significant. A wrap can change meaning, and no one has shown a safe one |
+| 4 | No line-width limit | Wrap at 100, like rustfmt | Voltaic's layout is significant. A wrap can change meaning, and no one has shown a safe one |
 | 5 | The corpus is the style guide | Hand-written formatter fixtures | Thirty-odd `.sdx` files already cover every construct, and testing them against the formatter finds disagreements a fixture would hide |
 | 6 | Properties over goldens | A `.fmt` expectation per case | Idempotence and meaning-preservation are the actual requirements; a golden asserts one output and says nothing about either |
 
@@ -276,7 +276,7 @@ formatter is a solved problem *in this repository* because the emitter had to so
 > **`StmtKind` was deleted at plan 55 leaf 1** (2026-11-10), and the variants this section names are now `Expr::*`. `Stmt` survives as the trivia carrier — a comment attaches to a line, and `Expr` carries no trivia — so a block is still `Vec<Stmt>`. This document is left as written: it was correct when written, and the register's row 55 is the authority on what changed.
 
 **Leaf 1 and leaf 5 shipped; the row is `partial`.** 671 tests pass; `fmt`, `clippy -D
-warnings` and the gate are green. `redox fmt` and `redox fmt --check` work, the four
+warnings` and the gate are green. `voltaic fmt` and `voltaic fmt --check` work, the four
 properties of §1.4 hold over every `.sdx` in the repository, and §1.5's inversion is a test
 rather than an aspiration.
 
@@ -385,7 +385,7 @@ each bring one.
 
 Criterion 1 asked for a diff. It prints a file list, and the narrowing is deliberate: the
 information wanted from `--check` is *which files*, and the diff wanted after that is
-`redox fmt FILE && git diff`, which reads better than anything this command would render.
+`voltaic fmt FILE && git diff`, which reads better than anything this command would render.
 
 ### 10.8 The corpus was already canonical, which proves less than it looks
 
@@ -409,9 +409,9 @@ item level, which §10.8 just established. So the dependency is
 it, and the work should be taken in reverse.
 
 Worth recording rather than silently reordering: the plan was written with the item kinds
-first because that is how `redox-emit` is organised, and the emitter can do that because it
+first because that is how `voltaic-emit` is organised, and the emitter can do that because it
 emits *Rust*, where an item's shape and its expressions are independent problems. Printing
-Redox back is not the same problem, and assuming the emitter's structure transferred was the
+Voltaic back is not the same problem, and assuming the emitter's structure transferred was the
 mistake.
 
 ### 10.10 Two of §3's rows change the program, and one of them is a language fact
@@ -486,18 +486,18 @@ of the AST, which is a worse liability than a scanner.
 ### 10.13 The precedence table moved to the operator
 
 Dropping a parenthesis is a precedence decision, and the table lived in
-`redox-parser`'s `binary_power`, keyed by `TokenKind` and `pub(crate)`. Correct while the
+`voltaic-parser`'s `binary_power`, keyed by `TokenKind` and `pub(crate)`. Correct while the
 parser was the only reader.
 
-It is now `BinaryOp::power` in `redox-ast`, and `binary_power` keeps only the half that is
+It is now `BinaryOp::power` in `voltaic-ast`, and `binary_power` keeps only the half that is
 genuinely the parser's — which **token** spells which operator. A formatter working from a
 copy of the table would drop a needed parenthesis the moment the two drifted, and it would do
 it silently, because both spellings still compile and both still pass every existing test.
 `the_powers_come_from_the_operator` asserts the move was a move.
 
-`BinaryOp::redox_text` was added beside it for the inverse reason `rust_text` exists:
+`BinaryOp::voltaic_text` was added beside it for the inverse reason `rust_text` exists:
 `rust_text` returns `None` for `??`, `catch` and `|>` because those need a lowering rather
-than a spelling, and a formatter printing Redox needs the surface spelling of all three.
+than a spelling, and a formatter printing Voltaic needs the surface spelling of all three.
 
 ### 10.14 Two defects, both found by a property and neither by the fixture
 
@@ -562,13 +562,13 @@ moved into it. Shipping the pattern half first means the statement printer can u
 
 It exists on the AST and is close enough to be tempting. Three of the eleven forms differ:
 
-| Redox | Rust |
+| Voltaic | Rust |
 |---|---|
 | `Some v` | `Some(v)` |
 | `Point { x = 0, .. }` | `Point { x: 0, .. }` |
 | `13 or 14` | `13 \| 14` |
 
-Each difference is a token Redox spends elsewhere. `(` and `)` are grouping, because
+Each difference is a token Voltaic spends elsewhere. `(` and `)` are grouping, because
 juxtaposition is the application form — doc 18 §2.1, the same rule as a call. `:` is half of
 the `::` that ascribes, so a record pattern uses `=`. And `|` is the guard ladder's
 separator, so an alternation says `or`.
@@ -577,7 +577,7 @@ The other eight are spelled identically, including the two that look like they w
 a slice's rest is `..` and a named rest is `name @ ..`, exactly as in Rust.
 `examples/destructuring.sdx` settles both — the `...` spread that `lexical.sdx` lexes is a
 token the pattern grammar does not use, which is worth knowing because it reads like the
-Redox spelling and is not one.
+Voltaic spelling and is not one.
 
 ### 10.19 "Parenthesise unless atomic" is three rules in pattern position, not one
 
@@ -625,7 +625,7 @@ signature of `()` beside a clause taking one parameter. That does not parse, so 
 sent the search in entirely the wrong direction.
 
 Worth a line because the probe is the kind of code that looks like scaffolding and is not:
-it is a Redox program, the parser holds it to the same rules, and a defect in it is reported
+it is a Voltaic program, the parser holds it to the same rules, and a defect in it is reported
 as a defect in the subject.
 
 ### 10.22 `::` is three separators, and §3 row 8 named the wrong one
@@ -659,12 +659,12 @@ else
     ...
 ```
 
-which is correct Redox and is not what anyone writes. `examples/control.sdx` writes
+which is correct Voltaic and is not what anyone writes. `examples/control.sdx` writes
 `else if n < 0`, so the chain is reconstructed when the block holds exactly one statement,
 that statement is an `If`, and it carries **no trivia**.
 
 The trivia condition is the part worth keeping. A comment above the inner `if` belongs on its
-own line, and `else if -- why` is not a line Redox can write, so collapsing the chain would
+own line, and `else if -- why` is not a line Voltaic can write, so collapsing the chain would
 have to move the comment or drop it — and dropping a comment is doc 02 §3.2's defect. A
 commented inner `if` therefore stays a nested block, which is uglier and right.
 
@@ -719,8 +719,8 @@ So `tier n = if n > 9 then "big" else "small"` — real, from `examples/control.
 a `StmtKind::Expr` holding an `Expr::If` that cannot be printed as a standalone statement.
 
 **This is a constraint leaf 2 has to honour**: an equation whose body is a single expression
-must stay on the equation line. Moving it into an indented block is a change `redox fmt` would
-make silently, and rustc would never see it, because the file would stop parsing as *Redox*
+must stay on the equation line. Moving it into an indented block is a change `voltaic fmt` would
+make silently, and rustc would never see it, because the file would stop parsing as *Voltaic*
 first. The round-trip probe tries both positions, which is how the asymmetry surfaced.
 
 ### 10.27 Trivia makes this the first printer that can lose text
@@ -749,7 +749,7 @@ easier.
 
 Leaf 6 ran at the same time, because it had to: the moment `format` printed items,
 `every_example_is_already_canonical` had something to say. Eight examples changed, each for a
-reason below, and `redox fmt --check` passes on all twenty-eight.
+reason below, and `voltaic fmt --check` passes on all twenty-eight.
 
 ### 10.29 Three places where the AST does not record what the author wrote
 

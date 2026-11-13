@@ -39,7 +39,7 @@ parse_it s =
 -- `catch` takes the `Ok` value when there is one and the fallback when there
 -- is not — doc 03 §12.2. A `match`, not `unwrap_or_else`, for §12.1's
 -- decisive reason: that method's closure arity differs between `Option` and
--- `Result`, so a method lowering would be type-dependent and Redox has no
+-- `Result`, so a method lowering would be type-dependent and Voltaic has no
 -- types.
 --
 -- No parentheses are needed around `parse_it s`: `catch` is a keyword, so the
@@ -143,13 +143,13 @@ main =
   -- 03 §12.7's lint fires on the name alone — it has no types and so cannot
   -- know that — and the attribute is how an author says they do. It is
   -- consumed rather than emitted, so the generated Rust carries no trace of
-  -- it and rustc never sees a `redox` it cannot resolve.
-  #[redox::allow(unwrap)]
+  -- it and rustc never sees a `voltaic` it cannot resolve.
+  #[voltaic::allow(unwrap)]
   println! \-> "#{(describe_tag (.unwrap (first_tag (&u))))}"
-  #[redox::allow(unwrap)]
+  #[voltaic::allow(unwrap)]
   println! \-> "#{(.is_none (.unwrap (nickname_of (&u))))}"
 
-  #[redox::allow(unwrap)]
+  #[voltaic::allow(unwrap)]
   println! \-> "#{(.unwrap (attempt "1" "2"))}"
   println! \-> "#{(.is_err (attempt "1" "no"))}"
   println! \-> "#{(after_a_failed_try ())}"

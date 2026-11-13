@@ -2,7 +2,7 @@
 --
 -- An IR comparison that passes on every pair cannot distinguish *the lowering
 -- is free* from *the comparison is vacuous*. So this pair is deliberately
--- **not** equivalent: the hand-written side clones and the Redox side does
+-- **not** equivalent: the hand-written side clones and the Voltaic side does
 -- not. If the comparison calls these identical, it is comparing nothing.
 --
 -- The function is named after the pair, which is criterion 2's convention and

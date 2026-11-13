@@ -1,0 +1,158 @@
+import crate::build_command::build_command
+import crate::fmt_command::check_command
+import crate::fmt_command::fmt_command
+import crate::watch_command::watch_command
+import std::fmt::Write as _
+
+export(crate) run : &[String] -> Result<(), String>
+run args =
+  guard .map String::as_str (.first args) is Some first else
+    help = usage ()
+    print! \-> "#{help}"
+    return Ok ()
+
+  guard lookup first is Some command else
+    help = usage ()
+    return Err (format! \-> "error: unknown command `#{first}`\n\n#{help}")
+
+  if .not_yet command is Some message
+    return Err message
+
+  n = .len args
+  rest = &args[1 .. n]
+
+  case command.name of
+    "--help" ->
+      help = usage ()
+      print! \-> "#{help}"
+      Ok ()
+    "--version" ->
+      version = env! \-> "CARGO_PKG_VERSION"
+      println! \-> "voltaic #{version}"
+      Ok ()
+    "build" -> build_command rest
+    "check" -> check_command rest
+    "fmt" -> fmt_command rest
+    "watch" -> watch_command rest
+    other ->
+      unreachable! \-> "`#{other}` is Ready in COMMANDS but has no dispatch arm"
+
+export(crate) data Command = Command { export(crate) name : &'static str, export(crate) summary : &'static str, export(crate) state : State }
+  deriving (Debug, Clone, Copy, PartialEq, Eq)
+
+instance Command
+  export(crate) matches : &str -> &self -> bool
+  matches arg self =
+    if self.name == "--help"
+      return arg == "--help" || arg == "-h" || arg == "help"
+    if self.name == "--version"
+      return arg == "--version" || arg == "-V"
+    arg == self.name
+
+  export(crate) not_yet : &self -> Option<String>
+  not_yet self = case self.state of
+    State::Ready -> None
+    State::Planned { plan, id } ->
+      Some $ format! \-> "error: `#{self.name}` is not implemented yet — it is plan #{plan:02} (`#{id}`)"
+
+#[cfg(test)]
+const FMT : Command = Command { name = "fmt", summary = "format a .sdx in place", state = State::Planned { plan = 34, id = "formatter" } }
+
+#[cfg(test)]
+const BUILD : Command = Command { name = "build", summary = "transpile", state = State::Ready }
+
+test "a ready command has nothing to announce"
+  assert_eq! \-> .not_yet BUILD \-> None
+
+test "a planned command names its plan"
+  message = FMT |> .not_yet |> .expect "fmt is planned"
+  assert! \-> .contains "not implemented yet" message \-> "#{message}"
+  assert! \-> .contains "plan 34" message \-> "#{message}"
+  assert! \-> .contains "formatter" message \-> "#{message}"
+
+test "the help and version aliases are accepted"
+  help = Command { name = "--help", summary = "", state = State::Ready }
+  for arg in ["--help", "-h", "help"]
+    assert! \-> .matches arg help \-> "#{arg}"
+  assert! \-> !.matches "--helpful" help
+
+  version = Command { name = "--version", summary = "", state = State::Ready }
+  assert! \-> .matches "--version" version && .matches "-V" version
+  assert! \-> !.matches "-v" version \-> "lowercase -v is not a version flag"
+
+test "an ordinary command matches only itself"
+  assert! \-> .matches "build" BUILD
+  assert! \-> !.matches "builds" BUILD && !.matches "--build" BUILD
+
+export(crate) data State
+  = Ready
+  #[allow(dead_code, reason = "the next declared-before-built command uses it; see above")]
+  | Planned { plan : u32, id : &'static str }
+  deriving (Debug, Clone, Copy, PartialEq, Eq)
+
+export(crate) const COMMANDS : &[Command] = &[Command { name = "build", summary = "transpile a .sdx to .xrs", state = State::Ready }, Command { name = "check", summary = "transpile, then report rustc's errors against the .sdx", state = State::Ready }, Command { name = "fmt", summary = "format .sdx files in place, or --check them", state = State::Ready }, Command { name = "watch", summary = "rebuild on change", state = State::Ready }, Command { name = "--version", summary = "print the version", state = State::Ready }, Command { name = "--help", summary = "print this message", state = State::Ready }]
+
+test "every command has a summary"
+  for command in COMMANDS
+    assert! \-> !.is_empty command.summary \-> "#{command.name} has no summary"
+
+test "the surface has six entries"
+  assert_eq! \-> .len COMMANDS \-> 6 \-> "doc 01 §27 lists six commands; adding a seventh is a decision, not a patch"
+
+export(crate) lookup : &str -> Option<&'static Command>
+lookup arg = .find (\c -> .matches arg c) (.iter COMMANDS)
+
+test "every declared command is reachable by its own name"
+  for command in COMMANDS
+    found = .unwrap_or_else (\-> panic! \-> "#{command.name} not found") (lookup command.name)
+    assert_eq! \-> found.name \-> command.name
+
+test "an unknown argument selects nothing"
+  assert! \-> .is_none (lookup "frobnicate")
+  assert! \-> .is_none (lookup "")
+
+test "no two commands claim the same argument"
+  for arg in ["build", "check", "fmt", "watch", "--version", "-V", "--help", "-h", "help"]
+    claimants = .count (.filter (\c -> .matches arg c) (.iter COMMANDS))
+    assert_eq! \-> claimants \-> 1 \-> "#{arg} is claimed #{claimants} times"
+
+export(crate) usage : String
+usage =
+  mut out = String::from "voltaic — a MoonScript-inspired surface for Rust\n\nusage:\n"
+
+  width = COMMANDS
+    |> .iter
+    |> .map (\c -> .len c.name)
+    |> .max
+    |> .unwrap_or 0
+  for command in COMMANDS
+    name = command.name
+    _dropped = write! \-> out \-> "  voltaic #{name:<width$}  #{command.summary}"
+    case command.state of
+      State::Planned { plan, id } ->
+        _planned = write! \-> out \-> " (plan #{plan:02}, `#{id}`)"
+      State::Ready -> ()
+    out |> .push '\n'
+
+  out
+    |> .push_str "\nCargo owns build, test, docs and dependencies (doc 01 §27).\n"
+  out
+
+test "every command appears"
+  text = usage ()
+  for command in COMMANDS
+    assert! \-> .contains command.name text \-> "#{command.name} is missing from the usage text:\n#{text}"
+    assert! \-> .contains command.summary text \-> "#{command.name} summary missing"
+
+test "no command advertises a plan"
+  text = usage ()
+  assert! \-> !.contains "plan " text \-> "every command is implemented, so none should name a plan:\n#{text}"
+
+test "fits on one screen"
+  text = usage ()
+  lines = text |> .lines |> .count
+  assert! \-> lines <= 24 \-> "usage is #{lines} lines, which no longer fits a terminal"
+
+test "names cargo as the owner of everything else"
+  text = usage ()
+  assert! \-> .contains "Cargo owns" text

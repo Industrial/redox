@@ -22,7 +22,7 @@ area w = scaled                 fn area(w: f64) -> f64 {
                                 }
 ```
 
-Haskell's `where` is a recursive, order-independent binding group. Redox's is an ordered `let`
+Haskell's `where` is a recursive, order-independent binding group. Voltaic's is an ordered `let`
 list wearing the name. This row makes the name true.
 
 ### 1.1 Doc 03 §8.3 already specifies half of this row, and explicitly refuses the other half
@@ -49,7 +49,7 @@ admit"*. §1.2 is the counter-argument, and it has to be good enough to overturn
 decision rather than merely sound plausible.
 
 And a third thing, which is why the row is reachable at all: **`RDX0047` is specified and not
-implemented.** Zero references under `crates/`. So today a forward reference is not a Redox
+implemented.** Zero references under `crates/`. So today a forward reference is not a Voltaic
 diagnostic — it is the rustc `E0425` of §2, arriving in generated code. The status quo is
 neither what §8.3 specified nor what this row proposes, and that gap is what makes the question
 live rather than settled.
@@ -114,15 +114,15 @@ where
   b = a + 1          -- RDX: cyclic `where` bindings
 ```
 
-Haskell accepts this and diverges at run time, because it is lazy. Redox is strict, so the cycle
+Haskell accepts this and diverges at run time, because it is lazy. Voltaic is strict, so the cycle
 is detectable statically and is reported statically. That is a divergence from Haskell **in
-Redox's favour**, and §6 records it as such rather than as a limitation.
+Voltaic's favour**, and §6 records it as such rather than as a limitation.
 
 ---
 
 ## 2. Verified preconditions
 
-Measured 2026-11-10, against `redox` at `194fdf7`.
+Measured 2026-11-10, against `voltaic` at `194fdf7`.
 
 **Out-of-order `where` emits out-of-order `let` and fails in rustc:**
 
@@ -160,7 +160,7 @@ Four more:
 1. **A three-binding chain in reverse order.** `c` uses `b` uses `a`, written `c`, `b`, `a`. A
    single-pass "move it earlier" heuristic passes the two-binding case and fails this one.
 2. **Mutual recursion.** §1.3's `parity`, emitted as nested `fn`s, running.
-3. **A parameterless cycle.** `a = b + 1`, `b = a + 1` — a named Redox diagnostic, with a
+3. **A parameterless cycle.** `a = b + 1`, `b = a + 1` — a named Voltaic diagnostic, with a
    `tests/ui/` fixture.
 4. **A `where` binding referring to a function parameter and to a module-scope constant.**
    Neither is an edge in the graph, so neither can affect the sort — asserted because a scan that
@@ -190,7 +190,7 @@ Restated from *"a `where` binding may carry a pattern row"*, which §11.1 found 
 half: the pattern row fails at `where_locals` → `Parser::stmt` because `looks_like_a_binding`
 wants `Eq`/`Colon`/`LBrace` at the second token, so `go 0` parses as a call and the `=` is
 unexpected — `RDX0101`. The hard half is that a `where` binding has **no signature line** while a
-nested Rust `fn` needs parameter and return types, and Redox has no inference and may never grow
+nested Rust `fn` needs parameter and return types, and Voltaic has no inference and may never grow
 one.
 
 §11.1a settles it, and there is no spelling to invent. A **signature line** is `Ident` then `:`
@@ -233,8 +233,8 @@ group holds two kinds of thing and only the *bindings* are `let`s whose order ma
 mutually recursive component does not have to be ordered at all — so the sort orders bindings
 among themselves and leaves functions where they are. That is simpler than sorting a mixed group.
 
-**The sort runs at emission and never rewrites `Program`** — settled in §11.6. `redox-fmt` and
-`redox-emit` are two readers of one tree, and a pass that mutates the tree to serve one silently
+**The sort runs at emission and never rewrites `Program`** — settled in §11.6. `voltaic-fmt` and
+`voltaic-emit` are two readers of one tree, and a pass that mutates the tree to serve one silently
 changes what the other produces: here that is a *formatter* reordering lines its author wrote,
 which is an edit and not a formatting change. Plan 56 §11.3 reaches the same rule from the other
 side, and both rows should read it as one:
@@ -278,14 +278,14 @@ honest. **Doc 03 §8.3** updated; `docs/GRAMMAR.md` regraded.
 
 Corrected from *"`examples/generic.sdx`'s comment … Doc 18 §2.2 and doc 03 updated"*, on two
 counts, both §11.5's. The copies are four, plus the goldens: `examples/generic.sdx`'s §1 header
-sentence **and** its in-body comment, `redox-ast`'s `clause.rs` doc comment, and
+sentence **and** its in-body comment, `voltaic-ast`'s `clause.rs` doc comment, and
 `emit_clauses.rs`'s code comment, the last two carrying the same sentence. And **doc 18 §2.2 is
 the wrong citation** — it contains no ordering claim, saying only that *"`where` keeps one
 meaning"*; the section to amend is doc 03 §8.3, which §1.1 already quotes verbatim and
 accurately.
 
 `docs/GRAMMAR.md` should also **gain a row** for the multi-equation `where` form, per §11.6:
-Redox's own `where` has no graded row today, which is why criterion 8 is free, and leaf 0 gives it
+Voltaic's own `where` has no graded row today, which is why criterion 8 is free, and leaf 0 gives it
 one worth grading.
 
 ---
@@ -319,7 +319,7 @@ one worth grading.
    has budgeted — or accept that the sort can move a `print`. §11.2 leaves that choice **open and
    owed**, asking only that it be named rather than left to the first program that hits it.
 3. Ties are broken by source order and the emission is deterministic, asserted by a golden —
-   and, per §11.6, `redox fmt` over a `where` group written in a deliberately **non-dependency**
+   and, per §11.6, `voltaic fmt` over a `where` group written in a deliberately **non-dependency**
    order preserves the author's order, asserted explicitly rather than left to
    `formatting_preserves_meaning`. The sort is applied while emitting the `let`s and never
    rewrites `Program`, so a sort that is correct at emission is invisible to that test — which
@@ -330,7 +330,7 @@ one worth grading.
    §7 already cite them and renumbering would silently re-point those citations; the collision is
    recorded here instead.
 4. Mutually recursive `where` bindings with parameters emit nested `fn` items and run.
-5. A parameterless cycle is a named Redox diagnostic listing the bindings, with a `tests/ui/`
+5. A parameterless cycle is a named Voltaic diagnostic listing the bindings, with a `tests/ui/`
    fixture.
 6. References to **module-scope** names are not graph edges, asserted by §3 case 4 producing no
    cycle — free, because a name not in the group's bound set simply is not an edge, and
@@ -369,11 +369,11 @@ one worth grading.
    byte for byte by a stable topological sort with ties broken by source order. §3's new example
    is doing all the work.
 8. `construct_coverage` green — free as the row stands, per §11.6: `docs/GRAMMAR.md` grades
-   *"`where` clauses"* as Rust's **bound** clause and notes that *"Redox's own `where` introduces
-   local bindings and is a different construct"*, so Redox's `where` has no graded row. It stops
+   *"`where` clauses"* as Rust's **bound** clause and notes that *"Voltaic's own `where` introduces
+   local bindings and is a different construct"*, so Voltaic's `where` has no graded row. It stops
    being free when leaf 5 adds one for the multi-equation form — which it should.
 9. All four copies of the reordering claim are amended — `examples/generic.sdx`'s §1 header
-   sentence **and** its in-body comment, `redox-ast`'s `clause.rs` doc comment and
+   sentence **and** its in-body comment, `voltaic-ast`'s `clause.rs` doc comment and
    `emit_clauses.rs`'s code comment, the last two carrying the same *"that reordering is the whole
    of the lowering"* — along with **doc 03 §8.3**.
 
@@ -387,7 +387,7 @@ one worth grading.
 ## 6. Out of scope, and what it discloses
 
 **Laziness is not added, and the cycle refusal is the visible consequence.** §1.4. Haskell accepts
-`a = b + 1; b = a + 1` and diverges; Redox refuses it at compile time. That is a *better* outcome
+`a = b + 1; b = a + 1` and diverges; Voltaic refuses it at compile time. That is a *better* outcome
 and it is still a divergence, so it is written down — a reader porting Haskell will meet it.
 
 **The sort is confined to one `where` group.** Nested `where` clauses — a `where` inside a
@@ -447,7 +447,7 @@ a reasonable sign it should be in AGENTS.md rather than in four plans' decision 
 2. **Mutual recursion in scope.** §1.3.
 3. **Nested `fn`s for cycles, not a `let` with a closure.** A closure cannot refer to itself
    without extra machinery; a nested `fn` can, and Rust already permits it. Verified for plan 55.
-4. **A parameterless cycle is an error, not a divergence.** §1.4. Redox is strict and can tell
+4. **A parameterless cycle is an error, not a divergence.** §1.4. Voltaic is strict and can tell
    statically, so it should.
 5. **Ties broken by source order.** Determinism is a standing rule (plan 04), and a sort is the
    obvious place to lose it.
@@ -500,13 +500,13 @@ what the grammar claims, not merely that something parsed.
 
 ### 10.3 Two copies of one walk, written down as a rationalisation
 
-The first draft put the dependency graph in `redox-parser` for the diagnostic
-and a second copy in `redox-emit` for the sort, and the doc comment on the
+The first draft put the dependency graph in `voltaic-parser` for the diagnostic
+and a second copy in `voltaic-emit` for the sort, and the doc comment on the
 second said they *"must agree with it exactly or the two disagree about
 whether a program has a cycle"*. That is plan 34 §10.31's defect — one
 predicate serving two positions — recorded as an argument for itself.
 
-It is now `redox_ast::where_edges`, with `where_cycle` beside it, so the
+It is now `voltaic_ast::where_edges`, with `where_cycle` beside it, so the
 refusal and the sort read the **same** graph and cannot disagree by
 construction. The reason it can live there is that it is a *structural query
 over the tree*, the same category as `Expr::blocks`: what the edges **mean**
@@ -518,7 +518,7 @@ that one really is one question with one answer in every position.
 
 ### 10.4 The depth cap decided where "together" is
 
-`crates/redox-parser/src/parse/parser/where_group.rs` is already at
+`crates/voltaic-parser/src/parse/parser/where_group.rs` is already at
 `directory_structure.rs`'s three-component maximum, so it can have **no
 children** — and a recursive search needs a file for its helper.
 
@@ -547,7 +547,7 @@ consecutive elided class members colliding — and `Parser::where_function` is
 
 ### 10.6 §11.5 counted four copies and there are five
 
-`crates/redox-emit/tests/generic.rs`'s `where_locals_come_before_the_body`
+`crates/voltaic-emit/tests/generic.rs`'s `where_locals_come_before_the_body`
 carries *"that reordering is the whole of the lowering"* verbatim, and §11.5's
 census missed it. The count being wrong is the finding rather than an
 embarrassment: it is the fifth copy of a sentence that was true until this row,
@@ -599,7 +599,7 @@ is unsound in a case that compiles today.**
 verbatim, including the position.
 
 The hard half is that **a `where` binding has no signature line, and a nested
-Rust `fn` requires parameter and return types.** Redox has no inference and
+Rust `fn` requires parameter and return types.** Voltaic has no inference and
 AGENTS.md forbids it ever growing one. The multi-equation machinery all exists —
 `FnDecl.clauses` is already a `Vec`, `Parser::function` already loops equations,
 `emit_clauses` already lowers them to a `match` — but every bit of it is
@@ -618,7 +618,7 @@ Doc 03 §8.3 presumes nested `fn`s and never says how their types are written;
 doc 18 §2.2 says nothing about `where` lowering at all.
 
 That looked like a **surface-design decision**, and it is not one. There is no
-spelling to invent, because the spelling a Redox author already knows works and
+spelling to invent, because the spelling a Voltaic author already knows works and
 the parser already owns both halves of the test.
 
 ### 11.1a Decided: a `where` entry may be a function, spelled as at module scope
@@ -766,7 +766,7 @@ work.
 
 §4 leaf 5 names one. There are four, plus the goldens:
 `examples/generic.sdx`'s §1 header sentence *and* its in-body comment,
-`redox-ast`'s `clause.rs` doc comment, and `emit_clauses.rs`'s code comment —
+`voltaic-ast`'s `clause.rs` doc comment, and `emit_clauses.rs`'s code comment —
 the last two carrying the same sentence, *"that reordering is the whole of the
 lowering."*
 
@@ -803,13 +803,13 @@ claim; it says only that *"`where` keeps one meaning"*. The section to amend is
   `RDX0047` also needs adding to `code.rs`'s `PUBLISHED` list, which
   `every_reserved_code_is_one_doc_03_published` enforces.
 - Criterion 7 is free: `docs/GRAMMAR.md` grades *"`where` clauses"* as Rust's
-  **bound** clause and notes that *"Redox's own `where` introduces local
-  bindings and is a different construct"*, so Redox's `where` has no graded row.
+  **bound** clause and notes that *"Voltaic's own `where` introduces local
+  bindings and is a different construct"*, so Voltaic's `where` has no graded row.
   It stops being free if leaf 5 adds one for the multi-equation form — which it
   should.
 - §2 cites commit `194fdf7`, 24 commits behind and predating the type colon.
 - **Settled 2026-11-10: the sort orders at emission and never rewrites
-  `Program`.** `redox-fmt` and `redox-emit` are two readers of one tree, and a
+  `Program`.** `voltaic-fmt` and `voltaic-emit` are two readers of one tree, and a
   pass that mutates the tree to serve one of them silently changes what the
   other produces. Here that means a *formatter* reordering lines its author
   wrote, which is not a formatting change — it is an edit, and the author did
@@ -826,7 +826,7 @@ claim; it says only that *"`where` keeps one meaning"*. The section to amend is
 
   **One structural exemption, which is worth knowing before applying the rule.**
   A **signature line** is already immune, and not by luck.
-  `crates/redox-fmt/src/item_text/signature_line.rs` prints it as a **verbatim
+  `crates/voltaic-fmt/src/item_text/signature_line.rs` prints it as a **verbatim
   slice of the source**, because `parser::generalise` rewrites a signature's
   types *in place*: `largest : Ord t => Option<t> -> t` is stored as
   `Ord T => Option<T> -> T`, and the author's lowercase `t` is gone from the
@@ -840,7 +840,7 @@ claim; it says only that *"`where` keeps one meaning"*. The section to amend is
   change to the *language's surface* rather than a formatting choice.
 
   So a parser-side rewrite of a signature does **not** surprise the formatter,
-  which is why `redox fmt examples/class.sdx` is byte-identical today even
+  which is why `voltaic fmt examples/class.sdx` is byte-identical today even
   though `receiver.rs` destroys `sig.params[0]` at parse time. Measured by the
   session that wrote plan 67, which needed the answer for its marked receiver,
   and verified here.

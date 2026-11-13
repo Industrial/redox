@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Plan 76 batch 1: `redox-bench`'s six smaller files, and a field called `rust`.
+"""Plan 76 batch 1: `voltaic-bench`'s six smaller files, and a field called `rust`.
 
 **`rust` is a keyword** — plan 64 gave it the layout-delimited escape hatch — so
 `Pair`'s `rust: PathBuf` field cannot keep its name. `r#rust` is the spelling,
@@ -18,10 +18,10 @@ a successor row.
 import io
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
-ROOT = '/home/tom/Code/rust/redox/crates/redox-bench/sdx/'
+ROOT = '/home/tom/Code/rust/voltaic/crates/voltaic-bench/sdx/'
 
 # --- the keyword collision ----------------------------------------------
 p = ROOT + 'pair.sdx'
@@ -42,8 +42,8 @@ else:
 write('throughput/transpile', '''
 export(crate) transpile : &str -> Option<String>
 transpile source =
-  program = (.ok (redox_parser::parse_source source))?
-  Some (redox_emit::emit (&program))
+  program = (.ok (voltaic_parser::parse_source source))?
+  Some (voltaic_emit::emit (&program))
 ''')
 
 write('ir/function_ir/strip_debug', '''

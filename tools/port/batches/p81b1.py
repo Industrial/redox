@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Plan 81 batch 1: sixteen of `redox-emit`'s 106 owed bodies — the small ones.
+"""Plan 81 batch 1: sixteen of `voltaic-emit`'s 106 owed bodies — the small ones.
 
 Five are `const`s and the rest are a few lines each. `emit_inline_comment` is
 the first ported body with a **let-chain**: `if let Some(t) = trivia && t.kind
@@ -8,7 +8,7 @@ carries over as written.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('emit/rust_indent', '''

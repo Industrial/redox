@@ -1,0 +1,18 @@
+import std::time::Duration
+import std::time::Instant
+
+export throughput : &str -> u32 -> (Duration, Duration)
+throughput source runs =
+  _warm = transpile source
+
+  started = Instant::now ()
+  for _run in 0 .. runs
+    _dropped = transpile source
+  total = .elapsed started
+  mean = total / .max 1 runs
+  (total, mean)
+
+export(crate) transpile : &str -> Option<String>
+transpile source =
+  program = (.ok (voltaic_parser::parse_source source))?
+  Some $ voltaic_emit::emit (&program)

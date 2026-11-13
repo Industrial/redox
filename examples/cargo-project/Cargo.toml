@@ -1,8 +1,8 @@
-# A worked Redox project, and the answer to doc 02 §6.6: what does a Redox
+# A worked Voltaic project, and the answer to doc 02 §6.6: what does a Voltaic
 # crate look like?
 #
 # It looks like an ordinary Cargo crate. No new tool, no build-system
-# replacement (doc 01 §1.3) — just a build script that calls Redox as a
+# replacement (doc 01 §1.3) — just a build script that calls Voltaic as a
 # library.
 #
 # `[workspace]` is empty and present on purpose: it detaches this crate from
@@ -17,12 +17,12 @@ version = "0.1.0"
 edition = "2024"
 publish = false
 
-# The build script needs Redox as a *library*. It deliberately does not shell
-# out to the `redox` binary: a Redox crate must build with `cargo build` and a
+# The build script needs Voltaic as a *library*. It deliberately does not shell
+# out to the `voltaic` binary: a Voltaic crate must build with `cargo build` and a
 # dependency, not with a globally-installed tool (plan 09 §2.1).
 #
-# A real project would write `redox-driver = "0.1"`; the path is because this
+# A real project would write `voltaic-driver = "0.1"`; the path is because this
 # example lives inside the repository that provides it.
 [build-dependencies]
-redox-driver = { path = "../../crates/redox-driver" }
-redox-diag = { path = "../../crates/redox-diag" }
+voltaic-driver = { path = "../../crates/voltaic-driver" }
+voltaic-diag = { path = "../../crates/voltaic-diag" }

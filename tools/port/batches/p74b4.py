@@ -2,13 +2,13 @@
 """Batch 4: `scan_rust_block` and `split_parts`.
 
 **The lexer has to write `#{` as a literal**, which is the first file in any
-port to need it: `split_parts` tests `cur.starts_with("#{")`, and in Redox that
+port to need it: `split_parts` tests `cur.starts_with("#{")`, and in Voltaic that
 spelling opens an interpolation. `\\#` is a valid escape — `scan_escape` maps
 `'#' => '#'` — so `"\\#{"` is the two characters, and this crate is the one
 place where the language's own syntax collides with the text it is about.
 
 **A tuple-destructuring binding is bound as a pair**, the same way batch 3's
-`for` binder had to be: `let (open, close) = …` has no Redox spelling, so the
+`for` binder had to be: `let (open, close) = …` has no Voltaic spelling, so the
 pair is named and its fields read. Three sites here.
 
 **And `end` is renamed `stop` on rebinding.** The Rust writes `let end = end?;`
@@ -17,7 +17,7 @@ a lint on purpose.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('lexer/scan_rust_block', '''
@@ -66,7 +66,7 @@ split_parts body base =
   mut cur = Cursor::new body
 
   while !(.is_eof cur)
-    -- `"\\#{"`, escaped: in Redox that spelling **opens an interpolation**,
+    -- `"\\#{"`, escaped: in Voltaic that spelling **opens an interpolation**,
     -- and `\\#` is the escape for a literal `#`. This crate is the one place
     -- where the language's own syntax collides with the text it is about.
     if .starts_with "\\#{" cur

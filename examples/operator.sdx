@@ -16,7 +16,7 @@ import std::collections::BTreeSet
 
 merge : BTreeSet<u32> -> BTreeSet<u32> -> BTreeSet<u32>
 merge a b =
-  -- Written out rather than piped through `.union`, because `union` is a Redox
+  -- Written out rather than piped through `.union`, because `union` is a Voltaic
   -- keyword (plan 45 gave it the `data` slot) and so has no method spelling.
   mut out = a
   .extend b out

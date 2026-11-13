@@ -18,7 +18,7 @@ body keeps only what is owed: the instances.
 import io
 import re
 
-ROOT = '/home/tom/Code/rust/redox/.tmp/'
+ROOT = '/home/tom/Code/rust/voltaic/.tmp/'
 
 # ---------------------------------------------------- batch 4 drops diagnostic
 p = ROOT + 'p73b4.py'

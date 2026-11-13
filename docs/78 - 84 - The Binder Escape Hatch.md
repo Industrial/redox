@@ -44,7 +44,7 @@ This row does not remove them. It adds a way to decline them.
 
 ### 1.2 Measured: six gaps, two silent defects, two limitations
 
-**Leaf 0 ran, 2026-11-11, against `redox` built from `main`.** Nine probe programs, each
+**Leaf 0 ran, 2026-11-11, against `voltaic` built from `main`.** Nine probe programs, each
 transpiled and then put to rustc. The eight hypotheses this section opened with were drafted from
 reading `type_vars` and `emit::generics`; what the probes found is **narrower in count and wider
 in consequence**, because four of the eight turn out to share one cause, and the probes turned up
@@ -126,7 +126,7 @@ hold : Default t => u -> u
 No `where T: Default`, no diagnostic, no error. The author writes a constraint and it vanishes.
 This also means the **function path and the `instance` path disagree**: `emit/generics.sdx`'s own
 doc comment says of a constraint naming an unused variable that it *"is emitted anyway, as a bound
-on nothing — rustc reports it, and that is the right place for it: Redox has no name resolution
+on nothing — rustc reports it, and that is the right place for it: Voltaic has no name resolution
 and must not grow one"*. That is the right rule, and the signature path does not follow it. Leaf
 1b aligns them, which also closes hypothesis 7 — a bound-only parameter is reachable the moment
 the bound survives, because the emitted `where T: Default` makes rustc ask for `T`'s declaration,
@@ -173,12 +173,12 @@ is a thing a reader has to simulate the compiler to predict, and it would make t
 
 ## 2. Preconditions
 
-**Measured 2026-11-11 by leaf 0**, against `redox` built from `main`. Probe sources are not kept
+**Measured 2026-11-11 by leaf 0**, against `voltaic` built from `main`. Probe sources are not kept
 — the six that fail became `tests/unreachable/` fixtures, which is the durable form.
 
 ```bash
-cargo run -q -p redox-cli -- build probe.sdx     # the emitted Rust
-cargo run -q -p redox-cli -- check probe.sdx     # rustc's answer
+cargo run -q -p voltaic-cli -- build probe.sdx     # the emitted Rust
+cargo run -q -p voltaic-cli -- check probe.sdx     # rustc's answer
 ```
 
 | # | Precondition | Result |
@@ -211,7 +211,7 @@ Five cases, each failing differently:
    rule that a fixture fails when the compiler gets better.
 5. **A signature with `given` and a lowercase spine atom**, asserting §1.6: the atom is a
    verbatim type and *not* a synthesised variable.
-6. **A malformed bound clause**, `Into<String> t =>`, refused by a named Redox diagnostic rather
+6. **A malformed bound clause**, `Into<String> t =>`, refused by a named Voltaic diagnostic rather
    than swallowed — §1.3, leaf 1a. A `tests/ui/` fixture, asserted also **not** to emit the text
    `FatArrow`.
 7. **A bound naming a variable absent from the spine**, emitted rather than dropped, so rustc
@@ -238,7 +238,7 @@ are correct, which is a worse failure than a gap and is why 1a and 1b come first
 
 ### Leaf 1a — `leaf-malformed-bound-diagnostic`
 
-A bound clause that does not match `Trait var` is a **named Redox diagnostic**, not a verbatim
+A bound clause that does not match `Trait var` is a **named Voltaic diagnostic**, not a verbatim
 type. §1.3. This stands whether or not the rest of the row ships, and it is the leaf that stops a
 `TokenKind` Debug name reaching a human-facing artifact.
 
@@ -276,7 +276,7 @@ move in this leaf.
 
 ### Leaf 5 — `leaf-formatter`
 
-`redox fmt` round-trips a `given` line. Per precondition 5 this is expected to be an assertion
+`voltaic fmt` round-trips a `given` line. Per precondition 5 this is expected to be an assertion
 rather than an implementation, and plan 61 §11.6 is why — but plan 56 §11.3's rule stands: *a
 pass that rewrites `Program` has two consumers and will surprise one of them*, and an untested
 exemption is an assumption.
@@ -302,7 +302,7 @@ the argument this row reuses rather than contradicts.
    emitting as a type and not as a parameter.
 5. Every existing signature emits byte-identical Rust — `tests/golden/` re-runs unchanged, with
    **no re-blessing**. A golden that needs blessing in this row is a defect, not a diff.
-6. `redox fmt` round-trips `given` and the signature-position `where`.
+6. `voltaic fmt` round-trips `given` and the signature-position `where`.
 7. `tests/unreachable/blanket_impl.sdx` either compiles — breaking the gate deliberately, with
    `docs/GRAMMAR.md` and `docs/STATUS.md` updated in the same commit — or is recorded in §6 as
    having a second cause, with that cause named.
@@ -339,7 +339,7 @@ so `docs/GRAMMAR.md`'s rule — an `UNREACHABLE` fixture must fail — excludes 
 both, and neither can be asserted by the fixture mechanism; §3 cases 3 and 5 carry them instead,
 which is weaker, and this is the honest place to say so.
 
-**Verbatim text cannot be formatted.** `redox fmt` will not normalise spacing inside a `given`
+**Verbatim text cannot be formatted.** `voltaic fmt` will not normalise spacing inside a `given`
 clause, for the same reason it does not inside a type. That is doc 03 §14.1's cost, inherited.
 
 ---
@@ -366,7 +366,7 @@ are declined in `docs/DECLINED.md` under *scope*, with the reason *"requires tra
 type expression, where doc 03 §14.1 carries a type verbatim"*.
 
 That decline is this row's argument. Emerald translated its type grammar and paid for it in drift
-against the host language; Redox carries it and pays nothing. The only correction this row makes
+against the host language; Voltaic carries it and pays nothing. The only correction this row makes
 is that §14.1's reasoning was applied to the type and **not** to the binder, which is why the
 binder is where the gaps are. Taking the same decision twice is the whole of the design.
 
@@ -376,7 +376,7 @@ binder is where the gaps are. Taking the same decision twice is the whole of the
 
 | Decision | Chosen | Rejected | Why |
 |---|---|---|---|
-| 1 | Carry the binder verbatim | A Haskell-shaped type language with a total mapping to Rust's | Redox does not reason about types; a bijective type language buys **no capability** and costs a permanent tax, since every Rust type-system addition becomes a surface-grammar change. Doc 03 §14.1 already settled this one level down |
+| 1 | Carry the binder verbatim | A Haskell-shaped type language with a total mapping to Rust's | Voltaic does not reason about types; a bijective type language buys **no capability** and costs a permanent tax, since every Rust type-system addition becomes a surface-grammar change. Doc 03 §14.1 already settled this one level down |
 | 2 | `given` | `forall` | `forall` reads as a quantifier and would then carry `<const N: usize>`, which is not a quantification. `given` reads as *"given these parameters"* and makes no claim about what is inside |
 | 3 | `given` | A leading `<…>` run on the signature, with no keyword | `<` already opens a qualified path (`<T as Trait>::Item`) in type position, so a leading `<` is genuinely ambiguous and would need lookahead |
 | 4 | All-or-nothing per signature (§1.6) | Synthesise what `given` omits | A half-synthesised binder turns §1.2's four causes into four interaction questions and cannot be predicted without simulating the compiler |
@@ -432,7 +432,7 @@ verbatim type. And a bound naming a variable the spine does not mention is
 
 The second of those is `generalise`'s own doc comment finally being true. It had
 said since it was written that such a constraint *"is kept anyway, because rustc
-reports it and Redox has no name resolution to do better"*, and the body filtered
+reports it and Voltaic has no name resolution to do better"*, and the body filtered
 it out — and additionally returned before assigning `bounds` at all when the
 spine had no variables. AGENTS.md's *"a doc comment is not an oracle for its own
 code"* in its other direction: here the comment was right and the code was wrong,
@@ -461,24 +461,24 @@ signature, exactly as plan 56 §11.3 predicted
 
 Plan 56 §11.3's rule is *a pass that rewrites `Program` has two consumers and
 will surprise one of them*, with one structural exemption plan 61 §11.6 records:
-signature lines, which `redox-fmt` passes through from the source.
+signature lines, which `voltaic-fmt` passes through from the source.
 
 Both halves held, and the split is the whole lesson. A signature's `given`
 round-tripped from the first run because the line is passed through verbatim. An
 `instance` head is **re-printed from the tree** — `target_text`'s own doc comment
-records that distinction — so `redox fmt` turned
+records that distinction — so `voltaic fmt` turned
 `instance given <T: Display> Describe T` into `instance Describe T`, a different
 program, caught by `every_example_is_already_canonical`.
 
 **And the first fix was wrong in an instructive way**: printing the stored text
 produced `instance <T: Display> Describe T`, which is valid *Rust* and not a
-Redox program. The stored form is the Rust one, `<…>` with no keyword, because
+Voltaic program. The stored form is the Rust one, `<…>` with no keyword, because
 that is what `emit::instance` pastes; the printer has to put `given` back. One
 field, two spellings, and the only place in the row where they differ.
 
 ### 10.5 The fuzzer found the cost of carrying text verbatim
 
-`redox-fuzz`'s `the_generated_rust_always_parses` truncated
+`voltaic-fuzz`'s `the_generated_rust_always_parses` truncated
 `examples/binder.sdx` mid-predicate — `where for<'a> F: Fn(&'a str) ->` — the
 parser accepted it, and the emitter wrote that arrow into the `.xrs`. Verbatim
 carriage means a *truncated* clause is carried truncated.
@@ -498,7 +498,7 @@ input.
 Written down because each one *read* as evidence.
 
 **The tree-sitter parse that parsed nothing.** `tree-sitter parse
-examples/binder.sdx`, run from inside `tree-sitter-redox/`, resolves a path that
+examples/binder.sdx`, run from inside `tree-sitter-voltaic/`, resolves a path that
 does not exist: the command failed, a `grep -c ERROR` over its output counted
 zero, and it was reported here as a clean parse. The real parse had `ERROR` nodes
 at the `:`, the `=` and the `?` inside the binder. AGENTS.md says to run the

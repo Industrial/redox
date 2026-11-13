@@ -1,0 +1,6 @@
+warning[RDX1002]: `-- voltaic: allow shadow` is deprecated — write `#[voltaic::allow(shadow)]` on the line above instead (plan 53 §1.3)
+  --> shadow_allow_comment.sdx:17:15
+   |
+17 |   cursor = 7  -- voltaic: allow shadow
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^
+  = help: the comment still suppresses `RDX1003` for this milestone; the attribute is what plan 64 keeps

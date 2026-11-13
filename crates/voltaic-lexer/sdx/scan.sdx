@@ -1,0 +1,626 @@
+import crate::LexError
+import crate::TokenKind
+import crate::cursor::Cursor
+import crate::layout::dedent_block
+import crate::layout::lex_fragment
+import crate::token::StrPart
+import crate::trivia::TriviaKind
+import voltaic_diag::Code
+
+export const ASSIGNABLE_OPERATORS : &[&str] = &["<+>", "<->", "<*>", "</>", "<%>", "<|>", "<&>", "<^>", "<=>", "<~>", "<$>", "<?>"]
+
+export(crate) is_ident_continue : char -> bool
+is_ident_continue c = .is_ascii_alphanumeric c || c == '_'
+
+export(crate) is_ident_start : char -> bool
+is_ident_start c = .is_ascii_alphabetic c || c == '_'
+
+export(crate) const OPERATOR_TABLE : &[(&str, TokenKind)] = &[("...", TokenKind::DotDotDot), ("..=", TokenKind::DotDotEq), ("??=", TokenKind::CoalesceEq), (">>>", TokenKind::Compose), ("<<<", TokenKind::ComposeBack), ("..", TokenKind::DotDot), (".(", TokenKind::DotParen), (".+", TokenKind::DotPlus), (".-", TokenKind::DotMinus), (".*", TokenKind::DotStar), ("./", TokenKind::DotSlash), (".%", TokenKind::DotPercent), ("??", TokenKind::Coalesce), ("|>", TokenKind::Pipe), ("&:", TokenKind::AmpColon), ("@@", TokenKind::AtAt), ("::", TokenKind::ColonColon), (":=", TokenKind::ColonEq), ("->", TokenKind::Arrow), ("<-", TokenKind::DrawArrow), ("=>", TokenKind::FatArrow), ("==", TokenKind::EqEq), ("!=", TokenKind::Ne), ("<=", TokenKind::Le), (">=", TokenKind::Ge), ("&&", TokenKind::AndAnd), ("||", TokenKind::OrOr), ("+=", TokenKind::PlusEq), ("-=", TokenKind::MinusEq), ("*=", TokenKind::StarEq), ("/=", TokenKind::SlashEq), ("%=", TokenKind::PercentEq), ("<<", TokenKind::Shl), (">>", TokenKind::Shr), ("(", TokenKind::LParen), (")", TokenKind::RParen), ("[", TokenKind::LBracket), ("]", TokenKind::RBracket), ("{", TokenKind::LBrace), ("}", TokenKind::RBrace), ("@", TokenKind::At), ("?", TokenKind::Question), (":", TokenKind::Colon), ("\\", TokenKind::Backslash), ("$", TokenKind::Dollar), (",", TokenKind::Comma), (".", TokenKind::Dot), (";", TokenKind::Semi), ("=", TokenKind::Eq), ("+", TokenKind::Plus), ("-", TokenKind::Minus), ("*", TokenKind::Star), ("/", TokenKind::Slash), ("%", TokenKind::Percent), ("<", TokenKind::Lt), (">", TokenKind::Gt), ("!", TokenKind::Bang), ("&", TokenKind::Amp), ("|", TokenKind::Or), ("^", TokenKind::Caret), ("~", TokenKind::Tilde)]
+
+export(crate) scan_byte : &mut Cursor -> Result<TokenKind, LexError>
+scan_byte cur =
+  start = .pos cur
+
+  .bump cur
+
+  if .eat "'" cur
+    ch = if .peek cur == Some '\\'
+      .bump cur
+      (scan_escape cur)?
+    else
+      case .bump cur of
+        Some c -> c
+        None ->
+          return Err (LexError { code = Code::UnterminatedByteLiteral, help = None, message = .to_string "unterminated byte literal", span = (start, .pos cur) })
+    if !.eat "'" cur
+      return Err (LexError { code = Code::UnterminatedByteLiteral, help = None, message = .to_string "unterminated byte literal", span = (start, .pos cur) })
+    value = case u8::try_from (u32::from ch) of
+      Ok v -> v
+      Err _ ->
+        return Err (LexError { code = Code::UnterminatedByteLiteral, help = None, message = format! \-> "`#{ch}` is not a single byte", span = (start, .pos cur) })
+    return Ok (TokenKind::Byte value)
+
+  if .eat "\"" cur
+    mut text = String::new ()
+    while !.starts_with "\"" cur
+      if .is_eof cur
+        return Err (LexError { code = Code::UnterminatedByteLiteral, help = None, message = .to_string "unterminated byte string", span = (start, .pos cur) })
+      if .peek cur == Some '\\'
+        .bump cur
+        .push (scan_escape cur)? text
+      else
+        .push (.expect "not at eof" (.bump cur)) text
+    .eat "\"" cur
+    return Ok (TokenKind::ByteStr text)
+
+  Err (LexError { code = Code::UnterminatedByteLiteral, help = None, message = .to_string "`b` must be followed by `'` or `\"`", span = (start, .pos cur) })
+
+export(crate) scan_comment : &str -> Option<(TriviaKind, usize)>
+scan_comment rest =
+  after = (.strip_prefix "--" rest)?
+
+  if .is_some (.strip_prefix " |" after)
+    return Some (TriviaKind::DocComment, 4)
+  if .is_some (.strip_prefix " !" after)
+    return Some (TriviaKind::InnerDocComment, 4)
+
+  opens = case .next (.chars after) of
+    None -> true
+    Some c -> .is_whitespace c || c == '-'
+  opens |> .then_some (TriviaKind::LineComment, 2)
+
+test "a dash dash space opens a line comment"
+  assert_eq! \-> scan_comment "-- hello" \-> Some (TriviaKind::LineComment, 2)
+
+test "a bare dash dash at end of line opens one"
+  assert_eq! \-> scan_comment "--" \-> Some (TriviaKind::LineComment, 2)
+  assert_eq! \-> scan_comment "--\n" \-> Some (TriviaKind::LineComment, 2)
+
+test "a run of dashes opens one"
+  assert_eq! \-> scan_comment "-----" \-> Some (TriviaKind::LineComment, 2)
+
+test "the doc markers are recognised"
+  assert_eq! \-> scan_comment "-- | outer" \-> Some (TriviaKind::DocComment, 4)
+  assert_eq! \-> scan_comment "-- ! inner" \-> Some (TriviaKind::InnerDocComment, 4)
+
+test "dashes against a digit are not a comment"
+  assert_eq! \-> scan_comment "--1" \-> None
+
+test "dashes against an identifier are not a comment"
+  assert_eq! \-> scan_comment "--x" \-> None
+
+test "a single dash is not a comment"
+  assert_eq! \-> scan_comment "-" \-> None
+  assert_eq! \-> scan_comment "- 1" \-> None
+  assert_eq! \-> scan_comment "-> x" \-> None
+
+test "text that is not dashes is not a comment"
+  assert_eq! \-> scan_comment "hello" \-> None
+  assert_eq! \-> scan_comment "" \-> None
+
+export(crate) scan_cstring : &mut Cursor -> Result<TokenKind, LexError>
+scan_cstring cur =
+  start = .pos cur
+  .bump cur
+  .eat "\"" cur
+
+  mut text = String::new ()
+  while !.starts_with "\"" cur
+    if .is_eof cur
+      return Err (LexError { code = Code::UnterminatedByteLiteral, help = None, message = .to_string "unterminated C string", span = (start, .pos cur) })
+    if .peek cur == Some '\\'
+      .bump cur
+      .push (scan_escape cur)? text
+    else
+      .push (.expect "not at eof" (.bump cur)) text
+  .eat "\"" cur
+  Ok $ TokenKind::CStr text
+
+export(crate) scan_escape : &mut Cursor -> Result<char, LexError>
+scan_escape cur =
+  start = cur |> .pos |> .saturating_sub 1
+
+  ch = case .bump cur of
+    Some c -> c
+    None ->
+      return Err (LexError { code = Code::UnknownEscape, help = None, message = .to_string "unterminated escape sequence", span = (start, .pos cur) })
+
+  decoded : Result<char, String> = case ch of
+    'n' -> Ok '\n'
+    'r' -> Ok '\r'
+    't' -> Ok '\t'
+    '0' -> Ok '\0'
+    '\\' -> Ok '\\'
+    '"' -> Ok '"'
+    '\'' -> Ok '\''
+    '#' -> Ok '#'
+    'x' ->
+      at = .pos cur
+      .bump cur
+      .bump cur
+      text = .slice (at, .pos cur) cur
+      if .len text != 2 || !.all (\c -> .is_ascii_hexdigit c) (.chars text)
+        Err $ .to_string "`\\x` takes exactly two hexadecimal digits"
+      else
+        case u8::from_str_radix text 16 of
+          Ok v -> Ok $ char::from v
+          Err _ -> Err $ format! \-> "`\\x#{text}` is not a valid byte escape"
+    'u' ->
+      if !.eat "{" cur
+        Err $ .to_string "`\\u` must be followed by `{`"
+      else
+        digits = .eat_while (\c -> .is_ascii_hexdigit c) cur
+        text = cur |> .slice digits |> .to_string
+        if !.eat "}" cur
+          Err $ .to_string "unterminated `\\u{…}` escape"
+        else
+          case u32::from_str_radix (&text) 16 of
+            Err _ -> Err $ format! \-> "`\\u{#{text}}` is not valid hexadecimal"
+            Ok value ->
+              case char::from_u32 value of
+                Some c -> Ok c
+                None -> Err $ format! \-> "`\\u{#{text}}` is not a Unicode scalar value"
+    other -> Err $ format! \-> "unknown escape sequence `\\#{other}`"
+
+  case decoded of
+    Ok c -> Ok c
+    Err message -> Err (LexError { code = Code::UnknownEscape, help = None, message, span = (start, .pos cur) })
+
+#[cfg(test)]
+decode : &str -> Result<char, String>
+decode after_backslash =
+  mut cur = Cursor::new after_backslash
+  .map_err (\e -> e.message) $ scan_escape $ &mut cur
+
+test "decodes the simple escapes"
+  assert_eq! \-> decode "n" \-> Ok '\n'
+  assert_eq! \-> decode "t" \-> Ok '\t'
+  assert_eq! \-> decode "0" \-> Ok '\0'
+  assert_eq! \-> decode "\\" \-> Ok '\\'
+  assert_eq! \-> decode "\"" \-> Ok '"'
+  assert_eq! \-> decode "#" \-> Ok '#'
+
+test "decodes byte and unicode escapes"
+  assert_eq! \-> decode "x41" \-> Ok 'A'
+  assert_eq! \-> decode "u{1F600}" \-> Ok '\u{1F600}'
+
+test "rejects a malformed escape"
+  assert! \-> .is_err (decode "q") \-> "unknown escape should fail"
+  assert! \-> .is_err (decode "x4") \-> "short byte escape should fail"
+  assert! \-> .is_err (decode "u41") \-> "missing brace should fail"
+  assert! \-> .is_err (decode "u{D800}") \-> "a surrogate is not a scalar value"
+
+export(crate) scan_number : &mut Cursor -> Result<TokenKind, LexError>
+scan_number cur =
+  start = .pos cur
+
+  if .peek cur == Some '0'
+    radix = cur |> .peek_at 1 |> .unwrap_or '\0'
+    pair : (&str, fn(char) -> bool) = case radix of
+      'x' or 'X' -> ("hexadecimal", \c -> .is_ascii_hexdigit c)
+      'o' or 'O' -> ("octal", \c -> .contains (&c) ('0' ..= '7'))
+      'b' or 'B' -> ("binary", \c -> c == '0' || c == '1')
+      _ -> ("", \_c -> false)
+    name = pair.0
+    valid = pair.1
+    if !.is_empty name
+      .bump cur
+      .bump cur
+      digits = .eat_while (\c -> valid c || c == '_') cur
+      if .all (== '_') (.chars (.slice digits cur))
+        return Err (LexError { code = Code::MalformedNumber, help = None, message = format! \-> "#{name} literal has no digits", span = (start, .pos cur) })
+      .eat_while (\c -> .is_ascii_alphanumeric c || c == '_') cur
+      return Ok (TokenKind::Int (.to_string (.slice (start, .pos cur) cur)))
+
+  .eat_while (\c -> .is_ascii_digit c || c == '_') cur
+
+  mut is_float = false
+
+  if .peek cur == Some '.' && .is_some_and (\c -> .is_ascii_digit c) (.peek_at 1 cur)
+    is_float := true
+    .bump cur
+    .eat_while (\c -> .is_ascii_digit c || c == '_') cur
+
+  exponent = case .peek cur of
+    Some 'e' or Some 'E' -> true
+    _ -> false
+  if exponent && .is_some_and (\c -> .is_ascii_digit c || c == '+' || c == '-') (.peek_at 1 cur)
+    is_float := true
+    .bump cur
+    signed = case .peek cur of
+      Some '+' or Some '-' -> true
+      _ -> false
+    if signed
+      .bump cur
+    digits = .eat_while (\c -> .is_ascii_digit c || c == '_') cur
+    if .is_empty (.slice digits cur)
+      return Err (LexError { code = Code::MalformedNumber, help = None, message = .to_string "exponent has no digits", span = (start, .pos cur) })
+
+  .eat_while (\c -> .is_ascii_alphanumeric c || c == '_') cur
+
+  text = cur |> .slice (start, .pos cur) |> .to_string
+  if is_float
+    return Ok (TokenKind::Float text)
+  Ok $ TokenKind::Int text
+
+#[cfg(test)]
+scan_number_probe : &str -> (TokenKind, usize)
+scan_number_probe src =
+  mut cur = Cursor::new src
+  kind = .expect "should scan_number_probe" $ scan_number $ &mut cur
+  (kind, .pos cur)
+
+test "scans decimal integers with separators"
+  one = scan_number_probe "1_000_000"
+  assert_eq! \-> one.0 \-> TokenKind::Int (.into "1_000_000")
+  two = scan_number_probe "42"
+  assert_eq! \-> two.0 \-> TokenKind::Int (.into "42")
+
+test "scans radix prefixes"
+  hex = scan_number_probe "0xDEAD_beef"
+  assert_eq! \-> hex.0 \-> TokenKind::Int (.into "0xDEAD_beef")
+  oct = scan_number_probe "0o755"
+  assert_eq! \-> oct.0 \-> TokenKind::Int (.into "0o755")
+  bin = scan_number_probe "0b1010"
+  assert_eq! \-> bin.0 \-> TokenKind::Int (.into "0b1010")
+
+test "scans floats with exponents"
+  plain = scan_number_probe "2.5"
+  assert_eq! \-> plain.0 \-> TokenKind::Float (.into "2.5")
+  signed = scan_number_probe "2.5e-3"
+  assert_eq! \-> signed.0 \-> TokenKind::Float (.into "2.5e-3")
+  upper = scan_number_probe "1E10"
+  assert_eq! \-> upper.0 \-> TokenKind::Float (.into "1E10")
+
+test "carries a type suffix verbatim"
+  int = scan_number_probe "42u8"
+  assert_eq! \-> int.0 \-> TokenKind::Int (.into "42u8")
+  float = scan_number_probe "1.5f64"
+  assert_eq! \-> float.0 \-> TokenKind::Float (.into "1.5f64")
+
+test "leaves a range operator alone"
+  ranged = scan_number_probe "1..10"
+  assert_eq! \-> ranged.0 \-> TokenKind::Int (.into "1")
+  assert_eq! \-> ranged.1 \-> 1 \-> "the cursor stops before `..`"
+
+test "leaves a method call alone"
+  called = scan_number_probe "1.abs()"
+  assert_eq! \-> called.0 \-> TokenKind::Int (.into "1")
+  assert_eq! \-> called.1 \-> 1
+
+test "rejects a radix prefix with no digits"
+  mut cur = Cursor::new "0x"
+  assert! \-> .is_err (scan_number (&mut cur))
+
+export(crate) scan_operator : &mut Cursor -> Option<TokenKind>
+scan_operator cur =
+  for spelling in ASSIGNABLE_OPERATORS
+    if .eat spelling cur
+      return Some (TokenKind::UserOp (.to_string spelling))
+  for entry in OPERATOR_TABLE
+    if .eat entry.0 cur
+      return Some (.clone entry.1)
+  None
+
+#[cfg(test)]
+scan_operator_probe : &str -> (Option<TokenKind>, usize)
+scan_operator_probe src =
+  mut cur = Cursor::new src
+  kind = scan_operator $ &mut cur
+  (kind, .pos cur)
+
+test "longer operators are tried before their prefixes"
+  for outer in .enumerate (.iter OPERATOR_TABLE)
+    i = outer.0
+    left = outer.1
+    text = left.0
+    for inner in .enumerate (.iter OPERATOR_TABLE)
+      j = inner.0
+      right = inner.1
+      other = right.0
+      if i != j && .starts_with other text && .len text > .len other
+        assert! \-> i < j \-> "`#{text}` must be listed before its prefix `#{other}`"
+
+test "scans the three character operators whole"
+  assert_eq! \-> scan_operator_probe "..." \-> (Some TokenKind::DotDotDot, 3)
+  assert_eq! \-> scan_operator_probe "..=" \-> (Some TokenKind::DotDotEq, 3)
+  assert_eq! \-> scan_operator_probe "??=" \-> (Some TokenKind::CoalesceEq, 3)
+  assert_eq! \-> scan_operator_probe ">>>" \-> (Some TokenKind::Compose, 3)
+  assert_eq! \-> scan_operator_probe "<<<" \-> (Some TokenKind::ComposeBack, 3)
+
+test "the shifts keep their own spellings"
+  assert_eq! \-> scan_operator_probe ">> 1" \-> (Some TokenKind::Shr, 2)
+  assert_eq! \-> scan_operator_probe "<< 1" \-> (Some TokenKind::Shl, 2)
+  assert_eq! \-> scan_operator_probe ">" \-> (Some TokenKind::Gt, 1)
+  assert_eq! \-> scan_operator_probe "<" \-> (Some TokenKind::Lt, 1)
+
+test "scans both range operators"
+  assert_eq! \-> scan_operator_probe ".." \-> (Some TokenKind::DotDot, 2)
+  assert_eq! \-> scan_operator_probe "..=10" \-> (Some TokenKind::DotDotEq, 3)
+
+test "distinguishes the dot family"
+  assert_eq! \-> scan_operator_probe ".+" \-> (Some TokenKind::DotPlus, 2)
+  assert_eq! \-> scan_operator_probe ".(" \-> (Some TokenKind::DotParen, 2)
+  assert_eq! \-> scan_operator_probe ".x" \-> (Some TokenKind::Dot, 1)
+
+test "distinguishes the question family"
+  assert_eq! \-> scan_operator_probe "??" \-> (Some TokenKind::Coalesce, 2)
+  assert_eq! \-> scan_operator_probe "?." \-> (Some TokenKind::Question, 1)
+  assert_eq! \-> scan_operator_probe "?" \-> (Some TokenKind::Question, 1)
+
+test "distinguishes the at sigils"
+  assert_eq! \-> scan_operator_probe "@@" \-> (Some TokenKind::AtAt, 2)
+  assert_eq! \-> scan_operator_probe "@x" \-> (Some TokenKind::At, 1)
+
+test "returns none for a non operator"
+  assert_eq! \-> scan_operator_probe "abc" \-> (None, 0)
+
+test "assignable operators precede their builtin prefixes"
+  for spelling in ASSIGNABLE_OPERATORS
+    for entry in OPERATOR_TABLE
+      builtin = entry.0
+      if .starts_with builtin spelling && .len spelling > .len builtin
+        scanned = scan_operator_probe spelling
+        assert_eq! \-> scanned \-> (Some (TokenKind::UserOp (.to_string spelling)), .len spelling) \-> "`#{spelling}` must not be truncated to its builtin prefix `#{builtin}`"
+
+test "no builtin is shadowed by an assignable operator"
+  assert_eq! \-> scan_operator_probe "<- x" \-> (Some TokenKind::DrawArrow, 2)
+  assert_eq! \-> scan_operator_probe "<= 1" \-> (Some TokenKind::Le, 2)
+  assert_eq! \-> scan_operator_probe "<< 1" \-> (Some TokenKind::Shl, 2)
+  assert_eq! \-> scan_operator_probe "<<< f" \-> (Some TokenKind::ComposeBack, 3)
+  assert_eq! \-> scan_operator_probe "< 1" \-> (Some TokenKind::Lt, 1)
+
+test "scans every assignable operator whole"
+  for spelling in ASSIGNABLE_OPERATORS
+    assert_eq! \-> scan_operator_probe spelling \-> (Some (TokenKind::UserOp (.to_string spelling)), 3) \-> "`#{spelling}` should scan_operator_probe as one token"
+
+export(crate) scan_quote : &mut Cursor -> Result<TokenKind, LexError>
+scan_quote cur =
+  start = .pos cur
+  mark = .mark cur
+
+  .bump cur
+
+  decoded = if .peek cur == Some '\\'
+    .bump cur
+    .ok $ scan_escape cur
+  else
+    .bump cur
+
+  case decoded of
+    Some ch | .peek cur == Some '\'' ->
+      .bump cur
+      return Ok (TokenKind::Char ch)
+    _ -> ()
+
+  cur |> .reset_to mark
+  .bump cur
+  name_span = .eat_while (\c -> .is_ascii_alphanumeric c || c == '_') cur
+  name = cur |> .slice name_span |> .to_string
+  if .is_empty name
+    return Err (LexError { code = Code::BadQuote, help = None, message = .to_string "a `'` must open a character literal or name a lifetime or label", span = (start, .pos cur) })
+  Ok $ TokenKind::Label name
+
+export(crate) scan_raw_ident : &mut Cursor -> Result<TokenKind, LexError>
+scan_raw_ident cur =
+  start = .pos cur
+  .bump cur
+  .bump cur
+  .eat_while is_ident_continue cur
+  Ok $ TokenKind::Ident $ .to_string $ .slice (start, .pos cur) cur
+
+export(crate) scan_raw_string : &mut Cursor -> Result<TokenKind, LexError>
+scan_raw_string cur =
+  start = .pos cur
+  .bump cur
+
+  hash_span = .eat_while (== '#') cur
+  hashes = cur |> .slice hash_span |> .len
+
+  if !.eat "\"" cur
+    return Err (LexError { code = Code::UnterminatedRawString, help = None, message = .to_string "a raw string must open with `\"` after `r` and any `#`", span = (start, .pos cur) })
+
+  pad = .repeat hashes "#"
+  closing = format! \-> "\"#{pad}"
+  text_start = .pos cur
+  while !.starts_with (&closing) cur
+    if .is_none (.bump cur)
+      return Err (LexError { code = Code::UnterminatedRawString, help = None, message = format! \-> "unterminated raw string; expected closing `#{closing}`", span = (start, .pos cur) })
+  text = cur |> .slice (text_start, .pos cur) |> .to_string
+  .eat (&closing) cur
+  Ok (TokenKind::RawStr { text, hashes })
+
+export(crate) scan_rust_block : &mut Cursor<'_> -> usize -> Option<String>
+scan_rust_block cur base =
+  mark = .mark cur
+  .eat_spaces cur
+  if .peek cur != Some '\n'
+    .reset_to mark cur
+    return None
+
+  body_start = .pos cur + 1
+  mut end = None
+  loop
+    line_mark = .mark cur
+    if .peek cur != Some '\n'
+      break
+    .bump cur
+    width = .eat_spaces cur
+    if .peek cur == Some '\n'
+      continue
+    if .is_eof cur || width <= base
+      .reset_to line_mark cur
+      break
+    .eat_while (!= '\n') cur
+    end := Some $ .pos cur
+
+  stop = end?
+  .reset_to stop cur
+  Some $ dedent_block $ .slice (body_start, stop) cur
+
+export(crate) scan_string : &mut Cursor -> Result<TokenKind, LexError>
+scan_string cur =
+  start = .pos cur
+
+  triple = .starts_with "\"\"\"" cur
+  delim = if triple
+    "\"\"\""
+  else
+    "\""
+  cur |> .eat delim
+
+  body_start = .pos cur
+  loop
+    if .is_eof cur
+      return Err (LexError { code = Code::UnterminatedString, help = None, message = format! \-> "unterminated string literal; expected closing #{delim}", span = (start, .pos cur) })
+    if .starts_with delim cur
+      break
+    if .starts_with "\#{" cur
+      (skip_interpolation cur 0)?
+      continue
+    if .peek cur == Some '\\'
+      .bump cur
+      .bump cur
+      continue
+    if !triple && .peek cur == Some '\n'
+      return Err (LexError { code = Code::UnterminatedString, help = None, message = .to_string "unterminated string literal: a single-quoted string may not span lines — use \"\"\" for a multi-line string", span = (start, .pos cur) })
+    .bump cur
+  body_end = .pos cur
+  .eat delim cur
+
+  raw = cur |> .slice (start, .pos cur) |> .to_string
+  body = .slice (body_start, body_end) cur
+
+  owned = if triple
+    crate::scan::dedent_triple_body body
+  else
+    .to_string body
+
+  Ok (TokenKind::Str { parts = (split_parts (&owned) body_start)?, raw })
+
+export(crate) split_parts : &str -> usize -> Result<Vec<StrPart>, LexError>
+split_parts body base =
+  mut parts = Vec::new ()
+  mut text = String::new ()
+  mut cur = Cursor::new body
+
+  while !.is_eof cur
+    if .starts_with "\#{" cur
+      if !.is_empty text
+        .push (StrPart::Text (std::mem::take (&mut text))) parts
+
+      bounds = (skip_interpolation (&mut cur) base)?
+      open = bounds.0
+      close = bounds.1
+
+      inner = body |> .get (open .. close) |> .unwrap_or ""
+      split = split_format_spec inner
+      expr = split.0
+      spec = split.1
+      .push (StrPart::Interp { tokens = (lex_fragment expr (base + open))?, spec = .map str::to_string spec }) parts
+      continue
+
+    if .peek cur == Some '\\'
+      .bump cur
+      .push (.map_err (\e -> .offset_by base e) (scan_escape (&mut cur)))? text
+      continue
+
+    .push (.expect "not at eof" (.bump cur)) text
+
+  if !.is_empty text
+    .push (StrPart::Text text) parts
+  Ok parts
+
+export(crate) skip_interpolation : &mut Cursor -> usize -> Result<(usize, usize), LexError>
+skip_interpolation cur base =
+  start = .pos cur
+  .eat "\#{" cur
+  body_start = .pos cur
+
+  mut depth : i32 = 1
+  while depth > 0
+    ch = case .bump cur of
+      Some c -> c
+      None ->
+        return Err (LexError { code = Code::UnterminatedInterpolation, help = None, message = .to_string "unterminated interpolation; expected `}`", span = (base + start, base + .pos cur) })
+    case ch of
+      '{' -> depth += 1
+      '}' -> depth -= 1
+      '"' ->
+        loop
+          case .bump cur of
+            None ->
+              return Err (LexError { code = Code::UnterminatedInterpolation, help = None, message = .to_string "unterminated interpolation; expected `}`", span = (base + start, base + .pos cur) })
+            Some '\\' ->
+              .bump cur
+              ()
+            Some '"' ->
+              break
+            Some _ -> ()
+      _ -> ()
+  Ok (body_start, .pos cur - 1)
+
+export(crate) split_format_spec : &str -> (&str, Option<&str>)
+split_format_spec body =
+  bytes = .as_bytes body
+  mut depth : i32 = 0
+  mut i : usize = 0
+
+  while i < .len bytes
+    byte = bytes |> .get i |> .copied |> .unwrap_or 0
+    case byte of
+      b'(' or b'[' or b'{' -> depth += 1
+      b')' or b']' or b'}' -> depth -= 1
+      b':' | depth == 0 ->
+        if .get (i + 1) bytes == Some (&b':')
+          i += 2
+          continue
+        len = .len body
+        head = body |> .get (0 .. i) |> .unwrap_or ""
+        tail = body |> .get (i + 1 .. len) |> .unwrap_or ""
+        return (head, Some tail)
+      _ -> ()
+    i += 1
+  (body, None)
+
+test "finds a plain spec"
+  assert_eq! \-> split_format_spec "amount:.2" \-> ("amount", Some ".2")
+  assert_eq! \-> split_format_spec "name:>8" \-> ("name", Some ">8")
+  assert_eq! \-> split_format_spec "cfg:?" \-> ("cfg", Some "?")
+
+test "returns no spec when there is none"
+  assert_eq! \-> split_format_spec "name" \-> ("name", None)
+  assert_eq! \-> split_format_spec "a + b" \-> ("a + b", None)
+
+test "keeps a path intact"
+  assert_eq! \-> split_format_spec "HashMap::new()" \-> ("HashMap::new()", None)
+  assert_eq! \-> split_format_spec "String::from(x):>4" \-> ("String::from(x)", Some ">4")
+
+test "keeps a nested colon intact"
+  assert_eq! \-> split_format_spec "Point{x: 1}" \-> ("Point{x: 1}", None)
+  assert_eq! \-> split_format_spec "map[k]" \-> ("map[k]", None)
+  assert_eq! \-> split_format_spec "Point{x: 1}:?" \-> ("Point{x: 1}", Some "?")
+
+test "takes the first eligible colon"
+  assert_eq! \-> split_format_spec "a:>8:x" \-> ("a", Some ">8:x")
+
+export(crate) trim_comment : &str -> String
+trim_comment rest = rest |> .strip_prefix ' ' |> .unwrap_or rest |> .to_string
+
+test "strips one leading space and no more"
+  assert_eq! \-> trim_comment " text" \-> "text"
+  assert_eq! \-> trim_comment "text" \-> "text"
+  assert_eq! \-> trim_comment "  text" \-> " text"
+  assert_eq! \-> trim_comment "" \-> ""
+
+export verbatim_triple : &str -> Option<String>
+verbatim_triple raw =
+  opened = (.strip_prefix "\"\"\"" raw)?
+  body = (.strip_suffix "\"\"\"" opened)?
+  Some $ dedent_triple_body body
+
+export(crate) dedent_triple_body : &str -> String
+dedent_triple_body body =
+  inner = body |> .strip_prefix '\n' |> .unwrap_or body
+  trimmed = .trim_end_matches ' ' inner
+  dedent_block $ .unwrap_or trimmed $ .strip_suffix '\n' trimmed

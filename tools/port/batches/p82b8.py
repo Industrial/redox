@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""Plan 82 batch 8: eight more of `redox-parser`'s bodies.
+r"""Plan 82 batch 8: eight more of `voltaic-parser`'s bodies.
 
 Two of these carry inline `#[cfg(test)]` modules — `token_text`'s one test and
 `ungrouped`'s five — which become `test "…"` declarations. `ungrouped` also
@@ -8,7 +8,7 @@ and no bitwise one, so the or-assignment is written out as `x := x || y`.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('parse/parser/token_text', r'''
@@ -85,7 +85,7 @@ test "respells the tokens a type can contain"
   assert_eq! \-> token_text (&TokenKind::Shr) \-> ">>"
   assert_eq! \-> token_text (&TokenKind::Compose) \-> ">>>"
   assert_eq! \-> token_text (&TokenKind::Amp) \-> "&"
-  assert_eq! \-> token_text (&TokenKind::Kw (redox_lexer::Keyword::Mut)) \-> "mut"
+  assert_eq! \-> token_text (&TokenKind::Kw (voltaic_lexer::Keyword::Mut)) \-> "mut"
   assert_eq! \-> token_text (&TokenKind::Label (.into "a")) \-> "'a"
 ''')
 
@@ -171,10 +171,10 @@ record_pattern p head start =
 ''')
 
 write('parse/parser/import_path', r'''
-import redox_lexer::Keyword
+import voltaic_lexer::Keyword
 
 export(crate) import_path : &mut Parser -> Result<String, ParseError>
--- `Keyword` is imported, where the Rust qualified it as `redox_lexer::Keyword`
+-- `Keyword` is imported, where the Rust qualified it as `voltaic_lexer::Keyword`
 -- in all three `matches!`: those became `case` expressions, and a pattern
 -- path's first segment has to be uppercase.
 import_path p =
@@ -198,9 +198,9 @@ import_path p =
     -- around it. The note below is true of doc 03 §13.1's five forms and not
     -- of a renamed item inside a tree.
     --
-    -- Plan 78 found it porting `redox-lsp`: the path is one string in the AST,
+    -- Plan 78 found it porting `voltaic-lsp`: the path is one string in the AST,
     -- so `{NotificationasNotificationTrait}` came out of *both* the emitter
-    -- and the formatter — Rust that does not compile, and a `redox fmt` that
+    -- and the formatter — Rust that does not compile, and a `voltaic fmt` that
     -- rewrote the source to match it.
     renames = case kind of
       TokenKind::Kw (Keyword::As) -> true
@@ -267,7 +267,7 @@ type_vars types =
         _ -> false
       -- `.chars |> .next |> .is_some_and char::is_lowercase`, where the Rust
       -- wrote `starts_with(|c: char| c.is_lowercase())`. A lambda parameter
-      -- takes no annotation in Redox, and here the annotation is
+      -- takes no annotation in Voltaic, and here the annotation is
       -- **load-bearing**: `str::starts_with` is generic over `Pattern`, so a
       -- bare closure has nothing to infer its parameter from. An empty word
       -- answers `false` either way, which is the one case the two spellings

@@ -1,0 +1,73 @@
+import crate::tools::BuildRequest
+import crate::tools::CheckRequest
+import crate::tools::FormatRequest
+import crate::tools::SourceMapRequest
+import rmcp::ErrorData
+import rmcp::ServerHandler
+import rmcp::handler::server::wrapper::Parameters
+import rmcp::model::CallToolResult
+import rmcp::model::ServerCapabilities
+import rmcp::model::ServerConfig
+import rmcp::tool
+import rmcp::tool_handler
+import rmcp::tool_router
+import serde::Serialize
+
+export data Server = Server
+  deriving (Clone, Copy, Default)
+
+#[tool_router]
+
+instance Server
+  #[must_use]
+  export new : Self
+  new = Server
+
+  #[tool(description = "Check a .sdx file: transpile it, compile the generated Rust with rustc, and return rustc's diagnostics reported against the .sdx. Returns {ok, diagnostics}.")]
+  voltaic_check : async Parameters<CheckRequest> -> &self -> Result<CallToolResult, ErrorData>
+  voltaic_check params self =
+    request = params.0
+    joined <- tokio::task::spawn_blocking (move \-> crate::tools::check (&request))
+    outcome = (.map_err (\e -> ErrorData::internal_error (.to_string e) None) joined)?
+    server_content outcome
+
+  #[tool(description = "Transpile a .sdx file to .xrs beside it, with its .xrs.map source-map sidecar. Returns {ok, output, map, diagnostics}.")]
+  voltaic_build : async Parameters<BuildRequest> -> &self -> Result<CallToolResult, ErrorData>
+  voltaic_build params self =
+    request = params.0
+    joined <- tokio::task::spawn_blocking (move \-> crate::tools::build (&request))
+    outcome = (.map_err (\e -> ErrorData::internal_error (.to_string e) None) joined)?
+    server_content outcome
+
+  #[tool(description = "Return the canonical formatting of a .sdx file. Reads only — the file is never written. Returns {ok, formatted, changed, diagnostics}.")]
+  voltaic_fmt : async Parameters<FormatRequest> -> &self -> Result<CallToolResult, ErrorData>
+  voltaic_fmt params self =
+    request = params.0
+    joined <- tokio::task::spawn_blocking (move \-> crate::tools::format (&request))
+    outcome = (.map_err (\e -> ErrorData::internal_error (.to_string e) None) joined)?
+    server_content outcome
+
+  #[tool(description = "Which .sdx line is this .xrs line? Resolves a position in generated Rust back to the source, from the .xrs.map sidecar. Returns {source, line, column} or {reason} when the line is synthetic or out of range.")]
+  voltaic_source_map : async Parameters<SourceMapRequest> -> &self -> Result<CallToolResult, ErrorData>
+  voltaic_source_map params self =
+    request = params.0
+    joined <- tokio::task::spawn_blocking (move \-> crate::tools::source_map (&request))
+    outcome = (.map_err (\e -> ErrorData::internal_error (.to_string e) None) joined)?
+    server_content outcome
+
+#[tool_handler]
+instance ServerHandler Server
+  get_info : &self -> ServerConfig
+  get_info self =
+    mut config = ServerConfig::default ()
+    config.capabilities := ServerCapabilities::builder ()
+      |> .enable_tools
+      |> .build
+    config.instructions := Some $ .to_string "Voltaic transpiles .sdx to .xrs containing ordinary Rust. Diagnostics are reported against the .sdx you wrote, with 1-based line and column in characters. rustc is the authority on types and borrows — Voltaic has no checker of its own."
+    config
+
+export(crate) server_content : Serialize t => Result<t, String> -> Result<CallToolResult, ErrorData>
+server_content outcome =
+  value = (.map_err (\message -> ErrorData::internal_error message None) outcome)?
+  encoded = .map_err (\e -> ErrorData::internal_error (format! \-> "cannot serialise the result: #{e}") None) (serde_json::to_value (&value))
+  Ok $ CallToolResult::structured encoded?

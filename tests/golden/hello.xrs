@@ -1,4 +1,4 @@
-// The smallest Redox program.
+// The smallest Voltaic program.
 fn main() {
     println!("hello");
     ();

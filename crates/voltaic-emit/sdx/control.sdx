@@ -1,0 +1,513 @@
+import crate::binding::annotated_binding
+import crate::binding::emit_bind
+import crate::binding::emit_where_locals
+import crate::binding::one_tail_expression
+import crate::expr::chain
+import crate::expr::emit_expr
+import crate::expr::expr_list
+import crate::expr::sole_expression
+import crate::expr::unparen
+import crate::item::emit_body
+import crate::item::emit_item
+import crate::pattern::pattern_text
+import crate::sink::RUST_INDENT
+import crate::sink::Sink
+import crate::sink::emit_inline_comment
+import crate::sink::emit_trivia
+import crate::sink::nest
+import crate::sink::pad
+import crate::sink::pad_to
+import voltaic_ast::BinaryOp
+import voltaic_ast::Block
+import voltaic_ast::CaseArm
+import voltaic_ast::Clause
+import voltaic_ast::Condition
+import voltaic_ast::ConditionOperand
+import voltaic_ast::Expr
+import voltaic_ast::Guard
+import voltaic_ast::Pattern
+import voltaic_ast::Qualifier
+import voltaic_ast::Stmt
+import voltaic_ast::TypeExpr
+
+export(crate) emit_arm : &mut Sink<'_> -> &Clause -> &str -> usize -> bool -> ()
+emit_arm out clause arm indent tail =
+  collapsed = .filter (\_ -> .is_empty clause.wheres) $ one_tail_expression clause tail
+  if collapsed is Some stmt
+    .mark stmt.span out
+    pad out indent
+    .push_str arm out
+    .push_str " => " out
+    .push_str (&emit_expr (unparen (&stmt.expr)) indent) out
+    .push ',' out
+    emit_inline_comment out (.as_ref stmt.trailing)
+    .push '\n' out
+    return ()
+  pad out indent
+  .push_str arm out
+  .push_str " => {\n" out
+  emit_where_locals out (&clause.wheres) (indent + RUST_INDENT)
+  emit_body out (&clause.body) (indent + RUST_INDENT) tail false
+  pad out indent
+  .push_str "}\n" out
+  ()
+
+export(crate) ascribed_arm : &Pattern -> &str -> Option<String>
+ascribed_arm pattern ty =
+  binder = (sole_binder pattern)?
+  Some $ format! \-> "let #{binder}: #{ty} = #{binder};"
+
+export(crate) sole_binder : &Pattern -> Option<String>
+sole_binder pattern = case .as_slice (.binders pattern) of
+  [one] -> Some (.clone one)
+  _ -> None
+
+export(crate) ascribed_list : &Expr -> &TypeExpr -> usize -> Option<String>
+ascribed_list inner ty indent =
+  guard unparen inner is Expr::List { items, .. } else
+    return None
+  head = ty.text
+    |> .split '<'
+    |> .next
+    |> .unwrap_or (&ty.text)
+    |> .trim
+  listed = expr_list items indent
+  Some $ format! \-> "#{head}::from([#{listed}])"
+
+export(crate) assert_call : &Expr -> usize -> String
+assert_call e indent =
+  if unparen e is Expr::Binary { op, lhs, rhs, .. }
+    chosen = case op of
+      BinaryOp::Eq -> Some "assert_eq"
+      BinaryOp::Ne -> Some "assert_ne"
+      _ -> None
+    if chosen is Some named
+      left = emit_expr (unparen lhs) indent
+      right = emit_expr (unparen rhs) indent
+      return format! \-> "#{named}!(#{left}, #{right})"
+  inner = emit_expr (unparen e) indent
+  format! \-> "assert!(#{inner})"
+
+export(crate) emit_case : &Expr -> &[CaseArm] -> usize -> String
+emit_case scrutinee arms indent =
+  arm_pad = .repeat (indent + RUST_INDENT) " "
+  close_pad = .repeat indent " "
+  head = emit_expr (unparen scrutinee) indent
+  mut out = format! \-> "match #{head} {\n"
+  for arm in arms
+    .push_str (&arm_pad) out
+    .push_str (&pattern_text (&arm.pattern)) out
+    if &arm.r#guard is Some row
+      .push_str " if " out
+      .push_str (&emit_condition row (indent + RUST_INDENT)) out
+    .push_str " => " out
+    body = case &arm.body of
+      Expr::Block { label = None, body = block, .. } | .is_some_and (\stmt -> .is_empty stmt.leading && .is_none stmt.trailing) (.first block.stmts) ->
+        block |> .sole_expression |> .unwrap_or (&arm.body)
+      other -> other
+    ascribed = .and_then (\ty -> ascribed_arm (&arm.pattern) (&ty.text)) (.as_ref arm.ty)
+    case ascribed of
+      Some binding ->
+        inner_pad = .repeat (indent + RUST_INDENT + RUST_INDENT) " "
+        .push_str "{\n" out
+        .push_str (&inner_pad) out
+        .push_str (&binding) out
+        .push '\n' out
+        .push_str (&inner_pad) out
+        .push_str (&emit_expr (unparen body) (indent + RUST_INDENT + RUST_INDENT)) out
+        .push '\n' out
+        .push_str (&arm_pad) out
+        .push '}' out
+      None -> .push_str (&emit_expr (unparen body) (indent + RUST_INDENT)) out
+    is_block = case body of
+      Expr::Block { .. } -> true
+      _ -> false
+    if !is_block && .is_none arm.ty
+      .push ',' out
+    .push '\n' out
+  .push_str (&close_pad) out
+  .push '}' out
+  out
+
+export(crate) catch_fallback : &Expr -> &Expr -> usize -> String
+catch_fallback subject fallback indent =
+  arm_pad = .repeat (indent + RUST_INDENT) " "
+  close_pad = .repeat indent " "
+  parts = case unparen fallback of
+    Expr::Lambda { params, body, .. } | .len params == 1 ->
+      (.clone params[0].name.text, emit_expr (unparen body) (indent + RUST_INDENT))
+    other -> (.to_string "_", emit_expr other (indent + RUST_INDENT))
+  binding = parts.0
+  value = parts.1
+  scrutinee = emit_expr (unparen subject) indent
+  format! \-> "match #{scrutinee} {\n#{arm_pad}Ok(__rdx_v) => __rdx_v,\n#{arm_pad}Err(#{binding}) => #{value},\n#{close_pad}}"
+
+export(crate) emit_comprehension : &Expr -> &[Qualifier] -> usize -> String
+emit_comprehension element qualifiers indent =
+  draws : Vec<(&str, &Expr)> = qualifiers
+    |> .iter
+    |> .filter_map (\q ->
+    case q of
+      Qualifier::Draw { name, source } -> Some (.as_str name.text, source)
+      Qualifier::Guard _ -> None)
+    |> .collect
+  guards : Vec<String> = qualifiers
+    |> .iter
+    |> .filter_map (\q ->
+    case q of
+      Qualifier::Guard e -> Some $ emit_expr (unparen e) indent
+      Qualifier::Draw { .. } -> None)
+    |> .collect
+  if .is_empty draws
+    only = emit_expr (unparen element) indent
+    return format! \-> "[#{only}]"
+  item = emit_expr (unparen element) indent
+  nested = .len draws > 1
+  built = nest (&draws) (&guards) (&item) indent nested
+  mut segments = built.1
+  .push (.to_string ".collect()") segments
+  chain (&built.0) (&segments) indent
+
+export(crate) condition_head : &str -> &Condition -> usize -> String
+condition_head keyword condition indent =
+  if !breaks condition
+    joined = emit_condition condition indent
+    return format! \-> "#{keyword} #{joined} {\n"
+  inner = .repeat (indent + RUST_INDENT) " "
+  mut out = format! \-> "#{keyword} "
+  for pair in .enumerate (.iter condition.operands)
+    i = pair.0
+    operand = pair.1
+    if i > 0
+      .push_str (&format! \-> "\n#{inner}&& ") out
+    one = emit_condition (&Condition { operands = vec! \-> .clone operand }) indent
+    .push_str (&one) out
+  outer = .repeat indent " "
+  .push_str (&format! \-> "\n#{outer}{\n") out
+  out
+
+export(super) breaks : &Condition -> bool
+breaks condition =
+  n = .len condition.operands
+  has_let = .has_pattern condition
+  first_is_let = case .first condition.operands of
+    Some (ConditionOperand::Pattern { .. }) -> true
+    _ -> false
+  has_let && (n > 2 || n == 2 && first_is_let)
+
+export(crate) control_text : &Expr -> usize -> String
+control_text expr indent =
+  if expr is Expr::If { condition, then_block, r#otherwise, .. } && one_line_if condition then_block (.as_ref r#otherwise) indent is Some text
+    return text
+  mut inner = Sink::new ""
+  emit_control (&mut inner) expr indent true
+  finished = .finish "" inner
+  finished.0 |> .trim_start |> .trim_end |> .to_string
+
+export(crate) emit_block : &Option<String> -> &Block -> usize -> String
+emit_block label body indent =
+  mut inner = Sink::new ""
+  emit_stmts (&mut inner) (&body.stmts) (indent + RUST_INDENT) true
+  finished = .finish "" inner
+  prefix = label_prefix label
+  mut out = format! \-> "#{prefix}{\n"
+  .push_str (&finished.0) out
+  pad_to (&mut out) indent
+  .push '}' out
+  out
+
+export(crate) emit_condition : &Condition -> usize -> String
+emit_condition condition indent =
+  parts : Vec<String> = condition.operands
+    |> .iter
+    |> .map (\operand ->
+    case operand of
+      ConditionOperand::Expr e -> emit_expr (unparen e) indent
+      ConditionOperand::Pattern { pattern, source } ->
+        lowered = pattern_text pattern
+        value = emit_expr (unparen source) indent
+        format! \-> "let #{lowered} = #{value}")
+    |> .collect
+  .join " && " parts
+
+export(crate) emit_control : &mut Sink<'_> -> &Expr -> usize -> bool -> ()
+emit_control out expr indent tail =
+  case expr of
+    Expr::If { condition, then_block, r#otherwise, .. } ->
+      if tail && one_line_if condition then_block (.as_ref r#otherwise) indent is Some text
+        pad out indent
+        .push_str (&text) out
+        .push '\n' out
+        return ()
+      pad out indent
+      .push_str (&condition_head "if" condition indent) out
+      emit_stmts out (&then_block.stmts) (indent + RUST_INDENT) (tail && .is_some r#otherwise)
+      guard r#otherwise is Some other else
+        .unmark out
+        pad out indent
+        .push_str "}\n" out
+        return ()
+      .unmark out
+      pad out indent
+      chained = case .as_slice other.stmts of
+        [only] -> case only.expr of
+          Expr::If { .. } -> Some only
+          _ -> None
+        _ -> None
+      if chained is Some only
+        .push_str "} else " out
+        emit_control_inline out (&only.expr) indent tail
+        return ()
+      .push_str "} else {\n" out
+      emit_stmts out (&other.stmts) (indent + RUST_INDENT) tail
+      .unmark out
+      pad out indent
+      .push_str "}\n" out
+    Expr::While { condition, negated, body, label, .. } ->
+      pad out indent
+      if *negated
+        text = emit_condition condition indent
+        prefix = label_prefix label
+        .push_str (&format! \-> "#{prefix}while !(#{text}) {\n") out
+      else
+        .push_str (&label_prefix label) out
+        .push_str (&condition_head "while" condition indent) out
+      emit_stmts out (&body.stmts) (indent + RUST_INDENT) false
+      .unmark out
+      pad out indent
+      .push_str "}\n" out
+    Expr::For { binder, source, body, label, .. } ->
+      pad out indent
+      prefix = label_prefix label
+      over = emit_expr (unparen source) indent
+      .push_str (&format! \-> "#{prefix}for #{binder.text} in #{over} {\n") out
+      emit_stmts out (&body.stmts) (indent + RUST_INDENT) false
+      .unmark out
+      pad out indent
+      .push_str "}\n" out
+    Expr::Loop { body, label, .. } ->
+      pad out indent
+      prefix = label_prefix label
+      .push_str (&format! \-> "#{prefix}loop {\n") out
+      emit_stmts out (&body.stmts) (indent + RUST_INDENT) false
+      .unmark out
+      pad out indent
+      .push_str "}\n" out
+    Expr::Guard { pattern, source, r#otherwise, .. } ->
+      pad out indent
+      lowered = pattern_text pattern
+      value = emit_expr (unparen source) indent
+      .push_str (&format! \-> "let #{lowered} = #{value} else {\n") out
+      emit_stmts out (&r#otherwise.stmts) (indent + RUST_INDENT) false
+      .unmark out
+      pad out indent
+      .push_str "};\n" out
+    Expr::Break { label, value, .. } ->
+      pad out indent
+      .push_str "break" out
+      if label is Some name
+        .push_str (&format! \-> " '#{name}") out
+      if value is Some v
+        .push_str (&format! \-> " #{emit_expr (unparen v) indent}") out
+      .push_str ";\n" out
+    Expr::Continue { label, .. } ->
+      pad out indent
+      .push_str "continue" out
+      if label is Some name
+        .push_str (&format! \-> " '#{name}") out
+      .push_str ";\n" out
+    _ ->
+      unreachable! \-> "`emit_control` is called only for a control-flow form"
+  ()
+
+export(crate) emit_control_inline : &mut Sink<'_> -> &Expr -> usize -> bool -> ()
+emit_control_inline out expr indent tail =
+  guard expr is Expr::If { condition, then_block, r#otherwise, .. } else
+    unreachable! \-> "only an `if` is written inline"
+  .push_str (&condition_head "if" condition indent) out
+  emit_stmts out (&then_block.stmts) (indent + RUST_INDENT) (tail && .is_some r#otherwise)
+  guard r#otherwise is Some other else
+    .unmark out
+    pad out indent
+    .push_str "}\n" out
+    return ()
+  .unmark out
+  pad out indent
+  chained = case .as_slice other.stmts of
+    [only] -> case only.expr of
+      Expr::If { .. } -> Some only
+      _ -> None
+    _ -> None
+  if chained is Some only
+    .push_str "} else " out
+    emit_control_inline out (&only.expr) indent tail
+    return ()
+  .push_str "} else {\n" out
+  emit_stmts out (&other.stmts) (indent + RUST_INDENT) tail
+  .unmark out
+  pad out indent
+  .push_str "}\n" out
+  ()
+
+export(crate) emit_stmts : &mut Sink<'_> -> &[Stmt] -> usize -> bool -> ()
+emit_stmts out stmts indent tail =
+  guard .split_first stmts is Some split else
+    return ()
+  first = split.0
+  rest = split.1
+  guard &first.expr is Expr::Draw { name, value, .. } else
+    last = .is_empty rest
+    emit_stmt out first indent (tail && last)
+    emit_stmts out rest indent tail
+    return ()
+  .mark first.span out
+  emit_trivia out (&first.leading) indent
+  pad out indent
+  .push_str (&emit_expr value indent) out
+  .push_str "(|" out
+  .push_str (&name.text) out
+  .push_str "| {\n" out
+  emit_stmts out rest (indent + crate::sink::RUST_INDENT) tail
+  pad out indent
+  .push_str "})" out
+  if !tail
+    .push ';' out
+  .push '\n' out
+  ()
+
+export(crate) emit_guards : &mut Sink<'_> -> &[Guard] -> usize -> bool -> bool -> ()
+emit_guards out guards indent tail joinable =
+  if joinable && two_armed guards indent is Some one_line
+    pad out indent
+    .push_str (&one_line) out
+    .push '\n' out
+    return ()
+  for pair in .enumerate (.iter guards)
+    i = pair.0
+    row = pair.1
+    case (&row.condition, i) of
+      (Some cond, 0) ->
+        pad out indent
+        head = emit_expr cond indent
+        .push_str (&format! \-> "if #{head} {\n") out
+      (Some cond, _) ->
+        pad out indent
+        head = emit_expr cond indent
+        .push_str (&format! \-> "} else if #{head} {\n") out
+      (None, 0) ->
+        emit_stmts out (&row.body.stmts) indent tail
+        return ()
+      (None, _) ->
+        pad out indent
+        .push_str "} else {\n" out
+    emit_stmts out (&row.body.stmts) (indent + RUST_INDENT) tail
+  pad out indent
+  .push_str "}\n" out
+  ()
+
+export(crate) label_prefix : &Option<String> -> String
+label_prefix label = case label of
+  Some name -> format! \-> "'#{name}: "
+  None -> String::new ()
+
+export(crate) one_line_if : &Condition -> &Block -> Option<&Block> -> usize -> Option<String>
+one_line_if condition then_block else_block indent =
+  other = else_block?
+  then_expr = (.sole_expression then_block)?
+  else_expr = (.sole_expression other)?
+  if .is_statement_form then_expr || .is_statement_form else_expr
+    return None
+  head = emit_condition condition indent
+  a = emit_expr (unparen then_expr) indent
+  b = emit_expr (unparen else_expr) indent
+  text = format! \-> "if #{head} { #{a} } else { #{b} }"
+  if .len text > SINGLE_LINE_IF_ELSE_MAX_WIDTH || .contains '\n' text
+    return None
+  Some text
+
+export(crate) const SINGLE_LINE_IF_ELSE_MAX_WIDTH : usize = 50
+
+export(crate) emit_stmt : &mut Sink<'_> -> &Stmt -> usize -> bool -> ()
+emit_stmt out stmt indent tail =
+  .mark stmt.span out
+  emit_trivia out (&stmt.leading) indent
+  if .is_control_flow stmt.expr
+    emit_control out (&stmt.expr) indent tail
+    return ()
+  if &stmt.expr is Expr::Item { item, .. }
+    emit_item out item indent
+    return ()
+  pad out indent
+  case &stmt.expr of
+    Expr::Binding b ->
+      .push_str "let " out
+      if b.is_mut
+        .push_str "mut " out
+      .push_str (&pattern_text (&b.pattern)) out
+      annotated = annotated_binding b
+      if annotated.0 is Some ty
+        .push_str ": " out
+        .push_str (&ty) out
+      .push_str " = " out
+      .push_str (&emit_expr annotated.1 indent) out
+      .push ';' out
+    Expr::Draw { .. } ->
+      unreachable! \-> "a draw arrow must be emitted by `emit_stmts`, which has the following statements its callback body needs"
+    Expr::Await { pattern, value, .. } -> .push_str (&emit_bind pattern value indent) out
+    Expr::Assign { target, op, value, .. } ->
+      operator = .map_or "" (\o -> .unwrap_or "/* unsupported */" (.rust_text o)) (*op)
+      left = emit_expr (unparen target) indent
+      right = emit_expr (unparen value) indent
+      .push_str (&format! \-> "#{left} #{operator}= #{right};") out
+    Expr::Return { value, .. } ->
+      .push_str "return" out
+      if value is Some e
+        .push ' ' out
+        .push_str (&emit_expr e indent) out
+      .push ';' out
+    value ->
+      debug_assert! \-> !.is_statement_form value \-> "every statement form has an arm of its own above"
+      .push_str (&emit_expr (unparen value) indent) out
+      if !tail
+        .push ';' out
+  emit_inline_comment out (.as_ref stmt.trailing)
+  .push '\n' out
+  ()
+
+export(crate) try_block : &Block -> usize -> String
+try_block body indent =
+  mut inner = Sink::new ""
+  emit_stmts (&mut inner) (&body.stmts) (indent + RUST_INDENT) true
+  finished = .finish "" inner
+  mut out = .to_string "(|| {\n"
+  .push_str (&finished.0) out
+  pad_to (&mut out) indent
+  .push_str "})()" out
+  out
+
+export(crate) two_armed : &[Guard] -> usize -> Option<String>
+two_armed guards indent =
+  guard guards is [first, second] else
+    return None
+  condition = (.as_ref first.condition)?
+  if .is_some second.condition
+    return None
+  then_text = (sole_expression first indent)?
+  else_text = (sole_expression second indent)?
+  head = emit_expr (unparen condition) indent
+  text = format! \-> "if #{head} { #{then_text} } else { #{else_text} }"
+  if .len text > SINGLE_LINE_IF_ELSE_MAX_WIDTH || .contains '\n' text
+    return None
+  Some text
+
+export(crate) unlowerable : &str -> String
+unlowerable what =
+  format! \-> "compile_error!(\"#{what} is a statement in Rust and has no expression spelling; this is a Voltaic defect, not a defect in your program\")"
+
+export(crate) emit_unsafe_block : &Block -> usize -> String
+emit_unsafe_block body indent =
+  if .sole_expression body is Some e
+    inner = emit_expr e indent
+    return format! \-> "unsafe { #{inner} }"
+  block = emit_block (&None) body indent
+  format! \-> "unsafe #{block}"

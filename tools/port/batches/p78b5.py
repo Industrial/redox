@@ -10,7 +10,7 @@ same simplification `Keyword::from_text` got in plan 74.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('serve/semantic_tokens/token_index', '''
@@ -24,7 +24,7 @@ token_index kind = case kind of
   TokenKind::Label _ -> Some 1
   -- 3: VARIABLE — every identifier. Telling a function name from a
   -- variable needs to know what the name *is*, which is name resolution,
-  -- which Redox does not have (plan 40 §6). So `FUNCTION`, index 2, is in
+  -- which Voltaic does not have (plan 40 §6). So `FUNCTION`, index 2, is in
   -- the legend and unused: it is what a future row with a symbol table
   -- would reach for, and removing it would renumber everything after it.
   TokenKind::Ident _ -> Some 3
@@ -49,7 +49,7 @@ token_index kind = case kind of
 write('serve/semantic_tokens', '''
 export(crate) semantic_tokens : &str -> SemanticTokensResult
 semantic_tokens source =
-  tokens = case redox_lexer::lex source of
+  tokens = case voltaic_lexer::lex source of
     Ok lexed -> lexed
     Err _ ->
       return SemanticTokensResult::Tokens (SemanticTokens {

@@ -80,7 +80,7 @@ keeping the token's span over the whole block.
 
 ### 1.4 Why the spec text is pasted and never read
 
-`#{amount:.2}` becomes `{:.2}`. Redox does not parse `.2`, does not validate it, and does
+`#{amount:.2}` becomes `{:.2}`. Voltaic does not parse `.2`, does not validate it, and does
 not know what it means. Doc 03 §11.1 is explicit: *"text after `:` up to the closing brace
 is spec text, passed through unchanged. A malformed spec is reported by rustc against the
 interpolation's own location through the source map."*
@@ -208,7 +208,7 @@ the token's span preserved for the source map.
   `format!("{:nonsense}", x)` and rustc reports it — against the interpolation's own
   location, because plan 06's map puts it there.
 - **Rust's positional and named arguments inside a spec** — `{0}`, `{name}` — are not
-  Redox's. An interpolation carries its own expression, so there is nothing to refer to by
+  Voltaic's. An interpolation carries its own expression, so there is nothing to refer to by
   position. A literal `{0}` the author writes is doubled like any other brace.
 - **`write!`, `eprintln!` and the rest of the format family** are ordinary macro calls and
   stay that way. This plan lowers interpolation; it does not grow a macro vocabulary.

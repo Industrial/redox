@@ -1,4 +1,4 @@
-# Redox — COMPILER.md
+# Voltaic — COMPILER.md
 
 Status: toolchain decisions. Authored by plan 01 (`docs/05 - 01 - Vertical Slice.md`),
 leaf 9. Extended in place by later plans as further decisions are measured.
@@ -31,14 +31,14 @@ rationalised afterwards. This mirrors Emerald tuning Cranelift's optimisation le
 | 3 | One pass reports more than one error? | **Yes.** Recovery at item boundaries is ~15 lines. Measured: two malformed items in one file produce two errors | **No.** Measured: the same input reports one error and stops. Emerald needed a dedicated plan (26) threading `errors: &mut Vec<_>` through its grammar to get this |
 | 4 | Diagnostic for a missing `->` | `expected `->` after `=`` with a byte span, resolved to `file:2:7` by the CLI | `UnrecognizedToken { token: (6, Newline, 6), expected: ["\"->\""] }` — names the expected token, but carries byte offsets only, with no line, column or snippet |
 | 5 | Setup cost | **Zero third-party dependencies.** `Cargo.lock` holds 8 packages, all first-party. No build script | **46 crates compiled** on a cold build, plus a `build.rs` codegen step and a generated 1,002-line parser module |
-| 6 | Lines for this slice | 241 non-comment lines (`redox-parser/src/lib.rs`, excluding tests) | 26 non-comment grammar lines — **plus** the 64-line pre-lexer axis 1 forces, so 90 hand-written lines either way, against a 1,002-line generated module |
+| 6 | Lines for this slice | 241 non-comment lines (`voltaic-parser/src/lib.rs`, excluding tests) | 26 non-comment grammar lines — **plus** the 64-line pre-lexer axis 1 forces, so 90 hand-written lines either way, against a 1,002-line generated module |
 
 ### Rationale
 
 Axis 1 is the decisive one, and it is stronger than doc 02 §5.2 predicted. The argument was
 that LALR(1) "fits indentation-sensitive grammars badly"; the measurement is that it cannot
 express them at all without a hand-written lexer feeding an `extern` token enum. **The
-generated parser therefore replaces only the smaller half of Redox's front end** — the half
+generated parser therefore replaces only the smaller half of Voltaic's front end** — the half
 that axis 6 shows is 26 lines of grammar against 1,002 lines of generated code, while the
 lexer, which is where this language's real complexity lives (off-side rule, trivia,
 whitespace adjacency, and later doc 03 §4.1's longest-match sigil table), stays
@@ -48,7 +48,7 @@ Axis 3 settles the rest. Doc 01 §29 wants good diagnostics and doc 02 §11 puts
 Milestone 2, so multi-error recovery is near-term work, not speculative. It is ~15 lines in
 recursive descent and was a whole plan in Emerald.
 
-Axis 2 matters more for Redox than for most languages, because comments must reach the
+Axis 2 matters more for Voltaic than for most languages, because comments must reach the
 generated `.xrs` (doc 02 §10.1) and the formatter must round-trip them (plan 34). Emerald's
 formatter loses every non-doc comment precisely because that information was discarded
 early; a design where trivia threading is invasive is a design that invites the same defect.
@@ -65,7 +65,7 @@ LALRPOP arm simply does not have.
 
 ### Evidence
 
-- Hand-written arm: `crates/redox-parser/src/lib.rs`; 11 tests, including
+- Hand-written arm: `crates/voltaic-parser/src/lib.rs`; 11 tests, including
   `recovers_at_item_boundaries_and_reports_every_bad_item` for axis 3.
 - LALRPOP arm: built and executed in `.tmp/bakeoff/` (gitignored scratch, excluded from the
   workspace by the root `Cargo.toml`'s `exclude`). Its three measured outputs:
@@ -99,7 +99,7 @@ reach for a generator mid-plan without re-running the axes.
 
 **Chosen: hand-written.** Not a bake-off; a consequence of §1 axis 1 and therefore recorded
 rather than measured. Emerald uses `logos` in 116 lines because Ruby-ish syntax with `end`
-delimiters needs no whitespace sensitivity. Redox needs four things a regex-dispatch lexer
+delimiters needs no whitespace sensitivity. Voltaic needs four things a regex-dispatch lexer
 does not provide:
 
 1. the off-side rule, with an indent stack;
@@ -109,7 +109,7 @@ does not provide:
 4. continuation suppression inside delimiters (plan 02), which is lexer state, not a
    pattern.
 
-**Evidence:** `crates/redox-lexer/src/lib.rs`, 16 tests.
+**Evidence:** `crates/voltaic-lexer/src/lib.rs`, 16 tests.
 
 **Revisit trigger:** none. Items 1 and 4 are not expressible as a token pattern set.
 
@@ -134,7 +134,7 @@ hello
 ```
 
 **The "if necessary" clause does not fire.** No `.rs` staging file and no stdin plumbing is
-needed for the direct-rustc path, so `crates/redox-cli/tests/hello.rs` invokes rustc on the
+needed for the direct-rustc path, so `crates/voltaic-cli/tests/hello.rs` invokes rustc on the
 `.xrs` as-is.
 
 **Scope limit, so plan 09 is not surprised:** this is about `rustc` invoked directly.
@@ -150,7 +150,7 @@ A documentation inconsistency, recorded rather than silently resolved. Doc 01 §
 "Use four spaces per indentation level", while every example in docs 01, 02, 03 and 05 — the
 `hello.sdx` of plan 01 §3 included — uses two.
 
-**How plan 01 resolved it:** `redox-lexer` fixes no width at all. Any increase opens a block
+**How plan 01 resolved it:** `voltaic-lexer` fixes no width at all. Any increase opens a block
 and the matching decrease closes it, so two-space and four-space sources both lex and only
 *inconsistency* is an error (`rejects_an_inconsistent_dedent`). This is Python's rule, and
 it makes the discrepancy moot for the compiler.
@@ -181,6 +181,6 @@ A `--rustfmt` flag may be added later as an opt-in, and must then mark the span 
 
 ## Cross-references
 
-- Pipeline architecture and crate split: `docs/02 - Redox Update Blueprint.md` §5.
-- Lowering per construct: `docs/03 - Redox Surface Design.md` §§5–15.
-- Plan sequence and ordering commitments: `docs/04 - Redox Plan of Plans.md`.
+- Pipeline architecture and crate split: `docs/02 - Voltaic Update Blueprint.md` §5.
+- Lowering per construct: `docs/03 - Voltaic Surface Design.md` §§5–15.
+- Plan sequence and ordering commitments: `docs/04 - Voltaic Plan of Plans.md`.

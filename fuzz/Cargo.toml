@@ -1,5 +1,5 @@
 [package]
-name = "redox-fuzz-targets"
+name = "voltaic-fuzz-targets"
 version = "0.0.0"
 edition = "2024"
 license = "MIT"
@@ -18,7 +18,7 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 # Every target is a three-line wrapper around a function in here. Criterion 7:
 # anything longer belongs in the stable crate, where the gate tests it.
-redox-fuzz = { path = "../crates/redox-fuzz" }
+voltaic-fuzz = { path = "../crates/voltaic-fuzz" }
 
 [[bin]]
 name = "lex_source"

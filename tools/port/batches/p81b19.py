@@ -9,7 +9,7 @@ are single-segment and carry over as written.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('emit/expr', '''
@@ -46,7 +46,7 @@ emit_expr e indent = case e of
     -- Display>` needs it to ascribe the *call* rather than `h`. The value
     -- lands in `let` position, where no expression needs bracketing, so the
     -- lowering unwraps it. Plan 69's `Unary` arm is the same fix for the
-    -- same reason; plan 73 found this one in `redox-diag`'s `reportable`.
+    -- same reason; plan 73 found this one in `voltaic-diag`'s `reportable`.
     bare = unparen inner
     -- Doc 18 §6's third lowering: an ascribed list literal names its
     -- container, so its value is `C::from([…])`. Inside the block, not
@@ -214,14 +214,14 @@ emit_expr e indent = case e of
   -- for any of them, so each arrives only as a block element and
   -- `emit_stmt` claims those first. They are lowered anyway, for the reason
   -- this function's doc gives about `todo!()` and for a second one —
-  -- `redox-fuzz` asserts the emitter never writes Rust `syn` cannot parse,
+  -- `voltaic-fuzz` asserts the emitter never writes Rust `syn` cannot parse,
   -- so even the refusals have to be *parsable* refusals.
   --
   -- Eight of the twelve are genuine Rust expressions and lower to
   -- themselves with no `;`: `return` and `break` have type `!`, `x += 1`
   -- has type `()`, an `assert` is a macro call, a bare `.await` is a
   -- postfix, and the three loops are expressions in Rust exactly as they
-  -- are in Redox.
+  -- are in Voltaic.
   Expr::Return { value, .. } -> case value of
     Some v -> format! \\-> "return #{emit_expr v indent}"
     None -> .to_string "return"
@@ -260,7 +260,7 @@ emit_expr e indent = case e of
   Expr::If { .. } or Expr::While { .. } or Expr::For { .. } or Expr::Loop { .. } -> control_text e indent
   -- The four with no expression spelling at all — `unlowerable` records
   -- which they are, why `compile_error!` is the refusal, and why this is
-  -- not a Redox diagnostic.
+  -- not a Voltaic diagnostic.
   Expr::Binding _ -> unlowerable "a binding"
   Expr::Item { .. } -> unlowerable "a declaration"
   Expr::Guard { .. } -> unlowerable "a `guard`"

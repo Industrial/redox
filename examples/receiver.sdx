@@ -93,7 +93,7 @@ main =
   println! \-> "#{(.total c)}"
   m = Meters 4.0
   -- Which `Scale` impl applies is chosen by the argument's type, which is
-  -- rustc's job and not Redox's — the ascription is what fixes it here.
+  -- rustc's job and not Voltaic's — the ascription is what fixes it here.
   wide = 1.5 : f64
   println! \-> "#{(.times wide m)}"
   narrow = 2 : u32

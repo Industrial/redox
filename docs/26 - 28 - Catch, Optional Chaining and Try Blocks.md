@@ -41,7 +41,7 @@ That is what makes them admissible, and it is the same move three times:
 |---|---|
 | `catch` | A `match` — the same shape §12.1's `??` already emits |
 | `?.` | **`?` inside a closure returning `Option`.** Doc 02 §6.3's lowering, which *"delegates the entire `and_then`/`map` unification to rustc"* |
-| `try` | **`?` inside an immediately-invoked closure.** Rust has wanted `try` blocks for years and has them only unstably; the closure gives Redox them on stable today |
+| `try` | **`?` inside an immediately-invoked closure.** Rust has wanted `try` blocks for years and has them only unstably; the closure gives Voltaic them on stable today |
 
 Two of the three are the *same* mechanism — a closure whose `?` returns from the closure
 rather than the function — which is why they are one plan and not two.
@@ -200,15 +200,15 @@ costs no new machinery because plan 20's `do` already emits a block expression.
 ## 6. Out of scope, and what it discloses
 
 - **`??=`** is deleted by doc 18 §7 in favour of its expanded form. Not deferred.
-- **`catch` on an `Option`** is not Redox: §12 keeps `Option` and `Result` *"visually
+- **`catch` on an `Option`** is not Voltaic: §12 keeps `Option` and `Result` *"visually
   distinct and non-interchangeable"*, `??` serves `Option` and `catch` serves `Result`.
   Writing `catch` on an `Option` emits the `match`, and rustc reports the mismatch — which is
-  the division of labour, and cheaper than a check Redox would have to type-infer to make.
+  the division of labour, and cheaper than a check Voltaic would have to type-infer to make.
 - **`?.` on a method call** — `user?.name()` — is not in §12.3's grammar, which chains field
   accesses. A method on the end of a chain is an ordinary postfix on the chain's result.
 - **Flattening nested options** is declined by doc 01 §13.1 and costs nothing to decline,
   per §1.2.
-- **`try` returning `Result` versus `Option`** is not Redox's to decide: the closure's return
+- **`try` returning `Result` versus `Option`** is not Voltaic's to decide: the closure's return
   type is inferred from its tail and its `?`s, so both work and neither is annotated. A
   `try` whose arms disagree is a rustc error against the block.
 
@@ -233,7 +233,7 @@ one, so all three of these were interpreter-level constructs there.
 
 | # | Decision | Alternative rejected | Why |
 |---|---|---|---|
-| 1 | `?.` lowers to `?` in a closure | `and_then`/`map` chains | Doc 02 §6.3. The closure unifies every link's type through rustc; hand-written combinators differ for a field versus a method and Redox has no types to tell them apart |
+| 1 | `?.` lowers to `?` in a closure | `and_then`/`map` chains | Doc 02 §6.3. The closure unifies every link's type through rustc; hand-written combinators differ for a field versus a method and Voltaic has no types to tell them apart |
 | 2 | Each link takes `as_ref()` | Move, or clone | Doc 03 §12.3 and doc 01 §25.1: no silent clone, ever. Criterion 6 proves it against a non-`Clone` type rather than asserting it |
 | 3 | `try` is an immediately-invoked closure | Wait for Rust's `try` blocks | They have been unstable for years. The closure is stable today and is what the feature would desugar to |
 | 4 | `catch`'s binder comes from a lambda on the right | A dedicated `catch (e) ->` syntax | Doc 18 §4's lambda already has a parameter list; a second syntax for the same shape is a second thing to keep consistent |

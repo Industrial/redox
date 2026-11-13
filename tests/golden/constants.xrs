@@ -4,7 +4,7 @@
 // §13.4 corrects doc 01 §4.3 twice over: Rust forbids `let` at module scope,
 // so every top-level binding is `const` or `static`; and both require an
 // explicit type, so §4.3's `PI = 3.14159` "cannot be lowered at all". The
-// type goes after the same `:` every other type in Redox uses.
+// type goes after the same `:` every other type in Voltaic uses.
 //
 // Checked by compiling and running with **zero** rustc output, so a binding
 // emitted with the wrong keyword or a missing type does not pass.
@@ -22,10 +22,10 @@ pub const LIMIT: usize = 8;
 pub(crate) const SCALE: u32 = 3;
 
 // §13.4's "the uppercase-name convention is a lint, not semantics" cannot be
-// shown here: a lowercase `const` is legal Redox and legal Rust, and rustc
+// shown here: a lowercase `const` is legal Voltaic and legal Rust, and rustc
 // *warns* about it — and this corpus requires rustc to emit **nothing**. So
 // the corpus cannot demonstrate anything whose correct behaviour is a rustc
-// warning. `crates/redox-emit/tests/constants.rs` asserts it instead.
+// warning. `crates/voltaic-emit/tests/constants.rs` asserts it instead.
 
 // Doc 18 §2.2's `const fn`: a marker between `::` and the spine. It has to be
 // consumed there rather than left in the first type, because a type is

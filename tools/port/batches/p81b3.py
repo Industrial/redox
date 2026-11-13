@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Plan 81 batch 3: fourteen more of `redox-emit`'s bodies.
+"""Plan 81 batch 3: fourteen more of `voltaic-emit`'s bodies.
 
 `test_slug` meets doc 69 §10.4 the hard way: the Rust writes
 `trimmed.starts_with(|c: char| c.is_ascii_digit())`, and the annotation is
@@ -12,7 +12,7 @@ first rather than after ninety lints.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('emit/expr_list', '''
@@ -165,7 +165,7 @@ coalesce lhs rhs indent =
   close_pad = .repeat indent " "
   scrutinee = emit_expr (unparen lhs) indent
   fallback = emit_expr (unparen rhs) (indent + RUST_INDENT)
-  -- `{` and `}` are literal braces in a Redox string, so the emitter doubles
+  -- `{` and `}` are literal braces in a Voltaic string, so the emitter doubles
   -- them for Rust — which is what the Rust's `{{` and `}}` spelled by hand.
   format! \\-> "match #{scrutinee} {\\n#{arm_pad}Some(__rdx_v) => __rdx_v,\\n#{arm_pad}None => #{fallback},\\n#{close_pad}}"
 ''')

@@ -8,7 +8,7 @@ every pair in this crate got and the first triple.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('emit/case', '''
@@ -133,7 +133,7 @@ emit_section section indent =
           format! \\-> "#{param} #{spelling} #{value}"
     Section::Left { op, operand } ->
       value = emit_expr (unparen operand) indent
-      case .and_then redox_ast::BinaryOp::compare_method (.flipped op) of
+      case .and_then voltaic_ast::BinaryOp::compare_method (.flipped op) of
         Some method -> format! \\-> "#{param}.#{method}(&#{value})"
         None ->
           spelling = .unwrap_or "/* unsupported */" (.rust_text op)

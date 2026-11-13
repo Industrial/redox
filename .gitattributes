@@ -1,14 +1,14 @@
 # The self-hosted crates' Rust is **generated** from the `.sdx` beside it.
 #
-# `crates/redox-ast/sdx/**` and `crates/redox-fmt/sdx/**` are the source; the
-# `.rs` under each crate's `src/` is written by `redox build` and committed,
+# `crates/voltaic-ast/sdx/**` and `crates/voltaic-fmt/sdx/**` are the source; the
+# `.rs` under each crate's `src/` is written by `voltaic build` and committed,
 # because the committed output *is* this project's previous-version compiler
 # (doc 02 §4.8) — stored as reviewable Rust rather than as a prebuilt binary,
 # which is the thing rustc, Go, Zig and OCaml all have to download or check in
 # as a blob and cannot read.
 #
 # **No longer committed at all**, since plan 72 leaf 5: these trees are in
-# `.gitignore` and `./bootstrap.sh` regenerates them from `seed/redox1.wasm`.
+# `.gitignore` and `./bootstrap.sh` regenerates them from `seed/voltaic1.wasm`.
 #
 # The rules below are kept rather than deleted because they are still correct
 # and still cheap. `git add -f` on one of these files is a thing a person does
@@ -24,7 +24,7 @@
 # line-ending conversion on it, and `linguist-generated` so it stays out of the
 # language statistics: it is a compiled artifact of this repository's own Rust,
 # not a vendored dependency.
-seed/redox1.wasm binary linguist-generated=true
+seed/voltaic1.wasm binary linguist-generated=true
 
-crates/redox-ast/src/**/*.rs linguist-generated=true -diff
-crates/redox-fmt/src/**/*.rs linguist-generated=true -diff
+crates/voltaic-ast/src/**/*.rs linguist-generated=true -diff
+crates/voltaic-fmt/src/**/*.rs linguist-generated=true -diff

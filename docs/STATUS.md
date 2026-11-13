@@ -1,11 +1,11 @@
 # Status
 
 **Generated.** Every number here is measured from the working tree by
-`crates/redox-cli/tests/status.rs` and compared in the gate, so a drifted
+`crates/voltaic-cli/tests/status.rs` and compared in the gate, so a drifted
 number fails the build. Rewrite it with:
 
 ```bash
-REDOX_UPDATE=1 cargo test -p redox-cli --test status
+VOLTAIC_UPDATE=1 cargo test -p voltaic-cli --test status
 ```
 
 which rewrites and then **fails**, so the diff is reviewed rather than
@@ -25,7 +25,7 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 | outstanding | 0 |
 | **total** | **91** |
 
-`docs/04 - Redox Plan of Plans.md` is the register and the authority. **`done` is a register status, not a guarantee**: several rows record a later plan finding something they got wrong, which is why the register carries the correction and this table only counts.
+`docs/04 - Voltaic Plan of Plans.md` is the register and the authority. **`done` is a register status, not a guarantee**: several rows record a later plan finding something they got wrong, which is why the register carries the correction and this table only counts.
 
 ---
 
@@ -33,20 +33,20 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 
 | Crate | `src` | `tests` |
 |---|---:|---:|
-| `redox-ast` | 1626 | 0 |
-| `redox-bench` | 355 | 217 |
-| `redox-cli` | 986 | 9517 |
-| `redox-diag` | 1017 | 0 |
-| `redox-driver` | 1729 | 0 |
-| `redox-emit` | 3696 | 4572 |
-| `redox-fmt` | 1494 | 1496 |
-| `redox-fuzz` | 38 | 292 |
-| `redox-lexer` | 2176 | 1196 |
-| `redox-lsp` | 880 | 756 |
-| `redox-mcp` | 446 | 776 |
-| `redox-parser` | 5601 | 706 |
-| `redox-seed` | 146 | 676 |
-| **total** | **20190** | **20204** |
+| `voltaic-ast` | 1626 | 0 |
+| `voltaic-bench` | 355 | 217 |
+| `voltaic-cli` | 986 | 9520 |
+| `voltaic-diag` | 1017 | 0 |
+| `voltaic-driver` | 1729 | 0 |
+| `voltaic-emit` | 3696 | 4572 |
+| `voltaic-fmt` | 1494 | 1497 |
+| `voltaic-fuzz` | 38 | 330 |
+| `voltaic-lexer` | 2176 | 1196 |
+| `voltaic-lsp` | 880 | 756 |
+| `voltaic-mcp` | 446 | 776 |
+| `voltaic-parser` | 5604 | 706 |
+| `voltaic-seed` | 146 | 676 |
+| **total** | **20193** | **20246** |
 
 ---
 
@@ -56,7 +56,7 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 |---|---:|---|
 | `examples/*.sdx` | 44 | the CI-checked source of truth for what works |
 | `tests/golden/*.xrs` | 43 | the generated Rust, as exact text |
-| `crates/redox-cli/tests/ui/*.sdx` | 55 | the diagnostic a bad program gets |
+| `crates/voltaic-cli/tests/ui/*.sdx` | 55 | the diagnostic a bad program gets |
 | `tests/unreachable/*.sdx` | 7 | the gaps below, asserted to **still fail** |
 | `benchmarks/pairs/*.sdx` | 10 | generated and hand-written Rust, as identical IR |
 
@@ -66,7 +66,7 @@ doc 02's, taken from Emerald: *none of this is rounded up*.
 
 ## Gaps
 
-8 Rust constructs a Redox program cannot express. Read out of `docs/GRAMMAR.md`'s `UNREACHABLE` rows rather than listed again here, so the two cannot disagree; each has a fixture that the gate asserts **still fails**, so closing a gap breaks the build until both documents are updated.
+8 Rust constructs a Voltaic program cannot express. Read out of `docs/GRAMMAR.md`'s `UNREACHABLE` rows rather than listed again here, so the two cannot disagree; each has a fixture that the gate asserts **still fails**, so closing a gap breaks the build until both documents are updated.
 
 | Construct | Fixture |
 |---|---|

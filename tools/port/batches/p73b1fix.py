@@ -14,7 +14,7 @@ there — the `module` declarations, the `data` declaration, the doc comments.
 """
 import io
 
-ROOT = '/home/tom/Code/rust/redox/.tmp/'
+ROOT = '/home/tom/Code/rust/voltaic/.tmp/'
 p = ROOT + 'p73b1.py'
 s = io.open(p, encoding='utf-8').read()
 

@@ -29,7 +29,7 @@ program.
 
 ### 1.1 The ambitious version of this row is already declined, and the decline is correct
 
-The first form this row took was *derive rules written in Redox and executed at transpile time*.
+The first form this row took was *derive rules written in Voltaic and executed at transpile time*.
 That is `comptime`, and `docs/DECLINED.md` refuses it:
 
 | Construct | From | Reason |
@@ -102,12 +102,12 @@ generated `impl` carries a provenance comment naming the template, and comments 
 ### 1.5 Scope is the file
 
 A template is usable where its declaration is visible in the file being compiled, which is plan 56
-§1.4's boundary and plan 14 decision 4's refusal: *"Redox has no name resolution and must not grow
+§1.4's boundary and plan 14 decision 4's refusal: *"Voltaic has no name resolution and must not grow
 one."*
 
 An unknown name in a `deriving` list is already something — doc 03 §9.5 passes it to
-`#[derive(…)]` — so an undeclared template is **not** an error at the Redox level. It becomes
-`#[derive(Forward)]` and then rustc's `E0433`. That is a worse message than a Redox diagnostic
+`#[derive(…)]` — so an undeclared template is **not** an error at the Voltaic level. It becomes
+`#[derive(Forward)]` and then rustc's `E0433`. That is a worse message than a Voltaic diagnostic
 would be, and criterion 5 pins it rather than assuming it is acceptable; §9 decision 4 records why
 a diagnostic is not available.
 
@@ -118,8 +118,8 @@ a diagnostic is not available.
 **Nothing in this section is measured yet.** The row is authored, not executed.
 
 ```bash
-cargo run -p redox-cli -- build /tmp/probe.sdx && cat /tmp/probe.xrs
-cargo run -p redox-cli -- check /tmp/probe.sdx
+cargo run -p voltaic-cli -- build /tmp/probe.sdx && cat /tmp/probe.xrs
+cargo run -p voltaic-cli -- check /tmp/probe.sdx
 ```
 
 1. **How `deriving` is parsed and emitted today**, and whether its list is a set of names passed
@@ -129,8 +129,8 @@ cargo run -p redox-cli -- check /tmp/probe.sdx
    them. Doc 03 §9.2's field punning suggests they are; measured rather than inferred.
 3. **Where `instance` is emitted**, because a template's expansion must enter that path and not a
    parallel one.
-4. **Whether `redox-fmt` round-trips a template declaration.** Plan 56 §11.3's rule: the expansion
-   must be on the emit side, or `redox fmt` rewrites the user's `deriving (Forward)` into the
+4. **Whether `voltaic-fmt` round-trips a template declaration.** Plan 56 §11.3's rule: the expansion
+   must be on the emit side, or `voltaic fmt` rewrites the user's `deriving (Forward)` into the
    expanded impl.
 5. **That `$` is free in this position.** `$` is the application operator (doc 18 §4, plan 56 §2)
    and is hardcoded in the Pratt loop at binding power 1. Inside a template body it would have to
@@ -188,13 +188,13 @@ assertion.
 
 ### Leaf 5 — `leaf-fmt-round-trip`
 
-`redox fmt` prints the template and the `deriving` list, not the expansion. Precondition 4's
+`voltaic fmt` prints the template and the `deriving` list, not the expansion. Precondition 4's
 hazard.
 
 ### Leaf 6 — `leaf-corpus-and-docs`
 
 `examples/deriving.sdx`. Doc 03 §9.5 gains the template specification; `docs/GRAMMAR.md` §1.2's
-attributes row gains a note, since `deriving` is the one place a Redox declaration emits an
+attributes row gains a note, since `deriving` is the one place a Voltaic declaration emits an
 attribute; `docs/STATUS.md` regenerated. **`docs/DECLINED.md`'s `comptime` row gains a
 cross-reference to §1.1**, because this row is the nearest admissible neighbour of a declined
 construct and a reader who finds one should find the other.
@@ -209,13 +209,13 @@ construct and a reader who finds one should find the other.
    substitution is visible in the corpus rather than asserted in prose.
 4. Case 5 is a **rustc** error, captured in `tests/ui/` — the template imports nothing.
 5. Case 6 is rustc's `E0433`, captured in `tests/ui/` and asserted to be rustc's rather than
-   Redox's, per §1.5.
+   Voltaic's, per §1.5.
 6. Every generated `impl` carries a provenance comment naming its template, asserted in the
    golden.
-7. `redox fmt` round-trips a template declaration and a `deriving` list unexpanded.
+7. `voltaic fmt` round-trips a template declaration and a `deriving` list unexpanded.
 8. `deriving (Debug)` and every existing `deriving` emits byte-identical Rust; `tests/golden/`
    re-runs with **no re-blessing** of existing files.
-9. A template using a substitution that does not exist — `$fieldX`, `$whatever` — is a named Redox
+9. A template using a substitution that does not exist — `$fieldX`, `$whatever` — is a named Voltaic
    diagnostic with a `tests/ui/` fixture. The vocabulary is closed (§1.2) and the closure must be
    enforced, or it will be extended by accident.
 10. All examples green; `construct_coverage` green with no new `ALLOW` entries.
@@ -241,7 +241,7 @@ wanting and a future row may find a template-shaped way to reach it.
 **Discoverability is worse than `#[derive]`'s** (§1.4). The provenance comment is a mitigation,
 not a fix; go-to-definition on a template-generated method lands in the `.xrs`.
 
-**An undeclared template is rustc's error, not Redox's** (§1.5), and criterion 5 pins how bad the
+**An undeclared template is rustc's error, not Voltaic's** (§1.5), and criterion 5 pins how bad the
 message is.
 
 **`$` carries a second meaning if precondition 5 allows it**, and a third thing for a reader to
@@ -267,7 +267,7 @@ Plus: every example transpiles, compiles under rustc with no output, runs, stdou
 ## 8. Emerald reuse
 
 **Negative, and it is the reason this row is as small as it is.** `docs/DECLINED.md` attributes
-`comptime` to *"Zig, Emerald"* — Emerald had transpile-time evaluation and Redox declined to
+`comptime` to *"Zig, Emerald"* — Emerald had transpile-time evaluation and Voltaic declined to
 repeat it, on the ground that it *"requires an interpreter in the compiler"*.
 
 Emerald's other measurement bears on the same decision from the other side: 112 of 203 plans spent
@@ -282,10 +282,10 @@ the register rather than in the template corpus.
 
 | Decision | Chosen | Rejected | Why |
 |---|---|---|---|
-| 1 | Declarative templates | Derive rules written in Redox and executed at transpile time | The executed form is `comptime`, declined by `docs/DECLINED.md` for requiring an interpreter in the compiler. §1.1 |
+| 1 | Declarative templates | Derive rules written in Voltaic and executed at transpile time | The executed form is `comptime`, declined by `docs/DECLINED.md` for requiring an interpreter in the compiler. §1.1 |
 | 2 | A closed substitution vocabulary | An open one, extensible from source | An open vocabulary becomes a language, and a language becomes an interpreter. Closed means growth needs a register row |
 | 3 | `$` for substitution if position allows | A distinct sigil such as `%` or `@` | `$` is the familiar spelling, but it is live as the application operator at Pratt binding power 1, and plan 60 §1.1 counted the cost of one token meaning five things. If precondition 5 finds no positional separation, this reverses to a distinct sigil, which is cheap because it is one character in one position |
-| 4 | No diagnostic for an undeclared template | A named Redox diagnostic | Doc 03 §9.5 passes an unknown `deriving` name through to `#[derive(…)]`, so Redox cannot distinguish a misspelled template from a real Rust derive macro without name resolution — plan 14 decision 4's refusal. The same undecidability plan 56 §11.1 found for arity |
+| 4 | No diagnostic for an undeclared template | A named Voltaic diagnostic | Doc 03 §9.5 passes an unknown `deriving` name through to `#[derive(…)]`, so Voltaic cannot distinguish a misspelled template from a real Rust derive macro without name resolution — plan 14 decision 4's refusal. The same undecidability plan 56 §11.1 found for arity |
 | 5 | A provenance comment | Nothing, or a `#[doc]` attribute | Comments are trivia that reach the `.xrs` by doc 02 §10.1, so the comment costs nothing and survives to the artifact a person reads. An attribute would be API the author did not write |
 
 ---
@@ -319,7 +319,7 @@ What it got wrong is the **cost** of that form. It concluded:
 It is not, because the substitution does not have to happen on the tree. The
 body is emitted through `emit_instance` **first**, exactly as a hand-written
 `instance` is, and the placeholders are replaced in the **resulting string**.
-`crates/redox-emit/sdx/pattern.sdx` is 70 lines, most of them
+`crates/voltaic-emit/sdx/pattern.sdx` is 70 lines, most of them
 comment, and does the whole job in two `.replace` calls.
 
 So the row's two halves were assessed independently and both assessments were
@@ -351,12 +351,12 @@ is a free choice, and text is the cheapest thing it can be.
 
 Thirteen files of `.sdx`, four of them new, across five crates:
 
-- `redox-ast` — `DeriveTemplate`, the `Item` variant, the span and `leading` arms
-- `redox-parser` — `derive_template.sdx`, the one-token dispatch in `Parser::item`
-- `redox-diag` — `Code::DeriveTemplateShape` → `RDX0122`
-- `redox-emit` — `TemplateTable`, `TemplateScope`, `expanded_template`,
+- `voltaic-ast` — `DeriveTemplate`, the `Item` variant, the span and `leading` arms
+- `voltaic-parser` — `derive_template.sdx`, the one-token dispatch in `Parser::item`
+- `voltaic-diag` — `Code::DeriveTemplateShape` → `RDX0122`
+- `voltaic-emit` — `TemplateTable`, `TemplateScope`, `expanded_template`,
   `emit_templates`, and `emit_data`'s split of the `deriving` list
-- `redox-fmt`, `redox-lsp` — the printer arm and the outline entry
+- `voltaic-fmt`, `voltaic-lsp` — the printer arm and the outline entry
 
 ### 10.3 Repetitions were withdrawn, then shipped — the withdrawal was design-bound
 
@@ -447,14 +447,14 @@ the honest size of nothing.
 | 4 | case 5 is a rustc error | **not built** — §10.5 |
 | 5 | case 6 is rustc's `E0433` | **met in behaviour, not in a fixture** — §10.5 |
 | 6 | every generated `impl` carries a provenance comment | **met** — `emit_templates.sdx`, visible in the golden |
-| 7 | `redox fmt` round-trips a template unexpanded | **met** — `every_example_is_already_canonical` covers it |
+| 7 | `voltaic fmt` round-trips a template unexpanded | **met** — `every_example_is_already_canonical` covers it |
 | 8 | existing `deriving` emits byte-identical Rust | **met** — every other golden is unchanged |
-| 9 | an unknown substitution is a named Redox error | **fails** — §10.5 |
+| 9 | an unknown substitution is a named Voltaic error | **fails** — §10.5 |
 | 10 | examples green, no new `construct_coverage` `ALLOW` | **met** |
 
-### 10.5 The two diagnostics that are rustc's instead of Redox's
+### 10.5 The two diagnostics that are rustc's instead of Voltaic's
 
-Criterion 9 wanted `Field7` on a one-field newtype to be a Redox error. It is
+Criterion 9 wanted `Field7` on a one-field newtype to be a Voltaic error. It is
 `E0609` from rustc, and the reason it stays there is the one doc 03 §2's
 corollary gives: answering it needs to know **how many fields a template
 intends to use**, which is a question about the body rather than about the use,
@@ -464,9 +464,9 @@ field called `Field0`.
 
 Criterion 4's fixture — a template whose body names something not imported —
 was not built, for the same reason case 6's was not: both are rustc errors
-whose message is about the *generated* `impl`, and `tests/ui/` captures Redox's
-diagnostics. `RDX0122` is the one Redox diagnostic the row adds, and it has a
-fixture: `crates/redox-cli/tests/ui/derive_template_shape.sdx`, for an
+whose message is about the *generated* `impl`, and `tests/ui/` captures Voltaic's
+diagnostics. `RDX0122` is the one Voltaic diagnostic the row adds, and it has a
+fixture: `crates/voltaic-cli/tests/ui/derive_template_shape.sdx`, for an
 `instance` whose target is a concrete type rather than `Target`. That is caught
 at the declaration, where the mistake is — not at a `deriving` list, which
 would expand to an impl for the wrong type and compile the first time.
@@ -474,7 +474,7 @@ would expand to an impl for the wrong type and compile the first time.
 ### 10.6 Two findings worth keeping
 
 **`template` is contextual by choice, not after a revert.** Plan 87 reserved
-`pattern`, found that `redox-ast` stopped transpiling because `pattern` is a
+`pattern`, found that `voltaic-ast` stopped transpiling because `pattern` is a
 field name in four of its own declarations, and reverted. This row read that
 record first and never reserved `template`: `deriving` is already a keyword and
 at item position nothing else can follow it, so one token settles the dispatch
@@ -490,7 +490,7 @@ recorded the identical mistake. The habit that catches it is reading the exit
 code, not the match count — which is the same rule as *"do not grep compiler
 output for `^error`"*, and that one bit twice in this session too: `cargo
 build`'s errors are ANSI-prefixed, so `grep -E "^error"` reported a clean build
-while `redox-parser` was failing with two `E0599`s.
+while `voltaic-parser` was failing with two `E0599`s.
 
 ### 10.7 The §10.1 that was written before implementation
 
@@ -503,7 +503,7 @@ estimate is the mistake §10.1 above corrects.
 > `$variants` and `$Self`. **`$` is already the application operator** — doc 18
 > §4, hardcoded in the Pratt loop at binding power 1 (plan 56 §11.6) — so
 > `$Type` lexes as `Dollar` then `Ident` and a template body containing it does
-> not parse as Redox at all.
+> not parse as Voltaic at all.
 >
 > §9 decision 3 anticipated a collision and offered "a distinct sigil such as
 > `%` or `@`" as the fallback. Both are taken too: `@` is the `@`-binding token
@@ -511,8 +511,8 @@ estimate is the mistake §10.1 above corrects.
 >
 > | If the body is | Then substitution is | And |
 > |---|---|---|
-> | **unparseable** Redox (`$Type`) | textual, on source | the result must be **re-parsed at emit time**, so `redox-emit` gains a dependency on `redox-parser` |
-> | **parseable** Redox | a rewrite over `Vec<Item>` | the placeholder must be an ordinary name, so the vocabulary is not `$Type` at all |
+> | **unparseable** Voltaic (`$Type`) | textual, on source | the result must be **re-parsed at emit time**, so `voltaic-emit` gains a dependency on `voltaic-parser` |
+> | **parseable** Voltaic | a rewrite over `Vec<Item>` | the placeholder must be an ordinary name, so the vocabulary is not `$Type` at all |
 >
 > The second is clearly better and it is a different construct from the one
 > §1.2 specifies. The natural form is **reserved upper-case names**: a body

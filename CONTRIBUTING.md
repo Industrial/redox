@@ -1,4 +1,4 @@
-# Contributing to Redox
+# Contributing to Voltaic
 
 Thank you for helping. This page covers the legal part and the gates; the conventions every
 change is held to are in [AGENTS.md](AGENTS.md), and the design documents are numbered under
@@ -6,21 +6,21 @@ change is held to are in [AGENTS.md](AGENTS.md), and the design documents are nu
 
 ## The one rule that surprises everyone
 
-**Edit the `.sdx`, never the `.rs`.** Every crate under `crates/` is written in Redox. Its
+**Edit the `.sdx`, never the `.rs`.** Every crate under `crates/` is written in Voltaic. Its
 `src/*.rs` is *generated* from its `sdx/*.sdx`, is `.gitignore`d, and is not in the index — so a
 clean clone has no Rust in it at all until you bootstrap:
 
 ```bash
-git clone --recurse-submodules https://github.com/Industrial/redox
-cd redox
-./bootstrap.sh      # runs seed/redox1.wasm over every crate in seed/PORTED
+git clone --recurse-submodules https://github.com/Industrial/voltaic
+cd voltaic
+./bootstrap.sh      # runs seed/voltaic1.wasm over every crate in seed/PORTED
 cargo build         # works from here
 ```
 
 After changing a `.sdx`, regenerate with:
 
 ```bash
-REDOX_UPDATE=1 cargo test -p redox-cli --test port
+VOLTAIC_UPDATE=1 cargo test -p voltaic-cli --test port
 ```
 
 That compiles the generated tree *before* writing it and refuses a generation that does not
@@ -41,7 +41,7 @@ the reason above.
 
 ## License of contributions
 
-Redox is licensed under [CC-BY-SA-4.0](https://creativecommons.org/licenses/by-sa/4.0/), as
+Voltaic is licensed under [CC-BY-SA-4.0](https://creativecommons.org/licenses/by-sa/4.0/), as
 declared by `[workspace.package] license` in `Cargo.toml`. By contributing, you agree that your
 contribution is licensed under the same terms.
 

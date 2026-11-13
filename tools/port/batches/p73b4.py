@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""redox-diag batch 4 — diagnostic, snippet_line, diagnostic_code.
+"""voltaic-diag batch 4 — diagnostic, snippet_line, diagnostic_code.
 
 Shapes first met here:
 
@@ -16,12 +16,12 @@ because `write()` finds no TODO and cuts at the first construct.
 
 `snippet_line`'s test inputs drop plan 64's `println! \\-> "#{…}"` for
 `println 1`, for the reason `line_col`'s did: `#{…}` is interpolation in any
-Redox string. The columns are recomputed from the shorter line and the comment
+Voltaic string. The columns are recomputed from the shorter line and the comment
 that explains them is rewritten rather than left describing the old numbers.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 BODIES = {
@@ -54,7 +54,7 @@ snippet_line source line col =
 
 test "keeps a line that has text"
   -- `  println 1` where the Rust wrote plan 64's `println! \\-> "#{1}"`:
-  -- `#{…}` is interpolation in any Redox string, so that literal cannot be
+  -- `#{…}` is interpolation in any Voltaic string, so that literal cannot be
   -- written directly. What the test asserts is unaffected.
   src = "main : ()\\nmain =\\n  println 1\\n"
   assert_eq! \\-> (snippet_line src 3 3) \\-> (Some (3, "  println 1", 3))
@@ -78,32 +78,32 @@ test "gives up on an empty source"
   -- | The code as it is printed.
   export text : &self -> String
   text self = case self of
-    DiagnosticCode::Redox code -> .text code
+    DiagnosticCode::Voltaic code -> .text code
     DiagnosticCode::Foreign text -> .clone text
 
-  -- | Whether this code comes from Redox's catalogue.
+  -- | Whether this code comes from Voltaic's catalogue.
   -- |
   -- | Plan 05's corpus checks read `.stderr` files for `RDX` codes; this is how
   -- | a later `check` UI case can be excluded from that count without the check
   -- | having to pattern-match on the text.
-  export is_redox : &self -> bool
-  is_redox self = case self of
-    DiagnosticCode::Redox _ -> true
+  export is_voltaic : &self -> bool
+  is_voltaic self = case self of
+    DiagnosticCode::Voltaic _ -> true
     _ -> false
 
 instance From Code DiagnosticCode
   from : Code -> Self
-  from code = DiagnosticCode::Redox code
+  from code = DiagnosticCode::Voltaic code
 
-test "renders a redox code from the catalogue"
+test "renders a voltaic code from the catalogue"
   code : DiagnosticCode = .into Code::ExpectedToken
   assert_eq! \\-> (.text code) \\-> "RDX0101"
-  assert! \\-> (.is_redox code)
+  assert! \\-> (.is_voltaic code)
 
 test "renders a foreign code untouched"
   code = DiagnosticCode::Foreign (.to_string "E0308")
   assert_eq! \\-> (.text code) \\-> "E0308"
-  assert! \\-> !(.is_redox code)
+  assert! \\-> !(.is_voltaic code)
 
 -- | A lint name is not numbered, and must survive anyway.
 test "carries a foreign code that is not a number"

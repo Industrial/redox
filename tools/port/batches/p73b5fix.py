@@ -12,7 +12,7 @@ same-named macro in the prelude.
 """
 import io
 
-p = '/home/tom/Code/rust/redox/tools/port/batches/p73b5.py'
+p = '/home/tom/Code/rust/voltaic/tools/port/batches/p73b5.py'
 s = io.open(p, encoding='utf-8').read()
 
 OLD = "    'render/graphical_one/reportable': '''import crate::Diagnostic"

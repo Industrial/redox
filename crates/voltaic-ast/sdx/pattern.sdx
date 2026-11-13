@@ -1,0 +1,116 @@
+import crate::Ident
+import voltaic_lexer::Span
+
+export data Pattern
+  = Binding crate::Ident
+  | Literal { text : String, span : Span }
+  | Wildcard Span
+  | Range { lo : String, hi : String, inclusive : bool, span : Span }
+  | Apply { path : String, args : Vec<Pattern>, span : Span }
+  | Tuple { items : Vec<Pattern>, span : Span }
+  | Slice { items : Vec<Pattern>, span : Span }
+  | Record { path : String, fields : Vec<crate::RecordPatternField>, rest : bool, span : Span }
+  | As { name : crate::Ident, inner : Box<Pattern>, span : Span }
+  | Rest Span
+  | NamedRest { name : crate::Ident, span : Span }
+  | Or Vec<Pattern>
+  deriving (Debug, Clone, PartialEq, Eq)
+instance Pattern
+  export span : &self -> Span
+  span self = case self of
+    Binding ident -> ident.span
+    Literal { span, .. } or Wildcard span or Range { span, .. } or Apply { span, .. } or Tuple { span, .. } or Slice { span, .. } or Record { span, .. } or As { span, .. } or Rest span or NamedRest { span, .. } -> *span
+    Or alts ->
+      lo = alts |> .first |> .map_or 0 (\a -> (.span a).0)
+      hi = alts |> .last |> .map_or 0 (\a -> (.span a).1)
+      (lo, hi)
+
+  export is_irrefutable : &self -> bool
+  is_irrefutable self = case self of
+    Binding _ or Wildcard _ -> true
+    _ -> false
+
+  export rust_text : &self -> String
+  rust_text self = case self of
+    Binding ident -> .clone ident.text
+    Literal { text, .. } -> .clone text
+    Wildcard _ -> .to_string "_"
+    Range { lo, hi, inclusive, .. } ->
+      marker = if *inclusive
+        "..="
+      else
+        ".."
+      format! \-> "#{lo}#{marker}#{hi}"
+    Tuple { items, .. } ->
+      inner = (items
+        |> .iter
+        |> .map (\p -> .rust_text p)
+        |> .collect : Vec<String>)
+        |> .join ", "
+      if .len items == 1
+        format! \-> "(#{inner},)"
+      else
+        format! \-> "(#{inner})"
+    Slice { items, .. } ->
+      inner = (items
+        |> .iter
+        |> .map (\p -> .rust_text p)
+        |> .collect : Vec<String>)
+        |> .join ", "
+      format! \-> "[#{inner}]"
+    Record { path, fields, rest, .. } ->
+      mut parts : Vec<String> = fields
+        |> .iter
+        |> .map (\p -> .rust_text p)
+        |> .collect
+      if *rest
+        .push (.to_string "..") parts
+      format! \-> "#{path} { #{(.join ", " parts)} }"
+    As { name, inner, .. } -> format! \-> "#{name.text} @ #{(.rust_text inner)}"
+    Rest _ -> .to_string ".."
+    NamedRest { name, .. } -> format! \-> "#{name.text} @ .."
+    Apply { path, args, .. } ->
+      inner = (args |> .iter |> .map (\p -> .rust_text p) |> .collect : Vec<String>)
+        |> .join ", "
+      format! \-> "#{path}(#{inner})"
+    Or alts -> (alts |> .iter |> .map (\p -> .rust_text p) |> .collect : Vec<String>)
+      |> .join " | "
+
+instance Pattern
+  export binders : &self -> Vec<String>
+  binders self =
+    mut names = Vec::new ()
+    .collect_binders (&mut names) self
+    names
+
+  collect_binders : &self -> &mut Vec<String> -> ()
+  collect_binders self into =
+    case self of
+      Binding name or NamedRest { name, .. } -> .push (.clone name.text) into
+      As { name, inner, .. } ->
+        .push (.clone name.text) into
+        .collect_binders into inner
+      Apply { args, .. } ->
+        for arg in args
+          .collect_binders into arg
+      Tuple { items, .. } or Slice { items, .. } ->
+        for item in items
+          .collect_binders into item
+      Or items ->
+        for item in items
+          .collect_binders into item
+      Record { fields, .. } ->
+        for field in fields
+          case &field.pattern of
+            Some pattern -> .collect_binders into pattern
+            None -> .push (.clone field.name.text) into
+      Literal { .. } or Wildcard _ or Range { .. } or Rest _ -> ()
+    ()
+
+export data RecordPatternField = RecordPatternField { export name : Ident, export pattern : Option<Pattern> }
+  deriving (Debug, Clone, PartialEq, Eq)
+instance RecordPatternField
+  export rust_text : &self -> String
+  rust_text self = case &self.pattern of
+    Some pattern -> format! \-> "#{self.name.text}: #{(.rust_text pattern)}"
+    None -> .clone self.name.text

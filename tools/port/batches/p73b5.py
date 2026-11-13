@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""redox-diag batch 5 — reportable and source/map.
+"""voltaic-diag batch 5 — reportable and source/map.
 
 `reportable.sdx` is the crate's hardest file and needed two things that did not
 exist before this batch:
@@ -21,7 +21,7 @@ a body that declares one again is `E0428`.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 BODIES = {

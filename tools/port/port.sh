@@ -5,7 +5,7 @@
 # eight crates remain and three of the lessons below were each learned twice
 # already.
 #
-#   CRATE=redox-fuzz PIN=<sha> BATCHES="p75b1 p75b2" bash .tmp/port.sh
+#   CRATE=voltaic-fuzz PIN=<sha> BATCHES="p75b1 p75b2" bash .tmp/port.sh
 #
 # **The input is a pinned commit's Rust, not the working tree's.** `src/` holds
 # the hand-written Rust until the port is recorded and generated Rust
@@ -37,7 +37,7 @@
 # then compares the seed's correct output against a tree that is not the
 # port's. It reads as a version skew and is an ordering mistake.
 set -euo pipefail
-cd /home/tom/Code/rust/redox
+cd /home/tom/Code/rust/voltaic
 
 CRATE="${CRATE:?set CRATE}"
 PIN="${PIN:-HEAD}"
@@ -80,7 +80,7 @@ fi
 
 bad=0
 for f in $(cd "$SDX" && find . -maxdepth 4 -name '*.sdx' | sed 's|^\./||;s|\.sdx$||' | sort); do
-    out=$(cargo run -q -p redox-cli -- build "$SDX/$f.sdx" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -v '^$' || true)
+    out=$(cargo run -q -p voltaic-cli -- build "$SDX/$f.sdx" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -v '^$' || true)
     if echo "$out" | grep -q 'RDX0[0-9]'; then
         bad=$((bad + 1))
         [ "$bad" -le 3 ] && { echo "### $f"; echo "$out" | head -8; }

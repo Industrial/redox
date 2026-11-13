@@ -1,0 +1,33 @@
+[package]
+name = "voltaic-lsp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# Plan 40 §1.1, verified with `cargo search` rather than assumed. Doc 02 §5.5
+# names both: `lsp-server` is the transport and main loop, `lsp-types` the
+# protocol's types.
+lsp-server = "0.10"
+lsp-types = "0.97"
+# The protocol is JSON-RPC, so a server needs both halves of serde.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Everything the four capabilities answer with. The server contributes no
+# analysis of its own, which is the whole shape of plan 40 — so this list is
+# the plan.
+voltaic-ast = { path = "../voltaic-ast" }
+voltaic-diag = { path = "../voltaic-diag" }
+voltaic-driver = { path = "../voltaic-driver" }
+voltaic-fmt = { path = "../voltaic-fmt" }
+voltaic-lexer = { path = "../voltaic-lexer" }
+voltaic-parser = { path = "../voltaic-parser" }
+
+[dev-dependencies]
+# The session test reparses a fixture to count its items, so the expectation
+# is derived from the parser rather than written down and left to rot.
+voltaic-parser = { path = "../voltaic-parser" }
+
+# The five surface-fact allows — see the root manifest.
+[lints]
+workspace = true

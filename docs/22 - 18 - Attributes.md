@@ -40,7 +40,7 @@ So the shape of the work is: decide **what an attribute attaches to**, and attac
 ### 1.3 Attributes are trivia, not items — and why that is the whole design
 
 An attribute is not an item. `#[inline]` does not stand alone; it modifies the declaration
-below it, and `#![no_std]` modifies the file. Redox already has a mechanism for *"text that
+below it, and `#![no_std]` modifies the file. Voltaic already has a mechanism for *"text that
 belongs to a construct without being one"* — `Trivia`, which plan 02 built for comments and
 which doc 02 §10.1 requires to survive into the `.xrs`.
 
@@ -63,7 +63,7 @@ The cost is that an attribute inside a `class` body attaches to the member, whic
 
 An inner attribute applies to the enclosing item, and at file scope that means **the top of
 the file**. Rust requires inner attributes to precede every other item, so a `#![no_std]`
-written halfway down a Redox file would emit halfway down the `.xrs` and rustc would reject
+written halfway down a Voltaic file would emit halfway down the `.xrs` and rustc would reject
 it.
 
 Two options, and the second ships:
@@ -71,7 +71,7 @@ Two options, and the second ships:
 1. **Gather inner attributes to the top**, as doc 03 §15's test module is gathered.
 2. **Emit in place and let rustc object.**
 
-(2), because gathering is a *reordering* and plan 14 decision 3 established that Redox does
+(2), because gathering is a *reordering* and plan 14 decision 3 established that Voltaic does
 not reorder an author's file without cause. Here there is cause only if the author wrote it
 in the wrong place, which rustc says clearly — *"an inner attribute is not permitted in this
 context"* — and which plan 07 reports against the `.sdx`. Moving it would hide a mistake
@@ -86,7 +86,7 @@ worth more than the convenience.
 |---|---|---|
 | The lexer produces the token | `kind.rs` | `TokenKind::Attr { text, inner }`, text excluding `#[` and `]` |
 | An unterminated attribute already has a code | plan 05's catalogue | `RDX0007` `UnterminatedAttribute` |
-| `#[derive(Debug)]` does not parse today | `redox build` on a two-line fixture | `RDX0103: expected a name to begin a declaration` at column 1 |
+| `#[derive(Debug)]` does not parse today | `voltaic build` on a two-line fixture | `RDX0103: expected a name to begin a declaration` at column 1 |
 | Trivia already reaches the output in order | plan 02, doc 02 §10.1 | `emit_trivia` writes `leading` before every item and statement |
 | Nine item kinds already carry `leading` | the AST | `FnDecl`, `DataDecl`, `ClassDecl`, `InstanceDecl`, `ErrorsDecl`, `ConstDecl`, `ImportDecl`, `ModuleDecl`, `TestDecl` |
 | `emit_member` writes a member's trivia | plan 25 | `emit_trivia(out, &f.leading, indent)` |
@@ -139,10 +139,10 @@ golden, and the gate.
 
 ## 6. Out of scope, and what it discloses
 
-- **No attribute is understood.** `#[cfg(test)]` does not make Redox skip anything, and
-  `#[derive(Clone)]` does not tell Redox the type is cloneable. Verbatim means verbatim;
+- **No attribute is understood.** `#[cfg(test)]` does not make Voltaic skip anything, and
+  `#[derive(Clone)]` does not tell Voltaic the type is cloneable. Verbatim means verbatim;
   every consequence is rustc's.
-- **An inner attribute in the wrong place is rustc's error**, by §1.4's decision. Redox
+- **An inner attribute in the wrong place is rustc's error**, by §1.4's decision. Voltaic
   will not move it.
 - **Attributes on a field, a variant, or a function parameter** are positions trivia does
   not currently reach: `FieldDecl` and `Constructor` have no `leading`. Doc 03 §13.2 does
@@ -176,7 +176,7 @@ to.
 | 1 | Attributes are trivia | A field on each item, or an item of their own | Trivia keeps source order with comments, reaches nine item kinds and every statement at once, and is already required to survive (doc 02 §10.1) |
 | 2 | An inner attribute is emitted in place | Gather inner attributes to the top of the file | Gathering is reordering, which plan 14 decision 3 declined without cause. A misplaced `#![…]` is rustc's clear error, reported against the `.sdx` by plan 07 |
 | 3 | The text is stored without `#[` and `]` | Store the whole line | That is what plan 02 already does, and the brackets are the emitter's to write — an inner attribute needs different ones |
-| 4 | No attribute is interpreted | Read `#[cfg(…)]` and act on it | Doc 01 §1.3 and AGENTS.md: every check rustc can make, rustc makes. A Redox that understood `cfg` would have to understand features, targets and `--cfg` flags |
+| 4 | No attribute is interpreted | Read `#[cfg(…)]` and act on it | Doc 01 §1.3 and AGENTS.md: every check rustc can make, rustc makes. A Voltaic that understood `cfg` would have to understand features, targets and `--cfg` flags |
 
 ---
 

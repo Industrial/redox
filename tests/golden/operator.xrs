@@ -15,7 +15,7 @@
 use std::collections::BTreeSet;
 
 fn merge(a: BTreeSet<u32>, b: BTreeSet<u32>) -> BTreeSet<u32> {
-    // Written out rather than piped through `.union`, because `union` is a Redox
+    // Written out rather than piped through `.union`, because `union` is a Voltaic
     // keyword (plan 45 gave it the `data` slot) and so has no method spelling.
     let mut out = a;
     out.extend(b);

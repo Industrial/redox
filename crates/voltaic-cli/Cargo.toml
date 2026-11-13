@@ -1,0 +1,50 @@
+[package]
+name = "voltaic-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# The shipped binary is `voltaic`; the crate stays `voltaic-cli` so
+# `cargo build -p voltaic-cli` keeps working. Emerald's own convention, adopted
+# for the same reason.
+[[bin]]
+name = "voltaic"
+path = "src/main.rs"
+
+[dependencies]
+# Plan 12 §2.1: watching a directory means inotify on Linux, kqueue on the
+# BSDs, FSEvents on macOS and ReadDirectoryChangesW on Windows — four
+# platform APIs behind one interface, which is exactly the library function
+# doc 02 §5.5 says not to write. The alternative is polling mtime on a
+# timer, the heuristic plan 12 §1.1 exists to avoid.
+notify = "8"
+voltaic-diag = { path = "../voltaic-diag" }
+voltaic-driver = { path = "../voltaic-driver" }
+voltaic-emit = { path = "../voltaic-emit" }
+# Plan 34: `voltaic fmt`.
+voltaic-fmt = { path = "../voltaic-fmt" }
+voltaic-parser = { path = "../voltaic-parser" }
+
+[dev-dependencies]
+# Plan 51 leaf 2: `construct_coverage` matches the corpus on the **token
+# stream**, not on its text, so `|>` inside a comment and `$` inside a string
+# do not count as coverage. That needs the lexer itself — a second tokenizer
+# in a test would be the one thing guaranteed to disagree with the compiler.
+voltaic-lexer = { path = "../voltaic-lexer" }
+# Plan 49 leaf 3 reads the VSCode extension's `package.json` and leaf 4 the
+# Helix and Zed manifests. Reading a config a test asserts about means parsing
+# it, and AGENTS.md is explicit that no plan implements a library function.
+serde_json = "1.0.154"
+toml = "1.2.1"
+# Plan 49 leaf 3's packager. A VSIX is an OPC zip, `vsce` is absent and
+# unfetchable here (plan 49 §1.3), and the same rule applies — the archive
+# writer is a library's, not this repository's.
+#
+# **No compression feature**, so entries are stored. A VSIX does not need to be
+# small, and `deflate` pulls flate2, zlib-rs and a wasm-bindgen tree into the
+# dev graph to save a few kilobytes nobody transfers.
+zip = { version = "9.5.0", default-features = false }
+
+# The five surface-fact allows — see the root manifest.
+[lints]
+workspace = true

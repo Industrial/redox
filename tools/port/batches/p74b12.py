@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Batch 12: `Lexer` itself — the off-side rule, in Redox.
+"""Batch 12: `Lexer` itself — the off-side rule, in Voltaic.
 
 The last file, and the one that needed the two features this plan added:
 `data Lexer = Lexer { cur : Cursor<'a>, … }` synthesises `<'a>` from the field
@@ -20,7 +20,7 @@ both read left to right from something simple.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('lexer', '''
@@ -69,8 +69,8 @@ export(crate) data Lexer = Lexer {
   -- | comment, and is then held for a `Newline` that never arrives. The
   -- | comment is dropped.
   -- |
-  -- | Found by porting `redox-ast`'s `clause.rs`, whose record fields each
-  -- | carry a doc comment: every one vanished from the `.xrs`, and `redox fmt`
+  -- | Found by porting `voltaic-ast`'s `clause.rs`, whose record fields each
+  -- | carry a doc comment: every one vanished from the `.xrs`, and `voltaic fmt`
   -- | deleted them from the `.sdx`. AGENTS.md calls comment preservation
   -- | load-bearing — *"comments are trivia, never discarded"* (doc 02 §10.1)
   -- | — and no corpus file had a comment inside a continuation, so nothing
@@ -160,7 +160,7 @@ instance (Lexer 'a)
     .push kind (start, .pos self.cur) ws self
 
     -- Plan 64 leaf 4's layout-delimited escape hatch, scanned **here** rather
-    -- than in the parser because the body is not Redox and the parser never
+    -- than in the parser because the body is not Voltaic and the parser never
     -- gets to say so: tokenising `<div class="x">` can fail outright, and a
     -- span slice taken afterwards cannot undo a lexical error reported before
     -- the parser existed.
@@ -509,7 +509,7 @@ instance (Lexer 'a)
           return Err (LexError {
             code = Code::TabIndent,
             help = Some (.to_string "indent with spaces"),
-            message = .to_string "tab in indentation; Redox indents with spaces",
+            message = .to_string "tab in indentation; Voltaic indents with spaces",
             span = (start, .pos self.cur),
           })
         _ ->

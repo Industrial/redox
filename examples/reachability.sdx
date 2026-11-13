@@ -52,7 +52,7 @@ raw_pattern = r#"back\slash"#
 
 -- Leaf 1: inline Rust. Doc 01 §23.1's escape hatch, which before this row
 -- parsed as a **call** to a function named `rust` and emitted `rust("…")` —
--- uncompilable, and caught only by `redox check`. The body is emitted
+-- uncompilable, and caught only by `voltaic check`. The body is emitted
 -- verbatim, undecoded: the `\n` below stays two characters, where a decoded
 -- string would put a real newline inside a Rust literal and fail to compile.
 rust """

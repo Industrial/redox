@@ -2,7 +2,7 @@
 """Batch 7: `Cursor`, which is where the slice-index cost concentrates.
 
 Nine of its twelve methods slice — `&self.src[self.pos..]`, `&self.src[span.0..span.1]`
-— and a range index has no Redox spelling, so each becomes `.get` with a `""`
+— and a range index has no Voltaic spelling, so each becomes `.get` with a `""`
 fallback. Every one of those fallbacks is unreachable: `pos` only ever advances
 by `char::len_utf8`, and a `Span` is only ever produced by `eat_while` from
 positions this type handed out, so both are char boundaries by construction.
@@ -12,7 +12,7 @@ once rather than nine times.
 **`eat_while` takes `impl Fn`, where the Rust took `mut pred: impl FnMut`.**
 Not a workaround: every one of its nine callers passes a closure that captures
 nothing or captures immutably, so `FnMut` plus the `mut` binding was never
-needed. The Redox signature parenthesises the bound — `(impl Fn(char) -> bool)
+needed. The Voltaic signature parenthesises the bound — `(impl Fn(char) -> bool)
 -> &mut self -> Span` — because a type is kept as source text and the arrow
 inside `Fn(char) -> bool` would otherwise split the signature.
 
@@ -21,7 +21,7 @@ inside `Fn(char) -> bool` would otherwise split the signature.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('lexer/cursor', '''

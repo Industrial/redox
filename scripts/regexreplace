@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Apply sed expressions across the repository's *text* files.
+#
+# Built for the Redox -> Voltaic rename (610 files, ~12k occurrences), and kept
+# because a project-wide token rename recurs and a blind `sed -i $(git ls-files)`
+# corrupts the first binary it meets.
+#
+# Usage:
+#   scripts/regexreplace [-n] [-u] -e 's/a/b/g' [-e ...] [-- path...]
+#
+#   -n  dry run: report the files and hit counts, change nothing
+#   -u  also visit untracked-but-not-ignored files
+#
+# Binary files are skipped by inspection, not by extension list: `grep -Iq .`
+# is the same test git itself uses to decide a file is text. `seed/*.wasm` is
+# the reason that matters here — it holds the previous-stage compiler and a
+# rename must not touch its bytes.
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+dry=0; untracked=0; exprs=(); paths=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -n) dry=1; shift ;;
+        -u) untracked=1; shift ;;
+        -e) exprs+=("-e" "$2"); shift 2 ;;
+        --) shift; paths=("$@"); break ;;
+        *)  echo "regexreplace: unexpected argument '$1'" >&2; exit 2 ;;
+    esac
+done
+
+if [ "${#exprs[@]}" -eq 0 ]; then
+    echo "regexreplace: no -e expression given." >&2
+    exit 2
+fi
+
+list_files() {
+    git ls-files -z -- "${paths[@]+"${paths[@]}"}"
+    if [ "$untracked" -eq 1 ]; then
+        git ls-files -z --others --exclude-standard -- "${paths[@]+"${paths[@]}"}"
+    fi
+}
+
+changed=0; visited=0; skipped=0
+while IFS= read -r -d '' f; do
+    [ -f "$f" ] || continue
+    # Text test: a file grep calls binary is left alone.
+    if ! grep -Iq . "$f" 2>/dev/null; then
+        skipped=$((skipped + 1))
+        continue
+    fi
+    visited=$((visited + 1))
+    if [ "$dry" -eq 1 ]; then
+        before=$(cat "$f")
+        after=$(printf '%s' "$before" | sed "${exprs[@]}")
+        if [ "$before" != "$after" ]; then
+            n=$(diff <(printf '%s' "$before") <(printf '%s' "$after") | grep -c '^<' || true)
+            printf '%6d  %s\n' "$n" "$f"
+            changed=$((changed + 1))
+        fi
+    else
+        if sed -i "${exprs[@]}" "$f"; then
+            changed=$((changed + 1))
+        fi
+    fi
+done < <(list_files)
+
+if [ "$dry" -eq 1 ]; then
+    echo "regexreplace: would change $changed of $visited text files ($skipped binary skipped)."
+else
+    echo "regexreplace: applied to $visited text files ($skipped binary skipped)."
+fi

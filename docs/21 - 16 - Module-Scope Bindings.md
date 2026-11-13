@@ -21,7 +21,7 @@ specification:
 So a module-scope binding takes an explicit type and lowers to `const` by default, and
 *"the uppercase-name convention is a lint, not semantics"*.
 
-Doc 18 §2.2 gives the spelling, with the type after the same `::` every other type in Redox
+Doc 18 §2.2 gives the spelling, with the type after the same `::` every other type in Voltaic
 uses:
 
 ```text
@@ -66,7 +66,7 @@ passthrough, and it exists because doc 01 §4.3 was *published* — someone will
 | `const` and `static` are reserved | `keyword.rs` | `Keyword::Const`, `Keyword::Static`, both from doc 01's set |
 | `const NAME :: T = v` is already parsed **inside a class body** | plan 25, shipped under plan 13 | `ClassMember::AssocConst { name, ty, value }` — the same shape, one level down |
 | The item dispatch already reads a visibility marker first | plan 24 | `visibility()` runs before the keyword test, so `export const` needs no new reader |
-| `const` in a signature is swallowed today | `redox build` on `square :: const u32 -> u32` | the parameter type becomes `const u32`, which rustc rejects |
+| `const` in a signature is swallowed today | `voltaic build` on `square :: const u32 -> u32` | the parameter type becomes `const u32`, which rustc rejects |
 | A new diagnostic needs a UI case | plan 05's `code_coverage.rs` | every `Code` variant must be reachable from `tests/ui/`, so §1.2's message needs a fixture |
 
 ---
@@ -116,7 +116,7 @@ naming doc 03 §13.4's correction. A UI case to reach it.
 4. `square :: const u32 -> u32` plus `square n = n * n` emits `const fn square(n: u32) ->
    u32`, and **no parameter type contains `const`**.
 5. A `const` with no value is a parse error — unlike a class's associated constant, a
-   module-scope one must be initialised, and rustc says so less clearly than Redox can.
+   module-scope one must be initialised, and rustc says so less clearly than Voltaic can.
 6. `PI = 3.14159` at module scope raises `RDX0106` naming §13.4, not a `::` message.
 7. `examples/constants.sdx` compiles with **zero** rustc output, runs, and matches its
    `.stdout`; a golden covers the text.
@@ -129,7 +129,7 @@ naming doc 03 §13.4's correction. A UI case to reach it.
 - **`static mut`** is unsafe in Rust and needs the escape hatch doc 03 §19 owns. Not here,
   and not reachable: a `mut` after `static` is a parse error until something wants it.
 - **The uppercase-name lint.** §13.4 says the convention "is a lint, not semantics", and
-  Redox has no lint pass — row 38's `RDX1001` is the first and is still outstanding. A
+  Voltaic has no lint pass — row 38's `RDX1001` is the first and is still outstanding. A
   lowercase `const` is legal here and rustc's own `non_upper_case_globals` warning is what
   the author will see, which is the division of labour AGENTS.md states.
 - **`const` blocks and `const` generics** are Rust forms this plan does not reach. A `const`
@@ -189,12 +189,12 @@ needs `const` or `static` and a type"* is the more useful of the two things it c
 ### 10.2 The example corpus cannot demonstrate a lint
 
 §13.4 says *"the uppercase-name convention is a lint, not semantics"*, so
-`const threshold :: u32 = 2` is legal Redox and legal Rust. It is also a rustc **warning** —
+`const threshold :: u32 = 2` is legal Voltaic and legal Rust. It is also a rustc **warning** —
 `non_upper_case_globals` — and `examples.rs` requires rustc to emit *nothing*.
 
 So the corpus cannot hold anything whose correct behaviour is a warning, which is a general
 property of that harness worth naming: it proves silence, and silence is a stronger claim
-than correctness. The assertion moved to `crates/redox-emit/tests/constants.rs`, and the
+than correctness. The assertion moved to `crates/voltaic-emit/tests/constants.rs`, and the
 example says in its own comments why the line is not there.
 
 This is the third kind of thing the corpus has turned out unable to hold — after an
@@ -215,7 +215,7 @@ caught something reading did not.
 - **`static mut`** is still unreachable, as §6 said, and a `mut` after `static` is a parse
   error rather than anything subtler.
 - **No lint pass**, so §13.4's naming convention is rustc's `non_upper_case_globals` and
-  nothing of Redox's. Row 38 owns the first Redox lint and is still outstanding.
+  nothing of Voltaic's. Row 38 owns the first Voltaic lint and is still outstanding.
 - **`const` generics** have no spelling, which §6 recorded and this plan did not change.
 - **A `const fn` member of a `class` or `instance`** emits `const fn`, because the marker
   lives on `Signature` and `member.rs` reads it — untested beyond one assertion, since a

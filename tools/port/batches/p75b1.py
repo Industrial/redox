@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Plan 75 batch 1: `redox-fuzz`'s four targets.
+"""Plan 75 batch 1: `voltaic-fuzz`'s four targets.
 
 The smallest crate in the workspace, and the first whose whole point is
 **discarding** a result: three of the four targets assert totality, so the
@@ -14,7 +14,7 @@ port — a bare call statement would be `unused_must_use`.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('target/lex_source', '''
@@ -27,7 +27,7 @@ lex_source bytes =
   -- Bound to `_dropped` rather than left as a bare call: `Result` is
   -- `#[must_use]`, so a statement that discards one is `unused_must_use`, and
   -- the underscore prefix is what keeps the binding itself from warning.
-  _dropped = redox_lexer::lex (&text)
+  _dropped = voltaic_lexer::lex (&text)
   ()
 ''')
 
@@ -35,7 +35,7 @@ write('target/parse_program', '''
 export parse_program : &[u8] -> ()
 parse_program bytes =
   text = String::from_utf8_lossy bytes
-  _dropped = redox_parser::parse_source (&text)
+  _dropped = voltaic_parser::parse_source (&text)
   ()
 ''')
 
@@ -43,13 +43,13 @@ write('target/emit_program', '''
 export emit_program : &[u8] -> ()
 emit_program bytes =
   text = String::from_utf8_lossy bytes
-  -- A `case` where the Rust had a let-else: Redox has no `let … else`, and an
+  -- A `case` where the Rust had a let-else: Voltaic has no `let … else`, and an
   -- arm that returns says the same thing.
-  program = case redox_parser::parse_source (&text) of
+  program = case voltaic_parser::parse_source (&text) of
     Ok p -> p
     Err _ ->
       return ()
-  _dropped = redox_emit::emit (&program)
+  _dropped = voltaic_emit::emit (&program)
   ()
 ''')
 
@@ -57,8 +57,8 @@ write('target/roundtrip', '''
 export roundtrip : &[u8] -> Option<String>
 roundtrip bytes =
   text = String::from_utf8_lossy bytes
-  program = (.ok (redox_parser::parse_source (&text)))?
-  Some (redox_emit::emit (&program))
+  program = (.ok (voltaic_parser::parse_source (&text)))?
+  Some (voltaic_emit::emit (&program))
 ''')
 
 print('plan 75 batch 1: four targets')

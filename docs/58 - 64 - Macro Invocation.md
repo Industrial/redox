@@ -31,7 +31,7 @@ left it for a row that would take the spelling decision; plan 48 then **priced**
 
 ### 1.1 Plan 48 measured the cost, and it is 99% of one construct
 
-Plan 48 ported the compiler's own source to Redox and counted what blocked it. Two passages,
+Plan 48 ported the compiler's own source to Voltaic and counted what blocked it. Two passages,
 quoted exactly rather than merged:
 
 > **One blocker is 99% of the problem.** 855 lines carry a macro invocation against 12 with a
@@ -43,7 +43,7 @@ quoted exactly rather than merged:
 855 lines. Macro invocation is not one gap among seven — it is the gap, and every other
 `UNREACHABLE` row in `docs/GRAMMAR.md` is rounding error beside it. `effect!`, `caps!`,
 `hlist!`, `vec!`, `json!`, `bail!`, `info!`, `query!`, `html!` and every proc-macro are
-unreachable in a language whose premise is *"Redox has crates.io"*.
+unreachable in a language whose premise is *"Voltaic has crates.io"*.
 
 ### 1.2 Why `!` is free, and what plan 45 found about it
 
@@ -79,8 +79,8 @@ r = catch_unwind! \->            -- multi-line, layout-delimited
 
 Three things make this work better than it first appears.
 
-**Redox's own interpolation absorbs the multi-argument format family.** `bail! \-> "no route for
-#{id}"` lowers to `bail!("no route for {}", id)` — Redox splices the arguments itself, because
+**Voltaic's own interpolation absorbs the multi-argument format family.** `bail! \-> "no route for
+#{id}"` lowers to `bail!("no route for {}", id)` — Voltaic splices the arguments itself, because
 `#{}` already does. So the commonest macros take exactly one argument.
 
 **`[1, 2, 3] : Vec<i32>` already replaces `vec!`** (doc 18 §7, plan 29), so the bracketed-literal
@@ -98,7 +98,7 @@ each had a worse one.
 
 ### 1.4 Token-stream DSLs need the escape hatch, and plan 45 already shipped it
 
-`html! { <div/> }`, `quote!`, `sqlx::query!` consume **tokens that are not Redox expressions**. No
+`html! { <div/> }`, `quote!`, `sqlx::query!` consume **tokens that are not Voltaic expressions**. No
 value-passing shape can carry those, because the tokens *are* the input.
 
 Plan 45 leaf 1 shipped `rust """…"""` — inline Rust, verbatim — and that is the answer:
@@ -108,7 +108,7 @@ markup = rust
   html! { <div class="x">{ name }</div> }
 ```
 
-Brace-free in Redox; whatever braces the embedded Rust needs are the embedded Rust's business.
+Brace-free in Voltaic; whatever braces the embedded Rust needs are the embedded Rust's business.
 This row adds the layout-delimited block form beside plan 45's string form and nothing else —
 the mechanism exists and is tested.
 
@@ -150,7 +150,7 @@ and plan 55 §1.5 already made it the milestone's one carve-out from expression 
 
 ## 2. Verified preconditions
 
-Measured 2026-11-10, against `redox` at `194fdf7`.
+Measured 2026-11-10, against `voltaic` at `194fdf7`.
 
 **Every macro spelling is rejected.** `vec![1, 2, 3]`, `vec! (1)`, `format! "hi"`,
 `(vec![1, 2, 3])`, `vec![1, 2] : Vec<i32>`, and `println! "{} {}" a b` — all `RDX0101`, while
@@ -192,7 +192,7 @@ Six more:
 3. **A multi-line callback.** The `catch_unwind!` shape from §1.3, where layout does the
    delimiting.
 4. **A proc-macro from crates.io.** `id_effect`'s `effect!` — the case the whole row exists for,
-   and the one that proves token passthrough works for a macro Redox knows nothing about.
+   and the one that proves token passthrough works for a macro Voltaic knows nothing about.
 5. **A token-stream DSL.** §1.4's `rust` block form.
 6. **`println!` and `eprintln!`**, the latter being a capability the language does not currently
    have.
@@ -330,7 +330,7 @@ number.
    survives the retirement of `assert`, so a comparison still prints **both values**.
 
    Amended from *"`assert! \-> a == b` reports the **expression text** on failure"*, which §11.2
-   found backwards: **Redox does not stringify the source. Rust stringifies the generated Rust.**
+   found backwards: **Voltaic does not stringify the source. Rust stringifies the generated Rust.**
    `assert_call.rs` emits `format!("assert!({})", emit_expr(…))`, so under this criterion Rust's
    `assert!` would print `add(1, 2) == 3` — not the text the author wrote. §1.3's *"`assert!`
    recovers the expression text"* and §3's headline are overstated in exactly that way.
@@ -338,9 +338,9 @@ number.
    **Whether the row must report the `.sdx` text instead is open and owed.** §11.2 raises the
    conflict with this project's standing rule that diagnostics report against the `.sdx` and does
    not resolve it, and it names two obstacles the row does not price: `Sink` exposes no
-   span-to-text accessor, and **`emit()` passes `""`**, which every `redox-emit` test uses — so a
+   span-to-text accessor, and **`emit()` passes `""`**, which every `voltaic-emit` test uses — so a
    source-text feature would be silently empty in unit tests and populated only under
-   `redox build`, the worst possible failure shape. The second half of this criterion is settled:
+   `voltaic build`, the worst possible failure shape. The second half of this criterion is settled:
    §11.2 found that retiring `assert` into the general macro path is a regression in diagnostic
    quality unless the `==` rewrite is kept, and leaf 5 now keeps it.
 6. `effect!` from `id_effect 0.13.0` is invocable, in a program that compiles and runs.
@@ -351,7 +351,7 @@ number.
    and that `effect!` is do-notation over a **block**, so this criterion collapses onto
    criterion 4, the one thing measured not to work. §11.3 says the criterion should name which
    macro, in which position, and whether it needs the block form; it names none of the three.
-   The same probe notes the family is largely avoidable in Redox because `|>` *is* the
+   The same probe notes the family is largely avoidable in Voltaic because `|>` *is* the
    combinator API written left to right, which is an argument about how much this criterion is
    worth at all.
 7. `eprintln!` works — a capability the language lacks today.
@@ -394,7 +394,7 @@ number.
 and `! foo` is negation, told apart by whether the `!` touches the identifier — which is the rule
 plan 52 struck from `::`. That makes **two** instances, not three: plan 57's selector-versus-method
 rule is carried by *parentheses*, not adjacency, so it is a different mechanism with a similar
-smell. The honest statement: Redox has a small token budget, adjacency is the cheapest
+smell. The honest statement: Voltaic has a small token budget, adjacency is the cheapest
 disambiguator available, and this milestone removes one use of it and adds one. A future row
 consolidating what carries a distinction — adjacency, parentheses, or a sigil — would be worth
 having.
@@ -403,12 +403,12 @@ having.
 hatch, which plan 45 shipped, and plan 45 §6 recorded the decline as honest *because* leaf 1
 shipped. Unchanged here.
 
-**Argument evaluation order inside a macro is the macro's.** Redox lowers each callback body to
+**Argument evaluation order inside a macro is the macro's.** Voltaic lowers each callback body to
 an expression and hands it over; whether the macro evaluates it once, twice or never is not
-Redox's business. A reader seeing `\->` may expect deferral, and §1.3 is the disclosure.
+Voltaic's business. A reader seeing `\->` may expect deferral, and §1.3 is the disclosure.
 
 **Token-stream DSLs go through `rust`, not through `!`.** §1.4. A macro whose input is not a
-Redox expression cannot be reached by a value-passing shape, and no spelling fixes that.
+Voltaic expression cannot be reached by a value-passing shape, and no spelling fixes that.
 
 **This row deletes `print`, which all but one example uses.** §11.4 counted 29 of 30; the corpus is 31 as of 2026-11-10, which is why this sentence now names the shape rather than a number. The migration is mechanical and
 large, and it is last in the milestone precisely so that nothing else is in flight while the
@@ -660,7 +660,7 @@ that is what this block exists to prevent.
 
 ### 11.2 Criterion 5 has the stringification backwards, and deleting `assert` costs a feature
 
-**Redox does not stringify the source. Rust stringifies the generated Rust.**
+**Voltaic does not stringify the source. Rust stringifies the generated Rust.**
 `assert_call.rs` emits `format!("assert!({})", emit_expr(…))`, so the failure
 message carries the *Rust* rendering: `assert add 1 2 == 4` becomes
 `assert_eq!(add(1, 2), 4)`. Under criterion 5's `assert! \-> a == b`, Rust's
@@ -669,9 +669,9 @@ this project's standing rule that diagnostics report against the `.sdx`.
 
 The source *is* reachable — `emit_with_map` takes it and `Sink` holds it — but
 with two obstacles the row does not price: `Sink` exposes no span-to-text
-accessor, and **`emit()` passes `""`**, which every `redox-emit` test uses. A
+accessor, and **`emit()` passes `""`**, which every `voltaic-emit` test uses. A
 source-text feature would be silently empty in unit tests and populated only
-under `redox build`, which is the worst possible failure shape.
+under `voltaic build`, which is the worst possible failure shape.
 
 **And `assert` is not merely a special case to delete.** `assert_call`'s own
 doc comment argues why it exists: `==` becomes `assert_eq!`, and *"those macros
@@ -687,16 +687,16 @@ rewrite, and §4 does not say it does.
 Rust's rendering of the generated Rust, option (a). The `.sdx` source-text
 alternative needs a span-to-text accessor on `Sink` *and* a fix for `emit()`
 passing `""`, and §11.2's own observation settles it: such a feature would be
-silently empty in every `redox-emit` test and populated only under
-`redox build`, which is a feature whose tests cannot see it.
+silently empty in every `voltaic-emit` test and populated only under
+`voltaic build`, which is a feature whose tests cannot see it.
 
 **The conflict with *"diagnostics report against the `.sdx`"* is a category
-error, not a trade.** That rule governs **Redox diagnostics** — the `RDX` codes
+error, not a trade.** That rule governs **Voltaic diagnostics** — the `RDX` codes
 this compiler issues about source it has read. A failed `assert!` is a **Rust
-runtime panic** emitted by the generated program at execution time; Redox is
+runtime panic** emitted by the generated program at execution time; Voltaic is
 not the one reporting it, and the `.xrs` is a human-facing artifact precisely so
 that what Rust says about it is readable. The bridge already exists and is the
-right one: the source map, which plan 50's `redox_source_map` serves.
+right one: the source map, which plan 50's `voltaic_source_map` serves.
 
 So no rule is being bent. A panic message is not a diagnostic, and the two were
 only in tension while they were described in the same words.
@@ -712,7 +712,7 @@ criterion 4, the one thing measured not to work.
 
 Criterion 6 should name *which* `id_effect` macro, in which position, and
 whether it needs the block form. The same probe notes that the macro family is
-largely avoidable in Redox because `|>` *is* the combinator API written left to
+largely avoidable in Voltaic because `|>` *is* the combinator API written left to
 right — which is an argument about how much criterion 6 is worth.
 
 #### Decided 2026-11-10: a simpler crates.io proc-macro, not an `id_effect` one
@@ -726,7 +726,7 @@ motivated this milestone is not in this repository.
 
 So option (a) does not merely name a macro. It requires the
 `examples/cargo-project/` shape — `Cargo.toml`, `build.rs`, `include!`, driven
-by `compile_dir` — because `redox check` shells out to bare rustc with **no
+by `compile_dir` — because `voltaic check` shells out to bare rustc with **no
 `--extern`**. Plan 59 §11.5 flagged that same infrastructure as an open cost
 nobody has funded. Making criterion 6 depend on it funds it by accident, inside
 a row about macro invocation.

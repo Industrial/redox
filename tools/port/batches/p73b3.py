@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""redox-diag batch 3 — origin, plain_one, anchor_span."""
+"""voltaic-diag batch 3 — origin, plain_one, anchor_span."""
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 BODIES = {

@@ -1,6 +1,6 @@
 # Plan 03 — Parser Core
 
-Plan: 03 of 48 (`docs/04 - Redox Plan of Plans.md`, Milestone 1)
+Plan: 03 of 48 (`docs/04 - Voltaic Plan of Plans.md`, Milestone 1)
 Slug: `parser-core`
 Status: **`done`** — shipped 2026-11-08; see §10 for evidence per criterion
 Depends on: plans 01, 02
@@ -17,7 +17,7 @@ grammar cannot express. This plan builds the grammar that accepts it.
 Scope: **expressions, signatures and bindings**. Specifically:
 
 - a full expression grammar with a **Pratt loop on Rust's precedence table**, which doc 02
-  §5.2 fixes as the rule — a Redox expression that reads like Rust and binds differently is
+  §5.2 fixes as the rule — a Voltaic expression that reads like Rust and binds differently is
   the worst available failure mode;
 - function **parameters and return types**, so doc 01 §31 Phase 1's own acceptance test
   parses;
@@ -79,7 +79,7 @@ compiled by real rustc and printing `30`.
 
 Two notes on the shape, both deliberate. The nested call is **parenthesized** because doc 03
 §5.1.2 case 1 requires it until plan 19 generalizes the call grammar — writing
-`print add 10, 20` would mean `print(add(10, 20))` only under a greedy rule Redox declines.
+`print add 10, 20` would mean `print(add(10, 20))` only under a greedy rule Voltaic declines.
 And `print` applied to a non-string lowers to `println!("{}", …)`, since a bare
 `println!(expr)` is only valid for a literal format string.
 
@@ -92,7 +92,7 @@ values, so a precedence error is a wrong *number* rather than a wrong tree.
 
 ### Leaf 1 — `leaf-ast-expansion`
 
-`redox-ast` grows the nodes this grammar produces, one construct per file under the module
+`voltaic-ast` grows the nodes this grammar produces, one construct per file under the module
 tree doc 06 §2 requires:
 
 | Node | Purpose |
@@ -213,7 +213,7 @@ indentation-sensitive grammar whose precedence table is Rust's.
 ## 9. Decision log
 
 - **Rust's precedence table, unchanged.** Doc 02 §5.2's reasoning is the whole argument: a
-  Redox expression that reads like Rust and binds differently is the worst available failure
+  Voltaic expression that reads like Rust and binds differently is the worst available failure
   mode, worse than an unfamiliar operator. The table is the only place associativity lives.
 
 - **Types are captured verbatim rather than parsed** (§1.1). Doc 03 §14.1 already decided
@@ -235,7 +235,7 @@ indentation-sensitive grammar whose precedence table is Rust's.
 
 - **§3 parenthesizes its nested call.** Doc 01 §31's own test writes `print add 10, 20`,
   which doc 03 §5.1.2 case 1 rejects as ambiguous until plan 19. Writing the parens now and
-  removing them in plan 19 is honest; silently adopting the greedy reading Redox declined
+  removing them in plan 19 is honest; silently adopting the greedy reading Voltaic declined
   would not be.
 
 ---

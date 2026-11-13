@@ -11,7 +11,7 @@ Status: `done` 2026-11-10
 
 Doc 02 §4.1 asks for two graded inventories and says why the second one matters:
 
-> **any Rust construct marked `UNREACHABLE` is a construct Redox users cannot write**, which
+> **any Rust construct marked `UNREACHABLE` is a construct Voltaic users cannot write**, which
 > directly violates §26's interoperability charter.
 
 So the inventory is not documentation. It is **risk detection**, and doc 03 §18 is a summary
@@ -72,15 +72,15 @@ does not, and **plan 45 §10 did not record it**. This row is the check plan 45 
 one row later than intended.
 
 **`extern "C"` on a function is unreachable.** Plan 45 leaf 3 shipped the *import* direction
-— an `extern` block declaring foreign functions — and not the *export* direction, a Redox
+— an `extern` block declaring foreign functions — and not the *export* direction, a Voltaic
 function given the C ABI so C can call it. Doc 01 §26 names FFI without saying which way, and
 half of it is still missing.
 
 ### 1.3 Two thirds of a careless inventory is wrong, which decides the row's shape
 
 Of the first pass's 16 failures, **11 were the probe's fault**: `format` used as a function
-when Redox has no macro-call syntax (plan 45 §1.5); `True` for `true`; `where t: Clone` when
-Redox's `where` introduces *local bindings* and a bound is a clause read off `=>` (doc 18
+when Voltaic has no macro-call syntax (plan 45 §1.5); `True` for `true`; `where t: Clone` when
+Voltaic's `where` introduces *local bindings* and a bound is a clause read off `=>` (doc 18
 §2.2); `@non_exhaustive` when attributes are written in Rust's own `#[…]`; an instance method
 without the signature the instance must repeat; `a.0` on an array.
 
@@ -102,9 +102,9 @@ Doc 02 §4.1 names three and leaves them to be defined against a real surface:
 
 | Grade | Means | Evidence it carries |
 |---|---|---|
-| `PASSTHROUGH` | Redox writes the Rust construct essentially unchanged | a corpus file that uses it |
+| `PASSTHROUGH` | Voltaic writes the Rust construct essentially unchanged | a corpus file that uses it |
 | `SUGARED` | reachable, but through a different spelling | the corpus file, and the Rust shape it lowers to |
-| `UNREACHABLE` | a Redox program cannot express it | a fixture under `tests/unreachable/` that still fails, and the nearest thing that does work |
+| `UNREACHABLE` | a Voltaic program cannot express it | a fixture under `tests/unreachable/` that still fails, and the nearest thing that does work |
 
 `UNREACHABLE` rows carry **the nearest working alternative** as well as the fixture, because
 that is what a reader hitting the gap actually needs, and because writing it down is what
@@ -134,7 +134,7 @@ Not applicable: no construct, no lowering. This row adds a document and a test.
 
 ```bash
 moon run :test                                   # the citations resolve, the gaps still fail
-cargo nextest run -p redox-cli --test grammar_inventory
+cargo nextest run -p voltaic-cli --test grammar_inventory
 ```
 
 The test asserts three things, and the third is the one that matters:
@@ -157,13 +157,13 @@ claims a gap years after it closed.
 
 `docs/GRAMMAR.md`'s Rust axis: every grammar area graded, each row carrying its evidence and
 each `UNREACHABLE` row carrying the nearest working alternative. Organised by the Rust
-reference's areas rather than by Redox's constructs, so a reader can check coverage against
+reference's areas rather than by Voltaic's constructs, so a reader can check coverage against
 the host language instead of against this project's history.
 
 ### Leaf 2 — `leaf-evidence-check`
 
 `tests/unreachable/` with one fixture per gap, and
-`crates/redox-cli/tests/grammar_inventory.rs` asserting §3's three properties.
+`crates/voltaic-cli/tests/grammar_inventory.rs` asserting §3's three properties.
 
 ### Leaf 3 — `leaf-moonscript-axis`
 
@@ -232,9 +232,9 @@ Two deliberate departures:
 - **Evidence is machine-checked.** Emerald's inventory was prose with examples. §1.3's finding
   — that two thirds of a careless pass is wrong — is the argument for the test, and Emerald
   had no equivalent.
-- **The second axis has no Emerald analogue at all.** Emerald compiled to nothing; Redox
+- **The second axis has no Emerald analogue at all.** Emerald compiled to nothing; Voltaic
   compiles to Rust, so `UNREACHABLE` is a category Emerald's inventory could not have had, and
-  doc 02 §4.1 says it is *"where Redox's real risk lives"*.
+  doc 02 §4.1 says it is *"where Voltaic's real risk lives"*.
 
 ---
 
@@ -245,7 +245,7 @@ Two deliberate departures:
 | 1 | Evidence per row, checked by a test | Prose with examples, as Emerald had | §1.3: two thirds of the first pass was wrong, and a false `UNREACHABLE` sends a future row to build what exists |
 | 2 | `UNREACHABLE` fixtures must still **fail** | Assert only that the fixture exists | A gap list that cannot notice a gap closing is wrong the moment the next row ships |
 | 3 | The test fails when the compiler improves | Only fail on regressions | Intended, and the message says so; the alternative is a document claiming a gap years after it closed |
-| 4 | Organise by Rust's grammar areas | By Redox's constructs | Coverage is a claim about the *host* language; indexing by Redox's own surface cannot show what is missing from it |
+| 4 | Organise by Rust's grammar areas | By Voltaic's constructs | Coverage is a claim about the *host* language; indexing by Voltaic's own surface cannot show what is missing from it |
 | 5 | `UNREACHABLE` rows name the nearest alternative | The grade alone | It is what a reader hitting the gap needs, and it distinguishes `as` (no alternative) from `\|` (separate arms) |
 | 6 | MoonScript as a record, not a table | The full `KEEP`/`MODIFY`/`REMOVE` grading | Doc 18 replaced the surface; doc 18 §10 calls the axis moot (§1.5) |
 | 7 | Correct doc 03 §18 and plan 45 §10 here | Leave them and note the discrepancy | §18's `\|`-alternatives claim is false and plan 45 §6 asked for the `unsafe class` check; an inventory row cannot leave known-wrong claims in what it inventories |
@@ -258,7 +258,7 @@ Two deliberate departures:
 Shipped 2026-11-10. `docs/GRAMMAR.md` with **89 graded rows** — 34 `PASSTHROUGH`, 48
 `SUGARED`, 7 `UNREACHABLE` — across Rust's lexical, item, type, expression, pattern and
 control-flow areas, six fixtures under `tests/unreachable/`, and
-`crates/redox-cli/tests/grammar_inventory.rs` holding the citations honest.
+`crates/voltaic-cli/tests/grammar_inventory.rs` holding the citations honest.
 
 Doc 02 §4.1's artifact exists, forty-five rows after it was asked for, and it says something
 the blueprint could not have: **seven constructs are unreachable, and five of them were not
@@ -323,11 +323,11 @@ could not be deferred as someone else's tidying.
 ### 10.4 What `SUGARED` turned out to mean in practice
 
 §1.4 defined the grades before the inventory was written, and writing it moved most rows one
-column left of where a casual reading would put them. Redox is a *surface* over Rust, so
+column left of where a casual reading would put them. Voltaic is a *surface* over Rust, so
 almost nothing is `PASSTHROUGH` in the strict sense — functions, structs, traits, impls,
 modules, imports, `match`, closures and every control-flow form are all spelled differently.
 
-What stayed `PASSTHROUGH` is the part Redox deliberately does not touch: literals, types,
+What stayed `PASSTHROUGH` is the part Voltaic deliberately does not touch: literals, types,
 paths, operators, and patterns other than binding ones. That is doc 03 §14.1's *"a type is
 verbatim text"* rule showing up as a column, and it is the clearest single statement of where
 this compiler does and does not intervene.

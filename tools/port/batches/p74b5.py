@@ -6,7 +6,7 @@ already named — an annotated helper closure becomes repetition, and an index
 becomes `.get` with a fallback. Two things are new.
 
 **A let-else becomes a `case` with a `return` arm.** `let Some(ch) = cur.bump()
-else { return Err(…) }` is Rust's shape for *bind or leave*; Redox's `guard … is
+else { return Err(…) }` is Rust's shape for *bind or leave*; Voltaic's `guard … is
 … else` is the analogue, but the arm here also needs the error value, so a
 `case` whose `None` arm returns says it in one construct.
 
@@ -17,7 +17,7 @@ matches none of the arms.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('lexer/skip_interpolation', '''
@@ -28,7 +28,7 @@ skip_interpolation cur base =
   body_start = .pos cur
 
   -- The Rust's `unterminated` closure is written out at each of its three
-  -- sites: a Redox lambda parameter is a bare name, so `|cur: &Cursor|` has no
+  -- sites: a Voltaic lambda parameter is a bare name, so `|cur: &Cursor|` has no
   -- spelling, and the parameter would shadow the enclosing `cur` besides.
   mut depth : i32 = 1
   while depth > 0

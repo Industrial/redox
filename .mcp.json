@@ -1,9 +1,9 @@
 {
 	"mcpServers": {
-		"redox": {
+		"voltaic": {
 			"type": "stdio",
 			"command": "cargo",
-			"args": ["run", "--quiet", "--package", "redox-mcp"],
+			"args": ["run", "--quiet", "--package", "voltaic-mcp"],
 			"disabled": false
 		},
 		"context7": {

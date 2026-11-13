@@ -2,29 +2,29 @@
 """Batch 13: the crate-root allows, with the reason each one states.
 
 Four lints, and none of them is a suppressed defect. Two are the same gap in
-two directions — `matches!` and `if let` both take a **pattern**, which Redox
+two directions — `matches!` and `if let` both take a **pattern**, which Voltaic
 cannot pass — and two are plan 55 §1.6 disagreeing with clippy on purpose about
 whether a unit body spells its `()`.
 
-`redox-ast`, `redox-fmt` and `redox-diag` carry the first and third already, so
+`voltaic-ast`, `voltaic-fmt` and `voltaic-diag` carry the first and third already, so
 this is the fourth crate to state the same facts rather than the first.
 """
 import io
 
-P = '/home/tom/Code/rust/redox/crates/redox-lexer/sdx/lib.sdx'
+P = '/home/tom/Code/rust/voltaic/crates/voltaic-lexer/sdx/lib.sdx'
 
 ALLOWS = [
     ('match_like_matches_macro',
-     "-- `matches!`'s second argument is a **pattern**, and Redox has no way to pass\n"
+     "-- `matches!`'s second argument is a **pattern**, and Voltaic has no way to pass\n"
      "-- one — so a method asking *is this one of these variants* is a `case` with a\n"
      "-- `_ -> false` arm. Seven of them here: `TokenKind`'s two predicates,\n"
      "-- `TriviaKind::is_doc`, and four one-line tests inside the scanners.\n"
      "--\n"
-     "-- `redox-ast`, `redox-fmt` and `redox-diag` carry the same allow for the same\n"
+     "-- `voltaic-ast`, `voltaic-fmt` and `voltaic-diag` carry the same allow for the same\n"
      "-- reason — plan 68 found it, and only a row making `matches!` reachable would\n"
      "-- retire it."),
     ('single_match',
-     "-- The same gap one step over: Redox has no `if let`, so *do this if it\n"
+     "-- The same gap one step over: Voltaic has no `if let`, so *do this if it\n"
      "-- matches* is a `case` with a `_ -> ()` arm. Three of them, each where the\n"
      "-- Rust wrote `if let Some(x) = …`."),
     ('no_effect',

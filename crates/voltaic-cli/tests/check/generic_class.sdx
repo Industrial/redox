@@ -1,0 +1,44 @@
+-- Plan 67 §1.4's program, which rustc rejected with `E0049` before this row:
+-- a `class` had one slot in its head and the implementing type occupied it,
+-- so `u` in `wrap : u -> t` became a *method* generic — `fn wrap<U>(…)` in
+-- the trait against `fn wrap(n: f64)` in the impl, and rustc named a type
+-- parameter the author never wrote.
+--
+-- With the receiver marked, the slot is the trait's: `class Convert t` is
+-- `trait Convert<T>`, the implementing type is `Self`, and two impls for one
+-- type differ only in the argument. `voltaic check` must now print nothing and
+-- exit zero.
+--
+-- This is in `tests/check/` and not `tests/ui/` because the fault it is about
+-- was **rustc's**: `ui.rs` runs `voltaic build`, which never invokes rustc, so
+-- the program built clean even when it could not compile. Plans 54, 56 and 57
+-- each recorded that; this is the fourth.
+newtype Meters = Meters f64
+
+class Convert t
+  wrap : t -> Self
+
+instance Convert f64 Meters
+  wrap : f64 -> Self
+  wrap n = Meters n
+
+instance Convert u32 Meters
+  wrap : u32 -> Self
+  wrap n = Meters (f64::from n)
+
+-- An inherent `instance` beside the trait ones, so the result can be read
+-- without a destructuring `let` the surface does not have.
+instance Meters
+  value : &self -> f64
+  value self = self.0
+
+main : ()
+main =
+  -- Which impl applies is the argument's type, which is rustc's to decide —
+  -- so each argument says what it is rather than leaving a literal's default
+  -- to settle it.
+  wide = 2.0 : f64
+  println! \-> "#{(.value (Convert::wrap wide : Meters))}"
+  narrow = 3 : u32
+  println! \-> "#{(.value (Convert::wrap narrow : Meters))}"
+  ()

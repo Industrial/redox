@@ -8,7 +8,7 @@ rather than as a workaround.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('serve/documents', '''
@@ -70,8 +70,8 @@ absorb notification documents =
     -- with full sync every entry is a complete replacement, so the earlier
     -- ones are superseded.
     -- `last_change`, not `final`: **`final` is reserved in *Rust*** and not in
-    -- Redox, so this is the keyword collision running the other way — a name
-    -- Redox accepts and rustc rejects, reported against the generated file.
+    -- Voltaic, so this is the keyword collision running the other way — a name
+    -- Voltaic accepts and rustc rejects, reported against the generated file.
     -- What a binding has to avoid is the **union** of both keyword sets, and
     -- Rust reserves several words it does not use: `final`, `become`, `priv`,
     -- `typeof`, `unsized`, `virtual`, `abstract`, `override`, `box`.

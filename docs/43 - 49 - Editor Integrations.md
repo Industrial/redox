@@ -15,7 +15,7 @@ configs it had been carrying, and the register added Vim and Cursor. So the row 
 clients, each independently installable, each CI-checked.
 
 Two rows already shipped the parts that do the work. Plan 41 committed an ABI 15 tree-sitter
-parser with three queries; plan 40 committed `redox-lsp`, a server that is *editor-agnostic
+parser with three queries; plan 40 committed `voltaic-lsp`, a server that is *editor-agnostic
 by construction*. **This row contributes no analysis and no grammar.** It contributes the
 wiring, and its whole difficulty is in the word *CI-checked*.
 
@@ -66,7 +66,7 @@ a zip.
 
 A VSIX is an OPC package: `[Content_Types].xml`, `extension.vsixmanifest`, and the extension
 under `extension/`. Spiked before this plan was written — a **1,094-byte** VSIX built with
-Python's `zipfile` and nothing else installed into Cursor and listed as `redox.redox-spike`.
+Python's `zipfile` and nothing else installed into Cursor and listed as `voltaic.voltaic-spike`.
 
 So leaf 3 builds the VSIX from the stdlib. The cost is disclosed rather than hidden: a
 hand-built manifest does not get `vsce`'s validation, so a mistake in it shows up as an
@@ -123,7 +123,7 @@ generating it at all.
 ## 2. Admission tests (doc 03 §2)
 
 Not applicable — this row adds no surface syntax. Nothing in `editors/` is compiled into the
-`redox` binary or affects what `.sdx` means.
+`voltaic` binary or affects what `.sdx` means.
 
 ---
 
@@ -144,7 +144,7 @@ Not applicable — this row adds no surface syntax. Nothing in `editors/` is com
 5. `editors/helix/languages.toml` and `editors/zed/extension.toml` parse, and every key in
    them is on an allow-list taken from each editor's documented schema, so a typo fails
    rather than being silently ignored.
-6. Every path a config names — the parser source, the query files, the `redox-lsp` binary
+6. Every path a config names — the parser source, the query files, the `voltaic-lsp` binary
    name, the formatter command — exists or is a target this workspace builds. A config
    pointing at a moved file is the failure mode these clients actually have.
 7. Each client directory has its own README, and `editors/README.md` links all five.
@@ -155,7 +155,7 @@ Not applicable — this row adds no surface syntax. Nothing in `editors/` is com
 
 ### Leaf 1 — `leaf-editors-harness`
 
-The test harness and the directory, before any client. `crates/redox-cli/tests/editors.rs`
+The test harness and the directory, before any client. `crates/voltaic-cli/tests/editors.rs`
 plus `editors/README.md`. The harness owns: building plan 41's parser to a shared object in
 a temp directory, driving `nvim --headless` with a generated Lua probe, and the path-existence
 sweep. Skips with a reason when a tool is absent rather than failing, since the gate must pass
@@ -165,14 +165,14 @@ worse than a missing one (plan 46 §1.3).
 ### Leaf 2 — `leaf-neovim-and-vim`
 
 `editors/neovim/` — filetype detection for `.sdx` and `.xrs`, the parser registered, the three
-queries, `vim.lsp` wired to `redox-lsp`, and `redox fmt` as the formatter. `editors/vim/` —
+queries, `vim.lsp` wired to `voltaic-lsp`, and `voltaic fmt` as the formatter. `editors/vim/` —
 `syntax/sdx.vim` and `ftplugin/sdx.vim`, regex only, no tree-sitter and no LSP. Criteria 1, 2
 and 4.
 
 ### Leaf 3 — `leaf-vscode-cursor`
 
 `editors/vscode/` — one extension with a TextMate grammar for a cold open, an LSP client over
-`vscode-languageclient`, and `redox fmt` as the document formatter. The stdlib VSIX builder,
+`vscode-languageclient`, and `voltaic fmt` as the document formatter. The stdlib VSIX builder,
 and the install-into-Cursor test. Criterion 3.
 
 ### Leaf 4 — `leaf-helix-zed`
@@ -221,7 +221,7 @@ test. Criterion 5.
   manager. A plugin dependency would make the gate depend on a network fetch, and §1.3 already
   declined one of those.
 - **Parser distribution.** Each client is told how to build the parser from
-  `tree-sitter-redox/`; no `.so`, `.wasm` or generated binary is committed. Committed binaries
+  `tree-sitter-voltaic/`; no `.so`, `.wasm` or generated binary is committed. Committed binaries
   for five platforms is a release problem, not an editor-integration problem.
 
 ---
@@ -239,7 +239,7 @@ verdict on a machine with none of them is *pass, with skips reported*.
 Emerald's VSCode, Neovim, Helix and Zed configs give the layout, and doc 02 §9 cites them.
 What they do not give is a check: Emerald's editor configs were not tested by any editor, so
 the reuse is the *shape* of the directories and none of the confidence. Vim and Cursor are
-Redox additions with no precedent to copy.
+Voltaic additions with no precedent to copy.
 
 ---
 
@@ -261,13 +261,13 @@ Redox additions with no precedent to copy.
 ## 10. Result
 
 Shipped 2026-11-10. `editors/` with five clients and six READMEs, and
-`crates/redox-cli/tests/editors.rs` — eight tests, all passing, and **nothing skipped** on
+`crates/voltaic-cli/tests/editors.rs` — eight tests, all passing, and **nothing skipped** on
 this machine.
 
 The ladder held, rung for rung. nvim loads plan 41's parser through
 `editors/neovim/`'s own `setup`, parses all 29 examples with no `ERROR` node, compiles all
 three queries and reports **4,320 captures**; a hand-built VSIX installs into Cursor and comes
-back from `--list-extensions` as `redox-lang.redox`; nvim sources the Vim syntax file and
+back from `--list-extensions` as `voltaic-lang.voltaic`; nvim sources the Vim syntax file and
 reports the right group inside a comment as well as at a keyword; and Helix's and Zed's
 manifests parse against a key allow-list.
 
@@ -308,7 +308,7 @@ query was a fifth nobody counted.
 The check is deliberately not a JavaScript parser — that would put a JS runtime in the gate.
 It scans `grammar.js` for bare lowercase string literals, drops `field()` names, and names its
 four other exclusions individually: `true` and `false` are `(boolean)`, `self` is
-`(self_expression)`, `redox` is the grammar's own name. `export` is absent from the derived
+`(self_expression)`, `voltaic` is the grammar's own name. `export` is absent from the derived
 set for a different reason worth writing down — it is a **regex** in `grammar.js`, not a
 literal, so the scan cannot see it, and `(visibility)` is what colours it. A scan that
 over-collects and is corrected by a named list is honest; one that silently stops working is
@@ -337,7 +337,7 @@ Two causes, and the first fix did not move the output by one character:
    a region's interior.
 2. That alone changed nothing, because **among items starting at the same column Vim prefers
    the one defined last** — and `sdxOperator`'s `[-+*/%…]` class is defined after the comment
-   region, so it claimed the `-` at column 1 and the region never opened. Redox has no `--`
+   region, so it claimed the `-` at column 1 and the region never opened. Voltaic has no `--`
    operator, so the fix is a negative lookahead: `-\(-\)\@!`.
 
 The second is the useful one to have written down. The first fix was *correct* and produced
@@ -358,15 +358,15 @@ the test that installs it instead of shelling out to a second language. With
 a VSIX does not need to be small and `deflate` drags flate2, zlib-rs and a wasm-bindgen tree
 into the dev graph to save kilobytes nobody transfers.
 
-### 10.5 `redox fmt` has no `--stdin`, which decided two clients' formatter wiring
+### 10.5 `voltaic fmt` has no `--stdin`, which decided two clients' formatter wiring
 
-Checked rather than assumed, and it changed both Vim and Neovim. `redox fmt` formats files in
+Checked rather than assumed, and it changed both Vim and Neovim. `voltaic fmt` formats files in
 place and **refuses to write a file it could not parse** (plan 34 criterion 8) — a safety
 property a stdin filter could not offer.
 
-Vim's `formatprg` pipes the buffer through a filter on stdin, so `formatprg = 'redox fmt'`
+Vim's `formatprg` pipes the buffer through a filter on stdin, so `formatprg = 'voltaic fmt'`
 would hand the buffer to a command that reads none of it and silently replace it with the
-command's output. So Vim gets `:RedoxFmt`, which writes, formats the file, reloads and
+command's output. So Vim gets `:VoltaicFmt`, which writes, formats the file, reloads and
 restores the view; and Neovim has **no** `formatprg` fallback, only `formatexpr` through plan
 40's server, with a comment saying why rather than an empty option someone will later fill in.
 
@@ -377,11 +377,11 @@ grammar ships `queries/<name>.scm`, and rather than reconcile the layouts `setup
 query *text* and calls `vim.treesitter.query.set`. One source of truth, no copy.
 
 Zed reads its queries from inside the extension, so there is no equivalent and the three files
-are copied into `editors/zed/languages/redox/`. A second copy of a file is a file that drifts,
+are copied into `editors/zed/languages/voltaic/`. A second copy of a file is a file that drifts,
 so the gate compares all three byte for byte — the same mechanism the golden corpus uses: a
 copy is allowed when a build fails the moment it stops matching.
 
-Helix is a third case: its queries go to `~/.config/helix/runtime/queries/redox/`, outside the
+Helix is a third case: its queries go to `~/.config/helix/runtime/queries/voltaic/`, outside the
 repository, so no test can check them. The README says that is a real cost rather than
 pretending the copy instruction is free.
 
@@ -410,7 +410,7 @@ Each failure was caught by the same generated number, which is the argument for 
 
 ### 10.8 Criterion 6 asked the filesystem a question only git can answer
 
-`every_path_a_config_names_exists` passed on Zed's `languages/redox/config.toml` while the
+`every_path_a_config_names_exists` passed on Zed's `languages/voltaic/config.toml` while the
 file was **silently untracked**. `.gitignore` carries a bare `config.toml` from the initial
 template, and a bare pattern matches at **any depth** — so the file was written, asserted
 present, and would have been absent from a fresh clone, with the sweep still green because the

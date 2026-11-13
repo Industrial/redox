@@ -3,37 +3,37 @@ resolver = "3"
 members = [
   # Plan 01 (`docs/05 - 01 - Vertical Slice.md`) — the five crates carrying
   # code for the vertical slice.
-  "crates/redox-lexer",
-  "crates/redox-ast",
-  "crates/redox-parser",
-  "crates/redox-emit",
-  "crates/redox-cli",
+  "crates/voltaic-lexer",
+  "crates/voltaic-ast",
+  "crates/voltaic-parser",
+  "crates/voltaic-emit",
+  "crates/voltaic-cli",
   # Declared empty by plan 01's leaf 1; each carries a module doc naming the
   # plan that fills it. Crate boundaries are the one thing genuinely painful
   # to introduce late (doc 02 §5.4).
-  "crates/redox-diag",
-  "crates/redox-driver",
-  "crates/redox-fmt",
+  "crates/voltaic-diag",
+  "crates/voltaic-driver",
+  "crates/voltaic-fmt",
   # Plan 72 (`docs/66 - 72 - The Seed Compiler.md`) leaf 1 - the bootstrap
   # seed. Transpile only, no `clap`, no `notify`, built for `wasm32-wasip1`
-  # and checked in as `redox1.wasm` so a ported crate need not commit the
+  # and checked in as `voltaic1.wasm` so a ported crate need not commit the
   # Rust it generates.
-  "crates/redox-seed",
+  "crates/voltaic-seed",
   # Plan 40 (`docs/35 - 40 - LSP.md`) — the language server, editor-agnostic
   # by construction; plan 49 ships the clients.
-  "crates/redox-lsp",
+  "crates/voltaic-lsp",
   # Plan 42 (`docs/37 - 42 - Fuzzing.md`) — the fuzz targets' logic, in stable
   # Rust so the ordinary gate exercises it. The libFuzzer harnesses live in
   # `fuzz/`, outside this workspace, because `libfuzzer-sys` does not build on
   # stable and a member that does not build breaks `cargo check` for everyone.
-  "crates/redox-fuzz",
+  "crates/voltaic-fuzz",
   # Plan 44 (`docs/38 - 44 - Zero-cost Benchmarks.md`) — doc 03's zero-cost
   # claim, asserted as identical optimised IR rather than as a timing.
-  "crates/redox-bench",
+  "crates/voltaic-bench",
   # Plan 50 (`docs/44 - 50 - MCP Server.md`) — the driver over the Model
   # Context Protocol, stdio only. In the workspace, unlike `fuzz/`, because it
   # builds on stable and its tests belong in the ordinary gate.
-  "crates/redox-mcp",
+  "crates/voltaic-mcp",
 ]
 # `.tmp/` is the gitignored scratch area. Excluded so a throwaway crate there
 # — plan 01 leaf 4's LALRPOP bake-off arm, for instance — cannot be picked up
@@ -48,7 +48,7 @@ version = "0.1.0"
 edition = "2024"
 license = "CC-BY-SA-4.0"
 
-# Five clippy lints that **every** Redox-sourced crate trips, stated once.
+# Five clippy lints that **every** Voltaic-sourced crate trips, stated once.
 #
 # Each one is the same fact: clippy asks for a Rust form this language cannot
 # write, so the allow states a fact rather than suppressing a defect. They had
@@ -58,16 +58,16 @@ license = "CC-BY-SA-4.0"
 # repeated it anyway. Plan 79 would have been the eighth, which is the point at
 # which the owed decision gets made.
 #
-# | Lint | The form Redox cannot write |
+# | Lint | The form Voltaic cannot write |
 # |---|---|
 # | `no_effect`, `unused_unit` | Plan 55 §1.6 requires a `()`-returning body to **end with `()`** rather than imply it, deliberately, so a body ending in a loop or an assignment cannot become `()` by arriving last. clippy reads that `()` as a statement with no effect, and names it `unused_unit` where it closes a body. |
-# | `match_like_matches_macro` | `matches!`'s second argument is a **pattern**, and a Redox macro argument is an expression (plan 64 §6), so a method asking *is this one of these variants* is a `case` with a `_ -> false` arm. |
-# | `single_match` | Redox has no `if let`, so *do this if it matches* is a `case` with a `_ -> ()` arm — the same gap one step over. |
+# | `match_like_matches_macro` | `matches!`'s second argument is a **pattern**, and a Voltaic macro argument is an expression (plan 64 §6), so a method asking *is this one of these variants* is a `case` with a `_ -> false` arm. |
+# | `single_match` | Voltaic has no `if let`, so *do this if it matches* is a `case` with a `_ -> ()` arm — the same gap one step over. |
 # | `while_let_loop` | `while let Some(x) = …` binds a **pattern** too, so the same thing is a `loop` with a `case` whose `None` arm breaks. |
 #
 # **A crate opts in**, with `[lints] workspace = true`, and only the crates
-# generated from Redox do. The three still hand-written in Rust — `redox-driver`,
-# `redox-emit`, `redox-parser` — keep clippy's real verdict until their own port
+# generated from Voltaic do. The three still hand-written in Rust — `voltaic-driver`,
+# `voltaic-emit`, `voltaic-parser` — keep clippy's real verdict until their own port
 # row adds those two lines, which is the whole cost of this per future port
 # where it used to be a ten-line paragraph.
 [workspace.lints.clippy]

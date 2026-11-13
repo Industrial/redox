@@ -1,4 +1,4 @@
-// Doc 03 §12.5's `errors` declaration, kept by doc 18 §8 — the one Redox
+// Doc 03 §12.5's `errors` declaration, kept by doc 18 §8 — the one Voltaic
 // construct that generates more than one Rust item, and the only one whose
 // output is "the boilerplate every Rust project either writes by hand or
 // pulls a derive crate for".

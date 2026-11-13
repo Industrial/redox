@@ -1,0 +1,34 @@
+-- The same program as `unwrap_warning.sdx`, suppressed — plan 38 §1.3 and
+-- plan 53 leaf 4.
+--
+-- Its expectation is **empty**, which is the only way to prove suppression
+-- works: a corpus entry that asserts nothing is printed.
+--
+-- The marker is an **attribute**, and it is consumed. Plan 38 §1.3 rejected
+-- both attribute routes together: `#[allow(unwrap)]` passed through makes
+-- rustc say `unknown lint`, and `#[voltaic::allow(unwrap)]` passed through is
+-- worse — `error[E0433]: cannot find module or crate 'voltaic'`, a hard error.
+-- Neither objection survives an attribute Voltaic **drops**, because nothing
+-- reaches rustc at all, which is also why no unstable `register_tool` is
+-- needed. What it costs is one carve-out in plan 18 §1.3's
+-- attributes-are-trivia rule, paid knowingly: plan 48 found `voltaic fmt`
+-- deleting comments from a `.sdx`, so semantics in a comment is semantics a
+-- formatter run can remove.
+--
+-- Criterion 5 wants both halves, so there are two declarations: one with the
+-- attribute leading a **statement**, one with it leading the **declaration**,
+-- where it covers every call site in the body.
+main : ()
+main =
+  #[voltaic::allow(unwrap)]
+  port = .unwrap (Some 7)
+  println! \-> "#{port}"
+  println! \-> "#{(port_of (Some 9))}"
+  ()
+
+#[voltaic::allow(unwrap)]
+port_of : Option<u64> -> u64
+port_of raw =
+  first = .unwrap raw
+  second = .expect "set by construction" (Some 1)
+  first + second

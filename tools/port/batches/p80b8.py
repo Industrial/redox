@@ -8,7 +8,7 @@ in `where_edges.sdx`; this is where it earns its keep.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('lint/attribute_pragma', '''
@@ -25,18 +25,18 @@ trivium : TriviaKind -> &str -> Trivia
 trivium kind text = Trivia { kind, text = .to_string text, span = (0, 0) }
 
 test "the attribute suppresses"
-  assert_eq! \\-> attribute_pragma (&trivium TriviaKind::Attribute "redox::allow(unwrap)") \\-> Some Lint::Unwrap
+  assert_eq! \\-> attribute_pragma (&trivium TriviaKind::Attribute "voltaic::allow(unwrap)") \\-> Some Lint::Unwrap
 
 -- | The second lint, which is the whole of what parametrising bought: one
 -- | predicate, and the name decides which warning is silenced.
 test "each lint is suppressed by its own name"
-  assert_eq! \\-> attribute_pragma (&trivium TriviaKind::Attribute "redox::allow(shadow)") \\-> Some Lint::Shadow
+  assert_eq! \\-> attribute_pragma (&trivium TriviaKind::Attribute "voltaic::allow(shadow)") \\-> Some Lint::Shadow
 
 -- | A name no lint has is **not** a pragma, so the emitter does not consume
 -- | it either and rustc names it — which is the loud failure the
 -- | one-spelling rule relies on.
 test "an unknown lint name is not a pragma"
-  assert_eq! \\-> attribute_pragma (&trivium TriviaKind::Attribute "redox::allow(unwarp)") \\-> None
+  assert_eq! \\-> attribute_pragma (&trivium TriviaKind::Attribute "voltaic::allow(unwarp)") \\-> None
 
 -- | The namespace, which is what keeps `#[allow(unwrap)]` rustc's.
 test "an unnamespaced allow is rustc's"
@@ -46,18 +46,18 @@ test "an unnamespaced allow is rustc's"
 -- | spelling, and a generous one reaches rustc as `E0433` rather than being
 -- | silently ignored.
 test "whitespace inside the brackets is not normalised"
-  assert_eq! \\-> attribute_pragma (&trivium TriviaKind::Attribute "redox :: allow( unwrap )") \\-> None
+  assert_eq! \\-> attribute_pragma (&trivium TriviaKind::Attribute "voltaic :: allow( unwrap )") \\-> None
 
 -- | An *inner* attribute applies to the enclosing module, not to the next
 -- | construct, so it is not this pragma.
 test "an inner attribute does not suppress"
-  assert_eq! \\-> attribute_pragma (&trivium TriviaKind::InnerAttribute "redox::allow(unwrap)") \\-> None
+  assert_eq! \\-> attribute_pragma (&trivium TriviaKind::InnerAttribute "voltaic::allow(unwrap)") \\-> None
 ''')
 
 write('lint/unwrap_call_sites', '''
 export(crate) unwrap_call_sites : &str -> Option<&Program> -> Vec<Span>
 unwrap_call_sites source program =
-  guard redox_lexer::lex source is Ok tokens else
+  guard voltaic_lexer::lex source is Ok tokens else
     -- A file that does not lex has no call sites worth reporting: the lexical
     -- error is the diagnostic, and this pass only ever runs after a successful
     -- parse anyway.

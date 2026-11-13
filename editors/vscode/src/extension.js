@@ -1,4 +1,4 @@
-// Redox for VSCode and Cursor. Plan 49 leaf 3.
+// Voltaic for VSCode and Cursor. Plan 49 leaf 3.
 //
 // Plain JavaScript on purpose. A TypeScript source would need a compile step,
 // a `tsconfig.json` and a `node_modules`, and would put a build between a
@@ -8,7 +8,7 @@
 //
 // Everything the extension does beyond this file is the language server's:
 // diagnostics, document symbols, semantic tokens and formatting all come from
-// plan 40's `redox-lsp`, which is editor-agnostic by construction. The
+// plan 40's `voltaic-lsp`, which is editor-agnostic by construction. The
 // TextMate grammar beside this file exists only so a cold open is coloured
 // before the server has started.
 
@@ -19,8 +19,8 @@ const { LanguageClient, TransportKind } = require("vscode-languageclient/node");
 let client;
 
 function serverOptions() {
-	const config = vscode.workspace.getConfiguration("redox");
-	const command = config.get("server.path") || "redox-lsp";
+	const config = vscode.workspace.getConfiguration("voltaic");
+	const command = config.get("server.path") || "voltaic-lsp";
 	const run = { command, transport: TransportKind.stdio };
 	// No separate debug server: there is one binary and no debug build of the
 	// protocol, so claiming two would be a lie in a field VSCode logs.
@@ -28,18 +28,18 @@ function serverOptions() {
 }
 
 function activate(context) {
-	if (!vscode.workspace.getConfiguration("redox").get("server.enable")) {
+	if (!vscode.workspace.getConfiguration("voltaic").get("server.enable")) {
 		return;
 	}
 
 	client = new LanguageClient(
-		"redox-lsp",
-		"Redox Language Server",
+		"voltaic-lsp",
+		"Voltaic Language Server",
 		serverOptions(),
 		{
-			documentSelector: [{ scheme: "file", language: "redox" }],
+			documentSelector: [{ scheme: "file", language: "voltaic" }],
 			synchronize: {
-				// `redox check` reads Cargo.toml to find the project, so a change to
+				// `voltaic check` reads Cargo.toml to find the project, so a change to
 				// it can change what the server reports.
 				fileEvents: vscode.workspace.createFileSystemWatcher("**/Cargo.toml"),
 			},
@@ -51,9 +51,9 @@ function activate(context) {
 	// output channel where nobody looks.
 	client.start().catch((err) => {
 		vscode.window.showErrorMessage(
-			`Redox: could not start the language server (${err.message}). ` +
-				"Install it with `cargo install --path crates/redox-lsp`, or set " +
-				"`redox.server.path`.",
+			`Voltaic: could not start the language server (${err.message}). ` +
+				"Install it with `cargo install --path crates/voltaic-lsp`, or set " +
+				"`voltaic.server.path`.",
 		);
 	});
 

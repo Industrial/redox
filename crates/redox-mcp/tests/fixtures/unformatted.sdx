@@ -1,5 +1,0 @@
--- | Formatted wrongly on purpose, so `redox_fmt` has something to change.
-main    :    ()
-main =
-      println! \-> "#{1}"
-      ()

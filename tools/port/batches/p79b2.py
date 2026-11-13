@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Plan 79 batch 2: six of `redox-cli`'s sixteen remaining bodies.
+"""Plan 79 batch 2: six of `voltaic-cli`'s sixteen remaining bodies.
 
 Two surface facts this batch leans on, both already recorded elsewhere and both
 easy to get wrong from the Rust:
@@ -12,7 +12,7 @@ easy to get wrong from the Rust:
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('fmt_command/parse_fmt_args', '''
@@ -83,7 +83,7 @@ build_command args =
   shown = .to_string (.display parsed.input)
   source = (.map_err (\\e -> format! \\-> "error: cannot read #{shown}: #{e}") (std::fs::read_to_string (&parsed.input)))?
 
-  program = (.map_err (\\failure -> redox_diag::render (&diagnose (&parsed.input) (&source) (&failure)) parsed.plain) (redox_parser::parse_source (&source)))?
+  program = (.map_err (\\failure -> voltaic_diag::render (&diagnose (&parsed.input) (&source) (&failure)) parsed.plain) (voltaic_parser::parse_source (&source)))?
   -- Doc 03 §12.7's lints — plan 38. Reported and **not** fatal: §12.7 makes
   -- `unwrap` *"lintable rather than prohibited"*, so the warning goes to
   -- stderr and the command carries on.
@@ -91,15 +91,15 @@ build_command args =
   -- After the parse, because a warning about a program nobody can compile is
   -- noise, and before the write, so the author sees it with the build they
   -- asked for rather than on the next one.
-  warnings = redox_driver::lint (&parsed.input) (&source) (Some (&program))
+  warnings = voltaic_driver::lint (&parsed.input) (&source) (Some (&program))
   if !.is_empty warnings
-    rendered = redox_diag::render (&warnings) parsed.plain
+    rendered = voltaic_diag::render (&warnings) parsed.plain
     eprint! \\-> "#{rendered}"
 
   -- `emitted.0` is the Rust and `emitted.1` the map, where the Rust
-  -- destructured `let (rust, map) = …`. Redox has no tuple-destructuring
+  -- destructured `let (rust, map) = …`. Voltaic has no tuple-destructuring
   -- binding, so the pair is bound once and projected.
-  emitted = redox_emit::emit_with_map (&program) (&source) (&shown)
+  emitted = voltaic_emit::emit_with_map (&program) (&source) (&shown)
 
   out_shown = .to_string (.display parsed.output)
   (.map_err (\\e -> format! \\-> "error: cannot write #{out_shown}: #{e}") (std::fs::write (&parsed.output) (&emitted.0)))?
@@ -112,7 +112,7 @@ build_command args =
   -- shadows the function of the same name, and `RDX1003` reports it.
   sidecar = map_path (&parsed.output)
   sidecar_shown = .to_string (.display sidecar)
-  (.map_err (\\e -> format! \\-> "error: cannot write #{sidecar_shown}: #{e}") (std::fs::write (&sidecar) (redox_diag::render_map (&emitted.1))))?
+  (.map_err (\\e -> format! \\-> "error: cannot write #{sidecar_shown}: #{e}") (std::fs::write (&sidecar) (voltaic_diag::render_map (&emitted.1))))?
   Ok ()
 ''')
 
@@ -126,9 +126,9 @@ fmt_command args =
     shown = .to_string (.display path)
     source = (.map_err (\\e -> format! \\-> "error: cannot read #{shown}: #{e}") (std::fs::read_to_string path))?
 
-    program = (.map_err (\\failure -> redox_diag::render (&diagnose path (&source) (&failure)) parsed.plain) (redox_parser::parse_source (&source)))?
+    program = (.map_err (\\failure -> voltaic_diag::render (&diagnose path (&source) (&failure)) parsed.plain) (voltaic_parser::parse_source (&source)))?
 
-    formatted = redox_fmt::format (&program) (&source)
+    formatted = voltaic_fmt::format (&program) (&source)
     if formatted == source
       continue
 
@@ -141,7 +141,7 @@ fmt_command args =
     return Ok ()
   indented : Vec<String> = unformatted |> .iter |> .map (\\p -> format! \\-> "  #{p}") |> .collect
   listed = .join "\\n" indented
-  Err (format! \\-> "error: not formatted:\\n#{listed}\\nrun `redox fmt` on them\\n")
+  Err (format! \\-> "error: not formatted:\\n#{listed}\\nrun `voltaic fmt` on them\\n")
 ''')
 
 write('run', '''
@@ -172,7 +172,7 @@ run args =
       Ok ()
     "--version" ->
       version = env! \\-> "CARGO_PKG_VERSION"
-      println! \\-> "redox #{version}"
+      println! \\-> "voltaic #{version}"
       Ok ()
     "build" -> build_command rest
     "check" -> check_command rest
@@ -181,7 +181,7 @@ run args =
     -- Unreachable while `COMMANDS` and this case agree, and
     -- `cli_surface.rs::every_ready_command_dispatches` is what keeps them
     -- agreeing. A panic rather than a silent success: a `Ready` command with
-    -- no arm is a bug in Redox, not in the invocation.
+    -- no arm is a bug in Voltaic, not in the invocation.
     other ->
       unreachable! \\-> "`#{other}` is Ready in COMMANDS but has no dispatch arm"
 ''')

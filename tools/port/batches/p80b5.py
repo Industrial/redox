@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Plan 80 batch 5: four more of `redox-driver`'s bodies.
+"""Plan 80 batch 5: four more of `voltaic-driver`'s bodies.
 
 `scratch_dir`'s test is the first ported body to need a **block as an
 expression** — the Rust scopes a `let` inside `{ … }` so the `Drop` runs before
@@ -9,7 +9,7 @@ carries over with nothing to announce it.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 # `check/scratch_dir` is written here and **rewritten by `p80b12`**, which
@@ -28,7 +28,7 @@ instance ScratchDir
   new tag =
     n = .fetch_add 1 std::sync::atomic::Ordering::Relaxed NEXT
     pid = std::process::id ()
-    dir = .join (format! \\-> "redox-#{tag}-#{pid}-#{n}") (std::env::temp_dir ())
+    dir = .join (format! \\-> "voltaic-#{tag}-#{pid}-#{n}") (std::env::temp_dir ())
     shown = .to_string (.display dir)
     (.map_err (\\e -> format! \\-> "error: cannot create #{shown}: #{e}") (std::fs::create_dir_all (&dir)))?
     Ok (ScratchDir dir)
@@ -73,11 +73,11 @@ compile_file source out store fingerprint =
     cached = (write_outputs source out (&path) (&hit))?
     return Ok (Outcome { written = cached, was_cached = true })
 
-  program = (.map_err (\\failure -> diagnose source (&text) (&failure)) (redox_parser::parse_source (&text)))?
+  program = (.map_err (\\failure -> diagnose source (&text) (&failure)) (voltaic_parser::parse_source (&text)))?
   -- `emitted.0` is the Rust and `emitted.1` the map, where the Rust
-  -- destructured the pair. `r#rust` because `rust` is a Redox keyword.
-  emitted = redox_emit::emit_with_map (&program) (&text) (&path)
-  fresh = Cached { r#rust = emitted.0, map = redox_diag::render_map (&emitted.1) }
+  -- destructured the pair. `r#rust` because `rust` is a Voltaic keyword.
+  emitted = voltaic_emit::emit_with_map (&program) (&text) (&path)
+  fresh = Cached { r#rust = emitted.0, map = voltaic_diag::render_map (&emitted.1) }
 
   written = (write_outputs source out (&path) (&fresh))?
   .put (&key) (&fresh) store
@@ -92,7 +92,7 @@ rustc_path =
     |> .flat_map (\\paths ->
     dirs : Vec<PathBuf> = std::env::split_paths (&paths) |> .map (\\dir -> .join "rustc" dir) |> .collect
     dirs)
-  baked = std::iter::once (PathBuf::from (env! \\-> "REDOX_RUSTC"))
+  baked = std::iter::once (PathBuf::from (env! \\-> "VOLTAIC_RUSTC"))
   -- `RUSTC` last. It is blaze's own shim under `blaze build`, so it is the
   -- least trustworthy of the three and is here only so that a toolchain
   -- reachable by no other means is still reachable.
@@ -140,7 +140,7 @@ walk_item item walk =
       for inner in .flatten (.iter decl.items)
         walk_item inner walk
     -- No statement blocks. Inline Rust is never parsed, so it holds no call
-    -- site Redox could lint, no binding Redox could see and no pragma Redox
+    -- site Voltaic could lint, no binding Voltaic could see and no pragma Voltaic
     -- could read.
     Item::Data _ or Item::Type _ or Item::Errors _ or Item::Import _ or Item::Const _ or Item::InlineRust _ or Item::Extern _ -> ()
   ()

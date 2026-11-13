@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Plan 82 batch 3: twelve more of `redox-parser`'s bodies."""
+"""Plan 82 batch 3: twelve more of `voltaic-parser`'s bodies."""
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('parse/parser/range_or_literal', '''
@@ -53,7 +53,7 @@ expr_from_tokens tokens span =
   -- was something else — `#{a b c}` with no application, say — and silently
   -- dropping them would emit a format argument the author did not write.
   if !.at_eof p
-    return Err (ParseError::r#with redox_diag::Code::ExpectedToken "an interpolation holds one expression; `}` was expected here" (.peek_span p))
+    return Err (ParseError::r#with voltaic_diag::Code::ExpectedToken "an interpolation holds one expression; `}` was expected here" (.peek_span p))
   Ok expr
 ''')
 

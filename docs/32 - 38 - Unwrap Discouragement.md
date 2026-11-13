@@ -43,12 +43,12 @@ plan 30 established the whole-program-pass shape this lint needs.
 ### 1.2 Severity is a field, and miette already renders it
 
 `miette::Severity::Warning` exists and `miette::Diagnostic::severity` is the hook. So the
-work is a `Severity` enum on `redox-diag`'s `Diagnostic`, defaulting to `Error` so no
+work is a `Severity` enum on `voltaic-diag`'s `Diagnostic`, defaulting to `Error` so no
 existing construction changes, and one `fn severity` in the miette impl.
 
-This plan's severity is for **Redox's own** diagnostics, and §9's decision 2 records why it
-is not the same thing as plan 07's level: a foreign level is a string Redox must not
-interpret, and a Redox severity is a closed enum that decides whether the build fails.
+This plan's severity is for **Voltaic's own** diagnostics, and §9's decision 2 records why it
+is not the same thing as plan 07's level: a foreign level is a string Voltaic must not
+interpret, and a Voltaic severity is a closed enum that decides whether the build fails.
 
 **This section said plan 07's path was unaffected and would stay as it is. It was changed
 anyway** — §10.4. `remap.rs` fell back to rustc's level as the *code* text, so a rustc
@@ -61,19 +61,19 @@ one would be choosing. Mapping one to the other at a single boundary is not merg
 is Rust's own `#[allow(…)]`, and it does not work:
 
 - Attributes are **trivia** (plan 18 §1.3) and reach the `.xrs` verbatim. `#[allow(unwrap)]`
-  passed through makes rustc say `unknown lint`, so a program that suppressed a Redox lint
+  passed through makes rustc say `unknown lint`, so a program that suppressed a Voltaic lint
   would stop compiling.
 - Consuming it instead — recognising one attribute and dropping it — makes plan 18's rule
-  conditional. *"An attribute is not a declaration, and trivia is Redox's mechanism for text
+  conditional. *"An attribute is not a declaration, and trivia is Voltaic's mechanism for text
   that belongs to a construct without being one"*; a carve-out for a single spelling weakens
   the rule that made nine item kinds work at once.
-- `#[redox::allow(unwrap)]` needs `register_tool`, which is unstable.
+- `#[voltaic::allow(unwrap)]` needs `register_tool`, which is unstable.
 
 So the marker is a **comment pragma**, which reaches nothing downstream because a comment
 becomes a `//` line in the `.xrs` and means nothing to rustc:
 
 ```text
-port = raw.unwrap ()  -- redox: allow unwrap
+port = raw.unwrap ()  -- voltaic: allow unwrap
 ```
 
 Comments are trivia and a `Stmt` already carries `trailing: Option<Trivia>`, so the text is
@@ -115,10 +115,10 @@ name would flag the cure as the disease.
 Not applicable: this plan adds no construct. It adds a **lint**, and the governing rule is
 the one AGENTS.md states — *every check rustc can make, rustc makes*. Clippy has
 `unwrap_used`, so rustc's ecosystem *can* make this check; what it cannot do is report it
-against the `.sdx` with a Redox code and a Redox suggestion naming `??` and `catch`.
+against the `.sdx` with a Voltaic code and a Voltaic suggestion naming `??` and `catch`.
 
 That is the whole justification, and it is narrower than the other rows': this lint earns its
-place by pointing at **Redox's** alternatives, not by catching something clippy misses. §9's
+place by pointing at **Voltaic's** alternatives, not by catching something clippy misses. §9's
 decision 1 states the alternative — delegate to `clippy::unwrap_used` — and why doc 03 §12.7
 does not take it.
 
@@ -149,7 +149,7 @@ compile and the corpus says so.
 
 ### Leaf 1 — `leaf-severity`
 
-`Severity::{Error, Warning}` on `redox-diag`'s `Diagnostic`, defaulting to `Error`, with
+`Severity::{Error, Warning}` on `voltaic-diag`'s `Diagnostic`, defaulting to `Error`, with
 `fn severity` in the miette impl. Plus the CLI change that makes a warning not fail the
 build.
 
@@ -163,7 +163,7 @@ stays green. A token scan cannot miss one.
 
 ### Leaf 3 — `leaf-suppression`
 
-The `-- redox: allow unwrap` pragma, read from the trivia on any token of the line.
+The `-- voltaic: allow unwrap` pragma, read from the trivia on any token of the line.
 
 ### Leaf 4 — `leaf-proof-and-gate`
 
@@ -179,7 +179,7 @@ The `tests/lint/` corpus with its harness, the two cases, and the gate.
 4. A program whose only diagnostic is `RDX1001` **compiles and succeeds** — asserted by the
    UI case's exit status, because a warning that fails the build is an error with a
    misleading label.
-5. `-- redox: allow unwrap` on the statement suppresses it, and the UI case's `.stderr` is
+5. `-- voltaic: allow unwrap` on the statement suppresses it, and the UI case's `.stderr` is
    empty.
 6. An unrelated comment does not suppress it, so the namespace is load-bearing.
 7. The warning renders as `warning[RDX1001]`, not `error[RDX1001]`.
@@ -194,7 +194,7 @@ The `tests/lint/` corpus with its harness, the two cases, and the gate.
 ## 6. Out of scope, and what it discloses
 
 - **A `-W`/`-A` command-line flag.** §12.7 asks for per-call-site suppression and nothing
-  else. A global flag is a `redox.toml` question and there is no `redox.toml`.
+  else. A global flag is a `voltaic.toml` question and there is no `voltaic.toml`.
 - **Any other lint.** `RDX1000`+ is a band, and this plan opens it with one code. The next
   lint gets the second number and this plan's machinery.
 - **Knowing whether the receiver can actually panic.** That needs types. A user's own
@@ -226,10 +226,10 @@ the design this plan has to change the first thing about.
 
 | # | Decision | Alternative rejected | Why |
 |---|---|---|---|
-| 1 | Redox lints it, with a Redox code | Delegate to `clippy::unwrap_used` | Clippy's message names neither `??` nor `catch`, and cannot point at the `.sdx`. §2 admits this is the narrowest justification in the project |
-| 2 | A `Severity` enum separate from plan 07's level strings | One mechanism for both | A foreign level is text Redox must not interpret; a Redox severity is a closed enum that decides whether the build fails. Merging them would make rustc's output able to change Redox's exit code by spelling |
+| 1 | Voltaic lints it, with a Voltaic code | Delegate to `clippy::unwrap_used` | Clippy's message names neither `??` nor `catch`, and cannot point at the `.sdx`. §2 admits this is the narrowest justification in the project |
+| 2 | A `Severity` enum separate from plan 07's level strings | One mechanism for both | A foreign level is text Voltaic must not interpret; a Voltaic severity is a closed enum that decides whether the build fails. Merging them would make rustc's output able to change Voltaic's exit code by spelling |
 | 3 | Suppression is a comment pragma | `#[allow(unwrap)]`, consumed or passed through | Passed through, rustc says `unknown lint` and the program stops compiling. Consumed, plan 18 §1.3's attributes-are-trivia rule becomes conditional for one spelling. The comment reaches nothing — §1.3 |
-| 4 | The namespace is `redox:` | Bare `-- allow unwrap` | An English comment would become a pragma by accident |
+| 4 | The namespace is `voltaic:` | Bare `-- allow unwrap` | An English comment would become a pragma by accident |
 | 5 | Whole-name match, not a prefix | `starts_with("unwrap")` | `unwrap_or` is the *cure*. A prefix match flags it as the disease |
 | 6 | The unit is the statement | Per call site exactly | A comment attaches to a statement. §1.4 discloses it; the finer unit needs the attribute §1.3 ruled out |
 
@@ -256,7 +256,7 @@ assert!(!out.status.success(), "a UI case must be rejected, but {} built success
 That assertion is load-bearing — a case meant to fail that quietly starts succeeding would
 otherwise pass — so relaxing it was not an option. The two warning cases went to a **new
 corpus**, `tests/lint/`, whose harness asserts the mirror invariant: the program must build,
-and its `.stderr` is whatever Redox said. The pair now covers both halves the way
+and its `.stderr` is whatever Voltaic said. The pair now covers both halves the way
 `examples/` (must run, zero output) and `tests/ui/` (must fail) already did.
 
 `code_coverage.rs` reads both directories and both severities as a result. It matched only
@@ -279,10 +279,10 @@ code, the right caret and the right help. Only the first word was a lie.
 
 `examples/fallible.sdx` had three `.unwrap ()` and `examples/ascription.sdx` one, and the
 suite stayed green — because the examples corpus demanded zero **rustc** output and said
-nothing about Redox's. It did not need to before: every Redox diagnostic was fatal, so
+nothing about Voltaic's. It did not need to before: every Voltaic diagnostic was fatal, so
 `status.success()` covered them all. A warning broke that invariant silently.
 
-So `support.rs`'s `build` now asserts Redox's stderr is empty too, and the four sites carry
+So `support.rs`'s `build` now asserts Voltaic's stderr is empty too, and the four sites carry
 the pragma with a sentence saying why the panic cannot happen. That is the lint working as
 designed on its first contact with real code: it has no types, it cannot know `u` is `Some`,
 and the pragma is how an author says so.
@@ -299,7 +299,7 @@ rendered as **`error[warning]`**, a worse lie than the one the fallback prevente
 
 Once a `Severity` existed, leaving that was a defect one would be choosing. `check` already
 did not fail on a rustc warning, so the change is rendering only. Decision 2's substance
-stands — a foreign level is a string Redox must not interpret and a Redox severity is a
+stands — a foreign level is a string Voltaic must not interpret and a Voltaic severity is a
 closed enum — and mapping one to the other at a single boundary is not merging them.
 
 ### 10.5 The lint scans tokens, and that was a correctness choice
@@ -316,7 +316,7 @@ doc rather than hidden.
 
 ### 10.6 What the pragma cost, and the one thing left ugly
 
-`-- redox: allow unwrap` works and reaches nothing downstream, which is what §1.3 wanted.
+`-- voltaic: allow unwrap` works and reaches nothing downstream, which is what §1.3 wanted.
 What it costs is a second syntax inside comments, and the decision log said so before the
 code existed.
 

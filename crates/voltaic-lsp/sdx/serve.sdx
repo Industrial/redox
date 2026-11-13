@@ -1,0 +1,482 @@
+import crate::serve::position_of as to_position
+import crate::serve::range_of as to_range
+import lsp_server::Connection
+import lsp_server::ExtractError
+import lsp_server::Message
+import lsp_server::Notification
+import lsp_server::Request
+import lsp_server::RequestId
+import lsp_server::Response
+import lsp_types::Diagnostic
+import lsp_types::DiagnosticSeverity
+import lsp_types::DocumentFormattingParams
+import lsp_types::DocumentSymbol
+import lsp_types::DocumentSymbolParams
+import lsp_types::DocumentSymbolResponse
+import lsp_types::FoldingRange
+import lsp_types::FoldingRangeKind
+import lsp_types::FoldingRangeParams
+import lsp_types::GotoDefinitionParams
+import lsp_types::GotoDefinitionResponse
+import lsp_types::Hover
+import lsp_types::HoverContents
+import lsp_types::HoverParams
+import lsp_types::Location
+import lsp_types::MarkupContent
+import lsp_types::MarkupKind
+import lsp_types::NumberOrString
+import lsp_types::Position
+import lsp_types::PublishDiagnosticsParams
+import lsp_types::Range
+import lsp_types::SemanticToken
+import lsp_types::SemanticTokens
+import lsp_types::SemanticTokensParams
+import lsp_types::SemanticTokensResult
+import lsp_types::SymbolKind
+import lsp_types::TextEdit
+import lsp_types::Uri
+import lsp_types::notification::DidChangeTextDocument
+import lsp_types::notification::DidCloseTextDocument
+import lsp_types::notification::DidOpenTextDocument
+import lsp_types::notification::Notification as NotificationTrait
+import lsp_types::notification::PublishDiagnostics
+import lsp_types::request::DocumentSymbolRequest
+import lsp_types::request::FoldingRangeRequest
+import lsp_types::request::Formatting
+import lsp_types::request::GotoDefinition
+import lsp_types::request::HoverRequest
+import lsp_types::request::Request as RequestTrait
+import lsp_types::request::SemanticTokensFullRequest
+import voltaic_ast::Item
+import voltaic_lexer::TokenKind
+import serde::Serialize
+import serde::de::DeserializeOwned
+import std::collections::HashMap
+import std::path::Path
+
+export serve : &Connection -> Result<(), String>
+serve connection =
+  mut documents = Documents::new ()
+  for message in &connection.receiver
+    case message of
+      Message::Request request ->
+        stopping = (.map_err (\e -> .to_string e) (.handle_shutdown (&request) connection))?
+        if stopping
+          return Ok ()
+        response = answer (&request) (&documents)
+        (.map_err (\e -> .to_string e) (.send (Message::Response response) connection.sender))?
+      Message::Notification notification ->
+        case absorb (&notification) (&mut documents) of
+          Some uri ->
+            (publish connection (&uri) (&documents))?
+          None -> ()
+      Message::Response _ -> ()
+  Ok ()
+
+export(crate) absorb : &Notification -> &mut Documents -> Option<Uri>
+absorb notification documents =
+  method = .as_str notification.method
+  if method == DidOpenTextDocument::METHOD
+    params : lsp_types::DidOpenTextDocumentParams = (.ok (serde_json::from_value (.clone notification.params)))?
+    uri = .clone params.text_document.uri
+    .set (.clone uri) params.text_document.text documents
+    return Some uri
+
+  if method == DidChangeTextDocument::METHOD
+    params : lsp_types::DidChangeTextDocumentParams = (.ok (serde_json::from_value (.clone notification.params)))?
+    last_change = (.last (.into_iter params.content_changes))?
+    uri = .clone params.text_document.uri
+    .set (.clone uri) last_change.text documents
+    return Some uri
+
+  if method == DidCloseTextDocument::METHOD
+    params : lsp_types::DidCloseTextDocumentParams = (.ok (serde_json::from_value (.clone notification.params)))?
+    .close (&params.text_document.uri) documents
+    return None
+
+  None
+
+export(crate) answer : &Request -> &Documents -> Response
+answer request documents =
+  id = .clone request.id
+  method = .as_str request.method
+
+  if method == DocumentSymbolRequest::METHOD
+    got : Result<DocumentSymbolParams, ExtractError<Request>> = cast request DocumentSymbolRequest::METHOD
+    return reply id got (\params -> symbols (.unwrap_or_default (.text (&params.text_document.uri) documents)))
+
+  if method == Formatting::METHOD
+    got : Result<DocumentFormattingParams, ExtractError<Request>> = cast request Formatting::METHOD
+    return reply id got (\params -> formatting (.unwrap_or_default (.text (&params.text_document.uri) documents)))
+
+  if method == SemanticTokensFullRequest::METHOD
+    got : Result<SemanticTokensParams, ExtractError<Request>> = cast request SemanticTokensFullRequest::METHOD
+    return reply id got (\params -> semantic_tokens (.unwrap_or_default (.text (&params.text_document.uri) documents)))
+
+  if method == HoverRequest::METHOD
+    got : Result<HoverParams, ExtractError<Request>> = cast request HoverRequest::METHOD
+    return reply id got (\params ->
+      text = .unwrap_or_default (.text (&params.text_document_position_params.text_document.uri) documents)
+      hover text params.text_document_position_params.position)
+
+  if method == GotoDefinition::METHOD
+    got : Result<GotoDefinitionParams, ExtractError<Request>> = cast request GotoDefinition::METHOD
+    return reply id got (\params ->
+      uri = .clone params.text_document_position_params.text_document.uri
+      text = .unwrap_or_default (.text (&uri) documents)
+      definition text (&uri) params.text_document_position_params.position)
+
+  if method == FoldingRangeRequest::METHOD
+    got : Result<FoldingRangeParams, ExtractError<Request>> = cast request FoldingRangeRequest::METHOD
+    return reply id got (\params ->
+      text = .unwrap_or_default (.text (&params.text_document.uri) documents)
+      folding text)
+
+  Response { id, response_result = Ok serde_json::Value::Null }
+
+export(crate) cast : DeserializeOwned p => &Request -> &str -> Result<p, ExtractError<Request>>
+cast request method =
+  extracted = request |> .clone |> .extract method
+  .map (\pair -> pair.1) extracted
+
+export(crate) declared : &Item -> Option<(&'static str, String)>
+declared item = case item of
+  Item::Fn decl -> Some ("fn", .clone decl.name.text)
+  Item::Data decl ->
+    keyword = if decl.is_newtype
+      "newtype"
+    else if decl.is_union
+      "union"
+    else
+      "data"
+    Some (keyword, .clone decl.name.text)
+  Item::Type decl -> Some ("type", .clone decl.name.text)
+  Item::Class decl -> Some ("class", .clone decl.name.text)
+  Item::Errors decl -> Some ("errors", .clone decl.name.text)
+  Item::Const decl -> Some ("const", .clone decl.name.text)
+  Item::Module decl -> Some ("module", .clone decl.name.text)
+  Item::Test decl -> Some ("test", .clone decl.description)
+  Item::PatternSynonym decl -> Some ("pattern", .clone decl.name.text)
+  Item::DeriveTemplate decl -> Some ("deriving template", .clone decl.name.text)
+  Item::OperatorDecl decl -> Some ("infix", .clone decl.spelling.text)
+  Item::Import _ or Item::Instance _ or Item::InlineRust _ or Item::Extern _ -> None
+
+export(crate) definition : &str -> &Uri -> Position -> Option<GotoDefinitionResponse>
+definition source uri at =
+  guard voltaic_parser::parse_source source is Ok program else
+    return None
+  offset = offset_of source at
+  wanted = (word_at source offset)?
+  for item in &program.items
+    if declared item is Some pair && pair.1 == wanted
+      at_item = .span item
+      return Some (GotoDefinitionResponse::Scalar (Location { uri = .clone uri, range = to_range source at_item }))
+  None
+
+export(crate) word_at : &str -> usize -> Option<String>
+word_at source offset =
+  chars : Vec<(usize, char)> = source |> .char_indices |> .collect
+  is_word : fn(char) -> bool = \ch -> .is_ascii_alphanumeric ch || ch == '_'
+  mut index = .len chars
+  for pair in .enumerate (.iter chars)
+    entry = pair.1
+    if entry.0 >= offset
+      index := pair.0
+      break
+  if index >= .len chars || !is_word chars[index].1
+    index := (.checked_sub 1 index)?
+  if index >= .len chars || !is_word chars[index].1
+    return None
+  mut lo = index
+  while lo > 0 && is_word chars[lo - 1].1
+    lo -= 1
+  mut hi = index
+  while hi + 1 < .len chars && is_word chars[hi + 1].1
+    hi += 1
+  if .is_ascii_digit chars[lo].1
+    return None
+  start = chars[lo].0
+  end = chars[hi].0 + .len_utf8 chars[hi].1
+  source
+    |> .get (start .. end)
+    |> .map (\text -> .to_string text)
+
+test "the word boundary matches the lexer"
+  source = "a_b1 + c"
+  assert_eq! \-> word_at source 2 \-> Some (.to_string "a_b1")
+  #[voltaic::allow(unwrap)]
+  toks = .expect "the probe should lex" (voltaic_lexer::lex source)
+  first = &toks[0]
+  assert_eq! \-> first.span \-> (0, 4) \-> "`a_b1` should be one Ident token"
+  assert_eq! \-> word_at source 5 \-> None
+
+test "a cursor just past a word still reads it"
+  assert_eq! \-> word_at "merge a" 5 \-> Some (.to_string "merge")
+
+test "a number is not an identifier"
+  assert_eq! \-> word_at "x = 42" 5 \-> None
+
+test "a path reads its last segment"
+  assert_eq! \-> word_at "BTreeSet::union" 12 \-> Some (.to_string "union")
+
+export(crate) diagnostics : &Uri -> &str -> Vec<Diagnostic>
+diagnostics uri source =
+  path = path_of uri
+  mut found : Vec<Diagnostic> = Vec::new ()
+
+  parsed = case voltaic_parser::parse_source source of
+    Ok program -> Some program
+    Err failure ->
+      for diagnostic in voltaic_driver::diagnose (&path) source (&failure)
+        found |> .push (convert (&diagnostic) source)
+      None
+  for diagnostic in voltaic_driver::lint (&path) source (.as_ref parsed)
+    found |> .push (convert (&diagnostic) source)
+  found
+
+export(crate) convert : &voltaic_diag::Diagnostic -> &str -> Diagnostic
+convert diagnostic source =
+  message = case &diagnostic.help of
+    Some help -> format! \-> "#{diagnostic.message}\nhelp: #{help}"
+    None -> .clone diagnostic.message
+  severity = if .is_fatal diagnostic.severity
+    DiagnosticSeverity::ERROR
+  else
+    DiagnosticSeverity::WARNING
+  Diagnostic { range = range_of source diagnostic.span, severity = Some severity, code = Some (NumberOrString::String (.text diagnostic.code)), code_description = None, source = Some (.to_string "voltaic"), message, related_information = None, tags = None, r#data = None }
+
+export(crate) path_of : &Uri -> std::path::PathBuf
+path_of uri =
+  text = .as_str uri
+  .to_path_buf $ Path::new $ .unwrap_or text $ .strip_prefix "file://" text
+
+export(crate) data Documents = Documents { open : HashMap<Uri, String> }
+  deriving (Debug, Default)
+
+instance Documents
+  export(crate) new : Self
+  new = Documents::default ()
+
+  export(crate) set : Uri -> String -> &mut self -> ()
+  set uri text self =
+    .insert uri text self.open
+    ()
+
+  export(crate) close : &Uri -> &mut self -> ()
+  close uri self =
+    .remove uri self.open
+    ()
+
+  export(crate) text : &Uri -> &self -> Option<&str>
+  text uri self = self.open |> .get uri |> .map String::as_str
+
+export(crate) folding : &str -> Vec<FoldingRange>
+folding source =
+  guard voltaic_lexer::lex source is Ok toks else
+    return Vec::new ()
+  mut found = Vec::new ()
+  mut open : Vec<u32> = Vec::new ()
+  mut last = 0 : u32
+  for tok in &toks
+    line = (position_of source tok.span.0).line
+    case &tok.kind of
+      TokenKind::Indent ->
+        .push last open
+      TokenKind::Dedent ->
+        if .pop open is Some start && last > start
+          .push (FoldingRange { start_line = start, start_character = None, end_line = last, end_character = None, kind = Some FoldingRangeKind::Region, collapsed_text = None }) found
+      TokenKind::Newline or TokenKind::Eof -> ()
+      _ -> last := line
+  found
+
+export(crate) formatting : &str -> Option<Vec<TextEdit>>
+formatting source =
+  program = (.ok (voltaic_parser::parse_source source))?
+  formatted = voltaic_fmt::format (&program) source
+  if formatted == source
+    return Some (Vec::new ())
+  edit = TextEdit { range = Range { start = Position { line = 0, character = 0 }, end = to_position source (.len source) }, new_text = formatted }
+  Some $ vec! \-> edit
+
+export(crate) hover : &str -> Position -> Option<Hover>
+hover source at =
+  guard voltaic_parser::parse_source source is Ok program else
+    return None
+  offset = offset_of source at
+  found = (innermost (&program.items) offset)?
+  heading = found.0
+  name = found.1
+  span = found.2
+  first = source
+    |> .get (span.0 .. .len source)
+    |> .unwrap_or ""
+    |> .lines
+    |> .next
+    |> .unwrap_or ""
+    |> .trim
+  body = if .is_empty first
+    format! \-> "```voltaic\n#{heading} #{name}\n```"
+  else
+    format! \-> "```voltaic\n#{heading} #{name}\n```\n\n```voltaic\n#{first}\n```"
+  Some (Hover { contents = HoverContents::Markup (MarkupContent { kind = MarkupKind::Markdown, value = body }), range = Some (to_range source span) })
+
+export(crate) innermost : &[Item] -> usize -> Option<(&'static str, String, (usize, usize))>
+innermost items offset =
+  mut best : Option<(&'static str, String, (usize, usize))> = None
+  for item in items
+    span = .span item
+    if offset < span.0 || offset > span.1
+      continue
+    if item is Item::Module decl && .as_ref decl.items is Some inner && innermost inner offset is Some deeper
+      return Some deeper
+    if declared item is Some pair
+      best := Some (pair.0, pair.1, span)
+  best
+
+export(crate) offset_of : &str -> Position -> usize
+offset_of source at =
+  wanted_line = at.line : u32
+  mut offset = 0 : usize
+  for pair in .enumerate (.split_inclusive '\n' source)
+    line : u32 = .unwrap_or u32::MAX (.ok (u32::try_from pair.0))
+    text = pair.1
+    if line == wanted_line
+      mut units = 0 : u32
+      mut within = 0 : usize
+      for ch in .chars text
+        if units >= at.character
+          break
+        if ch == '\n'
+          break
+        units += .unwrap_or u32::MAX (.ok (u32::try_from (char::len_utf16 ch)))
+        within += .len_utf8 ch
+      return offset + within
+    offset += .len text
+  .len source
+
+export(crate) position_of : &str -> usize -> Position
+position_of source offset =
+  at = .min (.len source) offset
+  before = source |> .get (0 .. at) |> .unwrap_or ""
+  line = before |> .matches '\n' |> .count
+  line_start = .map_or 0 (+ 1) (.rfind '\n' before)
+  character : usize = source
+    |> .get (line_start .. at)
+    |> .unwrap_or ""
+    |> .chars
+    |> .map char::len_utf16
+    |> .sum
+  Position { line = .unwrap_or u32::MAX (.ok (u32::try_from line)), character = .unwrap_or u32::MAX (.ok (u32::try_from character)) }
+
+export(crate) range_of : &str -> (usize, usize) -> Range
+range_of source span = Range { start = position_of source span.0, end = position_of source span.1 }
+
+export(crate) publish : &Connection -> &Uri -> &Documents -> Result<(), String>
+publish connection uri documents =
+  source = documents |> .text uri |> .unwrap_or_default
+  params = PublishDiagnosticsParams { uri = .clone uri, diagnostics = diagnostics uri source, version = None }
+  encoded = (.map_err (\e -> .to_string e) (serde_json::to_value params))?
+  message = Message::Notification (Notification { method = .to_string PublishDiagnostics::METHOD, params = encoded })
+  .map_err (\e -> .to_string e) (.send message connection.sender)
+
+export(crate) reply : Serialize t => RequestId -> Result<p, ExtractError<Request>> -> (impl FnOnce(p) -> t) -> Response
+reply id params handle = case params of
+  Ok got -> Response { id, response_result = Ok (.unwrap_or serde_json::Value::Null (serde_json::to_value (handle got))) }
+  Err _ -> Response { id, response_result = Ok serde_json::Value::Null }
+
+export(crate) semantic_tokens : &str -> SemanticTokensResult
+semantic_tokens source =
+  tokens = case voltaic_lexer::lex source of
+    Ok lexed -> lexed
+    Err _ ->
+      return SemanticTokensResult::Tokens (SemanticTokens { result_id = None, r#data = Vec::new () })
+
+  mut collected : Vec<SemanticToken> = Vec::new ()
+  mut last_line : u32 = 0
+  mut last_start : u32 = 0
+  for token in &tokens
+    kind = case token_index (&token.kind) of
+      Some index -> index
+      None ->
+        continue
+    start = to_position source token.span.0
+    end = to_position source token.span.1
+    if end.line != start.line
+      continue
+    delta_line = start.line - last_line
+    delta_start = if delta_line == 0
+      start.character - last_start
+    else
+      start.character
+    collected
+      |> .push (SemanticToken { delta_line, delta_start, length = end.character - start.character, token_type = kind, token_modifiers_bitset = 0 })
+    last_line := start.line
+    last_start := start.character
+
+  SemanticTokensResult::Tokens (SemanticTokens { result_id = None, r#data = collected })
+
+export(crate) token_index : &TokenKind -> Option<u32>
+token_index kind = case kind of
+  TokenKind::Kw _ -> Some 0
+  TokenKind::Label _ -> Some 1
+  TokenKind::Ident _ -> Some 3
+  TokenKind::Int _ or TokenKind::Float _ or TokenKind::Byte _ -> Some 4
+  TokenKind::Str { .. } or TokenKind::RawStr { .. } or TokenKind::ByteStr _ or TokenKind::CStr _ or TokenKind::Char _ -> Some 5
+  TokenKind::Newline or TokenKind::Indent or TokenKind::Dedent or TokenKind::Eof -> None
+  _ -> Some 6
+
+export(crate) symbols : &str -> DocumentSymbolResponse
+symbols source =
+  program = case voltaic_parser::parse_source source of
+    Ok parsed -> parsed
+    Err _ ->
+      return DocumentSymbolResponse::Nested (Vec::new ())
+  found : Vec<DocumentSymbol> = program.items
+    |> .iter
+    |> .map (\item -> symbol_of item source)
+    |> .collect
+  DocumentSymbolResponse::Nested found
+
+#[allow(deprecated, reason = "the field is required by the struct literal")]
+export(crate) symbol_of : &Item -> &str -> DocumentSymbol
+symbol_of item source =
+  range = to_range source (.span item)
+  described = case item of
+    Item::Fn decl -> (.clone decl.name.text, SymbolKind::FUNCTION, None)
+    Item::Data decl ->
+      kind = if .len decl.constructors > 1
+        SymbolKind::ENUM
+      else
+        SymbolKind::STRUCT
+      (.clone decl.name.text, kind, None)
+    Item::Type decl -> (.clone decl.name.text, SymbolKind::TYPE_PARAMETER, None)
+    Item::Class decl -> (.clone decl.name.text, SymbolKind::INTERFACE, None)
+    Item::Instance decl ->
+      name = case &decl.r#class of
+        Some implemented -> format! \-> "#{implemented.head.text} #{decl.target.head.text}"
+        None -> .clone decl.target.head.text
+      (name, SymbolKind::OBJECT, None)
+    Item::Errors decl -> (.clone decl.name.text, SymbolKind::ENUM, None)
+    Item::Test decl -> (.clone decl.description, SymbolKind::FUNCTION, None)
+    Item::Import decl -> (.clone decl.path, SymbolKind::NAMESPACE, None)
+    Item::Module decl ->
+      nested : Option<Vec<DocumentSymbol>> = .map (\items -> items
+        |> .iter
+        |> .map (\inner -> symbol_of inner source)
+        |> .collect) (.as_ref decl.items)
+      (.clone decl.name.text, SymbolKind::MODULE, nested)
+    Item::Const decl -> (.clone decl.name.text, SymbolKind::CONSTANT, None)
+    Item::InlineRust _ -> (.to_string "rust", SymbolKind::OBJECT, None)
+    Item::Extern decl ->
+      declared : Vec<DocumentSymbol> = decl.decls
+        |> .iter
+        |> .map (\d -> DocumentSymbol { name = .clone d.name.text, detail = None, kind = SymbolKind::FUNCTION, tags = None, deprecated = None, range = to_range source d.span, selection_range = to_range source d.span, children = None })
+        |> .collect
+      (format! \-> "extern #{decl.abi}", SymbolKind::NAMESPACE, Some declared)
+    Item::PatternSynonym decl -> (.clone decl.name.text, SymbolKind::CONSTANT, None)
+    Item::DeriveTemplate decl -> (.clone decl.name.text, SymbolKind::INTERFACE, None)
+    Item::OperatorDecl decl -> (.clone decl.spelling.text, SymbolKind::OPERATOR, None)
+  name = described.0
+  kind = described.1
+  children = described.2
+  DocumentSymbol { name, detail = None, kind, tags = None, deprecated = None, range, selection_range = range, children }

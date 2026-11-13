@@ -37,7 +37,7 @@ pick a _ = a
 
 main : ()
 main =
-  -- 1. **A Rust path.** `String::from` has no Redox signature, so plan 56 §1.5
+  -- 1. **A Rust path.** `String::from` has no Voltaic signature, so plan 56 §1.5
   -- records it as *"passable, not curryable"* — and §6 of that row flags the
   -- reader who expects otherwise. This is the spelling for them.
   -- Two statements rather than one: the emitter cannot break a method chain

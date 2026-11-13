@@ -6,7 +6,7 @@ macro argument, which is exactly what a nullary lambda is. `\\()` asks for a
 parameter named `()` and earns `RDX0103`.
 
 That edit is now a no-op: `p73b7.py` stopped using a nullary lambda at all,
-because one in argument position makes `redox fmt` grow a parenthesis per pass
+because one in argument position makes `voltaic fmt` grow a parenthesis per pass
 without bound. It stays here, tolerated rather than asserted, so the record of
 the spelling survives in the batch that discovered it.
 
@@ -16,7 +16,7 @@ the text as parsed, and the number it yielded.
 """
 import io
 
-p = '/home/tom/Code/rust/redox/crates/redox-diag/sdx/source/map/parse_map.sdx'
+p = '/home/tom/Code/rust/voltaic/crates/voltaic-diag/sdx/source/map/parse_map.sdx'
 s = io.open(p, encoding='utf-8').read()
 
 OLD = '''  raw = (.ok_or "the map header has no version" (.next parts))?
@@ -25,7 +25,7 @@ OLD = '''  raw = (.ok_or "the map header has no version" (.next parts))?
 '''
 NEW = '''  raw = (.ok_or "the map header has no version" (.next parts))?
   -- Two names where the Rust chained: `.parse::<u32>()` has no turbofish in
-  -- Redox, so the type arrives by ascription on a binding, and rebinding the
+  -- Voltaic, so the type arrives by ascription on a binding, and rebinding the
   -- same name would be `RDX1003` rather than a reassignment.
   parsed_version : Result<u32, _> = .parse raw
   version = (.map_err (\\_ -> .to_string "the map header's version is not a number") parsed_version)?

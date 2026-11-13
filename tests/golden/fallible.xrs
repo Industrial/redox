@@ -44,7 +44,7 @@ fn parse_it(s: &str) -> Result<i32, String> {
 // `catch` takes the `Ok` value when there is one and the fallback when there
 // is not — doc 03 §12.2. A `match`, not `unwrap_or_else`, for §12.1's
 // decisive reason: that method's closure arity differs between `Option` and
-// `Result`, so a method lowering would be type-dependent and Redox has no
+// `Result`, so a method lowering would be type-dependent and Voltaic has no
 // types.
 //
 // No parentheses are needed around `parse_it s`: `catch` is a keyword, so the
@@ -172,7 +172,7 @@ fn main() {
     // 03 §12.7's lint fires on the name alone — it has no types and so cannot
     // know that — and the attribute is how an author says they do. It is
     // consumed rather than emitted, so the generated Rust carries no trace of
-    // it and rustc never sees a `redox` it cannot resolve.
+    // it and rustc never sees a `voltaic` it cannot resolve.
     println!("{}", describe_tag(first_tag(&u).unwrap()));
     println!("{}", nickname_of(&u).unwrap().is_none());
 

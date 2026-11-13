@@ -8,7 +8,7 @@
 -- rustc error, and `pub` where the author wrote nothing would silently widen
 -- a library's surface.
 --
--- `export(in path::to)` is covered by `crates/redox-emit/tests/visibility.rs`
+-- `export(in path::to)` is covered by `crates/voltaic-emit/tests/visibility.rs`
 -- and not here: this file has no modules, so the only path it could name is
 -- `crate` — and rustfmt rewrites `pub(in crate)` to `pub(crate)`, which would
 -- make the example fail the rustfmt-clean assertion for a reason that has

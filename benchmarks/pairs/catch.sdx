@@ -1,7 +1,7 @@
 -- `catch` is `??`'s `Result` counterpart, and doc 03 §12 keeps the two
 -- non-interchangeable on purpose. It lowers to a `match` for §12.1's reason:
 -- `unwrap_or_else`'s closure arity differs between `Option` and `Result`, so a
--- method lowering would be type-dependent and Redox has no types.
+-- method lowering would be type-dependent and Voltaic has no types.
 
 parse_or : &str -> i32
 parse_or raw = (.parse raw : Result<i32, core::num::ParseIntError>) catch 0

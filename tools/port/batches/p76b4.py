@@ -8,13 +8,13 @@ twice, and the second run is the one that counts.
 
 Two source fixes and two allows.
 
-`f64::from` is passed by name rather than wrapped in a lambda, which Redox has
+`f64::from` is passed by name rather than wrapped in a lambda, which Voltaic has
 supported since plan 57's methods-as-functions and clippy asks for.
 
 `while_let_loop` joins `matches!` and `single_match` as **a lint about a Rust
-form Redox cannot write**: `while let Some(at) = rest.find('%')` has no
+form Voltaic cannot write**: `while let Some(at) = rest.find('%')` has no
 spelling, so `alpha_renamed` is a `loop` with a `case` whose `None` arm breaks.
-Three lints now say the same thing — Redox cannot pass a pattern — and this is
+Three lints now say the same thing — Voltaic cannot pass a pattern — and this is
 the first crate to need the third.
 
 And `no_effect` / `unused_unit`, for the sixth crate. Plan 75 §2.4 already
@@ -24,7 +24,7 @@ happened once more.
 import io
 
 # --- the closure ---------------------------------------------------------
-P = '/home/tom/Code/rust/redox/tools/port/batches/p76b3.py'
+P = '/home/tom/Code/rust/voltaic/tools/port/batches/p76b3.py'
 s = io.open(P, encoding='utf-8').read()
 OLD = '(.map (\\\\n -> f64::from n) (.ok (u32::try_from total_bytes)))'
 NEW = '(.map f64::from (.ok (u32::try_from total_bytes)))'
@@ -36,12 +36,12 @@ else:
     print('p76b3: already by name')
 
 # --- the allows ----------------------------------------------------------
-P = '/home/tom/Code/rust/redox/crates/redox-bench/sdx/lib.sdx'
+P = '/home/tom/Code/rust/voltaic/crates/voltaic-bench/sdx/lib.sdx'
 WHY = {
     'while_let_loop': (
-        "-- The third lint about a Rust form Redox cannot write, after\n"
+        "-- The third lint about a Rust form Voltaic cannot write, after\n"
         "-- `match_like_matches_macro` and `single_match`: `while let Some(x) = …`\n"
-        "-- binds a **pattern**, and Redox cannot pass one. `alpha_renamed` is a\n"
+        "-- binds a **pattern**, and Voltaic cannot pass one. `alpha_renamed` is a\n"
         "-- `loop` with a `case` whose `None` arm breaks, which says the same thing\n"
         "-- in the constructs the language has.\n"),
     'no_effect': (

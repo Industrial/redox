@@ -38,8 +38,8 @@
 # `deps: ['^:<task>']` is NOT what makes it safe, and it is worth being precise
 # about that because it looks like it should be. In moon 2.5.0 a task's `deps`
 # decide the ORDER tasks run in, not the hash they are cached under. Measured:
-# appending a line to crates/redox-diag/src/lib.rs — the crate every other
-# crate depends on — and running `moon run :check` re-ran redox-diag alone and
+# appending a line to crates/voltaic-diag/src/lib.rs — the crate every other
+# crate depends on — and running `moon run :check` re-ran voltaic-diag alone and
 # reported the other ten cached. A breaking change there would have been
 # reported green.
 #
@@ -47,7 +47,7 @@
 # in its own moon.yml with the sources of its transitive dependencies, so those
 # files are real inputs to its hash. `deps` is still declared, because the
 # ordering it gives is worth having, and
-# crates/redox-cli/tests/moon_project_graph.rs fails if the list drifts from
+# crates/voltaic-cli/tests/moon_project_graph.rs fails if the list drifts from
 # Cargo.toml.
 #
 # Everything here is cached, builds included: every task is a verdict whose
@@ -98,7 +98,7 @@ tasks:
   # a migration like this one.
   #
   # The lib-target guard is not optional: doctests only exist in a lib, and
-  # `cargo test --doc -p redox-cli` on a binary-only crate exits 101 with
+  # `cargo test --doc -p voltaic-cli` on a binary-only crate exits 101 with
   # `no library targets found in package`. Guarding on the file rather than
   # swallowing the error with `|| true` keeps a real doctest failure fatal.
   test:

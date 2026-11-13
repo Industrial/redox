@@ -9,7 +9,7 @@ declared and called as `r#of`.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('lint/comment_pragma', '''
@@ -27,21 +27,21 @@ trivium : TriviaKind -> &str -> Trivia
 trivium kind text = Trivia { kind, text = .to_string text, span = (0, 0) }
 
 test "the pragma suppresses"
-  assert_eq! \\-> comment_pragma (&trivium TriviaKind::LineComment "redox: allow unwrap") \\-> Some Lint::Unwrap
+  assert_eq! \\-> comment_pragma (&trivium TriviaKind::LineComment "voltaic: allow unwrap") \\-> Some Lint::Unwrap
 
 -- | The second lint reaches the deprecated spelling too, because an author
 -- | who learned the comment form has no reason to know it is per-lint.
 test "each lint is suppressed by its own name"
-  assert_eq! \\-> comment_pragma (&trivium TriviaKind::LineComment "redox: allow shadow") \\-> Some Lint::Shadow
+  assert_eq! \\-> comment_pragma (&trivium TriviaKind::LineComment "voltaic: allow shadow") \\-> Some Lint::Shadow
 
--- | The `redox:` namespace, which is why the pragma is not a sentence.
+-- | The `voltaic:` namespace, which is why the pragma is not a sentence.
 test "an unrelated comment does not suppress"
   assert_eq! \\-> comment_pragma (&trivium TriviaKind::LineComment "allow unwrap here, it cannot fail") \\-> None
 
 -- | A doc comment describes the item for a reader of the generated Rust;
 -- | giving it a second job would let prose about `unwrap` silence a warning.
 test "a doc comment does not suppress"
-  assert_eq! \\-> comment_pragma (&trivium TriviaKind::DocComment "redox: allow unwrap") \\-> None
+  assert_eq! \\-> comment_pragma (&trivium TriviaKind::DocComment "voltaic: allow unwrap") \\-> None
 ''')
 
 write('cache/fingerprint', '''
@@ -59,7 +59,7 @@ instance Fingerprint
   -- | **panics** on `wasm32-wasip1` — *"no pids on this platform"*, from
   -- | `std`'s `process::unsupported`. Both halves fail on that target:
   -- | `current_exe` is unsupported too, so the fallback is always taken, and
-  -- | then it aborts. Plan 72 leaf 2 found it by running `redox-seed` under
+  -- | then it aborts. Plan 72 leaf 2 found it by running `voltaic-seed` under
   -- | `wasmtime`, 47 files into a 53-file tree.
   -- |
   -- | The wall clock exists wherever `std` does — WASI has `clock_time_get` —
@@ -113,18 +113,18 @@ diagnose path source failure =
   shown = .to_string (.display path)
   case failure of
     ParseFailure::Lex e ->
-      vec! \\-> (Diagnostic { code = .into e.code, severity = redox_diag::Severity::Error, message = .clone e.message, span = e.span, help = .clone e.help, path = shown, source = .to_string source })
+      vec! \\-> (Diagnostic { code = .into e.code, severity = voltaic_diag::Severity::Error, message = .clone e.message, span = e.span, help = .clone e.help, path = shown, source = .to_string source })
     -- `problems`, where the Rust bound `errors`: `errors` is doc 03 §14's
     -- declaration keyword.
     ParseFailure::Parse problems ->
       problems
         |> .iter
-        |> .map (\\e -> Diagnostic { code = .into e.code, severity = redox_diag::Severity::Error, message = .clone e.message, span = e.span, help = .clone e.help, path = .clone shown, source = .to_string source })
+        |> .map (\\e -> Diagnostic { code = .into e.code, severity = voltaic_diag::Severity::Error, message = .clone e.message, span = e.span, help = .clone e.help, path = .clone shown, source = .to_string source })
         |> .collect
 
 test "carries a lex errors code and help across"
   source = "main : ()\\nmain =\\n\\tprint 1\\n"
-  failure = .expect_err "a tab is an error" (redox_parser::parse_source source)
+  failure = .expect_err "a tab is an error" (voltaic_parser::parse_source source)
   diagnostics = diagnose (Path::new "a.sdx") source (&failure)
   assert_eq! \\-> .len diagnostics \\-> 1
   assert_eq! \\-> .text diagnostics[0].code \\-> "RDX0001"
@@ -146,7 +146,7 @@ test "reports every recovered parse error"
   -- section**, which parses. A statement that begins with a binary
   -- operator has nowhere left to go, and ends at its own line break.
   source = "a : ()\\na =\\n  + 1\\n\\nb : ()\\nb =\\n  * \\n"
-  failure = .expect_err "should fail" (redox_parser::parse_source source)
+  failure = .expect_err "should fail" (voltaic_parser::parse_source source)
   diagnostics = diagnose (Path::new "a.sdx") source (&failure)
   count = .len diagnostics
   assert! \\-> count >= 2 \\-> "expected a diagnostic per error, got #{count}"

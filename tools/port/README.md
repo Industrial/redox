@@ -1,4 +1,4 @@
-# `tools/port` — the Rust-to-Redox porting aid
+# `tools/port` — the Rust-to-Voltaic porting aid
 
 **A one-time aid per crate, not part of the compiler.** Row 72 set up the
 self-hosting bootstrap and gave it ten successor rows, one crate each; this is
@@ -14,7 +14,7 @@ promises has to exist in the repository.
 | `batches/` | The hand-written bodies, per crate, in the order `port.sh` applies them. |
 
 ```bash
-CRATE=redox-cli PIN=<sha> BATCHES="p79b1 p79b2" bash tools/port/port.sh
+CRATE=voltaic-cli PIN=<sha> BATCHES="p79b1 p79b2" bash tools/port/port.sh
 ```
 
 `port.sh`'s own header carries the five rules the rows have had to learn, each
@@ -31,5 +31,5 @@ untracks. So a batch set reproduces its crate only from the pinned commit named
 in `port.sh`, and once a crate is ported its batches are history rather than a
 build step. What *is* reproducible from a clean clone is the thing that
 matters: `./bootstrap.sh` regenerates every ported crate's `src/` from its
-committed `.sdx` using `seed/redox1.wasm`, and `crates/redox-cli/tests/port.rs`
+committed `.sdx` using `seed/voltaic1.wasm`, and `crates/voltaic-cli/tests/port.rs`
 checks that the `.sdx` and the generated Rust still agree.

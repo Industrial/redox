@@ -25,15 +25,15 @@ push gate* (`devenv.nix`'s `prePushTargets`) while this file claimed it was in
 no gate. Every push was therefore blocked by it.
 
 **396 of the 514 were documented rather than discarded**, one line per
-construct in the style `redox-diag` set at plan 56: `redox-lexer`,
-`redox-driver`, `redox-emit`, `redox-lsp`, `redox-mcp`, `redox-bench` and
-`redox-fuzz` in Rust, and `redox-ast` and `redox-fmt` **in their `.sdx`**, then
+construct in the style `voltaic-diag` set at plan 56: `voltaic-lexer`,
+`voltaic-driver`, `voltaic-emit`, `voltaic-lsp`, `voltaic-mcp`, `voltaic-bench` and
+`voltaic-fuzz` in Rust, and `voltaic-ast` and `voltaic-fmt` **in their `.sdx`**, then
 regenerated. Those doc comments stay.
 
 What retired the lint is the **118 that could not be written**: all of them are
-module declarations in `crates/redox-parser/src/parse/parser.rs`, which is
+module declarations in `crates/voltaic-parser/src/parse/parser.rs`, which is
 1,478 lines, and one `///` line each takes it to ~1,596 — past the 1,500-line
-cap `crates/redox-cli/tests/line_cap.rs` enforces from doc 02 §5.4. Two
+cap `crates/voltaic-cli/tests/line_cap.rs` enforces from doc 02 §5.4. Two
 load-bearing rules in this file could not both hold for that one file, and a
 lint nothing can satisfy is worse than no lint. `:docs` still builds the
 documentation; `moon run :lint` is still `-D warnings`.
@@ -77,10 +77,10 @@ blaze keeps its advantage exactly where it is still used: a warm inner loop driv
 
 `deps: ['^:check']` is **not** what makes the caching correct. In moon 2.5.0 a task's `deps`
 set the order tasks run in, not the hash they are cached under: editing
-`crates/redox-diag/src/lib.rs` — which every other crate depends on — re-ran redox-diag
+`crates/voltaic-diag/src/lib.rs` — which every other crate depends on — re-ran voltaic-diag
 alone and reported the other ten cached. What closes that hole is the `dependency_sources`
 file group, which each crate's `moon.yml` overrides with its **transitive** dependencies so
-those files are real inputs to its hash. `crates/redox-cli/tests/moon_project_graph.rs`
+those files are real inputs to its hash. `crates/voltaic-cli/tests/moon_project_graph.rs`
 fails if that list drifts from `Cargo.toml`.
 
 `dependsOn` is deliberately absent from every crate's `moon.yml`: moon's rust toolchain reads
@@ -109,7 +109,7 @@ magnitude faster than cargo on an incremental edit.
 ```bash
 blaze check          # the fast inner-loop verdict while editing
 blaze test           # unit, integration and doctests in one command
-blaze run -p redox-cli -- build examples/hello.sdx
+blaze run -p voltaic-cli -- build examples/hello.sdx
 ```
 
 **Moon does not invoke it, and neither does CI.** That split is deliberate and
@@ -139,7 +139,7 @@ Two things to know before reaching for it:
   command list says so, and this bullet used to contradict it.
 
   Corrected 2026-11-10, after `moon run :cargo-test` reported **success having
-  run nothing**: `crates/redox-cli/moon.yml` still carried an inputs-only
+  run nothing**: `crates/voltaic-cli/moon.yml` still carried an inputs-only
   `cargo-test` override of a task that no longer existed, which moon resolves
   to `Command: noop`. A target that passes without running is worse than a
   target that is missing — `moon run :cargo-check` at least said *"No tasks
@@ -156,32 +156,32 @@ release itself and run it instead of the Nix-pinned one.
 
 ## Layout
 
-Redox is a source-to-source compiler: `.sdx` in, `.xrs` containing ordinary Rust out. The
-workspace splits along pipeline stages (`docs/02 - Redox Update Blueprint.md` §5.4).
+Voltaic is a source-to-source compiler: `.sdx` in, `.xrs` containing ordinary Rust out. The
+workspace splits along pipeline stages (`docs/02 - Voltaic Update Blueprint.md` §5.4).
 
-- `crates/redox-lexer/` — off-side-rule lexer; emits spans, trivia and whitespace adjacency
-- `crates/redox-ast/` — syntax tree types, no logic
-- `crates/redox-parser/` — hand-written recursive descent (see `docs/COMPILER.md` §1)
-- `crates/redox-emit/` — Rust source emitter
-- `crates/redox-cli/` — the `redox` binary, plus the end-to-end and golden test harnesses
-- `crates/redox-diag/`, `redox-driver/`, `redox-fmt/` — diagnostics, the incremental
+- `crates/voltaic-lexer/` — off-side-rule lexer; emits spans, trivia and whitespace adjacency
+- `crates/voltaic-ast/` — syntax tree types, no logic
+- `crates/voltaic-parser/` — hand-written recursive descent (see `docs/COMPILER.md` §1)
+- `crates/voltaic-emit/` — Rust source emitter
+- `crates/voltaic-cli/` — the `voltaic` binary, plus the end-to-end and golden test harnesses
+- `crates/voltaic-diag/`, `voltaic-driver/`, `voltaic-fmt/` — diagnostics, the incremental
   driver and the canonical formatter, filled by plans 05, 10 and 34. This bullet said
   *"declared empty"* until plan 70; all three have shipped
-- **Every crate under `crates/` is written in Redox.** All thirteen, as of plan 83: the
+- **Every crate under `crates/` is written in Voltaic.** All thirteen, as of plan 83: the
   `.sdx` under a crate's `sdx/` is the source, and the `.rs` under its `src/` is generated
   from it, **`.gitignore`d, and not in the index**. `seed/PORTED` is the single list of
   which crate was ported by which plan, and four things read it — `port.rs`,
   `conformance.rs`, `bootstrap.rs` and `bootstrap.sh`.
 
   Edit the `.sdx`, never the `.rs`. Regenerate with
-  `REDOX_UPDATE=1 cargo test -p redox-cli --test port`, which compiles the generated tree
+  `VOLTAIC_UPDATE=1 cargo test -p voltaic-cli --test port`, which compiles the generated tree
   before writing it and refuses a generation that does not compile — so a bad port leaves
   `src/` untouched rather than broken.
 
   **A clean clone has no `src/` at all, and `./bootstrap.sh` is what fixes that.** It runs
-  `seed/redox1.wasm` under `wasmtime` over every crate in `seed/PORTED`, then rustfmt, and
+  `seed/voltaic1.wasm` under `wasmtime` over every crate in `seed/PORTED`, then rustfmt, and
   `cargo build` works afterwards. `seed/SEED.md` is the blob's provenance;
-  `moon run :seed-refresh` rebuilds it and `REDOX_UPDATE=1 cargo test -p redox-seed --test
+  `moon run :seed-refresh` rebuilds it and `VOLTAIC_UPDATE=1 cargo test -p voltaic-seed --test
   blob` records the new hash. Order is **build → update → seed-refresh**.
 
   **This bullet used to say the opposite, and the correction is worth keeping.** Until
@@ -202,7 +202,7 @@ workspace splits along pipeline stages (`docs/02 - Redox Update Blueprint.md` §
 
 Within a crate, `src/` is a shallow module tree and every file holds one cohesive group —
 see the first bullet under *Conventions that are load-bearing* and
-`docs/06 - Redox Code Architecture.md`.
+`docs/06 - Voltaic Code Architecture.md`.
 
 ### Conventions that are load-bearing, not stylistic
 
@@ -216,7 +216,7 @@ see the first bullet under *Conventions that are load-bearing* and
   itself: the comment was the unit of value and the file was its envelope. Plan 91 removed
   the comments, and a 15-line file with no comment in it is an import list and a
   function — 271 of the 572 files were that. The rule cost 2,358 lines, 18% of all code,
-  in `import` and `module` declarations. `crates/redox-cli/tests/one_construct_per_file.rs`
+  in `import` and `module` declarations. `crates/voltaic-cli/tests/one_construct_per_file.rs`
   is deleted; the cap below is what bounds a file now.
 
   Two hard constraints bound how far a merge can go, both found by doing it:
@@ -226,7 +226,7 @@ see the first bullet under *Conventions that are load-bearing* and
     `TokenKind::Or` and `Keyword::Or` in one module are E0659, and a pattern match on the
     bare name then binds instead of matching (E0170).
   - **The 1,500-line cap is on the *generated* `.rs`**, which runs about 1.6 lines per
-    line of `.sdx` code. `redox-parser` therefore needs 13 files, not the 8 estimated.
+    line of `.sdx` code. `voltaic-parser` therefore needs 13 files, not the 8 estimated.
 - **`src/` is a module tree, not a flat directory.** Every file directly under `src/` must
   be the module root, a **module head** (a construct with a sibling `<name>/` holding its
   children), or a **grouping module** (child declarations and a doc comment, no construct).
@@ -236,9 +236,9 @@ see the first bullet under *Conventions that are load-bearing* and
 - **Naming is path-aware.** A construct's `snake_case` name equals the file stem, or the
   parent directory joined to the stem by `_`. So `token/kind.rs` holds `TokenKind` —
   `token/token_kind.rs` stutters and is rejected.
-- The latter two are **machine-checked** by `crates/redox-cli/tests/directory_structure.rs`,
-  and `crates/redox-cli/tests/no_comments.rs` and `line_cap.rs` carry the rest. Full rules
-  and rationale: `docs/06 - Redox Code Architecture.md`.
+- The latter two are **machine-checked** by `crates/voltaic-cli/tests/directory_structure.rs`,
+  and `crates/voltaic-cli/tests/no_comments.rs` and `line_cap.rs` carry the rest. Full rules
+  and rationale: `docs/06 - Voltaic Code Architecture.md`.
 - **Public-API tests are integration tests** under `crates/<crate>/tests/`, not
   `#[cfg(test)]` modules. An inline test can reach private internals and eventually will.
   Inline tests are for private constructs only.
@@ -257,7 +257,7 @@ see the first bullet under *Conventions that are load-bearing* and
   lived as string literals inside test modules; that cost is paid once per syntax change,
   forever.
 - **No comments in the compiler's own `.sdx`.** Zero, enforced over every ported crate by
-  `crates/redox-cli/tests/no_comments.rs`. Reasoning belongs in `docs/` and in commit
+  `crates/voltaic-cli/tests/no_comments.rs`. Reasoning belongs in `docs/` and in commit
   messages, which is where it can be dated and corrected; a comment beside code is a
   claim with no gate on it. This is about the compiler's *source* and not about what the
   compiler *does* — see the next bullet, which is the opposite rule for user code.
@@ -268,31 +268,31 @@ see the first bullet under *Conventions that are load-bearing* and
   too large and it settled for a workaround.
 - **Generated identifiers use the `__rdx_` prefix**, and user identifiers may not.
 - **A surface row the seed cannot parse must refresh the seed in the same commit.**
-  `crates/redox-ast` and `crates/redox-fmt` have no tracked Rust: their `src/` is
-  generated by `seed/redox1.wasm` and `.gitignore`d, so **their `.sdx` can only use syntax
+  `crates/voltaic-ast` and `crates/voltaic-fmt` have no tracked Rust: their `src/` is
+  generated by `seed/voltaic1.wasm` and `.gitignore`d, so **their `.sdx` can only use syntax
   that blob understands.** Change the surface in a way the seed cannot read and the
   repository stops bootstrapping — on a clean clone, not here, because the files stay on
   disk locally.
 
   The fix is `moon run :seed-refresh` and
-  `REDOX_UPDATE=1 cargo test -p redox-seed --test blob`, in the same commit as the surface
+  `VOLTAIC_UPDATE=1 cargo test -p voltaic-seed --test blob`, in the same commit as the surface
   change. rustc answers the same problem with `cfg(bootstrap)` double implementations and
   Go with a version chain bumped about once a year; both are expensive because their seeds
   are *releases*. This one is a build artifact, so the answer is two commands — and that is
-  only cheap while the seed is unreleased, which is also the window in which Redox's
+  only cheap while the seed is unreleased, which is also the window in which Voltaic's
   surface still moves. `seed/SEED.md` and plan 72 leaf 6 are the full statement.
-- **Every check rustc can make, rustc makes.** Redox has no type checker, no borrow checker
+- **Every check rustc can make, rustc makes.** Voltaic has no type checker, no borrow checker
   and no exhaustiveness checker, and must never grow one.
-- **No plan implements a library function.** Redox has crates.io. Emerald spent 112 of its
+- **No plan implements a library function.** Voltaic has crates.io. Emerald spent 112 of its
   203 plans building a standard library; that is the cost this rule avoids.
 - **No single `.rs` file over 1,500 lines**, enforced by
-  `crates/redox-cli/tests/line_cap.rs`.
+  `crates/voltaic-cli/tests/line_cap.rs`.
 
 ### Working on the compiler
 
 ```bash
-cargo run -p redox-cli -- build examples/hello.sdx   # transpile to examples/hello.xrs
-cargo run -p redox-cli -- check examples/hello.sdx   # run rustc, report against the .sdx
+cargo run -p voltaic-cli -- build examples/hello.sdx   # transpile to examples/hello.xrs
+cargo run -p voltaic-cli -- check examples/hello.sdx   # run rustc, report against the .sdx
 ```
 
 **Three updatable corpora**, each asserting a different thing about a program. There is no
@@ -300,9 +300,9 @@ cargo run -p redox-cli -- check examples/hello.sdx   # run rustc, report against
 found this command had been wrong since it was written:
 
 ```bash
-REDOX_UPDATE=1 cargo test -p redox-cli --test examples  # tests/golden/*.xrs — the text
-REDOX_UPDATE=1 cargo test -p redox-cli --test ui        # tests/ui/*.stderr — the diagnostic
-REDOX_UPDATE=1 cargo test -p redox-cli --test run       # *.stdout — what it prints
+VOLTAIC_UPDATE=1 cargo test -p voltaic-cli --test examples  # tests/golden/*.xrs — the text
+VOLTAIC_UPDATE=1 cargo test -p voltaic-cli --test ui        # tests/ui/*.stderr — the diagnostic
+VOLTAIC_UPDATE=1 cargo test -p voltaic-cli --test run       # *.stdout — what it prints
 ```
 
 An update rewrites the expectations and then fails the run, so a changed expectation is always
@@ -331,9 +331,9 @@ result, which is why they are written down rather than rediscovered.
   - trusting `RUSTC` **at build time** finds blaze's own shim under `blaze build`, which
     refuses general work with *"`BLAZE_SCRIPT_RUSTC` does not name blaze's rustc"*.
 
-  `crates/redox-cli/build.rs` therefore does not trust a candidate, it **runs
+  `crates/voltaic-cli/build.rs` therefore does not trust a candidate, it **runs
   `--version` and checks the banner**, taking the first that answers like real rustc, and
-  bakes that path in as `REDOX_RUSTC`. Any future test invoking a toolchain binary should
+  bakes that path in as `VOLTAIC_RUSTC`. Any future test invoking a toolchain binary should
   verify rather than assume — a path that exists is not a path that works.
 
 - **A stale blaze daemon or cache produces link errors that look like code defects.** Seen
@@ -360,7 +360,7 @@ result, which is why they are written down rather than rediscovered.
   blaze's output:
 
   ```
-  error: could not build `redox_ast`, `redox`, … `recovery`: the daemon's worker ended
+  error: could not build `voltaic_ast`, `voltaic`, … `recovery`: the daemon's worker ended
   (exit status: 1: Error: backend: writing the object: No space left on device (os error 28))
   ```
 
@@ -390,13 +390,13 @@ result, which is why they are written down rather than rediscovered.
   on a tmpfs a third the size, and because tmpfs is RAM every object written there also
   counted against the memory that was OOM-killing blaze-engine.
 
-  `devenv.nix` now exports `TMPDIR="$HOME/.cache/redox/tmp"`, on the 630 GB `/home`. Two
+  `devenv.nix` now exports `TMPDIR="$HOME/.cache/voltaic/tmp"`, on the 630 GB `/home`. Two
   things about that line are load-bearing:
 
   - it is in `enterShell`, **not** in `env`, because devenv clears `TMPDIR` after applying
     `env` and setting it there leaves it empty;
   - it must stay **outside the repository**. Pointing it at `$DEVENV_STATE/tmp` put it back
-    inside the tree, `crates/redox-cli/tests/support.rs` then formatted its generated Rust
+    inside the tree, `crates/voltaic-cli/tests/support.rs` then formatted its generated Rust
     somewhere that inherits this repo's `rustfmt.toml` (`tab_spaces = 2`) rather than
     rustfmt's default four, and `generated_rust_is_rustfmt_clean` failed on every example —
     the same false finding plan 04's probe recorded.
@@ -419,15 +419,15 @@ result, which is why they are written down rather than rediscovered.
   ```
 
 - **`cargo::rustc-env` from a build script is a *compile-time* value — `env!`, not
-  `std::env::var`.** `redox-bench`'s `rustc_path()` read its baked `REDOX_RUSTC` with
+  `std::env::var`.** `voltaic-bench`'s `rustc_path()` read its baked `VOLTAIC_RUSTC` with
   `std::env::var`, which always missed, leaving `PATH`'s `stub-ld` as the only candidate. All
-  four of its tests failed under `blaze test -p redox-bench` with *"no rustc answered
+  four of its tests failed under `blaze test -p voltaic-bench` with *"no rustc answered
   `--version` like rustc"* while passing under `cargo nextest`, where `PATH` happens to hold
   a real rustc and hid the mistake for as long as nobody ran the blaze path.
 
 - **A single `watch` test failing at exactly 20 seconds is the load-dependent flake, not your
-  change.** `crates/redox-cli/tests/watch.rs` polls the generated `.xrs` for expected content
-  with a 20-second `CEILING`, and under the **full** `redox-cli` suite one of its six tests
+  change.** `crates/voltaic-cli/tests/watch.rs` polls the generated `.xrs` for expected content
+  with a 20-second `CEILING`, and under the **full** `voltaic-cli` suite one of its six tests
   intermittently exhausts it. Measured 2026-11-10 while doing plan 50 leaf 1:
 
   - the failing test **passes alone in ~0.1 s**, and fails only in the full run;
@@ -457,7 +457,7 @@ result, which is why they are written down rather than rediscovered.
   gained a confidently wrong claim this way, and both were committed before being caught:
 
   - *A test asserted to be missing.* `operator_table.rs`'s doc comment states
-    *"longest match first"*, and a search of that file plus `crates/redox-lexer/tests/`
+    *"longest match first"*, and a search of that file plus `crates/voltaic-lexer/tests/`
     found nothing enforcing it — so a criterion was amended to say the check had to be
     built. It exists: `longer_operators_are_tried_before_their_prefixes`, an inline
     `#[test]` in `scan_operator.rs`. It **has** to be inline, because `OPERATOR_TABLE` is
@@ -503,11 +503,11 @@ result, which is why they are written down rather than rediscovered.
   So for anything involving precedence, conflicts, or a flat `repeat1` — which is most of
   `grammar.js` — **run the input.** `tree-sitter parse` on a two-line file costs a second
   and is the only thing that answers. And prefer a case in
-  `tree-sitter-redox/test/corpus/`, which `tree_sitter.rs` runs, over leaning on the
+  `tree-sitter-voltaic/test/corpus/`, which `tree_sitter.rs` runs, over leaning on the
   examples sweep: the sweep cannot see a construct the grammar never knew it was missing.
 
 - **`moon run :seed-refresh` replays a cached size, so the number it prints can be a
-  previous run's.** The task ends in `echo "... is $(stat -c %s seed/redox1.wasm) bytes"`,
+  previous run's.** The task ends in `echo "... is $(stat -c %s seed/voltaic1.wasm) bytes"`,
   which is correct when it runs — but moon caches the task's stdout, so a cache hit prints
   the *old* size while the blob on disk is the new one. Measured 2026-11-12: it reported
   `1035089 bytes` with 1,005,152 bytes on disk.
@@ -552,7 +552,7 @@ result, which is why they are written down rather than rediscovered.
   of `Parser`'s members, not the whole `impl`. Plan 91 wave 4.
 
 - **Gates keyed by file path go stale when files move, and two of them are easy to miss.**
-  `HATCH_ALLOWED` in `crates/redox-cli/tests/port.rs` names the `.sdx` files permitted
+  `HATCH_ALLOWED` in `crates/voltaic-cli/tests/port.rs` names the `.sdx` files permitted
   inline Rust, and `docs/GRAMMAR.md`'s rows cite `.sdx` paths that
   `grammar_inventory.rs` checks exist. A merge or rename invalidates both. Plan documents
   cite paths too and **nothing gates those** — five had gone stale by wave 10. When you

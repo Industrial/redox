@@ -1,6 +1,6 @@
 # Plan 01 — Vertical Slice
 
-Plan: 01 of 48 (`docs/04 - Redox Plan of Plans.md`, Milestone 1)
+Plan: 01 of 48 (`docs/04 - Voltaic Plan of Plans.md`, Milestone 1)
 Slug: `vertical-slice-hello`
 Status: **`done`** — shipped 2026-11-08; see §10 for the evidence per criterion
 Depends on: nothing
@@ -10,7 +10,7 @@ Discloses: plans 02, 03, 05, 06, 07, 09, 19
 
 ## 1. What this plan is
 
-`docs/01 - Redox.md` §31 Phase 1 lists ten things to implement and gives this acceptance
+`docs/01 - Voltaic.md` §31 Phase 1 lists ten things to implement and gives this acceptance
 test:
 
 ```
@@ -46,7 +46,7 @@ on every token**. §9 gives the evidence.
 
 ## 2. Verified precondition: rustc accepts `.xrs` directly
 
-`docs/01 - Redox.md` §1.1 raises this as an open question:
+`docs/01 - Voltaic.md` §1.1 raises this as an open question:
 
 > The compiler must account for Rust compiler input-file extension handling. If necessary,
 > it should use standard `.rs` staging files or compiler input through stdin rather than
@@ -81,15 +81,15 @@ weakens that recommendation — it only removes a worry from *this* plan's harne
 (doc 02 §8.3):
 
 ```
-# The smallest Redox program.
+# The smallest Voltaic program.
 main = ->
   print "hello"
 ```
 
-**`redox build examples/hello.sdx`** produces **`examples/hello.xrs`**:
+**`voltaic build examples/hello.sdx`** produces **`examples/hello.xrs`**:
 
 ```rust
-// The smallest Redox program.
+// The smallest Voltaic program.
 fn main() {
     println!("hello");
 }
@@ -119,20 +119,20 @@ Create doc 02 §5.4's eight-crate workspace, replacing the existing `crates/app`
 
 ```
 crates/
-  redox-lexer/    code in this plan
-  redox-ast/      code in this plan
-  redox-parser/   code in this plan
-  redox-emit/     code in this plan
-  redox-cli/      code in this plan
-  redox-diag/     empty; module doc names plan 05
-  redox-driver/   empty; module doc names plan 10
-  redox-fmt/      empty; module doc names plan 34
+  voltaic-lexer/    code in this plan
+  voltaic-ast/      code in this plan
+  voltaic-parser/   code in this plan
+  voltaic-emit/     code in this plan
+  voltaic-cli/      code in this plan
+  voltaic-diag/     empty; module doc names plan 05
+  voltaic-driver/   empty; module doc names plan 10
+  voltaic-fmt/      empty; module doc names plan 34
 ```
 
 - Use `[workspace.package]` inheritance for version, edition, license and repository, as
   `/data/Code/emerald/Cargo.toml` does, so per-crate manifests stay three lines.
-- The shipped binary is `redox`; the crate stays `redox-cli` (`[[bin]] name = "redox"`),
-  matching Emerald's convention so `cargo build -p redox-cli` keeps working.
+- The shipped binary is `voltaic`; the crate stays `voltaic-cli` (`[[bin]] name = "voltaic"`),
+  matching Emerald's convention so `cargo build -p voltaic-cli` keeps working.
 - Empty crates carry a `//!` module doc naming the plan that fills them. They are
   self-documenting and cost five three-line manifests.
 - **Add the CI line-cap check** doc 02 §5.4 calls for: no single `.rs` file over ~1,500
@@ -143,7 +143,7 @@ crates/
 
 ### Leaf 2 — `leaf-lexer-minimal-offside`
 
-`redox-lexer`, hand-written. Token set for this slice only:
+`voltaic-lexer`, hand-written. Token set for this slice only:
 
 | Token | Text |
 |---|---|
@@ -188,7 +188,7 @@ grammar and plan 27's `(-1)`-versus-`(- 1)` rule both depend on (doc 03 §5.1, �
 
 ### Leaf 3 — `leaf-ast-with-spans-and-trivia`
 
-`redox-ast`: types only, no logic.
+`voltaic-ast`: types only, no logic.
 
 ```rust
 pub type Span = (usize, usize);
@@ -256,9 +256,9 @@ applied knowingly rather than inherited by accident.
 
 ### Leaf 5 — `leaf-emitter-and-xrs`
 
-`redox-emit`: `Program` → Rust source text, written to `.xrs`.
+`voltaic-emit`: `Program` → Rust source text, written to `.xrs`.
 
-| Redox | Rust |
+| Voltaic | Rust |
 |---|---|
 | `main = ->` + block | `fn main() { … }` |
 | `print <StrLit>` | `println!(<StrLit>);` |
@@ -278,12 +278,12 @@ applied knowingly rather than inherited by accident.
 
 ### Leaf 6 — `leaf-cli-build`
 
-`redox-cli`, with exactly one working subcommand:
+`voltaic-cli`, with exactly one working subcommand:
 
 ```
-redox build <file.sdx> [-o <out.xrs>]
-redox --version
-redox --help
+voltaic build <file.sdx> [-o <out.xrs>]
+voltaic --version
+voltaic --help
 ```
 
 Default output mapping `main.sdx` → `main.xrs` (doc 01 §3.4). **No `check`, no `watch`, no
@@ -294,10 +294,10 @@ rendering is plan 05.
 ### Leaf 7 — `leaf-test-harness`
 
 Adapt `/data/Code/emerald/crates/emerald-cli/tests/hello_em.rs` into
-`crates/redox-cli/tests/hello.rs`:
+`crates/voltaic-cli/tests/hello.rs`:
 
 1. locate the fixture via `CARGO_MANIFEST_DIR`;
-2. invoke the genuinely-built binary via `env!("CARGO_BIN_EXE_redox")`;
+2. invoke the genuinely-built binary via `env!("CARGO_BIN_EXE_voltaic")`;
 3. **then the step Emerald has no need for** — invoke real `rustc --edition 2024` on the
    generated `.xrs` (§2 proves this works), assert zero stderr;
 4. run the resulting binary, assert exit zero and exact stdout;
@@ -326,7 +326,7 @@ plan.
 - Update `AGENTS.md`'s build/test section for the new workspace layout.
 - Run the full gate (§7).
 - **Independently re-verify beyond any single agent's self-report**: run
-  `redox build examples/hello.sdx`, compile the output with rustc by hand, execute it, and
+  `voltaic build examples/hello.sdx`, compile the output with rustc by hand, execute it, and
   confirm the stdout. Emerald's plans 71, 73 and 74 each record an independent re-check
   beyond the implementing agent's report, and its `AGENTS.md` documents two environment
   traps that each produced a **false compiler-bug report** before the cause was found.
@@ -337,13 +337,13 @@ plan.
 
 | # | Criterion |
 |---|---|
-| 1 | `redox build examples/hello.sdx` exits zero and writes `examples/hello.xrs` |
+| 1 | `voltaic build examples/hello.sdx` exits zero and writes `examples/hello.xrs` |
 | 2 | Generated text matches `tests/golden/hello.xrs` byte for byte |
 | 3 | `rustc --edition 2024` compiles the generated file with **zero stderr output** |
 | 4 | The resulting binary exits zero and prints exactly `hello\n` |
 | 5 | The comment in `hello.sdx` appears in the generated Rust as `//` |
 | 6 | Every AST node carries a byte span, verified by a unit test asserting a known node's span against hand-computed offsets |
-| 7 | Two consecutive `redox build` runs over the same input produce byte-identical output |
+| 7 | Two consecutive `voltaic build` runs over the same input produce byte-identical output |
 | 8 | A tab in leading whitespace is rejected with a diagnostic naming the line |
 | 9 | An inconsistent dedent is rejected with a diagnostic naming the line |
 | 10 | `docs/COMPILER.md` records the bake-off with axes, decision, rationale, evidence paths and revisit trigger |
@@ -393,9 +393,9 @@ claiming otherwise would be overstating it.
 
 | From | To | What |
 |---|---|---|
-| `crates/emerald-cli/tests/hello_em.rs` | `crates/redox-cli/tests/hello.rs` | The harness shape: `CARGO_MANIFEST_DIR` to locate the fixture, `env!("CARGO_BIN_EXE_…")` to invoke the genuinely-built binary, assert exact stdout, clean up. Redox inserts a rustc step Emerald has no need for. |
+| `crates/emerald-cli/tests/hello_em.rs` | `crates/voltaic-cli/tests/hello.rs` | The harness shape: `CARGO_MANIFEST_DIR` to locate the fixture, `env!("CARGO_BIN_EXE_…")` to invoke the genuinely-built binary, assert exact stdout, clean up. Voltaic inserts a rustc step Emerald has no need for. |
 | `Cargo.toml` | `Cargo.toml` | `[workspace.package]` inheritance of version, edition, license, repository. |
-| `crates/emerald-cli/Cargo.toml` | `crates/redox-cli/Cargo.toml` | The `[[bin]]`-name-differs-from-crate-name convention, for the same stated reason. |
+| `crates/emerald-cli/Cargo.toml` | `crates/voltaic-cli/Cargo.toml` | The `[[bin]]`-name-differs-from-crate-name convention, for the same stated reason. |
 
 **Consulted as methodology, no code:** `spec/COMPILER.md`'s decision-record format for
 leaf 4, and its tune-the-incumbent-first safeguard.
@@ -404,12 +404,12 @@ leaf 4, and its tune-the-incumbent-first safeguard.
 
 | Not taken | Why |
 |---|---|
-| `crates/emerald-lexer` (116 lines, `logos`) | Regex-dispatch lexing cannot express an off-side rule, and Redox additionally needs trivia and adjacency on every token. |
+| `crates/emerald-lexer` (116 lines, `logos`) | Regex-dispatch lexing cannot express an off-side rule, and Voltaic additionally needs trivia and adjacency on every token. |
 | `crates/emerald-parser` (LALRPOP) | Leaf 4 decides this on measurement, but doc 02 §5.2's prior is that LALR(1) is the wrong tool: it is what blocked Emerald's own parenless calls for 89 plans, fits indentation-sensitive grammars badly, and made both error recovery and trivia preservation retrofits. |
-| `crates/emerald-codegen` (34,429 lines, LLVM) | Redox emits Rust source text. No analogue. |
-| `crates/emerald-sema` (22,589 lines) | Redox has rustc. Doc 02 §6.2: every check rustc can make, rustc makes. |
+| `crates/emerald-codegen` (34,429 lines, LLVM) | Voltaic emits Rust source text. No analogue. |
+| `crates/emerald-sema` (22,589 lines) | Voltaic has rustc. Doc 02 §6.2: every check rustc can make, rustc makes. |
 | `crates/emerald-fmt` | Its approach is the documented anti-pattern — a pure AST pretty-printer that loses every comment. Plan 34 builds a trivia-preserving formatter instead. |
-| `crates/emerald-rt` (~58k lines) | Doc 02 §1.1: 112 of Emerald's 203 plans built a standard library. Redox has crates.io. **No Redox plan ever implements a library function.** |
+| `crates/emerald-rt` (~58k lines) | Doc 02 §1.1: 112 of Emerald's 203 plans built a standard library. Voltaic has crates.io. **No Voltaic plan ever implements a library function.** |
 
 ---
 
@@ -424,7 +424,7 @@ leaf 4, and its tune-the-incumbent-first safeguard.
   workaround with a disclosed residual gap at call sites that have no real span in scope.
   Separately, `emerald-fmt`'s own module doc discloses that **every non-doc comment is
   lost**, because its lexer treats comments as whitespace and they have no AST
-  representation. For a formatter that is an annoyance; for Redox, where comments must reach
+  representation. For a formatter that is an annoyance; for Voltaic, where comments must reach
   the generated `.xrs` (doc 02 §10.1), it would be a product defect. Both are cheap now and
   structurally expensive later.
 
@@ -469,7 +469,7 @@ changed.
 
 | # | Criterion | Evidence |
 |---|---|---|
-| 1 | `redox build` exits zero and writes the `.xrs` | `writes_a_sibling_xrs_when_no_output_is_given`; also hand-verified |
+| 1 | `voltaic build` exits zero and writes the `.xrs` | `writes_a_sibling_xrs_when_no_output_is_given`; also hand-verified |
 | 2 | Matches the golden file byte for byte | `golden.rs::golden_output_matches` over `tests/golden/` |
 | 3 | rustc compiles it with **zero stderr** | `hello.rs::compile_and_run` asserts `stderr.is_empty()` |
 | 4 | Binary exits zero, prints `hello\n` | `hello_sdx_transpiles_compiles_and_prints_hello` |
@@ -479,7 +479,7 @@ changed.
 | 8 | A tab is rejected, naming the line | `rejects_a_tab_in_indentation_with_a_located_diagnostic` → `tab.sdx:2:1` |
 | 9 | An inconsistent dedent is rejected | `rejects_an_inconsistent_dedent_with_a_located_diagnostic` |
 | 10 | `docs/COMPILER.md` records the bake-off | §1 — six axes measured, two-condition revisit trigger |
-| 11 | No `.rs` over the line cap | `line_cap.rs`; largest is `redox-lexer/src/lib.rs` at 575 |
+| 11 | No `.rs` over the line cap | `line_cap.rs`; largest is `voltaic-lexer/src/lib.rs` at 575 |
 | 12 | Full gate green | all six moon tasks exit 0 |
 
 ### What the bake-off actually found
@@ -497,7 +497,7 @@ reports every bad item, measured directly. Full table in `docs/COMPILER.md` §1.
 1. **Structural tokens absorbed trivia.** `Indent`/`Dedent`/`Newline` claimed pending
    comments, so a comment between two top-level items, or at end of file, attached to a
    token the parser never reads — and vanished. Found because `comments.sdx` came out
-   missing its last line. Fixed in `redox-lexer`, with two regression tests.
+   missing its last line. Fixed in `voltaic-lexer`, with two regression tests.
 2. **A stray trailing blank line.** A source file's own final newline arrives as a
    `BlankLines` trivium, which appended a blank line to every generated file. Found by the
    end-to-end test comparing against §3's stated output. The emitter now normalises to
@@ -520,4 +520,4 @@ reports every bad item, measured directly. Full table in `docs/COMPILER.md` §1.
   partly. `Stmt` gained `leading`/`trailing` to make it true end to end.
 - **A second fixture was added.** `examples/comments.sdx` proves the trivia property in all
   three positions; §3's `hello.sdx` alone cannot.
-- **`crates/redox-cli/build.rs` was added**, which the plan did not anticipate — see defect 3.
+- **`crates/voltaic-cli/build.rs` was added**, which the plan did not anticipate — see defect 3.

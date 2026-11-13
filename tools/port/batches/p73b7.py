@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
-"""redox-diag batch 7 — parse_map, the crate's most intricate control flow.
+"""voltaic-diag batch 7 — parse_map, the crate's most intricate control flow.
 
 Three shapes first met here:
 
 * **No turbofish.** `f.parse::<u32>()` becomes a binding with an ascription,
   `v : u32 = .parse f`, which is the form plan 69 already used for
   `.collect`.
-* **A slice pattern with a literal** — `[_, "-"]` — which Redox writes the
+* **A slice pattern with a literal** — `[_, "-"]` — which Voltaic writes the
   same way.
 * **A local closure used with `?`.** `num` captures `expected` and returns a
   `Result`, so each call site keeps its own `?`.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 BODY = '''-- | Read a `.xrs.map` sidecar back.
@@ -38,15 +38,15 @@ parse_map text =
   header = (.ok_or "the map is empty" (.next lines))?
 
   mut parts = .split ' ' header
-  if .next parts != Some "redox-map"
-    return Err (.to_string "not a Redox source map: the header does not begin `redox-map`")
-  -- `version : u32 = .parse …` where the Rust wrote `.parse::<u32>()`: Redox
+  if .next parts != Some "voltaic-map"
+    return Err (.to_string "not a Voltaic source map: the header does not begin `voltaic-map`")
+  -- `version : u32 = .parse …` where the Rust wrote `.parse::<u32>()`: Voltaic
   -- has no turbofish, and an ascription says the same thing.
   raw = (.ok_or "the map header has no version" (.next parts))?
   version : Result<u32, _> = .parse raw
   version = .map_err (\\_ -> .to_string "the map header's version is not a number") version?
   if version != VERSION
-    return Err (format! \\-> "this map is version #{version}; this Redox writes version #{VERSION}")
+    return Err (format! \\-> "this map is version #{version}; this Voltaic writes version #{VERSION}")
   collected : Vec<&str> = .collect parts
   source_path = .join " " collected
   if .is_empty source_path
@@ -62,7 +62,7 @@ parse_map text =
     expected = i + 1
     -- `.ok_or` with the message built eagerly, where the Rust wrote
     -- `.ok_or_else(|| …)`. A **nullary lambda in argument position makes
-    -- `redox fmt` diverge**: `power_of` declines on a lambda so `argument`
+    -- `voltaic fmt` diverge**: `power_of` declines on a lambda so `argument`
     -- parenthesises it, and the parenthesised form is an argument again on the
     -- next pass — one layer per run, without bound. Plan 73 measured it and
     -- left the fix to its own row.
@@ -81,7 +81,7 @@ parse_map text =
       [_, src_line, src_col, gen_col] ->
         -- Three ascribed bindings where the Rust had one annotated closure.
         -- `|f: &str, what: &str|` annotated its parameters for inference, and
-        -- a **lambda parameter in Redox is a bare name** — neither a pattern
+        -- a **lambda parameter in Voltaic is a bare name** — neither a pattern
         -- nor an annotation, which is plan 69's third finding wider than it
         -- was recorded. Without the annotation the closure cannot be written,
         -- and `Result<usize, _>` on a binding says the same thing with the

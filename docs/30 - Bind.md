@@ -15,7 +15,7 @@ user <- fetch id        →    let user = fetch(id).await;
 <- flush ()                  flush().await;
 ```
 
-It is Haskell's monadic bind, used for the monad Redox actually has: `Future`. Everything
+It is Haskell's monadic bind, used for the monad Voltaic actually has: `Future`. Everything
 else `<-` currently spells gets a different spelling, and postfix `.await` is deleted.
 
 ### 1.1 What this corrects, and why doc 18 §3.1 was wrong about it
@@ -26,7 +26,7 @@ everywhere — a name drawn out of something"*.
 
 That sentence does not survive contact with the four positions:
 
-| Doc 18 §3's position | What a Haskell reader sees | What Redox meant |
+| Doc 18 §3's position | What a Haskell reader sees | What Voltaic meant |
 |---|---|---|
 | `conn <- pool.with_connection` | bind in a monad | a callback whose body is the rest of the block |
 | `if Some v <- msg` | — (Haskell has no such form) | a pattern test |
@@ -34,7 +34,7 @@ That sentence does not survive contact with the four positions:
 | `[ x \| x <- xs ]` | a comprehension generator — **the one that is right** | the same |
 
 So doc 18 borrowed Haskell's most recognisable token and kept its meaning in exactly one of
-four positions. That is the failure doc 18 §8 warns about everywhere else — *"Redox is Rust
+four positions. That is the failure doc 18 §8 warns about everywhere else — *"Voltaic is Rust
 with a different surface"*, and a token whose meaning travels is worse than a token that
 does not travel at all, because the reader's first guess is wrong three times in four.
 
@@ -230,7 +230,7 @@ single token in a single `check` call.
 Plan 15 is cheaper to undo than expected, because it never had a corpus of its own: there is
 no `examples/await.sdx` and no golden. What goes is `Expr::Await`, one emitter arm, one
 postfix arm in the parser, and six of the seven tests in
-`crates/redox-emit/tests/await_postfix.rs`. Row 15 becomes `superseded` — the fourth row in
+`crates/voltaic-emit/tests/await_postfix.rs`. Row 15 becomes `superseded` — the fourth row in
 this project superseded by a later surface decision rather than by being wrong.
 
 **The seventh test moves rather than goes.**
@@ -245,7 +245,7 @@ and still live. The test belongs beside it, in `fallible.rs`.
 order to free the token for the position where it is *more* faithful.
 
 That is a real trade and it should be recorded as one. The argument for taking it: a reader
-meeting `<-` in Redox will meet it as await far more often than in a comprehension, because
+meeting `<-` in Voltaic will meet it as await far more often than in a comprehension, because
 async code is common and comprehensions are a line here and there — so the token's one
 meaning should be the one it carries most.
 
@@ -369,7 +369,7 @@ implemented**: `run :: async ()` emits `fn run<ASYNC>() -> ASYNC ()`, reading th
 type variable. §2.2 assigned the marker to row 39 before the conversion started, and that
 assignment stands.
 
-So step 4 is proved by `crates/redox-emit/tests/await_bind.rs` — eight tests over the three
+So step 4 is proved by `crates/voltaic-emit/tests/await_bind.rs` — eight tests over the three
 forms, the receiver rule, and the two things `<-` is *not* — and **not** by a program that
 runs. That is a weaker proof than every other construct in this project has, and it is
 stated here rather than papered over: `examples/async.sdx` is row 39's first deliverable, and

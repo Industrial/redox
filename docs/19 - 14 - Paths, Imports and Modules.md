@@ -9,7 +9,7 @@ Status: `done`
 
 ## 1. What this plan is
 
-`import` and `module`, which are the two declarations Redox can describe and not write.
+`import` and `module`, which are the two declarations Voltaic can describe and not write.
 
 Doc 04's row 14 is `partial`: doc 01 §22's three inconsistent path conventions were
 corrected by doc 03 §13.1 and the correction is **already shipped** — doc 18 §5.2's tight
@@ -24,7 +24,7 @@ Three things point at it, and the third is the one that decides.
 - **Milestone 4's rule.** Doc 04 says its rows "land before any surface growth regardless
   of schedule (doc 03 §20)". Row 14 is the first row in the register that is neither `done`
   nor `superseded`, so by doc 04's own ordering it is next.
-- **Plan 09 recorded the block.** Cargo integration "found that Redox cannot yet fill a
+- **Plan 09 recorded the block.** Cargo integration "found that Voltaic cannot yet fill a
   `mod`, which needs plan 24's `export`". Plan 24 shipped with doc 18, so the block is
   gone and the thing it blocked is this.
 - **Doc 18 §9 does not compile.** §9 is *"A page of it, end to end"*, and its first three
@@ -73,7 +73,7 @@ An import path is `std::io::{self, Read, Write}`, `crate::models::*`, or
 `std::collections::HashMap as Map`. Doc 03 §13.1's lowering is `use` plus that text, so the
 path is **verbatim source text** — the discipline doc 03 §14.1 applies to types, and for
 the identical reason: *"every present and future Rust type form is reachable for free, and
-nothing can drift"*. A nested tree Redox parsed would be a nested tree Redox could lag
+nothing can drift"*. A nested tree Voltaic parsed would be a nested tree Voltaic could lag
 behind.
 
 One token has to be understood rather than copied: `as`. It is a reserved word, so the
@@ -88,10 +88,10 @@ scanner stops at it the way `capture_type` already does — a refinement plan 17
 |---|---|---|
 | `import` is reserved | `keyword.rs` | `Keyword::Import`, from doc 03's set |
 | `module` is reserved | `keyword.rs` | `Keyword::Module`, added by the keyword commit under plan 13 |
-| `import` does not parse today | `redox build` on a one-line fixture | `RDX0103: expected a name to begin a declaration` at column 1 |
+| `import` does not parse today | `voltaic build` on a one-line fixture | `RDX0103: expected a name to begin a declaration` at column 1 |
 | `export` is available to prefix a declaration | plan 24, shipped under plan 13 | `visibility()` reads the marker before the dispatch, so `export import` costs no new reader |
 | `capture_type` already stops at `as` | plan 17's `errors` rows | `TokenKind::Kw(Keyword::As) => true` in the terminator set |
-| A `use` is already emittable | plan 35, shipped under plan 13 | `use super::*;` in the test module — the one `use` Redox emits today |
+| A `use` is already emittable | plan 35, shipped under plan 13 | `use super::*;` in the test module — the one `use` Voltaic emits today |
 | `mod` with a body was blocked and is not | plan 09's §2.2 note, and `Visibility` | the block was `export`; `export` is `done` |
 
 ---
@@ -122,7 +122,7 @@ expectation asserts what it prints.
 
 Capture an import path as verbatim text: segments, `::`, `{…}` trees, `*`, and `self`.
 Stops at `as`, at a line break, and nowhere else. One construct,
-`crates/redox-parser/src/parse/parser/import_path.rs`.
+`crates/voltaic-parser/src/parse/parser/import_path.rs`.
 
 ### Leaf 2 — `leaf-import-decl`
 
@@ -171,7 +171,7 @@ the author's file for no reason and break the source map's one-line-per-item cla
 - **Module-scope bindings** are doc 03 §13.4 and doc 04 row 16, not this plan. A `module`
   body that needs a `const` will not be writable until that row lands, which bounds how
   useful criterion 4 is and is worth saying rather than discovering.
-- **`import` resolution.** Redox does not check that an imported path exists, and must not:
+- **`import` resolution.** Voltaic does not check that an imported path exists, and must not:
   AGENTS.md's rule is that every check rustc can make, rustc makes. An unresolvable import
   is rustc's error, reported against the `.sdx` through plan 07's map.
 - **The recursion criterion 4 forces.** `emit_with_map` is a flat loop over
@@ -197,7 +197,7 @@ moon run :check :lint :test :cargo-check :cargo-test :ci-format :audit
 
 **None.** Emerald compiles to object files and has no generated intermediate source, so its
 module handling is a symbol-table concern rather than a text one. Doc 03 §13.1's correction
-is Redox's own, and §13.5's three forms are *"all previously unreachable"* — there is
+is Voltaic's own, and §13.5's three forms are *"all previously unreachable"* — there is
 nothing to take.
 
 ---
@@ -207,9 +207,9 @@ nothing to take.
 | # | Decision | Alternative rejected | Why |
 |---|---|---|---|
 | 1 | `module` is Rust's `mod` | Haskell's file header, naming the module the file *is* | Doc 18 §8 declines the header for the export list it cannot express; §9's Rust column shows `mod config;`, which is a declaration and not a header |
-| 2 | The import path is verbatim text | A parsed import tree | Doc 03 §13.1's lowering is `use` plus the text. A tree Redox parsed is a tree Redox could lag — §14.1's argument, applied where it applies equally |
+| 2 | The import path is verbatim text | A parsed import tree | Doc 03 §13.1's lowering is `use` plus the text. A tree Voltaic parsed is a tree Voltaic could lag — §14.1's argument, applied where it applies equally |
 | 3 | Items keep source order | Gather imports to the top, as the test module is gathered | §15's gathering is forced (one module per file); nothing forces this, and reordering an author's file without cause is the opposite of doc 01 §3.4 |
-| 4 | No import resolution | Check that the path resolves | AGENTS.md: every check rustc can make, rustc makes. Redox has no name resolution and must not grow one |
+| 4 | No import resolution | Check that the path resolves | AGENTS.md: every check rustc can make, rustc makes. Voltaic has no name resolution and must not grow one |
 | 5 | `module` bodies make the item emitter recursive | Flatten nested modules at parse time | Flattening loses the source structure the formatter (row 34) needs, and the span map would attribute an inner item to the wrong nesting |
 
 ---
@@ -246,7 +246,7 @@ uses:
 So §9's page needs plans 22 and 23 before it can be a golden, and this plan moved it from
 *failing on line 2* to *failing on its first `guard`*. That is real progress and it is not
 the criterion as written. **The claim should have been checked against the page line by line
-before it was made** — the three constructs above are visible in §9's own Redox column, and
+before it was made** — the three constructs above are visible in §9's own Voltaic column, and
 §1.1 asserted their absence without looking.
 
 ### 10.1 §1.2's doubt about doc 18 §9, resolved
@@ -256,7 +256,7 @@ wrong.** `module config` emits `mod config;`, so writing it at the top of the co
 declares a child module named `config` inside `config` — and the file it would then load does
 not exist, which rustc says in as many words: *"file not found for module `config`"*.
 
-Doc 18 §9's Rust column has it right and its Redox column does not. What §9 means is that
+Doc 18 §9's Rust column has it right and its Voltaic column does not. What §9 means is that
 *some other* file declares `module config`; the page itself needs no header, because doc 18
 §8 declined the one Haskell would have given it. The header line is removable without
 changing a byte of the Rust.
@@ -312,7 +312,7 @@ construction rather than by a later fix-up.
 ### 10.5 Plan 09's note, resolved
 
 `examples/cargo-project/src/main.rs` carried a note from plan 09 explaining why its
-`include!` had to sit at the crate root: Redox emitted no visibility, so inside
+`include!` had to sit at the crate root: Voltaic emitted no visibility, so inside
 `mod greeting { … }` every item was private and unreachable. It named plan 24 as the fix.
 
 Plan 24 shipped `export` with doc 18 and this plan gave the module a declaration to be, so

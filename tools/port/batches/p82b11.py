@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""Plan 82 batch 11: three more of `redox-parser`'s largest bodies.
+r"""Plan 82 batch 11: three more of `voltaic-parser`'s largest bodies.
 
 `prefix` hits the `@`-over-an-alternation defect twice more —
 `kw @ (Async | Unsafe | Try)` and `kw @ (True | False)` — and both split into
@@ -7,7 +7,7 @@ one arm per keyword, which is behaviour-identical and needs no binding at all.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('parse/parser/class_member', r'''
@@ -28,11 +28,11 @@ class_member p ctx =
   -- never minded, because it prints `decl.visibility`, and which broke the
   -- *formatter*: `signature_line` rebuilds a signature from the source slice
   -- at `decl.span.0`, so a span beginning at the name produced a signature
-  -- with no visibility, and `redox fmt` wrote that back as canonical. Every
+  -- with no visibility, and `voltaic fmt` wrote that back as canonical. Every
   -- member with a marker lost it — `pub fn` became `fn`.
   --
   -- Plan 68 moved `peek_leading` above `visibility` for the trivia and left
-  -- this one behind. Plan 73 found it by putting `redox fmt --check` in the
+  -- this one behind. Plan 73 found it by putting `voltaic fmt --check` in the
   -- gate, which is the only thing that reads these members back.
   start = (.peek_span p).0
   -- A trait's members take their visibility from the trait, and an inherent
@@ -224,7 +224,7 @@ control_flow p =
 ''')
 
 write('parse/parser/prefix', r'''
-import redox_ast::Ident
+import voltaic_ast::Ident
 
 export(crate) prefix : &mut Parser -> Result<Expr, ParseError>
 prefix p =

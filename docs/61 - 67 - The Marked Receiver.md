@@ -64,7 +64,7 @@ declaration reads (receiver, argument); the call reads (argument, receiver). For
 function the two orders agree, because there is no receiver to privilege.
 
 Every Rust method has always had that reversal. The difference is that nobody reads std's
-declarations, and a `class` is **the one place a Redox author writes one**.
+declarations, and a `class` is **the one place a Voltaic author writes one**.
 
 **Marking the receiver makes the question disappear rather than answering it.** With `self`
 in the type, position carries no meaning, so both of these emit the same Rust and an author
@@ -109,11 +109,11 @@ instance Convert Meters  impl Convert for Meters {
   wrap : f64 -> Meters →      fn wrap(n: f64) -> Meters { Meters(n) }
   wrap n = Meters n      }
 
-redox check  →  error[E0049]: method `wrap` has 0 type parameters but its
+voltaic check  →  error[E0049]: method `wrap` has 0 type parameters but its
                               trait declaration has 1
 ```
 
-Redox accepts it and rustc rejects it, naming a type parameter the author never wrote. This is
+Voltaic accepts it and rustc rejects it, naming a type parameter the author never wrote. This is
 the milestone's **deferred** class precisely — a borrowed surface whose semantics did not come
 with it. It also means `impl From<u32> for Meters` and `impl From<f64> for Meters` cannot both
 be written, which rules out one of the most common shapes in Rust.
@@ -164,13 +164,13 @@ substitutions left are the trait's own parameters, which leaf 3 makes named and 
 ### 1.7 Where the work lands, and why the parser is still right
 
 Plan 61 §11.6 states a rule two rows converged on independently: *a pass that rewrites
-`Program` has two consumers and will surprise one of them*, because `redox-fmt` and
-`redox-emit` read the same tree. Taken at face value it says a receiver rewrite belongs in the
-emitter, or `redox fmt` will rewrite the author's signature.
+`Program` has two consumers and will surprise one of them*, because `voltaic-fmt` and
+`voltaic-emit` read the same tree. Taken at face value it says a receiver rewrite belongs in the
+emitter, or `voltaic fmt` will rewrite the author's signature.
 
-**Measured, it does not — and the reason is already written down.** `redox fmt` on
+**Measured, it does not — and the reason is already written down.** `voltaic fmt` on
 `examples/class.sdx` is byte-identical today, even though `receiver.rs` destroys
-`sig.params[0]` at parse time. `redox-fmt`'s `signature_line.rs` prints a signature **as a
+`sig.params[0]` at parse time. `voltaic-fmt`'s `signature_line.rs` prints a signature **as a
 verbatim slice of the source**, and its doc comment says why: `generalise` already rewrites a
 signature's types in place, so `largest : Ord t => Option<t> -> t` is stored as
 `Ord T => Option<T> -> T` and the author's lowercase `t` is gone from the tree. Printing from
@@ -185,12 +185,12 @@ it today. §6 records the one thing that would lift the exemption.
 ## 2. Verified preconditions
 
 Measured 2026-11-10 against the working tree, by reading the parser and by building two probe
-programs through `cargo run -p redox-cli -- build` and `-- check`.
+programs through `cargo run -p voltaic-cli -- build` and `-- check`.
 
 | Claim | Verdict |
 |---|---|
 | `class_decl` reads exactly **one** class variable | true — `class_decl.rs`, `let var = p.ident("expected the class variable, as in `class Shape t`")?` |
-| a second lowercase name becomes a **method** generic, and the impl then mismatches | true — `fn wrap<U>(__rdx_a0: U) -> Self` against `fn wrap(n: f64)`, **`E0049`** from `redox check` |
+| a second lowercase name becomes a **method** generic, and the impl then mismatches | true — `fn wrap<U>(__rdx_a0: U) -> Self` against `fn wrap(n: f64)`, **`E0049`** from `voltaic check` |
 | the receiver is `sig.params[0]` and nothing else | true — `receiver.rs`; it returns early unless the *first* parameter's type matches |
 | the decision is made from the type's **text**, against a list of spellings | true — `receiver_text.rs`; `["Self", var]` in a class, plus the target's own name in an instance |
 | `&Self` therefore already lowers to `&self` inside a `class` | true — `MethodContext::for_class` puts `"Self"` in the list unconditionally |
@@ -201,8 +201,8 @@ programs through `cargo run -p redox-cli -- build` and `-- check`.
 | …and every method in **both** files takes one argument | true — `area`, `describe`, `perimeter`, `name`; §1.3's conclusion rests on this rather than on the file count |
 | `type_vars` excludes lowercase primitives through a closed list | true — `type_vars.rs` calls `primitive_type.rs`, seventeen names |
 | `instance_decl` splits `instance Show Point` as head-is-class, **first argument is the target** | true — `instance_decl.rs`; §9 decision 3 reverses this for three-or-more names |
-| `redox fmt` on `examples/class.sdx` is **byte-identical**, despite the parser destroying `params[0]` | true — run against the working tree |
-| …because `redox-fmt` prints a signature line as a **verbatim source slice** | true — `signature_line.rs`, and its doc comment gives `generalise`'s in-place type rewrite as the reason |
+| `voltaic fmt` on `examples/class.sdx` is **byte-identical**, despite the parser destroying `params[0]` | true — run against the working tree |
+| …because `voltaic-fmt` prints a signature line as a **verbatim source slice** | true — `signature_line.rs`, and its doc comment gives `generalise`'s in-place type rewrite as the reason |
 | the superclass clause demands a trait **and** a variable | true — `constraints.rs`. So `class Show => Shape` was **unreachable**, not merely awkward, and criterion 6 needed a whole new reader rather than leaf 2's tweak. This row first wrote that the clause was *"read speculatively, keyed on the variable"* and that losing the variable made the speculation simpler; that understated the work |
 
 ---
@@ -218,7 +218,7 @@ programs through `cargo run -p redox-cli -- build` and `-- check`.
    `fn scaled(&self, k: f64) -> Self`. This is §1.2, asserted rather than argued.
 4. `unit : f64 -> Self` emits an associated function and is called `Square::unit 2.0`.
 5. **`trait From<T>` is reachable**: `class Convert t` with two instances for one type compiles
-   and runs, and `redox check` is silent where §1.4 measured `E0049`.
+   and runs, and `voltaic check` is silent where §1.4 measured `E0049`.
 6. `class Show => Shape` emits `trait Shape: Show` — the superclass clause survives losing the
    variable.
 7. `instance Square` — inherent, no class — is unchanged, byte-identical in its golden.
@@ -244,7 +244,7 @@ index, and the move-to-front is the only new behaviour in the file.
 
 **It stays in the parser, and §1.7 is the evidence rather than the habit.** The move-to-front
 is a tree rewrite, which is exactly the shape plan 61 §11.6 warns about — but a signature line
-is printed by `redox-fmt` as a source slice, so the reorder cannot reach the formatter. An
+is printed by `voltaic-fmt` as a source slice, so the reorder cannot reach the formatter. An
 implementer who moves this to the emitter on §11.6's general advice is solving a problem
 `signature_line.rs` already solved, and would have to carry the borrow-prefix reading with it.
 
@@ -311,7 +311,7 @@ line.
 ### Leaf 6 — `leaf-grammar-and-editors`
 
 The tree-sitter grammar and its five editor clients, per plan 52 §2's four readers: a surface
-row has `examples/`, the Rust doc comments that quote Redox source, `redox-fmt`'s emit sites,
+row has `examples/`, the Rust doc comments that quote Voltaic source, `voltaic-fmt`'s emit sites,
 and the grammar-plus-clients, which are checked against the same corpus and so turn every
 example into an `ERROR` node if they drift.
 
@@ -323,7 +323,7 @@ example into an `ERROR` node if they drift.
 2. A two-argument method written receiver-first and receiver-last emits byte-identical Rust.
 3. An associated function emits no receiver and is called through its type.
 4. `class Convert t` emits `trait Convert<T>`, and two impls for one type compile and run.
-5. `redox check` is silent on the §1.4 program that returns `E0049` today.
+5. `voltaic check` is silent on the §1.4 program that returns `E0049` today.
 6. `class Show => Shape` emits `trait Shape: Show`.
 7. `instance Square` is byte-identical in `tests/golden/class.xrs`.
 8. `examples/class.sdx`'s stdout is unchanged.
@@ -331,7 +331,7 @@ example into an `ERROR` node if they drift.
    failure mode is `fn area<Self_>(…)` and it would still compile in simple cases.
 10. `construct_coverage` green, and `line_cap` green — which requires leaf 4's split, with the two-argument method, the associated function and the
     generic trait all indexed.
-11. `redox fmt` round-trips the migrated example and `formatting_is_idempotent` holds.
+11. `voltaic fmt` round-trips the migrated example and `formatting_is_idempotent` holds.
 12. The tree-sitter corpus parses every example with no `ERROR` node.
 
 ---
@@ -351,7 +351,7 @@ question of where a `where` clause lives in a class head, which is larger than t
 own and have no Haskell ancestor; nothing here touches them.
 
 **Coherence is rustc's.** Two overlapping impls, an orphan impl, a conflicting blanket — all of
-them are errors rustc already produces, and AGENTS.md's rule is that Redox grows no check it can
+them are errors rustc already produces, and AGENTS.md's rule is that Voltaic grows no check it can
 hand over.
 
 **The `instance` head reversal is a real behaviour change with no corpus witness.** §9 decision 3
@@ -362,7 +362,7 @@ that will ever observe it. Stated here rather than discovered later.
 Its own doc comment records what would lift the slicing: the AST keeping the source spelling and
 the emitter applying `rust_generic` when it writes, which moves `generalise`'s third step from
 parse time to emit time. A future row that does that makes every parser-side signature rewrite
-visible to `redox fmt` — this one included — and must carry the receiver with it. It is not a
+visible to `voltaic fmt` — this one included — and must carry the receiver with it. It is not a
 reason to pre-emptively move this row's work; it is a reason for that row to read §1.7.
 
 **This is not the `trait`/`impl` rename.** That option was weighed and declined — §9 decision 6.
@@ -380,7 +380,7 @@ moon run :test           # cargo nextest run, then the doctests
 moon run :format         # treefmt
 ```
 
-Plus the three blessable corpora, `cargo test -p redox-fuzz`, and the tree-sitter corpus — leaf 6
+Plus the three blessable corpora, `cargo test -p voltaic-fuzz`, and the tree-sitter corpus — leaf 6
 is a grammar change and the grammar is checked against the same examples the compiler is.
 
 ---
@@ -408,7 +408,7 @@ calls it *unnecessary* when a precedence already decides.
 So the lesson is narrower and sharper than the prediction: **reading a rule's text does not
 tell you what the parser does with it**, because another rule's precedence can intercept
 the same token sequence. Leaf 6 still needs its own cases under
-`tree-sitter-redox/test/corpus/` — `marked_receiver.txt` is this row's — because the
+`tree-sitter-voltaic/test/corpus/` — `marked_receiver.txt` is this row's — because the
 receiver marker genuinely is invisible to the sweep. Plan 66 found the general shape: its
 grammar gates were green before `grammar.js` knew `>>>` existed.
 
@@ -432,7 +432,7 @@ does to `sig.params[0]`.
    the same Rust.
 2. **`Self`, not a class variable.** The variable was never doing Haskell's job here. In Haskell
    it earns its keep because methods mention `t` in arbitrary positions and there is no `Self`;
-   Redox has `Self`, accepts it in a class body already, and needs it for inherent `instance`
+   Voltaic has `Self`, accepts it in a class body already, and needs it for inherent `instance`
    blocks regardless. One name for one thing.
 3. **The last name in an `instance` head is the implementing type.** This reverses
    `instance_decl.rs`'s split for three-or-more names, which nothing in the corpus exercises. It
@@ -457,7 +457,7 @@ does to `sig.params[0]`.
    leading `.` mean *method* at a use site, and its own §6 records the one-token ambiguity that
    created as the row's worst property. A third meaning in type position would compound it.
 8. **The receiver work stays in the parser.** Plan 61 §11.6's rule about two tree consumers is
-   right in general and does not bind here, because `redox-fmt` prints a signature line as a
+   right in general and does not bind here, because `voltaic-fmt` prints a signature line as a
    source slice — measured, §1.7. Recorded as a decision rather than left implicit, so that an
    implementer reading §11.6 does not relocate it on principle.
 9. **The borrow-from-the-type rule is kept.** It is the part of doc 18 §2.5 that is good, and
@@ -482,13 +482,13 @@ neither was touched.
 | 2 | receiver-first and receiver-last emit byte-identical Rust | met, and **more strongly than §3 case 3 asked** — see §10.2 |
 | 3 | an associated function, called through its type | `start : u32 -> Self` → `fn start(__rdx_a0: u32) -> Self`, called `Counter::start 3` |
 | 4 | `class Convert t` is `trait Convert<T>`, two impls for one type compile and run | `class Scale t` with `instance Scale f64 Meters` and `instance Scale u32 Meters` |
-| 5 | `redox check` silent on §1.4's `E0049` program | `crates/redox-cli/tests/check/generic_class.sdx`, and `a_generic_class_with_two_impls_for_one_type_is_accepted` asserts stderr is **empty** |
+| 5 | `voltaic check` silent on §1.4's `E0049` program | `crates/voltaic-cli/tests/check/generic_class.sdx`, and `a_generic_class_with_two_impls_for_one_type_is_accepted` asserts stderr is **empty** |
 | 6 | `class Show => Shape` is `trait Shape: Show` | `class Debug => Tally` → `trait Tally: Debug` |
 | 7 | `instance Square` byte-identical in the golden | met — `tests/golden/class.xrs` moved **only in its comments**, verified by diffing the generated file against the golden before re-blessing |
 | 8 | `examples/class.sdx`'s stdout unchanged | met — `examples/class.stdout` is untouched in the diff |
 | 9 | the marker synthesises no generic parameter | `the_marker_synthesises_no_generic_parameter` asserts `!out.contains("fn area<")` directly |
 | 10 | `construct_coverage` green with all three shapes indexed | **four** rows added, each proved to fail when `examples/receiver.sdx` is moved aside — §10.5 |
-| 11 | `redox fmt` round-trips the migrated example | `redox fmt --check` exits 0 on both `class.sdx` and `receiver.sdx`; `redox-fmt`'s own suite green |
+| 11 | `voltaic fmt` round-trips the migrated example | `voltaic fmt --check` exits 0 on both `class.sdx` and `receiver.sdx`; `voltaic-fmt`'s own suite green |
 | 12 | the tree-sitter corpus parses every example with no `ERROR` | green, and the sweep was **not** the gate that mattered — §10.4 |
 
 ### 10.2 Criterion 2 needed one more change than §4 leaf 1 listed
@@ -512,7 +512,7 @@ about the signature, and the pattern row is a second consumer neither considered
 `emit_clauses` pairs `sig.params` with each clause's **pattern row by index** to build a `match`
 scrutinee. So moving the receiver to the front of `sig.params` in the parser, as leaf 1 specifies,
 misaligns the arms of any method with several equations or a testing pattern — silently, into Rust
-that can still compile. Moving the pattern row with it is worse: `redox-fmt`'s `clause_text` prints
+that can still compile. Moving the pattern row with it is worse: `voltaic-fmt`'s `clause_text` prints
 an equation's patterns **from the tree**, where `signature_line` slices the signature from the
 source, so the formatter would print `scaled : f64 -> &self -> Self` above `scaled self k = …` —
 a program that does not re-parse to itself.
@@ -539,7 +539,7 @@ colour the marker was tried and **does not work** — `identifier` wins the lexi
 as `(identifier)` in the parsed tree — and was removed rather than forced with a token precedence
 that would have changed what `Self` means in every type position.
 
-`tree-sitter-redox/test/corpus/marked_receiver.txt` is leaf 6's own gate: three cases, and a
+`tree-sitter-voltaic/test/corpus/marked_receiver.txt` is leaf 6's own gate: three cases, and a
 deliberately wrong expectation in the second was confirmed to fail and be named before the file was
 corrected.
 
@@ -561,7 +561,7 @@ could see. The whole row is invisible in that file.
 `examples/receiver.sdx` is new and is where it stops being invisible: three receiver forms, a
 two-argument method written **both** ways, an associated function called through its type, a
 superclass clause, a parameterised class, and two impls of it for one type. 89 lines, run under real
-rustc with asserted stdout, `redox check` silent.
+rustc with asserted stdout, `voltaic check` silent.
 
 Four `construct_coverage` rows, each verified by moving `examples/receiver.sdx` aside and confirming
 the gate **names it**: *Generic traits*, *Two impls of one trait for one type*, *The receiver, marked
@@ -631,7 +631,7 @@ Two smaller drifts in the same area:
 - **`TypeApp::is_var` had to learn about primitives.** *"A lowercase first letter and nothing else"*
   made `instance Convert f64 Meters` emit `impl Convert<F64> for Meters`, because a primitive is
   lowercase and concrete — the same correction doc 18 §5.3 already carries for `type_vars`. The
-  closed list moved to `redox-ast` so there is **one** copy; the parser's own
+  closed list moved to `voltaic-ast` so there is **one** copy; the parser's own
   `primitive_type.rs` is deleted and `type_vars` imports it. Asserted by
   `a_primitive_class_argument_is_not_a_type_variable`.
 - **A blanket impl parses and emits `impl Describe for t`.** Leaf 3 asked for this to be settled
@@ -639,7 +639,7 @@ Two smaller drifts in the same area:
   `instance Display t => Describe t` the variable is the **head**, so the generic list comes out
   empty and `rust_text` writes the head verbatim. `E0425` from rustc. Graded `UNREACHABLE` with
   `tests/unreachable/blanket_impl.sdx`, which is the ninth gap and why `docs/STATUS.md` moves.
-- **`redox-fmt` was dropping an `instance` target's parentheses, and the new head split made that
+- **`voltaic-fmt` was dropping an `instance` target's parentheses, and the new head split made that
   wrong.** `instance Describe (Wrapper t)` printed flat as `instance Describe Wrapper t`, which
   round-tripped by accident under the old *first*-argument split and does not under the last-name
   one. A target with arguments is now parenthesised — and the inherent generic form

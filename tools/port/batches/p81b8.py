@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Plan 81 batch 8: five more of `redox-emit`'s bodies.
+"""Plan 81 batch 8: five more of `voltaic-emit`'s bodies.
 
 `nest` destructures `((name, source), rest)` in one pattern — a pair inside a
 pair — which is the deepest tuple binding the port has met. Bound once and
@@ -7,7 +7,7 @@ projected twice.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('emit/wraps_as_receiver', '''
@@ -19,10 +19,10 @@ wraps_as_receiver e =
   -- Caught by `a_chain_nests_left_to_right`, which is what that test is for.
   --
   -- A guard rather than a field pattern: a record pattern's field may be
-  -- matched against a *single-segment* path, and `redox_ast::BinaryOp::Pipeline`
+  -- matched against a *single-segment* path, and `voltaic_ast::BinaryOp::Pipeline`
   -- is three.
   is_pipeline = case e of
-    Expr::Binary { op, .. } | *op == redox_ast::BinaryOp::Pipeline -> true
+    Expr::Binary { op, .. } | *op == voltaic_ast::BinaryOp::Pipeline -> true
     _ -> false
   if is_pipeline
     return false
@@ -76,7 +76,7 @@ export(crate) nest : &[(&str, &Expr)] -> &[String] -> &str -> usize -> bool -> (
 nest draws guards item base nested =
   -- `head.0` is the first pair and `head.1` the rest; `first.0` and `first.1`
   -- are the name and source inside it. The Rust destructured all four in one
-  -- pattern — `((name, source), rest)` — and Redox has no such binding.
+  -- pattern — `((name, source), rest)` — and Voltaic has no such binding.
   head = .expect "the caller checked that there is at least one generator" (.split_first draws)
   first = head.0
   rest = head.1
@@ -124,10 +124,10 @@ unparen expr = case expr of
 -- | `#[cfg(test)]`: an identifier expression, for the tests below.
 #[cfg(test)]
 ident : &str -> Expr
--- `redox_ast::Ident` qualified, not imported: it is used only by this
+-- `voltaic_ast::Ident` qualified, not imported: it is used only by this
 -- `#[cfg(test)]` helper, and an unqualified import would be
 -- `unused_imports` in a build without the tests.
-ident text = Expr::Ident (redox_ast::Ident { text = .to_string text, span = (0, 0) })
+ident text = Expr::Ident (voltaic_ast::Ident { text = .to_string text, span = (0, 0) })
 
 -- | `#[cfg(test)]`: one layer of parentheses around `inner`.
 #[cfg(test)]

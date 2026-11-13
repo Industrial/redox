@@ -1,0 +1,228 @@
+import crate::ParseError
+import crate::block::reaches_a_fat_arrow
+import crate::expr::parse_expr
+import crate::item::visibility
+import crate::item::walk_item_for_tails
+import crate::operand::MethodContext
+import crate::operand::receiver
+import crate::parser::Parser
+import crate::signature::TypeStop
+import crate::signature::capture_type
+import crate::signature::type_app
+import crate::token::substitute_var
+import crate::token::token_text
+import voltaic_ast::ClassDecl
+import voltaic_ast::ClassMember
+import voltaic_ast::Constraint
+import voltaic_ast::Ident
+import voltaic_ast::InstanceDecl
+import voltaic_ast::Item
+import voltaic_ast::TypeApp
+import voltaic_ast::Visibility
+import voltaic_diag::Code
+import voltaic_lexer::Keyword
+import voltaic_lexer::TokenKind
+import voltaic_lexer::Trivia
+
+export(crate) class_body : &mut Parser -> &MethodContext -> Result<Vec<ClassMember>, ParseError>
+class_body p ctx =
+  mut members = Vec::new ()
+  opens = .check (&TokenKind::Newline) p && .is_some_and (\t -> t.kind == TokenKind::Indent) (.peek_at 1 p)
+  if !opens
+    return Ok members
+  .advance p
+  .advance p
+  loop
+    .skip_separators p
+    if .check (&TokenKind::Dedent) p || .at_eof p
+      break
+    .push (class_member p ctx)? members
+  (.expect (&TokenKind::Dedent) "expected the body to end" p)?
+  Ok members
+
+export(crate) class_decl : &mut Parser -> Vec<Trivia> -> usize -> Visibility -> Result<ClassDecl, ParseError>
+class_decl p leading start visibility =
+  (.expect (&TokenKind::Kw Keyword::Class) "expected `class`" p)?
+  supers = (class_supers p)?
+  name = (.ident "expected the class's name" p)?
+  mut params = Vec::new ()
+  while .try_ident p is Some param
+    .push param params
+  mut ctx = MethodContext::for_class (&params)
+  ctx.recording := Some $ .clone name.text
+  members = (class_body p (&ctx))?
+  Ok (ClassDecl { name, params, supers, members, visibility, span = (start, (.prev_span p).1), leading })
+
+export(crate) class_member : &mut Parser -> &MethodContext -> Result<ClassMember, ParseError>
+class_member p ctx =
+  leading = .peek_leading p
+  start = (.peek_span p).0
+  member_visibility = (visibility p)?
+  if .check (&TokenKind::Kw Keyword::Type) p
+    .advance p
+    assoc = (.ident "expected a name after `type`" p)?
+    (.newline_with_trailing "expected a line break after the associated type" p)?
+    return Ok (ClassMember::AssocType assoc)
+  if .check (&TokenKind::Kw Keyword::Const) p
+    .advance p
+    assoc = (.ident "expected a name after `const`" p)?
+    (.expect (&TokenKind::Colon) "expected `:` after the constant's name" p)?
+    ty = (capture_type p "expected the constant's type" TypeStop::Greedy)?
+    value = if .check (&TokenKind::Eq) p
+      .advance p
+      Some (parse_expr p 0)?
+    else
+      None
+    (.newline_with_trailing "expected a line break after the associated constant" p)?
+    return Ok (ClassMember::AssocConst { name = assoc, ty, value })
+  reserved = .reserved ctx
+  guard &(.peek p).kind is TokenKind::Ident peeked else
+    return Err (ParseError::r#with Code::ExpectedName (.to_string "expected a member's name") (.peek_span p))
+  name = Ident { text = .clone peeked, span = .peek_span p }
+  has_signature = .is_some_and (\t -> t.kind == TokenKind::Colon) (.peek_at 1 p)
+  head = if has_signature
+    declared = (.ident "expected a member's name" p)?
+    stated = (.signature_head (&declared) p)?
+    if &ctx.recording is Some recording_class
+      .record_head recording_class (&declared.text) (&stated) p
+    stated
+  else
+    borrowed = ctx.implementing
+      |> .as_deref
+      |> .and_then (\implemented -> .borrowed_head implemented (&name.text) p)
+    guard borrowed is Some found else
+      message = case .as_deref ctx.implementing of
+        Some implemented -> format! \-> "`#{name.text}` has no signature here, and `#{implemented}` declares none for it earlier in this file — write the signature, or declare the class above the instance"
+        None -> format! \-> "`#{name.text}` needs a signature: an inherent `instance` has no class to take one from"
+      return Err (ParseError::r#with Code::ExpectedToken message name.span)
+    found
+  mut decl = (.equations name leading start (&head) (&reserved) true p)?
+  decl.visibility := member_visibility
+  receiver $ &mut decl.sig
+  for pair in &ctx.vars
+    substitute_var (&mut decl.sig) (&pair.0) (&pair.1)
+  Ok $ ClassMember::Method decl
+
+export(crate) class_supers : &mut Parser -> Result<Vec<Ident>, ParseError>
+class_supers p =
+  mark = .position p
+  mut found = Vec::new ()
+  parenthesised = .check (&TokenKind::LParen) p
+  if parenthesised
+    .advance p
+  while .try_ident p is Some name
+    .push name found
+    if !.check (&TokenKind::Comma) p
+      break
+    .advance p
+  if parenthesised && .check (&TokenKind::RParen) p
+    .advance p
+  if .is_empty found || !.check (&TokenKind::FatArrow) p
+    .rewind mark p
+    return Ok (Vec::new ())
+  .advance p
+  Ok found
+
+export(crate) constraints : &mut Parser -> Result<Vec<Constraint>, ParseError>
+constraints p =
+  mark = .position p
+  mut found = Vec::new ()
+  parenthesised = .check (&TokenKind::LParen) p
+  if parenthesised
+    .advance p
+  loop
+    start = (.peek_span p).0
+    guard .try_ident p is Some trait_name else
+      break
+    guard .try_ident p is Some var else
+      break
+    .push (Constraint { trait_name, var, span = (start, (.prev_span p).1) }) found
+    if !.check (&TokenKind::Comma) p
+      break
+    .advance p
+  if parenthesised && .check (&TokenKind::RParen) p
+    .advance p
+  if .is_empty found || !.check (&TokenKind::FatArrow) p
+    .rewind mark p
+    guard reaches_a_fat_arrow p is Some span else
+      return Ok (Vec::new ())
+    mut scanning = true
+    while scanning
+      case &(.peek p).kind of
+        TokenKind::Newline or TokenKind::Indent or TokenKind::Dedent or TokenKind::Eof ->
+          scanning := false
+        _ -> .advance p
+    return Err $ ParseError::with_help Code::BoundClauseShape "a `=>` here is a bound clause, and this is not one" "doc 18 §2.2 reads a bound as a trait and the variable it bounds, each a bare name: `Ord t =>`, or `Ord t, Clone t =>`. A trait with type arguments (`Into<String> t`), a path on the left (`Clone i::IntoIter`), a `?Sized`, and a bound between two lifetimes are all out of reach — `docs/GRAMMAR.md` grades them, and inline Rust is the hatch" span
+  .advance p
+  Ok found
+
+export(crate) given_clause : &mut Parser -> Result<Option<String>, ParseError>
+given_clause p =
+  if !.check (&TokenKind::Kw Keyword::Given) p
+    return Ok None
+  opened = .peek_span p
+  .advance p
+  if !.check (&TokenKind::Lt) p
+    return Err $ ParseError::with_help Code::BoundClauseShape "expected `<` after `given`" "`given` carries Rust's own generic parameter list, verbatim and in angle brackets: `given <const N: usize>`, `given <T: Display, I: IntoIterator<Item = T>>`" (.peek_span p)
+  mut depth : i32 = 0
+  mut text = String::new ()
+  loop
+    kind = &(.peek p).kind
+    at_end = case kind of
+      TokenKind::Newline or TokenKind::Indent or TokenKind::Dedent or TokenKind::Eof -> true
+      _ -> false
+    if at_end
+      return Err $ ParseError::with_help Code::BoundClauseShape "this `given` clause is not closed" "a `given` clause runs from `<` to the `>` that matches it, on one line, and the spine follows it" opened
+    case kind of
+      TokenKind::Lt -> depth += 1
+      TokenKind::Gt -> depth -= 1
+      TokenKind::Shr -> depth -= 2
+      TokenKind::Compose -> depth -= 3
+      _ -> ()
+    if (.peek p).ws_before && !.is_empty text
+      .push ' ' text
+    .push_str (&token_text kind) text
+    .advance p
+    if depth <= 0
+      break
+  Ok (Some text)
+
+export(crate) instance_decl : &mut Parser -> Vec<Trivia> -> usize -> Result<InstanceDecl, ParseError>
+instance_decl p leading start =
+  (.expect (&TokenKind::Kw Keyword::Instance) "expected `instance`" p)?
+  binder = (given_clause p)?
+  limits = if .is_some binder
+    Vec::new ()
+  else
+    (constraints p)?
+  grouped = .check (&TokenKind::LParen) p
+  first = (type_app p)?
+  split = if grouped
+    (None, first)
+  else if .check (&TokenKind::LParen) p
+    (Some first, (type_app p)?)
+  else if .is_empty first.args
+    (None, first)
+  else
+    mut args = .clone first.args
+    head = args |> .pop |> .expect "the argument list is not empty"
+    class_end = .map_or first.head.span.1 (\a -> a.span.1) (.last args)
+    class_app = TypeApp { head = .clone first.head, args, span = (first.head.span.0, class_end) }
+    target_app = TypeApp { head = .clone head, args = Vec::new (), span = head.span }
+    (Some class_app, target_app)
+  implemented = split.0
+  target = split.1
+  var = .map (\v -> .to_string v) (.first (.vars target))
+  subject = var
+    |> .as_deref
+    |> .map_or_else String::new TypeApp::rust_name
+  mut ctx = MethodContext::for_instance (.as_deref var) (&subject)
+  ctx.implementing := .map (\c -> .clone c.head.text) (.as_ref implemented)
+  members = (class_body p (&ctx))?
+  Ok (InstanceDecl { r#class = implemented, target, constraints = limits, r#given = binder, members, span = (start, (.prev_span p).1), leading })
+
+export(crate) walk_member_for_tails : &ClassMember -> &mut Vec<ParseError> -> ()
+walk_member_for_tails member problems =
+  if member is ClassMember::Method decl
+    walk_item_for_tails (&Item::Fn (.clone decl)) problems
+  ()

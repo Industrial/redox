@@ -1,0 +1,18 @@
+module lambda_parameter_is_not_a_pattern
+
+-- Plan 69's third finding, and the one with the widest reach.
+--
+-- A lambda parameter is a **name**, not a pattern. Rust closures take
+-- patterns, and `|(i, x)|` is how `.enumerate()` and `.zip(…)` are consumed —
+-- two of the most common adapters there are — so this is not a gap a printer
+-- happened to find, it is one any port that iterates with an index will meet.
+--
+-- The workaround is to take the pair whole and split it with `.0` / `.1`,
+-- which `crates/voltaic-fmt/sdx/item_text/data_text.sdx` and
+-- `item_text/errors_text.sdx` both do.
+export probe : &Vec<i32> -> Vec<String>
+probe xs = xs
+  |> .iter
+  |> .enumerate
+  |> .map (\(i, n) -> format! \-> "#{i}:#{n}")
+  |> .collect

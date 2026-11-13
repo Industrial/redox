@@ -1,15 +1,15 @@
 # Conformance
 
-**Can the compiler's own source be expressed in Redox, without the
+**Can the compiler's own source be expressed in Voltaic, without the
 inline-Rust escape hatch?** Doc 02 §4.8 phrases the question that way and
 calls it *"the property actually worth proving"*.
 
 **Generated.** Measured from the working tree by
-`crates/redox-cli/tests/conformance.rs` and compared in the gate. Rewrite
+`crates/voltaic-cli/tests/conformance.rs` and compared in the gate. Rewrite
 it with:
 
 ```bash
-REDOX_UPDATE=1 cargo test -p redox-cli --test conformance
+VOLTAIC_UPDATE=1 cargo test -p voltaic-cli --test conformance
 ```
 
 Plan 48 (`docs/42 - 48 - Conformance and Self-Hosting.md`) built it, and
@@ -52,35 +52,35 @@ Each is graded `UNREACHABLE` in `docs/GRAMMAR.md`.
 
 | Crate | Files | With a blocker | |
 |---|---:|---:|---:|
-| `redox-ast` | 7 | 0 | 0% |
-| `redox-bench` | 5 | 0 | 0% |
-| `redox-cli` | 5 | 0 | 0% |
-| `redox-diag` | 5 | 0 | 0% |
-| `redox-driver` | 6 | 0 | 0% |
-| `redox-emit` | 10 | 0 | 0% |
-| `redox-fmt` | 6 | 0 | 0% |
-| `redox-fuzz` | 2 | 0 | 0% |
-| `redox-lexer` | 8 | 0 | 0% |
-| `redox-lsp` | 4 | 0 | 0% |
-| `redox-mcp` | 5 | 0 | 0% |
-| `redox-parser` | 13 | 0 | 0% |
-| `redox-seed` | 2 | 0 | 0% |
+| `voltaic-ast` | 7 | 0 | 0% |
+| `voltaic-bench` | 5 | 0 | 0% |
+| `voltaic-cli` | 5 | 0 | 0% |
+| `voltaic-diag` | 5 | 0 | 0% |
+| `voltaic-driver` | 6 | 0 | 0% |
+| `voltaic-emit` | 10 | 0 | 0% |
+| `voltaic-fmt` | 6 | 0 | 0% |
+| `voltaic-fuzz` | 2 | 0 | 0% |
+| `voltaic-lexer` | 8 | 0 | 0% |
+| `voltaic-lsp` | 4 | 0 | 0% |
+| `voltaic-mcp` | 5 | 0 | 0% |
+| `voltaic-parser` | 13 | 0 | 0% |
+| `voltaic-seed` | 2 | 0 | 0% |
 | **total** | **78** | **0** | **0%** |
 
 ---
 
 ## Thirteen crates are no longer a count
 
-The table above measures what *could* be ported. Thirteen crates **have** been, and for them the question is settled by rustc rather than by a blocker count: `redox-diag` (plan 73), `redox-lexer` (plan 74), `redox-ast` (plan 68), `redox-parser` (plan 82), `redox-fmt` (plan 69), `redox-fuzz` (plan 75), `redox-bench` (plan 76), `redox-mcp` (plan 77), `redox-lsp` (plan 78), `redox-emit` (plan 81), `redox-driver` (plan 80), `redox-cli` (plan 79) and `redox-seed` (plan 83) are written in Redox, their `.sdx` living in `crates/<crate>/sdx/` beside the `src/` it generates, and the generated Rust is compiled as part of the workspace.
+The table above measures what *could* be ported. Thirteen crates **have** been, and for them the question is settled by rustc rather than by a blocker count: `voltaic-diag` (plan 73), `voltaic-lexer` (plan 74), `voltaic-ast` (plan 68), `voltaic-parser` (plan 82), `voltaic-fmt` (plan 69), `voltaic-fuzz` (plan 75), `voltaic-bench` (plan 76), `voltaic-mcp` (plan 77), `voltaic-lsp` (plan 78), `voltaic-emit` (plan 81), `voltaic-driver` (plan 80), `voltaic-cli` (plan 79) and `voltaic-seed` (plan 83) are written in Voltaic, their `.sdx` living in `crates/<crate>/sdx/` beside the `src/` it generates, and the generated Rust is compiled as part of the workspace.
 
-So **the compiler is now compiled from Redox** — 78 files of it. That corrects what this document said until plan 70: *"nothing in the build depends on `conformance/`, and the compiler is not compiled from it"*, which was true when plan 48 lifted one 45-line module out of a crate and checked it with `syn`, and stopped being true the moment a whole crate's `src/` was generated.
+So **the compiler is now compiled from Voltaic** — 78 files of it. That corrects what this document said until plan 70: *"nothing in the build depends on `conformance/`, and the compiler is not compiled from it"*, which was true when plan 48 lifted one 45-line module out of a crate and checked it with `syn`, and stopped being true the moment a whole crate's `src/` was generated.
 
-Plan 48's probe is retired with that sentence. `conformance/clause.sdx` was `clause.rs` expressed in Redox and checked by `syn::parse_file`, because one module lifted out of a crate cannot resolve `crate::Stmt`; the real port has no extraction to concede to, so the weaker oracle expired. Its no-escape-hatch assertion now runs over all 78 files in `port.rs`.
+Plan 48's probe is retired with that sentence. `conformance/clause.sdx` was `clause.rs` expressed in Voltaic and checked by `syn::parse_file`, because one module lifted out of a crate cannot resolve `crate::Stmt`; the real port has no extraction to concede to, so the weaker oracle expired. Its no-escape-hatch assertion now runs over all 78 files in `port.rs`.
 
-What it found still stands, and is the reason doc 02 §4.8 expected a port to be worth doing: every field doc comment was silently discarded, and `redox fmt` deleted them from the source, because the lexer classified a comment opening a continuation line as *trailing* the previous line and then held it for a `Newline` a continuation never produces. Plans 68 and 69 found three more of that class and two formatter defects, and plan 73 four more in the toolchain that writes the port.
+What it found still stands, and is the reason doc 02 §4.8 expected a port to be worth doing: every field doc comment was silently discarded, and `voltaic fmt` deleted them from the source, because the lexer classified a comment opening a continuation line as *trailing* the previous line and then held it for a `Newline` a continuation never produces. Plans 68 and 69 found three more of that class and two formatter defects, and plan 73 four more in the toolchain that writes the port.
 
 ---
 
 ## The Rust implementation is permanent
 
-Doc 02 §4.8 corrects doc 01 §34's own wording: keep the Rust implementation *"permanently rather than as a 'fallback'"*. **No crate's `src/` is hand-written Rust any more.** What stays Rust is what             plan 72 §6 named: the integration tests, which `AGENTS.md` requires to be             Rust asserting over Redox-generated code, and `crates/redox-driver/build.rs`,             which cargo runs on the host before anything exists. The thirteen that are ported keep their generated Rust **committed**, which is what doc 02 §4.8 means by *"commit the generated `.xrs` so the bootstrap never breaks"* — the committed output is the previous-version compiler every self-hosting language needs, stored as reviewable source rather than as a binary.
+Doc 02 §4.8 corrects doc 01 §34's own wording: keep the Rust implementation *"permanently rather than as a 'fallback'"*. **No crate's `src/` is hand-written Rust any more.** What stays Rust is what             plan 72 §6 named: the integration tests, which `AGENTS.md` requires to be             Rust asserting over Voltaic-generated code, and `crates/voltaic-driver/build.rs`,             which cargo runs on the host before anything exists. The thirteen that are ported keep their generated Rust **committed**, which is what doc 02 §4.8 means by *"commit the generated `.xrs` so the bootstrap never breaks"* — the committed output is the previous-version compiler every self-hosting language needs, stored as reviewable source rather than as a binary.

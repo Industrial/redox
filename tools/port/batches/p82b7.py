@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""Plan 82 batch 7: twelve more of `redox-parser`'s bodies.
+r"""Plan 82 batch 7: twelve more of `voltaic-parser`'s bodies.
 
 `method_context` is the crate's second type-with-an-impl after `parse/error`,
 so it takes the same shape: the translator wrote the `data` declaration and an
@@ -9,7 +9,7 @@ Raw Python strings throughout, for the reason batch 6's docstring gives.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('parse/parser/method_context', r'''
@@ -123,7 +123,7 @@ condition p =
   while .check (&TokenKind::AndAnd) p
     .advance p
     .push (condition_operand p)? operands
-  -- A let-chain joins with `&&` only — **Rust's** restriction, not Redox's —
+  -- A let-chain joins with `&&` only — **Rust's** restriction, not Voltaic's —
   -- so say that rather than leaving the generic "expected a line break" the
   -- block parser would give.
   if .check (&TokenKind::OrOr) p
@@ -245,7 +245,7 @@ unit_tail name block =
 ''')
 
 write('parse/parser/pattern_app', r'''
-import redox_ast::Ident
+import voltaic_ast::Ident
 
 export(crate) pattern_app : &mut Parser -> Result<Pattern, ParseError>
 pattern_app p =

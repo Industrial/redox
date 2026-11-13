@@ -51,8 +51,8 @@ Three layers:
 
 | Layer | Where | Who runs it |
 |---|---|---|
-| The target logic — `fn lex_source(&[u8])`, one per target | `crates/redox-fuzz/`, stable Rust, in the workspace | `moon run :test`, every time |
-| A deterministic sweep over each target | `crates/redox-fuzz/tests/` | likewise |
+| The target logic — `fn lex_source(&[u8])`, one per target | `crates/voltaic-fuzz/`, stable Rust, in the workspace | `moon run :test`, every time |
+| A deterministic sweep over each target | `crates/voltaic-fuzz/tests/` | likewise |
 | The libFuzzer harnesses, three lines each | `fuzz/fuzz_targets/`, **outside** the workspace | whoever has nightly |
 
 Without this, the row ships code nobody here can run, and a fuzz target that has never
@@ -100,7 +100,7 @@ thousand.
 will. `syn` parses, and rustc parses *and* type-checks, borrow-checks and resolves names — so
 this catches a mangled *syntax* and not a mangled *program*. That is still the defect class
 that matters here, because every semantic error rustc can find is one AGENTS.md says rustc
-should find; a syntax error in generated code is Redox's own bug and nobody else's.
+should find; a syntax error in generated code is Voltaic's own bug and nobody else's.
 
 The three corpora already compile their examples through real rustc, so the slow check exists
 and is covered. This is the fast one.
@@ -140,7 +140,7 @@ criterion 4 record.
 
 ### Leaf 1 — `leaf-target-logic`
 
-`crates/redox-fuzz/` with the four target functions, and the deterministic sweep over §1.3's
+`crates/voltaic-fuzz/` with the four target functions, and the deterministic sweep over §1.3's
 inputs. This is the leaf that carries the value.
 
 ### Leaf 2 — `leaf-fuzz-harnesses`
@@ -173,7 +173,7 @@ is pinned.
   deliberately declined: it doubles the toolchain this repo installs for a tool that runs on
   nobody's inner loop, and the harnesses work the moment someone adds it. Plan 41 leaf 1 pinned
   `tree-sitter` because a *committed artefact* depended on its version; nothing here does.
-- **A structure-aware generator** — a function from bytes to a *valid* Redox program. It would
+- **A structure-aware generator** — a function from bytes to a *valid* Voltaic program. It would
   find deeper defects than byte mutation, and it is most of a second parser. Named because doc
   04's row 42 mentions a "generated-program target", and what this row builds is a *mutated*
   program target: the oracle is the same and the generator is weaker. The successor is whoever
@@ -201,7 +201,7 @@ dependencies in the target crate.
 
 **What is deliberately not taken** is its oracle. Emerald's targets assert *does not panic*,
 which finds crashes and stops there. §1.4's output oracle is the row's reason to exist, and it
-is available only because Redox is a *source-to-source* compiler — there is an output to check.
+is available only because Voltaic is a *source-to-source* compiler — there is an output to check.
 
 ---
 
@@ -220,7 +220,7 @@ is available only because Redox is a *source-to-source* compiler — there is an
 
 ## 10. Result
 
-Shipped 2026-11-09. `crates/redox-fuzz/` with four targets and a deterministic sweep of 341
+Shipped 2026-11-09. `crates/voltaic-fuzz/` with four targets and a deterministic sweep of 341
 inputs, `fuzz/` with four three-line libFuzzer harnesses outside the workspace, and a README
 recording what it needs.
 
@@ -245,7 +245,7 @@ been there since plan 03 shipped the recursive descent, unreachable by anything 
 parse and 32 abort, in a debug build. A limit chosen by taste would have been 64 or 256, both
 of which are past the cliff. The cliff is two orders of magnitude lower than it looks.
 
-So `redox_parser::MAX_NESTING` is **16**, `RDX0109` reports it, and the check is a linear
+So `voltaic_parser::MAX_NESTING` is **16**, `RDX0109` reports it, and the check is a linear
 pre-pass over the tokens inside `parse` — the chokepoint every caller arrives through.
 
 A pre-pass rather than a depth counter threaded through the descent, for two reasons: the
@@ -308,7 +308,7 @@ silently and the sweep would still pass.
 **What it does not assert**, restated from §1.4 because the register will be read: `syn`
 accepting a file does not mean rustc will. This catches a mangled syntax, not a mangled
 program — and that is the right division, because every semantic error rustc can find is one
-AGENTS.md says rustc should find, while a syntax error in generated code is Redox's own bug.
+AGENTS.md says rustc should find, while a syntax error in generated code is Voltaic's own bug.
 
 §6's declines all stand: no fuzzer is pinned, there is no structure-aware generator, and the
 mutation is crude on purpose — a mutation that produced *valid* programs would be testing the

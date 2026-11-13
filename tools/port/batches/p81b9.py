@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Plan 81 batch 9: four more of `redox-emit`'s bodies.
+"""Plan 81 batch 9: four more of `voltaic-emit`'s bodies.
 
 `control_text` is the first ported body with a **let-chain whose first link is
 a record pattern**: `if let Expr::If { … } = expr && let Some(text) = …`. Both
@@ -8,7 +8,7 @@ one link and plan 81 batch 1 wrote for a `Some`.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('emit/emit_fn', '''

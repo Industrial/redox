@@ -103,7 +103,7 @@ where this decision is wrong, and none has been found.
 
 ## 2. Verified preconditions
 
-Measured 2026-11-10, against `redox` at `194fdf7`.
+Measured 2026-11-10, against `voltaic` at `194fdf7`.
 
 **The block lowering, in a receiver position.** Written in the syntax that parses *today* — `::`
 for ascription, and Rust's method call — because this row's measurements must be reproducible at
@@ -463,8 +463,8 @@ ascription rather than guessing. A wrong binder would compile and annotate somet
 
 ### 10.4 Two readers the plan did not name, and one grammar conflict
 
-`redox-fmt` prints the ascription back. It was not in the plan and it is not optional: the
-formatter reads the same tree, so a field it ignored would be a field `redox fmt` **deleted** —
+`voltaic-fmt` prints the ascription back. It was not in the plan and it is not optional: the
+formatter reads the same tree, so a field it ignored would be a field `voltaic fmt` **deleted** —
 plan 61 §11.6's two-consumers rule in the direction that loses source rather than rewrites it.
 
 And the grammar needed the position too, where `signature_type` could not be reused: it is a
@@ -544,7 +544,7 @@ identity-function trick forecloses the third option.
 Not a coin toss — narrowing leaf 2 is **not achievable**, because the thing it
 would have to emit does not exist. Rust has no expression-level type
 ascription. `as` is a *cast*, not an ascription, and `docs/GRAMMAR.md` grades it
-`UNREACHABLE` in Redox anyway; a turbofish works only when the ascribed
+`UNREACHABLE` in Voltaic anyway; a turbofish works only when the ascribed
 expression happens to be a call to a generic function, which is a special case
 and not a lowering; and hoisting to a `let` outside the expression changes
 where the value is evaluated and is impossible in positions that are not
@@ -594,7 +594,7 @@ and it is taken as a format spec:
 print "#{total : u64}"   ->   println!("{: u64}", total);
 ```
 
-`redox build` **exits 0 silently**, and `redox check` then reports rustc
+`voltaic build` **exits 0 silently**, and `voltaic check` then reports rustc
 objecting to a *format string* — *"invalid format string: expected `}`, found
 `u`"* — against a line on which the author wrote a legal ascription.
 
@@ -633,7 +633,7 @@ Why a diagnostic rather than support: ascribing inside an interpolation buys
 nothing a binding does not — `t : u64 = total` then `#{t}` — and AGENTS.md's
 *"every check rustc can make, rustc makes"* cuts against growing a second
 reading of `:` to serve it. What this row must not leave in place is the
-**silent** path: `redox build` exiting 0 and rustc then complaining about a
+**silent** path: `voltaic build` exiting 0 and rustc then complaining about a
 format string on a line whose author wrote a legal ascription. Converting a
 quiet miscompile into a loud refusal is the whole of the fix, and it is
 cheaper than either alternative.

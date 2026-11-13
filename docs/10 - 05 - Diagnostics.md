@@ -1,6 +1,6 @@
 # Plan 05 — Diagnostics
 
-Plan: 05 of 48 (`docs/04 - Redox Plan of Plans.md`, Milestone 2)
+Plan: 05 of 48 (`docs/04 - Voltaic Plan of Plans.md`, Milestone 2)
 Slug: `diagnostics-miette`
 Status: `planned`
 Depends on: plan 03
@@ -14,12 +14,12 @@ Milestone 1 made the pipeline work. Milestone 2 makes it **explain itself**, and
 §6.5 calls this the largest single gap in doc 01: §29 says "pass Rust errors through"
 without a mechanism, so a user debugs generated `.xrs` they never wrote.
 
-This plan does the first half — **Redox's own errors, rendered well**. The second half,
+This plan does the first half — **Voltaic's own errors, rendered well**. The second half,
 remapping *rustc's* errors back to `.sdx`, is plan 07 and depends on plan 06's span map.
 
 Three deliverables:
 
-1. the `redox-diag` crate, filling the empty shell plan 01 declared;
+1. the `voltaic-diag` crate, filling the empty shell plan 01 declared;
 2. a **stable code catalogue** (`RDX####`), so every diagnostic is citable and doc 03
    §17's codes have a home;
 3. `miette` rendering — a source snippet with a caret, not a one-line message.
@@ -30,18 +30,18 @@ exists to honour: *"Diagnostics are a first-class compiler feature, not an after
 
 ### 1.1 The first third-party dependency
 
-Redox has had **zero** third-party dependencies through four plans, and doc 06 §7 requires
+Voltaic has had **zero** third-party dependencies through four plans, and doc 06 §7 requires
 a new one to carry a reason written down in the plan that adds it. This is that reason.
 
 `miette` 7.6 is on doc 02 §5.5's shortlist of the four dependencies the project expects to
 acquire, and it is the one with the least plausible alternative: rendering a source snippet
 with a caret, a code, a help line and correct Unicode width is a few thousand lines of work
-that is entirely incidental to Redox. Writing it would be the clearest possible case of the
-"no Redox plan implements a library function" rule being violated in spirit.
+that is entirely incidental to Voltaic. Writing it would be the clearest possible case of the
+"no Voltaic plan implements a library function" rule being violated in spirit.
 
-Scoped deliberately: `miette` is a dependency of `redox-diag` and `redox-cli` only. No
+Scoped deliberately: `miette` is a dependency of `voltaic-diag` and `voltaic-cli` only. No
 stage crate gains it, because an error type needs a span and a message, not a renderer —
-doc 06 §6 rule 2's division. If `redox-diag` ever needs to be swapped, the stage crates do
+doc 06 §6 rule 2's division. If `voltaic-diag` ever needs to be swapped, the stage crates do
 not notice.
 
 ---
@@ -86,7 +86,7 @@ Three properties the corpus asserts beyond "a message appears":
 
 ### Leaf 1 — `leaf-code-catalogue`
 
-`redox-diag`'s `Code` enum, with ranges chosen to respect what is already published rather
+`voltaic-diag`'s `Code` enum, with ranges chosen to respect what is already published rather
 than renumbering it:
 
 | Range | Holds |
@@ -101,7 +101,7 @@ published numbers fails the build rather than shipping two meanings for one code
 
 ### Leaf 2 — `leaf-diagnostic-type`
 
-`redox-diag`'s `Diagnostic`: a code, a message, a span, an optional help line, and the
+`voltaic-diag`'s `Diagnostic`: a code, a message, a span, an optional help line, and the
 source it points into. Implements `miette::Diagnostic` so `{:?}` renders graphically — the
 shape Emerald's `SemaError` uses (`crates/emerald-cli/src/main.rs:47-81`), which is the one
 piece of its diagnostics work that transfers directly.
@@ -114,13 +114,13 @@ render time by matching message text.
 
 ### Leaf 4 — `leaf-cli-rendering`
 
-`redox-cli` renders through `miette` instead of `eprintln!`: one report per error, then a
+`voltaic-cli` renders through `miette` instead of `eprintln!`: one report per error, then a
 single non-zero exit. A `--plain` flag keeps the unrendered form, because the UI tests need
 output that does not depend on terminal width or colour support.
 
 ### Leaf 5 — `leaf-ui-test-harness`
 
-`tests/ui/` with one `.sdx` and one `.stderr` per case, and `REDOX_BLESS=1` regenerating
+`tests/ui/` with one `.sdx` and one `.stderr` per case, and `VOLTAIC_BLESS=1` regenerating
 expectations exactly as the golden harness does. Cases cover at least: a tab, an
 inconsistent dedent, an unterminated string, a missing `->`, a bad statement among good
 ones, and a file with three independent mistakes.
@@ -141,9 +141,9 @@ unreachable — plus the full gate and independent re-verification.
 | 3 | No code collides with doc 03 §17's published assignments |
 | 4 | A diagnostic renders a source snippet with a caret at the right column |
 | 5 | Three mistakes in one file render three diagnostics and exit non-zero **once** |
-| 6 | `tests/ui/*.stderr` match byte for byte, and `REDOX_BLESS=1` regenerates them |
+| 6 | `tests/ui/*.stderr` match byte for byte, and `VOLTAIC_BLESS=1` regenerates them |
 | 7 | `--plain` output is free of colour and width dependence |
-| 8 | `miette` is a dependency of `redox-diag` and `redox-cli` only |
+| 8 | `miette` is a dependency of `voltaic-diag` and `voltaic-cli` only |
 | 9 | Plans 01–04's tests all still pass |
 | 10 | Full gate green |
 
@@ -153,7 +153,7 @@ unreachable — plus the full gate and independent re-verification.
 
 | Deferred | To | Note |
 |---|---|---|
-| Remapping **rustc's** errors to `.sdx` | **plan 07** | Needs plan 06's span map; this plan renders only Redox's own errors |
+| Remapping **rustc's** errors to `.sdx` | **plan 07** | Needs plan 06's span map; this plan renders only Voltaic's own errors |
 | The span map | **plan 06** | Unchanged |
 | A broader UI corpus as the grammar grows | each later plan | A plan that adds a diagnostic adds its UI case |
 | `RDX1001`'s `unwrap` lint | **plan 38** | The range is reserved; no lint ships here |
@@ -181,7 +181,7 @@ non-zero exit. Doc 02 §3 names both as directly adaptable, and they are.
 **Consulted:** Emerald's inception §14.4, for the bar and for the principle that
 diagnostics are a first-class feature rather than an afterthought.
 
-**Deliberately not taken:** Emerald's `thiserror` dependency. Redox's error types are three
+**Deliberately not taken:** Emerald's `thiserror` dependency. Voltaic's error types are three
 structs with named fields; a derive macro to write their `Display` would be a dependency
 earning less than its cost.
 
@@ -222,9 +222,9 @@ earning less than its cost.
 | 3 | No collision with doc 03 §17 | `code.rs`: `no_code_collides_with_the_published_reservation` |
 | 4 | Snippet with a caret at the right column | 20 `tests/ui/*.stderr` files, compared byte for byte |
 | 5 | Three mistakes, three diagnostics, one non-zero exit | `tests/ui/three_errors.stderr`; `stderr_of` asserts the exit is non-zero and that stdout is empty |
-| 6 | `.stderr` match byte for byte, `REDOX_BLESS=1` regenerates | `ui.rs`: `every_ui_case_matches_its_expectation`, plus `no_expectation_is_orphaned` |
+| 6 | `.stderr` match byte for byte, `VOLTAIC_BLESS=1` regenerates | `ui.rs`: `every_ui_case_matches_its_expectation`, plus `no_expectation_is_orphaned` |
 | 7 | `--plain` free of colour and width dependence | `plain_one.rs` writes ASCII only and consults no terminal; `parse_build_args` tests the flag in both positions |
-| 8 | `miette` confined | `grep -l miette crates/*/Cargo.toml` → `redox-diag` alone. Tighter than the criterion asked: the CLI reaches `miette` only through `redox_diag::render` |
+| 8 | `miette` confined | `grep -l miette crates/*/Cargo.toml` → `voltaic-diag` alone. Tighter than the criterion asked: the CLI reaches `miette` only through `voltaic_diag::render` |
 | 9 | Plans 01–04's tests still pass | Two assertions in `lex.rs` were *rewritten*, not weakened — see below |
 | 10 | Full gate green | `moon run :check :lint :test :cargo-check :cargo-test :ci-format` and `:audit` |
 
@@ -268,13 +268,13 @@ than relaxed — the distinction matters, so both are recorded:
 - **`Cursor` lost its line tracking entirely.** Once no error read a line number, the
   `line`/`line_start` fields and the `line()`/`col()` accessors served only their own
   tests, and `mark`/`reset_to` collapsed from a three-tuple to a `usize`. The computation
-  now exists once, in `redox_diag::line_col`. Doc 06 §3 gained rule 6 for this.
+  now exists once, in `voltaic_diag::line_col`. Doc 06 §3 gained rule 6 for this.
 
 ### 10.3 Disclosures
 
 - **`1e` is still accepted by the lexer.** It lexes as `Int("1e")` — `e` is swallowed as a
   type suffix — and rustc rejects it later. Validating suffixes would mean maintaining
-  rustc's suffix list, which contradicts the deliberate choice (plan 02) that Redox never
+  rustc's suffix list, which contradicts the deliberate choice (plan 02) that Voltaic never
   agrees with rustc about numeric detail. Recorded, not fixed; the `MalformedNumber` code
   is reached by `0x` instead.
 

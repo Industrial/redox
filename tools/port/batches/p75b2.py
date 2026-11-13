@@ -13,7 +13,7 @@ the decision either a workspace-level allow or a change to §1.6.
 """
 import io
 
-P = '/home/tom/Code/rust/redox/crates/redox-fuzz/sdx/lib.sdx'
+P = '/home/tom/Code/rust/voltaic/crates/voltaic-fuzz/sdx/lib.sdx'
 
 WHY = (
     "-- Plan 55 §1.6 requires a `()`-returning body to **end with `()`** rather than\n"

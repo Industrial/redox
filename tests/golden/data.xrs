@@ -9,7 +9,7 @@
 // binder — `Key c -> …` — which is doc 04's plan 33, the full pattern
 // grammar, so an unread field would be a `dead_code` warning.
 //
-// `crates/redox-emit/tests/data.rs` covers the record variant. This file
+// `crates/voltaic-emit/tests/data.rs` covers the record variant. This file
 // covers what runs: unit variants, a constructor in scope under its own name,
 // a tuple struct whose field *is* read — one spelled `newtype` and one
 // spelled `data`, which is plan 53's distinction — an alias, and `deriving`.

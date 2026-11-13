@@ -2,7 +2,7 @@
 """`line_col`'s test input loses the macro call it never needed.
 
 The Rust test used `"main : ()\\nmain =\\n  println! \\\\-> \\"#{1}\\"\\n"`, and
-`#{…}` is interpolation in **any** Redox string, so the literal cannot be
+`#{…}` is interpolation in **any** Voltaic string, so the literal cannot be
 written directly. `r#"…"#` is not a multi-line raw string here either — the
 lexer answers *"a single-quoted string may not span lines — use \\"\\"\\" for a
 multi-line string"*.
@@ -14,7 +14,7 @@ offsets are unchanged and the comment explaining them stays true.
 """
 import io
 
-p = '/home/tom/Code/rust/redox/crates/redox-diag/sdx/render/line_col.sdx'
+p = '/home/tom/Code/rust/voltaic/crates/voltaic-diag/sdx/render/line_col.sdx'
 s = io.open(p, encoding='utf-8').read()
 
 OLD = '''  src = r#"main : ()
@@ -23,7 +23,7 @@ main =
 "#
 '''
 NEW = '''  -- `  println 1` where the Rust wrote `  println! \\-> "#{1}"`: `#{…}` is
-  -- interpolation in any Redox string, so that literal cannot be written
+  -- interpolation in any Voltaic string, so that literal cannot be written
   -- directly, and a multi-line raw string is not a form the lexer has. The
   -- macro call was never what this test is about — it needs a third line
   -- whose third byte is a letter, and the 10 + 7 byte prefix is unchanged, so

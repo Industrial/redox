@@ -100,7 +100,7 @@ argument about one spelling too many, and this row is not the place to make it.
 
 ## 2. Verified preconditions
 
-Measured 2026-11-10, against `redox` at `194fdf7`.
+Measured 2026-11-10, against `voltaic` at `194fdf7`.
 
 **`|>` is receiver-sugar**, and a free function produces a method call:
 
@@ -192,7 +192,7 @@ them.
 
 **The collision checks are discharged, in §11.1, before this leaf runs.** Neither of the
 original spellings is in the operator table, and the sharper question — whether maximal munch
-can steal a valid program — is answered by a fact this plan did not state: Redox spells a
+can steal a valid program — is answered by a fact this plan did not state: Voltaic spells a
 closure `\n -> …`, not `|n|`, so `|<` has no closure parameter list to eat. §9 decision 3's
 fallback pair is therefore not needed to *rescue* anything.
 
@@ -266,7 +266,7 @@ semantics section is struck. `docs/GRAMMAR.md` regraded; `docs/STATUS.md` update
 
 ## 5. Acceptance criteria
 
-1. `x |> f` emits `f(x)` for a Redox function, a curried partial application, and a
+1. `x |> f` emits `f(x)` for a Voltaic function, a curried partial application, and a
    `.name` method.
 2. `5 |> double` runs and prints the right number.
 3. A five-line pipeline mixing functions and methods runs, with asserted stdout.
@@ -282,7 +282,7 @@ semantics section is struck. `docs/GRAMMAR.md` regraded; `docs/STATUS.md` update
    distinguishable, asserted in one example.
 
    **§11.7 confirmed this is assertable, which was not obvious** — it reads like it needs name
-   resolution Redox must never have. It does not: after leaf 2, `x |> f` is `f(x)` and
+   resolution Voltaic must never have. It does not: after leaf 2, `x |> f` is `f(x)` and
    `x |> .f` is `x.f()`, so the two differ by one character **in the source** and rustc resolves
    each independently. The criterion is a parsing and lowering assertion, which is the only form
    AGENTS.md's *"every check rustc can make, rustc makes"* leaves available to it.
@@ -351,14 +351,14 @@ is gone, it builds the collision deliberately and asserts both spellings resolve
 ## 9. Decision log
 
 1. **Reverse application, not receiver-sugar with a diagnostic.** Keeping the receiver reading
-   and merely refusing non-methods would preserve a token that means something unique to Redox,
+   and merely refusing non-methods would preserve a token that means something unique to Voltaic,
    and would still not let anyone pipe into their own function.
 2. ~~**`>|` and `|<`, not `>>`/`<<`.**~~ **Superseded 2026-11-10 by plan 66 §9 decision 1**,
    which takes `>>>` and `<<<` on legibility: both heads of `>|` and `|<` point rightward, so
    only the bar's side distinguishes them and that carries nothing (plan 66 §1.2). What the
    decision argued and plan 66 keeps is the *other* half — §1.3's refusal of `>>`/`<<`. The
    shifts are exercised by a corpus assertion and composition is more common than bit work in
-   the code Redox is for, but not so much more that it is worth a migration priced in every
+   the code Voltaic is for, but not so much more that it is worth a migration priced in every
    bit-twiddling program. Plan 66 decision 8 leaves that standing and its criterion 5 asserts
    it.
 3. **If `>|` collides, the fallback is `>>>`/`<<<`.** Recorded now so leaf 1's collision check
@@ -416,7 +416,7 @@ application and receiver sugar agree wherever the receiver is marked.
 
 `examples/generic.sdx` ends a pipeline in `.unwrap`. As a bare `unwrap` it was a method name
 `RDX1001` could not see; marked, it reads as the unwrap it always was. Suppressed with plan 53's
-`#[redox::allow(unwrap)]` and a reason, because the `Option` is that function's whole subject.
+`#[voltaic::allow(unwrap)]` and a reason, because the `Option` is that function's whole subject.
 
 One UI fixture was **not** migrated: `tests/ui/retired_pipeline_section.sdx` exists to assert
 that `(|> name)` still fails, so dotting it would have changed what it tests. A mechanical sweep
@@ -453,13 +453,13 @@ the hazard below materialised. It did not.
 
 The question worth asking is not whether the spelling is taken but whether
 **maximal munch can steal a valid program**, and the answer turns on something
-this plan does not mention: **Redox spells a closure `\n -> …`, not `|n|`.**
+this plan does not mention: **Voltaic spells a closure `\n -> …`, not `|n|`.**
 `examples/application.sdx` lines 58–59 are `filter (\n -> *n % 2 == 0)` and
 `map (\n -> n * 2)`.
 
 That is what makes `|<` safe. In a Rust-shaped surface, `|<` would sit directly
 on top of a closure parameter list — `f(|x| < y)` is lexed `|`, `x`, `|`, `<`,
-and a greedy `|<` would eat the closing bar. Redox has no such sequence to
+and a greedy `|<` would eat the closing bar. Voltaic has no such sequence to
 break.
 
 `|` does already carry two meanings, and a third is being added:
@@ -479,7 +479,7 @@ an expression or a variant name, so no existing program contains `| <` or
 
 ### 11.2 `BinaryOp::Pipeline` is power 1, as claimed
 
-Confirmed at `crates/redox-ast/src/expr/binary_op.rs` line 122. Leaf 2's
+Confirmed at `crates/voltaic-ast/src/expr/binary_op.rs` line 122. Leaf 2's
 *"precedence needs no change"* holds.
 
 ### 11.3 A fourth site leaf 2 does not name, and it correctly stays
@@ -540,7 +540,7 @@ line 35. Leaf 2 already assigns that construct to plan 57.
 ### 11.7 Criterion 7 is assertable, which was not obvious
 
 *"The §1.1 hazard is unreachable: a function and a same-named method are both
-callable and distinguishable"* reads like it needs a check Redox must never
+callable and distinguishable"* reads like it needs a check Voltaic must never
 have. It does not. After leaf 2, `x \|> f` is `f(x)` and `x \|> .f` is
 `x.f()`, so the two are distinguished by one character **in the source**, and
 rustc resolves each independently. The criterion is a parsing and lowering
@@ -584,7 +584,7 @@ arms"* in §4 and §11.1; it is two token arms **and** a continuation rule.
 **Fixed 2026-11-10 by plan 66 leaf 2**, in the new spelling. The function
 holds an ordered set — `">>>"`, `"<<<"`, `"|>"`, longest first, for the same
 reason `OPERATOR_TABLE` is ordered that way — and
-`redox-lexer/tests/continuation.rs` asserts a leading chain of each.
+`voltaic-lexer/tests/continuation.rs` asserts a leading chain of each.
 
 Note the asymmetry this exposes: a *trailing* operator continues a line
 through `continues_line` on the token, which any new operator gets for free,

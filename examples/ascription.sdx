@@ -62,7 +62,7 @@ main =
   -- `wide` is `Some` by construction two lines up, so the panic is
   -- unreachable — doc 03 §12.7's lint is suppressed rather than argued with,
   -- and the attribute is consumed, so the `.xrs` below carries no trace of it.
-  #[redox::allow(unwrap)]
+  #[voltaic::allow(unwrap)]
   println! \-> "#{(.unwrap wide)}"
   -- A multi-line lowering as a macro argument: `println!` keeps the call on
   -- one line and lets the block hang, which is the form rustfmt writes.

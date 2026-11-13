@@ -79,7 +79,7 @@ command = "biome"
 options = ["format", "--write"]
 includes = ["*.{js,jsx,ts,tsx,json}"]
 # Same exclusion as `treefmt.toml`, and it has to be here too. That file's
-# `[formatter.javascript]` carries the full explanation: `tree-sitter-redox/src/`
+# `[formatter.javascript]` carries the full explanation: `tree-sitter-voltaic/src/`
 # is generated, biome reformats its JSON, `tree-sitter generate` writes it back,
 # and each tool undoes the other.
 #
@@ -88,7 +88,7 @@ includes = ["*.{js,jsx,ts,tsx,json}"]
 # was clean, while `:ci-format` reads this file and reformatted the two JSON
 # files on every run. With `fail-on-change = true` that is a permanently red CI
 # job, and locally it was the "the gate kept rewriting it" loop.
-excludes = ["tree-sitter-redox/src/*"]
+excludes = ["tree-sitter-voltaic/src/*"]
 priority = 4
 
 [formatter.yaml]

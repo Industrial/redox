@@ -25,13 +25,13 @@ Four instructions, and each is an axis with its own measurement in §2:
 
 ### 1.1 The architecture is the measurement, not a preference
 
-`crates/redox-parser/sdx` holds **134 files for 3,659 code lines** — 27 lines
-each. `redox-emit` holds 123 for 2,873. Across all thirteen crates the mean is
+`crates/voltaic-parser/sdx` holds **134 files for 3,659 code lines** — 27 lines
+each. `voltaic-emit` holds 123 for 2,873. Across all thirteen crates the mean is
 **23.5 code lines per file**, and **271 of 572 files (47%) hold fewer than 15**.
 
 What fills them is ceremony: **2,358 lines, 18% of all code**, are `import` and
-`module` declarations. `redox-fmt` and `redox-parser` are 21% ceremony;
-`redox-emit` and `redox-lsp` 20%.
+`module` declarations. `voltaic-fmt` and `voltaic-parser` are 21% ceremony;
+`voltaic-emit` and `voltaic-lsp` 20%.
 
 That is the cost of doc 06 §1, and it was a reasonable trade when every file
 also held a paragraph explaining itself — the comment was the unit of value and
@@ -41,7 +41,7 @@ not an architecture.
 
 ### 1.2 Point-free is free in three positions and costs output transparency in a fourth
 
-Redox already composes: `|>` appears on 612 lines across 159 files, sections on
+Voltaic already composes: `|>` appears on 612 lines across 159 files, sections on
 891 across 265. Those are point-free and they lower to **direct method calls**,
 so the generated Rust is unchanged by them.
 
@@ -92,7 +92,7 @@ test §1.2 applies to point-free.
 
 **The type class is the headline because the measurement says so: `class` is used
 zero times in 13,453 lines.** And there is an obvious place for it.
-`redox-emit` and `redox-fmt` each carry *parallel families of free functions* over
+`voltaic-emit` and `voltaic-fmt` each carry *parallel families of free functions* over
 the same three types — `emit_expr` / `emit_item` / `pattern_text`,
 `expr_text` / `item_text` / `stmt_text` / `pattern_text`. That is a type class
 waiting to be named:
@@ -139,7 +139,7 @@ Six constructs the project shipped are used **zero to three times** by the
 compiler itself, and `class` — the surface's own abstraction mechanism — is used
 nowhere. Each has exactly one `examples/` witness and one golden.
 
-> **Correction, wave 14: the `class` row is wrong.** `redox-driver` already had
+> **Correction, wave 14: the `class` row is wrong.** `voltaic-driver` already had
 > two — `export class CacheReporter` and `export(crate) class ProgramWalk` —
 > both present at the commit this plan was written against. The probe that
 > produced this table matched `^class` and so missed every `export`-prefixed
@@ -178,19 +178,19 @@ consequently wrong — three times, in the same direction.
 
 | crate | files | lines | doc `-- \|` | `--` | blank | code | cmt % |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| redox-ast | 57 | 3,280 | 2,080 | 49 | 83 | 1,068 | 65% |
-| redox-bench | 13 | 582 | 166 | 101 | 32 | 283 | 46% |
-| redox-cli | 24 | 1,068 | 331 | 63 | 119 | 555 | 37% |
-| redox-diag | 21 | 1,602 | 774 | 112 | 123 | 593 | 55% |
-| redox-driver | 49 | 2,492 | 1,094 | 183 | 204 | 1,011 | 51% |
-| redox-emit | 123 | 6,396 | 2,682 | 661 | 180 | 2,873 | 52% |
-| redox-fmt | 57 | 2,559 | 1,129 | 293 | 69 | 1,068 | 56% |
-| redox-fuzz | 6 | 134 | 48 | 50 | 3 | 33 | 73% |
-| redox-lexer | 34 | 2,820 | 926 | 310 | 188 | 1,396 | 44% |
-| redox-lsp | 29 | 1,273 | 492 | 210 | 62 | 509 | 55% |
-| redox-mcp | 19 | 735 | 282 | 104 | 44 | 305 | 53% |
-| redox-parser | 134 | 7,629 | 2,770 | 1,042 | 158 | 3,659 | 50% |
-| redox-seed | 6 | 288 | 78 | 95 | 15 | 100 | 60% |
+| voltaic-ast | 57 | 3,280 | 2,080 | 49 | 83 | 1,068 | 65% |
+| voltaic-bench | 13 | 582 | 166 | 101 | 32 | 283 | 46% |
+| voltaic-cli | 24 | 1,068 | 331 | 63 | 119 | 555 | 37% |
+| voltaic-diag | 21 | 1,602 | 774 | 112 | 123 | 593 | 55% |
+| voltaic-driver | 49 | 2,492 | 1,094 | 183 | 204 | 1,011 | 51% |
+| voltaic-emit | 123 | 6,396 | 2,682 | 661 | 180 | 2,873 | 52% |
+| voltaic-fmt | 57 | 2,559 | 1,129 | 293 | 69 | 1,068 | 56% |
+| voltaic-fuzz | 6 | 134 | 48 | 50 | 3 | 33 | 73% |
+| voltaic-lexer | 34 | 2,820 | 926 | 310 | 188 | 1,396 | 44% |
+| voltaic-lsp | 29 | 1,273 | 492 | 210 | 62 | 509 | 55% |
+| voltaic-mcp | 19 | 735 | 282 | 104 | 44 | 305 | 53% |
+| voltaic-parser | 134 | 7,629 | 2,770 | 1,042 | 158 | 3,659 | 50% |
+| voltaic-seed | 6 | 288 | 78 | 95 | 15 | 100 | 60% |
 | **total** | **572** | **30,858** | **12,852** | **3,273** | **1,280** | **13,453** | **52%** |
 
 Target: **30,858 → ~11,100 lines**, a 64% reduction — 52 points of it comments
@@ -200,13 +200,13 @@ merged layout fits the 1,500-line cap with room.
 ### 2.2 The bootstrap exposure is total
 
 `git ls-files 'crates/*/src/*'` returns **0**. Every one of the thirteen
-generated trees is `.gitignore`d, so on a clean clone `seed/redox1.wasm` must
+generated trees is `.gitignore`d, so on a clean clone `seed/voltaic1.wasm` must
 parse **all 572 `.sdx`**. Syntax the blob cannot read breaks the bootstrap for
 everyone — on a clean clone, not here, because the files stay on disk locally.
 
 The remedy is known and was exercised four times during milestone 11: build →
-`REDOX_UPDATE=1 … --test port` → `moon run :seed-refresh` →
-`REDOX_UPDATE=1 cargo test -p redox-seed --test blob`, in that order, in the
+`VOLTAIC_UPDATE=1 … --test port` → `moon run :seed-refresh` →
+`VOLTAIC_UPDATE=1 cargo test -p voltaic-seed --test blob`, in that order, in the
 same commit as the surface change.
 
 ### 2.3 Three of the seven retiring assertions should survive
@@ -289,19 +289,19 @@ its own.
 
 ```
 0  gates-and-docs      retire §2.3's four tests, delete §2.4's, rewrite doc 06
-1  redox-diag      21 →  4
-2  redox-lexer     34 →  6     ← never in the same wave as 3
-3  redox-ast       57 →  6
-4  redox-parser   134 →  8
-5  redox-fmt       57 →  5
-6  redox-fuzz       6 →  1
-7  redox-bench     13 →  2
-8  redox-mcp       19 →  2
-9  redox-lsp       29 →  3
-10 redox-emit     123 →  7
-11 redox-driver    49 →  4
-12 redox-cli       24 →  3
-13 redox-seed       6 →  1
+1  voltaic-diag      21 →  4
+2  voltaic-lexer     34 →  6     ← never in the same wave as 3
+3  voltaic-ast       57 →  6
+4  voltaic-parser   134 →  8
+5  voltaic-fmt       57 →  5
+6  voltaic-fuzz       6 →  1
+7  voltaic-bench     13 →  2
+8  voltaic-mcp       19 →  2
+9  voltaic-lsp       29 →  3
+10 voltaic-emit     123 →  7
+11 voltaic-driver    49 →  4
+12 voltaic-cli       24 →  3
+13 voltaic-seed       6 →  1
 14 surface-uptake      re-measure §1.3; close the gaps that remain
 15 docs                the other 13 normative documents; regenerate STATUS, CONFORMANCE
 ```
@@ -310,7 +310,7 @@ its own.
 
 Plan 87 §10.3 records the port deadlock's recovery needing the **generated lexer
 hand-patched** for the removal of one keyword. The lexer is the tool that
-recovers from a broken anything: `redox build` needs it to regenerate the tree.
+recovers from a broken anything: `voltaic build` needs it to regenerate the tree.
 Plans 86 and 87 both deadlocked the port and both were recoverable *because the
 lexer still worked*.
 
@@ -324,19 +324,19 @@ compiler is actually organised by — never by item kind:
 
 | crate | files |
 |---|---|
-| redox-diag | `code`, `diagnostic`, `render`, `source` |
-| redox-lexer | `token`, `cursor`, `scan`, `layout`, `trivia`, `lex` |
-| redox-ast | `expr`, `pattern`, `item`, `block`, `type`, `lib` |
-| redox-parser | `parser`, `expr`, `pattern`, `item`, `type`, `layout`, `precedence`, `recover` |
-| redox-fmt | `fmt`, `item_text`, `expr_text`, `stmt_text`, `pattern_text` |
-| redox-emit | `emit`, `expr`, `item`, `pattern`, `scope`, `layout`, `rust` |
-| redox-driver | `driver`, `lint`, `remap`, `compile` |
-| redox-lsp | `serve`, `capabilities`, `handlers` |
-| redox-cli | `main`, `commands`, `watch` |
-| redox-mcp | `mcp`, `tools` |
-| redox-bench | `bench`, `corpus` |
-| redox-fuzz | `fuzz` |
-| redox-seed | `seed` |
+| voltaic-diag | `code`, `diagnostic`, `render`, `source` |
+| voltaic-lexer | `token`, `cursor`, `scan`, `layout`, `trivia`, `lex` |
+| voltaic-ast | `expr`, `pattern`, `item`, `block`, `type`, `lib` |
+| voltaic-parser | `parser`, `expr`, `pattern`, `item`, `type`, `layout`, `precedence`, `recover` |
+| voltaic-fmt | `fmt`, `item_text`, `expr_text`, `stmt_text`, `pattern_text` |
+| voltaic-emit | `emit`, `expr`, `item`, `pattern`, `scope`, `layout`, `rust` |
+| voltaic-driver | `driver`, `lint`, `remap`, `compile` |
+| voltaic-lsp | `serve`, `capabilities`, `handlers` |
+| voltaic-cli | `main`, `commands`, `watch` |
+| voltaic-mcp | `mcp`, `tools` |
+| voltaic-bench | `bench`, `corpus` |
+| voltaic-fuzz | `fuzz` |
+| voltaic-seed | `seed` |
 
 **52 files.** `scan`, `layout`, `precedence`, `scope` are stages;
 `expr`, `pattern`, `item`, `type`, `block` are categories. Neither is a bucket,
@@ -349,7 +349,7 @@ which is what §2.3's surviving test checks.
 2. Hand-patch the generated `src/` to match, or regenerate if the current
    compiler already reads the syntax.
 3. `cargo build`.
-4. `REDOX_UPDATE=1 cargo test -p redox-cli --test port`, then build again.
+4. `VOLTAIC_UPDATE=1 cargo test -p voltaic-cli --test port`, then build again.
 5. `moon run :format :check :lint :test`; goldens asserted **unchanged**.
 6. `moon run :seed-refresh` + blob hash, if the wave used syntax the blob
    cannot read.
@@ -371,7 +371,7 @@ which is what §2.3's surviving test checks.
 3. ≤ 60 `.sdx` files under `crates/`; none generating over 1,500 lines.
 4. **Every `tests/golden/*.xrs` byte-identical to its pre-rewrite content**, or
    each divergence listed in §10 with its cause and its justification. No
-   `REDOX_UPDATE` on the golden corpus.
+   `VOLTAIC_UPDATE` on the golden corpus.
 5. **No test disappears except the five §2.3 and §2.4 name**, and the count
    delta is recorded in §10 wave by wave. The five sanctioned deletions are
    `every_file_declares_exactly_one_construct`,
@@ -454,10 +454,10 @@ Two consequences, disclosed rather than discovered later:
 ```bash
 moon run :format :check :lint :test
 cargo nextest run --workspace --no-fail-fast
-cd tree-sitter-redox && tree-sitter test
-REDOX_UPDATE=1 cargo test -p redox-cli --test port     # per wave
+cd tree-sitter-voltaic && tree-sitter test
+VOLTAIC_UPDATE=1 cargo test -p voltaic-cli --test port     # per wave
 moon run :seed-refresh                                  # per wave, if needed
-REDOX_UPDATE=1 cargo test -p redox-seed --test blob
+VOLTAIC_UPDATE=1 cargo test -p voltaic-seed --test blob
 git diff --stat -- 'docs/[0-9]* - [0-9]* - *'          # must be empty
 ```
 
@@ -501,7 +501,7 @@ comparing generated output to its source cannot see something absent from both.
    are taken and are the headline — `class` is used zero times today and two
    crates carry parallel free-function families that are a class by another
    name. HKT-dependent abstractions are declined on the lowering.
-9. **A `redox-compiler` skill was written and could not be installed.** Both
+9. **A `voltaic-compiler` skill was written and could not be installed.** Both
    `.claude` and `.claude-setup` are gitlinks into a shared submodule, and the
    harness write guard refuses paths outside this checkout. The content —
    §1 of this plan's port recipe, §1.2a's lowering table, and the false-green
@@ -530,19 +530,19 @@ Per crate, files then lines:
 
 | Crate | Files | Lines | Wave |
 |---|---|---|---:|
-| redox-diag | 21 → 5 | 1,602 → 641 | 1 |
-| redox-lexer | 34 → 8 | 2,820 → 1,518 | 2 |
-| redox-ast | 57 → 7 | 3,280 → 1,000 | 3 |
-| redox-parser | 134 → 13 | 7,629 → 3,371 | 4 |
-| redox-fmt | 57 → 6 | 2,559 → 976 | 5 |
-| redox-fuzz | 6 → 2 | 134 → 33 | 6 |
-| redox-bench | 13 → 5 | 582 → 299 | 7 |
-| redox-mcp | 19 → 5 | 735 → 316 | 8 |
-| redox-lsp | 29 → 4 | 1,273 → 530 | 9 |
-| redox-emit | 123 → 10 | 6,396 → 2,715 | 10 |
-| redox-driver | 49 → 6 | 2,492 → 1,094 | 11 |
-| redox-cli | 24 → 5 | 1,068 → 621 | 12 |
-| redox-seed | 6 → 2 | 294 → 102 | 13 |
+| voltaic-diag | 21 → 5 | 1,602 → 641 | 1 |
+| voltaic-lexer | 34 → 8 | 2,820 → 1,518 | 2 |
+| voltaic-ast | 57 → 7 | 3,280 → 1,000 | 3 |
+| voltaic-parser | 134 → 13 | 7,629 → 3,371 | 4 |
+| voltaic-fmt | 57 → 6 | 2,559 → 976 | 5 |
+| voltaic-fuzz | 6 → 2 | 134 → 33 | 6 |
+| voltaic-bench | 13 → 5 | 582 → 299 | 7 |
+| voltaic-mcp | 19 → 5 | 735 → 316 | 8 |
+| voltaic-lsp | 29 → 4 | 1,273 → 530 | 9 |
+| voltaic-emit | 123 → 10 | 6,396 → 2,715 | 10 |
+| voltaic-driver | 49 → 6 | 2,492 → 1,094 | 11 |
+| voltaic-cli | 24 → 5 | 1,068 → 621 | 12 |
+| voltaic-seed | 6 → 2 | 294 → 102 | 13 |
 
 **Code fell 12% while files fell 86%**, which is the number that says what the
 merge actually removed: 1,595 lines of `import` blocks and `module`
@@ -573,7 +573,7 @@ column (572 files, 13,453 code), so the two columns are comparable:
 | `where` group | 0 / 0 | 0 / 0 |
 
 **§1.3 recorded `class` as 0 / 0, and that was false when it was written.**
-`redox-driver` already had two: `export class CacheReporter` in
+`voltaic-driver` already had two: `export class CacheReporter` in
 `cache/reporter.sdx` and `export(crate) class ProgramWalk` in
 `lint/program_walk.sdx`, both present at `505f46d`, the commit this plan was
 written against. The probe that produced the table must have matched `^class`
@@ -607,7 +607,7 @@ constructs, and conflating them turned `.all (\c -> .is_ascii_digit c)` into
 Probed four ways afterwards (std method, user method, under `.map`, under
 `.all`): all four emit a field access. The sweep is reverted in full.
 
-What caught it is worth naming: `REDOX_UPDATE=1 … --test port` **compiles the
+What caught it is worth naming: `VOLTAIC_UPDATE=1 … --test port` **compiles the
 generated tree before writing it**, so a generation that does not compile
 leaves `src/` untouched. The 39 bad rewrites never reached a committed state.
 
@@ -636,11 +636,11 @@ nothing.
 
 ### 10.5 Where the two classes landed
 
-`Render` (wave 5, redox-fmt) is `show` to `expr_text`'s `showsPrec`: four
+`Render` (wave 5, voltaic-fmt) is `show` to `expr_text`'s `showsPrec`: four
 instances over `Item`, `Stmt`, `Expr` and `Pattern`, three of which already
 shared the signature, and `format` calls `.render 0 source item`.
 
-`Emit` (wave 10, redox-emit) is the stronger of the two. Fourteen functions
+`Emit` (wave 10, voltaic-emit) is the stronger of the two. Fourteen functions
 already shared `&mut Sink<'_> -> &T -> usize -> ()` across thirteen types —
 open recursion written out by hand — and `emit_item`'s `case` now dispatches
 through the class in ten of its arms.
@@ -662,7 +662,7 @@ running it and each of which would have recurred in every later wave:
 | # | Bug | Wave |
 |---:|---|---:|
 | 1 | braced imports opaque to dedup and the defined-here check | 2 |
-| 2 | `crate::X` and `redox_diag::X` both kept — same type, two paths | 2 |
+| 2 | `crate::X` and `voltaic_diag::X` both kept — same type, two paths | 2 |
 | 3 | fully-qualified paths in *bodies* not rewritten, only imports | 2 |
 | 4 | counting `"""` stuck on a string literal containing one | 2 |
 | 5 | `lib.sdx` hand-maintained, so it drifted from the groups | 3 |
@@ -685,7 +685,7 @@ be checked before that step runs. Tracked files made it a reset.
 
 Two of the fifteen produced a *silently wrong* result rather than a failure —
 #8 left 43 comment lines that `no_comments` caught, and #13 dropped a public
-re-export that only `redox-cli`'s cache test noticed. After #13 I audited all
+re-export that only `voltaic-cli`'s cache test noticed. After #13 I audited all
 eleven rewritten crates for the same class of loss; `Fingerprint` was the only
 one.
 
@@ -710,9 +710,9 @@ one.
   missed `export` prefixes, and the same bug cost wave 11 a re-export.
 - **§1.2 lists method references among the free point-free positions.** They
   exist only in `over`'s function slot. §10.3.
-- **§4 estimated 8 groups for redox-parser and 6 for redox-ast.** Both were
+- **§4 estimated 8 groups for voltaic-parser and 6 for voltaic-ast.** Both were
   low: the parser needs 13 because the 1,500-line cap is on the *generated*
-  Rust at ~1.6 lines per line of source, and redox-ast needs 7 because two
+  Rust at ~1.6 lines per line of source, and voltaic-ast needs 7 because two
   enums sharing a variant name cannot share a file.
 - **Nothing in §1 anticipated that flattening breaks privacy.** A private
   method is visible to its module's *descendants*; crate-root siblings are not

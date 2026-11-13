@@ -79,11 +79,11 @@ rewind, which is a smaller change than the rule's first statement implied and a 
 - the alternatives were a new sigil for methods (`..trim`), or losing `(.age)` and writing
   `\u -> u.age`;
 - `(.age)` is specified, exercised, and good, and doc 18 §4 retired the `&:name` sigil to get it;
-- Redox has no type checker, so it cannot tell a field from a method, and *something* must carry
+- Voltaic has no type checker, so it cannot tell a field from a method, and *something* must carry
   the distinction syntactically.
 
 The mitigation is a diagnostic rather than a hope: a parenthesised `(.name)` used where a method
-is required, or a bare `.name` used as a selector, fails in rustc today and gets a named Redox
+is required, or a bare `.name` used as a selector, fails in rustc today and gets a named Voltaic
 code in leaf 5 instead. §6 records this as the row's one internal inconsistency.
 
 #### Decided 2026-11-10: plan 57 retires `(|> name)`, because plan 57 builds its replacement
@@ -153,14 +153,14 @@ try / Some (&u.as_ref ()? .profile.as_ref ()? .tag)
 Leaf 4 owes a choice between them. The chain is expressible; it is not expressible *without
 thinking about borrows*, which is a different and smaller claim than this paragraph made.
 
-(Amending that paragraph will also fix a count: §8 says *"Four Redox constructs are kept
+(Amending that paragraph will also fix a count: §8 says *"Four Voltaic constructs are kept
 unchanged"* and then lists seven. Independent of `?.`, and leaf 7 should not leave it.)
 
 Against keeping it: `?.` is one token, so `(e)?.m ()` silently means optional chaining rather
 than `?` followed by a method call. In the sixteen-item survey that opened this milestone, that
-case sits in the **deferred** class — Redox accepts it and rustc rejects the result two types
+case sits in the **deferred** class — Voltaic accepts it and rustc rejects the result two types
 away — which is four of the sixteen; one further case is caught by nothing at all. Five of
-sixteen reach no Redox diagnostic at the point of the mistake, and this is one of them.
+sixteen reach no Voltaic diagnostic at the point of the mistake, and this is one of them.
 
 Deleting a construct is the strongest possible fix for a construct's ambiguity, and it is
 available here because the replacement is not a workaround — it is the lowering.
@@ -186,7 +186,7 @@ fixtures hiding in string literals.
 
 ## 2. Verified preconditions
 
-Measured 2026-11-10, against `redox` at `194fdf7`.
+Measured 2026-11-10, against `voltaic` at `194fdf7`.
 
 **All four §1.1 defects reproduce.** Each was hit writing real programs, not constructed:
 
@@ -302,7 +302,7 @@ borrow claim re-sited onto the new spelling. `docs/GRAMMAR.md` and `docs/STATUS.
    `.trim raw` and `(.cmp y)` are both `Call { callee: MethodRef, args: [one] }`. Criterion 1
    wants that one argument read as the **receiver**; criterion 3 wants it read as an
    **argument** with the receiver still missing. No rule can do both, and telling them apart
-   needs a method's **arity** — which Redox cannot have, because a method's arity depends on
+   needs a method's **arity** — which Voltaic cannot have, because a method's arity depends on
    the receiver's type and AGENTS.md forbids the checker that would know it. Plan 56's
    `arity_table` is explicit that class and instance members are absent from it precisely
    because *"they are reached through a receiver or a path"*.
@@ -316,7 +316,7 @@ borrow claim re-sited onto the new spelling. `docs/GRAMMAR.md` and `docs/STATUS.
    want `map (.cmp y)`. §10.1 has the count. A partially applied method is still writable
    the long way, `map (\t -> t.cmp y)`, which is what the corpus now does.
 4. `(.name)` still selects a field; bare `.name` calls a method; both in one running example.
-5. `x.f ()` is a named Redox diagnostic naming the replacement.
+5. `x.f ()` is a named Voltaic diagnostic naming the replacement.
 6. `?.` is not a token; `examples/fallible.sdx` keeps its non-`Clone` assertion and still
    compiles, which is what proves the chain still borrows — **written with an explicit `&`,
    because without one it does not compile.**
@@ -342,8 +342,8 @@ borrow claim re-sited onto the new spelling. `docs/GRAMMAR.md` and `docs/STATUS.
    in the post-leaf-7 spelling, not the spelling §11.4 probed with.
 
    **And the deletion radius is wider than §4 says.** Not *"the lexer and the parser"*: eleven
-   source files reference `QuestionDot` or `OptionalChain`, four of them in `redox-fmt`.
-7. Misuse of selector-versus-method is a Redox diagnostic, with `tests/ui/` fixtures both ways.
+   source files reference `QuestionDot` or `OptionalChain`, four of them in `voltaic-fmt`.
+7. Misuse of selector-versus-method is a Voltaic diagnostic, with `tests/ui/` fixtures both ways.
 8. All 29 examples transpile, compile with no rustc output, run, stdout asserted — **and the
    stdout is unchanged from before the migration**, which is this row's definition of
    behaviour-preserving.
@@ -352,7 +352,7 @@ borrow claim re-sited onto the new spelling. `docs/GRAMMAR.md` and `docs/STATUS.
    §11.5 measured by regex over comment-stripped sources with every match in the top five files
    hand-checked: 55 sites in 15 `examples/` files, plus **12 sites in 8 files §1 does not count
    at all**. Two of those twelve are the reason this criterion is not sufficient on its own —
-   `crates/redox-fmt/tests/fmt/expressions.sdx` and `expressions.canonical.sdx` hold three each,
+   `crates/voltaic-fmt/tests/fmt/expressions.sdx` and `expressions.canonical.sdx` hold three each,
    and a `.canonical.sdx` is a **canonical-form assertion**, so this row changes what the
    formatter's own expected output is. The remainder are two lint fixtures, a `tests/ui/` case,
    `tests/unreachable/macro_call.sdx`, and two benchmark pairs.
@@ -370,7 +370,7 @@ borrow claim re-sited onto the new spelling. `docs/GRAMMAR.md` and `docs/STATUS.
 
 **The §1.3 parenthesis distinction is this row's one internal inconsistency.** Plan 52 removed a
 whitespace-carried semantic difference and this row adds a parenthesis-carried one. The
-justification is that Redox has no types and something must carry it; the mitigation is leaf 5's
+justification is that Voltaic has no types and something must carry it; the mitigation is leaf 5's
 diagnostics; and the honest statement is that this is a worse rule than the rest of the milestone
 produces. Recorded here so a future row proposing `..name` has the argument available rather than
 having to reconstruct it.
@@ -429,15 +429,15 @@ declined a rewriter. §8 claimed the formatter as the migration tool "for the th
 milestone" and §11.6 caught the contradiction; decision 5 wins, because it is the decision.
 
 What the formatter *is* here is the check rather than the tool.
-`crates/redox-fmt/tests/properties.rs`'s `formatting_preserves_meaning` and
+`crates/voltaic-fmt/tests/properties.rs`'s `formatting_preserves_meaning` and
 `every_example_is_already_canonical` run over the whole corpus, so a hand-migration that
-changes a program fails before its golden does — which is how plan 51 found that `redox fmt`
+changes a program fails before its golden does — which is how plan 51 found that `voltaic fmt`
 was deleting `$`. Emerald's plan 71 cutover missed 113 fixtures embedded as string literals in Rust
 test modules, and doc 04's fourth ordering commitment plus `no_literal_expectations.rs` are
-Redox's standing answer.
+Voltaic's standing answer.
 
 The nearest prior art is doc 02 **§4.6**, *"The parenless-call ambiguity — Emerald already did
-Redox's homework"*, which records that Emerald's `puts x` worked *"only because `puts` was a
+Voltaic's homework"*, which records that Emerald's `puts x` worked *"only because `puts` was a
 hardcoded grammar keyword"*. That is about application, not method syntax, so there is no
 transferable decision here — and §3's insistence on asserting unchanged stdout rather than
 reasoning about equivalence is the compensation.
@@ -469,7 +469,7 @@ cannot be as spelled**, for a reason that is a finding rather than a shortfall.
 
 ### 10.1 Criteria 1 and 3 are mutually contradictory, and that is the row's one real defect
 
-`.name args recv` and `map (.cmp y) xs` are **the same tree**, and Redox has no way to tell
+`.name args recv` and `map (.cmp y) xs` are **the same tree**, and Voltaic has no way to tell
 them apart.
 
 | Written | Tree | Criterion 1 wants | Criterion 3 wants |
@@ -519,7 +519,7 @@ and doc 18 §4 says so.
   `stands_alone` had to say **true** for `MethodRef` against its own stated rule — a `Dot`
   cannot begin a parenless argument — because `argument` prints a *callee* through it, and
   `(.len) xs` is the field selector applied to `xs`, a different program.
-- **A formatter defect the row created and the row fixed.** `redox fmt` printed
+- **A formatter defect the row created and the row fixed.** `voltaic fmt` printed
   `Expr::Field { recv: Try }` as `x?.name`, glued — which after leaf 4 does not parse. The
   formatter turned a program it had just parsed into one it could not, which is the single
   thing §3 row 3's conservatism exists to prevent. Found by
@@ -529,25 +529,25 @@ and doc 18 §4 says so.
 - **The `?.` radius is nine source files, not eleven.** §11.4 counted `QuestionDot` and
   `OptionalChain` references; four of the eleven were prose. What the deletion actually
   touched: `operator_table.rs`, `token/kind.rs`, `scan_operator.rs`, `postfix.rs`,
-  `ast/expr.rs`, `emit/expr.rs`, and four `redox-fmt` files (`expr_text.rs`, `power_of.rs`,
+  `ast/expr.rs`, `emit/expr.rs`, and four `voltaic-fmt` files (`expr_text.rs`, `power_of.rs`,
   `stands_alone.rs`, `takes_a_postfix.rs`) — plus two whole files **deleted**
   (`parser/optional_chain.rs`, `emit/optional_chain.rs`) and one more that fell out with the
   retired call form (`parser/arguments.rs`, whose only caller was the `MethodCall` branch).
-- **`.` in `tree-sitter-redox` was a *token* problem, not a grammar gap.** The `section` rule
+- **`.` in `tree-sitter-voltaic` was a *token* problem, not a grammar gap.** The `section` rule
   spelled its arm `seq(".", $.identifier)`, and an anonymous string token beats
   `operator`'s `token(choice(…))` at the same position — so every `(.len xs)` committed to a
   section and found no `)`, giving fourteen examples an `ERROR` node. The fix is a **deletion**:
   `.` and `|>` are already in `operator` and an identifier is already an `_expression_part`, so
   both retired arms were redundant. A `method_reference` rule was tried first and was worse —
   it took the `.` of `m.0` and reported a MISSING identifier.
-- **`.sdx` fixtures live in Rust string literals after all**, in `crates/redox-emit/tests/`.
+- **`.sdx` fixtures live in Rust string literals after all**, in `crates/voltaic-emit/tests/`.
   `no_literal_expectations.rs` forbids literal *expectations*, not literal inputs, and
   fourteen emitter tests had to be hand-migrated. That is the Emerald cost AGENTS.md says is
   paid once per syntax change, and this row paid a share of it.
 - **§11.2's `postfix.rs:93` discriminator was right and its consequence was understated.**
   Retiring `Expr::MethodCall` removes the **comma-separated argument list** with it:
   `x.m (a, b)` was two arguments and `.m (a, b) x` is one *tuple*. Multi-argument methods are
-  juxtaposed now — `.fold 0 add xs` — which `crates/redox-fmt/tests/fmt/expressions.sdx`
+  juxtaposed now — `.fold 0 add xs` — which `crates/voltaic-fmt/tests/fmt/expressions.sdx`
   records as §3 row 6's new form.
 - **A fixture satisfied the witness for the construct it refuses.** The first
   `tests/ui/retired_optional_chain.sdx` contained `(.as_ref u)`, which matches the new
@@ -572,8 +572,8 @@ and doc 18 §4 says so.
 
 Criterion 7's second half is the honest gap. A parenthesised `(.name)` where a method is wanted
 is a field selector over a type with no such field, and a bare `.name` where a selector is
-wanted is a method call — both are **type** errors, and §1.3's mitigation ("gets a named Redox
-code in leaf 5") asks for a decision Redox cannot make. What leaf 5 delivered instead is a
+wanted is a method call — both are **type** errors, and §1.3's mitigation ("gets a named Voltaic
+code in leaf 5") asks for a decision Voltaic cannot make. What leaf 5 delivered instead is a
 named code for each **retired spelling**, which is the part that is decidable.
 
 ### 10.4 The zero-cost pair moved with the construct
@@ -590,8 +590,8 @@ lowering — so the pair asserts the same IR equality against the same hand-writ
 re-measurement of the same thing: §11.5 counted regex matches, and several lines hold two or
 three method calls that collapse into one rewritten expression (`examples/control.sdx:273` was
 three). The file count is *higher* because §11.5 missed six: `examples/cargo-project/`'s own
-`.sdx`, `crates/redox-lsp/tests/session.rs`, `crates/redox-cli/tests/phase1.rs`,
-`crates/redox-cli/tests/check/`, and two more benchmark pairs (`catch`, `unequal`).
+`.sdx`, `crates/voltaic-lsp/tests/session.rs`, `crates/voltaic-cli/tests/phase1.rs`,
+`crates/voltaic-cli/tests/check/`, and two more benchmark pairs (`catch`, `unequal`).
 
 Three shapes needed care, and each is a grammar fact rather than a style choice:
 
@@ -607,11 +607,11 @@ Three shapes needed care, and each is a grammar fact rather than a style choice:
 `moon :check`, `:lint`, `:format`, `examples`, `ui`, `run`, `declined`, `grammar_inventory`,
 `plan_orientation`, `one_construct_per_file`, `directory_structure`, `line_cap`,
 `construct_coverage`, `code_coverage`, `editors`, `tree_sitter`, `check` and all of
-`redox-fmt` and `redox-bench`: green. `cargo test --workspace --no-fail-fast` reports exactly
+`voltaic-fmt` and `voltaic-bench`: green. `cargo test --workspace --no-fail-fast` reports exactly
 two failures, both named below.
 
 **§11.4's `E0507` is now a test**, in `tests/check/` and not `tests/ui/` — the third plan in a
-row to need that distinction, because `ui.rs` runs `redox build` and `redox build` never
+row to need that distinction, because `ui.rs` runs `voltaic build` and `voltaic build` never
 invokes rustc, so a program whose only fault is a borrow error builds clean and the fixture's
 own `assert!(!status.success())` fails.
 
@@ -733,7 +733,7 @@ leaf 4: `benchmarks/pairs/optional_chain.sdx` + `.rs` is a plan-44 IR-equality
 pair built on `?.`, so deleting the construct deletes a zero-cost assertion.
 And the `?.` deletion radius is wider than "the lexer and the parser" — eleven
 source files reference `QuestionDot`/`OptionalChain`, four of them in
-`redox-fmt`, plus the benchmark pair.
+`voltaic-fmt`, plus the benchmark pair.
 
 ### 11.5 The corpus is half again as large as §1 says
 
@@ -744,7 +744,7 @@ five files hand-checked:
   `comprehension` 6, `arrays` 6, `class` 5, `errors` 4, `application` 3,
   `module` 3, then nine files with one or two.
 - **Plus 12 sites in 8 files §1 does not count at all**, including
-  `crates/redox-fmt/tests/fmt/expressions.sdx` and its
+  `crates/voltaic-fmt/tests/fmt/expressions.sdx` and its
   `expressions.canonical.sdx` (3 each) — those are *canonical-form*
   assertions, so the formatter's own output changes — two lint fixtures, a
   `tests/ui/` case, `tests/unreachable/macro_call.sdx`, and two benchmark
@@ -786,17 +786,17 @@ lint fixtures still change.
   the entire migration without ever witnessing a method call.
 - **Diagnostics: next free is `RDX0110`**, and this row needs three
   (criterion 5, plus criterion 7 both ways) → 0110/0111/0112. The fixture path
-  is **`crates/redox-cli/tests/ui/`**, not `tests/ui/` as criterion 7 says.
+  is **`crates/voltaic-cli/tests/ui/`**, not `tests/ui/` as criterion 7 says.
   The 0040–0099 band is reserved for doc 03 §17 and gated by a hard-coded
   `PUBLISHED` list, so the syntactic band is correct.
 - **Doc 18 §8's passage is at `:659-663`**, and §1.4's miscount complaint is
   right: it says "Four" and lists seven. §4's table rows for `(.name)` and
   `(|> name)` are at `:409-410`; the paragraph leaf 7 rewrites is `:443-447`.
 - **tree-sitter and the editors are unlisted work.**
-  `crates/redox-cli/tests/tree_sitter.rs:70` asserts every example parses with
-  no `ERROR` node — `lexical.sdx` included — and `tree-sitter-redox/grammar.js:711-715`
+  `crates/voltaic-cli/tests/tree_sitter.rs:70` asserts every example parses with
+  no `ERROR` node — `lexical.sdx` included — and `tree-sitter-voltaic/grammar.js:711-715`
   is where `.`-sections live. Five editor clients' `highlights.scm` are
-  cross-checked by `crates/redox-cli/tests/editors.rs`. None of this appears in
+  cross-checked by `crates/voltaic-cli/tests/editors.rs`. None of this appears in
   §4 or §5; its size is unmeasured.
 - **Settled 2026-11-10: the formatter's canonical form is `.name a b`, and it
   needs no decision in `can_drop_paren` — it needs §11.2 to pick the right AST

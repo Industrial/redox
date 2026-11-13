@@ -1,0 +1,105 @@
+import crate::ParseError
+import crate::block::stmt
+import crate::parser::Parser
+import crate::signature::can_end_a_type
+import crate::token::token_text
+import voltaic_ast::Expr
+import voltaic_ast::Item
+import voltaic_ast::Pattern
+import voltaic_ast::Stmt
+import voltaic_ast::where_cycle
+import voltaic_diag::Code
+import voltaic_lexer::Keyword
+import voltaic_lexer::TokenKind
+
+export(crate) where_entry_is_a_function : &Parser -> bool
+where_entry_is_a_function p =
+  named = case (.peek p).kind of
+    TokenKind::Ident _ -> true
+    _ -> false
+  if !named
+    return false
+  guard .peek_at 1 p is Some next else
+    return .reaches_a_binding_eq p
+  case &next.kind of
+    TokenKind::Colon -> !.reaches_a_binding_eq p
+    TokenKind::Eq or TokenKind::LBrace -> false
+    _ -> .reaches_a_binding_eq p
+
+export(crate) where_group : &[Stmt] -> &[Pattern] -> Result<(), ParseError>
+where_group entries params =
+  bound : Vec<String> = params |> .iter |> .flat_map Pattern::binders |> .collect
+  for entry in entries
+    case &entry.expr of
+      Expr::Item { .. } ->
+        continue
+      Expr::Binding b ->
+        for name in .binders b.pattern
+          if .contains (&name) bound
+            message = format! \-> "`#{name}` is already a parameter of this equation, and a `where` entry may not shadow one"
+            return Err (ParseError::with_help Code::WhereGroupShape message "a `where` group is sorted into dependency order, so a name that means the parameter in one entry and the local in another would depend on where the sort put them — rename the local" b.span)
+      other ->
+        return Err (ParseError::with_help Code::WhereGroupShape "a `where` entry defines a name, so it is a binding or a function declaration and nothing else" "an expression evaluated for its effect belongs in the body: a `where` group is a set of definitions and is emitted in dependency order, so an entry with an effect has no position to be emitted at" (.span other))
+  if where_cycle entries is Some names
+    joined = .join ", " names
+    message = format! \-> "these `where` bindings depend on each other in a cycle: #{joined}"
+    blame = entries
+      |> .iter
+      |> .find (\e -> .is_some_and (\binder -> .contains (&binder) names) (.where_entry_name e))
+      |> .map_or (0, 0) (\e -> e.span)
+    return Err (ParseError::with_help Code::WhereGroupShape message "Rust `let` bindings are evaluated in order, so a cycle among values has no order to emit. Haskell accepts this and diverges; give one of them a parameter, which makes it a nested function and lets the cycle be recursion" blame)
+  Ok ()
+
+export(super) where_locals : &[Pattern] -> &mut Parser -> Result<Vec<Stmt>, ParseError>
+where_locals params p =
+  opens = .check (&TokenKind::Indent) p && .is_some_and (\t -> t.kind == TokenKind::Kw Keyword::Where) (.peek_at 1 p)
+  if !opens
+    return Ok (Vec::new ())
+  .advance p
+  .advance p
+  (.newline_with_trailing "expected a line break after `where`" p)?
+  (.expect_with Code::EmptyBody (&TokenKind::Indent) "expected indented `where` bindings" p)?
+  mut locals = Vec::new ()
+  loop
+    .skip_separators p
+    if .check (&TokenKind::Dedent) p || .at_eof p
+      break
+    if where_entry_is_a_function p
+      start = (.peek_span p).0
+      decl = (.where_function p)?
+      end = (.prev_span p).1
+      entry = Expr::Item { item = Box::new (Item::Fn decl), span = (start, end) }
+      .push (Stmt { expr = entry, span = (start, end), leading = Vec::new (), trailing = None }) locals
+      continue
+    .push (stmt p)? locals
+  (.expect (&TokenKind::Dedent) "expected the `where` bindings to end" p)?
+  .skip_separators p
+  (.expect (&TokenKind::Dedent) "expected the `where` clause to end" p)?
+  (where_group (&locals) params)?
+  Ok locals
+
+export(crate) where_predicates : &mut Parser -> Result<Option<String>, ParseError>
+where_predicates p =
+  if !.check (&TokenKind::Kw Keyword::Where) p
+    return Ok None
+  opened = .peek_span p
+  .advance p
+  mut text = String::new ()
+  mut last = TokenKind::Eof
+  loop
+    kind = &(.peek p).kind
+    at_end = case kind of
+      TokenKind::Newline or TokenKind::Indent or TokenKind::Dedent or TokenKind::Eof -> true
+      _ -> false
+    if at_end
+      break
+    if (.peek p).ws_before && !.is_empty text
+      .push ' ' text
+    .push_str (&token_text kind) text
+    last := .clone kind
+    .advance p
+  if .is_empty text
+    return Err $ ParseError::with_help Code::BoundClauseShape "this `where` carries no predicates" "a signature's `where` holds Rust's own predicates, verbatim: `where I::IntoIter: Clone`. Voltaic's other `where` — the one that introduces local definitions — is indented after the body, which is how doc 03 §14.2 tells the two apart" opened
+  if !can_end_a_type (&last)
+    return Err $ ParseError::with_help Code::BoundClauseShape "this `where` clause does not end where a type can end" "a predicate ends in a trait name or a closing bracket — `where I::IntoIter: Clone`. This one ends mid-expression, so the verbatim text would reach the generated Rust unfinished" opened
+  Ok (Some text)

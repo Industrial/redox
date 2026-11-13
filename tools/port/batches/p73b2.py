@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""redox-diag batch 2 — render_map, line_col, caret_width, and the first tests.
+"""voltaic-diag batch 2 — render_map, line_col, caret_width, and the first tests.
 
 The inline `#[cfg(test)] mod tests` blocks become module-scope `test "…"`
 declarations, which plan 72's table called *"reachable today, awkwardly"*:
@@ -7,12 +7,12 @@ item-level `test` emits `#[cfg(test)] mod __rdx_tests { use super::*; }` and so
 sees the file's private items, which is what an inline module was for.
 
 `line_col`'s test input is a **raw** string, because the Rust literal contains
-`#{1}` and `#{…}` is interpolation in any Redox string, not only a macro
+`#{1}` and `#{…}` is interpolation in any Voltaic string, not only a macro
 argument.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 BODIES = {
@@ -26,7 +26,7 @@ import std::fmt::Write
 -- | generated line:
 -- |
 -- | ```text
--- | redox-map 1 examples/phase1.sdx
+-- | voltaic-map 1 examples/phase1.sdx
 -- | 1 1 1 4
 -- | 2 2 3 5
 -- | 3 -
@@ -39,7 +39,7 @@ import std::fmt::Write
 -- | record 47 is exactly the friction that stops people checking.
 export render_map : &SourceMap -> String
 render_map map =
-  mut out = format! \\-> "redox-map #{VERSION} #{map.source_path}\\n"
+  mut out = format! \\-> "voltaic-map #{VERSION} #{map.source_path}\\n"
   last = .len map
   for gen_line in 1..=last
     -- `.origin gen_line map`: the **receiver is the last argument** (plan

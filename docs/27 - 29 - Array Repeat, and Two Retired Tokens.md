@@ -80,7 +80,7 @@ So the two bracket forms are a list and a repeat, both arrays, told apart by the
 | Lowering fixed by source text alone? | Yes — there is no lowering. The text is Rust's |
 | Nothing outside core/alloc/std? | Yes. An array is a primitive |
 | Preserves Rust semantics? | Trivially: it *is* the Rust expression |
-| Buys reachability? | Yes. A fixed-size array had no spelling, so no Redox program could ask for one |
+| Buys reachability? | Yes. A fixed-size array had no spelling, so no Voltaic program could ask for one |
 
 ---
 
@@ -148,7 +148,7 @@ exhaustive match over `TokenKind` loses two arms it was carrying for nothing.
   doc 18 §7's ascribed-literal form, since `Vec::from` takes an array.
 
   > **Corrected 2026-11-09 by plan 39.** This bullet also said *"`vec![0; n]` stays
-  > available as an ordinary macro call"*, which is false: **Redox has no macro-call
+  > available as an ordinary macro call"*, which is false: **Voltaic has no macro-call
   > syntax**. `vec![1, 2]` does not parse. Macros are *emitted* — `println!`, `assert!`,
   > `panic!`, `format!` — and never written, because doc 18 §7 retired `!` as a suffix and
   > left it meaning boolean negation. Plan 39 §1.4 found this by needing `pin!` for an
@@ -173,7 +173,7 @@ moon run :check :lint :test :cargo-check :cargo-test :ci-format :audit
 ## 8. Emerald reuse
 
 **None.** Emerald had no fixed-size arrays; every sequence was its growable list type, which
-is the design Redox explicitly does not take.
+is the design Voltaic explicitly does not take.
 
 ---
 

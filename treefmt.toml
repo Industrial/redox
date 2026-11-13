@@ -78,7 +78,7 @@ priority = 3
 command = "biome"
 options = ["format", "--write"]
 includes = ["*.{js,jsx,ts,tsx,json}"]
-# `tree-sitter-redox/src/` is **generated**: `tree-sitter generate` writes
+# `tree-sitter-voltaic/src/` is **generated**: `tree-sitter generate` writes
 # `grammar.json`, `node-types.json` and `parser.c` from `grammar.js`, in
 # tree-sitter's own layout. Biome reformats the two JSON files and generate
 # writes them back, so each tool undoes the other and whichever ran last leaves
@@ -93,7 +93,7 @@ includes = ["*.{js,jsx,ts,tsx,json}"]
 # reads as three deletions.
 #
 # `grammar.js` stays formatted — it is the hand-written half.
-excludes = ["tree-sitter-redox/src/*"]
+excludes = ["tree-sitter-voltaic/src/*"]
 priority = 4
 
 [formatter.yaml]

@@ -1,0 +1,5 @@
+-- | Formatted wrongly on purpose, so `voltaic_fmt` has something to change.
+main    :    ()
+main =
+      println! \-> "#{1}"
+      ()

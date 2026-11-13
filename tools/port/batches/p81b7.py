@@ -15,7 +15,7 @@ so.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('emit/format_template', '''
@@ -86,14 +86,14 @@ write('emit/with_map', '''
 export emit_with_map : &Program -> &str -> &str -> (String, SourceMap)
 emit_with_map program source source_path =
   -- Plan 56 leaf 1. The arity table is installed **here**, at the emitter's
-  -- entry, and nowhere else: `redox_fmt::format` reads the same `Program` and
+  -- entry, and nowhere else: `voltaic_fmt::format` reads the same `Program` and
   -- must keep printing the author's `add 1` as `add 1`, so nothing about
   -- currying may be visible before this point (§11.3). The guard's lifetime is
   -- §1.4's boundary — currying is available where the signature is in the file
   -- being emitted.
   _arity = ArityScope::enter (ArityTable::from_items (&program.items))
   -- Plan 59 leaf 1, and here for the same reason rather than a parallel one:
-  -- `redox_fmt::format` reads this `Program` too and must keep printing the
+  -- `voltaic_fmt::format` reads this `Program` too and must keep printing the
   -- author's `block` as `block`, so the classification may not be visible
   -- before the emitter's entry either. Two guards, one entry point.
   _bindings = BindingScope::enter (BindingTable::from_items (&program.items))

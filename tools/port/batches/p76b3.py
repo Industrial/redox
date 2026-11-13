@@ -3,7 +3,7 @@
 
 `render` builds `benchmarks/REPORT.md` from three long literals written with
 Rust's `\\`-at-end-of-line continuations, so each paragraph is **one line** of
-runtime text wrapped across many lines of source. Redox has no such
+runtime text wrapped across many lines of source. Voltaic has no such
 continuation — a string spans lines only as a `\"\"\"` block, and that would put
 a real newline at every wrap and hard-wrap the report.
 
@@ -23,10 +23,10 @@ import io
 import re
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
-SRC = '/home/tom/Code/rust/redox/crates/redox-bench/src/main.rs'
+SRC = '/home/tom/Code/rust/voltaic/crates/voltaic-bench/src/main.rs'
 text = io.open(SRC, encoding='utf-8').read()
 
 
@@ -65,8 +65,8 @@ header = literal_at('out.push_str(\n    "# Benchmarks')
 methodology = literal_at('"## Methodology')
 closer = literal_at('"\\n## Watch latency')
 
-# Each is one Redox string literal per `push_str`. `{RUNS}` is Rust's inline
-# capture and becomes Redox's `#{RUNS}`; nothing else in these three is a
+# Each is one Voltaic string literal per `push_str`. `{RUNS}` is Rust's inline
+# capture and becomes Voltaic's `#{RUNS}`; nothing else in these three is a
 # format argument.
 assert '{RUNS}' in methodology, 'the methodology block lost its capture'
 methodology = methodology.replace('{RUNS}', '#{RUNS}')
@@ -112,7 +112,7 @@ main =
   path = .join "benchmarks/REPORT.md" (root ())
   (.map_err (\\e -> .to_string e) (std::fs::write (&path) report))?
   -- `root()` is the manifest directory joined to `../..`, so the path prints
-  -- as `crates/redox-bench/../../benchmarks/REPORT.md` unless it is resolved.
+  -- as `crates/voltaic-bench/../../benchmarks/REPORT.md` unless it is resolved.
   -- The reader wants the file, not the route taken to it.
   shown = .unwrap_or (.clone path) (.ok (.canonicalize path))
   println! \\-> "wrote #{(.display shown)}"

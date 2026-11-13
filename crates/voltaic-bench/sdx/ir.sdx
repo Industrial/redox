@@ -1,0 +1,102 @@
+import voltaic_driver::rustc_path
+import std::path::Path
+
+export function_ir : &str -> &str -> &Path -> Option<String>
+function_ir source name scratch =
+  rustc = (rustc_path ())?
+  (.ok (std::fs::create_dir_all scratch))?
+  input = .join (format! \-> "#{name}_probe.rs") scratch
+  output = .join (format! \-> "#{name}_probe.ll") scratch
+  (.ok (std::fs::write (&input) (mark_target source name)))?
+
+  result = (std::process::Command::new (&rustc)
+    |> .arg "-O"
+    |> .arg "-Ccodegen-units=1"
+    |> .arg "--emit=llvm-ir"
+    |> .arg "--crate-type=lib"
+    |> .arg "--crate-name"
+    |> .arg "probe"
+    |> .arg "-o"
+    |> .arg (&output)
+    |> .arg (&input)
+    |> .output
+    |> .ok)?
+  if !.success result.status
+    return None
+
+  text = (.ok (std::fs::read_to_string (&output)))?
+  Some $ alpha_renamed $ &body_of (&text) name
+
+export(crate) alpha_renamed : &str -> String
+alpha_renamed body =
+  mut names : Vec<String> = Vec::new ()
+  mut out = String::with_capacity (.len body)
+  mut rest = body
+  loop
+    at = case .find '%' rest of
+      Some a -> a
+      None ->
+        break
+    out |> .push_str (.unwrap_or "" (.get (0 .. at) rest))
+    rest := rest |> .get (at + 1 .. .len rest) |> .unwrap_or ""
+    found = rest
+      |> .char_indices
+      |> .find (\p -> !(.is_alphanumeric p.1 || p.1 == '_' || p.1 == '.' || p.1 == '-'))
+      |> .map (\p -> p.0)
+    end = .unwrap_or (.len rest) found
+    name = rest |> .get (0 .. end) |> .unwrap_or ""
+    if .all (\c -> .is_ascii_digit c) (.chars name)
+      .push '%' out
+      .push_str name out
+    else
+      index = case .position (== name) (.iter names) of
+        Some i -> i
+        None ->
+          .push (.to_string name) names
+          .len names - 1
+      out |> .push_str (&format! \-> "%v#{index}")
+    rest := rest |> .get (end .. .len rest) |> .unwrap_or ""
+  out |> .push_str rest
+  out
+
+export(crate) body_of : &str -> &str -> String
+body_of text name =
+  mut out = String::new ()
+  mut inside = false
+  for line in .lines text
+    if .starts_with "define" line && .contains name line
+      inside := true
+      .push_str "define <symbol>\n" out
+      continue
+    if inside
+      if line == "}"
+        break
+      trimmed = .trim line
+      if .starts_with '!' trimmed
+        continue
+      .push_str (strip_debug trimmed) out
+      .push '\n' out
+  out
+
+export(crate) mark_target : &str -> &str -> String
+mark_target source name =
+  signature = format! \-> "fn #{name}("
+  pub_signature = format! \-> "pub #{signature}"
+  mut parts : Vec<String> = Vec::new ()
+  for line in .lines source
+    trimmed = .trim_start line
+    if .starts_with (&signature) trimmed || .starts_with (&pub_signature) trimmed
+      body = if .starts_with "pub " trimmed
+        .to_string line
+      else
+        format! \-> "pub #{line}"
+      parts
+        |> .push (format! \-> "#[no_mangle]\n#[inline(never)]\n#{body}")
+    else
+      .push (.to_string line) parts
+  .join "\n" parts
+
+export(crate) strip_debug : &str -> &str
+strip_debug line = case .find ", !dbg" line of
+  Some at -> line |> .get (0 .. at) |> .unwrap_or line
+  None -> line

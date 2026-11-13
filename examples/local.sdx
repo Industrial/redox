@@ -1,6 +1,6 @@
 -- Declarations in a body position — plan 55 leaf 5.
 --
--- Rust lets a `fn` body hold items, and doc 03 §8.3 presumed it. Redox could
+-- Rust lets a `fn` body hold items, and doc 03 §8.3 presumed it. Voltaic could
 -- not express one: there was no AST carrier, `Parser::stmt` never called
 -- `item`, and a declaration keyword in a body reached the expression parser
 -- and became `RDX0102`. Plan 55 §1.4 said Rust's acceptance made this

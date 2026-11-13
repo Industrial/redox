@@ -1,0 +1,25 @@
+[package]
+name = "voltaic-driver"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# Plan 10 §1.2: a persisted cache key needs a strong, stable hash.
+# `std`'s DefaultHasher is neither collision-resistant nor stable across
+# releases, which for a key written to disk means last week's cache
+# silently mismatches this week's.
+blake3 = "1"
+# Plan 53 leaf 4: detection stays lexical, but suppression **scope** is the
+# span of the construct a pragma leads, so the lint needs the `Program`.
+voltaic-ast = { path = "../voltaic-ast" }
+voltaic-diag = { path = "../voltaic-diag" }
+voltaic-emit = { path = "../voltaic-emit" }
+# Plan 38: `RDX1001` is a lexical lint — a `.` then the name — so the driver
+# scans tokens rather than walking an AST that could silently miss a variant.
+voltaic-lexer = { path = "../voltaic-lexer" }
+voltaic-parser = { path = "../voltaic-parser" }
+
+# The five surface-fact allows — see the root manifest.
+[lints]
+workspace = true

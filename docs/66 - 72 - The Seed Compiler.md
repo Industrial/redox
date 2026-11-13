@@ -1,7 +1,7 @@
 # Plan 72 — The Seed Compiler
 
 Status: `done` 2026-11-11
-Depends on: 68 (the AST in Redox), 69 (the formatter in Redox), 70 (the source beside the crate), 09 (the cargo integration)
+Depends on: 68 (the AST in Voltaic), 69 (the formatter in Voltaic), 70 (the source beside the crate), 09 (the cargo integration)
 
 > **Numbering.** Plan **72**, doc index **66**. Row 71 (`cursor-support`, doc 65) was
 > claimed by a concurrent session, which deliberately left 70 free; plan 70 is
@@ -11,13 +11,13 @@ Depends on: 68 (the AST in Redox), 69 (the formatter in Redox), 70 (the source b
 
 ## 1. What this plan is
 
-**The whole compiler in Redox, the generated Rust untracked, and the bootstrap carried
+**The whole compiler in Voltaic, the generated Rust untracked, and the bootstrap carried
 by a WASM seed built once from the Rust that exists today.**
 
 Three movements, in this order, and the order is the plan's single most important claim:
 
 1. **Seed now**, from the Rust, while ten of twelve crates are still hand-written. Build
-   `redox1.wasm` and check it in.
+   `voltaic1.wasm` and check it in.
 2. **Port the ten remaining crates**, one register row each, in dependency order.
 3. **Untrack each crate's `src/` as it lands** — never before CI has rebuilt that crate
    from the seed on a clean clone.
@@ -26,7 +26,7 @@ Three movements, in this order, and the order is the plan's single most importan
 
 A seed built *after* the port is a seed built by a compiler whose own correctness the
 seed is supposed to underwrite. Build it now and its provenance is 32,227 lines of
-hand-written Rust that owes Redox nothing.
+hand-written Rust that owes Voltaic nothing.
 
 This is Zig's sequencing and it was not an accident: the C++ implementation produced the
 first `zig1.wasm` and *then* was deleted. Doing it the other way round leaves no
@@ -49,8 +49,8 @@ row that ports ten crates reports no yield per crate.
 
 and, on the committed output:
 
-> not timidity, but **the only shape available**: `compile_dir` lives in `redox-driver`,
-> which depends on `redox-ast`, so a `build.rs` there is a dependency cycle cargo rejects.
+> not timidity, but **the only shape available**: `compile_dir` lives in `voltaic-driver`,
+> which depends on `voltaic-ast`, so a `build.rs` there is a dependency cycle cargo rejects.
 
 That paragraph is sound given the two options it weighed, and **a checked-in seed is a
 third one it did not consider.** The cycle argument bites a `build.rs` because a build
@@ -89,7 +89,7 @@ last step of each port, not a one-time switch.
 
 ## 2. Verified preconditions
 
-Measured 2026-11-10 against `redox` at `c7d9c37`.
+Measured 2026-11-10 against `voltaic` at `c7d9c37`.
 
 > **§11 corrects two of this section's claims.** One of the two dependency
 > blockers below is measured and the other was an inference stated as a
@@ -102,28 +102,28 @@ to add one (the toolchain is Nix-pinned), and no `wasmtime`, `wasm-opt`, `wasm2c
 `wasmer` is on `PATH`. Leaf 2 supplies all of it; nothing was buildable to confirm sizes
 by measurement, which is why leaf 1 carries a measurement criterion rather than a target.
 
-**Two dependencies make `redox-cli` itself unusable as the seed.**
+**Two dependencies make `voltaic-cli` itself unusable as the seed.**
 
 | Dependency | Why it blocks `wasm32-wasip1` |
 |---|---|
-| `notify = "8"` | the `redox watch` file watcher — inotify / kqueue / FSEvents |
+| `notify = "8"` | the `voltaic watch` file watcher — inotify / kqueue / FSEvents |
 | `miette { features = ["fancy"] }` | pulls `supports-color`, `terminal_size`, `backtrace` |
 
 So the seed is a **new transpile-only binary**, not a wasm build of the CLI. That is leaf 1
 and it is a feature, not a workaround: the seed should be the smallest thing that turns
 `.sdx` into `.rs`.
 
-**The transpile path itself is clean.** Nothing in `redox-lexer`, `redox-ast`,
-`redox-parser`, `redox-emit` or `redox-cli`'s own sources spawns a process. The only two
-sites are `redox-driver/src/check.rs` and `redox-driver/src/rustc_path/is_real_rustc.rs`,
-both on the `redox check` path, both needing only to *compile* under WASI.
+**The transpile path itself is clean.** Nothing in `voltaic-lexer`, `voltaic-ast`,
+`voltaic-parser`, `voltaic-emit` or `voltaic-cli`'s own sources spawns a process. The only two
+sites are `voltaic-driver/src/check.rs` and `voltaic-driver/src/rustc_path/is_real_rustc.rs`,
+both on the `voltaic check` path, both needing only to *compile* under WASI.
 
-**Size, by proxy.** Native `redox` is **3.0 MB** unstripped and **2.3 MB** stripped. Zig's
+**Size, by proxy.** Native `voltaic` is **3.0 MB** unstripped and **2.3 MB** stripped. Zig's
 `zig1.wasm` is **2.4 MiB** after `ReleaseSmall` and `wasm-opt -Oz`, which is the same order
 of magnitude and the best available calibration.
 
 **rustfmt is a seam.** `tests/port.rs` transpiles and *then* runs rustfmt with the
-repository's config, because Redox targets rustfmt's defaults and this repo sets
+repository's config, because Voltaic targets rustfmt's defaults and this repo sets
 `tab_spaces = 2`. A WASI seed cannot spawn rustfmt. Leaf 5 resolves it; §6 records why the
 resolution is "run rustfmt natively" and not "make the emitter canonical".
 
@@ -132,17 +132,17 @@ measures **202 sites** across the crates still in Rust, sorted four ways — 109
 today but ugly, three parser rows the language wants anyway, two expensive surface
 decisions (`as`, and a macro form that can take a pattern, for `matches!`'s 61 sites), and
 one genuinely hard case (`thread_local!`, a declaration-bodied macro, three files in
-`redox-emit`). This row does not re-derive that and does not close any of it.
+`voltaic-emit`). This row does not re-derive that and does not close any of it.
 
-**And `redox-diag` is the real dependency root**, not `redox-ast`. Plan 68 called `ast` the
-root; `redox-ast` depends on `redox-lexer`, which depends on `redox-diag`, which depends on
+**And `voltaic-diag` is the real dependency root**, not `voltaic-ast`. Plan 68 called `ast` the
+root; `voltaic-ast` depends on `voltaic-lexer`, which depends on `voltaic-diag`, which depends on
 nothing.
 
 ---
 
 ## 3. Concrete proof this plan targets
 
-1. **A clean clone builds with no tracked `.rs` for `redox-ast` or `redox-fmt`**, given
+1. **A clean clone builds with no tracked `.rs` for `voltaic-ast` or `voltaic-fmt`**, given
    cargo, rustfmt and the checked-in seed, and nothing else.
 2. **stage1 == stage2.** The Rust the seed generates, compiled, and then used to regenerate
    the same tree, is **byte-identical**. This is the fixpoint CoffeeScript's
@@ -161,13 +161,13 @@ nothing.
 
 ## 4. Leaves
 
-### Leaf 1 — `crates/redox-seed`, a transpile-only binary
+### Leaf 1 — `crates/voltaic-seed`, a transpile-only binary
 
 One binary, one job: `.sdx` in, `.rs` out, over a directory. No `watch`, no `check`, no
 `fmt`, no fancy diagnostics — diagnostics print as plain text, because `miette`'s `fancy`
 feature is one of the two things that blocks the target.
 
-It depends on `redox-driver`'s `compile_dir` and nothing else new — which
+It depends on `voltaic-driver`'s `compile_dir` and nothing else new — which
 turned out not to be enough on its own, twice: see §11.2 and §11.3. Deliverable includes
 **the measured `wasm32-wasip1` size**, at `opt-level = "z"`, `lto`, `panic = "abort"`,
 stripped, then `wasm-opt -Oz`. §2's estimate is 1–2 MB; the criterion is that the number is
@@ -185,28 +185,28 @@ was built on an inference about it.
 `wasm2c` is the alternative and is what Zig chose, for a reason worth recording: converting
 to C means the only build dependency is a C compiler, which every platform has. The cost is
 a generated-C step at build time and Zig's own issue tracker reports `wasm2c` output with
-*"problematic stack space requirements"*. Redox already requires a full Rust toolchain, so
+*"problematic stack space requirements"*. Voltaic already requires a full Rust toolchain, so
 the hermeticity `wasm2c` buys is hermeticity it already has. Decision in §9.
 
-### Leaf 3 — `redox1.wasm` checked in, with a recipe and a hash
+### Leaf 3 — `voltaic1.wasm` checked in, with a recipe and a hash
 
 The blob, a `SEED.md` naming the commit it was built from and the exact command, and a
 recorded hash the gate checks. Plus `moon run :seed-refresh`, which rebuilds it.
 
-Named `redox1.wasm` after `zig1.wasm`, and the `1` is the generation: a refresh bumps it.
+Named `voltaic1.wasm` after `zig1.wasm`, and the `1` is the generation: a refresh bumps it.
 
 ### Leaf 4 — the fixpoint test
 
 `stage1 == stage2`, as §3 criterion 2. Regenerate with the seed, build that, regenerate
 again with what you just built, assert byte-identical. A Rust integration test beside
-`port.rs`, because it is an assertion *about* Redox-generated code and plan 69 decision 5
+`port.rs`, because it is an assertion *about* Voltaic-generated code and plan 69 decision 5
 keeps those in Rust.
 
 ### Leaf 5 — the bootstrap path, and the first ignore flip
 
 `./init.sh` regenerates from the seed before the first build. CI gains a clean-clone job
-that proves it. **Only then** does `.gitignore` gain `crates/redox-ast/src/` and
-`crates/redox-fmt/src/` — the two crates whose Rust is already fully generated.
+that proves it. **Only then** does `.gitignore` gain `crates/voltaic-ast/src/` and
+`crates/voltaic-fmt/src/` — the two crates whose Rust is already fully generated.
 
 The rustfmt seam is resolved here: the seed emits, `init.sh` runs the native rustfmt, and
 `.gitattributes`' `linguist-generated` markers from plan 70 come off with the files.
@@ -215,7 +215,7 @@ The rustfmt seam is resolved here: the seed emits, `init.sh` runs the native rus
 
 Once a crate's `src/` is untracked, its `.sdx` **can only use syntax the seed parses**.
 rustc answers this with `cfg(bootstrap)` double implementations; Go answers it with a
-documented version chain bumped about once a year. Redox's answer is cheaper than either,
+documented version chain bumped about once a year. Voltaic's answer is cheaper than either,
 because the seed is a build artifact and not a release:
 
 > **A surface row that the seed cannot parse must refresh the seed in the same commit.**
@@ -234,30 +234,30 @@ explicit reading rather than a silent reinterpretation: see §6.
 
 | Row | Crate | Code lines | Notes |
 |---|---|---:|---|
-| 73 | `redox-diag` | 1,793 | the true root, and already at zero `missing_docs` (plan 56) |
-| 74 | `redox-lexer` | 3,008 | the only crate with a mutable state machine at its centre |
-| 75 | `redox-emit` | 6,156 | 98 files of `match`; holds all three `thread_local!` sites |
-| 76 | `redox-parser` | 7,974 | the largest, and the one whose own surface it implements |
-| 77 | `redox-driver` | 2,957 | holds `compile_dir`, which the seed is built from |
-| 78 | `redox-cli` | 1,376 | 9,147 of its lines are **tests**, which stay Rust (§6) |
-| 79 | `redox-bench` | 597 | |
-| 80 | `redox-fuzz` | 124 | |
-| 81 | `redox-lsp` | 931 | |
-| 82 | `redox-mcp` | 805 | |
+| 73 | `voltaic-diag` | 1,793 | the true root, and already at zero `missing_docs` (plan 56) |
+| 74 | `voltaic-lexer` | 3,008 | the only crate with a mutable state machine at its centre |
+| 75 | `voltaic-emit` | 6,156 | 98 files of `match`; holds all three `thread_local!` sites |
+| 76 | `voltaic-parser` | 7,974 | the largest, and the one whose own surface it implements |
+| 77 | `voltaic-driver` | 2,957 | holds `compile_dir`, which the seed is built from |
+| 78 | `voltaic-cli` | 1,376 | 9,147 of its lines are **tests**, which stay Rust (§6) |
+| 79 | `voltaic-bench` | 597 | |
+| 80 | `voltaic-fuzz` | 124 | |
+| 81 | `voltaic-lsp` | 931 | |
+| 82 | `voltaic-mcp` | 805 | |
 
-`redox-ast` (3,540) and `redox-fmt` (2,966) are done, at rows 68 and 69.
+`voltaic-ast` (3,540) and `voltaic-fmt` (2,966) are done, at rows 68 and 69.
 
 ---
 
 ## 5. Acceptance criteria
 
-1. `crates/redox-seed` builds for `wasm32-wasip1`, and its size is **measured and
+1. `crates/voltaic-seed` builds for `wasm32-wasip1`, and its size is **measured and
    recorded** in `SEED.md`.
-2. `redox1.wasm` is checked in, with the commit it came from, the exact build command, and
+2. `voltaic1.wasm` is checked in, with the commit it came from, the exact build command, and
    a hash the gate verifies.
 3. `devenv.nix` supplies the target and the runtime; `moon run :seed-refresh` rebuilds the
    blob.
-4. **A clean clone with `crates/redox-ast/src/` and `crates/redox-fmt/src/` untracked
+4. **A clean clone with `crates/voltaic-ast/src/` and `crates/voltaic-fmt/src/` untracked
    builds green**, in CI, from the seed.
 5. **stage1 == stage2**, byte-identical, asserted by a test.
 6. `moon run :check :lint :test` green from the regenerated tree, every test unchanged.
@@ -272,17 +272,17 @@ explicit reading rather than a silent reinterpretation: see §6.
 
 ## 6. Out of scope, and what it discloses
 
-**"100% Redox" means the compiler, not the repository.** Two kinds of Rust stay, and
+**"100% Voltaic" means the compiler, not the repository.** Two kinds of Rust stay, and
 criterion 4 is a lie without saying so:
 
-- **Tests.** Plan 69 decision 5: a Rust test asserting over Redox-generated code is the
+- **Tests.** Plan 69 decision 5: a Rust test asserting over Voltaic-generated code is the
   right shape, and `AGENTS.md` requires public-API tests to be integration tests. So
   `crates/*/tests/**` is never ported and never untracked. That is **18,585 lines** —
-  more than half the repository's Rust, and 9,147 of it in `redox-cli` alone.
-- **`redox-driver/build.rs`.** Cargo runs it on the host before anything exists, and it is
+  more than half the repository's Rust, and 9,147 of it in `voltaic-cli` alone.
+- **`voltaic-driver/build.rs`.** Cargo runs it on the host before anything exists, and it is
   what bakes in a verified `rustc` path. It stays Rust permanently.
 
-So the honest form of the target is: **every line of the compiler's own logic is Redox; its
+So the honest form of the target is: **every line of the compiler's own logic is Voltaic; its
 tests and its one build script are Rust.** Doc 02 §4.8's *"keep the Rust implementation
 permanently"* is then satisfied in letter by the tests and the build script, and *not* in
 the spirit its author meant, which was a parallel hand-written compiler. Leaf 7 must say
@@ -299,14 +299,14 @@ binary compiled to `wasm32-unknown-unknown` instead of `-wasip1`. Paste `.sdx`, 
 leaf 1 well.
 
 **Making the emitter rustfmt-canonical is rejected**, which is why leaf 5 runs rustfmt
-natively. Redox targets rustfmt's *defaults*; this repository sets `tab_spaces = 2`; a
+natively. Voltaic targets rustfmt's *defaults*; this repository sets `tab_spaces = 2`; a
 canonical emitter would have to carry a configuration model for a formatter it does not
 own. Plan 04's probe already measured what happens when those two disagree.
 
 **Binary history growth is accepted, with a number.** Every refresh adds its full size to
 history permanently, because binaries do not delta-compress. At ~1–2 MB a generation and a
 refresh per surface row that needs one, ten refreshes is 10–20 MB. For comparison, `target/`
-is 15 GB and `tree-sitter-redox/src/grammar.json` is 67 KB of generated JSON already
+is 15 GB and `tree-sitter-voltaic/src/grammar.json` is 67 KB of generated JSON already
 tracked. This is a real cost and it is small.
 
 ---
@@ -319,7 +319,7 @@ tracked. This is a real cost and it is small.
   crates' `src/` absent from git.
 - **fixpoint** — leaf 4's `stage1 == stage2`.
 
-`REDOX_BLESS=1` re-blessings as usual for `docs/STATUS.md`, `docs/CONFORMANCE.md` and
+`VOLTAIC_BLESS=1` re-blessings as usual for `docs/STATUS.md`, `docs/CONFORMANCE.md` and
 `docs/GRAMMAR.md`.
 
 ---
@@ -333,7 +333,7 @@ other projects' measured decisions, surveyed at plan 70:
 | Project | Stage0 | Why it fits or does not |
 |---|---|---|
 | **Zig** | `zig1.wasm`, 2.4 MiB, checked in | **the model this row copies**, including building the seed before deleting the old implementation |
-| **MoonScript**, **CoffeeScript** | committed generated output | what Redox does today; CoffeeScript's `cake build:full` is leaf 4's fixpoint |
+| **MoonScript**, **CoffeeScript** | committed generated output | what Voltaic does today; CoffeeScript's `cake build:full` is leaf 4's fixpoint |
 | **rustc** | previous beta, downloaded | rejected: a download is a trust and availability dependency a checked-in blob does not have |
 | **Go** | a previous toolchain, chained | rejected: the chain is the maintenance cost leaf 6's rule avoids |
 | **OCaml** | `boot/ocamlc` bytecode | the same shape as Zig's, without the portability |
@@ -349,9 +349,9 @@ other projects' measured decisions, surveyed at plan 70:
    stated reason and the only one that matters: per-platform binaries multiply the blob by
    the platform count and make the refresh a release process.
 3. **`wasmtime`, not `wasm2c`.** Leaf 2. `wasm2c`'s advantage is needing only a C compiler,
-   and Redox already requires a full Rust toolchain, so it buys hermeticity that is already
+   and Voltaic already requires a full Rust toolchain, so it buys hermeticity that is already
    present — against a generated-C step and Zig's own reported stack-space problems.
-4. **A new `redox-seed` binary rather than a wasm build of `redox-cli`.** `notify` and
+4. **A new `voltaic-seed` binary rather than a wasm build of `voltaic-cli`.** `notify` and
    `miette/fancy` block the target, and the seed should be the smallest thing that
    transpiles anyway.
 5. **The ignore flips per crate, at the end of that crate's port.** §1.3. While a crate's
@@ -371,11 +371,11 @@ other projects' measured decisions, surveyed at plan 70:
 
 ## 10. Result
 
-**Leaf 1 is done.** `crates/redox-seed` — 275 code lines across six files, a
+**Leaf 1 is done.** `crates/voltaic-seed` — 275 code lines across six files, a
 transpile-only binary with no `clap`, no `notify` and no terminal. It
-reproduces `crates/redox-ast/src` **byte for byte**: 53 of 53 files identical to
+reproduces `crates/voltaic-ast/src` **byte for byte**: 53 of 53 files identical to
 what is committed, after the native rustfmt pass leaf 5 will run, asserted by
-`crates/redox-seed/tests/seed.rs`.
+`crates/voltaic-seed/tests/seed.rs`.
 
 **Leaf 2 is done, and it settles the question §11.1 said it would.** The
 toolchain carries `wasm32-wasip1`, `wasmtime` 47.0.3 and `binaryen` 130, added
@@ -385,7 +385,7 @@ needs no change there.
 
 | | |
 |---|---:|
-| `redox-seed.wasm`, release | **1,351,423 bytes** |
+| `voltaic-seed.wasm`, release | **1,351,423 bytes** |
 | after `wasm-opt -Oz --enable-bulk-memory` | **913,549 bytes** |
 | Zig's `zig1.wasm`, for calibration | 2.4 MiB |
 
@@ -394,14 +394,14 @@ comparing against, and §2's 1–2 MB estimate was right at the top of the range
 before optimisation and well under it after.
 
 **It runs, and it reproduces the tree.** Under
-`wasmtime run --dir . seed.wasm crates/redox-ast/sdx <out>`: exit 0, 53 files,
+`wasmtime run --dir . seed.wasm crates/voltaic-ast/sdx <out>`: exit 0, 53 files,
 and all **53 byte-identical** to what is committed after the native rustfmt
 pass. The same assertion the native binary passes, from the artifact that would
 actually be checked in.
 
 **Leaves 3 through 7 are done.**
 
-`seed/redox1.wasm` is committed at 913,773 bytes with `seed/SEED.md` recording
+`seed/voltaic1.wasm` is committed at 913,773 bytes with `seed/SEED.md` recording
 its commit, size, blake3 and build command — and, more usefully, when *not* to
 rebuild it. `moon run :seed-refresh` rebuilds it with `cache: false`, because
 the output is a tracked file and a cached no-op would leave a stale blob
@@ -409,14 +409,14 @@ committed while reporting success. `tests/blob.rs` recomputes the hash and
 fails on disagreement, blessed like every other expectation here.
 
 `tests/fixpoint.rs` asserts **`stage1 == stage2`**: the committed blob under
-`wasmtime`, the native `redox-seed`, and the committed trees, all three
+`wasmtime`, the native `voltaic-seed`, and the committed trees, all three
 byte-identical in one assertion. The native binary is built *from* those trees,
 so the three-way equality says the stage0 emits exactly the sources stage1 was
 built from and stage1 emits them again — the loop closes without a second cargo
 build, which is why it cannot be split into two tests.
 
-**And the generated Rust is untracked.** `crates/redox-ast/src/` and
-`crates/redox-fmt/src/` are in `.gitignore`; 110 files left the index and
+**And the generated Rust is untracked.** `crates/voltaic-ast/src/` and
+`crates/voltaic-fmt/src/` are in `.gitignore`; 110 files left the index and
 `./bootstrap.sh` regenerates them from the seed. `tests/bootstrap.rs` is leaf
 5's own precondition made executable: it clones `HEAD`, **deletes** those
 trees, runs `bootstrap.sh`, and requires byte-identical output — deleting
@@ -437,19 +437,19 @@ the ten successor rows extend, one crate at a time.
 
 ### 11.1 §2 stated an inference as a precondition, and the leaf order follows from it
 
-§2 lists two dependencies as blocking a `wasm32-wasip1` build of `redox-cli`.
+§2 lists two dependencies as blocking a `wasm32-wasip1` build of `voltaic-cli`.
 Measured against the seed's actual dependency graph:
 
 | §2's claim | Measured |
 |---|---|
-| `notify` blocks the target | **Gone by construction** — `cargo tree -p redox-seed` contains it zero times, because `notify` is only in `redox-cli` |
+| `notify` blocks the target | **Gone by construction** — `cargo tree -p voltaic-seed` contains it zero times, because `notify` is only in `voltaic-cli` |
 | `miette { features = ["fancy"] }` blocks the target | **Still linked.** `backtrace`, `backtrace-ext`, `owo-colors`, `supports-color` and `terminal_size` are all in the seed's graph |
 
-The seed is 86 unique crates against `redox-cli`'s 119, so the diet is real —
+The seed is 86 unique crates against `voltaic-cli`'s 119, so the diet is real —
 but rendering with `render(.., plain: true)` is **not** the same as not linking
 the graphical path, which is what the crate's module doc says and what the
 measurement confirms. Cargo's feature unification puts `fancy` in the graph
-because `redox-driver` depends on `redox-diag` with default features.
+because `voltaic-driver` depends on `voltaic-diag` with default features.
 
 **And whether `fancy` blocks the target at all is still unverified**, because
 `wasm32-wasip1` std is not installed. That claim came from reasoning about what
@@ -460,7 +460,7 @@ simply report nothing useful under WASI.
 So §2 is **half measured and half inferred**, and presents both the same way.
 The consequence is an ordering mistake: leaf 1 was built to avoid a blocker
 nobody has confirmed, and the 5-crate feature-gating refactor it implies —
-`redox-diag`'s `miette` made optional, `redox-driver` forwarding the feature,
+`voltaic-diag`'s `miette` made optional, `voltaic-driver` forwarding the feature,
 three callers enabling it — **has not been done and should not be until the
 target says it is needed.** `plain_one.rs` referencing `miette` zero times
 against `graphical_one.rs`'s four means the gate is tractable when wanted.
@@ -478,14 +478,14 @@ repository for two sessions at once.
 
 ### 11.2 `compile_dir` does not descend, and plan 09's cargo path has the same hole
 
-Pointed at `crates/redox-ast/sdx`, the first seed wrote **7** files where the
+Pointed at `crates/voltaic-ast/sdx`, the first seed wrote **7** files where the
 crate has **53**. `sdx_in` lists one directory; it does not recurse.
 
 This is not only the seed's problem. **Plan 09's documented `build.rs`
 integration has it too** — a user whose `src/` has subdirectories gets a silent
 partial build from the path `examples/cargo-project/` advertises, and nothing
 caught it because that example holds a single `greeting.sdx` at top level.
-`tests/port.rs` never hit it either, because it invokes `redox build` once per
+`tests/port.rs` never hit it either, because it invokes `voltaic build` once per
 file rather than using `compile_dir` at all.
 
 The seed walks, in `src/run/walk.rs`, which needs no change to shared code: one
@@ -499,11 +499,11 @@ change to the incremental path that wants its own row and its own evidence.
 
 ### 11.3 The driver writes its cache into the output tree, and two layout tests disagree about it
 
-`compile_dir_with` writes `<out>/.redox-cache/`. For plan 09's caller that is
+`compile_dir_with` writes `<out>/.voltaic-cache/`. For plan 09's caller that is
 the whole point — `out` is `OUT_DIR` and cargo owns it. For the seed, `out` is
 a crate's `src/`, and there the same cache is wrong three ways:
 
-1. `.redox-cache` is **not** in `.gitignore`, so it would be committed.
+1. `.voltaic-cache` is **not** in `.gitignore`, so it would be committed.
 2. `one_construct_per_file` walks for `*.rs` with **no** hidden-directory
    exclusion, so it would grade every cached file as a construct — while
    `directory_structure` has `is_hidden` and would not. Two tests disagreeing
@@ -520,16 +520,16 @@ a message about constructs rather than about caching.
 and whether it *blocks* `wasm32-wasip1` was reasoning rather than measurement.
 
 **It does not block it.** With the target installed, `cargo build --release -p
-redox-seed --target wasm32-wasip1` succeeds with no errors and no warnings,
+voltaic-seed --target wasm32-wasip1` succeeds with no errors and no warnings,
 `fancy` and its `backtrace` / `owo-colors` / `supports-color` /
 `terminal_size` retinue all present. `backtrace` has a no-op fallback and the
 other two compile and simply report nothing useful under WASI, which is what
 §11.1 guessed might be true.
 
-So the five-crate feature gate — `redox-diag`'s `miette` made optional,
-`redox-driver` forwarding it, three callers enabling it — is **confirmed
+So the five-crate feature gate — `voltaic-diag`'s `miette` made optional,
+`voltaic-driver` forwarding it, three callers enabling it — is **confirmed
 unnecessary** and was correctly not built. §2's table should be read as: one
-measured obstacle (`notify`, avoided by not being `redox-cli`) and one that
+measured obstacle (`notify`, avoided by not being `voltaic-cli`) and one that
 never existed.
 
 That is two corrections in the same direction, and the lesson is the same one
@@ -559,7 +559,7 @@ returning an error.
 `Command`. The honest statement of that precondition is *"nothing in the build
 path touches `std::process`"*, and it was false.
 
-Fixed in `redox-driver` by asking the wall clock, which exists wherever `std`
+Fixed in `voltaic-driver` by asking the wall clock, which exists wherever `std`
 does — WASI has `clock_time_get` — and which satisfies the fallback's own
 paragraph **better** than a pid did: a pid is reused between runs, so two
 different compilers could share a fingerprint, where a nanosecond timestamp
@@ -606,8 +606,8 @@ around.
 `moon.yml` for `- '/crates/<name>/`, not only the lines inside the
 `dependency_sources` group. So a task-input glob of `/crates/*/sdx/**/*`
 contributes a crate named `*` and fails the transitive-dependency check;
-`redox-cli` carries that shape only because its `/crates/**/*.rs` line is
-special-cased. `redox-seed`'s moon.yml names `redox-ast` explicitly instead,
+`voltaic-cli` carries that shape only because its `/crates/**/*.rs` line is
+special-cased. `voltaic-seed`'s moon.yml names `voltaic-ast` explicitly instead,
 which is also more accurate — that is the one tree its test reads.
 
 `AGENTS.md` says `.moon/workspace.yml` *"now spells the project sources out

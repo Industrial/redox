@@ -12,9 +12,9 @@ Status: `done` — five leaves shipped 2026-11-10; leaf 3 withdrawn by §11.1
 Juxtaposition starts paying for itself. An under-applied call becomes a closure instead of a
 rustc error.
 
-Redox took Haskell's application syntax — `f a b`, no parentheses, no commas — and did not take
+Voltaic took Haskell's application syntax — `f a b`, no parentheses, no commas — and did not take
 the thing that syntax exists for. In Haskell `f a b` is two applications of one-argument
-functions, which is why `map (add 1)` means something. In Redox it is one application of a
+functions, which is why `map (add 1)` means something. In Voltaic it is one application of a
 two-argument function, so `map (add 1)` emits `map(add(1))` and fails in generated Rust.
 
 That is the single largest instance of the milestone's subject: a borrowed surface whose
@@ -31,8 +31,8 @@ inc_all xs = xs |> into_iter |> map (add 1) |> collect : Vec<i32>
 ->  rustc: E0061: this function takes 2 arguments but 1 argument was supplied
 ```
 
-Redox accepts it. rustc rejects it, pointing at a line nobody wrote, about a function whose
-arity Redox knew all along. Doc 18 §4's sections — `(+ 1)`, `(1 +)`, `(> 0)` — are a patch over
+Voltaic accepts it. rustc rejects it, pointing at a line nobody wrote, about a function whose
+arity Voltaic knew all along. Doc 18 §4's sections — `(+ 1)`, `(1 +)`, `(> 0)` — are a patch over
 exactly this hole, covering operators and leaving named functions out.
 
 ### 1.2 Arity is syntactic, and the parser already computes it
@@ -40,7 +40,7 @@ exactly this hole, covering operators and leaving named functions out.
 The objection to currying is that it needs to know how many arguments a function takes, and that
 sounds like the symbol table AGENTS.md forbids.
 
-It is not. A Redox signature **states** the arity: `add : i32 -> i32 -> i32` has two top-level
+It is not. A Voltaic signature **states** the arity: `add : i32 -> i32 -> i32` has two top-level
 arrows and therefore two parameters. The signature parser already splits on top-level arrows and
 already ignores arrows nested inside a type, because doc 03 §14.1 makes a type verbatim text.
 Verified:
@@ -52,7 +52,7 @@ add2 : impl Fn(i32, i32) -> i32 -> i32
 
 One parameter, not three. The nested arrows are inside a verbatim type and the parser does not
 count them. So arity is available today, for free, from the construct that already exists — and
-this row needs no analysis Redox does not already perform.
+this row needs no analysis Voltaic does not already perform.
 
 ### 1.3 Capture by borrow, and rustc judges the result
 
@@ -76,13 +76,13 @@ makes*.
 
 The alternatives were weighed in §9. Threading a named lifetime through the generated closure
 would move borrow reasoning into the emitter; restricting currying to `Copy` arguments would
-make the rule conditional on types Redox cannot see.
+make the rule conditional on types Voltaic cannot see.
 
 ### 1.4 Cross-module arity is the real boundary
 
 Arity comes from a visible signature, and this row must be careful about what "visible" rests
 on. **Plan 14's `module` does not load anything** — a bodiless `module name` emits `mod name;`
-and reads nothing, and plan 14 decision 4 is explicit: *"No import resolution […] Redox has no
+and reads nothing, and plan 14 decision 4 is explicit: *"No import resolution […] Voltaic has no
 name resolution and must not grow one."* What reaches a sibling file is plan 09's
 `compile_dir`, which compiles the whole directory because the directory is the unit.
 
@@ -98,7 +98,7 @@ rather than inheriting an accident.
 
 ### 1.5 Rust paths become curried values too
 
-`String::from` and `HashMap::new` are Rust functions, not Redox ones, so Redox has no signature
+`String::from` and `HashMap::new` are Rust functions, not Voltaic ones, so Voltaic has no signature
 for them and cannot compute their arity. They keep their current spelling —
 `HashMap::new ()`, `String::from "x"` — and additionally become usable as **function values**:
 
@@ -114,7 +114,7 @@ distinction matters and §6 records it: `String::from` is passable, not partiall
 
 ## 2. Verified preconditions
 
-Measured 2026-11-10, against `redox` at `194fdf7`.
+Measured 2026-11-10, against `voltaic` at `194fdf7`.
 
 **Under-application is accepted and emits a call:**
 
@@ -158,7 +158,7 @@ Five cases, each failing differently:
    repository has been bitten by.
 4. **Under-application inside `$`.** `print $ add 1 $ 2` — two operators whose precedence
    interacts, and the case that distinguishes "currying" from "parenthesis elision".
-5. **A function whose signature is not in this file.** A named Redox diagnostic, per §1.4,
+5. **A function whose signature is not in this file.** A named Voltaic diagnostic, per §1.4,
    asserted as a `tests/ui/` fixture — and asserted across a `module` boundary specifically,
    because that is the case a reader will assume works.
 
@@ -178,8 +178,8 @@ Arity already exists per function — `FnDecl.sig.params.len()`, split off the s
 spine by `parse_spine`. What is missing is the index and where the pass that reads it lives, and
 §11.3 settles the placement: the **check** rides `parse()`, the declared chokepoint, which
 already returns a `Result<Program, Vec<ParseError>>` and so needs no plumbing; the **rewrite**
-lives at the emitter's entry. Not in `parse()` — `redox_fmt::format` consumes the same
-`Program`, so a `Call`→`Lambda` rewrite there makes `redox fmt` rewrite the author's `add 1`
+lives at the emitter's entry. Not in `parse()` — `voltaic_fmt::format` consumes the same
+`Program`, so a `Call`→`Lambda` rewrite there makes `voltaic fmt` rewrite the author's `add 1`
 into `move \__rdx_1 -> add 1 __rdx_1`. And **not** threaded through `emit_expr`, which has 24
 importers and 36 consumers.
 
@@ -202,7 +202,7 @@ This leaf was the unknown-arity diagnostic, and §11.1 found it undecidable.
 Under-application is detectable only where arity is known, and arity is known
 only for a bare `Expr::Ident` naming a signature in this file; every `Path`,
 every `where` local, every equation binder, every lambda parameter and every
-imported bare name is unknown-arity, and for those Redox cannot tell an
+imported bare name is unknown-arity, and for those Voltaic cannot tell an
 under-applied call from a saturated one. A diagnostic there is a
 false-positive generator.
 
@@ -240,9 +240,9 @@ compose, which is plan 58's premise. Doc 03 §5.1 and `docs/GRAMMAR.md` updated.
    is therefore known is lowered to a closure; one whose arity is *not* knowable is emitted as
    a call exactly as today, and rustc judges it. Asserted both ways.
 
-   Amended from *"an unknown-arity under-application is a named Redox diagnostic"*, which §11.1
+   Amended from *"an unknown-arity under-application is a named Voltaic diagnostic"*, which §11.1
    found undecidable: a bare name with no visible signature may be a `where` local, an equation
-   binder, a lambda parameter or an import, and Redox cannot tell an under-applied one from a
+   binder, a lambda parameter or an import, and Voltaic cannot tell an under-applied one from a
    saturated one. A diagnostic there is a false-positive generator; the restatement is §1.5's
    own argument.
 6. Operator sections and function partial application share one lowering path, asserted by a
@@ -282,13 +282,13 @@ lowering, and that is recorded for it rather than assumed.
 **Currying is per-file, bounded by §1.4.** Widening it is a resolution decision that plan 14
 decision 4 already refused once.
 
-**`String::from` is passable, not curryable.** §1.5. Rust functions have no Redox signature, so
+**`String::from` is passable, not curryable.** §1.5. Rust functions have no Voltaic signature, so
 `String::from` with too few arguments is a diagnostic rather than a closure. A reader who has
-just learned that Redox functions curry will expect otherwise, which is why it is a criterion
+just learned that Voltaic functions curry will expect otherwise, which is why it is a criterion
 and not only a note.
 
 **Nullary application is untouched.** `f` with zero of one argument is not an under-application
-Redox can act on, because a lone `()` is the empty argument list (plan 20 §10.6) and `f` alone is
+Voltaic can act on, because a lone `()` is the empty argument list (plan 20 §10.6) and `f` alone is
 the function item. Plan 59 takes the zero-argument binding question and plan 64 adds `\->`.
 
 **Composition is plan 58's.** This row makes it possible: doc 18 §4 declines composition
@@ -323,7 +323,7 @@ and no prior experience to lean on, which is why §3 insists on asserting *where
 appears rather than reasoning about it.
 
 The one transferable discipline is doc 02's, in two halves: §5.2 names the failure mode — *"a
-Redox expression that reads like Rust and means something different is the worst possible failure
+Voltaic expression that reads like Rust and means something different is the worst possible failure
 mode for a transpiler"* — and §8.3 is the answer, *"compiled by rustc, run, and its stdout
 asserted"*. A partial application that captures the wrong argument compiles and prints a
 different number, so only the run catches it.
@@ -339,7 +339,7 @@ different number, so only the run catches it.
 2. **Capture by Rust's own inference, uniformly** — *"by move"* as first written, **withdrawn by
    §11.2**: a plain closure, no annotation, the same shape a section emits. The
    lifetime-threading option puts borrow reasoning in the emitter; the `Copy`-only option makes
-   the rule depend on types Redox cannot see; and `move` makes §3 case 3 a move error where it
+   the rule depend on types Voltaic cannot see; and `move` makes §3 case 3 a move error where it
    asks for a borrow error. §10.3 is that case measured.
 3. **Arity from the signature, not from a symbol table.** §1.2. This is what makes the row
    affordable, and the precondition is verified rather than assumed: `add2 : impl Fn(i32, i32)
@@ -393,17 +393,17 @@ construction the first time a position was missed.
 So what lives at the emitter's entry is the **table**, not a rewrite:
 `ArityScope::enter` installs it for the file being emitted and restores it on
 drop. The constraint §11.3 actually states is honoured exactly — nothing about
-currying exists before `emit_with_map`, so `redox_fmt::format` sees the tree it
-always saw. Measured: `redox fmt` on `examples/currying.sdx` leaves it
+currying exists before `emit_with_map`, so `voltaic_fmt::format` sees the tree it
+always saw. Measured: `voltaic fmt` on `examples/currying.sdx` leaves it
 byte-identical, and `formatting_preserves_meaning` covers the file because
-`redox-fmt`'s `properties.rs` reads `examples/` whole.
+`voltaic-fmt`'s `properties.rs` reads `examples/` whole.
 
-`redox-fmt` needed **no change**, which is the test of the placement.
+`voltaic-fmt` needed **no change**, which is the test of the placement.
 
 ### 10.3 Criterion 3 cannot be a `tests/ui/` case, for a reason already on record
 
 §5 criterion 3 asks for the borrowed capture's message *"captured in
-`tests/ui/`"*, and that harness runs `redox build` — which parses, lints, emits
+`tests/ui/`"*, and that harness runs `voltaic build` — which parses, lints, emits
 and writes without ever invoking rustc. A program whose only fault is a borrow
 error **builds clean**, so `ui.rs`'s own `assert!(!out.status.success())` would
 fail on its expectation rather than on the program.
@@ -499,7 +499,7 @@ Five things in §11 were wrong or stale, found by implementing it.
   neither half of which exists.
 - **§11.6's premise is wrong on a detail that does not change its decision.**
   `$`'s `Expr::Call` is **not** *"indistinguishable from juxtaposition"* — it
-  carries `is_dollar: true`, added so `redox-fmt` can reprint the spelling.
+  carries `is_dollar: true`, added so `voltaic-fmt` can reprint the spelling.
   The flatten does not read it, and should not: `(add 1) 2` wants the same
   treatment as `add 1 $ 2` and has `is_dollar: false`.
 - **§11.7's line numbers are stale.** Doc 18 §8's table row is at `:722`, not
@@ -529,7 +529,7 @@ Five things in §11 were wrong or stale, found by implementing it.
   the one lowering in the language that allocates. It is plan 44's to add and
   is left as that row's, not quietly absorbed here.
 - **`docs/STATUS.md` and `docs/CONFORMANCE.md` are not blessed.** Both are
-  generated and both moved: 32 examples, 31 goldens, `redox-emit` at 88 files,
+  generated and both moved: 32 examples, 31 goldens, `voltaic-emit` at 88 files,
   and `conformance`'s macro count at 927. They are blessed by the operator, so
   `status` and `conformance_is_current` are the two red steps this row hands
   over.
@@ -555,7 +555,7 @@ Under-application is detectable only where arity is known, and arity is known
 else is unknown-arity: every `Expr::Path` (`String::from`), every `where`
 local (`examples/module.sdx:41-42`), every equation binder, every lambda
 parameter, and every bare name reached through `import std::cmp::max`. For all
-of those Redox cannot tell an under-applied call from a saturated one, because
+of those Voltaic cannot tell an under-applied call from a saturated one, because
 it has no arity to compare against.
 
 So *"an under-applied call to a name with no visible signature is a named
@@ -604,15 +604,15 @@ positional binders (`signature_from.rs:55-58`), so `|__rdx_a|` would shadow
 
 ### 11.3 The pass has nowhere clean to live, and §4 does not say where
 
-**The rule this is a case of, stated at plan 61:** *a pass that rewrites `Program` has two consumers and will surprise one of them* — with one structural exemption plan 61 §11.6 now records, signature lines, which `redox-fmt` passes through verbatim and which therefore cannot be surprised. `redox-fmt` and `redox-emit` read the same tree, so a lowering that mutates it makes the formatter rewrite the author's source. Whatever this pass turns out to be, it belongs where only generated Rust can see it.
+**The rule this is a case of, stated at plan 61:** *a pass that rewrites `Program` has two consumers and will surprise one of them* — with one structural exemption plan 61 §11.6 now records, signature lines, which `voltaic-fmt` passes through verbatim and which therefore cannot be surprised. `voltaic-fmt` and `voltaic-emit` read the same tree, so a lowering that mutates it makes the formatter rewrite the author's source. Whatever this pass turns out to be, it belongs where only generated Rust can see it.
 
-`parse()` (`crates/redox-parser/src/parse.rs:24-42`) is the declared chokepoint
+`parse()` (`crates/voltaic-parser/src/parse.rs:24-42`) is the declared chokepoint
 and already returns `Result<Program, Vec<ParseError>>`, so a **check** there
 needs zero plumbing. But an **AST rewrite** there is wrong, because
-`redox_fmt::format(&Program, &str)` consumes the same `Program` —
-`redox-cli/src/fmt_command.rs:36`, `redox-lsp/src/serve/formatting.rs:30`,
-`redox-mcp/src/format.rs:45`. A `Call`→`Lambda` rewrite in `parse()` makes
-`redox fmt` rewrite the author's `add 1` into
+`voltaic_fmt::format(&Program, &str)` consumes the same `Program` —
+`voltaic-cli/src/fmt_command.rs:36`, `voltaic-lsp/src/serve/formatting.rs:30`,
+`voltaic-mcp/src/format.rs:45`. A `Call`→`Lambda` rewrite in `parse()` makes
+`voltaic fmt` rewrite the author's `add 1` into
 `move \__rdx_1 -> add 1 __rdx_1`.
 
 And the emit side has no diagnostic channel: `compile_file.rs:54-56` is
@@ -720,7 +720,7 @@ entry *and* a lexical corpus witness, asserted in both directions.
   first-draft leftover. An **inline** `module` with a body does carry
   signatures (`examples/module.sdx:22-29`, reachable as `inner::hello`), so the
   arity table needs a scoping rule this row does not give.
-- **§1.1's `-> rustc: E0061` is incomplete.** `redox check` reports **three**
+- **§1.1's `-> rustc: E0061` is incomplete.** `voltaic check` reports **three**
   errors: `E0061`, `E0277` (*"expected a `FnMut(i32)` closure, found `i32`"*)
   and `E0599` (`sum` unavailable on the resulting `Map`). A `tests/ui`
   expectation records all three.

@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
-r"""Plan 82 batch 9: five of `redox-parser`'s larger bodies.
+r"""Plan 82 batch 9: five of `voltaic-parser`'s larger bodies.
 
 `binary_power` brings the second `#[cfg(test)]` helper pattern — a private
-signature under a `#[cfg(test)]` attribute, as `redox-lexer`'s `scan_operator`
+signature under a `#[cfg(test)]` attribute, as `voltaic-lexer`'s `scan_operator`
 already does — and one import that has to stay a *path*: the test wants
 `PREFIX_POWER`, nothing at module scope does, and an import used only under
 `#[cfg(test)]` is an `unused_imports` error in an ordinary build.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('parse/parser/instance_decl', r'''
@@ -45,7 +45,7 @@ instance_decl p leading start =
     (Some class_app, target_app)
   -- `implemented`, where the Rust named the local `class`: `class` is doc 03
   -- §15's keyword. The field keeps its own name as `r#class`, which is how
-  -- `redox-ast` declares it and how `emit::instance` already reads it.
+  -- `voltaic-ast` declares it and how `emit::instance` already reads it.
   implemented = split.0
   target = split.1
   var = .map (\v -> .to_string v) (.first (.vars target))
@@ -129,7 +129,7 @@ postfix p lhs =
   -- line and belongs to the next statement.
   --
   -- Without this, a `case` statement followed by a line opening with `.` —
-  -- which is how every method-call statement in Redox opens — read as a field
+  -- which is how every method-call statement in Voltaic opens — read as a field
   -- access on the `case`, and `application` then refused it as `RDX0115`:
   --
   --     case hit of
@@ -139,7 +139,7 @@ postfix p lhs =
   --
   -- `application` could not help, because it guards its *argument* loop and
   -- this runs inside `atom`, below it. Plan 80 found it on the first
-  -- `redox-driver` body that needed an `if` in expression position; the `if`
+  -- `voltaic-driver` body that needed an `if` in expression position; the `if`
   -- *statement* form happened to be safe, which is why nine ports went by.
   if .just_dedented p
     return Ok (Err lhs)
@@ -177,7 +177,7 @@ postfix p lhs =
     (.expect (&TokenKind::RBracket) "expected `]` to close the index" p)?
     return Ok (Ok (Expr::Index { recv = Box::new lhs, index = Box::new index, span = (start, (.prev_span p).1) }))
   -- Doc 18 §2.4's record literal. A `{` after an expression is unambiguous:
-  -- Redox has no brace-delimited block in expression position — layout does
+  -- Voltaic has no brace-delimited block in expression position — layout does
   -- that job — so nothing else a `{` could open is in the grammar.
   if .check (&TokenKind::LBrace) p
     return Ok (Ok (record_literal p lhs)?)
@@ -262,7 +262,7 @@ binary_power kind =
   left = .power op
   Some (op, left, left + 1)
 
--- | `#[cfg(test)]`: the helper every test below shares. Redox can put nothing
+-- | `#[cfg(test)]`: the helper every test below shares. Voltaic can put nothing
 -- | but `#[test] fn`s inside its generated `mod __rdx_tests` — plan 73 §2.9.
 #[cfg(test)]
 power : TokenKind -> u8

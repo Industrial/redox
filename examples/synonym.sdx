@@ -8,11 +8,11 @@
 -- The lowering is textual substitution at emit time, so rustc performs every
 -- check it would have performed on the written-out form: exhaustiveness, field
 -- names, types, binding modes. Doc 03 §2's corollary holds in both directions
--- — Redox checks nothing new, and rustc checks nothing less.
+-- — Voltaic checks nothing new, and rustc checks nothing less.
 --
--- `pattern` is Redox's **second contextual keyword**, after `from`. Reserving
+-- `pattern` is Voltaic's **second contextual keyword**, after `from`. Reserving
 -- it was tried and reverted: it is a *field name* in four of this compiler's
--- own declarations, so `Keyword::PatternKw` made `redox-ast` stop transpiling
+-- own declarations, so `Keyword::PatternKw` made `voltaic-ast` stop transpiling
 -- with `RDX0103` on its own source. Two tokens settle the reading instead — the
 -- word, then an **upper-case** name, because a use site has to read as a
 -- constructor.

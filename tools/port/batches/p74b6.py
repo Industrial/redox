@@ -9,12 +9,12 @@ Rust. Plan 73's finding about a list literal needing parentheses is about
 second reading.
 
 **Two more `matches!` methods**, so this crate needs the crate-root
-`match_like_matches_macro` allow that `redox-ast`, `redox-fmt` and `redox-diag`
-all carry: `matches!`'s second argument is a pattern, and Redox cannot pass one.
+`match_like_matches_macro` allow that `voltaic-ast`, `voltaic-fmt` and `voltaic-diag`
+all carry: `matches!`'s second argument is a pattern, and Voltaic cannot pass one.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('lexer/operator_table', '''

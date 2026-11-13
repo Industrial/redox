@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Plan 78 batch 7: the lint pass, and an attribute Redox cannot carry.
+"""Plan 78 batch 7: the lint pass, and an attribute Voltaic cannot carry.
 
 **An attribute on a record-field initialiser is silently dropped.** The Rust
 writes `#[allow(deprecated, reason = …)] deprecated: None` inside a
 `DocumentSymbol` literal, and `FieldInit` has no `leading` field — the parser
 discards the attribute before the AST exists, so the emitter never sees it and
-`redox fmt` cannot print it. That contradicts doc 02 §10.1's *"comments are
+`voltaic fmt` cannot print it. That contradicts doc 02 §10.1's *"comments are
 trivia, never discarded"*, which attributes joined at plan 18 §1.3, and it is
 quiet: the `.sdx` parses, the port reports nothing, and clippy then warns about
 a deprecated field the author had explicitly allowed.
@@ -17,12 +17,12 @@ the same effect, and the gap is written down rather than worked around
 silently.
 
 Three crate-root allows besides: `no_effect` and `unused_unit` for plan 55
-§1.6's spelled `()` — the **seventh** crate — and `single_match`, because Redox
+§1.6's spelled `()` — the **seventh** crate — and `single_match`, because Voltaic
 has no `if let`.
 """
 import io
 
-ROOT = '/home/tom/Code/rust/redox/'
+ROOT = '/home/tom/Code/rust/voltaic/'
 
 # --- the allow moves from the field to the function ---------------------
 P = ROOT + '.tmp/p78b6.py'
@@ -46,7 +46,7 @@ if OLD not in s:
 NEW = OLD and ('-- **The allow is on the function, where the Rust had it on each field.**\n'
        '-- An attribute on a record-field initialiser is **dropped**: `FieldInit`\n'
        '-- has no `leading`, so the parser discards it before the AST exists and\n'
-       '-- neither the emitter nor `redox fmt` ever sees it. That contradicts doc\n'
+       '-- neither the emitter nor `voltaic fmt` ever sees it. That contradicts doc\n'
        '-- 02 §10.1, which attributes joined at plan 18 §1.3, and it is quiet —\n'
        '-- the `.sdx` parses and clippy then warns about a field the author had\n'
        '-- explicitly allowed. Carrying it is a feature for a successor row; this\n'
@@ -59,7 +59,7 @@ if OLD:
     print('  p78b6: the allow moves to the function')
 
 # --- the crate-root allows ----------------------------------------------
-P = ROOT + 'crates/redox-lsp/sdx/lib.sdx'
+P = ROOT + 'crates/voltaic-lsp/sdx/lib.sdx'
 WHY = {
     'no_effect': (
         "-- Plan 55 §1.6 requires a `()`-returning body to **end with `()`** rather\n"
@@ -72,7 +72,7 @@ WHY = {
         "-- decision is owed either a workspace-level allow or a change to §1.6.\n"),
     'unused_unit': None,
     'single_match': (
-        "-- Redox has no `if let`, so *do this if it matches* is a `case` with a\n"
+        "-- Voltaic has no `if let`, so *do this if it matches* is a `case` with a\n"
         "-- `_ -> ()` arm — the same gap as `match_like_matches_macro`, one step\n"
         "-- over. `serve`'s notification arm is the one here.\n"),
 }

@@ -16,7 +16,7 @@ does not mean.
 |---|---|---|
 | `data` emits `use T::*`; `errors` does not | two declaration forms, one use-site rule between them | `errors` emits it too |
 | `newtype` and `data` lower identically | a keyword implying a distinction it does not make | one field enforced, `#[repr(transparent)]` emitted |
-| `-- redox: allow unwrap` | semantics in trivia a formatter can delete | a **consumed** `#[redox::allow(unwrap)]` |
+| `-- voltaic: allow unwrap` | semantics in trivia a formatter can delete | a **consumed** `#[voltaic::allow(unwrap)]` |
 
 None of the three is large. They are one row because they are one kind of defect — a declaration
 that is not what it appears to be — and because each is cheap enough that three separate rows
@@ -56,7 +56,7 @@ language's own source says so in two places** — neither of them a specificatio
 
 - `examples/data.sdx`: *"`newtype` and `data` lower identically here, because Rust has one such
   form and not two."*
-- `crates/redox-ast/src/program/item/data_decl.rs`, on the `is_newtype` flag: *"Kept even though
+- `crates/voltaic-ast/src/program/item/data_decl.rs`, on the `is_newtype` flag: *"Kept even though
   it changes no output […] would let a later plan reject `newtype` with more than one field."*
 
 Doc 18 §2.4 only *shows* the identical lowering in its code blocks; it never claims it as a rule.
@@ -79,15 +79,15 @@ preference.** Plan 38 §1.3 chose the comment pragma and gave three reasons agai
 attribute:
 
 > - Attributes are **trivia** (plan 18 §1.3) and reach the `.xrs` verbatim. `#[allow(unwrap)]`
->   passed through makes rustc say `unknown lint`, so a program that suppressed a Redox lint
+>   passed through makes rustc say `unknown lint`, so a program that suppressed a Voltaic lint
 >   would stop compiling.
 > - Consuming it instead — recognising one attribute and dropping it — makes plan 18's rule
 >   conditional. […] a carve-out for a single spelling weakens the rule that made nine item
 >   kinds work at once.
-> - `#[redox::allow(unwrap)]` needs `register_tool`, which is unstable.
+> - `#[voltaic::allow(unwrap)]` needs `register_tool`, which is unstable.
 
 The first and third reasons **do not apply to a consumed attribute**, and that is the whole of
-the design change. If Redox recognises `#[redox::allow(unwrap)]` and **does not emit it**, then
+the design change. If Voltaic recognises `#[voltaic::allow(unwrap)]` and **does not emit it**, then
 rustc never sees it: no `unknown lint`, and no `register_tool`, because the attribute does not
 reach the compiler that would need the feature. Plan 38 listed consumption as the second option
 and then priced the third option's instability against it as though they were the same route;
@@ -97,7 +97,7 @@ So the real cost is the second reason alone: **plan 18 §1.3's attributes-are-tr
 exactly one carve-out.** That is a genuine weakening and this row pays it knowingly.
 
 What makes it worth paying is evidence plan 38 did not have. Plan 48 — eleven rows later — found
-`clause.rs`'s four field doc comments **deleted from the `.sdx` by `redox fmt`**, because the
+`clause.rs`'s four field doc comments **deleted from the `.sdx` by `voltaic fmt`**, because the
 lexer's `scan_dashes` misclassified a comment opening a continuation line. AGENTS.md calls
 comment preservation load-bearing; the formatter broke it anyway, in the tool whose promise is
 not changing the program.
@@ -109,7 +109,7 @@ worse, removes the record of why a panic was acceptable. One conditional rule is
 that.
 
 It also makes the pragma consistent with where the milestone is going: plan 64 deletes the
-keyword family in favour of Rust's macros, and `#[redox::allow(…)]` is the attribute-shaped
+keyword family in favour of Rust's macros, and `#[voltaic::allow(…)]` is the attribute-shaped
 member of the same family.
 
 ---
@@ -118,7 +118,7 @@ member of the same family.
 
 Measured 2026-11-10.
 
-**The `errors` asymmetry is real and reaches rustc, not the Redox diagnostics.** A bare variant
+**The `errors` asymmetry is real and reaches rustc, not the Voltaic diagnostics.** A bare variant
 emits a bare path and fails with `E0425: cannot find function, tuple struct or tuple variant`,
 pointing into generated Rust. `data`'s glob is emitted; `errors`'s is not.
 
@@ -128,13 +128,13 @@ pointing into generated Rust. `data`'s glob is emitted; `errors`'s is not.
 and `#[derive(Clone)]` for a type a `Cache` clones to its waiters. That is the escape hatch this
 row leaves in place rather than replacing with an option on `errors`.
 
-**`#[cfg(test)]` on a Redox declaration passes through and works**, verified on a helper used
+**`#[cfg(test)]` on a Voltaic declaration passes through and works**, verified on a helper used
 only by a `test` block. So attribute passthrough is sound on the declarations this row touches.
 
-**Corpus scale.** 29 examples; `redox: allow` pragmas appear in **2** of them across **4**
+**Corpus scale.** 29 examples; `voltaic: allow` pragmas appear in **2** of them across **4**
 sites — `ascription.sdx` once and `fallible.sdx` three times, which is exactly what plan 38 §10
 records (*"the four sites carry the pragma"*). A fifth site is a test fixture,
-`crates/redox-cli/tests/lint/unwrap_suppressed.sdx`, and migrates with them.
+`crates/voltaic-cli/tests/lint/unwrap_suppressed.sdx`, and migrates with them.
 
 ---
 
@@ -142,12 +142,12 @@ records (*"the four sites carry the pragma"*). A fifth site is a test fixture,
 
 1. **`Err (Shape raw)` compiles**, with `VersionError::Shape raw` still compiling beside it —
    the glob adds a spelling and removes none.
-2. **`newtype Bad = Bad f64 f64` is a Redox diagnostic**, naming the one-field rule and
+2. **`newtype Bad = Bad f64 f64` is a Voltaic diagnostic**, naming the one-field rule and
    suggesting `data`. A two-field `newtype` currently compiles, so this is a new refusal and the
    example corpus must carry the refused form as a `tests/ui/` fixture.
 3. **A `newtype`'s generated Rust carries `#[repr(transparent)]`**, asserted in a golden — and
    the `data` form beside it does not, which is what makes the keyword mean something.
-4. **`#[redox::allow(unwrap)]` suppresses `RDX1001`**, and the comment form is a *deprecation
+4. **`#[voltaic::allow(unwrap)]` suppresses `RDX1001`**, and the comment form is a *deprecation
    diagnostic* rather than a silent no-op, because 5 example files and an unknown amount of
    outside code use it.
 
@@ -173,9 +173,9 @@ pointing at `data`. No resolver, no types — the shape is visible in the declar
 
 ### Leaf 4 — `leaf-pragma-attribute`
 
-`#[redox::allow(unwrap)]` recognised on a declaration and on a statement, **and consumed** — it
+`#[voltaic::allow(unwrap)]` recognised on a declaration and on a statement, **and consumed** — it
 must not reach the `.xrs`, which is what makes `register_tool` irrelevant (§1.3). The namespaced
-form is chosen so Redox's own attributes never collide with a Rust one, and so `#[allow(…)]`
+form is chosen so Voltaic's own attributes never collide with a Rust one, and so `#[allow(…)]`
 continues to mean rustc's lint and nothing else. This leaf is where plan 18 §1.3's
 attributes-are-trivia rule gains its one carve-out, and the rule's text is amended to say so
 rather than left to contradict the code.
@@ -191,7 +191,7 @@ Migrate the 4 pragma sites plus the test fixture; add the `newtype` refusal fixt
 doc 03 §12.5, doc 03 §12.7 and plan 18 §1.3. **Three code sites carry the identical-lowering
 claim and all three must move**: `examples/data.sdx`'s comment, `data_decl.rs`'s `is_newtype`
 doc comment, and — load-bearing — the emit test
-`newtype_and_data_agree_on_a_tuple_struct` in `crates/redox-emit/tests/data.rs`, which
+`newtype_and_data_agree_on_a_tuple_struct` in `crates/voltaic-emit/tests/data.rs`, which
 **asserts the very equality leaf 3 breaks** and will fail until it is rewritten to assert the
 difference.
 
@@ -200,17 +200,17 @@ difference.
 ## 5. Acceptance criteria
 
 1. An `errors` variant is usable unqualified **and** qualified; both asserted in one example.
-2. `newtype` with zero or two-plus fields is a named Redox diagnostic with a `data` suggestion,
+2. `newtype` with zero or two-plus fields is a named Voltaic diagnostic with a `data` suggestion,
    and a `tests/ui/` fixture holds the refusal.
 3. A `newtype`'s golden contains `#[repr(transparent)]`; the equivalent `data` declaration's
    does not.
 4. `newtype` composes with `deriving` and with a native `#[derive(…)]`, with deterministic
    attribute order asserted by the golden.
-5. `#[redox::allow(unwrap)]` suppresses `RDX1001` on both a declaration and a statement.
+5. `#[voltaic::allow(unwrap)]` suppresses `RDX1001` on both a declaration and a statement.
 6. The comment pragma still works and warns; the warning names the attribute spelling.
 7. All 29 examples green; `construct_coverage` green with the two new spellings indexed.
 8. No artifact claims `newtype` and `data` lower identically: `examples/data.sdx`,
-   `data_decl.rs`'s doc comment, and `crates/redox-emit/tests/data.rs`'s
+   `data_decl.rs`'s doc comment, and `crates/voltaic-emit/tests/data.rs`'s
    `newtype_and_data_agree_on_a_tuple_struct` are all updated, the last to assert the
    `#[repr(transparent)]` difference instead.
 
@@ -228,10 +228,10 @@ forms, and a reader will notice.
 it to assert the new difference. A row that breaks a test and deletes it has removed the
 evidence; a row that breaks a test and inverts it has moved the evidence.
 
-**`#[repr(transparent)]` is a guarantee Redox now makes.** It constrains what a `newtype` may
-wrap — a zero-sized or multi-field payload is rejected by rustc, not by Redox. That is the
+**`#[repr(transparent)]` is a guarantee Voltaic now makes.** It constrains what a `newtype` may
+wrap — a zero-sized or multi-field payload is rejected by rustc, not by Voltaic. That is the
 division of labour working, and it means some `newtype` declarations that compile today will
-fail after this row. The one-field check catches the common case at the Redox line; the rest is
+fail after this row. The one-field check catches the common case at the Voltaic line; the rest is
 rustc's.
 
 **Nothing here touches `type`.** It is already Rust's alias and already honest.
@@ -278,7 +278,7 @@ the source, so a suppression outlived the line it was written for. A per-site at
    other real option. It loses a word Haskell readers expect for no gain, where the
    one-field-plus-`repr` version costs one check and one attribute and makes the keyword carry
    information. If it had required a resolver, the answer would have been deletion.
-3. **Namespace the attribute as `redox::`, and consume it.** An unnamespaced
+3. **Namespace the attribute as `voltaic::`, and consume it.** An unnamespaced
    `#[allow(unwrap)]` passed through makes rustc say `unknown lint` — plan 38 §1.3's first
    objection, and correct. Consuming a namespaced attribute answers both that and the
    `register_tool` objection at once, because nothing reaches rustc. The cost is plan 18's
@@ -294,7 +294,7 @@ the source, so a suppression outlived the line it was written for. A per-site at
 
 **Done.** `errors` brings its variants into scope; `newtype` is
 `#[repr(transparent)]` and is refused unless it is one constructor over one
-field; `#[redox::allow(unwrap)]` suppresses `RDX1001` on a declaration and on a
+field; `#[voltaic::allow(unwrap)]` suppresses `RDX1001` on a declaration and on a
 statement, and the comment pragma warns with `RDX1002`.
 
 ### 10.1 Criterion 4 could not be met as written, and rustfmt is why
@@ -315,12 +315,12 @@ and `generated_rust_is_rustfmt_clean` runs over `examples/`. Emitting one
 merged `#[derive]` instead would mean reading `derive` out of **verbatim
 attribute trivia** and splicing the `deriving` names into it — exactly the
 per-attribute work doc 03 §13.2's design exists to avoid, on the one attribute
-Redox already knows about. The order is what the criterion was for, and
+Voltaic already knows about. The order is what the criterion was for, and
 rustfmt-stability is a stronger property this one combination does not have.
 
 So the criterion is split: `examples/attributes.sdx` pins the
 `deriving`-then-`repr` order in a golden, and
-`crates/redox-emit/tests/attributes.rs` pins all three attributes where rustfmt
+`crates/voltaic-emit/tests/attributes.rs` pins all three attributes where rustfmt
 does not run. Both say why in place.
 
 Worth recording that the ordering half was **already true and already correct**
@@ -389,7 +389,7 @@ The fix splits the lint in two, and the split is the interesting part:
 
 `lint` therefore takes a `Program`. It takes an **`Option<&Program>`**, which
 is a correction to §4: three of the four call sites had one parsed, and
-`redox-lsp`'s `serve/diagnostics.rs` deliberately discards it — its doc says a
+`voltaic-lsp`'s `serve/diagnostics.rs` deliberately discards it — its doc says a
 lint must still run on a document that does not parse. A non-optional
 parameter would have meant a behaviour regression or a second parse.
 
@@ -398,9 +398,9 @@ were all **trailing** comments, so every one of them worked under the old key
 and none demonstrated the bug — converting them to attributes is what makes
 the new key load-bearing in the corpus. And `allow_pragma.rs` cited a test,
 `an_unrelated_comment_does_not_suppress`, that did not exist anywhere;
-`redox-driver` had no `tests/` directory at all. It exists now.
+`voltaic-driver` had no `tests/` directory at all. It exists now.
 
-Whitespace inside the attribute is **not** normalised: `#[redox :: allow(
+Whitespace inside the attribute is **not** normalised: `#[voltaic :: allow(
 unwrap )]` is refused. A spaced `::` is `RDX0110` everywhere else after plan
 52, so there is no admitted spelling to be generous to, and an unrecognised one
 fails loudly — it is not consumed, reaches rustc, and `E0433` names it on the
@@ -411,7 +411,7 @@ author's line.
 §8 named three; §11.7 found three more, and all six are corrected rather than
 deleted. Three said `newtype` and `data` lower identically — true until leaf 3.
 Three more said a `newtype` is one-field **"by construction"**, which was not
-true of the code at all until leaf 2: `crates/redox-fmt/src/item_text/data_text.rs`
+true of the code at all until leaf 2: `crates/voltaic-fmt/src/item_text/data_text.rs`
 relied on it to skip a multi-line shape, and `newtype Multi = A | B` falsified
 it outright.
 
@@ -424,14 +424,14 @@ intends rather than one the code keeps.
 *"`construct_coverage` green with the two new spellings indexed."* The test
 indexes `docs/GRAMMAR.md`'s rows, and that document grades **Rust**
 constructs — which is what plan 46 built it to do. Both of this row's new
-spellings are Redox-only: `#[redox::allow(unwrap)]` has no Rust counterpart,
-and `#[repr(transparent)]` is not a construct a Redox program writes, it is
+spellings are Voltaic-only: `#[voltaic::allow(unwrap)]` has no Rust counterpart,
+and `#[repr(transparent)]` is not a construct a Voltaic program writes, it is
 something `newtype` emits. So there was no row to add and the clause is
 vacuous as written.
 
 What it *did* surface is a note that had gone stale. The `Attributes, inner and
 outer | PASSTHROUGH` row reads *"Rust's own `#[…]`"*, and after leaf 4 there is
-exactly one attribute that is **not** passed through: `#[redox::allow(unwrap)]`
+exactly one attribute that is **not** passed through: `#[voltaic::allow(unwrap)]`
 is consumed by `emit/trivia.rs` and never reaches the `.xrs`. The grade is
 still correct — one consumed attribute does not make the construct anything
 but passthrough — and the note now says which one and why.
@@ -445,7 +445,7 @@ but passthrough — and the note now says which one and why.
 - The comment pragma is deprecated, not removed. `RDX1002`'s help says so:
   *"the comment still suppresses `RDX1001` for this milestone; the attribute is
   what plan 64 keeps."*
-- `crates/redox-lsp/tests/session.rs` embeds `.sdx` source as Rust string
+- `crates/voltaic-lsp/tests/session.rs` embeds `.sdx` source as Rust string
   literals, which AGENTS.md forbids and `no_literal_expectations` does not
   catch (it guards *expectations*). Not this row's to convert, but counted.
 
@@ -469,7 +469,7 @@ qualifies every variant produces
 warning: unused import: `ConfigError::*`
 ```
 
-and `crates/redox-cli/tests/support.rs`'s `run()` asserts
+and `crates/voltaic-cli/tests/support.rs`'s `run()` asserts
 `out.stderr.is_empty()` — *"rustc should emit nothing for generated code"*. So
 `examples/errors.sdx` **must** gain an unqualified use in the same leaf or
 `every_example_compiles_and_runs` goes red. Criterion 1's "both asserted in one
@@ -496,14 +496,14 @@ module-level, **private** `use T::*;` at the declaration's indent. Not
 ### 11.3 §6's rustc backstop does not exist for the zero-field case
 
 §6 says a zero-sized or multi-field `newtype` payload "is rejected by rustc,
-not by Redox". Measured:
+not by Voltaic". Measured:
 
 ```rust
 #[repr(transparent)] pub struct Unit;                   // compiles clean
 #[repr(transparent)] pub struct Two(pub f64, pub f64);  // error[E0690]
 ```
 
-Only the multi-field half has a backstop. For `newtype Foo = Foo` the Redox
+Only the multi-field half has a backstop. For `newtype Foo = Foo` the Voltaic
 check in leaf 2 is the **only** thing that catches it, so §6's "the rest is
 rustc's" needs qualifying and criterion 2's zero-field half is not redundant
 with rustc.
@@ -551,7 +551,7 @@ the statement it applies to. Measured:
 main : ()
 main =
   raw = Some 7
-  -- redox: allow unwrap
+  -- voltaic: allow unwrap
   port = raw.unwrap ()
 ```
 
@@ -562,14 +562,14 @@ model has no notion of at all. That is two changes to
 `unwrap_call_sites.rs`, not one match arm in `allow_pragma.rs`.
 
 Two smaller findings in the same area. The pragma's exact text is
-`allow_pragma.rs:24`, `trivium.text.trim() == "redox: allow unwrap"` — a plain
+`allow_pragma.rs:24`, `trivium.text.trim() == "voltaic: allow unwrap"` — a plain
 `LineComment` only, so a doc comment never suppresses. And
-`#[redox::allow(unwrap)]` reaching rustc is `error[E0433]: cannot find module
-or crate 'redox'`, a hard error rather than an unknown lint — which strengthens
+`#[voltaic::allow(unwrap)]` reaching rustc is `error[E0433]: cannot find module
+or crate 'voltaic'`, a hard error rather than an unknown lint — which strengthens
 plan 38 §1.3's must-consume argument rather than weakening it. `register_tool`
 appears nowhere in `crates/`; plan 38 refused it and the refusal held.
 
-Supporting §1.3's evidential argument, verified: `redox-fmt`'s
+Supporting §1.3's evidential argument, verified: `voltaic-fmt`'s
 `stmt_text/trivia_text.rs:27` already prints `TriviaKind::Attribute` back as
 `#[…]`, so the formatter round-trips an attribute and the parser needs no
 change — attributes are already trivia on every item and statement.
@@ -578,15 +578,15 @@ change — attributes are already trivia on every item and statement.
 
 - **Pragma sites: 2 examples, 4 sites, plus one test fixture.**
   `examples/ascription.sdx:25`, `examples/fallible.sdx:124`, `:125`, `:127`,
-  and `crates/redox-cli/tests/lint/unwrap_suppressed.sdx:14`. §2 has this
+  and `crates/voltaic-cli/tests/lint/unwrap_suppressed.sdx:14`. §2 has this
   right; §6 and criterion 4 both say "5 examples", which is internally
   inconsistent with §2.
 - **Leaf 6 undercounts the artifacts by three.** Beyond the three §8 names,
   these claim *one field by construction*, which is also false today and
   becomes true only after leaf 2:
-  `crates/redox-fmt/src/item_text/data_text.rs:30-31` (falsified outright by
-  the `Multi` probe above), `crates/redox-lsp/src/serve/symbols/symbol_of.rs:26`,
-  `crates/redox-lexer/src/token/keyword.rs:33`.
+  `crates/voltaic-fmt/src/item_text/data_text.rs:30-31` (falsified outright by
+  the `Multi` probe above), `crates/voltaic-lsp/src/serve/symbols/symbol_of.rs:26`,
+  `crates/voltaic-lexer/src/token/keyword.rs:33`.
 - **Criterion 3's second half has no existing basis.** `examples/data.sdx` has
   `newtype Meters` but its only `data` is the `Event` enum; there is no
   single-field `data` tuple struct anywhere in the corpus to contrast against.

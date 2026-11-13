@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Plan 81 batch 11: four more of `redox-emit`'s bodies.
+"""Plan 81 batch 11: four more of `voltaic-emit`'s bodies.
 
 Three shapes meet their limits here:
 
-* **`vec![false; n]`** — the repeat form of `vec!`. A Redox macro argument is
+* **`vec![false; n]`** — the repeat form of `vec!`. A Voltaic macro argument is
   an expression and `[x; n]` is `Expr::ArrayRepeat`, an *array*; `Vec::new`
   plus `.resize` is the same thing with a spelling.
 * **A tuple pattern as a closure parameter** — `.filter(|(_, e)| …)`. A lambda
@@ -14,7 +14,7 @@ Three shapes meet their limits here:
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('emit/record', '''
@@ -112,7 +112,7 @@ where_order entries =
     return .collect (0 .. n)
   graph = where_edges entries
   -- `Vec::new` plus `.resize`, where the Rust wrote `vec![false; n]`: the
-  -- repeat form of `vec!` takes a length after a `;`, and a Redox macro
+  -- repeat form of `vec!` takes a length after a `;`, and a Voltaic macro
   -- argument is an expression.
   mut done : Vec<bool> = Vec::new ()
   .resize n false done

@@ -9,7 +9,7 @@ Status: `done`
 
 ## 1. What this plan is
 
-`redox check` — the subcommand that compiles a `.sdx`, runs **real rustc** over the
+`voltaic check` — the subcommand that compiles a `.sdx`, runs **real rustc** over the
 generated Rust, and reports every error **against the `.sdx` the user wrote**.
 
 This is the plan doc 02 §6.5 was written for. Doc 01 §29 said "pass Rust errors through
@@ -31,19 +31,19 @@ error[E0308]: mismatched types: expected `i32`, found `&str`
   |   ^^^^^^^^^^^^^^^^^
 ```
 
-Everything about that output is rustc's except where it points, which is Redox's.
+Everything about that output is rustc's except where it points, which is Voltaic's.
 
 ### 1.1 What "pass through" means precisely
 
-The message, the code and the severity are rustc's, **verbatim**. Redox does not reword
+The message, the code and the severity are rustc's, **verbatim**. Voltaic does not reword
 `mismatched types`, does not renumber `E0308` into the `RDX` catalogue, and does not add
 advice of its own. It changes exactly one thing: the position. Anything more would mean
-Redox taking responsibility for explaining Rust's type system, which it has no business
+Voltaic taking responsibility for explaining Rust's type system, which it has no business
 doing and would do worse.
 
 This is why `Diagnostic` gains a code that can be *foreign* (leaf 1) rather than
 `E0308` being given an `RDX` number. A user who searches `E0308` must find Rust's
-documentation, not Redox's.
+documentation, not Voltaic's.
 
 ---
 
@@ -58,7 +58,7 @@ Every row measured on this tree, not assumed:
 | The map resolves rustc's line correctly | `.tmp/typeerr.xrs:6` → map record `6 5 3 5` | source line **5**, which is the line the mistake is on |
 | The column is exact on a verbatim line | `a + "x"`: rustc says `.xrs:2:7`, map shifts to `.sdx:2:5` | Both are the `+`. **Exact** |
 | The column is wrong on a restructured line | `print add("x", 2)`: rustc says `.xrs:6:24`, the shift gives column 22 of a 19-character line | **Out of range** — see §2.1 |
-| `REDOX_RUSTC` reaches the binary, not just tests | `build.rs` uses `cargo::rustc-env` | Available via `env!` in `src/` too |
+| `VOLTAIC_RUSTC` reaches the binary, not just tests | `build.rs` uses `cargo::rustc-env` | Available via `env!` in `src/` too |
 
 ### 2.1 The precondition that failed, and what this plan does about it
 
@@ -76,7 +76,7 @@ and wrong, which in a diagnostic is worse than a caret that is honestly coarse. 
 
 `Origin` already carries the span (plan 06 leaf 1), so this costs nothing and never lies.
 A reader of the second example sees the entire statement underlined, which is true: the
-error is somewhere in that statement, and Redox does not know where.
+error is somewhere in that statement, and Voltaic does not know where.
 
 Doc 02 §6.5 item 4 is therefore **met in two halves, measured separately** (criteria 3
 and 4), rather than claimed whole. Refining the column on restructured lines needs a
@@ -97,8 +97,8 @@ Doc 02 §6.5 item 3 says `cargo check --message-format=json`. Two corrections:
    earns its cost yet.
 
    What `short` loses is real and worth naming: secondary spans, notes, and machine-
-   applicable suggestions. Redox renders one labelled span today (plan 05), so nothing is
-   lost *now*. The day Redox wants to show rustc's suggestions, `--error-format=json` and
+   applicable suggestions. Voltaic renders one labelled span today (plan 05), so nothing is
+   lost *now*. The day Voltaic wants to show rustc's suggestions, `--error-format=json` and
    `serde_json` are the upgrade, and this plan's `rustc_message` module is the only thing
    that changes.
 
@@ -124,11 +124,11 @@ Not an inspection. Four executed tests, each running the rustc the toolchain shi
 
 ### Leaf 1 — `leaf-foreign-codes`
 
-`redox-diag/src/diagnostic/diagnostic_code.rs`:
+`voltaic-diag/src/diagnostic/diagnostic_code.rs`:
 
 ```rust
 pub enum DiagnosticCode {
-  Redox(Code),       // RDX0101 — Redox's own catalogue
+  Voltaic(Code),       // RDX0101 — Voltaic's own catalogue
   Foreign(String),   // E0308 — rustc's, passed through untouched
 }
 ```
@@ -138,21 +138,21 @@ completeness test; a foreign code is explicitly *not* in the catalogue, which is
 
 ### Leaf 2 — `leaf-rustc-message`
 
-`redox-cli/src/check_command/rustc_message.rs`. Parse one `--error-format=short` line into
+`voltaic-cli/src/check_command/rustc_message.rs`. Parse one `--error-format=short` line into
 a `RustcMessage { path, line, col, level, code, message }`. Lines without a position
 (`error: aborting due to …`) are dropped — they are rustc's summary, not a diagnostic, and
-Redox prints its own.
+Voltaic prints its own.
 
 ### Leaf 3 — `leaf-remap`
 
-`redox-cli/src/check_command/remap.rs`. One `RustcMessage` plus the `SourceMap` becomes
+`voltaic-cli/src/check_command/remap.rs`. One `RustcMessage` plus the `SourceMap` becomes
 either a `Diagnostic` against the `.sdx`, or — where the line is synthetic or unmapped — a
 `Diagnostic` against the `.xrs` with a note saying why. The decision between a shifted
 column and the whole span lives here, per §2.1.
 
 ### Leaf 4 — `leaf-check-command`
 
-`redox-cli/src/check_command.rs`: `redox check <file.sdx> [--plain]`. Transpile in memory,
+`voltaic-cli/src/check_command.rs`: `voltaic check <file.sdx> [--plain]`. Transpile in memory,
 write the `.xrs` to a scratch directory, run rustc with `--emit=metadata` (no binary
 needed to find type errors), remap, render, exit non-zero if anything was an error.
 
@@ -162,14 +162,14 @@ external tools and for plan 11.
 
 ### Leaf 5 — `leaf-rustc-at-runtime`
 
-`redox-cli/src/rustc_path.rs`. Resolve rustc from `PATH` at run time, verified by its
-`--version` banner, falling back to the `REDOX_RUSTC` baked by `build.rs`. A shipped
+`voltaic-cli/src/rustc_path.rs`. Resolve rustc from `PATH` at run time, verified by its
+`--version` banner, falling back to the `VOLTAIC_RUSTC` baked by `build.rs`. A shipped
 binary must not depend on the rustc that happened to be present when it was built; the
 baked path is the fallback, not the answer.
 
 ### Leaf 6 — `leaf-proof-and-gate`
 
-`redox-cli/tests/check.rs`, four tests per §3, plus the gate and the doc updates.
+`voltaic-cli/tests/check.rs`, four tests per §3, plus the gate and the doc updates.
 
 ---
 
@@ -177,7 +177,7 @@ baked path is the fallback, not the answer.
 
 | # | Criterion |
 |---|---|
-| 1 | `redox check` reports a rustc error against the `.sdx`, with rustc's message and code verbatim |
+| 1 | `voltaic check` reports a rustc error against the `.sdx`, with rustc's message and code verbatim |
 | 2 | The reported **line** is the `.sdx` line the mistake is on, asserted with the number written out |
 | 3 | On a verbatim line the **column** is exact too |
 | 4 | On a restructured line the statement's span is underlined, not a clamped column |
@@ -196,7 +196,7 @@ baked path is the fallback, not the answer.
 | Column exactness on restructured lines | a later plan | Needs a per-fragment map; the per-line map cannot hold two origins for one line. §2.1 states what the user sees until then |
 | rustc's secondary spans, notes and suggestions | a later plan | Needs `--error-format=json` and `serde_json`; §2.2 states the trade |
 | `cargo check` and a real Cargo project | **plan 11** | Doc 02 §6.6. Same diagnostics, one envelope further out |
-| Caching rustc's verdict | **plan 10** (`driver`) | `redox check` re-runs rustc every time |
+| Caching rustc's verdict | **plan 10** (`driver`) | `voltaic check` re-runs rustc every time |
 | Warnings as anything but passed through | — | A rustc warning is reported and does not fail the check, which is rustc's own behaviour |
 
 ---
@@ -232,7 +232,7 @@ lines and a compiler mapping rustc's text to `.sdx` lines share an *aim* and no 
   a closed, numbered, test-enforced catalogue (plan 05 leaf 6).
 
 - **`--error-format=short`, not `json`** (§2.2). The fields needed fit on one line; JSON
-  costs either a dependency or a hand-written parser, for structure Redox cannot yet
+  costs either a dependency or a hand-written parser, for structure Voltaic cannot yet
   render.
 
 - **rustc directly, not `cargo check`** (§2.2). There is no Cargo project to check.
@@ -268,7 +268,7 @@ green.
 | 8 | No new dependency | `Cargo.lock` unchanged |
 | 9 | Full gate green | `moon run :check :lint :test :cargo-check :cargo-test` |
 
-The two outputs that are the point of the plan, as `redox check --plain` prints them:
+The two outputs that are the point of the plan, as `voltaic check --plain` prints them:
 
 ```text
 error[E0277]: cannot add `&str` to `i32`: no implementation for `i32 + &str`
@@ -284,7 +284,7 @@ error[E0308]: mismatched types: expected `i32`, found `&str`
   |   ^^^^^^^^^^^^^^^^^
 ```
 
-Every word is rustc's. Only the position is Redox's — and in the first case the position is
+Every word is rustc's. Only the position is Voltaic's — and in the first case the position is
 exact to the character, while in the second it is honestly coarse.
 
 ### 10.1 What the architecture tests caught, again
@@ -305,7 +305,7 @@ Three violations, none visible while writing the code, each named precisely:
 
 ### 10.2 Disclosures
 
-- **Criterion 5 is proved by unit test, not end to end.** No Redox program available today
+- **Criterion 5 is proved by unit test, not end to end.** No Voltaic program available today
   makes rustc report a diagnostic on a synthetic line: the only synthetic lines are closing
   braces and blanks, and rustc attributes errors to expressions. The path is exercised by
   `remap.rs`'s tests, which is honest proof of the logic and not proof that the logic is
@@ -319,14 +319,14 @@ Three violations, none visible while writing the code, each named precisely:
   underlined rather than a wrong caret, which is the right trade, but refining it needs a
   per-fragment map.
 
-- **`redox check` re-runs rustc every time.** No caching until plan 10. On these examples
+- **`voltaic check` re-runs rustc every time.** No caching until plan 10. On these examples
   it is imperceptible; on a real program it will not be.
 
 - **Warnings are printed and do not fail the check**, matching rustc. They are rendered to
   stderr and the exit code stays zero.
 
 - **A rustc failure with no positioned diagnostic passes rustc's own text through.** A
-  missing linker, say. Inventing a Redox message for a condition Redox does not understand
+  missing linker, say. Inventing a Voltaic message for a condition Voltaic does not understand
   would be worse than relaying the words of the tool that does.
 
 ### 10.3 An environment finding worth recording
@@ -336,7 +336,7 @@ the workspace. Nothing was wrong with the code — `cargo check`, `cargo test` (
 `clippy` and `fmt` were green throughout, and `moon run :cargo-check` and `:cargo-test`
 passed. The machine had 6 GB available of 61, and blaze's worker was being OOM-killed.
 
-The cause was unrelated to Redox: a `git commit` in another repository had entered an
+The cause was unrelated to Voltaic: a `git commit` in another repository had entered an
 infinite pre-commit recursion and accumulated 1,296 processes holding 37 GB. With that
 cleared the identical gate passed unchanged.
 

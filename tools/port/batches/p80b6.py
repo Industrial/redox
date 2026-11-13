@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 """Plan 80 batch 6: four more, including the crate's one `as` cast.
 
-`cache_key` is `docs/CONFORMANCE.md`'s single `redox-driver` entry: the Rust
+`cache_key` is `docs/CONFORMANCE.md`'s single `voltaic-driver` entry: the Rust
 writes `(source.len() as u64).to_le_bytes()`, and an `as` cast is graded
 `UNREACHABLE` in `docs/GRAMMAR.md`. `u64::try_from` plus `unwrap_or` expresses
-it, which is the treatment plan 76 §2 gave `redox-bench`'s `as f64` — and the
+it, which is the treatment plan 76 §2 gave `voltaic-bench`'s `as f64` — and the
 fallback cannot mislead, because a length that does not fit a `u64` cannot
 exist and `u64::MAX` would still be a distinct prefix if one did.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('compile_dir/with', '''
@@ -165,19 +165,19 @@ static NEXT : std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::n
 
 -- | A scratch directory holding the named files, removed on drop.
 -- |
--- | `#[cfg(test)]`, and at file scope with its counter and its `Drop`: Redox
+-- | `#[cfg(test)]`, and at file scope with its counter and its `Drop`: Voltaic
 -- | puts nothing but `#[test] fn`s inside `mod __rdx_tests` (plan 73 §2.9).
 #[cfg(test)]
 data Dir = Dir std::path::PathBuf
 
 #[cfg(test)]
 instance Dir
-  -- | `r#with`, because `with` is a Redox keyword.
+  -- | `r#with`, because `with` is a Voltaic keyword.
   r#with : &str -> &[&str] -> Self
   r#with tag names =
     n = .fetch_add 1 std::sync::atomic::Ordering::Relaxed NEXT
     pid = std::process::id ()
-    dir = .join (format! \\-> "redox-sdx-in-#{tag}-#{pid}-#{n}") (std::env::temp_dir ())
+    dir = .join (format! \\-> "voltaic-sdx-in-#{tag}-#{pid}-#{n}") (std::env::temp_dir ())
     .expect "should create" (std::fs::create_dir_all (&dir))
     for name in names
       .expect "should write" (std::fs::write (.join name dir) "main : ()\\nmain =\\n  println! \\\\-> \\"\\#{1}\\"\\n")
@@ -203,7 +203,7 @@ test "ignores other extensions"
   assert_eq! \\-> .len (sdx_in (&dir.0)) \\-> 1
 
 test "yields nothing for a missing directory"
-  found = sdx_in (std::path::Path::new "/nonexistent/redox")
+  found = sdx_in (std::path::Path::new "/nonexistent/voltaic")
   assert! \\-> .is_empty found
 
 test "yields nothing for an empty directory"

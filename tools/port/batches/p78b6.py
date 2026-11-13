@@ -6,21 +6,21 @@ intact — the alternative, twelve `return`s, would lose the fact that every arm
 answers the same three questions.
 
 Two ascriptions stand in for `collect::<Vec<_>>()`. The Rust's
-`#[allow(deprecated, …)]` sits on each `deprecated:` field, and **Redox cannot
+`#[allow(deprecated, …)]` sits on each `deprecated:` field, and **Voltaic cannot
 carry an attribute there at all** — `FieldInit` has no `leading`, so the parser
 discards it before the AST exists. The allow is on the function instead; batch
 7 has the finding.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('serve/symbols/symbol_of', '''
 -- **The allow is on the function, where the Rust had it on each field.**
 -- An attribute on a record-field initialiser is **dropped**: `FieldInit`
 -- has no `leading`, so the parser discards it before the AST exists and
--- neither the emitter nor `redox fmt` ever sees it. That contradicts doc
+-- neither the emitter nor `voltaic fmt` ever sees it. That contradicts doc
 -- 02 §10.1, which attributes joined at plan 18 §1.3, and it is quiet —
 -- the `.sdx` parses and clippy then warns about a field the author had
 -- explicitly allowed. Carrying it is a feature for a successor row; this
@@ -29,7 +29,7 @@ write('serve/symbols/symbol_of', '''
 -- **The allow is on the function, where the Rust had it on each field.**
 -- An attribute on a record-field initialiser is **dropped**: `FieldInit`
 -- has no `leading`, so the parser discards it before the AST exists and
--- neither the emitter nor `redox fmt` ever sees it. That contradicts doc
+-- neither the emitter nor `voltaic fmt` ever sees it. That contradicts doc
 -- 02 §10.1, which attributes joined at plan 18 §1.3, and it is quiet —
 -- the `.sdx` parses and clippy then warns about a field the author had
 -- explicitly allowed. Carrying it is a feature for a successor row; this

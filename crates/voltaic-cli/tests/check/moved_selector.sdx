@@ -1,0 +1,31 @@
+-- Plan 57 §11.4, as rustc's error rather than as a claim.
+--
+-- `?.` was deleted on the argument that the chain *"is expressible in the
+-- ordinary combinator vocabulary"*. Probed, it is not — not without thinking
+-- about borrows. A field **selector moves**: `(.tag)` lowers to
+-- `|__rdx_1| __rdx_1.tag` with no `&`, so mapping it over a shared reference
+-- is `E0507`.
+--
+-- `Tag` is deliberately not `Clone`, exactly as `examples/fallible.sdx` makes
+-- it: a lowering that cloned would compile here and print the same thing, so
+-- the non-`Clone` type is what turns "borrows, never clones" into something a
+-- gate can check.
+--
+-- This belongs in `tests/check/` and **not** in `tests/ui/`: `ui.rs` runs
+-- `voltaic build`, which never invokes rustc, so a program whose only fault is
+-- a borrow error builds clean and that harness fails on its own expectation.
+-- Plans 54, 56 and now 57 have each named `tests/ui/` for a rustc error.
+
+newtype Tag = Tag String
+
+data Profile
+  = Profile { tag : Tag }
+
+tags : &Vec<Profile> -> Vec<Tag>
+tags ps = ps |> .iter |> .map (.tag) |> .collect
+
+main : ()
+main =
+  ps = [] : Vec<Profile>
+  println! \-> "#{(.len (tags (&ps)))}"
+  ()

@@ -21,7 +21,7 @@ fn sum_line(a: i32, b: i32) -> String {
 }
 
 // Rust's format-spec grammar is carried inside the interpolation and copied
-// verbatim. Redox does not parse `.2`, does not validate it, and does not know
+// verbatim. Voltaic does not parse `.2`, does not validate it, and does not know
 // what it means — rustc does, which is why **every** Rust spec is reachable
 // with no list to fall behind.
 //
@@ -81,7 +81,7 @@ fn magic() -> &'static [u8; 4] {
 
 // A C-string, for FFI. Shown through its byte count for the same reason.
 fn ffi_name() -> &'static core::ffi::CStr {
-    c"redox"
+    c"voltaic"
 }
 
 // Doc 01 §7.2's `"""` block strips the **common** indentation and keeps the

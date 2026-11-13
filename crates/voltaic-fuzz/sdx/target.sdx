@@ -1,0 +1,27 @@
+export emit_program : &[u8] -> ()
+emit_program bytes =
+  text = String::from_utf8_lossy bytes
+  program = case voltaic_parser::parse_source (&text) of
+    Ok p -> p
+    Err _ ->
+      return ()
+  _dropped = voltaic_emit::emit (&program)
+  ()
+
+export lex_source : &[u8] -> ()
+lex_source bytes =
+  text = String::from_utf8_lossy bytes
+  _dropped = voltaic_lexer::lex (&text)
+  ()
+
+export parse_program : &[u8] -> ()
+parse_program bytes =
+  text = String::from_utf8_lossy bytes
+  _dropped = voltaic_parser::parse_source (&text)
+  ()
+
+export roundtrip : &[u8] -> Option<String>
+roundtrip bytes =
+  text = String::from_utf8_lossy bytes
+  program = (.ok (voltaic_parser::parse_source (&text)))?
+  Some (voltaic_emit::emit (&program))

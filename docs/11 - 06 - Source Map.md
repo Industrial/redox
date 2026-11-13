@@ -20,7 +20,7 @@ If the map is wrong, plan 07 would report confident nonsense, so the map is wort
 first and separately.
 
 Doc 02 §6.5 calls this *"the largest single gap in the current spec"* and *"worth more to
-Redox's usability than every item in Phase 5 of the spec's roadmap."* Both are fair. A
+Voltaic's usability than every item in Phase 5 of the spec's roadmap."* Both are fair. A
 transpiler that reports
 
 ```
@@ -46,11 +46,11 @@ Measured against the tree at plan 05, not assumed:
 
 | Claim | How checked | Result |
 |---|---|---|
-| Every statement carries a span | `redox-ast/src/block/stmt.rs:15` | `pub span: Span` |
-| Every item carries a span | `redox-ast/src/program/item/fn_decl.rs:13` | `pub span: Span` |
-| Every block carries a span | `redox-ast/src/block.rs:10` | `pub span: Span` |
-| The emitter writes into a plain `String` | `redox-emit/src/emit.rs` | `fn emit(program: &Program) -> String`, 12 helpers taking `&mut String` |
-| `redox-diag` is the lowest crate | plan 05 | `Span` lives there; doc 06 §1.2 already names `source.rs` as the group *"[that] will group plan 06's span map"* |
+| Every statement carries a span | `voltaic-ast/src/block/stmt.rs:15` | `pub span: Span` |
+| Every item carries a span | `voltaic-ast/src/program/item/fn_decl.rs:13` | `pub span: Span` |
+| Every block carries a span | `voltaic-ast/src/block.rs:10` | `pub span: Span` |
+| The emitter writes into a plain `String` | `voltaic-emit/src/emit.rs` | `fn emit(program: &Program) -> String`, 12 helpers taking `&mut String` |
+| `voltaic-diag` is the lowest crate | plan 05 | `Span` lives there; doc 06 §1.2 already names `source.rs` as the group *"[that] will group plan 06's span map"* |
 
 ### 2.1 The precondition that failed, and what it costs
 
@@ -69,13 +69,13 @@ It is **not** achievable, and the measurement is one command:
 | `expressions.sdx` | 23 | 24 |
 | `comments.sdx` | 8 | 9 |
 
-Every generated block ends with a `}` on its own line, and Redox's source has no such
+Every generated block ends with a `}` on its own line, and Voltaic's source has no such
 line — the off-side rule is the whole point. `phase1.sdx` has two functions and so gains
 two lines.
 
 The only way to preserve the count would be to put the brace on the last content line
 (`a + b }`), and plan 04 forecloses that: it established as a *measured* property that
-`rustfmt` leaves Redox's output unchanged, and `rustfmt` would move that brace. Trading a
+`rustfmt` leaves Voltaic's output unchanged, and `rustfmt` would move that brace. Trading a
 measured guarantee for an untested one, to save four integers per line in a sidecar, is a
 bad trade.
 
@@ -112,7 +112,7 @@ chosen example.
 
 ### Leaf 1 — `leaf-origin-and-map`
 
-`redox-diag/src/source/origin.rs` and `source/map.rs`.
+`voltaic-diag/src/source/origin.rs` and `source/map.rs`.
 
 ```rust
 pub struct Origin {
@@ -133,7 +133,7 @@ actually complains about — and approximate otherwise. §6 records where.
 
 ### Leaf 2 — `leaf-emitter-sink`
 
-`redox-emit/src/emit/sink.rs`. A `Sink` owning the output `String` and the marks, with
+`voltaic-emit/src/emit/sink.rs`. A `Sink` owning the output `String` and the marks, with
 `impl std::fmt::Write`, so the twelve `write!`-using helpers change only in the type they
 take. `&mut String` becomes `&mut Sink` throughout.
 
@@ -150,11 +150,11 @@ items — maps to nothing.
 
 ### Leaf 4 — `leaf-sidecar`
 
-`redox-diag/src/source/map/render_map.rs` and `parse_map.rs`. One header line, then one
+`voltaic-diag/src/source/map/render_map.rs` and `parse_map.rs`. One header line, then one
 record per generated line:
 
 ```text
-redox-map 1 examples/phase1.sdx
+voltaic-map 1 examples/phase1.sdx
 1 1 1 4
 2 2 3 5
 3 -
@@ -165,7 +165,7 @@ by a test over every example. The CLI writes `<output>.map` beside the `.xrs`.
 
 ### Leaf 5 — `leaf-totality-proof`
 
-`redox-cli/tests/source_map.rs`:
+`voltaic-cli/tests/source_map.rs`:
 
 1. **Totality** — for every example, every generated line resolves or is synthetic, and
    the synthetic set is exactly `{closing brace, blank}`.
@@ -191,7 +191,7 @@ Full gate, doc 04 status, doc 06 §10 rows for the new checks.
 | 2 | The resolved position's source text agrees with the generated line's content |
 | 3 | `phase1.sdx`'s `a + b` maps from `.xrs` line 2 to `.sdx` line 2, asserted with both numbers written out |
 | 4 | The sidecar round-trips for every example |
-| 5 | `redox build` writes `<output>.map` beside the `.xrs` |
+| 5 | `voltaic build` writes `<output>.map` beside the `.xrs` |
 | 6 | `emit(program)` still exists and still returns exactly what it did, so plans 01–04's goldens are byte-identical |
 | 7 | No new third-party dependency |
 | 8 | Full gate green |
@@ -220,10 +220,10 @@ moon run :check :lint :test :cargo-check :cargo-test :ci-format
 ## 8. Emerald reuse
 
 **Consulted, not lifted:** Emerald plan 35 (`debug-info`), which emits DWARF line tables
-through inkwell's `DebugInfoBuilder`. The mechanism does not transfer — Redox's output is
+through inkwell's `DebugInfoBuilder`. The mechanism does not transfer — Voltaic's output is
 text, not machine code — but two things do: the *standard of proof* (a scripted session,
 not an inspection), and the structural lesson that it was plan **35**. Emerald shipped
-thirty-four plans before a user could see a `.em` line number in a debugger. Redox does it
+thirty-four plans before a user could see a `.em` line number in a debugger. Voltaic does it
 at plan 06, before there is enough language for the gap to become normal.
 
 **Not applicable:** Emerald has no source-map analogue, because it has no generated
@@ -243,7 +243,7 @@ intermediate source. This is the one place where being a transpiler makes the pr
   Braces need their own lines, and plan 04's rustfmt guarantee is worth more than the
   simplification.
 
-- **The map lives in `redox-diag`, not `redox-emit`.** The emitter produces it and the
+- **The map lives in `voltaic-diag`, not `voltaic-emit`.** The emitter produces it and the
   driver consumes it; putting it in the producer would make the consumer depend on the
   emitter for a type that is not about emitting. Doc 06 §1.2 anticipated this.
 
@@ -270,7 +270,7 @@ intermediate source. This is the one place where being a transpiler makes the pr
 | 2 | The resolved position agrees with the source text | `a_resolved_position_agrees_with_the_source_text` — checks the span's text appears on the resolved line, which a line count cannot |
 | 3 | `phase1.sdx` line 2, written out | `phase1_line_two_maps_to_source_line_two`: `map.resolve(2, 5) == Some((2, 3))` |
 | 4 | The sidecar round-trips | `the_sidecar_round_trips`, plus eight unit tests in `parse_map.rs` for the ways a sidecar can be malformed |
-| 5 | `redox build` writes the sidecar | `build_writes_a_parseable_sidecar` reads what the binary actually wrote |
+| 5 | `voltaic build` writes the sidecar | `build_writes_a_parseable_sidecar` reads what the binary actually wrote |
 | 6 | `emit` unchanged | `emit_still_returns_what_emit_with_map_returns`, and plan 04's goldens are byte-identical |
 | 7 | No new dependency | `Cargo.lock` unchanged |
 | 8 | Full gate green | `moon run :check :lint :test :cargo-check :cargo-test` |
@@ -279,7 +279,7 @@ A map, in full, for `comments.sdx` — the case worth reading because it has tri
 ends and two synthetic lines in the middle:
 
 ```text
-redox-map 1 examples/comments.sdx     // `.xrs` line        → `.sdx` line
+voltaic-map 1 examples/comments.sdx     // `.xrs` line        → `.sdx` line
 1 1 1 1                               // comment            → 1
 2 2 1 1                               // comment            → 2
 3 -                                   // blank              → synthetic
@@ -296,7 +296,7 @@ redox-map 1 examples/comments.sdx     // `.xrs` line        → `.sdx` line
 One defect, and it was a design error rather than a slip: **comment lines were being
 recorded as synthetic.** The first implementation called `unmark()` before emitting leading
 trivia, on the reasoning that a comment belongs to no construct. The test rejected
-`hello:1` — `// The smallest Redox program.` — as "neither a closing brace nor blank", and
+`hello:1` — `// The smallest Voltaic program.` — as "neither a closing brace nor blank", and
 it was right to. A comment is something the author wrote, at a position they can be shown;
 rustc can complain about a doc comment, and plan 07 would have had nowhere to point. Trivia
 now marks its own span, and the three comment lines in `comments.sdx` map to their true

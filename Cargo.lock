@@ -863,142 +863,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 
 [[package]]
-name = "redox-ast"
-version = "0.1.0"
-dependencies = [
- "redox-lexer",
-]
-
-[[package]]
-name = "redox-bench"
-version = "0.1.0"
-dependencies = [
- "redox-driver",
- "redox-emit",
- "redox-parser",
-]
-
-[[package]]
-name = "redox-cli"
-version = "0.1.0"
-dependencies = [
- "notify",
- "redox-diag",
- "redox-driver",
- "redox-emit",
- "redox-fmt",
- "redox-lexer",
- "redox-parser",
- "serde_json",
- "toml",
- "zip",
-]
-
-[[package]]
-name = "redox-diag"
-version = "0.1.0"
-dependencies = [
- "miette",
-]
-
-[[package]]
-name = "redox-driver"
-version = "0.1.0"
-dependencies = [
- "blake3",
- "redox-ast",
- "redox-diag",
- "redox-emit",
- "redox-lexer",
- "redox-parser",
-]
-
-[[package]]
-name = "redox-emit"
-version = "0.1.0"
-dependencies = [
- "redox-ast",
- "redox-diag",
- "redox-parser",
-]
-
-[[package]]
-name = "redox-fmt"
-version = "0.1.0"
-dependencies = [
- "redox-ast",
- "redox-lexer",
- "redox-parser",
-]
-
-[[package]]
-name = "redox-fuzz"
-version = "0.1.0"
-dependencies = [
- "redox-emit",
- "redox-lexer",
- "redox-parser",
- "syn 2.0.119",
-]
-
-[[package]]
-name = "redox-lexer"
-version = "0.1.0"
-dependencies = [
- "redox-diag",
-]
-
-[[package]]
-name = "redox-lsp"
-version = "0.1.0"
-dependencies = [
- "lsp-server",
- "lsp-types",
- "redox-ast",
- "redox-diag",
- "redox-driver",
- "redox-fmt",
- "redox-lexer",
- "redox-parser",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "redox-mcp"
-version = "0.1.0"
-dependencies = [
- "redox-diag",
- "redox-driver",
- "redox-emit",
- "redox-fmt",
- "redox-parser",
- "rmcp",
- "schemars",
- "serde",
- "serde_json",
- "tokio",
-]
-
-[[package]]
-name = "redox-parser"
-version = "0.1.0"
-dependencies = [
- "redox-ast",
- "redox-diag",
- "redox-lexer",
-]
-
-[[package]]
-name = "redox-seed"
-version = "0.1.0"
-dependencies = [
- "blake3",
- "redox-diag",
- "redox-driver",
-]
-
-[[package]]
 name = "ref-cast"
 version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1521,6 +1385,142 @@ dependencies = [
  "getrandom",
  "js-sys",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "voltaic-ast"
+version = "0.1.0"
+dependencies = [
+ "voltaic-lexer",
+]
+
+[[package]]
+name = "voltaic-bench"
+version = "0.1.0"
+dependencies = [
+ "voltaic-driver",
+ "voltaic-emit",
+ "voltaic-parser",
+]
+
+[[package]]
+name = "voltaic-cli"
+version = "0.1.0"
+dependencies = [
+ "notify",
+ "serde_json",
+ "toml",
+ "voltaic-diag",
+ "voltaic-driver",
+ "voltaic-emit",
+ "voltaic-fmt",
+ "voltaic-lexer",
+ "voltaic-parser",
+ "zip",
+]
+
+[[package]]
+name = "voltaic-diag"
+version = "0.1.0"
+dependencies = [
+ "miette",
+]
+
+[[package]]
+name = "voltaic-driver"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "voltaic-ast",
+ "voltaic-diag",
+ "voltaic-emit",
+ "voltaic-lexer",
+ "voltaic-parser",
+]
+
+[[package]]
+name = "voltaic-emit"
+version = "0.1.0"
+dependencies = [
+ "voltaic-ast",
+ "voltaic-diag",
+ "voltaic-parser",
+]
+
+[[package]]
+name = "voltaic-fmt"
+version = "0.1.0"
+dependencies = [
+ "voltaic-ast",
+ "voltaic-lexer",
+ "voltaic-parser",
+]
+
+[[package]]
+name = "voltaic-fuzz"
+version = "0.1.0"
+dependencies = [
+ "syn 2.0.119",
+ "voltaic-emit",
+ "voltaic-lexer",
+ "voltaic-parser",
+]
+
+[[package]]
+name = "voltaic-lexer"
+version = "0.1.0"
+dependencies = [
+ "voltaic-diag",
+]
+
+[[package]]
+name = "voltaic-lsp"
+version = "0.1.0"
+dependencies = [
+ "lsp-server",
+ "lsp-types",
+ "serde",
+ "serde_json",
+ "voltaic-ast",
+ "voltaic-diag",
+ "voltaic-driver",
+ "voltaic-fmt",
+ "voltaic-lexer",
+ "voltaic-parser",
+]
+
+[[package]]
+name = "voltaic-mcp"
+version = "0.1.0"
+dependencies = [
+ "rmcp",
+ "schemars",
+ "serde",
+ "serde_json",
+ "tokio",
+ "voltaic-diag",
+ "voltaic-driver",
+ "voltaic-emit",
+ "voltaic-fmt",
+ "voltaic-parser",
+]
+
+[[package]]
+name = "voltaic-parser"
+version = "0.1.0"
+dependencies = [
+ "voltaic-ast",
+ "voltaic-diag",
+ "voltaic-lexer",
+]
+
+[[package]]
+name = "voltaic-seed"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "voltaic-diag",
+ "voltaic-driver",
 ]
 
 [[package]]

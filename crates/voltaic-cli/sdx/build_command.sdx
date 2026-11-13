@@ -1,0 +1,122 @@
+import crate::run::usage
+import voltaic_driver::diagnose
+import std::ffi::OsString
+import std::path::Path
+import std::path::PathBuf
+
+export(crate) build_command : &[String] -> Result<(), String>
+build_command args =
+  parsed = (parse_build_args args)?
+  shown = parsed.input |> .display |> .to_string
+  source = (.map_err (\e -> format! \-> "error: cannot read #{shown}: #{e}") (std::fs::read_to_string (&parsed.input)))?
+
+  program = (.map_err (\failure -> voltaic_diag::render (&diagnose (&parsed.input) (&source) (&failure)) parsed.plain) (voltaic_parser::parse_source (&source)))?
+  warnings = voltaic_driver::lint (&parsed.input) (&source) (Some (&program))
+  if !.is_empty warnings
+    rendered = voltaic_diag::render (&warnings) parsed.plain
+    eprint! \-> "#{rendered}"
+
+  emitted = voltaic_emit::emit_with_map (&program) (&source) (&shown)
+
+  out_shown = parsed.output |> .display |> .to_string
+  (.map_err (\e -> format! \-> "error: cannot write #{out_shown}: #{e}") (std::fs::write (&parsed.output) (&emitted.0)))?
+
+  sidecar = map_path (&parsed.output)
+  sidecar_shown = sidecar |> .display |> .to_string
+  (.map_err (\e -> format! \-> "error: cannot write #{sidecar_shown}: #{e}") (std::fs::write (&sidecar) (voltaic_diag::render_map (&emitted.1))))?
+  Ok ()
+
+export(crate) data BuildArgs = BuildArgs { export(crate) input : PathBuf, export(crate) output : PathBuf, export(crate) plain : bool }
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export(crate) default_output : &Path -> PathBuf
+default_output input =
+  if .is_some_and (\e -> e == "sdx") (.extension input)
+    return .with_extension "xrs" input
+  mut name = .to_os_string (.as_os_str input)
+  name |> .push ".xrs"
+  PathBuf::from name
+
+test "maps sdx to xrs"
+  assert_eq! \-> default_output (Path::new "main.sdx") \-> PathBuf::from "main.xrs"
+  assert_eq! \-> default_output (Path::new "a/b/main.sdx") \-> PathBuf::from "a/b/main.xrs"
+
+test "appends to an unexpected extension rather than replacing it"
+  assert_eq! \-> default_output (Path::new "notes.txt") \-> PathBuf::from "notes.txt.xrs"
+
+export(crate) map_path : &Path -> PathBuf
+map_path output =
+  mut name = .map_or_else OsString::new OsString::from (.file_name output)
+  name |> .push ".map"
+  .with_file_name name output
+
+test "appends rather than replacing"
+  assert_eq! \-> map_path (Path::new "main.xrs") \-> Path::new "main.xrs.map"
+
+test "keeps the directory"
+  assert_eq! \-> map_path (Path::new "/tmp/out/main.xrs") \-> Path::new "/tmp/out/main.xrs.map"
+
+test "handles a name with no extension"
+  assert_eq! \-> map_path (Path::new "out/main") \-> Path::new "out/main.map"
+
+export(crate) parse_build_args : &[String] -> Result<BuildArgs, String>
+parse_build_args args =
+  mut input : Option<PathBuf> = None
+  mut output : Option<PathBuf> = None
+  mut plain = false
+  mut i = 0
+  while i < .len args
+    case .as_str args[i] of
+      "-o" or "--output" ->
+        path = (.ok_or_else (\-> .to_string "error: -o requires a path") (.get (i + 1) args))?
+        output := Some $ PathBuf::from path
+        i += 2
+      "--plain" ->
+        plain := true
+        i += 1
+      flag | .starts_with '-' flag ->
+        help = usage ()
+        return Err (format! \-> "error: unknown flag `#{flag}`\n\n#{help}")
+      path ->
+        if .is_some input
+          return Err (format! \-> "error: unexpected second input `#{path}`")
+        input := Some $ PathBuf::from path
+        i += 1
+  guard input is Some resolved else
+    help = usage ()
+    return Err (format! \-> "error: no input file\n\n#{help}")
+  out = .unwrap_or_else (\-> default_output (&resolved)) output
+  Ok (BuildArgs { input = resolved, output = out, plain })
+
+test "rejects an unknown flag"
+  args = [.to_string "--nope"]
+  err = .expect_err "should fail" $ parse_build_args (&args)
+  assert! \-> .contains "unknown flag" err \-> "#{err}"
+
+test "rejects a missing input"
+  empty : Vec<String> = Vec::new ()
+  err = .expect_err "should fail" $ parse_build_args (&empty)
+  assert! \-> .contains "no input file" err \-> "#{err}"
+
+test "rejects a second input"
+  args = [.to_string "a.sdx", .to_string "b.sdx"]
+  err = .expect_err "should fail" $ parse_build_args (&args)
+  assert! \-> .contains "second input" err \-> "#{err}"
+
+test "rejects a dangling output flag"
+  args = [.to_string "-o"]
+  err = .expect_err "should fail" $ parse_build_args (&args)
+  assert! \-> .contains "requires a path" err \-> "#{err}"
+
+test "accepts the plain flag before or after the input"
+  before = [.to_string "--plain", .to_string "a.sdx"]
+  after = [.to_string "a.sdx", .to_string "--plain"]
+  for args in [before, after]
+    parsed = .expect "should parse" $ parse_build_args (&args)
+    assert! \-> parsed.plain
+    assert_eq! \-> .to_str parsed.input \-> Some "a.sdx"
+
+test "defaults to graphical rendering"
+  args = [.to_string "a.sdx"]
+  parsed = .expect "should parse" $ parse_build_args (&args)
+  assert! \-> !parsed.plain

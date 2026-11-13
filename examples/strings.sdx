@@ -20,7 +20,7 @@ sum_line : i32 -> i32 -> String
 sum_line a b = "#{a} + #{b} = #{a + b}"
 
 -- Rust's format-spec grammar is carried inside the interpolation and copied
--- verbatim. Redox does not parse `.2`, does not validate it, and does not know
+-- verbatim. Voltaic does not parse `.2`, does not validate it, and does not know
 -- what it means — rustc does, which is why **every** Rust spec is reachable
 -- with no list to fall behind.
 --
@@ -71,7 +71,7 @@ magic = b"\x7fELF"
 
 -- A C-string, for FFI. Shown through its byte count for the same reason.
 ffi_name : &'static core::ffi::CStr
-ffi_name = c"redox"
+ffi_name = c"voltaic"
 
 -- Doc 01 §7.2's `"""` block strips the **common** indentation and keeps the
 -- relative indentation. Rust has no triple-quoted string, so the lexer's

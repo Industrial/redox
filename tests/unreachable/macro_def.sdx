@@ -1,5 +1,5 @@
 -- A macro definition. UNREACHABLE, and **declined**: doc 03 §23 item 3's own
--- alternative is "accept permanently that Redox macros require inline Rust",
+-- alternative is "accept permanently that Voltaic macros require inline Rust",
 -- taken by plan 45 §6.
 --
 -- Kept as a fixture rather than dropped because the grade is still
