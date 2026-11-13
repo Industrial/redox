@@ -3,6 +3,14 @@ name = "voltaic-lsp"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "The Voltaic language server, editor-agnostic by construction."
+
+# Binary-only, and delivered as a binary: nixpkgs and `flake.nix` both build it,
+# and the editor clients in `editors/` consume it as a process rather than as a
+# library. Nothing links it, so publishing it would buy a crates.io page and no
+# consumer. Revisit if `cargo install voltaic-lsp` is ever the asked-for install
+# path — the name is free on crates.io, unlike the pre-rename `redox-lsp`.
+publish = false
 
 [dependencies]
 # Plan 40 §1.1, verified with `cargo search` rather than assumed. Doc 02 §5.5

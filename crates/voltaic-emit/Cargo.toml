@@ -3,10 +3,16 @@ name = "voltaic-emit"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Rust source emitter for the Voltaic compiler: AST in, .xrs out."
+
+# Why `include` is not optional here — see `crates/voltaic-diag/Cargo.toml`.
+include = ["src/**/*.rs", "sdx/**/*.sdx", "Cargo.toml"]
 
 [dependencies]
-voltaic-ast = { path = "../voltaic-ast" }
-voltaic-diag = { path = "../voltaic-diag" }
+voltaic-ast.workspace = true
+voltaic-diag.workspace = true
 
 [dev-dependencies]
 voltaic-parser = { path = "../voltaic-parser" }

@@ -1,0 +1,208 @@
+# Releasing Voltaic
+
+A release is a pushed `v*` tag. [`.github/workflows/publish.yml`](../.github/workflows/publish.yml)
+does the rest: it runs the gate, packages, attests, publishes to crates.io,
+verifies what crates.io serves against the attestation, creates the GitHub
+Release, and then opens the nixpkgs version-bump PR.
+
+## Cutting a release
+
+1. Bump `[workspace.package] version` in the root `Cargo.toml`, **and the
+   matching versions in `[workspace.dependencies]` in the same file.** cargo
+   does not allow `version.workspace = true` inside
+   `[workspace.dependencies]`, so that is the one place the version is written
+   twice; `scripts/validate-crate-packaging.sh` fails if the two drift, which is
+   the only reason a second copy is tolerable. Update `CHANGELOG.md`.
+2. Run the gate locally:
+
+   ```bash
+   ./scripts/validate-crate-packaging.sh    # order, dependency rules, packaging
+   moon run :test                            # the same gate CI runs
+   ```
+
+3. Merge to `main`, then tag the merge commit and push the tag:
+
+   ```bash
+   git tag -a v0.1.0 -m "v0.1.0"
+   git push origin v0.1.0
+   ```
+
+To rehearse, run the workflow by hand (Actions → Publish to crates.io → Run
+workflow) with **Dry run** checked. A dry run packages and attests everything,
+runs `cargo publish --dry-run` over the whole order, checks the packages against
+the attested digests and runs `slsa-verifier` on them. It uploads nothing,
+creates no release and opens no nixpkgs PR. A run *without* **Dry run** must be
+dispatched on a tag ref.
+
+## What the workflow does
+
+| Job | What it does |
+|-----|--------------|
+| `verify-versions` | The tag equals `[workspace.package] version`. Whether every crate *inherits* that version is checked by `validate-packaging`, not here — stating it twice would be two things free to disagree. |
+| `test` | `moon run :test`, the same gate `ci.yml` runs, on the tagged tree. |
+| `validate-packaging` | `scripts/validate-crate-packaging.sh`: the derived publish order, the dependency rules, that every packaged crate contains Rust, and that each one **compiles from its own archive**. |
+| `build` | Checks that the bootstrap is byte-reproducible, then `cargo package --locked` of every published crate in one invocation, one CycloneDX SBOM each. The sha256 of each file is a provenance subject. |
+| `provenance` | SLSA Build L3 provenance over those files, via [slsa-github-generator](https://github.com/slsa-framework/slsa-github-generator), signed keylessly with Sigstore. |
+| `publish` | `cargo publish --locked` crate by crate in the same order. `.github/scripts/publish-crate.sh` skips a version the crates.io index already has, so re-running after a partial publish resumes at the first missing crate; after each upload it checks the `.crate` cargo uploaded has the attested sha256 and stops the release otherwise. |
+| `verify` | Downloads every crate from `static.crates.io`, checks its sha256 equals the subject digest in the signed provenance, and runs `slsa-verifier verify-artifact`. Any mismatch fails the run and no release is created. |
+| `release` | GitHub Release with the `.crate` files, the `.cdx.json` SBOMs and `voltaic-<version>.intoto.jsonl`. |
+| `nixpkgs` | Opens the nixpkgs version-bump PR. Last, and after `release`. See [`NIXPKGS.md`](NIXPKGS.md). |
+
+All actions are pinned by commit SHA. The one exception is the SLSA generator, a
+reusable workflow that must be referenced by its `@vX.Y.Z` tag because it
+verifies its own ref.
+
+## What gets published, and what does not
+
+Eight crates: `voltaic-diag`, `voltaic-lexer`, `voltaic-ast`, `voltaic-emit`,
+`voltaic-fmt`, `voltaic-parser`, `voltaic-driver` and `voltaic-cli`, in that
+order. The order is not written down anywhere — it is derived by topological
+sort of the intra-workspace dependencies in `scripts/validate-crate-packaging.sh`,
+so adding a crate or changing a dependency reorders it automatically. Print it
+with `./scripts/validate-crate-packaging.sh --print-order`.
+
+`voltaic-bench`, `voltaic-fuzz`, `voltaic-lsp`, `voltaic-mcp` and `voltaic-seed`
+carry `publish = false`. The first two and the seed are internal. The language
+server and the MCP server are binary-only and nothing links them: nixpkgs and
+`flake.nix` both build them, and the editor clients run them as processes. If
+`cargo install voltaic-lsp` ever becomes the asked-for install path, the name is
+free on crates.io — unlike the pre-rename `redox-lsp`, which belongs to an
+unrelated project.
+
+Only `voltaic-cli` carries a `readme`. The seven libraries deliberately do not:
+there is one README in this repository, a per-crate copy of it would be seven
+copies of one paragraph, and `description` plus `repository` plus docs.rs is
+what a library's crates.io page actually needs.
+
+## `include` is load-bearing, and this is the thing to know
+
+Every crate under `crates/` is written in Voltaic. The `.sdx` under a crate's
+`sdx/` is the source; the `.rs` under its `src/` is generated by the seed and is
+`.gitignore`d. `cargo package` enumerates files from git.
+
+So **without an `include` key, `cargo package` ships no Rust at all.** Measured
+before the keys were added:
+
+```
+$ cargo package -p voltaic-ast --list
+Cargo.toml   Cargo.toml.orig   moon.yml   sdx/*.sdx
+```
+
+That uploads cleanly. It produces an unbuildable empty shell on crates.io, with
+no warning anywhere. An `include` switches cargo from the git listing to a
+filesystem walk, which does see the generated tree — and its `src/**/*.rs` glob
+also leaves the `.rs.map` source maps behind, which is what you want.
+
+Two things guard it, because a manifest key that must not be removed and has no
+gate on it will eventually be removed:
+
+- `scripts/validate-crate-packaging.sh` reads the built `.crate` and fails if it
+  contains no `src/**/*.rs`, or if it contains a `.rs.map`. It reads the archive
+  rather than the manifest, because the manifest is not the thing that can be
+  wrong.
+- `cargo package` keeps verification **on** there, so every archive is extracted
+  and compiled. That is the only check proving the bytes build rather than
+  merely package. It costs 17s for all eight crates.
+
+### And `--allow-dirty` is required, everywhere
+
+The other half of the same fact, and it is counter-intuitive enough to be worth
+stating on its own: **cargo refuses to package this repository without
+`--allow-dirty`, even on a spotless checkout at a fresh commit.** The files the
+manifests tell it to include are untracked by design, and cargo counts an
+untracked file it is about to package as an uncommitted change:
+
+```
+error: 5 files in the working directory contain changes that were not yet
+committed into git:
+  crates/voltaic-diag/src/code.rs
+  …
+```
+
+So `--allow-dirty` appears in the validator, in the `build` job and in
+`publish-crate.sh`. It is not covering for a messy tree.
+
+What it gives up is cargo's refusal to package *genuine* uncommitted edits, and
+that is worth keeping. Both the `build` and `publish` jobs therefore assert
+`git status --porcelain` is empty first — that command omits ignored files, so
+it sees real dirt and not the generated trees. In `publish` it is the last thing
+standing between a stray edit and crates.io.
+
+## Reproducibility and the seed
+
+`cargo package` is byte-reproducible for the same tree, `Cargo.lock` and cargo
+version, which is what lets `publish` upload the bytes `build` attested: the
+workflow pins one toolchain for every job and packages with `--locked`.
+
+Here there is a second dependency, and it is specific to this project. The
+packaged tree contains Rust that `./bootstrap.sh` **generated**, and `build` and
+`publish` bootstrap independently. If the seed's output were not
+byte-reproducible, the two jobs would package different bytes and the digest
+check in `publish-crate.sh` would fail with what reads like evidence of
+tampering.
+
+`build` therefore bootstraps twice and compares hashes before anything is signed
+or uploaded, so that failure arrives early and named. If it ever fires, the seed
+is the suspect, not the pipeline.
+
+A packaged crate also embeds a `Cargo.lock` with the checksums of its siblings.
+If a re-run meets a sibling that an earlier run published from different bytes,
+the per-crate check in `publish` fails rather than releasing an unverifiable
+crate. Bump the patch version in that case rather than re-running.
+
+### Changing the surface changes the seed
+
+Anything that changes what the compiler emits or accepts needs
+`moon run :seed-refresh` and `VOLTAIC_UPDATE=1 cargo test -p voltaic-seed --test
+blob` **in the same commit**, or a clean clone stops bootstrapping. `AGENTS.md`
+has the full rule. Note that `:seed-refresh` prints a *cached* size, so check
+`git status seed/` and `stat` the file rather than believing its output.
+
+## crates.io authentication
+
+The `publish` job uses the `CARGO_REGISTRY_TOKEN` secret of the `crates-io`
+environment; `publish-crate.sh` hands it to cargo via `cargo login` on stdin,
+never on the command line. The token can also publish a crate's first version,
+so the eight crates need no owner step before the first release.
+
+### Secrets and environments to set up
+
+| Name | Where | Needed by |
+|---|---|---|
+| `CARGO_REGISTRY_TOKEN` | the `crates-io` environment | `publish` |
+| `NIXPKGS_PR_TOKEN` | repository secret; a PAT that can push to `Industrial/nixpkgs` | `nixpkgs` |
+
+Protecting the `crates-io` environment is worth doing: Settings →
+Environments → `crates-io`, deployment refs limited to `v*` tags plus whatever
+branch dry runs are dispatched from.
+
+## Known rough edges
+
+Stated rather than left to be discovered:
+
+- **The tool pins exist twice.** `.github/actions/setup-voltaic` pins wasmtime,
+  tree-sitter and moon; `ci.yml` still carries its own copy in `env:`.
+  Converging `ci.yml` onto the action is the obvious follow-up and was
+  deliberately not done here: `ci.yml` gates every pull request, and a refactor
+  of it cannot be verified from a release change.
+- **The rename is not complete, and release notes should not say it is.** The
+  project is Voltaic, but the `RDX####` diagnostic codes and the `__rdx_`
+  generated-identifier prefix still carry the old name, because each needs its
+  own build → regenerate → reseed cycle. A user-visible diagnostic still reads
+  `RDX0101`. The `.sdx` and `.xrs` extensions never encoded the old name and are
+  unchanged by design.
+- **The licence changed to MIT** at the same time as this pipeline landed,
+  replacing `CC-BY-SA-4.0`. A root `LICENSE` file now exists; it did not before.
+- **`nix/nixpkgs-package.nix` is not built by this repository.** `flake.nix` is
+  what `nix build` here uses. The two share three build-time facts — wasmtime,
+  rustfmt and the `preBuild` bootstrap — and nothing checks that they agree.
+
+## Verifying a release yourself
+
+```bash
+curl -fsSLO https://static.crates.io/crates/voltaic-cli/voltaic-cli-0.1.0.crate
+gh release download v0.1.0 -R Industrial/voltaic -p 'voltaic-0.1.0.intoto.jsonl'
+slsa-verifier verify-artifact voltaic-cli-0.1.0.crate \
+  --provenance-path voltaic-0.1.0.intoto.jsonl \
+  --source-uri github.com/Industrial/voltaic --source-tag v0.1.0
+```

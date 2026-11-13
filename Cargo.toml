@@ -43,10 +43,38 @@ exclude = [".tmp"]
 # Single version and shared metadata for all workspace crates (inherit with
 # version.workspace = true). Adopted from Emerald's own `Cargo.toml`, so each
 # per-crate manifest stays three lines.
+#
+# `repository` and `homepage` moved here rather than into thirteen manifests for
+# the same reason the version did. crates.io also *requires* a `description`,
+# but that one is genuinely per-crate and so stays there.
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-license = "CC-BY-SA-4.0"
+license = "MIT"
+repository = "https://github.com/Industrial/voltaic"
+homepage = "https://github.com/Industrial/voltaic"
+
+# Every intra-workspace dependency, stated once with a version.
+#
+# `cargo publish` refuses a path dependency with no version — it resolves the
+# version against crates.io even for a path dep, so a runtime dep needs both.
+# Dev-dependencies are the **opposite** rule and must stay path-only, which is
+# why they are not listed here: a `version` on a dev-dep makes the publish of a
+# crate wait for a sibling it does not actually need at build time.
+#
+# The version here cannot be `version.workspace = true` — cargo does not accept
+# inheritance inside `[workspace.dependencies]` — so it is the one place the
+# version is written twice. `scripts/validate-crate-packaging.sh` fails if these
+# drift from `[workspace.package] version`, which is the only reason a second
+# copy is tolerable.
+[workspace.dependencies]
+voltaic-ast = { path = "crates/voltaic-ast", version = "0.1.0" }
+voltaic-diag = { path = "crates/voltaic-diag", version = "0.1.0" }
+voltaic-driver = { path = "crates/voltaic-driver", version = "0.1.0" }
+voltaic-emit = { path = "crates/voltaic-emit", version = "0.1.0" }
+voltaic-fmt = { path = "crates/voltaic-fmt", version = "0.1.0" }
+voltaic-lexer = { path = "crates/voltaic-lexer", version = "0.1.0" }
+voltaic-parser = { path = "crates/voltaic-parser", version = "0.1.0" }
 
 # Five clippy lints that **every** Voltaic-sourced crate trips, stated once.
 #

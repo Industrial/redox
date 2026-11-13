@@ -3,6 +3,11 @@ name = "voltaic-fuzz"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "Voltaic's fuzz target logic, in stable Rust so the ordinary gate exercises it."
+
+# Internal, for the same reason as `voltaic-bench`: the libFuzzer harnesses in
+# `fuzz/` are this crate's only consumer.
+publish = false
 
 [dependencies]
 # Plan 42 §1.2: the target **logic** lives here, in stable Rust, so the

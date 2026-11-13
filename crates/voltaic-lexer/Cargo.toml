@@ -3,9 +3,15 @@ name = "voltaic-lexer"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Off-side-rule lexer for the Voltaic language: spans, trivia and whitespace adjacency."
+
+# Why `include` is not optional here — see `crates/voltaic-diag/Cargo.toml`.
+include = ["src/**/*.rs", "sdx/**/*.sdx", "Cargo.toml"]
 
 [dependencies]
-voltaic-diag = { path = "../voltaic-diag" }
+voltaic-diag.workspace = true
 
 # The five surface-fact allows — see the root manifest.
 [lints]

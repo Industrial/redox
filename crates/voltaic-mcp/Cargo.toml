@@ -3,6 +3,10 @@ name = "voltaic-mcp"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "The Voltaic driver over the Model Context Protocol, stdio only."
+
+# Binary-only, for the same reason as `voltaic-lsp`.
+publish = false
 
 [dependencies]
 # Plan 50 §1.1, spiked rather than assumed — doc 02 §5.5 names all three.

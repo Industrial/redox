@@ -3,6 +3,17 @@ name = "voltaic-driver"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Incremental compilation driver for the Voltaic compiler."
+
+# Why `include` is not optional here — see `crates/voltaic-diag/Cargo.toml`.
+#
+# `build.rs` is listed because this is the one crate that has one, and it is the
+# only tracked hand-written Rust left under `crates/`: it resolves a real rustc
+# by running `--version` and checking the banner, then bakes the path in as
+# `VOLTAIC_RUSTC`. Omit it and the published crate cannot build.
+include = ["src/**/*.rs", "sdx/**/*.sdx", "build.rs", "Cargo.toml"]
 
 [dependencies]
 # Plan 10 §1.2: a persisted cache key needs a strong, stable hash.
@@ -12,13 +23,13 @@ license.workspace = true
 blake3 = "1"
 # Plan 53 leaf 4: detection stays lexical, but suppression **scope** is the
 # span of the construct a pragma leads, so the lint needs the `Program`.
-voltaic-ast = { path = "../voltaic-ast" }
-voltaic-diag = { path = "../voltaic-diag" }
-voltaic-emit = { path = "../voltaic-emit" }
+voltaic-ast.workspace = true
+voltaic-diag.workspace = true
+voltaic-emit.workspace = true
 # Plan 38: `RDX1001` is a lexical lint — a `.` then the name — so the driver
 # scans tokens rather than walking an AST that could silently miss a variant.
-voltaic-lexer = { path = "../voltaic-lexer" }
-voltaic-parser = { path = "../voltaic-parser" }
+voltaic-lexer.workspace = true
+voltaic-parser.workspace = true
 
 # The five surface-fact allows — see the root manifest.
 [lints]

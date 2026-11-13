@@ -331,7 +331,7 @@ result, which is why they are written down rather than rediscovered.
   - trusting `RUSTC` **at build time** finds blaze's own shim under `blaze build`, which
     refuses general work with *"`BLAZE_SCRIPT_RUSTC` does not name blaze's rustc"*.
 
-  `crates/voltaic-cli/build.rs` therefore does not trust a candidate, it **runs
+  `crates/voltaic-driver/build.rs` therefore does not trust a candidate, it **runs
   `--version` and checks the banner**, taking the first that answers like real rustc, and
   bakes that path in as `VOLTAIC_RUSTC`. Any future test invoking a toolchain binary should
   verify rather than assume — a path that exists is not a path that works.

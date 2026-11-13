@@ -3,16 +3,22 @@ name = "voltaic-fmt"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "The canonical formatter for Voltaic source."
+
+# Why `include` is not optional here — see `crates/voltaic-diag/Cargo.toml`.
+include = ["src/**/*.rs", "sdx/**/*.sdx", "Cargo.toml"]
 
 [dependencies]
 # Plan 34 leaf 1: the formatter prints from the AST and slices unprinted
 # constructs out of the source by their spans.
-voltaic-ast = { path = "../voltaic-ast" }
+voltaic-ast.workspace = true
 # Plan 34 leaf 4: a statement's leading and trailing trivia are `voltaic_lexer`
 # types, and the statement printer writes them back as Voltaic comments and
 # attributes — doc 02 §10.1's rule that trivia survives, in the one direction
 # the emitter does not cover.
-voltaic-lexer = { path = "../voltaic-lexer" }
+voltaic-lexer.workspace = true
 
 [dev-dependencies]
 # Plan 34 §1.4: the property tests re-parse what the formatter printed.

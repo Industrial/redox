@@ -84,7 +84,7 @@
         meta = {
           description = "Voltaic compiler, language server and MCP server";
           homepage = "https://github.com/Industrial/voltaic";
-          license = pkgs.lib.licenses.cc-by-sa-40;
+          license = pkgs.lib.licenses.mit;
           mainProgram = "voltaic";
         };
       };
