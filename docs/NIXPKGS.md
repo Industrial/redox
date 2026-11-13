@@ -18,6 +18,36 @@ says so — a `::notice`, not a failure. It is the last job in the workflow and
 nothing depends on it, so a nixpkgs problem can never be mistaken for a bad
 crates.io release.
 
+## Why a fork
+
+Because nobody outside the nixpkgs committer set can push to `NixOS/nixpkgs`,
+and a GitHub pull request has to come *from a branch somewhere*. For an external
+contributor that branch lives in a fork, and the PR goes fork → upstream. This
+is how every nixpkgs contribution works, by hand or automated; there is no
+API that opens a PR without a branch behind it.
+
+`Industrial/nixpkgs` already exists, so there is nothing to create. The release
+job resets it to upstream `master` on every run rather than merging, so the fork
+never drifts and never needs maintaining — a stale fork is the usual way this
+kind of automation rots, and resetting makes the fork's history irrelevant.
+
+## The order things have to happen in
+
+The dependency that is easy to miss: `fetchFromGitHub` needs a tag that already
+exists, so the nixpkgs submission comes *after* a real release, not before.
+
+1. Rename the GitHub repository to `Industrial/voltaic`.
+2. Merge `rename/voltaic`, then the release branch.
+3. Add `CARGO_REGISTRY_TOKEN` and rehearse with a dry-run dispatch.
+4. Tag `v0.1.0` and push it. crates.io and the GitHub Release happen; the
+   `nixpkgs` job reports that there is nothing to bump yet and passes. This is
+   the expected first-release outcome, not a failure.
+5. **Now** do the one-time submission below, against the `v0.1.0` tag.
+6. Once it merges, add `NIXPKGS_PR_TOKEN`. From the next tag on, the bump PR is
+   automatic.
+
+Step 6 can be done earlier; it just has nothing to do until step 5 has merged.
+
 ## Before the first submission
 
 Two things are not done yet, and both are the owner's:
