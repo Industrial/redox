@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Plan 82 batch 1: twenty of `redox-parser`'s 112 owed bodies — the small ones.
+"""Plan 82 batch 1: twenty of `voltaic-parser`'s 112 owed bodies — the small ones.
 
 `unary_op`'s `Amp` arm returns from inside a `case`, which carries over; the
 `matches!` predicates all become a `case` with a `_ -> false`, which is plan
@@ -7,7 +7,7 @@
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('parse/precedence/prefix_power', '''
@@ -30,13 +30,13 @@ is_word ch = .is_alphanumeric ch || ch == '_'
 write('parse/source', '''
 export parse_source : &str -> Result<Program, ParseFailure>
 parse_source src =
-  toks = (.map_err ParseFailure::Lex (redox_lexer::lex src))?
+  toks = (.map_err ParseFailure::Lex (voltaic_lexer::lex src))?
   .map_err ParseFailure::Parse (parse (&toks) (.len src))
 ''')
 
 write('parse/parser/walk_member_for_tails', '''
-import redox_ast::ClassMember
-import redox_ast::Item
+import voltaic_ast::ClassMember
+import voltaic_ast::Item
 
 export(crate) walk_member_for_tails : &ClassMember -> &mut Vec<ParseError> -> ()
 -- `problems`, where the Rust named the parameter `errors`: `errors` is doc 03
@@ -46,8 +46,8 @@ export(crate) walk_member_for_tails : &ClassMember -> &mut Vec<ParseError> -> ()
 --
 -- **The types are imported, where the Rust qualified them.** A pattern path's
 -- first segment has to be **uppercase** — doc 18's case convention is what
--- tells a constructor path from a binder — so `redox_ast::ClassMember::Method`
--- is not a pattern Redox can write, and `ClassMember::Method` is.
+-- tells a constructor path from a binder — so `voltaic_ast::ClassMember::Method`
+-- is not a pattern Voltaic can write, and `ClassMember::Method` is.
 walk_member_for_tails member problems =
   if member is ClassMember::Method decl
     walk_item_for_tails (&Item::Fn (.clone decl)) problems

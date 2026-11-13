@@ -2,7 +2,7 @@
 """Plan 81 batch 15: `emit_application` and `emit_errors`."""
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('emit/application', '''
@@ -36,7 +36,7 @@ emit_application callee args indent =
   -- function genuinely taking a `()` then cannot be called by juxtaposition,
   -- on the grounds that a unit parameter is rare. It is not: it is how every
   -- `Result<(), E>` function returns, and plan 74 found `return Ok (())`
-  -- emitting `return Ok();` eleven times in `redox-lexer`.
+  -- emitting `return Ok();` eleven times in `voltaic-lexer`.
   --
   -- The two readings are told apart by the convention the language already
   -- runs on — the case of the first letter, which decides a type variable

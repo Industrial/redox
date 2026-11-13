@@ -9,7 +9,7 @@ Status: `done`
 
 ## 1. What this plan is
 
-`redox watch` — rebuild when a `.sdx` changes, and keep watching when it fails.
+`voltaic watch` — rebuild when a `.sdx` changes, and keep watching when it fails.
 
 Doc 01 §28 bounds the feature: it watches and rebuilds, and it is **not a build system**.
 It does not run tests, resolve dependencies, or sequence tasks. Doc 01 §1.3 forbids
@@ -47,7 +47,7 @@ everything a compile can produce — a lex error, a parse error, an unwritable o
 it, and waits for the next event.
 
 This is also why plan 05's diagnostics had to come first. The loop prints a `Diagnostic`
-through `redox_diag::render` and gets the same output `redox build` gives, rather than a
+through `voltaic_diag::render` and gets the same output `voltaic build` gives, rather than a
 watcher-specific error format that would drift from it.
 
 ---
@@ -58,7 +58,7 @@ watcher-specific error format that would drift from it.
 |---|---|---|
 | `watch` is declared but unimplemented | plan 11's table | `State::Planned { plan: 12, id: "watcher" }` — this plan is what the CLI already points at |
 | `notify` is obtainable | `cargo add --dry-run` | `notify v8.2.2` |
-| A compile can be driven without the CLI | plan 09 | `redox_driver::compile_dir` returns `Vec<Diagnostic>` |
+| A compile can be driven without the CLI | plan 09 | `voltaic_driver::compile_dir` returns `Vec<Diagnostic>` |
 | An unchanged file is cheap to recompile | plan 10 | Content-addressed hit, asserted by `cache.rs` |
 
 ### 2.1 `notify` is the third dependency
@@ -97,7 +97,7 @@ files rather than writing them in place, so a watch on the inode is lost on the 
 ### Leaf 2 — `leaf-is-relevant`
 
 `watch_command/is_relevant.rs`. Whether an event's *path* warrants a compile — a `.sdx`
-changed, and not Redox's own `.xrs` output, and not one of the editor temporaries (`.swp`,
+changed, and not Voltaic's own `.xrs` output, and not one of the editor temporaries (`.swp`,
 `~`, `4913`) that would otherwise cause a compile per keystroke in some editors.
 
 `watch_command/is_change.rs`. Whether an event's *kind* is a change at all. Added after
@@ -111,7 +111,7 @@ diagnostics and continuing. No debounce, by §1.1.
 
 ### Leaf 4 — `leaf-proof-and-gate`
 
-`redox-cli/tests/watch.rs` for §3, the gate, and the table entry flipped to `Ready`.
+`voltaic-cli/tests/watch.rs` for §3, the gate, and the table entry flipped to `Ready`.
 
 ---
 
@@ -119,7 +119,7 @@ diagnostics and continuing. No debounce, by §1.1.
 
 | # | Criterion |
 |---|---|
-| 1 | `redox watch <file>` builds once immediately, then on each change |
+| 1 | `voltaic watch <file>` builds once immediately, then on each change |
 | 2 | A compile error is printed and the loop continues |
 | 3 | An editor temporary does not trigger a compile |
 | 4 | A non-`.sdx` change does not trigger a compile |
@@ -137,7 +137,7 @@ diagnostics and continuing. No debounce, by §1.1.
 | Running tests on change | **rejected** | Doc 01 §28 and §1.3. `cargo watch -x test` already exists and composes |
 | A task graph or dependency ordering | **rejected** | That is a build system |
 | Debouncing | — | An optimization with no correctness role (§1.1). Worth adding if a profile ever shows the hash cost mattering, which at one file per save it will not |
-| Watching a Cargo project through `build.rs` | — | `cargo build` reruns the script itself; `redox watch` is for the `redox build` loop, where there is no Cargo to do it |
+| Watching a Cargo project through `build.rs` | — | `cargo build` reruns the script itself; `voltaic watch` is for the `voltaic build` loop, where there is no Cargo to do it |
 | Clearing the screen between runs | — | A watcher that erases the error you were reading is a common and irritating default |
 
 ---
@@ -152,7 +152,7 @@ moon run :check :lint :test :cargo-check :cargo-test :ci-format :audit
 
 ## 8. Emerald reuse
 
-**None.** Emerald has no watch mode. Doc 01 §28 is Redox's own requirement, and the design
+**None.** Emerald has no watch mode. Doc 01 §28 is Voltaic's own requirement, and the design
 in §1.1 depends on plan 10's cache, which Emerald's equivalent could not have been built
 on — its cache is per-query over a compiler that produces object files, not a transpiler
 whose unit of work is one file.
@@ -168,8 +168,8 @@ whose unit of work is one file.
   stopped working after I saved once".
 - **Errors are printed and swallowed** (§1.2). A watcher that exits on a typo is worse than
   none.
-- **Diagnostics go through `redox_diag::render`**, not a watcher-specific format, so the
-  loop's output cannot drift from `redox build`'s.
+- **Diagnostics go through `voltaic_diag::render`**, not a watcher-specific format, so the
+  loop's output cannot drift from `voltaic build`'s.
 - **Editor temporaries are filtered.** Not for correctness — the cache makes a spurious
   compile cheap — but because `[cache] a.sdx HIT` printed four times per keystroke is
   noise the user has to learn to ignore.
@@ -189,7 +189,7 @@ green. `watch` is `Ready` in plan 11's table, and `--help` no longer calls it pl
 | 1 | Builds once, then on each change | `watch.rs`: `it_builds_at_start_and_on_change` — a real `notify` watcher on a real file |
 | 2 | A compile error does not end the loop | `a_compile_error_does_not_end_the_loop`: break it, fix it, assert the fix still builds and the process lives |
 | 3 | Editor temporaries do not trigger | `is_relevant.rs`: six named artefacts, including vim's `4913` and emacs' `.#` and `#…#` |
-| 4 | A non-`.sdx` change does not trigger | `is_relevant.rs`, including `.xrs` and `.xrs.map` — Redox's own output |
+| 4 | A non-`.sdx` change does not trigger | `is_relevant.rs`, including `.xrs` and `.xrs.map` — Voltaic's own output |
 | 5 | Survives the file being **replaced** | `it_survives_the_file_being_replaced`, renaming over the source twice |
 | 6 | The CLI reports `watch` as ready | `the_cli_reports_watch_as_ready` |
 | 7 | No timing constant decides correctness | `the_watcher_contains_no_debounce`, which reads the source for `sleep`/`Duration`/`Instant` |
@@ -213,7 +213,7 @@ builds: 97442
 in six seconds, on a file nobody was editing. The instrumented loop says why in one line:
 
 ```text
-EVENT Access(Open(Any)) ["/tmp/redox-pr2/main.sdx"]
+EVENT Access(Open(Any)) ["/tmp/voltaic-pr2/main.sdx"]
 ```
 
 **The build reads its own input, and `inotify` reports that read.** A `.sdx` path, so the
@@ -267,5 +267,5 @@ testing a filesystem operation no editor performs.
   invalid — and that question is not answerable until modules exist.
 - **No debouncing**, by §1.1's surviving claim. A burst of events during one save produces
   a burst of cache hits, which is cheap and bounded by the burst.
-- **The screen is not cleared** between runs, and `redox watch` writes only to stderr, so
+- **The screen is not cleared** between runs, and `voltaic watch` writes only to stderr, so
   it composes with a pipe.

@@ -2,7 +2,7 @@
 """Batch 8: `scan_escape`, and one error literal where the Rust had eight.
 
 `scan_escape`'s Rust opens with an `err` closure and calls it from eight
-places. A Redox lambda parameter is a bare name, so `|message: String, cur:
+places. A Voltaic lambda parameter is a bare name, so `|message: String, cur:
 &Cursor|` has no spelling — and writing the `LexError` literal out eight times,
 as `scan_byte` had to, would be the worst version of this file.
 
@@ -14,7 +14,7 @@ caller re-state it.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('lexer/scan_escape', '''
@@ -33,7 +33,7 @@ scan_escape cur =
       })
 
   -- **`Result<char, String>`, and the code and span attached once below.**
-  -- The Rust had an `err` closure and eight call sites; a Redox lambda
+  -- The Rust had an `err` closure and eight call sites; a Voltaic lambda
   -- parameter is a bare name, so that closure has no spelling. Carrying just
   -- the message says what the closure encoded and each caller re-stated —
   -- every failure here is the same code at the same span.
@@ -90,7 +90,7 @@ scan_escape cur =
       span = (start, .pos cur),
     })
 
--- | `#[cfg(test)]`: a helper the three tests below share. Redox can put
+-- | `#[cfg(test)]`: a helper the three tests below share. Voltaic can put
 -- | nothing but `#[test] fn`s inside its generated `mod __rdx_tests`, so a
 -- | shared helper sits at module scope and the attribute keeps it out of the
 -- | library build — plan 73 §2.9.

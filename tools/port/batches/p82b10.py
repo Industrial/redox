@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""Plan 82 batch 10: three of `redox-parser`'s largest bodies.
+r"""Plan 82 batch 10: three of `voltaic-parser`'s largest bodies.
 
 `pattern` is where plan 81's owed defect comes due: the Rust binds
 `kind @ (Int | Float | Char | Byte | True | False)`, and `Pattern::rust_text`
@@ -9,16 +9,16 @@ the same value by a different route and steps around the defect rather than
 into it. The row stays owed.
 
 `signature_from` replaces a `map` over a **nested** tuple with a `for` loop:
-`|(i, (pattern, ty))|` has no Redox spelling, and projecting it would want
+`|(i, (pattern, ty))|` has no Voltaic spelling, and projecting it would want
 `entry.1.0`, where `1.0` lexes as a float.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('parse/parser/signature_from', r'''
-import redox_ast::Ident
+import voltaic_ast::Ident
 
 export(crate) signature_from : &[TypeExpr] -> &[Pattern] -> Span -> Result<Signature, ParseError>
 signature_from spine bound span =
@@ -59,7 +59,7 @@ signature_from spine bound span =
     .push (Param { name, ty = Some (.clone ty), is_mut = false, span = .span binder }) params
   Ok (Signature { params, ret = Some (.clone ret), generics = Vec::new (), is_const = false, is_async = false, is_unsafe = false, bounds = Vec::new (), span })
 
--- | `#[cfg(test)]`: a type expression at a dummy span. Redox can put nothing
+-- | `#[cfg(test)]`: a type expression at a dummy span. Voltaic can put nothing
 -- | but `#[test] fn`s inside its generated `mod __rdx_tests` — plan 73 §2.9.
 #[cfg(test)]
 ty : &str -> TypeExpr
@@ -107,7 +107,7 @@ test "a zero parameter function can still return something"
 ''')
 
 write('parse/parser/pattern', r'''
-import redox_ast::Ident
+import voltaic_ast::Ident
 
 export(crate) pattern : &mut Parser -> Result<Pattern, ParseError>
 pattern p =
@@ -152,7 +152,7 @@ pattern p =
     -- following §6.5 wrote the published spelling — so the message names the
     -- correction rather than the token, as `RDX0106` does for doc 01 §4.3.
     TokenKind::DotDotDot ->
-      Err (ParseError::r#with redox_diag::Code::EllipsisRestPattern "`...` left the language with doc 18 §7 — write a rest pattern Rust's way: `..` to discard, or `rest @ ..` to bind" span)
+      Err (ParseError::r#with voltaic_diag::Code::EllipsisRestPattern "`...` left the language with doc 18 §7 — write a rest pattern Rust's way: `..` to discard, or `rest @ ..` to bind" span)
     -- A parenthesised group, which is how a constructor application reaches
     -- an equation's *row* — `depth (Meters d) = d`. Juxtaposition in a row is
     -- ambiguous without it, exactly as in Haskell, so the parentheses are
@@ -186,7 +186,7 @@ pattern p =
       .advance p
       Ok (Pattern::Binding (Ident { text = .to_string "self", span }))
     -- A literal **tests**, and is carried as verbatim source text — the same
-    -- discipline doc 03 §14.1 applies to types, so Redox never has to agree
+    -- discipline doc 03 §14.1 applies to types, so Voltaic never has to agree
     -- with rustc about what a literal means.
     --
     -- The token is re-read with `token_text` rather than bound, where the
@@ -202,14 +202,14 @@ pattern p =
       .advance p
       Ok (Pattern::Literal { text, span })
     _ ->
-      Err (ParseError::r#with redox_diag::Code::ExpectedName "expected a parameter name, a literal pattern, a range, `_`, `(`, `[`, or `=`" span)
+      Err (ParseError::r#with voltaic_diag::Code::ExpectedName "expected a parameter name, a literal pattern, a range, `_`, `(`, `[`, or `=`" span)
 ''')
 
 write('parse/parser/capture_type', r'''
-import redox_lexer::Keyword
+import voltaic_lexer::Keyword
 
 export(crate) capture_type : &mut Parser -> &str -> TypeStop -> Result<TypeExpr, ParseError>
--- `Keyword` is imported, where the Rust qualified it as `redox_lexer::Keyword`
+-- `Keyword` is imported, where the Rust qualified it as `voltaic_lexer::Keyword`
 -- inside three `matches!`: those became `case` expressions, and a pattern
 -- path's first segment has to be uppercase.
 capture_type p message stop =

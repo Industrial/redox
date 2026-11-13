@@ -6,11 +6,11 @@ build step beyond compiling the tree-sitter parser. Plan 49
 
 | Client | Directory | Highlighting | Diagnostics | Format |
 |---|---|---|---|---|
-| Neovim | [`neovim/`](neovim/README.md) | tree-sitter | `redox-lsp` | LSP, or `redox fmt` |
-| Vim | [`vim/`](vim/README.md) | regex | — | `redox fmt` |
-| VSCode / Cursor | [`vscode/`](vscode/README.md) | TextMate, then tree-sitter via the server | `redox-lsp` | LSP |
-| Helix | [`helix/`](helix/README.md) | tree-sitter | `redox-lsp` | LSP |
-| Zed | [`zed/`](zed/README.md) | tree-sitter | `redox-lsp` | LSP |
+| Neovim | [`neovim/`](neovim/README.md) | tree-sitter | `voltaic-lsp` | LSP, or `voltaic fmt` |
+| Vim | [`vim/`](vim/README.md) | regex | — | `voltaic fmt` |
+| VSCode / Cursor | [`vscode/`](vscode/README.md) | TextMate, then tree-sitter via the server | `voltaic-lsp` | LSP |
+| Helix | [`helix/`](helix/README.md) | tree-sitter | `voltaic-lsp` | LSP |
+| Zed | [`zed/`](zed/README.md) | tree-sitter | `voltaic-lsp` | LSP |
 
 Install steps live in each client's own README, not here.
 
@@ -19,7 +19,7 @@ Install steps live in each client's own README, not here.
 Plan 49 §1.4. Four of the five editors are not installed on the machine this
 was developed on, so *checked* cannot mean the same thing for all five — and a
 gate reporting one word for all of them would report the weakest as though it
-were the strongest. `crates/redox-cli/tests/editors.rs` therefore runs a
+were the strongest. `crates/voltaic-cli/tests/editors.rs` therefore runs a
 **ladder**, and each test's name carries its own strength:
 
 | Client | What the gate actually does | Strength |
@@ -41,7 +41,7 @@ install is not an activation: VSCode does not run `activate` during
 installs cleanly and lists back. Plan 49's VSIX excluded `node_modules` by
 design, so that is what it did — and the surviving behaviour, TextMate
 highlighting with no server, is byte-identical to the documented
-`redox.server.enable: false`. A second rung now loads the module, and the row
+`voltaic.server.enable: false`. A second rung now loads the module, and the row
 above says so rather than leaving *"the editor installs it"* to carry a claim
 it cannot.
 
@@ -59,10 +59,10 @@ skipped check is worse than a missing one.
 ## One keyword list
 
 The Vim syntax file and the VSCode TextMate grammar each carry a keyword list,
-and `tree-sitter-redox/queries/highlights.scm` carries a third. Three
+and `tree-sitter-voltaic/queries/highlights.scm` carries a third. Three
 highlighters that disagree are worse than one, so
 `every_grammar_keyword_is_coloured` checks all three against the keyword
-literals in `tree-sitter-redox/grammar.js` — the grammar being the only one of
+literals in `tree-sitter-voltaic/grammar.js` — the grammar being the only one of
 the four that the compiler's own gate already exercises.
 
 It found the gap it was written for: plan 45 added `rust`, `unsafe`, `extern`

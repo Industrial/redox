@@ -2,7 +2,7 @@
 """Plan 81 batch 16: `emit_stmt` and `emit_data`."""
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('emit/stmt', '''
@@ -49,7 +49,7 @@ emit_stmt out stmt indent tail =
     -- A draw arrow is flattened by `emit_stmts`, which owns the run of
     -- statements its callback body is made of. Reaching it here would mean a
     -- caller emitted statements one at a time, which cannot lower it
-    -- correctly — so this is a bug in Redox, not in the program.
+    -- correctly — so this is a bug in Voltaic, not in the program.
     Expr::Draw { .. } ->
       unreachable! \\-> "a draw arrow must be emitted by `emit_stmts`, which has the following statements its callback body needs"
     -- Doc 30's await-bind. A statement, which is the whole of the decision:
@@ -60,8 +60,8 @@ emit_stmt out stmt indent tail =
     -- in front of it, so one arm prints all six: `None` is `=` and `Some(op)`
     -- is the operator's own Rust text plus `=`.
     --
-    -- Redox's two spellings collapse to Rust's one here, which is the point
-    -- of the row: `:=` exists to stop *Redox* having to decide whether `=`
+    -- Voltaic's two spellings collapse to Rust's one here, which is the point
+    -- of the row: `:=` exists to stop *Voltaic* having to decide whether `=`
     -- means a binding, and Rust never had that problem because `let` says so.
     Expr::Assign { target, op, value, .. } ->
       operator = .map_or "" (\\o -> .unwrap_or "/* unsupported */" (.rust_text o)) (*op)
@@ -185,7 +185,7 @@ emit_data out d indent =
   -- resolves it.
   --
   -- **`#[allow(unused_imports)]`, because a file may only declare the type.**
-  -- Plan 68 found it porting `redox-ast`: four of its modules declare an
+  -- Plan 68 found it porting `voltaic-ast`: four of its modules declare an
   -- `enum` and never name a constructor, so the glob is an `unused_imports`
   -- warning — and `moon run :lint` makes that an error. No example caught it,
   -- because an example that declares a type also uses it.

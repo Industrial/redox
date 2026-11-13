@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Batch 1: the nine smallest files, and the end of `redox-lexer`'s `as` casts.
+"""Batch 1: the nine smallest files, and the end of `voltaic-lexer`'s `as` casts.
 
 **All five casts in this crate are avoidable, and removing them is better
 Rust.** Four are `is_ident_start(c as u8)` / `is_ident_continue(c as u8)` where
@@ -10,12 +10,12 @@ for the right answer by luck rather than by construction. The fifth is
 `value as char` in `scan_escape`, which is `char::from value` — total, where
 the cast is only total because the value is a `u8`.
 
-So `redox-lexer` reaches zero blockers, and `docs/CONFORMANCE.md`'s count
+So `voltaic-lexer` reaches zero blockers, and `docs/CONFORMANCE.md`'s count
 falls by five rather than by being worked around.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('lex', '''

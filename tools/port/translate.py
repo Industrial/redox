@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Rust to Redox, for the regular shapes `redox-ast` is made of.
+"""Rust to Voltaic, for the regular shapes `voltaic-ast` is made of.
 
 **How the port was made, written down because it matters.** 38 of the crate's
 53 files are pure data types — doc comments, derives, a `struct`, an `enum` or
@@ -18,9 +18,9 @@ import os
 import re
 import sys
 
-ROOT = '/home/tom/Code/rust/redox/'
+ROOT = '/home/tom/Code/rust/voltaic/'
 _c = [a[6:] for a in sys.argv[1:] if a.startswith('crate=')]
-CRATE = _c[0] if _c else 'redox-ast'
+CRATE = _c[0] if _c else 'voltaic-ast'
 SRC = ROOT + 'crates/' + CRATE + '/src/'
 OUT = ROOT + 'crates/' + CRATE + '/sdx/'
 
@@ -34,8 +34,8 @@ VIS = {
 
 # **Keyword collisions get `r#`, rather than a parse error.** Owed since row 75
 # and hit seven times by row 80: `data` (a fuzz parameter), `rust` (a `Pair`
-# field, then a `Cached` field), `class` and `data` again (`redox-lsp`), and
-# `with` (a `redox-driver` module). Each one arrived as `RDX0103` naming a line
+# field, then a `Cached` field), `class` and `data` again (`voltaic-lsp`), and
+# `with` (a `voltaic-driver` module). Each one arrived as `RDX0103` naming a line
 # whose author chose the name freely in Rust, and the fix was always the same
 # three characters.
 #
@@ -43,13 +43,13 @@ VIS = {
 # 57 keywords is a second copy free to drift.
 #
 # **Rust's own reserved words are in the union too.** Row 78 found `final`
-# running the other way — reserved in *Rust* and not in Redox — so a binding
+# running the other way — reserved in *Rust* and not in Voltaic — so a binding
 # called `final` parses and emits and then fails in rustc against the generated
 # file. What a name must avoid is the union of both sets.
 #
 # `self`, `Self`, `crate` and `super` are excluded: `r#self` is not a legal raw
 # identifier, and a Rust field or module cannot be called one of them anyway.
-_KW_SDX = ROOT + 'crates/redox-lexer/sdx/token/keyword.sdx'
+_KW_SDX = ROOT + 'crates/voltaic-lexer/sdx/token/keyword.sdx'
 RUST_RESERVED = (
     'final', 'become', 'priv', 'typeof', 'unsized', 'virtual', 'abstract',
     'override', 'box', 'macro', 'yield', 'gen',
@@ -68,16 +68,16 @@ def raw_ident(name):
 
 
 def comment(line):
-    """A Rust comment line as its Redox spelling, or `None`."""
+    """A Rust comment line as its Voltaic spelling, or `None`."""
     t = line.strip()
-    for rust, redox in (('//!', '-- !'), ('///', '-- |'), ('//', '--')):
+    for rust, voltaic in (('//!', '-- !'), ('///', '-- |'), ('//', '--')):
         if t == rust:
-            return redox
+            return voltaic
         if t.startswith(rust + ' '):
-            return redox + ' ' + t[len(rust) + 1:]
+            return voltaic + ' ' + t[len(rust) + 1:]
         if t.startswith(rust):
             # `///text` with no space, and `//!`-prefixed likewise.
-            return redox + ' ' + t[len(rust):]
+            return voltaic + ' ' + t[len(rust):]
     return None
 
 
@@ -205,7 +205,7 @@ def translate(path):
                 joined += ' ' + lines[ahead].strip()
                 ahead += 1
             # Whitespace runs collapse, and the trailing comma Rust allows
-            # before `}` has no place in a Redox import path.
+            # before `}` has no place in a Voltaic import path.
             joined = re.sub(r'\s+', ' ', joined)
             joined = joined.replace(', }', '}').replace(' }', '}')
             joined = joined.replace('{ ', '{')

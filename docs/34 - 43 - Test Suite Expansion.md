@@ -54,7 +54,7 @@ Recorded rather than silently ignored, because the register is supposed to be re
 
 ### 1.3 The one real property: indentation round-trip
 
-Redox is off-side-rule: a block is opened by indentation and the lexer turns that into
+Voltaic is off-side-rule: a block is opened by indentation and the lexer turns that into
 `Indent` and `Dedent` tokens. The property:
 
 > Re-deriving the indentation from the token stream reproduces the source's block structure.
@@ -97,7 +97,7 @@ by the lexer with `RDX0002` rather than silently given a depth.
 
 ### Leaf 1 — `leaf-indentation-round-trip`
 
-The property, in `redox-lexer/tests/`, plus the negative case.
+The property, in `voltaic-lexer/tests/`, plus the negative case.
 
 ### Leaf 2 — `leaf-register-correction`
 
@@ -126,7 +126,7 @@ Doc 04's row 43 says what it actually owes, and row 42's dependency direction is
 - **A fuzzer.** Row 42's, and §1.2 argues the dependency runs the other way.
 - **Generated-input property testing** — `proptest` or `quickcheck`. The corpora are richer
   than anything a generator would produce for a language this shaped, and a generator that
-  produced *valid* Redox would be most of row 42's work. If row 42 lands, it points at these
+  produced *valid* Voltaic would be most of row 42's work. If row 42 lands, it points at these
   assertions.
 - **A coverage threshold.** `:coverage` exists as a task; a number in CI is a different
   argument and not this row's.
@@ -160,7 +160,7 @@ moon run :check :lint :test :cargo-check :cargo-test :ci-format :audit
 
 ## 10. Result
 
-Shipped 2026-11-09. One property test, `crates/redox-lexer/tests/indentation_round_trip.rs`,
+Shipped 2026-11-09. One property test, `crates/voltaic-lexer/tests/indentation_round_trip.rs`,
 in three tests: the corpus property, its negative case and two positive counterparts.
 
 The register correction landed as planned — row 43 says what it actually owed, and row 42's
@@ -204,7 +204,7 @@ have passed had the lexer been broken in either direction.
 
 §1.3 says *re-deriving the indentation from the token stream reproduces the source's block
 structure*. A literal reading needs a fixed indent unit — depth 2 means four spaces — and
-Redox has none: the lexer accepts any consistent width, so there is nothing to multiply.
+Voltaic has none: the lexer accepts any consistent width, so there is nothing to multiply.
 
 What the test asserts instead is that **within one file, one token depth means one text
 width**. A line whose first token sits at depth *n* must have the same leading width as every

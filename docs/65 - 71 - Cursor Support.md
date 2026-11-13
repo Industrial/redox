@@ -15,14 +15,14 @@ Depends on: 40 (the language server), 49 (the editor clients), 50 (the MCP serve
 
 ### 1.1 The ask is not what it looks like
 
-The request was *"how do we get Redox supported in Cursor IDE"*. Cursor support
+The request was *"how do we get Voltaic supported in Cursor IDE"*. Cursor support
 **already exists**, and plan 49 made it the only one of the five editor clients whose
 gate is an editor actually accepting the artifact: `the_vsix_installs_into_cursor`
 builds a VSIX and installs it, where Helix and Zed get *"the file is well-formed"* and
 VSCode gets, in `editors/README.md`'s own words, *"a claim, not a measurement"*.
 
 So this plan is not *add Cursor support*. It is: **three things plan 49 claims are not
-true on the machine Redox is developed on, and the delivery mechanism is Nix rather
+true on the machine Voltaic is developed on, and the delivery mechanism is Nix rather
 than a VSIX.** Every number below was measured 2026-11-10, not inferred.
 
 ### 1.2 Three defects, each measured
@@ -30,23 +30,23 @@ than a VSIX.** Every number below was measured 2026-11-10, not inferred.
 **Defect 1 — the installed extension cannot start the server.**
 `editors/vscode/src/extension.js:18` requires `vscode-languageclient/node` at **module
 top level**, so it throws before `activate` is entered. `vsix_payload()`
-(`crates/redox-cli/tests/editors.rs:433`) lists five files and excludes `node_modules`
+(`crates/voltaic-cli/tests/editors.rs:433`) lists five files and excludes `node_modules`
 deliberately, with a comment explaining that a walk would otherwise vacuum up an
 `npm install`. Measured, by building the VSIX through the gate and installing it:
 
 ```
 VSIX                 7 entries: [Content_Types].xml, extension.vsixmanifest,
                      extension/{package.json, README.md, language-configuration.json,
-                                syntaxes/redox.tmLanguage.json, src/extension.js}
-installed tree       .tmp/extcheck/redox-lang.redox-0.1.0/ — the same five files
+                                syntaxes/voltaic.tmLanguage.json, src/extension.js}
+installed tree       .tmp/extcheck/voltaic-lang.voltaic-0.1.0/ — the same five files
 node resolution      walked src/ → / looking for node_modules/vscode-languageclient:
                      no hit at any level
 ```
 
-What survives is exactly the declarative half — the `redox` language id, the `.sdx`
+What survives is exactly the declarative half — the `voltaic` language id, the `.sdx`
 association, TextMate colour, bracket pairs, 2-space indent. Diagnostics, formatting,
 document symbols and semantic tokens never arrive. That is byte-identical to
-`redox.server.enable: false`, which `editors/vscode/README.md` calls *"the useful
+`voltaic.server.enable: false`, which `editors/vscode/README.md` calls *"the useful
 degraded mode"* — **so the failure presents as a supported configuration.** The README's
 step 3 (`cd editors/vscode && npm install`) cannot fix it: it populates the source tree,
 which is not where an installed extension resolves from, and which `vsix_payload()`
@@ -64,7 +64,7 @@ directory **before** user arguments:
 ```
 
 That directory is a **read-only** store path holding 25 extensions, among them
-`emerald-lang.emerald-lang` and no redox. So `cursor --install-extension redox.vsix`
+`emerald-lang.emerald-lang` and no voltaic. So `cursor --install-extension voltaic.vsix`
 from README step 2 has nowhere to write.
 
 The gate passes only because it supplies its own `--extensions-dir`. Cursor says so
@@ -78,7 +78,7 @@ Nothing in the suite exercises the path a user follows. `the_vsix_installs_into_
 is a true name for a check that proves install into *a* directory, and VSCode does not
 run `activate` during install, so defect 1 hides behind it.
 
-**Defect 3 — neither binary is installed.** `redox-lsp`: absent from `PATH`. `redox`:
+**Defect 3 — neither binary is installed.** `voltaic-lsp`: absent from `PATH`. `voltaic`:
 absent. A correct extension would still report *"could not start the language server"*.
 
 ### 1.3 Why Nix, and why Emerald decides the shape
@@ -86,7 +86,7 @@ absent. A correct extension would still report *"could not start the language se
 `~/.dotfiles` has already solved this problem for a sibling language that is also not on
 any marketplace. Four files, and three of them transfer by shape:
 
-| Step | Emerald | Redox today |
+| Step | Emerald | Voltaic today |
 |---|---|---|
 | Flake input | `flake.nix:54` `emerald = github:Industrial/emerald` | **no flake, no repo** |
 | Binaries on `PATH` | `features/programming/emerald/default.nix` → `inputs.emerald.packages.${system}.emerald` | no Nix package |
@@ -95,7 +95,7 @@ any marketplace. Four files, and three of them transfer by shape:
 | Profile | `profiles/development.nix:21` | absent |
 | Colocated tests | `*.assay.nix`, string-level guards | absent |
 
-Emerald's derivation copies `dist/` after `npmBuildScript = "build"`. Redox's extension
+Emerald's derivation copies `dist/` after `npmBuildScript = "build"`. Voltaic's extension
 has **no build step** — plan 49 §1.3 chose plain JavaScript on purpose, so that a
 checkout is a working editor. So the shape transfers but two fields invert:
 `dontNpmBuild = true`, and the install phase copies `node_modules` rather than `dist`.
@@ -104,14 +104,14 @@ checkout is a working editor. So the shape transfers but two fields invert:
 ```mermaid
 flowchart TB
   subgraph src["crates/ + editors/vscode/ (this repo)"]
-    LSP["redox-lsp<br/>4 capabilities"]
+    LSP["voltaic-lsp<br/>4 capabilities"]
     EXT["editors/vscode/<br/>plain JS, no build"]
-    MCP["redox-mcp<br/>build/check/fmt/source_map"]
+    MCP["voltaic-mcp<br/>build/check/fmt/source_map"]
   end
 
   subgraph nix["~/.dotfiles (the delivery path)"]
     FLAKE["flake input<br/>path: → github:"]
-    PKG["features/programming/redox/default.nix<br/>redox + redox-lsp on PATH"]
+    PKG["features/programming/voltaic/default.nix<br/>voltaic + voltaic-lsp on PATH"]
     VEXT["vscode-extension.nix<br/>buildNpmPackage + node_modules"]
     CUR["cursor/default.nix<br/>vscodeExtensions"]
   end
@@ -141,13 +141,13 @@ Measured 2026-11-10. Each line is a thing a leaf depends on being true.
 | The VSIX omits `node_modules` | `unzip -l` | 7 entries, none of them a module |
 | `vscode-languageclient` is unresolvable from the installed tree | walk `src/` → `/` | no hit |
 | `editors/vscode` has no lockfile | `ls -A` | `package.json` only |
-| `redox-lsp` / `redox` on `PATH` | `command -v` | both **ABSENT** |
-| Redox is not a flake | `ls flake.nix flake.lock` | both absent |
-| Redox has no CI | `ls -d .github` | **absent** |
-| `Industrial/redox` exists | `gh repo view` | *"Could not resolve to a Repository"* |
+| `voltaic-lsp` / `voltaic` on `PATH` | `command -v` | both **ABSENT** |
+| Voltaic is not a flake | `ls flake.nix flake.lock` | both absent |
+| Voltaic has no CI | `ls -d .github` | **absent** |
+| `Industrial/voltaic` exists | `gh repo view` | *"Could not resolve to a Repository"* |
 | `git remote` | `git remote -v` | `Industrial/_project-template` |
 | The gate currently passes | `cargo test … --test editors vsix` | `1 passed` |
-| `redox-mcp` is in Cursor's registry | three `mcp.json` files | **absent from both Cursor ones** |
+| `voltaic-mcp` is in Cursor's registry | three `mcp.json` files | **absent from both Cursor ones** |
 | Emerald's feature is composed explicitly | `profiles/development.nix:21` | explicit import list |
 | Register vocabulary admits a planned row | `status.rs:233` | `["done","superseded","not-started","planned","partial"]` |
 
@@ -160,6 +160,8 @@ Two that constrain scope rather than enable a leaf:
   crate name this project's language server wants. Every other name in the workspace —
   `redox-cli`, `-ast`, `-parser`, `-lexer`, `-emit`, `-fmt`, `-diag`, `-driver`, `-mcp` —
   is free. §6 is where this goes.
+
+  **Resolved 2026-11-13 by renaming the project to Voltaic** (commit `4d8853a`). The names above are the old ones and the third-party facts are left exactly as measured; the whole `voltaic-*` namespace is free, `voltaic-lsp` included.
 - **The manifest is not publishable and the licence disagrees with itself.**
   `[workspace.package]` carries `version`, `edition`, `license` and no `description` or
   `repository`; `license = "CC-BY-SA-4.0"`, a content licence, while
@@ -169,12 +171,12 @@ Two that constrain scope rather than enable a leaf:
 
 ## 3. Concrete proof this plan targets
 
-The thing a successor should be able to re-run. Not *"Cursor supports Redox"* — that is
+The thing a successor should be able to re-run. Not *"Cursor supports Voltaic"* — that is
 unfalsifiable — but these four, in order of strength:
 
-1. `nix build` in this repo produces `redox` and `redox-lsp` binaries that answer
+1. `nix build` in this repo produces `voltaic` and `voltaic-lsp` binaries that answer
    `--version`.
-2. `nixos-rebuild switch` on `drakkar` puts `redox-lang.redox` in
+2. `nixos-rebuild switch` on `drakkar` puts `voltaic-lang.voltaic` in
    `cursor --list-extensions`, beside `emerald-lang.emerald-lang`.
 3. The installed extension's entry module **loads** — the assertion defect 1 needs, and
    the one plan 49's gate structurally cannot make.
@@ -192,18 +194,18 @@ Six leaves, two waves. Leaf 0 is independent of every Nix question and should la
 
 **Wave 0, parallel with leaf 1 and leaf 2.** No blockers.
 
-Cursor is a VSCode fork **plus** an AI layer, and the AI layer is untouched. `redox-mcp`
-already speaks `redox_build`, `redox_check`, `redox_fmt` and `redox_source_map` with
+Cursor is a VSCode fork **plus** an AI layer, and the AI layer is untouched. `voltaic-mcp`
+already speaks `voltaic_build`, `voltaic_check`, `voltaic_fmt` and `voltaic_source_map` with
 diagnostics mapped back to the `.sdx` — and it is registered only in the repo's
 `.mcp.json`, which is Claude Code's. Cursor cannot see it.
 
-- Add `redox` to `features/programming/cursor/.config/Cursor/mcp.json` in `~/.dotfiles`
+- Add `voltaic` to `features/programming/cursor/.config/Cursor/mcp.json` in `~/.dotfiles`
   (5 servers today), mirroring the repo's entry but **not** `cargo run` — point it at the
-  Nix-built binary once leaf 3 lands, and at `cargo run --quiet --package redox-mcp`
+  Nix-built binary once leaf 3 lands, and at `cargo run --quiet --package voltaic-mcp`
   until then.
 - Confirm Cursor reads the root `AGENTS.md`. It already carries the two facts that matter
   most to an agent in this tree — `.sdx` is the source, and
-  `crates/redox-{ast,fmt}/src/**` is **generated and must not be edited** — so if Cursor
+  `crates/voltaic-{ast,fmt}/src/**` is **generated and must not be edited** — so if Cursor
   honours it, the rules work is already done and this reduces to a check.
 
 **Explicitly declined: `.cursorignore` over the generated `src/` trees.** The decision log
@@ -211,18 +213,18 @@ has the reasoning; briefly, plans 68 and 69 derived their entire yield from *rea
 generated output*, so hiding it from the agent would remove the capability this project
 most recently paid for.
 
-**AC.** `redox` appears in Cursor's MCP server list and `redox_check` answers for
+**AC.** `voltaic` appears in Cursor's MCP server list and `voltaic_check` answers for
 `examples/hello.sdx`. A note in `editors/vscode/README.md` names the MCP surface as the
 agent-facing half.
 
 ### Leaf 1 — `leaf-flake`
 
 **Wave 0.** Create `flake.nix` + `flake.lock` exposing
-`packages.${system}.{default,redox,redox-lsp}` via `rustPlatform.buildRustPackage`.
+`packages.${system}.{default,voltaic,voltaic-lsp}` via `rustPlatform.buildRustPackage`.
 
-No bootstrap hazard: `redox-lsp → redox-fmt → redox-ast`, and both self-hosted crates keep
+No bootstrap hazard: `voltaic-lsp → voltaic-fmt → voltaic-ast`, and both self-hosted crates keep
 their generated `src/*.rs` **committed** per doc 02 §4.8, so Nix compiles ordinary Rust
-with no Redox compiler among the build inputs. This is the first time that decision pays
+with no Voltaic compiler among the build inputs. This is the first time that decision pays
 off for something other than `git checkout`.
 
 **Risk, and the reason this leaf is not trivial:** devenv already owns the root
@@ -232,7 +234,7 @@ Verify both before and after; if they conflict, devenv's flake integration
 (`.devenv.flake.nix`) is the escape and must be recorded here rather than discovered
 twice.
 
-**AC.** `nix build .#redox` and `nix build .#redox-lsp` succeed from a clean checkout;
+**AC.** `nix build .#voltaic` and `nix build .#voltaic-lsp` succeed from a clean checkout;
 both binaries answer `--version`; `devenv shell -- moon run :check` is unchanged.
 
 ### Leaf 2 — `leaf-vsix-self-contained`
@@ -264,32 +266,32 @@ that cannot work.
 repo** — a second worktree, a second commit, a second gate. Say so in the commit.
 
 ```
-features/programming/redox/
-├── default.nix                  # redox + redox-lsp → environment.systemPackages
+features/programming/voltaic/
+├── default.nix                  # voltaic + voltaic-lsp → environment.systemPackages
 ├── default.assay.nix
 ├── vscode-extension.nix         # buildNpmPackage, dontNpmBuild, copies node_modules
 └── vscode-extension.assay.nix
 ```
 
-Then three edits: `profiles/development.nix` gains `../features/programming/redox`;
+Then three edits: `profiles/development.nix` gains `../features/programming/voltaic`;
 `features/programming/cursor/default.nix` imports the extension and adds it to
 `vscodeExtensions` beside `emeraldVscodeExtension`; and
 `features/programming/cursor/.config/Cursor/User/settings.json` sets
-`redox.server.path` to the store path rather than trusting `PATH` — defect 3 is what
+`voltaic.server.path` to the store path rather than trusting `PATH` — defect 3 is what
 happens when you trust `PATH`.
 
-The flake input starts as `path:/home/tom/Code/rust/redox` and becomes
-`github:Industrial/redox` at leaf 4. Both assay suites follow the Emerald pattern
+The flake input starts as `path:/home/tom/Code/rust/voltaic` and becomes
+`github:Industrial/voltaic` at leaf 4. Both assay suites follow the Emerald pattern
 exactly — string-level guards over identity, the pinned `npmDepsHash`, the
 publisher-qualified install path, and the `passthru` metadata.
 
-**AC.** `nixos-rebuild build` succeeds; `assay run features/programming/redox` passes;
-after a switch, `cursor --list-extensions` prints `redox-lang.redox`; opening
+**AC.** `nixos-rebuild build` succeeds; `assay run features/programming/voltaic` passes;
+after a switch, `cursor --list-extensions` prints `voltaic-lang.voltaic`; opening
 `examples/hello.sdx` shows an `RDX` diagnostic and formats.
 
 ### Leaf 4 — `leaf-publish-repo`
 
-**Wave 1.** Create `Industrial/redox`, push `feat/dogfood` and `main`, swap the flake
+**Wave 1.** Create `Industrial/voltaic`, push `feat/dogfood` and `main`, swap the flake
 input from `path:` to `github:`. The `git remote` still points at
 `Industrial/_project-template`, so this also stops the repo pushing to a template.
 
@@ -297,7 +299,7 @@ Decide here, not later, whether CI exists: there is **no `.github/` at all**, so
 gate this project owns runs only on a developer's machine. That is a larger question than
 Cursor support and §6 defers it rather than smuggling it in.
 
-**AC.** `gh repo view Industrial/redox` resolves; `nix flake metadata` in `~/.dotfiles`
+**AC.** `gh repo view Industrial/voltaic` resolves; `nix flake metadata` in `~/.dotfiles`
 shows the `github:` input; `nixos-rebuild build` still succeeds.
 
 ### Leaf 5 — `leaf-lsp-navigation`
@@ -321,7 +323,7 @@ every node — `AGENTS.md`'s *"every AST node carries a byte span"* is the preco
 named in §6 as the follow-on, in that order.
 
 **AC.** `capabilities_are_exactly_the_seven_implemented` passes; one session test per
-capability, each asserting a position in a fixture under `crates/redox-lsp/tests/`
+capability, each asserting a position in a fixture under `crates/voltaic-lsp/tests/`
 — never a string literal, per `AGENTS.md`.
 
 ---
@@ -330,17 +332,17 @@ capability, each asserting a position in a fixture under `crates/redox-lsp/tests
 
 1. The gate contains a test that **fails** against today's `vsix_payload()` because the
    installed extension cannot load its entry module, and passes after leaf 2.
-2. `nix build .#redox-lsp` produces a binary that answers `--version`, from a clean
+2. `nix build .#voltaic-lsp` produces a binary that answers `--version`, from a clean
    checkout, with no `cargo install` step.
-3. `cursor --list-extensions` lists `redox-lang.redox` after a `nixos-rebuild switch`,
+3. `cursor --list-extensions` lists `voltaic-lang.voltaic` after a `nixos-rebuild switch`,
    with no `--extensions-dir` override and no imperative install.
 4. Opening a `.sdx` with a syntax error in Cursor shows an `RDX`-coded diagnostic on the
    `.sdx` line and column; `shift+alt+f` reformats. **Witness: a human, named as such.**
-5. `redox_check` is callable from Cursor's agent and reports against the `.sdx`.
+5. `voltaic_check` is callable from Cursor's agent and reports against the `.sdx`.
 6. `editors/README.md`'s ladder table is rewritten so that no row claims more than its
    test measures — specifically, the Cursor row must stop implying activation.
 7. `devenv shell -- moon run :check :test :lint` is green in this repo, and
-   `assay run features/programming/redox` is green in `~/.dotfiles`.
+   `assay run features/programming/voltaic` is green in `~/.dotfiles`.
 8. The register gains row 71 and `docs/STATUS.md` is reblessed in the same commit.
 
 ---
@@ -355,11 +357,13 @@ capability, each asserting a position in a fixture under `crates/redox-lsp/tests
   options are different crate names, a different language name, or no crates.io. That
   decision also wants `description` and `repository` in `[workspace.package]` and a
   resolution of `CC-BY-SA-4.0` (a content licence) against the extension's `MIT`.
+
+  **Resolved 2026-11-13 by renaming the project to Voltaic** (commit `4d8853a`). The names above are the old ones and the third-party facts are left exactly as measured; the whole `voltaic-*` namespace is free, `voltaic-lsp` included.
 - **CI.** There is no `.github/`. Publishing the repo (leaf 4) makes Actions possible but
   this plan does not design them; `AGENTS.md` already describes what CI would run.
 - **Marketplace publication** (OpenVSX / Cursor's registry) — the only route to other
   people's machines, and unnecessary while this is a single-developer tool. Unverified.
-- **`:check-docs`.** `redox-lsp` is not among the eleven crates `AGENTS.md` tallies, but
+- **`:check-docs`.** `voltaic-lsp` is not among the eleven crates `AGENTS.md` tallies, but
   this plan adds files to it; the 468 outstanding items stay a decision, not this row's
   chore.
 - **The remaining LSP capabilities**, in order: `references`, `completion`, `rename`,
@@ -374,13 +378,13 @@ capability, each asserting a position in a fixture under `crates/redox-lsp/tests
 
 | Gate | Command | Pass | Witness |
 |---|---|---|---|
-| Editors | `devenv shell -- cargo test -p redox-cli --test editors` | 0 failures | agent, locally |
-| LSP | `devenv shell -- cargo test -p redox-lsp` | 0 failures | agent, locally |
+| Editors | `devenv shell -- cargo test -p voltaic-cli --test editors` | 0 failures | agent, locally |
+| LSP | `devenv shell -- cargo test -p voltaic-lsp` | 0 failures | agent, locally |
 | Workspace | `devenv shell -- moon run :check :test :lint` | exit 0 | agent, locally |
-| Nix build | `nix build .#redox .#redox-lsp` | exit 0 | agent, locally |
-| Dotfiles | `assay run features/programming/redox` | exit 0 | agent, in `~/.dotfiles` |
+| Nix build | `nix build .#voltaic .#voltaic-lsp` | exit 0 | agent, locally |
+| Dotfiles | `assay run features/programming/voltaic` | exit 0 | agent, in `~/.dotfiles` |
 | Host build | `nixos-rebuild build --flake ~/.dotfiles#drakkar` | exit 0 | agent, locally |
-| Install | `cursor --list-extensions` after switch | lists `redox-lang.redox` | the editor |
+| Install | `cursor --list-extensions` after switch | lists `voltaic-lang.voltaic` | the editor |
 | Behaviour | open `examples/hello.sdx` in Cursor | diagnostic + format | **a human** |
 
 The last two rungs are the ones plan 49 could not reach, and the ladder in
@@ -394,10 +398,10 @@ The largest reuse in the project since plan 48, and unusually it is reuse of Eme
 *packaging* rather than its compiler work. `features/programming/emerald/` is a working,
 tested answer to *"a language that is on no marketplace, in a Nix-managed Cursor"* — four
 files, two of them assay suites. Two fields invert (`dontNpmBuild`, and `node_modules`
-instead of `dist`) because Redox's extension has no build step by plan 49's choice.
+instead of `dist`) because Voltaic's extension has no build step by plan 49's choice.
 
 What does **not** transfer: Emerald is a published flake at `github:Industrial/emerald`,
-and Redox is neither published nor a flake. That gap is leaves 1 and 4, and it is the
+and Voltaic is neither published nor a flake. That gap is leaves 1 and 4, and it is the
 reason this plan is six leaves rather than one.
 
 ---
@@ -420,7 +424,7 @@ reason this plan is six leaves rather than one.
    is right, and the test that pins the count gets a new number rather than a loosening.
 6. **The register row is not written in PLAN mode.** `status.rs` counts rows by status and
    compares against `docs/STATUS.md`, so adding row 71 turns the gate red until
-   `REDOX_BLESS=1 cargo test -p redox-cli --test status` is run. Row and rebless land
+   `VOLTAIC_BLESS=1 cargo test -p voltaic-cli --test status` is run. Row and rebless land
    together, as leaf 0's first action. Note `status.rs`'s `rfind` trap while writing the
    cell: a cell that opens `planned` and later contains the word `done` is counted as
    done — plan 49 §10.7 paid for that once.
@@ -437,8 +441,8 @@ shipped; leaf 3 is authored but unapplied; leaves 4 and 5 are outstanding.
 
 | Leaf | State | Evidence |
 |---|---|---|
-| 2 `leaf-vsix-self-contained` | **done** | `cargo test -p redox-cli --test editors` — 12 passed, both Cursor rungs |
-| 1 `leaf-flake` | **done** | `nix build .#redox` — `redox 0.1.0`, `redox-lsp 0.1.0`, `redox-mcp 0.1.0` |
+| 2 `leaf-vsix-self-contained` | **done** | `cargo test -p voltaic-cli --test editors` — 12 passed, both Cursor rungs |
+| 1 `leaf-flake` | **done** | `nix build .#voltaic` — `voltaic 0.1.0`, `voltaic-lsp 0.1.0`, `voltaic-mcp 0.1.0` |
 | 0 `leaf-cursor-agent-surface` | **half** | repo half done; the `mcp.json` edit is in leaf 3's patch |
 | 3 `leaf-dotfiles-cursor` | **authored, not applied** | §10.5 |
 | 4 `leaf-publish-repo` | outstanding | §10.5 |
@@ -494,8 +498,8 @@ absent. It is tracked now, with the reason written at the ignore site.
 And a stale figure found while reading for that: **`docs/COMPILER.md` §5 says
 `Cargo.lock` "holds 8 packages, all first-party. No build script".** It holds
 **186, of which 174 are third-party**, and there are two build scripts
-(`redox-cli` and `redox-bench`, the pair plan 50 §1.2 consolidated the logic of
-but not the scripts). The row's argument — Redox's setup cost against a parser
+(`voltaic-cli` and `voltaic-bench`, the pair plan 50 §1.2 consolidated the logic of
+but not the scripts). The row's argument — Voltaic's setup cost against a parser
 generator's — is unaffected in direction and wrong in magnitude. Not fixed
 here, because that table is making a historical comparison and amending one
 cell of it is a different row's work.
@@ -506,16 +510,16 @@ cell of it is a different row's work.
 did not:
 
 ```
-redox       redox 0.1.0
-redox-lsp   Error: "disconnected channel"
-redox-mcp   redox-mcp: cannot start: connection closed: initialize request
+voltaic       voltaic 0.1.0
+voltaic-lsp   Error: "disconnected channel"
+voltaic-mcp   voltaic-mcp: cannot start: connection closed: initialize request
 ```
 
 Both servers speak JSON-RPC on stdin, so the flag was not a flag and the empty
 stdin was the error — each had started a server and failed. Checked **before**
 the transport is taken, because `Connection::stdio()` claims the handles and
 the handshake blocks. Worth having beyond the criterion: a packager, the
-`redox.server.path` setting and anyone chasing a version skew all ask this
+`voltaic.server.path` setting and anyone chasing a version skew all ask this
 first.
 
 The flake itself needed one decision worth recording. **The input must be
@@ -531,23 +535,23 @@ seconds, and `status.rs` reads the git tree. Those gates are
 ### 10.5 What is not done, and why
 
 **Leaf 3 is applied, and §3's second rung is met.** `~/.dotfiles` gained
-`features/programming/redox/` — four files, two of them assay suites — plus
-five wiring edits: the `github:Industrial/redox` flake input,
+`features/programming/voltaic/` — four files, two of them assay suites — plus
+five wiring edits: the `github:Industrial/voltaic` flake input,
 `profiles/development.nix`, the extension's registration in
-`features/programming/cursor/default.nix`, `redox.server.{enable,path}` in the
-Cursor user settings, and the `redox` MCP server in Cursor's `mcp.json`. All of
+`features/programming/cursor/default.nix`, `voltaic.server.{enable,path}` in the
+Cursor user settings, and the `voltaic` MCP server in Cursor's `mcp.json`. All of
 it through an idempotent installer, so a half-run is safe to re-run.
 
 Measured, and the third row is the one that matters:
 
 ```
-assay run features/programming/redox        11/11 passed
+assay run features/programming/voltaic        11/11 passed
 the extension derivation alone              built; node_modules/ carries
                                             vscode-languageclient and its 7-package closure
 cursor-with-extensions, rebuilt             --list-extensions prints
-                                            redox-lang.redox   (26 extensions, was 25)
-drakkar's environment.systemPackages        holds redox-0.1.0, so redox / redox-lsp /
-                                            redox-mcp land on PATH after a switch
+                                            voltaic-lang.voltaic   (26 extensions, was 25)
+drakkar's environment.systemPackages        holds voltaic-0.1.0, so voltaic / voltaic-lsp /
+                                            voltaic-mcp land on PATH after a switch
 ```
 
 That is §5's criterion 3 satisfied **on the built artifact** rather than on a
@@ -560,9 +564,9 @@ drakkar **fails**, for a reason that has nothing to do with this row: a hash
 mismatch in `tldr-pages`, whose fixed-output derivation no longer matches
 upstream. Proven orthogonal rather than asserted — `nix build
 .#nixosConfigurations.drakkar.pkgs.tldr-pages` fails identically on its own,
-with no redox in the graph, and the package comes from
+with no voltaic in the graph, and the package comes from
 `features/cli/{cheatsheet,tealdeer}`. So the switch is blocked on someone
-else's stale hash, and **nobody has yet seen Redox working inside Cursor.**
+else's stale hash, and **nobody has yet seen Voltaic working inside Cursor.**
 
 An earlier draft of this section recorded leaf 3 as unapplied, because the
 session's harness denies writes outside the repository
@@ -572,7 +576,7 @@ route; it was not worked around until they asked for it.
 
 **Leaf 4's publish half is done**, by the author rather than by this session —
 publishing is outward-facing and the session had no standing authorisation for
-it, independent of the write guard. `Industrial/redox` is public, default branch
+it, independent of the write guard. `Industrial/voltaic` is public, default branch
 `main`, and `git remote` now points at it rather than at
 `Industrial/_project-template`.
 
@@ -580,14 +584,14 @@ That makes the consumption path verifiable without the dotfiles, and it was
 verified:
 
 ```
-nix flake metadata github:Industrial/redox   locks d945524, description correct
-nix build github:Industrial/redox#redox      exit 0
-  redox 0.1.0 / redox-lsp 0.1.0 / redox-mcp 0.1.0
+nix flake metadata github:Industrial/voltaic   locks d945524, description correct
+nix build github:Industrial/voltaic#voltaic      exit 0
+  voltaic 0.1.0 / voltaic-lsp 0.1.0 / voltaic-mcp 0.1.0
 prefetch-npm-deps on the *published* lockfile
   sha256-WhyyboeEswhnEisJnt4YQDcZi4jKYQrpzma8oJf1FGw=  — matches the pin
 ```
 
-So the flake input in leaf 3's patch is `github:Industrial/redox` rather than
+So the flake input in leaf 3's patch is `github:Industrial/voltaic` rather than
 the `git+file://` the plan expected to need. What remains of leaf 4 is nothing:
 there is no `path:` to swap.
 
@@ -608,6 +612,8 @@ four"* — is superseded: the server advertises **seven**, and
   would also want `description` and `repository` in `[workspace.package]`, and a
   resolution of `license = "CC-BY-SA-4.0"` — a *content* licence — against
   `editors/vscode/package.json`'s `MIT`.
+
+  **Resolved 2026-11-13 by renaming the project to Voltaic** (commit `4d8853a`). The names above are the old ones and the third-party facts are left exactly as measured; the whole `voltaic-*` namespace is free, `voltaic-lsp` included.
 - **There is no `.github/` in this repository.** Seventy register rows, and
   every gate runs only on a developer's machine. Out of scope here and named
   because leaf 4 makes it possible.
@@ -633,11 +639,11 @@ Each of these answers a narrower question that a span lookup settles:
 | `foldingRange` | where are the indented blocks | re-implement the off-side rule |
 
 Doc 02 §12.4's refusal of a type checker is untouched and rustc remains the sole
-authority on types. A reader who wants a *type* has `redox check`, which reports
+authority on types. A reader who wants a *type* has `voltaic check`, which reports
 rustc's own answer against the `.sdx` — a better answer than a server with no
 checker could give, and §10 records that as the division rather than as a gap.
 
-**`foldingRange` is the one that was free.** Redox is an off-side-rule language,
+**`foldingRange` is the one that was free.** Voltaic is an off-side-rule language,
 so *"an indented block"* is a pair of tokens the lexer already emits, and the
 fold closes exactly where the parser's block closes. The alternative — counting
 leading spaces — would be a second implementation of the off-side rule, free to
@@ -659,7 +665,7 @@ follow-on list has `references` and `rename` behind the same wall.
 Every capability before this one took a *document*; these take a *position*, and
 the protocol speaks UTF-16 columns while every span in the AST is a byte pair.
 `position_of` sums `char::len_utf16`, so `offset_of` undoes that sum rather than
-counting `char`s — and Redox's own source is full of `—` and `§`, so the
+counting `char`s — and Voltaic's own source is full of `—` and `§`, so the
 distinction is the ordinary case here, not the edge one.
 
 **A position past the end of the file clamps, and a test premise depended on

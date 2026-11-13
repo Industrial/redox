@@ -1,8 +1,8 @@
 {
-	"name": "redox",
-	"displayName": "Redox",
-	"description": "Redox language support — highlighting, diagnostics and formatting via redox-lsp.",
-	"publisher": "redox-lang",
+	"name": "voltaic",
+	"displayName": "Voltaic",
+	"description": "Voltaic language support — highlighting, diagnostics and formatting via voltaic-lsp.",
+	"publisher": "voltaic-lang",
 	"version": "0.1.0",
 	"license": "MIT",
 	"engines": {
@@ -15,15 +15,15 @@
 	],
 	"main": "./src/extension.js",
 	"activationEvents": [
-		"onLanguage:redox"
+		"onLanguage:voltaic"
 	],
 	"contributes": {
 		"languages": [
 			{
-				"id": "redox",
+				"id": "voltaic",
 				"aliases": [
-					"Redox",
-					"redox"
+					"Voltaic",
+					"voltaic"
 				],
 				"extensions": [
 					".sdx"
@@ -33,23 +33,23 @@
 		],
 		"grammars": [
 			{
-				"language": "redox",
-				"scopeName": "source.redox",
-				"path": "./syntaxes/redox.tmLanguage.json"
+				"language": "voltaic",
+				"scopeName": "source.voltaic",
+				"path": "./syntaxes/voltaic.tmLanguage.json"
 			}
 		],
 		"configuration": {
-			"title": "Redox",
+			"title": "Voltaic",
 			"properties": {
-				"redox.server.path": {
+				"voltaic.server.path": {
 					"type": "string",
-					"default": "redox-lsp",
-					"description": "Path to the redox-lsp binary."
+					"default": "voltaic-lsp",
+					"description": "Path to the voltaic-lsp binary."
 				},
-				"redox.server.enable": {
+				"voltaic.server.enable": {
 					"type": "boolean",
 					"default": true,
-					"description": "Start redox-lsp for .sdx files. Turn this off to keep TextMate highlighting only."
+					"description": "Start voltaic-lsp for .sdx files. Turn this off to keep TextMate highlighting only."
 				}
 			}
 		}

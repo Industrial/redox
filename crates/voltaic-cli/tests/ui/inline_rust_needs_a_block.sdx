@@ -1,0 +1,13 @@
+-- Plan 45 criterion 6. Before this row `rust "…"` was a **call** to a
+-- function named `rust`, and it transpiled: the `.xrs` carried `rust("…")`,
+-- which no program defines, and only `voltaic check` caught it.
+--
+-- So the thing worth asserting is that `rust` is now a construct, which this
+-- case shows by rejecting the one shape the construct does not take. A
+-- single-quoted string has nowhere to put the Rust code's own quotes.
+main : ()
+main =
+  println! \-> "#{1}"
+  ()
+
+rust "let x = 1;"

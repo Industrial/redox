@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
 r"""Plan 82 batch 12: `parse/parser` — the `Parser` struct and its methods.
 
-The last file of the last crate, and the one that makes `redox-parser`'s own
-parser a Redox program.
+The last file of the last crate, and the one that makes `voltaic-parser`'s own
+parser a Voltaic program.
 
 Four things in it are worth naming up front.
 
 **`data Parser = Parser { toks : &'a [Token], … }`** takes its lifetime the way
-`redox-emit`'s `Sink` does: `generalise_data` reads `'a` out of the field types
+`voltaic-emit`'s `Sink` does: `generalise_data` reads `'a` out of the field types
 and emits `struct Parser<'a>`, and `instance (Parser 'a)` is the impl head. The
 `'a` stays out of every method's own generic list because
 `MethodContext::for_instance` puts the target's first type variable in
 `reserved`, which is exactly what that list is for.
 
-**`..decl` has no Redox spelling.** `item`'s tail builds an `FnDecl` from the
+**`..decl` has no Voltaic spelling.** `item`'s tail builds an `FnDecl` from the
 one `function` returned, overriding three fields with Rust's functional record
 update. Three assignments to a `mut` binding are the same thing written out,
 and the `span` override reads the old `span` before replacing it — which the
@@ -46,15 +46,15 @@ import sys
 
 import io  # noqa: E402
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
-ROOT = '/home/tom/Code/rust/redox/crates/redox-parser/sdx/'
+ROOT = '/home/tom/Code/rust/voltaic/crates/voltaic-parser/sdx/'
 
 write('parse/parser', r'''
 import crate::parse::parser::clause::clause
 import crate::parse::parser::stmt::stmt
-import redox_ast::Guard
+import voltaic_ast::Guard
 
 -- Three members of this impl are free functions in child modules instead,
 -- for the reason this batch's docstring gives.
@@ -77,7 +77,7 @@ export(super) module where_locals
 -- |
 -- | The `'a` is **not written**: `generalise_data` reads it out of `toks`'s
 -- | type and emits `struct Parser<'a>`, which is doc 18 §5.3's rule applied to
--- | a lifetime — the same way `redox-emit`'s `Sink` takes its own.
+-- | a lifetime — the same way `voltaic-emit`'s `Sink` takes its own.
 export(crate) data Parser = Parser {
   toks : &'a [Token],
   pos : usize,
@@ -236,7 +236,7 @@ instance (Parser 'a)
       (.newline_with_trailing "expected a line break after the instance" self)?
       return Ok (Item::Instance decl)
     -- Three assignments, where the Rust wrote `..decl`: functional record
-    -- update has no Redox spelling, and overriding three fields of a `mut`
+    -- update has no Voltaic spelling, and overriding three fields of a `mut`
     -- binding is the same thing written out. `span` reads the old span before
     -- replacing it, exactly as the update syntax does.
     mut decl = (.function (&[]) self)?
@@ -866,9 +866,9 @@ NEW['parse/parser/clause'] = r'''import crate::ParseError
 import crate::parse::parser::Parser
 import crate::parse::parser::unit_tail::unit_tail
 import crate::parse::parser::where_locals::where_locals
-import redox_ast::{Clause, ClauseBody, Ident, Pattern}
-import redox_diag::Code
-import redox_lexer::TokenKind
+import voltaic_ast::{Clause, ClauseBody, Ident, Pattern}
+import voltaic_diag::Code
+import voltaic_lexer::TokenKind
 
 -- | One clause's right-hand side, after its pattern row.
 -- |
@@ -924,9 +924,9 @@ import crate::parse::parser::Parser
 import crate::parse::parser::stmt::stmt
 import crate::parse::parser::where_entry_is_a_function::where_entry_is_a_function
 import crate::parse::parser::where_group::where_group
-import redox_ast::{Expr, Item, Pattern, Stmt}
-import redox_diag::Code
-import redox_lexer::{Keyword, TokenKind}
+import voltaic_ast::{Expr, Item, Pattern, Stmt}
+import voltaic_diag::Code
+import voltaic_lexer::{Keyword, TokenKind}
 
 -- | Doc 18 §2.2's `where` locals, if the clause has any.
 -- |
@@ -1006,8 +1006,8 @@ import crate::parse::parser::local_test::local_test
 import crate::parse::parser::parse_expr::parse_expr
 import crate::parse::parser::starts_a_declaration::starts_a_declaration
 import crate::parse::parser::try_await::try_await
-import redox_ast::{Expr, Stmt}
-import redox_lexer::{Keyword, TokenKind}
+import voltaic_ast::{Expr, Stmt}
+import voltaic_lexer::{Keyword, TokenKind}
 
 -- | One block element — `Binding | "return" Expr? | … | Expr`, closed by a
 -- | `Newline`.

@@ -1,0 +1,255 @@
+import crate::control::emit_stmts
+import crate::expr::emit_expr
+import crate::expr::receiver
+import crate::expr::unparen
+import crate::item::is_shareable
+import crate::pattern::pattern_text
+import crate::sink::Sink
+import voltaic_ast::Binding
+import voltaic_ast::Clause
+import voltaic_ast::ClauseBody
+import voltaic_ast::Expr
+import voltaic_ast::FnDecl
+import voltaic_ast::Ident
+import voltaic_ast::Item
+import voltaic_ast::Pattern
+import voltaic_ast::Stmt
+import voltaic_ast::where_edges
+import std::cell::Cell
+import std::cell::RefCell
+import std::collections::BTreeMap
+
+export(crate) annotated_binding : &Binding -> (Option<String>, &Expr)
+annotated_binding b = case (&b.ty, &b.value) of
+  (None, Expr::Ascribe { inner, ty, .. }) | !selects_a_container inner -> (Some (.clone ty.text), .as_ref inner)
+  (Some ty, value) -> (Some (.clone ty.text), value)
+  (None, value) -> (None, value)
+
+export(crate) selects_a_container : &Expr -> bool
+selects_a_container inner = case inner of
+  Expr::List { .. } or Expr::ArrayRepeat { .. } -> true
+  _ -> false
+
+export(crate) bind_block : &Ident -> &[Stmt] -> usize -> String
+bind_block method stmts indent =
+  if .is_empty stmts
+    return .to_string "()"
+  if .len stmts == 1
+    return emit_expr (unparen (&stmts[0].expr)) indent
+  head = &stmts[0]
+  n = .len stmts
+  rest = bind_block method (&stmts[1 .. n]) indent
+  name = &method.text
+  case &head.expr of
+    Expr::Await { pattern, value, .. } ->
+      recv = receiver (unparen value) indent
+      binder = case pattern of
+        Some p -> pattern_text p
+        None -> .to_string "_"
+      format! \-> "#{recv}.#{name}(move |#{binder}| #{rest})"
+    other ->
+      recv = receiver (unparen other) indent
+      format! \-> "#{recv}.#{name}(move |_| #{rest})"
+
+export(crate) data BindMode
+  #[default]
+  = Await
+  | Question
+  deriving (Debug, Clone, Copy, PartialEq, Eq, Default)
+
+rust """
+  thread_local! {
+    /// What `<-` means right here. [`BindMode::Await`] outside any modifier,
+    /// which is the meaning doc 30 gave the token and the one `async fn` keeps.
+    static MODE: Cell<BindMode> = const { Cell::new(BindMode::Await) };
+  }
+"""
+
+export(crate) data BindScope = BindScope { previous : BindMode }
+
+instance BindScope
+  export(crate) enter : BindMode -> Self
+  enter mode = BindScope { previous = .replace mode MODE }
+
+  export(crate) mode : BindMode
+  mode = .get MODE
+
+instance Drop BindScope
+  drop : &mut self -> ()
+  drop self =
+    .set self.previous MODE
+    ()
+
+export(crate) data BindingKind
+  = Shared
+  | Called
+  deriving (Debug, Clone, Copy, PartialEq, Eq)
+
+rust """
+  thread_local! {
+    /// The table in scope, empty outside a [`BindingScope`].
+    static IN_SCOPE: RefCell<BindingTable> = RefCell::new(BindingTable::default());
+  }
+"""
+
+export(crate) data BindingScope = BindingScope { previous : BindingTable }
+
+instance BindingScope
+  export(crate) enter : BindingTable -> Self
+  enter table =
+    previous = .with_borrow_mut (\slot -> std::mem::replace slot table) IN_SCOPE
+    BindingScope { previous }
+
+  export(crate) kind_of : &str -> Option<BindingKind>
+  kind_of name = .with_borrow (\table -> .kind_of name table) IN_SCOPE
+
+instance Drop BindingScope
+  drop : &mut self -> ()
+  drop self =
+    restored = std::mem::take $ &mut self.previous
+    _dropped = .with_borrow_mut (\slot -> std::mem::replace slot restored) IN_SCOPE
+    ()
+
+export(crate) data BindingTable = BindingTable { kinds : BTreeMap<String, BindingKind> }
+  deriving (Debug, Clone, Default)
+
+instance BindingTable
+  export(crate) from_items : &[Item] -> Self
+  from_items items =
+    mut table = BindingTable::default ()
+    mut ambiguous = Vec::new ()
+    .gather items (&[]) (&mut ambiguous) table
+    for name in ambiguous
+      .remove (&name) table.kinds
+    table
+
+  gather : &[Item] -> &[String] -> &mut Vec<String> -> &mut self -> ()
+  gather items prefix ambiguous self =
+    for item in items
+      case item of
+        Item::Fn decl ->
+          guard classify decl is Some kind else
+            continue
+          bare = .clone decl.name.text
+          .insert (.clone bare) kind ambiguous self
+          if !.is_empty prefix
+            mut path = .join "::" prefix
+            .push_str "::" path
+            .push_str (&bare) path
+            .insert path kind ambiguous self
+        Item::Module decl ->
+          if &decl.items is Some inner
+            mut nested = .to_vec prefix
+            .push (.clone decl.name.text) nested
+            .gather inner (&nested) ambiguous self
+        _ -> ()
+    ()
+
+  insert : String -> BindingKind -> &mut Vec<String> -> &mut self -> ()
+  insert key kind ambiguous self =
+    if .is_some_and (!= kind) (.insert (.clone key) kind self.kinds)
+      .push key ambiguous
+    ()
+
+  export(crate) kind_of : &str -> &self -> Option<BindingKind>
+  kind_of name self = self.kinds |> .get name |> .copied
+
+export(crate) classify : &FnDecl -> Option<BindingKind>
+classify decl =
+  if !.is_empty decl.sig.params
+    return None
+  guard .as_slice decl.clauses is [clause] else
+    return None
+  if !.is_empty clause.patterns
+    return None
+  guard &clause.body is ClauseBody::Plain block else
+    return Some BindingKind::Called
+  shared = .is_empty clause.wheres && .len block.stmts == 1 && is_shareable (&block.stmts[0].expr) && is_upper_case (&decl.name.text)
+  if shared
+    return Some BindingKind::Shared
+  Some BindingKind::Called
+
+export(crate) is_upper_case : &str -> bool
+is_upper_case name =
+  .any char::is_alphabetic (.chars name) && !.any (\c -> .is_ascii_lowercase c) (.chars name)
+
+export(crate) binding_text : &str -> String
+binding_text name = case BindingScope::kind_of name of
+  Some (BindingKind::Called) -> format! \-> "#{name}()"
+  _ -> .to_string name
+
+export(crate) emit_bind : &Option<Pattern> -> &Expr -> usize -> String
+emit_bind pattern value indent =
+  postfix = case BindScope::mode () of
+    BindMode::Await -> ".await"
+    BindMode::Question -> "?"
+  recv = receiver (unparen value) indent
+  bound = format! \-> "#{recv}#{postfix}"
+  case pattern of
+    Some p ->
+      lowered = pattern_text p
+      format! \-> "let #{lowered} = #{bound};"
+    None -> format! \-> "#{bound};"
+
+export(crate) emit_where_locals : &mut Sink<'_> -> &[Stmt] -> usize -> ()
+emit_where_locals out wheres indent =
+  if .len wheres < 2
+    emit_stmts out wheres indent false
+    return ()
+  ordered : Vec<Stmt> = where_order wheres
+    |> .into_iter
+    |> .map (\i -> .clone wheres[i])
+    |> .collect
+  emit_stmts out (&ordered) indent false
+  ()
+
+export(crate) one_tail_expression : &Clause -> bool -> Option<&Stmt>
+one_tail_expression clause tail =
+  if !tail
+    return None
+  plain = (.plain clause.body)?
+  case .as_slice plain.stmts of
+    [stmt] | !.is_statement_form stmt.expr && .is_empty stmt.leading -> Some stmt
+    _ -> None
+
+export(crate) where_order : &[Stmt] -> Vec<usize>
+where_order entries =
+  n = .len entries
+  bindings : Vec<usize> = entries
+    |> .iter
+    |> .enumerate
+    |> .filter (\pair ->
+    case pair.1.expr of
+      Expr::Binding _ -> true
+      _ -> false)
+    |> .map (\pair -> pair.0)
+    |> .collect
+  if .len bindings < 2
+    return .collect (0 .. n)
+  graph = where_edges entries
+  mut done : Vec<bool> = Vec::new ()
+  .resize n false done
+  mut visiting : Vec<bool> = Vec::new ()
+  .resize n false visiting
+  mut sorted = Vec::with_capacity (.len bindings)
+  for i in &bindings
+    visit (*i) (&graph) (&mut done) (&mut visiting) (&mut sorted)
+  mut queued = .into_iter sorted
+  0 .. n
+    |> .map (\i ->
+    case entries[i].expr of
+      Expr::Binding _ -> queued |> .next |> .unwrap_or i
+      _ -> i)
+    |> .collect
+
+export(crate) visit : usize -> &[Vec<usize>] -> &mut [bool] -> &mut [bool] -> &mut Vec<usize> -> ()
+visit at graph done visiting sorted =
+  if done[at] || visiting[at]
+    return ()
+  visiting[at] := true
+  for dep in &graph[at]
+    visit (*dep) graph done visiting sorted
+  visiting[at] := false
+  done[at] := true
+  .push at sorted
+  ()

@@ -42,7 +42,7 @@ step 5 and why it is the next row rather than row 34.
 ### 1.2 The marker is plan 16's `const fn`, one keyword over
 
 Plan 16 put `const` between `::` and the spine and consumed it there, because *"a type in
-Redox is verbatim text (doc 03 §14.1), and leaving `const` in one would make the first
+Voltaic is verbatim text (doc 03 §14.1), and leaving `const` in one would make the first
 parameter's type `const u32`, which is not a Rust type"*.
 
 `async` is the identical problem with the identical answer: `Signature.is_async` beside
@@ -51,11 +51,11 @@ parameter's type `const u32`, which is not a Rust type"*.
 in the lexer.
 
 They are **mutually exclusive in Rust** — there is no `const async fn` — and that is rustc's
-to say, not Redox's. Writing both emits both and rustc reports it, which is AGENTS.md's rule.
+to say, not Voltaic's. Writing both emits both and rustc reports it, which is AGENTS.md's rule.
 
 ### 1.3 No executor, and that is the whole of doc 03 §14.3
 
-*"Redox provides no executor and no runtime (doc 01 §24), so `async` blocks and `async fn`
+*"Voltaic provides no executor and no runtime (doc 01 §24), so `async` blocks and `async fn`
 pass through and the runtime is the user's own dependency. A concurrent-await construct is
 declined for the dependency reason of §11.3: every joining form in Rust comes from a runtime
 crate."*
@@ -101,7 +101,7 @@ else. It needs **no macro**: `Box::pin` is a function where `pin!` is a macro, a
 
 That it is writable at all is the proof doc 03 §14.3 actually wants. The claim is not *"async
 is hard"* — it is *"the runtime is yours"*, and an example that writes a runtime in nine
-lines of ordinary Redox demonstrates the claim rather than asserting it.
+lines of ordinary Voltaic demonstrates the claim rather than asserting it.
 
 It also exercises six constructs from six different rows at once — a generic with a `=>`
 bound (26), an associated type as verbatim text (03), `mut` bindings (20), `loop` with
@@ -199,15 +199,15 @@ expectation, and the gate.
 - **An executor.** Doc 03 §14.3 and doc 01 §24: the runtime is the user's dependency. The
   example writes one to prove it can be written, not to ship one.
 - **A concurrent-await construct** — `join`, `select`, `race`. Declined by doc 03 §14.3 for
-  §11.3's reason: every joining form in Rust comes from a runtime crate, and Redox may not
+  §11.3's reason: every joining form in Rust comes from a runtime crate, and Voltaic may not
   inject a dependency the author never declared.
 - **`async move`**, per §1.5.
 - **Async traits**, `async` closures, and `impl Future` return types. None is in doc 03
   §14.3's two sentences, and `async` closures stabilised only recently; a form with no
   specification has no agreed meaning here.
-- **Checking that `<-` appears only inside an `async`.** rustc does it, so Redox does not —
+- **Checking that `<-` appears only inside an `async`.** rustc does it, so Voltaic does not —
   AGENTS.md. Criterion 5 asserts the error lands on the right line, which is plan 07's job
-  and the only part Redox owns.
+  and the only part Voltaic owns.
 
 ---
 
@@ -232,7 +232,7 @@ to decline providing.
 |---|---|---|---|
 | 1 | `async` is a marker between `::` and the spine | A separate keyword before the signature line, or `async` inside the type | Plan 16 settled this for `const` and gave the reason: a type is verbatim text, so a marker left inside one produces `async u64`, which is not a Rust type |
 | 2 | The example brings its own `block_on` | Add a runtime dependency, or declare the row unprovable by running | Doc 03 §14.3's claim *is* that the runtime is the user's. Writing one in nine lines demonstrates the claim; adding `tokio` would contradict §2's second admission test |
-| 3 | `async` and `const` may both be written | Reject the pair in Redox | rustc rejects it, and AGENTS.md says every check rustc can make, rustc makes |
+| 3 | `async` and `const` may both be written | Reject the pair in Voltaic | rustc rejects it, and AGENTS.md says every check rustc can make, rustc makes |
 | 4 | `async` blocks reach `prefix` like `do` and `try` | A statement form | §7.2's `do` and §12.4's `try` are both expressions and this is the third of the same shape. A statement form would need a second node for no gain |
 | 5 | No `async move` | Add it alongside | Doc 03 §14.3 does not have it, and doc 18 §4's lambda has no `move` marker either. Inventing one here is surface design, not implementation |
 
@@ -272,7 +272,7 @@ block_on fut =
 
 Nine lines, no macro, no dependency, no `Cargo.toml` entry. Doc 03 §14.3's claim is *"the
 runtime is the user's own dependency"*, and a corpus that writes a runtime in nine lines of
-ordinary Redox demonstrates that rather than asserting it — which is what criterion 8 was
+ordinary Voltaic demonstrates that rather than asserting it — which is what criterion 8 was
 for.
 
 It is also the broadest single construct in the corpus: a generic with a `=>` bound (row 26),
@@ -307,7 +307,7 @@ Neither is this row's, and both are recorded because they shaped the example:
   `RDX0102: expected an expression`. Plan 30 §10.2 recorded the identical limit for lambdas.
   The fix was better anyway — `if Poll::Ready v = …` then `break v` — but the limitation is
   real and belongs to whichever row makes a block an expression.
-- **Redox has no macro-call syntax.** `pin!` is unavailable, which sent this plan to
+- **Voltaic has no macro-call syntax.** `pin!` is unavailable, which sent this plan to
   `Box::pin`. That turned out fine, and it also showed plan 29 §6's claim that `vec![0; n]`
   *"stays available as an ordinary macro call"* to be false — `vec![1, 2]` does not parse.
   Corrected in plan 29 with a dated note.

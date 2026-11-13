@@ -12,7 +12,7 @@ use std::iter::once;
 // is monadic bind read by the enclosing block modifier, with `try` reading it
 // as `?` and `async` as `.await`; the set it ranged over was simply closed.
 // Opening it satisfies doc 03 §2 clause 1 in that clause's own words: *"the
-// user's own syntax selects between them — never an inference."* Redox chooses
+// user's own syntax selects between them — never an inference."* Voltaic chooses
 // nothing here. It transcribes the method the author named.
 //
 // The lowering is structurally unlike its two siblings: `try` and `async` read

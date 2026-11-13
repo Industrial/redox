@@ -7,12 +7,12 @@
 -- nothing, which is the shape plan 51's `construct_coverage` exists to find
 -- and the gap its `ALLOW` list recorded.
 --
--- `ref` is **not a reserved word** (`crates/redox-lexer/src/token/keyword.rs`
+-- `ref` is **not a reserved word** (`crates/voltaic-lexer/src/token/keyword.rs`
 -- lists none), so `ref a` lexes as two ordinary identifiers and the pattern
 -- parser sees two names where it expects one: `RDX0101` and then `RDX0103`.
 --
 -- Reserving it is not free either. Doc 18 §7's reserved set is deliberately
--- small, and `ref` is a plausible *identifier* in Redox — a reference, a
+-- small, and `ref` is a plausible *identifier* in Voltaic — a reference, a
 -- bibliography entry, a git ref — so taking the word costs every program that
 -- uses it as a name.
 --

@@ -11,7 +11,7 @@ Status: `done` 2026-11-10
 
 Doc 02 §4.8 reframed self-hosting and wrote the acceptance criterion this row has to answer:
 
-> Phrase the acceptance criterion as **"the compiler's source can be expressed in Redox
+> Phrase the acceptance criterion as **"the compiler's source can be expressed in Voltaic
 > without the inline-Rust escape hatch,"** which is the property actually worth proving.
 
 It also predicted how the answer would be found — *"it will find every `UNREACHABLE` Rust
@@ -43,17 +43,17 @@ dropped and string bodies blanked.
 
 | Crate | Files | Blocked | |
 |---|---:|---:|---:|
-| `redox-cli` | 26 | 22 | 85% |
-| `redox-diag` | 20 | 15 | 75% |
-| `redox-emit` | 79 | 58 | 73% |
-| `redox-fmt` | 52 | 33 | 63% |
-| `redox-driver` | 27 | 16 | 59% |
-| `redox-lexer` | 32 | 16 | 50% |
-| `redox-bench` | 14 | 6 | 43% |
-| `redox-parser` | 104 | 31 | 30% |
-| `redox-lsp` | 22 | 6 | 27% |
-| `redox-ast` | 48 | 6 | 12% |
-| `redox-fuzz` | 6 | 0 | 0% |
+| `voltaic-cli` | 26 | 22 | 85% |
+| `voltaic-diag` | 20 | 15 | 75% |
+| `voltaic-emit` | 79 | 58 | 73% |
+| `voltaic-fmt` | 52 | 33 | 63% |
+| `voltaic-driver` | 27 | 16 | 59% |
+| `voltaic-lexer` | 32 | 16 | 50% |
+| `voltaic-bench` | 14 | 6 | 43% |
+| `voltaic-parser` | 104 | 31 | 30% |
+| `voltaic-lsp` | 22 | 6 | 27% |
+| `voltaic-ast` | 48 | 6 | 12% |
+| `voltaic-fuzz` | 6 | 0 | 0% |
 
 Two things about this table are worth more than the totals.
 
@@ -69,7 +69,7 @@ formats, asserts and reports; doc 18 §7 retired `!` as a suffix and left no spe
 of them can be written.
 
 **The measurement needed triaging, three times, and the unit changed once.** The first pass
-reported **22** casts; most were `use … as …` **imports**, which Redox spells and which are
+reported **22** casts; most were `use … as …` **imports**, which Voltaic spells and which are
 not casts. Excluding import lines brought it to 14, of which 5 were still false positives — a
 multi-line `use` whose `as` sits on a continuation line, and the words *"as though"* in a doc
 comment the stripper missed.
@@ -88,13 +88,13 @@ bitwise or, and counting them wrongly is worse than leaving the cell empty. §6.
 
 ### 1.2 The answer, and what would change it
 
-**No. The compiler's source cannot currently be expressed in Redox without the escape hatch.**
+**No. The compiler's source cannot currently be expressed in Voltaic without the escape hatch.**
 
 But the shape of the no is the finding. One construct — macro invocation — accounts for 855 of
 867 blocking lines. If it were spelled:
 
 - the blocked set drops to **12 lines carrying an `as` cast**;
-- `redox-fuzz` and `redox-ast` become portable almost entirely (0% and 12% blocked);
+- `voltaic-fuzz` and `voltaic-ast` become portable almost entirely (0% and 12% blocked);
 - the criterion becomes a question about two constructs rather than about the language.
 
 So the useful output of this row is not a verdict, it is a **priority**: doc 03 §18 lists macro
@@ -105,11 +105,11 @@ a property doc 01 §34 made a project goal.
 ### 1.3 A worked port, because a count is not a proof
 
 A count over regexes can be wrong in ways only compiling something reveals — §1.1 already found
-it wrong twice. So leaf 2 ports one real compiler module to Redox and compiles the result.
+it wrong twice. So leaf 2 ports one real compiler module to Voltaic and compiles the result.
 
-`crates/redox-ast/src/program/item/clause.rs` is the subject: 45 lines of real compiler code,
+`crates/voltaic-ast/src/program/item/clause.rs` is the subject: 45 lines of real compiler code,
 a `struct` with four fields, derives, and doc comments carrying worked examples. **42 of
-`redox-ast`'s 48 files are blocker-free**, and this is one of them.
+`voltaic-ast`'s 48 files are blocker-free**, and this is one of them.
 
 What the port proves and what it does not:
 
@@ -145,8 +145,8 @@ Not applicable: no construct, no lowering. A measurement, a ported module and a 
 
 ```bash
 moon run :test                                      # the count is current, the port compiles
-REDOX_BLESS=1 cargo test -p redox-cli --test conformance
-cargo run -p redox-cli -- check conformance/clause.sdx
+VOLTAIC_BLESS=1 cargo test -p voltaic-cli --test conformance
+cargo run -p voltaic-cli -- check conformance/clause.sdx
 ```
 
 The gate asserts:
@@ -167,7 +167,7 @@ just unblocked.
 
 ### Leaf 1 — `leaf-conformance-count`
 
-`crates/redox-cli/tests/conformance.rs` counting the blockers per crate and rendering
+`crates/voltaic-cli/tests/conformance.rs` counting the blockers per crate and rendering
 `docs/CONFORMANCE.md`, compared in the gate and blessable.
 
 ### Leaf 2 — `leaf-worked-port`
@@ -210,7 +210,7 @@ applied to a measurement that has two kinds of hole.
   `Cargo.lock`, and would be the right tool if the count ever drives a decision finer than
   *"one construct is 94% of it"*. Named rather than pretended away.
 - **Byte-identical round-tripping.** `conformance/clause.xrs` is not required to equal
-  `clause.rs`. The claim is that the module is **expressible**, not that Redox reproduces a
+  `clause.rs`. The claim is that the module is **expressible**, not that Voltaic reproduces a
   particular author's formatting, and requiring the latter would make every rustfmt change a
   conformance failure.
 - **A bootstrap chain.** Doc 02 §4.8: *"`.xrs` is Rust, so there is no chicken-and-egg problem
@@ -230,7 +230,7 @@ moon run :format :check :lint :build :test :audit
 ## 8. Emerald reuse
 
 **None, and the register says why**: *"Emerald never self-hosted at 107k lines; weak evidence,
-but the reframing argument is Redox-specific."*
+but the reframing argument is Voltaic-specific."*
 
 The reframing is the transfer, and it is doc 02 §4.8's rather than Emerald's: a transpiler's
 self-hosting is *nearly free and therefore nearly meaningless as a milestone*, so the thing
@@ -246,7 +246,7 @@ milestone.
 |---|---|---|---|
 | 1 | Count the blockers across all 430 files | Port until something breaks | Plan 46 already found the gaps; porting would rediscover them one file at a time, and a count answers the criterion for every file |
 | 2 | Port one real module anyway | Count only | A regex count can be wrong in ways only compiling reveals, and §1.1 found it wrong twice before the plan was written |
-| 3 | `clause.rs`, 45 lines of `redox-ast` | A larger or synthetic module | Real compiler code, blocker-free, and exercising declarations, derives, visibility, doc comments and a verbatim type in one file |
+| 3 | `clause.rs`, 45 lines of `voltaic-ast` | A larger or synthetic module | Real compiler code, blocker-free, and exercising declarations, derives, visibility, doc comments and a verbatim type in one file |
 | 4 | Generated and gate-compared, like `STATUS.md` | A written report | The count changes when the compiler does, and the row's value survives its own success only if the document fails when the number moves |
 | 5 | Report the four zeroes | Omit them | *"This gap does not block self-hosting"* is the finding doc 02 §4.8 did not expect, and omitting a zero hides it |
 | 6 | Leave `\|` or-patterns uncounted | Guess with a regex | No line-based pattern separates an alternative from a bitwise or, and a wrong number is worse than an empty cell |
@@ -259,7 +259,7 @@ milestone.
 
 Shipped 2026-11-10. `docs/CONFORMANCE.md`, generated and gate-compared;
 `conformance/clause.sdx` with its committed `.xrs`; and
-`crates/redox-cli/tests/conformance.rs`.
+`crates/voltaic-cli/tests/conformance.rs`.
 
 **The answer to doc 02 §4.8's criterion is no, and 99% of the no is one construct.** 855 of
 867 blocking lines are macro invocations. That is the row's output: not a verdict, a price tag
@@ -271,8 +271,8 @@ on a spelling decision plan 45 §1.5 deferred.
 ways only compiling something reveals"*. It was right, and about something better than a
 miscount.
 
-`clause.rs` has four field doc comments. Expressed in Redox, **every one vanished** — absent
-from the `.xrs`, and *deleted from the `.sdx`* by `redox fmt`. AGENTS.md calls that rule
+`clause.rs` has four field doc comments. Expressed in Voltaic, **every one vanished** — absent
+from the `.xrs`, and *deleted from the `.sdx`* by `voltaic fmt`. AGENTS.md calls that rule
 load-bearing: *"comments are trivia, never discarded. They must reach the generated `.xrs` —
 the `.xrs` is a human-facing artifact"* (doc 02 §10.1, correcting doc 01 §4.1).
 
@@ -306,7 +306,7 @@ is now that file.
 
 §3 criterion 3 said **rustc** compiles the ported `.xrs`. It cannot: the port is one module
 lifted out of a crate, so `crate::Stmt` does not resolve, and rustc would reject it for a
-reason about the extraction rather than about Redox.
+reason about the extraction rather than about Voltaic.
 
 The oracle is `syn::parse_file` — *is this valid Rust syntax* — which is the question actually
 askable about an isolated module, and which plan 42 §1.3 chose for the same reason. Weaker than
@@ -370,13 +370,13 @@ trees into `crates/<crate>/sdx/`.
 
 What this row built is superseded rather than discarded. The measurement is
 still `docs/CONFORMANCE.md`, regenerated by the same test. The worked port is
-now two entire crates — `redox-ast` (plan 68) and `redox-fmt` (plan 69) —
+now two entire crates — `voltaic-ast` (plan 68) and `voltaic-fmt` (plan 69) —
 compiled by **rustc** as part of the workspace, which is the oracle §1.3 said
 it could not have: this row's module could not resolve `crate::Stmt`, so `syn`
 answered the only question that was askable. The extraction is gone, so the
 concession went with it.
 
 The defect this row found by writing the port — every field doc comment
-silently discarded, and `redox fmt` deleting them from the source — is why doc
+silently discarded, and `voltaic fmt` deleting them from the source — is why doc
 02 §4.8 expected a port to be worth doing, and plans 68 and 69 found three more
 of that class and two formatter defects. That record stands.

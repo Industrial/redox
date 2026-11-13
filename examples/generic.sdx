@@ -21,7 +21,7 @@
 -- could not see, and the same program now reads as the unwrap it always was.
 -- A true positive, suppressed rather than hidden — the `Option` is this
 -- function's whole subject.
-#[redox::allow(unwrap)]
+#[voltaic::allow(unwrap)]
 largest : Ord t => Option<t> -> t
 largest xs = best
   where

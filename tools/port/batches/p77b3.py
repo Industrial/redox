@@ -3,13 +3,13 @@
 
 Three things in it are new.
 
-**A `Parameters(request)` pattern in a parameter position has no Redox
+**A `Parameters(request)` pattern in a parameter position has no Voltaic
 spelling** — a parameter is a bare name — so the whole value is taken and
 `params.0` reads it out. `Parameters` is a tuple struct, so that is the same
 projection the pattern performed.
 
 **An async method puts the marker on the first type, and `&self` goes second.**
-`redox_check : async Parameters<CheckRequest> -> &self -> Result<…>` — plan 67
+`voltaic_check : async Parameters<CheckRequest> -> &self -> Result<…>` — plan 67
 lets the receiver sit at any position, and `emit::signature` writes it first,
 which is what keeps the marker off the receiver's own type.
 
@@ -24,7 +24,7 @@ but not something the formatter has a rule for.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 CHECK_DESC = (
@@ -47,9 +47,9 @@ MAP_DESC = (
     "out of range."
 )
 INSTRUCTIONS = (
-    "Redox transpiles .sdx to .xrs containing ordinary Rust. Diagnostics are "
+    "Voltaic transpiles .sdx to .xrs containing ordinary Rust. Diagnostics are "
     "reported against the .sdx you wrote, with 1-based line and column in "
-    "characters. rustc is the authority on types and borrows — Redox has no "
+    "characters. rustc is the authority on types and borrows — Voltaic has no "
     "checker of its own."
 )
 
@@ -87,10 +87,10 @@ instance ServerHandler Server
     config.instructions := Some (.to_string "%s")
     config
 ''' % (
-    tool('redox_check', 'CheckRequest', 'crate::check::check', CHECK_DESC),
-    tool('redox_build', 'BuildRequest', 'crate::build::build', BUILD_DESC),
-    tool('redox_fmt', 'FormatRequest', 'crate::format::format', FMT_DESC),
-    tool('redox_source_map', 'SourceMapRequest', 'crate::source_map::source_map', MAP_DESC),
+    tool('voltaic_check', 'CheckRequest', 'crate::check::check', CHECK_DESC),
+    tool('voltaic_build', 'BuildRequest', 'crate::build::build', BUILD_DESC),
+    tool('voltaic_fmt', 'FormatRequest', 'crate::format::format', FMT_DESC),
+    tool('voltaic_source_map', 'SourceMapRequest', 'crate::source_map::source_map', MAP_DESC),
     INSTRUCTIONS,
 ))
 

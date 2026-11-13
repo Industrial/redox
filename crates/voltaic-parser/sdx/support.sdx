@@ -1,0 +1,131 @@
+import crate::parse
+import voltaic_ast::BinaryOp
+import voltaic_ast::Program
+import voltaic_diag::Code
+import voltaic_diag::Span
+import voltaic_lexer::Keyword
+import voltaic_lexer::LexError
+import voltaic_lexer::Token
+import voltaic_lexer::TokenKind
+
+export data ParseError = ParseError { export code : Code, export message : String, export span : Span, export help : Option<String> }
+  deriving (Debug, Clone, PartialEq, Eq)
+
+instance ParseError
+  export(crate) expected : impl Into<String> -> Span -> Self
+  expected message span =
+    ParseError { code = Code::ExpectedToken, message = .into message, span, help = None }
+
+  export(crate) r#with : Code -> impl Into<String> -> Span -> Self
+  r#with code message span =
+    ParseError { code, message = .into message, span, help = None }
+
+  export(crate) with_help : Code -> impl Into<String> -> impl Into<String> -> Span -> Self
+  with_help code message help span =
+    ParseError { code, message = .into message, span, help = Some (.into help) }
+
+export data ParseFailure
+  = Lex LexError
+  | Parse Vec<ParseError>
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export const MAX_NESTING : usize = 16
+
+export(crate) nesting_depth : &[Token] -> usize
+nesting_depth toks =
+  mut depth : usize = 0
+  mut deepest : usize = 0
+  for token in toks
+    case token.kind of
+      TokenKind::LParen or TokenKind::LBracket or TokenKind::LBrace ->
+        depth += 1
+        deepest := .max depth deepest
+      TokenKind::RParen or TokenKind::RBracket or TokenKind::RBrace ->
+        depth := .saturating_sub 1 depth
+      _ -> ()
+  deepest
+
+export(crate) above_bitor : u8
+above_bitor =
+  found = .expect "`|` is in the precedence table" $ binary_power (&TokenKind::Or)
+  found.1 + 1
+
+export(crate) binary_power : &TokenKind -> Option<(BinaryOp, u8, u8)>
+binary_power kind =
+  op = case kind of
+    TokenKind::Pipe -> BinaryOp::Pipeline
+    TokenKind::Coalesce -> BinaryOp::Coalesce
+    TokenKind::Kw (Keyword::Catch) -> BinaryOp::Catch
+    TokenKind::DotDot -> BinaryOp::Range
+    TokenKind::DotDotEq -> BinaryOp::RangeInclusive
+    TokenKind::OrOr -> BinaryOp::Or
+    TokenKind::AndAnd -> BinaryOp::And
+    TokenKind::EqEq -> BinaryOp::Eq
+    TokenKind::Ne -> BinaryOp::Ne
+    TokenKind::Lt -> BinaryOp::Lt
+    TokenKind::Gt -> BinaryOp::Gt
+    TokenKind::Le -> BinaryOp::Le
+    TokenKind::Ge -> BinaryOp::Ge
+    TokenKind::Or -> BinaryOp::BitOr
+    TokenKind::Caret -> BinaryOp::BitXor
+    TokenKind::Amp -> BinaryOp::BitAnd
+    TokenKind::Shl -> BinaryOp::Shl
+    TokenKind::Shr -> BinaryOp::Shr
+    TokenKind::Plus -> BinaryOp::Add
+    TokenKind::Minus -> BinaryOp::Sub
+    TokenKind::Star -> BinaryOp::Mul
+    TokenKind::Slash -> BinaryOp::Div
+    TokenKind::Percent -> BinaryOp::Rem
+    TokenKind::Compose -> BinaryOp::Compose
+    TokenKind::ComposeBack -> BinaryOp::ComposeBack
+    _ ->
+      return None
+  left = .power op
+  Some (op, left, left + 1)
+
+#[cfg(test)]
+power : TokenKind -> u8
+power kind = (.expect "should have a precedence" (binary_power (&kind))).1
+
+test "precedence follows rust"
+  assert! \-> power TokenKind::Star > power TokenKind::Plus
+  assert! \-> power TokenKind::Plus > power TokenKind::Shl
+  assert! \-> power TokenKind::Shl > power TokenKind::Amp
+  assert! \-> power TokenKind::Amp > power TokenKind::Caret
+  assert! \-> power TokenKind::Caret > power TokenKind::Or
+  assert! \-> power TokenKind::Or > power TokenKind::EqEq
+  assert! \-> power TokenKind::EqEq > power TokenKind::AndAnd
+  assert! \-> power TokenKind::AndAnd > power TokenKind::OrOr
+
+test "the new operators sit where doc 03 places them"
+  assert! \-> power TokenKind::Coalesce < power TokenKind::OrOr
+  assert! \-> power TokenKind::Pipe < power TokenKind::Coalesce
+
+test "unary and postfix bind tighter than any binary"
+  assert! \-> crate::support::PREFIX_POWER > power TokenKind::Star
+
+test "binary operators are left associative"
+  for kind in [TokenKind::Plus, TokenKind::Star, TokenKind::Pipe]
+    rung = .expect "should have a precedence" $ binary_power (&kind)
+    assert_eq! \-> rung.2 \-> rung.1 + 1 \-> "#{kind:?} should be left-associative"
+
+test "a non operator has no precedence"
+  assert! \-> .is_none (binary_power (&TokenKind::Ident (.into "x")))
+  assert! \-> .is_none (binary_power (&TokenKind::Newline))
+
+test "the powers come from the operator"
+  for kind in [TokenKind::Pipe, TokenKind::Coalesce, TokenKind::OrOr, TokenKind::EqEq, TokenKind::Plus, TokenKind::Percent]
+    rung = .expect "should have a precedence" $ binary_power (&kind)
+    assert_eq! \-> rung.1 \-> .power rung.0 \-> "#{kind:?} reports a power of its own"
+    assert_eq! \-> rung.2 \-> .power rung.0 + 1
+
+test "maps tokens to their operators"
+  assert_eq! \-> .map (\pair -> pair.0) (binary_power (&TokenKind::Plus)) \-> Some BinaryOp::Add
+  assert_eq! \-> .map (\pair -> pair.0) (binary_power (&TokenKind::DotDot)) \-> Some BinaryOp::Range \-> "`..` is exclusive (doc 03 §4.2)"
+
+export(crate) const PREFIX_POWER : u8 = 25
+
+export parse_source : &str -> Result<Program, ParseFailure>
+parse_source src =
+  toks = (.map_err ParseFailure::Lex (voltaic_lexer::lex src))?
+  .map_err ParseFailure::Parse $ parse (&toks) (.len src)

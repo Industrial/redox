@@ -1,9 +1,9 @@
 {
-  description = "Redox — a source-to-source compiler: .sdx in, .xrs containing ordinary Rust out";
+  description = "Voltaic — a source-to-source compiler: .sdx in, .xrs containing ordinary Rust out";
 
   # One input, deliberately. `devenv.nix` owns the development shell and the
   # pinned toolchain; this flake exists so that *other* flakes can consume the
-  # binaries — `~/.dotfiles` builds `redox-lsp` and the VSCode/Cursor extension
+  # binaries — `~/.dotfiles` builds `voltaic-lsp` and the VSCode/Cursor extension
   # from it (plan 71 leaves 1 and 3). A `rust-overlay` input would be a second
   # toolchain pin disagreeing with devenv's, for no gain: nixpkgs' rustc is
   # past the 1.85 that edition 2024 needs.
@@ -27,9 +27,9 @@
     packages = forAllSystems (pkgs: let
       # Both binaries come from one derivation. The workspace is eleven crates
       # that share almost all of their dependency graph, so two derivations
-      # would compile `redox-ast`, `redox-parser` and `redox-emit` twice.
-      redox = pkgs.rustPlatform.buildRustPackage {
-        pname = "redox";
+      # would compile `voltaic-ast`, `voltaic-parser` and `voltaic-emit` twice.
+      voltaic = pkgs.rustPlatform.buildRustPackage {
+        pname = "voltaic";
         inherit version;
 
         src = pkgs.lib.cleanSource ./.;
@@ -38,28 +38,28 @@
           lockFile = ./Cargo.lock;
         };
 
-        cargoBuildFlags = ["--package" "redox-cli" "--package" "redox-lsp" "--package" "redox-mcp"];
+        cargoBuildFlags = ["--package" "voltaic-cli" "--package" "voltaic-lsp" "--package" "voltaic-mcp"];
 
-        # `crates/redox-cli/build.rs` runs a candidate `rustc --version` and
-        # bakes the first path that answers like real rustc into `REDOX_RUSTC`
+        # `crates/voltaic-cli/build.rs` runs a candidate `rustc --version` and
+        # bakes the first path that answers like real rustc into `VOLTAIC_RUSTC`
         # (see AGENTS.md — neither `PATH` nor `$RUSTC` is trustworthy in this
         # project's environments). Inside the sandbox that resolves to the
         # store rustc below, and because the path is baked into the binary as a
         # string Nix finds it when it scans the output and keeps it as a
-        # runtime reference. That is what makes `redox check` work after a
+        # runtime reference. That is what makes `voltaic check` work after a
         # garbage collection.
         nativeBuildInputs = [pkgs.rustc pkgs.wasmtime pkgs.rustfmt];
 
         # **A checkout has no Rust to compile.** Plan 72 untracked every
         # `crates/*/src/`, so `git archive HEAD` — which is what a
-        # `github:Industrial/redox` flake input is served as — contains zero
+        # `github:Industrial/voltaic` flake input is served as — contains zero
         # files under any crate's `src/`. Verified rather than assumed:
         # `git archive HEAD | tar -t | grep -c '^crates/.*/src/'` is 0, while
         # `bootstrap.sh` and `seed/` are present.
         #
         # So the derivation has to do what `AGENTS.md` tells a human to do
         # before the first build: run the seed over every `.sdx`. `wasmtime`
-        # runs `seed/redox1.wasm` and `rustfmt` formats what it writes; both
+        # runs `seed/voltaic1.wasm` and `rustfmt` formats what it writes; both
         # are `bootstrap.sh`'s own declared tool requirements.
         #
         # This ran locally for a year without being noticed because
@@ -82,21 +82,21 @@
         doCheck = false;
 
         meta = {
-          description = "Redox compiler, language server and MCP server";
-          homepage = "https://github.com/Industrial/redox";
+          description = "Voltaic compiler, language server and MCP server";
+          homepage = "https://github.com/Industrial/voltaic";
           license = pkgs.lib.licenses.cc-by-sa-40;
-          mainProgram = "redox";
+          mainProgram = "voltaic";
         };
       };
     in {
-      inherit redox;
-      default = redox;
+      inherit voltaic;
+      default = voltaic;
 
-      # `redox-lsp` and `redox-mcp` are the same derivation under the names a
+      # `voltaic-lsp` and `voltaic-mcp` are the same derivation under the names a
       # consumer asks for. `~/.dotfiles` wants the editor pair by name, and an
       # alias is cheaper than three builds of one dependency graph.
-      redox-lsp = redox;
-      redox-mcp = redox;
+      voltaic-lsp = voltaic;
+      voltaic-mcp = voltaic;
     });
 
     formatter = forAllSystems (pkgs: pkgs.alejandra);

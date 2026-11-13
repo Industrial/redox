@@ -1,0 +1,556 @@
+import crate::binding::BindMode
+import crate::binding::BindScope
+import crate::binding::BindingScope
+import crate::binding::BindingTable
+import crate::binding::bind_block
+import crate::binding::binding_text
+import crate::control::ascribed_list
+import crate::control::assert_call
+import crate::control::catch_fallback
+import crate::control::control_text
+import crate::control::emit_block
+import crate::control::emit_case
+import crate::control::emit_comprehension
+import crate::control::emit_unsafe_block
+import crate::control::try_block
+import crate::control::unlowerable
+import crate::datatype::emit_record
+import crate::item::emit_items
+import crate::pattern::SynonymScope
+import crate::pattern::SynonymTable
+import crate::sink::RUST_INDENT
+import crate::sink::Sink
+import crate::sink::double_braces
+import crate::sink::emit_trivia
+import crate::sink::format_template
+import crate::sink::holes
+import crate::sink::pad_to
+import crate::sink::rust_escapes
+import crate::sink::rust_hatch_text
+import crate::template::TemplateScope
+import crate::template::TemplateTable
+import voltaic_ast::BinaryOp
+import voltaic_ast::Expr
+import voltaic_ast::FieldInit
+import voltaic_ast::Guard
+import voltaic_ast::Ident
+import voltaic_ast::Item
+import voltaic_ast::Program
+import voltaic_ast::Section
+import voltaic_diag::SourceMap
+import std::cell::RefCell
+import std::collections::BTreeMap
+
+export(crate) emit_application : &Expr -> &[Expr] -> usize -> String
+emit_application callee args indent =
+  at = holes args
+  if !.is_empty at
+    params : Vec<String> = 0 .. .len at |> .map closure_param |> .collect
+    mut filled : Vec<Expr> = Vec::new ()
+    mut taken = 0
+    for arg in args
+      is_hole = case arg of
+        Expr::Ident i -> i.text == "_"
+        _ -> false
+      if is_hole
+        .push (Expr::Ident (Ident { text = .clone params[taken], span = .span arg })) filled
+        taken += 1
+      else
+        .push (.clone arg) filled
+    body = emit_application callee (&filled) indent
+    return closure (&params) (&body)
+  if unparen callee is Expr::Call { callee = inner, args = inner_args, .. }
+    inner_is_method_ref = case unparen inner of
+      Expr::MethodRef { .. } -> true
+      _ -> false
+    if .is_some (missing_arity inner inner_args) || inner_is_method_ref
+      mut flattened = .clone inner_args
+      .extend (.cloned (.iter args)) flattened
+      return emit_application inner (&flattened) indent
+  if unparen callee is Expr::MethodRef { name, .. }
+    return method_ref name args indent
+  head = receiver callee indent
+  lone_unit = case args of
+    [Expr::Unit { .. }] -> true
+    _ -> false
+  unit_argument = lone_unit && .is_some_and (\seg -> .starts_with char::is_uppercase seg) (.next (.rsplit "::" head))
+  guard missing_arity callee args is Some missing else
+    if unit_argument
+      return format! \-> "#{head}(())"
+    listed = expr_list args indent
+    return format! \-> "#{head}(#{listed})"
+  params : Vec<String> = 0 .. missing |> .map closure_param |> .collect
+  listed = expr_list args indent
+  joined = .join ", " params
+  body = format! \-> "#{head}(#{listed}, #{joined})"
+  closure (&params) (&body)
+
+rust """
+  thread_local! {
+    /// The table in scope, empty outside an [`ArityScope`].
+    ///
+    /// Empty is the safe default and that is load-bearing: an arity nobody
+    /// installed is an arity nobody knows, which is the case plan 56 §11.1
+    /// settles by emitting a call.
+    static IN_SCOPE: RefCell<ArityTable> = RefCell::new(ArityTable::default());
+  }
+"""
+
+export(crate) data ArityScope = ArityScope { previous : ArityTable }
+
+instance ArityScope
+  export(crate) enter : ArityTable -> Self
+  enter table =
+    previous = .with_borrow_mut (\slot -> std::mem::replace slot table) IN_SCOPE
+    ArityScope { previous }
+
+  export(crate) arity_of : &str -> Option<usize>
+  arity_of name = .with_borrow (\table -> .arity_of name table) IN_SCOPE
+
+instance Drop ArityScope
+  drop : &mut self -> ()
+  drop self =
+    restored = std::mem::take $ &mut self.previous
+    _dropped = .with_borrow_mut (\slot -> std::mem::replace slot restored) IN_SCOPE
+    ()
+
+export(crate) data ArityTable = ArityTable { arities : BTreeMap<String, usize> }
+  deriving (Debug, Clone, Default)
+
+instance ArityTable
+  export(crate) from_items : &[Item] -> Self
+  from_items items =
+    mut table = ArityTable::default ()
+    mut ambiguous = Vec::new ()
+    .gather items (&mut ambiguous) table
+    for name in ambiguous
+      .remove (&name) table.arities
+    table
+
+  gather : &[Item] -> &mut Vec<String> -> &mut self -> ()
+  gather items ambiguous self =
+    for item in items
+      case item of
+        Item::Fn decl ->
+          arity = .len decl.sig.params
+          clash = .is_some_and (!= arity) (.insert (.clone decl.name.text) arity self.arities)
+          if clash
+            .push (.clone decl.name.text) ambiguous
+        Item::Module decl ->
+          if &decl.items is Some inner
+            .gather inner ambiguous self
+        _ -> ()
+    ()
+
+  export(crate) arity_of : &str -> &self -> Option<usize>
+  arity_of name self = self.arities |> .get name |> .copied
+
+export(crate) chain : &str -> &[String] -> usize -> String
+chain receiver segments base =
+  joined : String = .concat segments
+  if .len joined <= CHAIN_WIDTH && !.contains '\n' joined
+    return format! \-> "#{receiver}#{joined}"
+  mut out = .to_string receiver
+  for segment in segments
+    .push '\n' out
+    pad_to (&mut out) (base + RUST_INDENT)
+    .push_str segment out
+  out
+
+export(crate) const CHAIN_WIDTH : usize = 60
+
+export(crate) closure : &[String] -> &str -> String
+closure params body =
+  joined = .join ", " params
+  format! \-> "|#{joined}| #{body}"
+
+export(crate) closure_param : usize -> String
+closure_param index = format! \-> "__rdx_#{index + 1}"
+
+export(crate) coalesce : &Expr -> &Expr -> usize -> String
+coalesce lhs rhs indent =
+  arm_pad = .repeat (indent + RUST_INDENT) " "
+  close_pad = .repeat indent " "
+  scrutinee = emit_expr (unparen lhs) indent
+  fallback = emit_expr (unparen rhs) (indent + RUST_INDENT)
+  format! \-> "match #{scrutinee} {\n#{arm_pad}Some(__rdx_v) => __rdx_v,\n#{arm_pad}None => #{fallback},\n#{close_pad}}"
+
+export(crate) compose : BinaryOp -> &Expr -> &Expr -> usize -> usize -> String
+compose op lhs rhs param indent =
+  mut links = Vec::new ()
+  compose_chain op lhs rhs (&mut links)
+  name = closure_param param
+  mut applied = Expr::Ident (Ident { text = .clone name, span = .span lhs })
+  for function in links
+    applied := Expr::Call { callee = Box::new (.clone function), args = vec! \-> applied, is_dollar = false, span = .span function }
+  body = emit_expr (&applied) indent
+  closure (&[name]) (&body)
+
+export(crate) compose_chain : BinaryOp -> &'a Expr -> &'a Expr -> &mut Vec<&'a Expr> -> ()
+compose_chain op lhs rhs out =
+  swap = case op of
+    BinaryOp::ComposeBack -> true
+    _ -> false
+  sides = if swap
+    (rhs, lhs)
+  else
+    (lhs, rhs)
+  for side in [sides.0, sides.1]
+    bare = unparen side
+    composed = case bare of
+      Expr::Binary { op, lhs, rhs, .. } | *op == BinaryOp::Compose || *op == BinaryOp::ComposeBack ->
+        Some (*op, lhs, rhs)
+      _ -> None
+    case composed of
+      Some parts -> compose_chain parts.0 parts.1 parts.2 out
+      None -> .push bare out
+  ()
+
+export(crate) emit_expr : &Expr -> usize -> String
+emit_expr e indent = case e of
+  Expr::Lambda { params, body, is_move, .. } ->
+    binders : Vec<String> = params
+      |> .iter
+      |> .map (\param ->
+      case &param.ty of
+        Some ty -> format! \-> "#{param.name.text}: #{ty.text}"
+        None -> .clone param.name.text)
+      |> .collect
+    marker = if *is_move
+      "move "
+    else
+      ""
+    joined = .join ", " binders
+    inner = emit_expr body indent
+    format! \-> "#{marker}|#{joined}| #{inner}"
+  Expr::Ascribe { inner, ty, .. } ->
+    inner_pad = .repeat (indent + RUST_INDENT) " "
+    close_pad = .repeat indent " "
+    bare = unparen inner
+    value = .unwrap_or_else (\-> emit_expr bare (indent + RUST_INDENT)) (ascribed_list bare ty (indent + RUST_INDENT))
+    format! \-> "{\n#{inner_pad}let __rdx_t: #{ty.text} = #{value};\n#{inner_pad}__rdx_t\n#{close_pad}}"
+  Expr::Section { section, .. } -> emit_section section indent
+  Expr::Record { head, fields, .. } -> emit_record head fields indent
+  Expr::Case { scrutinee, arms, .. } -> emit_case scrutinee arms indent
+  Expr::Block { label, body, .. } -> emit_block label body indent
+  Expr::Unit { .. } -> .to_string "()"
+  Expr::Try { inner, .. } -> format! \-> "#{receiver inner indent}?"
+  Expr::List { items, .. } -> format! \-> "[#{expr_list items indent}]"
+  Expr::Comprehension { element, qualifiers, .. } -> emit_comprehension element qualifiers indent
+  Expr::StrLit { value, .. } -> rust_escapes value
+  Expr::StrInterp { parts, .. } ->
+    built = format_template parts indent
+    if .is_empty built.1
+      return format! \-> "format!(\"#{built.0}\")"
+    joined = .join ", " built.1
+    format! \-> "format!(\"#{built.0}\", #{joined})"
+  Expr::MethodRef { name, .. } -> method_ref name (&[]) indent
+  Expr::TryBlock { body, .. } ->
+    _bind = BindScope::enter BindMode::Question
+    try_block body indent
+  Expr::AsyncBlock { body, .. } ->
+    _bind = BindScope::enter BindMode::Await
+    format! \-> "async #{emit_block (&None) body indent}"
+  Expr::BindBlock { method, body, .. } -> bind_block method (&body.stmts) indent
+  Expr::UnsafeBlock { body, .. } -> emit_unsafe_block body indent
+  Expr::Tuple { items, .. } ->
+    inner = expr_list items indent
+    if .len items == 1
+      return format! \-> "(#{inner},)"
+    format! \-> "(#{inner})"
+  Expr::ArrayRepeat { value, count, .. } ->
+    v = emit_expr (unparen value) indent
+    n = emit_expr (unparen count) indent
+    format! \-> "[#{v}; #{n}]"
+  Expr::RawLit { text, .. } -> .clone text
+  Expr::Num { text, .. } -> .clone text
+  Expr::Bool { value, .. } -> .to_string value
+  Expr::Char { value, .. } -> format! \-> "#{value:?}"
+  Expr::Ident i -> binding_text (&i.text)
+  Expr::Path { text, .. } -> binding_text text
+  Expr::SelfField { name, .. } -> format! \-> "self.#{name.text}"
+  Expr::SelfType { name, .. } -> format! \-> "Self::#{name.text}"
+  Expr::Paren { inner, .. } -> format! \-> "(#{emit_expr inner indent})"
+  Expr::Unary { op, operand, .. } -> format! \-> "#{.rust_text op}#{emit_expr operand indent}"
+  Expr::Over { selector, function, place, .. } -> emit_over selector function place indent
+  Expr::UserBinary { target, lhs, rhs, .. } ->
+    left = emit_expr lhs indent
+    right = emit_expr rhs indent
+    format! \-> "#{target}(#{left}, #{right})"
+  Expr::Binary { op, lhs, rhs, .. } | *op == BinaryOp::Pipeline -> pipeline lhs rhs indent
+  Expr::Binary { op, lhs, rhs, .. } | *op == BinaryOp::Coalesce -> coalesce lhs rhs indent
+  Expr::Binary { op, lhs, rhs, .. } | *op == BinaryOp::Catch -> catch_fallback lhs rhs indent
+  Expr::Binary { op, lhs, rhs, .. } | *op == BinaryOp::Compose || *op == BinaryOp::ComposeBack -> compose (*op) lhs rhs 0 indent
+  Expr::Binary { op, lhs, rhs, .. } -> case .rust_text op of
+    Some text | .is_range op ->
+      left = emit_expr lhs indent
+      right = emit_expr rhs indent
+      format! \-> "#{left}#{text}#{right}"
+    Some text ->
+      left = emit_expr lhs indent
+      right = emit_expr rhs indent
+      format! \-> "#{left} #{text} #{right}"
+    None -> format! \-> "compile_error!(\"`#{op:?}` is parsed but not yet lowered\")"
+  Expr::Field { recv, name, .. } -> format! \-> "#{receiver recv indent}.#{name.text}"
+  Expr::Index { recv, index, .. } ->
+    head = receiver recv indent
+    at = emit_expr index indent
+    format! \-> "#{head}[#{at}]"
+  Expr::Call { callee, args, .. } ->
+    lone_unit = case .as_slice args of
+      [Expr::Unit { .. }] -> true
+      _ -> false
+    if .is_empty args || lone_unit
+      named = case .as_ref callee of
+        Expr::Ident name -> Some $ .as_str name.text
+        Expr::Path { text, .. } -> Some (.as_str text)
+        _ -> None
+      if named is Some name && .is_some (BindingScope::kind_of name)
+        return binding_text name
+    emit_application callee args indent
+  Expr::Return { value, .. } -> case value of
+    Some v -> format! \-> "return #{emit_expr v indent}"
+    None -> .to_string "return"
+  Expr::Break { label, value, .. } ->
+    mut out = .to_string "break"
+    if label is Some name
+      .push_str (&format! \-> " '#{name}") out
+    if value is Some v
+      .push_str (&format! \-> " #{emit_expr (unparen v) indent}") out
+    out
+  Expr::Continue { label, .. } -> case label of
+    Some name -> format! \-> "continue '#{name}"
+    None -> .to_string "continue"
+  Expr::Assign { target, op, value, .. } ->
+    operator = .map_or "" (\o -> .unwrap_or "/* unsupported */" (.rust_text o)) (*op)
+    left = emit_expr (unparen target) indent
+    right = emit_expr (unparen value) indent
+    format! \-> "#{left} #{operator}= #{right}"
+  Expr::MacroCall { name, args, .. } -> macro_call name args indent
+  Expr::RustHatch { code, .. } -> rust_hatch_text code indent
+  Expr::Await { pattern = None, value, .. } -> format! \-> "#{receiver (unparen value) indent}.await"
+  Expr::If { .. } or Expr::While { .. } or Expr::For { .. } or Expr::Loop { .. } -> control_text e indent
+  Expr::Binding _ -> unlowerable "a binding"
+  Expr::Item { .. } -> unlowerable "a declaration"
+  Expr::Guard { .. } -> unlowerable "a `guard`"
+  Expr::Draw { .. } -> unlowerable "a `with` binder"
+  Expr::Await { pattern = Some _, .. } -> unlowerable "an `await` that binds"
+
+export(crate) expr_list : &[Expr] -> usize -> String
+expr_list args indent =
+  lone_unit = case args of
+    [Expr::Unit { .. }] -> true
+    _ -> false
+  if lone_unit
+    return String::new ()
+  parts : Vec<String> = args
+    |> .iter
+    |> .map (\e -> emit_expr (unparen e) indent)
+    |> .collect
+  .join ", " parts
+
+export(crate) field_value : &FieldInit -> usize -> String
+field_value f indent = case &f.value of
+  Some e -> emit_expr (unparen e) indent
+  None -> .clone f.name.text
+
+export(crate) const FN_CALL_WIDTH : usize = 60
+
+export(crate) macro_call : &str -> &[Expr] -> usize -> String
+macro_call name args indent =
+  if name == "assert" && .len args == 1
+    rewritten = assert_call (&args[0]) indent
+    if !.starts_with "assert!" rewritten
+      return rewritten
+  supplied : Vec<String> = args
+    |> .iter
+    |> .flat_map (\a -> macro_argument a indent)
+    |> .collect
+  arguments = .join ", " supplied
+  one_line = format! \-> "#{name}!(#{arguments})"
+  if !.contains '\n' arguments && .len arguments <= FN_CALL_WIDTH
+    return one_line
+  if .is_some_and (\a -> .starts_with '{' a) (.last supplied)
+    return one_line
+  inner_pad = .repeat (indent + RUST_INDENT) " "
+  close_pad = .repeat indent " "
+  separator = format! \-> ",\n#{inner_pad}"
+  parts : Vec<String> = args
+    |> .iter
+    |> .flat_map (\a -> macro_argument a (indent + RUST_INDENT))
+    |> .collect
+  spread = .join (&separator) parts
+  format! \-> "#{name}!(\n#{inner_pad}#{spread}\n#{close_pad})"
+
+export(crate) macro_argument : &Expr -> usize -> Vec<String>
+macro_argument arg indent = case unparen arg of
+  Expr::StrLit { value, .. } -> vec! \-> double_braces (&rust_escapes value)
+  Expr::StrInterp { parts, .. } ->
+    built = format_template parts indent
+    mut supplied = vec! \-> format! \-> "\"#{built.0}\""
+    .extend built.1 supplied
+    supplied
+  other -> vec! \-> emit_expr other indent
+
+export(crate) method_ref : &Ident -> &[Expr] -> usize -> String
+method_ref name args indent =
+  guard .split_last args is Some split else
+    param = closure_param 0
+    body = format! \-> "#{param}.#{name.text}()"
+    return closure (&[param]) (&body)
+  recv = receiver split.0 indent
+  rest = expr_list split.1 indent
+  format! \-> "#{recv}.#{name.text}(#{rest})"
+
+export(crate) missing_arity : &Expr -> &[Expr] -> Option<usize>
+missing_arity callee args =
+  guard unparen callee is Expr::Ident name else
+    return None
+  arity = (ArityScope::arity_of (&name.text))?
+  lone_unit = case args of
+    [Expr::Unit { .. }] -> true
+    _ -> false
+  if .is_empty args || lone_unit
+    return None
+  .then (\-> arity - .len args) (.len args < arity)
+
+export(crate) emit_over : &[Ident] -> &Expr -> &Expr -> usize -> String
+emit_over selector function place indent =
+  mut chain = .clone place
+  for name in selector
+    chain := Expr::Field { recv = Box::new chain, name = .clone name, span = .span place }
+  target = emit_expr (&chain) indent
+  applied = Expr::Call { callee = Box::new (.clone function), args = vec! \-> .clone chain, is_dollar = false, span = .span function }
+  value = emit_expr (&applied) indent
+  format! \-> "#{target} = #{value}"
+
+export(crate) pipeline : &Expr -> &Expr -> usize -> String
+pipeline lhs rhs indent = case unparen rhs of
+  Expr::MethodRef { name, .. } -> format! \-> "#{receiver lhs indent}.#{name.text}()"
+  Expr::Call { callee, args, .. } -> case unparen callee of
+    Expr::MethodRef { name, .. } ->
+      recv = receiver lhs indent
+      listed = expr_list args indent
+      format! \-> "#{recv}.#{name.text}(#{listed})"
+    other ->
+      mut supplied : Vec<String> = args
+        |> .iter
+        |> .map (\a -> emit_expr a indent)
+        |> .collect
+      .push (emit_expr lhs indent) supplied
+      joined = .join ", " supplied
+      format! \-> "#{callable other indent}(#{joined})"
+  other -> format! \-> "#{callable other indent}(#{emit_expr lhs indent})"
+
+export(crate) callable : &Expr -> usize -> String
+callable callee indent = case callee of
+  Expr::Ident _ or Expr::Path { .. } -> emit_expr callee indent
+  _ -> format! \-> "(#{emit_expr callee indent})"
+
+export(crate) receiver : &Expr -> usize -> String
+receiver e indent =
+  bare = unparen e
+  text = emit_expr bare indent
+  if wraps_as_receiver bare
+    return format! \-> "(#{text})"
+  text
+
+export(crate) emit_section : &Section -> usize -> String
+emit_section section indent =
+  param = closure_param 0
+  composed = case section of
+    Section::Right { op, operand } | *op == BinaryOp::Compose || *op == BinaryOp::ComposeBack -> Some (*op, true, operand)
+    Section::Left { op, operand } | *op == BinaryOp::Compose || *op == BinaryOp::ComposeBack -> Some (*op, false, operand)
+    _ -> None
+  if composed is Some parts
+    op = parts.0
+    hole_on_the_left = parts.1
+    operand = parts.2
+    hole = Expr::Ident (Ident { text = .clone param, span = .span operand })
+    sides = if hole_on_the_left
+      (&hole, .as_ref operand)
+    else
+      (.as_ref operand, &hole)
+    inner = compose op sides.0 sides.1 1 indent
+    typed = format! \-> "#{param}: fn(_) -> _"
+    moved = format! \-> "move #{inner}"
+    return closure (&[typed]) (&moved)
+  body = case section of
+    Section::Field path ->
+      joined : Vec<&str> = path
+        |> .iter
+        |> .map (\n -> .as_str n.text)
+        |> .collect
+      format! \-> "#{param}.#{(.join "." joined)}"
+    Section::Right { op, operand } ->
+      value = emit_expr (unparen operand) indent
+      case .compare_method op of
+        Some method -> format! \-> "#{param}.#{method}(&#{value})"
+        None ->
+          spelling = op |> .rust_text |> .unwrap_or "/* unsupported */"
+          format! \-> "#{param} #{spelling} #{value}"
+    Section::Left { op, operand } ->
+      value = emit_expr (unparen operand) indent
+      case .and_then voltaic_ast::BinaryOp::compare_method (.flipped op) of
+        Some method -> format! \-> "#{param}.#{method}(&#{value})"
+        None ->
+          spelling = op |> .rust_text |> .unwrap_or "/* unsupported */"
+          format! \-> "#{value} #{spelling} #{param}"
+  closure (&[param]) (&body)
+
+export(crate) sole_expression : &Guard -> usize -> Option<String>
+sole_expression row indent =
+  .map (\e -> emit_expr (unparen e) indent) $ .sole_expression row.body
+
+export(crate) unparen : &Expr -> &Expr
+unparen expr = case expr of
+  Expr::Paren { inner, .. } -> unparen inner
+  other -> other
+
+#[cfg(test)]
+ident : &str -> Expr
+ident text = Expr::Ident (voltaic_ast::Ident { text = .to_string text, span = (0, 0) })
+
+#[cfg(test)]
+paren : Expr -> Expr
+paren inner = Expr::Paren { inner = Box::new inner, span = (0, 0) }
+
+test "strips one layer"
+  assert_eq! \-> unparen (&paren (ident "x")) \-> &ident "x"
+
+test "strips every layer"
+  assert_eq! \-> unparen (&paren (paren (paren (ident "x")))) \-> &ident "x"
+
+test "leaves an unparenthesised expression alone"
+  assert_eq! \-> unparen (&ident "x") \-> &ident "x"
+
+export emit_with_map : &Program -> &str -> &str -> (String, SourceMap)
+emit_with_map program source source_path =
+  _arity = ArityScope::enter $ ArityTable::from_items (&program.items)
+  _bindings = BindingScope::enter $ BindingTable::from_items (&program.items)
+  _synonyms = SynonymScope::enter $ SynonymTable::from_items (&program.items)
+  _templates = TemplateScope::enter $ TemplateTable::from_items (&program.items)
+  mut out = Sink::new source
+  emit_items (&mut out) (&program.items) 0
+  .unmark out
+  emit_trivia (&mut out) (&program.trailing) 0
+  while .ends_with "\n\n" out
+    .pop out
+  if !.is_empty out && !.ends_with "\n" out
+    .push '\n' out
+  .finish source_path out
+
+export(crate) wraps_as_receiver : &Expr -> bool
+wraps_as_receiver e =
+  is_pipeline = case e of
+    Expr::Binary { op, .. } | *op == voltaic_ast::BinaryOp::Pipeline -> true
+    _ -> false
+  if is_pipeline
+    return false
+  if e is Expr::Try { .. }
+    return false
+  if e is Expr::Call { callee, args, .. }
+    return .is_some (missing_arity callee args)
+  case e of
+    Expr::Binary { .. } or Expr::Unary { .. } or Expr::Ascribe { .. } or Expr::Lambda { .. } or Expr::Case { .. } or Expr::Record { .. } or Expr::Section { .. } or Expr::MethodRef { .. } or Expr::Comprehension { .. } -> true
+    _ -> false

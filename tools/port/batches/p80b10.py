@@ -14,7 +14,7 @@ also the densest `RDX1003` site in the crate.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('remap/rustc_message', '''
@@ -99,13 +99,13 @@ test "survives a colon in the path"
   assert_eq! \\-> m.path \\-> "C:\\\\out\\\\main.xrs"
   assert_eq! \\-> (m.line, m.col) \\-> (6, 24)
 
--- | A level rustc does not use is not a diagnostic Redox should relay.
+-- | A level rustc does not use is not a diagnostic Voltaic should relay.
 test "declines an unknown level"
   assert_eq! \\-> RustcMessage::parse "main.xrs:1:1: help: try this" \\-> None
 ''')
 
 write('lint', '''
-import redox_diag::DiagnosticCode
+import voltaic_diag::DiagnosticCode
 
 export lint : &Path -> &str -> Option<&Program> -> Vec<Diagnostic>
 lint path source program =
@@ -126,7 +126,7 @@ lint path source program =
 
   unwraps = unwrap_call_sites source program
     |> .into_iter
-    |> .map (\\span -> warning (DiagnosticCode::from Code::UnwrapUsed) (.to_string UNWRAP_MESSAGE) span (.to_string "if a panic is intended here, say so on the line above: `\\#[redox::allow(unwrap)]`"))
+    |> .map (\\span -> warning (DiagnosticCode::from Code::UnwrapUsed) (.to_string UNWRAP_MESSAGE) span (.to_string "if a panic is intended here, say so on the line above: `\\#[voltaic::allow(unwrap)]`"))
 
   pragmas = comment_pragma_sites source
     |> .into_iter

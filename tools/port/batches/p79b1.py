@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Plan 79 batch 1: five of `redox-cli`'s bodies."""
+"""Plan 79 batch 1: five of `voltaic-cli`'s bodies."""
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('check_command', '''
@@ -14,7 +14,7 @@ check_command args =
   shown = .to_string (.display parsed.input)
   source = (.map_err (\\e -> format! \\-> "error: cannot read #{shown}: #{e}") (std::fs::read_to_string (&parsed.input)))?
 
-  outcome = (redox_driver::check (&parsed.input) (&source))?
+  outcome = (voltaic_driver::check (&parsed.input) (&source))?
   report (&outcome) parsed.plain
 ''')
 
@@ -34,7 +34,7 @@ export(crate) report : &CheckOutcome -> bool -> Result<(), String>
 report outcome plain =
   if .is_empty outcome.diagnostics
     return Ok ()
-  rendered = redox_diag::render (&outcome.diagnostics) plain
+  rendered = voltaic_diag::render (&outcome.diagnostics) plain
   if outcome.failed
     return Err rendered
   eprintln! \\-> "#{rendered}"

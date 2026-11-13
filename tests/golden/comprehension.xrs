@@ -30,7 +30,7 @@ fn main() {
 
     // A guard. `filter_map` hands the closure the *value*, so the guard reads
     // as written — §3.2's own lowering uses `filter`, whose closure receives a
-    // reference and so needs a `*` Redox cannot know to insert.
+    // reference and so needs a `*` Voltaic cannot know to insert.
     let odd: Vec<i32> = xs
         .into_iter()
         .filter_map(|n| if n % 2 == 1 { Some(n) } else { None })

@@ -61,7 +61,7 @@ Doc 03 §4.2 and §6.5 spell a rest pattern `...rest`:
 ```
 
 Doc 18 §7 removes `...` from the language. That is not a loss here, because the two tokens
-Rust uses are both already Redox's: `..` is the range operator and `@` is the as-pattern,
+Rust uses are both already Voltaic's: `..` is the range operator and `@` is the as-pattern,
 which doc 18 §4.3 deliberately left as `@`'s *"exactly one meaning"*. So the spelling
 becomes Rust's:
 
@@ -218,7 +218,7 @@ A binding's left side becomes a `Pattern`. A plain name still emits what it emit
 
 - **Splat in argument position** is deleted by doc 18 §7 with `...`. Not deferred.
 - **Anonymous record patterns**, `RDX0042` and `RDX0043` are deleted by doc 18 §2.3 — §1.5.
-- **Exhaustiveness** stays rustc's, per doc 03 §6.6: *"Redox never synthesises a wildcard
+- **Exhaustiveness** stays rustc's, per doc 03 §6.6: *"Voltaic never synthesises a wildcard
   arm."* This plan adds pattern forms and no analysis, so a missing variant is still
   reported by rustc against the author's own arms.
 - **Reference patterns** — `&x`, `ref x` — are not in doc 03 §6's grammar and are not added.
@@ -255,7 +255,7 @@ already the shape here.
 | # | Decision | Alternative rejected | Why |
 |---|---|---|---|
 | 1 | A record pattern takes `=` | Doc 03 §6.3's `:` | Doc 18 §2.4 made the literal `=` and §5.2 left `:` no job in braces. Two spellings of one shape differing only by position is what §5.3 exists to remove |
-| 2 | A rest pattern is `..` and `rest @ ..` | Doc 03 §6.5's `...rest` | `...` left the language with doc 18 §7, and both of Rust's tokens are already Redox's. One fewer token and one fewer lowering — §1.3 |
+| 2 | A rest pattern is `..` and `rest @ ..` | Doc 03 §6.5's `...rest` | `...` left the language with doc 18 §7, and both of Rust's tokens are already Voltaic's. One fewer token and one fewer lowering — §1.3 |
 | 3 | `..`'s meaning is positional | A second token for the rest | All four positions are decidable from what precedes the token, with no lookahead — the same property `<-`'s four positions have. A second token would be a second thing to learn for no gain |
 | 4 | A binding's left side becomes a `Pattern` | A separate destructuring statement | `(a, b) = p` *is* a binding; a second node would duplicate every binding behaviour. Criterion 8 guards the plain-name path |
 | 5 | `...rest` gets its own diagnostic | Let it fail as an unexpected token | An author following doc 03 §6.5 wrote the published spelling. The message names the correction, as `RDX0106` does for doc 01 §4.3's module-scope binding |
@@ -335,7 +335,7 @@ side**: a test for either alone passes whatever the other does. Both `Pattern::T
 ### 10.5 §1.3's prediction held
 
 With `...` gone, a rest pattern is `..` and `rest @ ..` — Rust's own, because both tokens
-were already Redox's. No lowering, no new token, and `[first, .., last]` reads the same in
+were already Voltaic's. No lowering, no new token, and `[first, .., last]` reads the same in
 both languages. `RDX0108` catches the published `...rest` spelling and names the correction,
 because an author who writes it followed doc 03 §6.5.
 

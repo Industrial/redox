@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""redox-diag batch 9 — diagnostic/code, the last file.
+"""voltaic-diag batch 9 — diagnostic/code, the last file.
 
 The translator handled all 382 lines of the enum; this is the `impl` and the
 five tests. New shapes: a `#[cfg(test)]` attribute on an instance member, a
@@ -8,7 +8,7 @@ interpolation, and `(1..=39).contains` on a range value.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 NUMBERS = [

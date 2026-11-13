@@ -26,7 +26,7 @@ arm added. The reason the limit has to go is in §1.2.
 
 Measured across the new corpus — 12 programs, 1,501 lines, 905 of them code: of sixteen
 constructs that refuse or reinterpret, **fifteen are caught by something** — eleven by a named
-Redox diagnostic, four by rustc on the generated code. Exactly one is caught by nothing:
+Voltaic diagnostic, four by rustc on the generated code. Exactly one is caught by nothing:
 
 ```
 mut i = 0
@@ -63,7 +63,7 @@ Three other spellings were weighed.
 
 **`=` assigns when the name is an existing `mut` binding.** Shortest, reads best, and requires
 knowing whether a name is already bound — scope tracking. AGENTS.md: *every check rustc can
-make, rustc makes*, and Redox has no scope table. Plan 20 §10.2 refused this on exactly that
+make, rustc makes*, and Voltaic has no scope table. Plan 20 §10.2 refused this on exactly that
 ground and the refusal still holds.
 
 **`set i = j`.** A word rather than a sigil, greppable, and `=` untouched. Declined on weight:
@@ -72,7 +72,7 @@ other language says with punctuation, and the milestone is already adding `is`, 
 (plan 66, superseding plan 58's `>|` / `|<`) and `\->`.
 
 **Stay assignment-free and make the shadow an error.** The declarative option, and the one
-closest to Haskell. Declined because Redox has `mut`, `while`, `until`, `for` and compound
+closest to Haskell. Declined because Voltaic has `mut`, `while`, `until`, `for` and compound
 assignment already — the language is not pure, and refusing the one operation that makes its
 existing mutation vocabulary usable would be a purity it does not have anywhere else.
 
@@ -178,7 +178,7 @@ warning rather than an error because shadowing is legal and sometimes meant.
 `examples/control.sdx` gains the swap and the non-numeric conditional update. Plan 20 wrote that
 file *within* the limit this row removes, and the record of the limit is **not** in the file — it
 is plan 20 §10.2's prose and the emit test `a_plain_equals_is_still_a_binding` in
-`crates/redox-emit/tests/control.rs`. That test asserts the boundary this row moves, so it is a
+`crates/voltaic-emit/tests/control.rs`. That test asserts the boundary this row moves, so it is a
 migration target: rewritten to assert that `=` still binds **and** that `:=` assigns, which is
 the boundary after this row rather than before it.
 
@@ -248,7 +248,7 @@ non-`mut` refusal in `tests/ui/`; `construct_coverage` green.
 ## 8. Emerald reuse
 
 Emerald had assignment from the start and therefore never recorded why. The reusable item is
-Redox's own: **plan 20 §10.1's finding that a row's scope can be smaller than the thing it
+Voltaic's own: **plan 20 §10.1's finding that a row's scope can be smaller than the thing it
 claims to deliver** — a `while` whose body cannot change its condition is not a loop — and that
 is the fourth such case plan 20 counted.
 
@@ -259,7 +259,7 @@ than discovering it at the gate. The disclosure plan 20 wrote is why.
 
 ## 9. Decision log
 
-1. **`:=`, as plan 20 §10.2 named it.** The alternatives are in §1.3; two cost analysis Redox
+1. **`:=`, as plan 20 §10.2 named it.** The alternatives are in §1.3; two cost analysis Voltaic
    must not grow, and one costs a keyword for no gain.
 2. **`=` keeps shadowing.** Changing it would make every existing program's `=` ambiguous and
    would require the scope table that rules out the `=`-assigns design.
@@ -290,29 +290,29 @@ AST change is one field.
 
 That matters beyond the line count. `emit/stmt.rs`'s match is deliberately
 exhaustive — *"a new `StmtKind` must fail to compile here"* — and the same is
-true of `redox-fmt`'s `kind_text.rs`. A design that adds a variant pays that
+true of `voltaic-fmt`'s `kind_text.rs`. A design that adds a variant pays that
 tax at four sites; one that refines a field pays it at the two that actually
 print the operator, which is where the real decision lives:
 
 ```rust
-// redox-emit                        // redox-fmt
-op.map_or("", |op| op.rust_text())   op.map_or(":", |op| op.redox_text())
+// voltaic-emit                        // voltaic-fmt
+op.map_or("", |op| op.rust_text())   op.map_or(":", |op| op.voltaic_text())
 ```
 
-Redox's two spellings collapse to Rust's one, and the asymmetry in those two
+Voltaic's two spellings collapse to Rust's one, and the asymmetry in those two
 lines *is* the row: Rust tells a binding from an assignment with `let`, and
-Redox has no `let` to lean on. Printing a bare `=` in the formatter would turn
+Voltaic has no `let` to lean on. Printing a bare `=` in the formatter would turn
 an assignment back into a binding.
 
 ### 10.2 Criterion 3 was in the wrong corpus, and the reason generalises
 
 Criterion 3 named `tests/ui/`. It cannot live there: `ui.rs` runs
-`redox build`, which parses, lints, emits and writes **without ever invoking
+`voltaic build`, which parses, lints, emits and writes **without ever invoking
 rustc**, so a program whose only fault is `E0384` builds clean and the harness
 fails on its own `assert!(!out.status.success())`.
 
-The fixture is `crates/redox-cli/tests/check/immutable_assignment.sdx`, and
-`redox check` reports
+The fixture is `crates/voltaic-cli/tests/check/immutable_assignment.sdx`, and
+`voltaic check` reports
 
 ```text
 error[E0384]: cannot assign twice to immutable variable `total`
@@ -320,7 +320,7 @@ error[E0384]: cannot assign twice to immutable variable `total`
 ```
 
 against the `.sdx`. `is_mut` is set only by the literal `mut` keyword and the
-emitter writes `mut` only when it is set, so Redox has no mechanism to make
+emitter writes `mut` only when it is set, so Voltaic has no mechanism to make
 this compile — and the test is what stops one being added as a convenience
 later. *"Every check rustc can make, rustc makes."*
 
@@ -331,7 +331,7 @@ compound assignment and the reason `self.value`, `v[0]` and `*r` all work. So
 does `(a, b) := (b, a)` — Rust's destructuring assignment, stable since 1.59 —
 and §6 and decision 5 declined it.
 
-**The decline is withdrawn.** Refusing it would mean Redox deciding what is and
+**The decline is withdrawn.** Refusing it would mean Voltaic deciding what is and
 is not a place expression, and `(1 + 2) := 3` is rustc's `E0070`: it is a check
 rustc makes, so rustc makes it. The alternative also costs the corpus its best
 line — a swap is the one shape no compound operator can express, and
@@ -379,7 +379,7 @@ Deferred until plan 53 had landed, for the reason §11.2 gives: leaf 3 says the
 lint is *"one list, in the parser"*, and `lint.rs`'s own module doc had already
 settled that a lint cannot live there — `ParseFailure` has no notion of a
 warning, and `Diagnostic` is the type that carries a `Severity`. It is in
-`crates/redox-driver/src/lint/`, over the AST.
+`crates/voltaic-driver/src/lint/`, over the AST.
 
 **Detection is lexical and suppression walks the tree**, which is plan 53's
 split reused rather than re-derived. And reused literally: plan 53's three
@@ -404,11 +404,11 @@ counts: `for x in xs` scopes its binder to the body and is not a shadow, while
 have **no `:=` form**, so a warning there would name a problem and offer no fix.
 
 **The pragma is parametrised by a type, not a second string.** A `Lint` enum in
-`redox-diag` holds each lint's name once and derives both spellings from it, so
+`voltaic-diag` holds each lint's name once and derives both spellings from it, so
 `Lint::all()` makes recognition total and the producer cannot drift from the
 recogniser — `emit/trivia.rs`'s consume test is now
-`Lint::from_allow_attribute(…).is_some()`, so a lint added in `redox-diag` is
-consumed without that file being touched. `#[redox::allow(unwrap)]` is
+`Lint::from_allow_attribute(…).is_some()`, so a lint added in `voltaic-diag` is
+consumed without that file being touched. `#[voltaic::allow(unwrap)]` is
 unchanged byte for byte, and whitespace inside the brackets is still not
 normalised. A pragma now silences the lint it names and no other.
 
@@ -419,7 +419,7 @@ and the lint cannot tell them apart:
 warning[RDX1003]: `cursor` is already bound in this block — a bare `=` binds a
 second name rather than reassigning the first (plan 54 §1.1)
   = help: to reassign instead, write `:=` and `mut` on the first binding; if the
-    shadow is meant, say so on the line above: `#[redox::allow(shadow)]`
+    shadow is meant, say so on the line above: `#[voltaic::allow(shadow)]`
 ```
 
 `mut` is in there because without it the advice fails — `:=` on a non-`mut`
@@ -427,7 +427,7 @@ binding is the `E0384` that `tests/check/immutable_assignment.sdx` pins. The
 span is the identifier's rather than the statement's, and sits inside the
 statement span so a leading pragma still suppresses it.
 
-**It fires on nothing that existed.** A throwaway probe ran `redox build` over
+**It fires on nothing that existed.** A throwaway probe ran `voltaic build` over
 all 108 `.sdx` files in the repository and found one hit: the fixture written
 for it. `examples/control.sdx`'s deliberate nested shadow stays silent, which is
 criterion 5.
@@ -447,7 +447,7 @@ string*. Match `warning[RDX1003]`.
   `LBrace` at the second token and `reaches_a_binding_eq` scans for a
   depth-zero `Eq`, so a `ColonEq` answers no to both and falls through to
   `parse_expr` with *"expected a line break after the statement"*.
-- **`redox-bench` builds the signature marker in a `format!` template**, so
+- **`voltaic-bench` builds the signature marker in a `format!` template**, so
   `both_halves_define_the_same_function` spelled it `::` and survived a
   repository-wide sweep for a spaced `::` — the space comes from `"{} ::"`, not
   from the file. It was the last one left.
@@ -471,23 +471,23 @@ have sent the implementation to the wrong crate or the wrong corpus.
 
 ### 11.1 Criterion 3 names a corpus that cannot carry it
 
-`tests/ui/` runs `redox build --plain` and asserts the case **fails**
-(`crates/redox-cli/tests/ui.rs`). `build_command.rs` never invokes rustc — it
+`tests/ui/` runs `voltaic build --plain` and asserts the case **fails**
+(`crates/voltaic-cli/tests/ui.rs`). `build_command.rs` never invokes rustc — it
 parses, lints, emits and writes. A program whose only fault is
 `cannot assign twice to immutable variable` therefore **builds clean**, and the
 ui harness fails on its own assertion rather than on the program.
 
 The corpus that runs real rustc and remaps its message onto the `.sdx` is
-`tests/check/` with `crates/redox-cli/tests/check.rs` — five fixtures
+`tests/check/` with `crates/voltaic-cli/tests/check.rs` — five fixtures
 (`clean`, `restructured`, `syntax`, `trivial`, `verbatim`), hand-written line
 and column assertions rather than blessed `.stderr`. Criterion 3 belongs there.
-(`tests/unreachable/` also runs `redox check`, but is reserved for
+(`tests/unreachable/` also runs `voltaic check`, but is reserved for
 `docs/GRAMMAR.md`'s `UNREACHABLE` rows.)
 
 ### 11.2 Leaf 3 puts the lint in the crate whose own documentation refuses it
 
 Leaf 3 says the shadow lint is "one list, in the parser".
-`crates/redox-driver/src/lint.rs`'s module doc, under *Why the driver and not
+`crates/voltaic-driver/src/lint.rs`'s module doc, under *Why the driver and not
 the parser*, already settled this:
 
 > Plan 30's `check_callback_tails` is a whole-program pass in the **parser**,
@@ -496,13 +496,13 @@ the parser*, already settled this:
 > `Diagnostic` is the type that carries a `Severity`, and the driver is where
 > `Diagnostic`s are built
 
-So the lint lives in `crates/redox-driver/src/lint/`, over the AST. That brings
+So the lint lives in `crates/voltaic-driver/src/lint/`, over the AST. That brings
 a signature change the leaf does not budget: `pub fn lint(path: &Path, source:
 &str)` is source-only *because* its one existing lint is lexical. A shadow lint
 needs statement lists, so it needs `&Program`. Four call sites, all of which
-already hold a parsed `program`: `redox-cli/src/build_command.rs:28`,
-`redox-driver/src/check.rs:65`, `redox-lsp/src/serve/diagnostics.rs:41`,
-`redox-mcp/src/build.rs:42`.
+already hold a parsed `program`: `voltaic-cli/src/build_command.rs:28`,
+`voltaic-driver/src/check.rs:65`, `voltaic-lsp/src/serve/diagnostics.rs:41`,
+`voltaic-mcp/src/build.rs:42`.
 
 Two further facts the leaf needs. **Scope tracking is net-new** — nothing in
 the repository tracks bindings; `Block { stmts: Vec<Stmt> }` is the whole model
@@ -517,7 +517,7 @@ accepts a fixture in either. A new lint code needs one, because
 (`UnwrapUsed`) is the only warning that exists today.
 
 **Suppression is a hole.** `allow_pragma.rs:23` hard-codes
-`trivium.text.trim() == "redox: allow unwrap"`. Leaf 3 says the lint warns
+`trivium.text.trim() == "voltaic: allow unwrap"`. Leaf 3 says the lint warns
 "because shadowing is legal and sometimes meant" — but an author who means it
 has no way to say so. Either the pragma is parametrised or an intentional
 shadow warns forever. Plan 53 is already changing that file; sequencing 53
@@ -525,16 +525,16 @@ before 54 makes this cheaper.
 
 ### 11.3 `StmtKind::Assign` is already taken
 
-`crates/redox-ast/src/block/stmt/kind.rs:73-80` is **compound** assignment:
+`crates/voltaic-ast/src/block/stmt/kind.rs:73-80` is **compound** assignment:
 `Assign { target: Expr, op: BinaryOp, value: Expr }`. The new variant needs a
 different name, or `Assign.op` becomes `Option<BinaryOp>` and the two share one
 node. The plan never mentions the collision.
 
 The `StmtKind` blast radius is also unbudgeted. Four exhaustive matches with no
-wildcard gain an arm: `redox-emit/src/emit/stmt.rs` (deliberately exhaustive —
+wildcard gain an arm: `voltaic-emit/src/emit/stmt.rs` (deliberately exhaustive —
 *"a new `StmtKind` must fail to compile here"*),
-`redox-fmt/src/stmt_text/kind_text.rs`, `redox-fmt/tests/pattern_printer.rs:86`,
-and one in `redox-cli/tests/`. `redox-lsp` and `redox-mcp` match no `StmtKind`.
+`voltaic-fmt/src/stmt_text/kind_text.rs`, `voltaic-fmt/tests/pattern_printer.rs:86`,
+and one in `voltaic-cli/tests/`. `voltaic-lsp` and `voltaic-mcp` match no `StmtKind`.
 
 ### 11.4 §6 declines something this row would otherwise ship
 
@@ -548,9 +548,9 @@ thing its own §6 declines.
 
 ### 11.5 There is no leaf for the tree-sitter grammar
 
-`tree-sitter-redox/grammar.js:439` holds the assignment token set
+`tree-sitter-voltaic/grammar.js:439` holds the assignment token set
 (`token(choice("+=", "-=", "*=", "/=", "%=", "??="))`) and
-`crates/redox-cli/tests/tree_sitter.rs` asserts that every corpus `.sdx` parses
+`crates/voltaic-cli/tests/tree_sitter.rs` asserts that every corpus `.sdx` parses
 with **no `ERROR` node** — including, at `:102`, every file under
 `tests/lint/`. So leaf 4's `examples/control.sdx` edit *and* the new lint
 fixture both fail that gate until the grammar gains `:=` and the parser is
@@ -574,7 +574,7 @@ regenerated. Editors need no change: there are no operator lists under
   erroring with *"expected a line break after the statement"*.
 - **Criterion 3's premise is safe.** `mut` is **never** inferred — `is_mut` is
   set only by the literal keyword at `parser.rs:878`, and `emit/stmt.rs:59`
-  emits `mut` iff that flag is set. Redox has no mechanism to add it, so
+  emits `mut` iff that flag is set. Voltaic has no mechanism to add it, so
   rustc's message is reachable.
 - **All four place forms already parse**: `Expr::Ident`, `Expr::Field`
   (`postfix.rs`), `Expr::Index` (`postfix.rs:50`) and
@@ -602,7 +602,7 @@ regenerated. Editors need no change: there are no operator lists under
 - **§1's quotation of plan 20 is inexact.** The source reads *"The five
   compound operators are what docs 01, 03 and 18 define, and **plain
   reassignment appears in none of them**."*
-- **Criterion 8's target is `docs/04 - Redox Plan of Plans.md:198`**, register
+- **Criterion 8's target is `docs/04 - Voltaic Plan of Plans.md:198`**, register
   row 20, ending *"Plain reassignment stays **unspecified**, disclosed in plan
   §10.2 rather than designed around"*. That is the clause to mark resolved.
 - **§5 numbers its criteria 1,2,3,4,5,6,7,7,8.** Renumber.

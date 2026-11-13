@@ -86,7 +86,7 @@ guard Ok raw <- read p else        let Ok(raw) = read(p) else {
 ```
 
 The else branch must diverge, *"which is exactly `guard`'s own requirement"* — and rustc
-enforces it. Redox does not check divergence: that is a check rustc can make, so rustc makes
+enforces it. Voltaic does not check divergence: that is a check rustc can make, so rustc makes
 it, and plan 07's remapping reports it against the `guard` line. This plan's job is to get
 the line numbers right and nothing more.
 
@@ -210,15 +210,15 @@ the gate.
 - **`matches!`** was row 22's third lowering and is now unreachable: it was what `is` emitted
   where no binding was wanted, and `<-` always binds. A pattern test that discards its
   binding is `if _ <- e`, which is `if let _ = e` — true always, and useless. Writing
-  `matches!` by hand is still available, since Redox passes macro calls through. **Nothing
-  in Redox emits `matches!` after this plan**, which is a deletion doc 18 caused and did not
+  `matches!` by hand is still available, since Voltaic passes macro calls through. **Nothing
+  in Voltaic emits `matches!` after this plan**, which is a deletion doc 18 caused and did not
   record; §10 should correct doc 18's §3 table if it still lists one.
 - **`if let … else`** chains where the `else` binds — Rust has no such form, so neither does
   this.
 - **A pattern in a comprehension's `|` guard** is already a generator (`<-` position four)
   and so is plan 29's, not this plan's. The two read alike and are told apart by being inside
   `[ … ]`.
-- **`guard` with no `else`** is not Redox. Doc 03 §7.1's form has one, let-else requires one,
+- **`guard` with no `else`** is not Voltaic. Doc 03 §7.1's form has one, let-else requires one,
   and a `guard` that cannot exit is a `let`.
 - **Divergence checking** of the else branch stays rustc's, per §1.4 and AGENTS.md.
 - **rustfmt's layout of a broken chain in a value-producing conditional, and in a match
@@ -252,7 +252,7 @@ lowered to its own IR.
 | 2 | `until` with a pattern is an error | Lower to `while !matches!(…)` | That form binds nothing, so it cannot be what a binding construct meant — §1.3 |
 | 3 | Let-chains are flat | Nest an `if` per operand | Nesting is observably different the moment an `else` is attached, and Rust's own form is flat |
 | 4 | Verify `if_let_guard`'s stability before planning the leaf | Trust doc 18 §3's table | A plan that promises an unstable lowering cannot ship. It is stable; the check cost one file — §1.5 |
-| 5 | `guard` keeps rustc's divergence check | Check it in Redox | AGENTS.md: every check rustc can make, rustc makes |
+| 5 | `guard` keeps rustc's divergence check | Check it in Voltaic | AGENTS.md: every check rustc can make, rustc makes |
 
 ---
 
@@ -291,7 +291,7 @@ equation's row, and `Event::Close d` takes a path. All three are asserted.
 
 `Some v` reads greedily, so a *row* of patterns is ambiguous — `f Some v` could be
 `f (Some v)` or the three patterns `f`, `Some`, `v`. Haskell requires parentheses in a row
-and so does Redox, which is why `pattern_app` is called only from positions holding exactly
+and so does Voltaic, which is why `pattern_app` is called only from positions holding exactly
 one pattern and `pattern` gained a parenthesised-group arm for the row.
 
 The same rule bites one level down: `Some Some v` is `Some` applied to two arguments, and
@@ -355,7 +355,7 @@ A **broken** chain is formatted as rustfmt would in an `if` statement, an `else 
 `while`. It is **not** in two places, both verified rather than assumed:
 
 ```rust
-// Redox emits                               // rustfmt writes
+// Voltaic emits                               // rustfmt writes
 if let Some(v) = o && v > 2 { "a" }          if let Some(v) = o
   else { "b" }                                   && v > 2
                                              { "a" } else { "b" }
@@ -397,7 +397,7 @@ else
 and emitted `return "big";`'s predecessor — `"big";`, a statement — because plan 20's
 indented `if` is a **statement** and therefore never a tail expression. rustc caught it
 (*mismatched types*), so nothing silent happened, but the natural spelling of a
-value-producing conditional does not work: Rust's `if` is an expression and Redox's indented
+value-producing conditional does not work: Rust's `if` is an expression and Voltaic's indented
 form does not use that.
 
 Not fixed here, because it is plan 20's row and not this one's; `emit_stmts` already carries
@@ -426,5 +426,5 @@ what the corpus is for.
 
 ### 10.10 `matches!` is gone, as §6 predicted
 
-Nothing in Redox emits `matches!` after this plan. It was what `is` produced where no binding
+Nothing in Voltaic emits `matches!` after this plan. It was what `is` produced where no binding
 was wanted, and `<-` always binds. Doc 18 §3's table should not be read as implying one.

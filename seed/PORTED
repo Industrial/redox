@@ -1,24 +1,24 @@
-# The crates whose `src/` is generated from Redox, with the plan that ported
+# The crates whose `src/` is generated from Voltaic, with the plan that ported
 # each. One `crate plan` per line; `#` opens a comment.
 #
 # **This is the only copy.** It was four — `port.rs`, `conformance.rs`,
-# `bootstrap.rs` and `bootstrap.sh` — and three had drifted when `redox-diag`
+# `bootstrap.rs` and `bootstrap.sh` — and three had drifted when `voltaic-diag`
 # landed, including the pair that proves a clean clone rebuilds every generated
 # tree. A duplicated list drifts consistently: the check and the thing checked
 # agree while both are wrong.
 #
 # Order is dependency order, which is also the order to rebuild in: a crate's
 # `.sdx` may name types from a crate above it.
-redox-diag 73
-redox-lexer 74
-redox-ast 68
-redox-parser 82
-redox-fmt 69
-redox-fuzz 75
-redox-bench 76
-redox-mcp 77
-redox-lsp 78
-redox-emit 81
-redox-driver 80
-redox-cli 79
-redox-seed 83
+voltaic-diag 73
+voltaic-lexer 74
+voltaic-ast 68
+voltaic-parser 82
+voltaic-fmt 69
+voltaic-fuzz 75
+voltaic-bench 76
+voltaic-mcp 77
+voltaic-lsp 78
+voltaic-emit 81
+voltaic-driver 80
+voltaic-cli 79
+voltaic-seed 83

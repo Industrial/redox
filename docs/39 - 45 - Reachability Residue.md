@@ -9,7 +9,7 @@ Status: `done` 2026-11-10
 
 ## 1. What this plan is
 
-Doc 03 §18 keeps a list titled **"Remaining open"** — the Rust constructs a Redox program
+Doc 03 §18 keeps a list titled **"Remaining open"** — the Rust constructs a Voltaic program
 cannot write. Doc 02 §4.1's standard is that any such construct is *"a direct violation of
 doc 01 §26"*, and §26 names **Unsafe Rust**, **FFI** and **Rust macros** among the things
 that *"must remain possible"*. This row closes that list.
@@ -59,7 +59,7 @@ fn main() {
 }
 ```
 
-No program defines `rust`, so this is uncompilable. `redox check` does report it — *"cannot
+No program defines `rust`, so this is uncompilable. `voltaic check` does report it — *"cannot
 find function"* — which is the *"every check rustc can make, rustc makes"* corollary working
 exactly as designed, and it is also the only thing standing between a user and a silent
 mistranslation of their own source into a call.
@@ -77,7 +77,7 @@ and the difference is the design:
 > 2. **Spell `unsafe`, `extern` and FFI.** §18 lists these as unreachable, and doc 01 §26
 >    names FFI as a requirement, **so the escape hatch is not an acceptable resting place.**
 >
-> 3. **Spell macro definition, *or accept permanently that Redox macros require inline
+> 3. **Spell macro definition, *or accept permanently that Voltaic macros require inline
 >    Rust*** (§13.3).
 
 Item 2 forbids the hatch; item 3 offers it. So `unsafe`, `extern` and FFI get native
@@ -142,7 +142,7 @@ subject. The other three:
 | Inline Rust | Yes — the text is emitted unchanged | Whatever the user names, which is the user's choice | Nothing is parsed, so nothing can be altered |
 
 Inline Rust deserves a note against test 3, because it is the one construct that can carry
-anything: it preserves semantics *because* Redox does not interpret it. It is a hole in the
+anything: it preserves semantics *because* Voltaic does not interpret it. It is a hole in the
 surface by design, and §6 bounds what that hole may do.
 
 ---
@@ -151,7 +151,7 @@ surface by design, and §6 bounds what that hole may do.
 
 ```bash
 moon run :check :lint :test        # the new constructs, in the corpora
-cargo run -p redox-cli -- check examples/reachability.sdx
+cargo run -p voltaic-cli -- check examples/reachability.sdx
 ```
 
 A new `examples/reachability.sdx` exercising every item in §1's table, **compiled by rustc**
@@ -215,7 +215,7 @@ list saying otherwise has not closed it, and doc 03 §18 is the inventory plan 4
 ## 6. Out of scope, and what it discloses
 
 - **Macro definition.** Declined under doc 03 §23 item 3's explicit alternative — *"accept
-  permanently that Redox macros require inline Rust"*. Honest only because leaf 1 ships
+  permanently that Voltaic macros require inline Rust"*. Honest only because leaf 1 ships
   inline Rust; before this row it was a decline in favour of something that did not exist.
 - **Macro invocation.** §1.5. Unreachable, recorded by plans 29 and 39, assigned to no row,
   and not taken here: it needs a surface spelling decision in doc 03 because doc 18 §7
@@ -223,7 +223,7 @@ list saying otherwise has not closed it, and doc 03 §18 is the inventory plan 4
   here so it stops being a finding that two plans have each rediscovered.
 - **Procedural macros.** Doc 01 §26 lists *"Procedural macro integrations"*, which are a
   dependency and a build-script concern rather than a surface construct. Using one from
-  Redox needs attributes (plan 36, done) and nothing from this row.
+  Voltaic needs attributes (plan 36, done) and nothing from this row.
 - **Lifetimes beyond what types already carry.** Doc 03 §14.1 carries a type as verbatim
   text, so `&'static str` already works; there is no separate lifetime construct to spell.
 - **Making inline Rust analysable.** The block is emitted, not parsed. No formatting, no
@@ -290,7 +290,7 @@ The most valuable thing this row found is not in its own code. `union` rides on 
 `is_union` flag beside `is_newtype`. The parser set it, the emitter read it, every test
 passed.
 
-Except `redox-fmt`'s `data_text`, which chooses its keyword from `is_newtype` alone and
+Except `voltaic-fmt`'s `data_text`, which chooses its keyword from `is_newtype` alone and
 therefore wrote `union Word` back out as **`data Word`**. Running the formatter on a union
 turned it into a struct: not a formatting difference, a **semantic** one, silent, and in the
 tool whose whole promise is that it does not change the program.
@@ -306,7 +306,7 @@ formatter fails quietly.
 ### 10.2 §1.1's `union` probe asked the wrong question
 
 The preconditions table reports `union Pair` → `RDX0101`, which is true and was measured
-with **Rust's** spelling. `redox-ast`'s own doc comment says doc 18 §§2.4–2.5 *"collapsed six
+with **Rust's** spelling. `voltaic-ast`'s own doc comment says doc 18 §§2.4–2.5 *"collapsed six
 of doc 03's declaration keywords into four. `struct`, `enum`, `union` and the tuple-struct
 spelling are all `data`"* — which reads as though `union` were already reachable.
 

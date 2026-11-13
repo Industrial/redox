@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
-"""Plan 82 batch 4: twelve more of `redox-parser`'s bodies.
+"""Plan 82 batch 4: twelve more of `voltaic-parser`'s bodies.
 
 `rust_string_body` holds this crate's `as` cast — `c as u32` — which is
 `UNREACHABLE` in `docs/GRAMMAR.md`. `u32::from c` is exact for a `char` and
 not merely a fallible substitute, which is a better position than
-`redox-driver`'s `u64::try_from` was in.
+`voltaic-driver`'s `u64::try_from` was in.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('parse/parser/modified_block', '''

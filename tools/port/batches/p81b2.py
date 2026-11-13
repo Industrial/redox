@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Plan 81 batch 2: fourteen more of `redox-emit`'s bodies.
+"""Plan 81 batch 2: fourteen more of `voltaic-emit`'s bodies.
 
 `where_order/visit` is the first ported body with a **`&dep` binder in a
 `for`** — a `for` binder is a bare name, so it binds the reference and
@@ -8,7 +8,7 @@ slice pattern**, which carries over as written.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('emit/struct_variant_width', '''
@@ -100,7 +100,7 @@ export(crate) emit_unsafe_block : &Block -> usize -> String
 emit_unsafe_block body indent =
   if .sole_expression body is Some e
     inner = emit_expr e indent
-    -- `{` is a literal brace in a Redox string, so the emitter doubles it for
+    -- `{` is a literal brace in a Voltaic string, so the emitter doubles it for
     -- Rust — which is exactly what the Rust's `{{ }}` spelled by hand.
     return format! \\-> "unsafe { #{inner} }"
   block = emit_block (&None) body indent
@@ -151,7 +151,7 @@ emit_body out body indent tail joinable =
 write('emit/unlowerable', '''
 export(crate) unlowerable : &str -> String
 unlowerable what =
-  format! \\-> "compile_error!(\\"#{what} is a statement in Rust and has no expression spelling; this is a Redox defect, not a defect in your program\\")"
+  format! \\-> "compile_error!(\\"#{what} is a statement in Rust and has no expression spelling; this is a Voltaic defect, not a defect in your program\\")"
 ''')
 
 print('plan 81 batch 2: fourteen files')

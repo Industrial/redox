@@ -1,4 +1,4 @@
-" Redox syntax highlighting for Vim. Plan 49 leaf 2.
+" Voltaic syntax highlighting for Vim. Plan 49 leaf 2.
 "
 " Regex only. This is the fallback for an editor with neither tree-sitter nor a
 " built-in LSP client, so it is the one client here that highlights by pattern
@@ -6,7 +6,7 @@
 " keyword inside a string or a comment, which `syn region` mitigates and does
 " not eliminate.
 "
-" The keyword list is checked against `tree-sitter-redox/grammar.js` by
+" The keyword list is checked against `tree-sitter-voltaic/grammar.js` by
 " `editors.rs`'s `every_grammar_keyword_is_coloured`, so this file and the
 " tree-sitter and TextMate highlighters cannot drift apart. Three highlighters
 " that disagree are worse than one.
@@ -31,7 +31,7 @@ endif
 syn region  sdxComment      start="--" end="$" oneline keepend contains=@Spell
 syn region  sdxDocComment   start="--\s*[|!]" end="$" oneline keepend contains=@Spell
 
-" Strings. The triple-quoted form is Redox's verbatim block (plan 45's inline
+" Strings. The triple-quoted form is Voltaic's verbatim block (plan 45's inline
 " Rust and plan 23's raw strings), and must be matched before the single form
 " or the opening `"""` reads as an empty string followed by a quote.
 syn region  sdxVerbatim     start=+"""+ end=+"""+ keepend
@@ -61,7 +61,7 @@ syn keyword sdxKeyword      do async try catch mut move or
 syn keyword sdxKeyword      rust unsafe extern union
 syn keyword sdxKeyword      export
 
-" A type is any `UpperCamel` name; Redox has no type checker, so a syntax file
+" A type is any `UpperCamel` name; Voltaic has no type checker, so a syntax file
 " certainly cannot tell a type from a constructor, and colouring both the same
 " is the honest answer rather than a heuristic that is sometimes wrong.
 syn match   sdxType         "\<\u[a-zA-Z0-9_]*\>"
@@ -74,7 +74,7 @@ syn match   sdxAttribute    "@[a-zA-Z_][a-zA-Z0-9_]*"
 syn match   sdxTypeColon    ":\(:\)\@!"
 syn match   sdxPathSep      "::"
 " `-` is matched with a negative lookahead for a second `-`, and that is the
-" second half of the comment fix above. Redox has no `--` operator, and among
+" second half of the comment fix above. Voltaic has no `--` operator, and among
 " items starting at the same column Vim prefers the one defined **last** — so
 " a `[-+*…]` class here outranks the comment region at column 1 and the whole
 " line stops being a comment. Excluding `--` is both correct on its own terms

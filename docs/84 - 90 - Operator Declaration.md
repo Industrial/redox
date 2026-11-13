@@ -33,11 +33,11 @@ Doc 03 §14.4 states it in full: *"Custom operator declaration (Haskell, Scala) 
 necessity — Rust has no mechanism for it, so there is no lowering target."*
 
 **That conflates two different things.** Rust has no custom-operator *mechanism*, which is true.
-It does not follow that there is no lowering *target*, and the surface already proves it: Redox
+It does not follow that there is no lowering *target*, and the surface already proves it: Voltaic
 has at least six operators with no Rust counterpart at all, and every one of them lowers to an
 ordinary expression form.
 
-| Redox operator | Rust counterpart | Lowers to | Shipped by |
+| Voltaic operator | Rust counterpart | Lowers to | Shipped by |
 |---|---|---|---|
 | `\|>` | none | a method call on the piped value | doc 18 §4, plan 58 |
 | `>>>` / `<<<` | none | a closure, through the shared `closure` path | plan 66 |
@@ -69,7 +69,7 @@ infixl 6 <+> = Set::union
 
 and `a <+> b` emits `Set::union(a, b)`. Nothing is declared, nothing is renamed, and
 go-to-definition on `<+>` has somewhere real to go. The author writes the function as an ordinary
-Redox function or imports it from Rust; the operator is purely a parse-level spelling for it.
+Voltaic function or imports it from Rust; the operator is purely a parse-level spelling for it.
 
 Admission, clause by clause:
 
@@ -115,7 +115,7 @@ it cannot parse a user operator's precedence correctly.
 
 What that costs is specific rather than vague: editor **highlighting** works, editor **structural
 selection and indentation** work on the shape, and anything in an editor that depends on the
-operator's binding power does not. `crates/redox-cli/tests/tree_sitter.rs` and plan 46's
+operator's binding power does not. `crates/voltaic-cli/tests/tree_sitter.rs` and plan 46's
 `every_coloured_keyword_is_still_in_the_grammar` are the gates that will notice, and criterion 8
 is the decision about what they should assert.
 
@@ -131,7 +131,7 @@ Same boundary as plan 56 §1.4 and for the same reason — plan 14 decision 4's 
 resolution. An operator declared in one file is not available in another.
 
 Unlike currying's boundary, this one is **loud**: an undeclared operator does not lex, so the
-failure is a Redox diagnostic at the use site rather than a silently different program. That is
+failure is a Voltaic diagnostic at the use site rather than a silently different program. That is
 the better side of the boundary to be on and criterion 6 asserts it.
 
 ---
@@ -141,8 +141,8 @@ the better side of the boundary to be on and criterion 6 asserts it.
 **Nothing in this section is measured yet.** The row is authored, not executed.
 
 ```bash
-cargo run -p redox-cli -- build /tmp/probe.sdx && cat /tmp/probe.xrs
-cd tree-sitter-redox && tree-sitter parse /tmp/probe.sdx
+cargo run -p voltaic-cli -- build /tmp/probe.sdx && cat /tmp/probe.xrs
+cd tree-sitter-voltaic && tree-sitter parse /tmp/probe.sdx
 ```
 
 1. **The operator table's shape and the Pratt loop's fixity source.** `operator_table.rs`,
@@ -154,7 +154,7 @@ cd tree-sitter-redox && tree-sitter parse /tmp/probe.sdx
    user operator is whatever cannot begin an existing token.
 3. **Whether a pre-pass can find declarations without a parse.** §1.3's constraint. Measured by
    writing the scanner, not by reasoning about it.
-4. **What `redox-fmt` needs to re-print an operator expression.** If it re-parenthesises by
+4. **What `voltaic-fmt` needs to re-print an operator expression.** If it re-parenthesises by
    binding power, it needs the fixity table too, and the formatter acquires the same pre-pass.
    Plan 56 §11.3's rule is the hazard: two consumers of one tree.
 5. **What `tree-sitter parse` does with a run of operator characters today.** §1.4. `AGENTS.md`
@@ -220,7 +220,7 @@ fixtures.
 
 ### Leaf 5 — `leaf-formatter`
 
-`redox fmt` round-trips a declaration and re-prints uses at the right precedence, per
+`voltaic fmt` round-trips a declaration and re-prints uses at the right precedence, per
 precondition 4.
 
 ### Leaf 6 — `leaf-tree-sitter`
@@ -235,7 +235,7 @@ gates assert given §1.4's asymmetry, and `tree-sitter parse` on each §3 case i
 - **`docs/DECLINED.md`'s row moves out of the declines**, with §1.1's correction recorded — the
   reason was wrong, not merely outweighed.
 - Doc 03 §14.4's sentence is corrected in place with a date, per doc 04's rule 2.
-- `crates/redox-cli/tests/declined.rs` asserts every doc 03 §22 construct appears in
+- `crates/voltaic-cli/tests/declined.rs` asserts every doc 03 §22 construct appears in
   `DECLINED.md`, so both documents move in one commit or the gate breaks.
 - `docs/GRAMMAR.md` §1.4's operators row and `docs/STATUS.md` regenerated.
 
@@ -253,9 +253,9 @@ gates assert given §1.4's asymmetry, and `tree-sitter parse` on each §3 case i
    asserted byte-identical.
 5. `$` behaves identically whether or not its entry moved to the table, per leaf 3.
 6. The four leaf-4 diagnostics each have a `tests/ui/` fixture.
-7. `redox fmt` round-trips a declaration and every use at the correct precedence.
+7. `voltaic fmt` round-trips a declaration and every use at the correct precedence.
 8. `tree_sitter.rs` is green and `tree-sitter parse` output for each §3 case is recorded in
-   `tree-sitter-redox/test/corpus/`. Where the grammar cannot know a fixity (§1.4), the corpus case
+   `tree-sitter-voltaic/test/corpus/`. Where the grammar cannot know a fixity (§1.4), the corpus case
    records the shape it *does* produce, so the asymmetry is in the corpus rather than in prose.
    `AGENTS.md`'s rule applies: *prefer a case in the corpus, which `tree_sitter.rs` runs, over
    leaning on the examples sweep.*
@@ -305,7 +305,7 @@ moon run :format         # treefmt
 ```
 
 Plus: every example transpiles, compiles under rustc with no output, runs, stdout asserted;
-`tests/ui/` fixtures for leaf 4's four diagnostics; `tree-sitter-redox/test/corpus/` cases per
+`tests/ui/` fixtures for leaf 4's four diagnostics; `tree-sitter-voltaic/test/corpus/` cases per
 criterion 8; goldens asserted unchanged per criteria 4 and 5; `declined.rs` green after the
 document move; `construct_coverage` green.
 
@@ -373,7 +373,7 @@ Every sentence of that is correct **given one assumption**, and the assumption
 is not stated: that the set of admissible *spellings* is open. It is not, and
 nothing required it to be.
 
-`crates/redox-lexer/sdx/scan.sdx` is a `const` of twelve
+`crates/voltaic-lexer/sdx/scan.sdx` is a `const` of twelve
 spellings — `<+>`, `<->`, `<*>`, `</>`, `<%>`, `<|>`, `<&>`, `<^>`, `<=>`,
 `<~>`, `<$>`, `<?>` — and `scan_operator` tries that run before
 `OPERATOR_TABLE`. The lexer scans every one of them **whether or not any file
@@ -390,7 +390,7 @@ declares it**, so:
 parser is where declaration order is already known — `Parser::fixities` is a
 field of the same shape as plan 63's `class_heads`, collected while items are
 parsed and read while an expression is. An undeclared use is `RDX0123` at the
-use site, which is *louder* than §1.5 asked for: it promised a Redox diagnostic
+use site, which is *louder* than §1.5 asked for: it promised a Voltaic diagnostic
 rather than a silently different program, and this one names the operator and
 says where to declare it.
 
@@ -424,12 +424,12 @@ two tables, which
 | 6 — tree-sitter | **done** | `operator_declaration`, `user_operator`, a corpus case |
 | 7 — corpus and docs | **done** | the example, the golden, `DECLINED.md`, doc 03 §14.4, `GRAMMAR.md` |
 
-Across six crates: `redox-lexer` (`TokenKind::UserOp`, the constant,
-`scan_operator`), `redox-ast` (`OperatorDecl`, `Fixity`, `Expr::UserBinary`),
-`redox-parser` (`operator_decl`, `declares_an_operator`, `alias_target`,
+Across six crates: `voltaic-lexer` (`TokenKind::UserOp`, the constant,
+`scan_operator`), `voltaic-ast` (`OperatorDecl`, `Fixity`, `Expr::UserBinary`),
+`voltaic-parser` (`operator_decl`, `declares_an_operator`, `alias_target`,
 `digit_precedence`, `user_rung`, `operator_chains`, the Pratt arm,
-`Parser::fixities`), `redox-diag` (four codes), `redox-emit` (one `Expr` arm
-and one `Item` arm), `redox-fmt` and `redox-lsp`.
+`Parser::fixities`), `voltaic-diag` (four codes), `voltaic-emit` (one `Expr` arm
+and one `Item` arm), `voltaic-fmt` and `voltaic-lsp`.
 
 ### 10.3 The inventory leaf 0 would have produced
 
@@ -507,7 +507,7 @@ it.
 | 4 | no built-in precedence changes, no re-blessing | **met** — every existing golden is unchanged |
 | 5 | `$` behaves identically | **met trivially** — its entry never moved (§10.3) |
 | 6 | four diagnostics with `tests/ui/` fixtures | **met** — `RDX0123`–`RDX0126` |
-| 7 | `redox fmt` round-trips at the right precedence | **met** — and it needed `Expr::UserBinary` to carry the fixity, §10.7 |
+| 7 | `voltaic fmt` round-trips at the right precedence | **met** — and it needed `Expr::UserBinary` to carry the fixity, §10.7 |
 | 8 | `tree_sitter.rs` green, each case in the corpus | **met** — `test/corpus/binder.txt`, and §10.5's second finding is why it is a corpus case |
 | 9 | `DECLINED.md`, doc 03 §14.4, §22 and `declined.rs` move together | **met** |
 | 10 | examples green, no new `construct_coverage` `ALLOW` | **met** |
@@ -519,7 +519,7 @@ Plans 56, 59, 87 and 89 each install a `thread_local!` scope at
 tree. This row needs none, and the reason is worth keeping: the parser **had to
 consult the fixity table to parse the expression at all**, so recording what it
 found costs one field on the node. `Expr::UserBinary` carries the spelling (for
-`redox fmt`), the fixity and precedence (for the printer's parenthesis
+`voltaic fmt`), the fixity and precedence (for the printer's parenthesis
 decisions) and the alias target (for the emitter) — and each consumer reads its
 own field with nothing ambient between them.
 

@@ -1,13 +1,13 @@
 # Declined
 
-What Redox will not have, and why. Doc 03 §22 is the source; this restates it for a reader who
+What Voltaic will not have, and why. Doc 03 §22 is the source; this restates it for a reader who
 has not read a 2,000-line surface document, and
-`crates/redox-cli/tests/declined.rs` asserts every §22 construct appears here so the two
+`crates/voltaic-cli/tests/declined.rs` asserts every §22 construct appears here so the two
 cannot drift.
 
-**A decline is not a gap.** A gap is a Rust construct a Redox program cannot express —
+**A decline is not a gap.** A gap is a Rust construct a Voltaic program cannot express —
 `docs/GRAMMAR.md` grades those `UNREACHABLE` and `tests/unreachable/` holds them failing. A
-decline is a construct Redox has decided **not to offer**, usually one no other language's
+decline is a construct Voltaic has decided **not to offer**, usually one no other language's
 version would survive doc 03 §2's admission test. Conflating the two makes both useless, which
 is why they are separate documents.
 
@@ -18,7 +18,7 @@ Each entry is permanent unless a venue is named.
 ## Declined because it would imply a dependency
 
 Doc 03 §2's second admission test: a construct's lowering may name nothing outside `core`,
-`alloc` and `std`. A construct that needs a crate makes every Redox program depend on that
+`alloc` and `std`. A construct that needs a crate makes every Voltaic program depend on that
 crate's author.
 
 | Construct | From | Reason |
@@ -36,7 +36,7 @@ of one the project's load-bearing constraint.
 | Construct | From | Reason |
 |---|---|---|
 | UFCS | Nim | requires type knowledge to choose a shape (doc 03 §2) |
-| A Redox type checker | — | the project's load-bearing constraint (doc 02 §12.4) |
+| A Voltaic type checker | — | the project's load-bearing constraint (doc 02 §12.4) |
 
 > **One row has left this table, and it is the only decline in the document ever
 > lifted.** *General monadic comprehension* (Scala) was declined because it
@@ -50,7 +50,7 @@ of one the project's load-bearing constraint.
 > clause 1 is satisfied in that clause's own words: *"the user's own syntax
 > selects between them — never an inference."*
 >
-> Redox chooses nothing. It transcribes the method the author named, and
+> Voltaic chooses nothing. It transcribes the method the author named, and
 > fabricates nothing else either — the final row of the block is emitted as
 > written, because choosing between `Ok`, `Some` and `iter::once` would be the
 > inference the clause forbids.
@@ -98,7 +98,7 @@ of one the project's load-bearing constraint.
 > Two narrowings were considered and both are already expressible. A view
 > applied to the **scrutinee** rather than per-arm keeps the `match`:
 > `case (len xs) of 0 -> … ; n -> …` — and that is an ordinary `case` on an
-> application, which Redox has had since plan 03. A view that returns a
+> application, which Voltaic has had since plan 03. A view that returns a
 > **bool** is a guard, which doc 18 §2.3 has. So there is nothing left to build
 > that is not either a loss of checking or a spelling of something that works.
 >
@@ -108,7 +108,7 @@ of one the project's load-bearing constraint.
 
 ## Declined because Rust has no target for it
 
-A lowering needs something to lower *to*. These have no Rust form, so a Redox spelling would be
+A lowering needs something to lower *to*. These have no Rust form, so a Voltaic spelling would be
 a feature of the compiler rather than of the language.
 
 | Construct | From | Reason |
@@ -117,7 +117,7 @@ a feature of the compiler rather than of the language.
 | Two-binder `and` patterns | C# | no Rust pattern form binds from both sides (doc 03 §6.2) |
 | Transpile-time evaluation (`comptime`) | Zig, Emerald | requires an interpreter in the compiler (doc 03 §13.3) |
 
-## Declined because it duplicates something Redox already has
+## Declined because it duplicates something Voltaic already has
 
 | Construct | From | Reason |
 |---|---|---|
@@ -168,7 +168,7 @@ a feature of the compiler rather than of the language.
 | Construct | From | Reason |
 |---|---|---|
 | Bracket type arguments | Emerald | requires translating every type expression, where doc 03 §14.1 carries a type verbatim |
-| A Redox standard library or prelude | — | doc 02 §1.1. Redox has crates.io; Emerald spent 112 of its 203 plans building a standard library, and that is the cost this refusal avoids |
+| A Voltaic standard library or prelude | — | doc 02 §1.1. Voltaic has crates.io; Emerald spent 112 of its 203 plans building a standard library, and that is the cost this refusal avoids |
 
 ---
 
@@ -234,7 +234,7 @@ Worth stating, because the difference is the whole point of this document being 
   nothing has replaced it as a spelling; a row that proposes one is welcome. The fixture is
   `tests/unreachable/macro_call.sdx`.
 - **Macro definition** is **both**, and is the one construct in that position: doc 03 §23 item
-  3 declines it explicitly — *"accept permanently that Redox macros require inline Rust"* —
+  3 declines it explicitly — *"accept permanently that Voltaic macros require inline Rust"* —
   and it is also unreachable. It appears in both documents, deliberately.
 - **`as` casts, `unsafe trait`, `unsafe impl` and the FFI export direction** are gaps nobody
   decided on. They are in `docs/GRAMMAR.md`, not here.

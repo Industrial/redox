@@ -31,7 +31,7 @@ import re
 
 CRATE = os.environ.get('CRATE')
 assert CRATE, 'set CRATE'
-ROOT = '/home/tom/Code/rust/redox/crates/%s/sdx/' % CRATE
+ROOT = '/home/tom/Code/rust/voltaic/crates/%s/sdx/' % CRATE
 
 # The first line that begins a construct rather than describing one.
 CONSTRUCT = re.compile(
@@ -81,7 +81,7 @@ def write(rel, text):
     # the comment it follows, so a loop that tests for a comment exits at once.
     #
     # **Only a `-- |` in the body replaces one in the head.** Testing for any
-    # `--` threw a doc comment away: `redox-cli/run/commands`' body opens with
+    # `--` threw a doc comment away: `voltaic-cli/run/commands`' body opens with
     # an ordinary comment relocated out of the Rust's one-line-per-entry table,
     # and that silently took the 19-line `-- |` block describing `COMMANDS`
     # with it. An ordinary comment and a doc comment are different things —
@@ -97,7 +97,7 @@ def write(rel, text):
     # **A leading `-- !` block stays first.** Rust requires `//!` to precede
     # every item in a file, so hoisting the imports above it emits
     # `E0753: expected outer doc comment`. Plan 76 found it on
-    # `redox-bench/main.sdx` — the first ported file whose head carries module
+    # `voltaic-bench/main.sdx` — the first ported file whose head carries module
     # docs *and* imports, which is why three crates went by without it.
     module_doc = []
     at = 0
@@ -123,7 +123,7 @@ def write(rel, text):
         # **An attribute is not a construct either**, so no separator goes
         # after one: `#[allow(…)]` followed by a blank line and then the
         # declaration is `empty_line_after_outer_attribute`, which `-D warnings`
-        # makes an error. Plan 82 found it on `redox-parser/parse/parser/postfix`,
+        # makes an error. Plan 82 found it on `voltaic-parser/parse/parser/postfix`,
         # the first ported file whose head ends in an attribute rather than in a
         # doc comment.
         tail = out[-1].lstrip() if out else ''

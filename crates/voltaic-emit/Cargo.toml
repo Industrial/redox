@@ -1,0 +1,16 @@
+[package]
+name = "voltaic-emit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+voltaic-ast = { path = "../voltaic-ast" }
+voltaic-diag = { path = "../voltaic-diag" }
+
+[dev-dependencies]
+voltaic-parser = { path = "../voltaic-parser" }
+
+# The five surface-fact allows — see the root manifest.
+[lints]
+workspace = true

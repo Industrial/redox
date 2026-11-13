@@ -35,7 +35,7 @@ struct Point {
 //     #[repr(transparent)]                 struct Tally(u32);
 //
 // and `generated_rust_is_rustfmt_clean` goes red. The combination is legal,
-// compiles, and keeps a deterministic order — `crates/redox-emit/tests/attributes.rs`
+// compiles, and keeps a deterministic order — `crates/voltaic-emit/tests/attributes.rs`
 // asserts all three attributes in sequence, where rustfmt does not run. It
 // cannot appear in an *example*, because emitting one merged `#[derive]`
 // would mean reading `derive` out of verbatim attribute trivia and splicing

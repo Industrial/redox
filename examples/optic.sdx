@@ -16,7 +16,7 @@
 --
 -- `(.addr.city)` **already parsed**, and wrongly: as a selector of `addr`
 -- followed by a *method call* on the closure it produced, emitting
--- `(|__rdx_1| __rdx_1.addr()).city(o)`. Not Rust, no Redox diagnostic, and
+-- `(|__rdx_1| __rdx_1.addr()).city(o)`. Not Rust, no Voltaic diagnostic, and
 -- `E0282` from rustc rather than anything a reader could act on. One field deep
 -- was the whole of the construct and nothing said so — milestone 9's worst
 -- class, found by writing the second dot.

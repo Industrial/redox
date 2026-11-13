@@ -1,6 +1,6 @@
 # Plan 04 — Emitter Determinism
 
-Plan: 04 of 48 (`docs/04 - Redox Plan of Plans.md`, Milestone 1)
+Plan: 04 of 48 (`docs/04 - Voltaic Plan of Plans.md`, Milestone 1)
 Slug: `emitter-determinism`
 Status: **`done`** — shipped 2026-11-08; see §10 for evidence per criterion
 Depends on: plan 03
@@ -78,7 +78,7 @@ carries a documented exemption rather than an unexplained absence.
 ### Leaf 2 — `leaf-determinism-across-every-example`
 
 Plan 01 asserted byte-identical output for one example. This extends it to all of them, and
-adds the structural guarantee behind it: **`redox-emit` contains no `HashMap` or `HashSet`**,
+adds the structural guarantee behind it: **`voltaic-emit` contains no `HashMap` or `HashSet`**,
 whose iteration order is unspecified. A grep-style test over the crate's own sources, in the
 spirit of doc 06 §10's enforcement.
 
@@ -109,8 +109,8 @@ assertions. Full gate, then independent re-verification.
 | 3 | **rustfmt changes nothing** about any generated `.xrs` |
 | 4 | Every parseable example compiles under rustc with zero stderr and runs |
 | 5 | Transpiling any example twice produces identical bytes |
-| 6 | `redox-emit` contains no `HashMap`/`HashSet` |
-| 7 | `REDOX_BLESS=1` regenerates goldens and then fails the run |
+| 6 | `voltaic-emit` contains no `HashMap`/`HashSet` |
+| 7 | `VOLTAIC_BLESS=1` regenerates goldens and then fails the run |
 | 8 | Plans 01–03's tests all still pass |
 | 9 | Doc 06 §§1–2 obeyed |
 | 10 | Full gate green |
@@ -169,7 +169,7 @@ the nearest relative and belongs to plan 44, not here.
 Executed 2026-11-08. Full gate green. **137 tests pass**, up from 132, and the five that
 left are plan 01's superseded golden harness — see the deviations below.
 
-All ten criteria are carried by one harness, `crates/redox-cli/tests/examples.rs`:
+All ten criteria are carried by one harness, `crates/voltaic-cli/tests/examples.rs`:
 
 | # | Criterion | Evidence |
 |---|---|---|
@@ -179,7 +179,7 @@ All ten criteria are carried by one harness, `crates/redox-cli/tests/examples.rs
 | 4 | Compiles with zero stderr, and runs | `every_example_compiles_and_runs` |
 | 5 | Byte-identical on repetition | same test as criterion 2 |
 | 6 | No `HashMap`/`HashSet` in the emitter | `the_emitter_contains_no_unordered_collection` |
-| 7 | `REDOX_BLESS=1` rewrites then fails | exercised live while blessing `phase1` and `expressions` |
+| 7 | `VOLTAIC_BLESS=1` rewrites then fails | exercised live while blessing `phase1` and `expressions` |
 | 8 | Plans 01–03's tests still pass | whole suite green |
 | 9 | Doc 06 §§1–2 obeyed | `one_construct_per_file.rs`, `directory_structure.rs` |
 | 10 | Full gate green | six moon tasks, exit 0 |
@@ -193,7 +193,7 @@ an assertion rather than an aspiration.
 
 Getting there required one correction, found by the probe rather than by reasoning: run
 rustfmt **with its defaults, outside the repository**. Inside the tree, rustfmt picks up
-this repo's own `rustfmt.toml` — two-space indentation, which governs Redox's *source* —
+this repo's own `rustfmt.toml` — two-space indentation, which governs Voltaic's *source* —
 and every example "failed" purely on indentation against output that deliberately uses
 rustfmt's default four. The check was comparing the wrong two things.
 

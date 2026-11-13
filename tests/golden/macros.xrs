@@ -1,6 +1,6 @@
-// A macro of our own, defined in Rust, invoked from Redox below. Macro
+// A macro of our own, defined in Rust, invoked from Voltaic below. Macro
 // *definition* stays declined — doc 03 §23 item 3 — and the inline-Rust hatch
-// is the answer, which is what makes this the honest witness: Redox knows
+// is the answer, which is what makes this the honest witness: Voltaic knows
 // nothing about `loud!` and passes its argument through.
 //
 // It is **first in the file** because `macro_rules!` is textually scoped:
@@ -18,11 +18,11 @@ macro_rules! loud {
 // of any kind appears.
 //
 // This closes the largest reachability gap the language had. Plan 48 ported
-// the compiler's own source to Redox and measured what blocked it:
+// the compiler's own source to Voltaic and measured what blocked it:
 // `docs/CONFORMANCE.md` carries the figure, and macro invocation was almost
 // all of it. `effect!`, `caps!`, `hlist!`, `vec!`, `json!`, `bail!`, `info!`,
 // `query!` and every proc-macro were unreachable in a language whose premise
-// is "Redox has crates.io".
+// is "Voltaic has crates.io".
 //
 // Doc 18 §7 retired `!` as the zero-argument-call suffix and left it meaning
 // negation; this row takes it back for macros, told apart by **adjacency** —
@@ -33,7 +33,7 @@ fn main() {
     let a = 1;
     let b = 2;
 
-    // One argument, and Redox's own interpolation splices it: this reaches Rust
+    // One argument, and Voltaic's own interpolation splices it: this reaches Rust
     // as `println!("{} {}", a, b)`, two arguments where the author wrote one.
     // That is why the commonest macros take exactly one here — plan 64 §1.3.
     println!("{} {}", a, b);
@@ -78,7 +78,7 @@ fn main() {
     });
     println!("{}", sum);
 
-    // The escape hatch, for input that is **not a Redox expression**. A
+    // The escape hatch, for input that is **not a Voltaic expression**. A
     // token-stream DSL's tokens *are* its input, so no value-passing shape can
     // carry them — plan 64 §1.4. Plan 45 leaf 1 shipped the `"""` string form
     // as an item; leaf 4 added this expression position and the layout body.

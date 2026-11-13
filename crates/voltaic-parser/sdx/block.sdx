@@ -1,0 +1,340 @@
+import crate::ParseError
+import crate::expr::ABOVE_AND_AND
+import crate::expr::parse_expr
+import crate::item::local_test
+import crate::item::starts_a_declaration
+import crate::item::walk_item_for_tails
+import crate::operand::assign_tail
+import crate::operand::opens_an_over
+import crate::operand::over_update
+import crate::operand::try_await
+import crate::parser::Parser
+import crate::pattern::pattern_alt
+import crate::signature::TypeStop
+import crate::signature::capture_type
+import crate::token::reserved_word
+import crate::token::scan_run
+import voltaic_ast::Block
+import voltaic_ast::CaseArm
+import voltaic_ast::Condition
+import voltaic_ast::ConditionOperand
+import voltaic_ast::Expr
+import voltaic_ast::Program
+import voltaic_ast::Qualifier
+import voltaic_ast::Stmt
+import voltaic_diag::Code
+import voltaic_lexer::Keyword
+import voltaic_lexer::Span
+import voltaic_lexer::TokenKind
+
+export(crate) arm_body : &mut Parser -> Result<Expr, ParseError>
+arm_body p =
+  start = (.peek_span p).0
+  value = (parse_expr p 0)?
+  assign_tail p value start
+
+export(crate) bind_block : &mut Parser -> usize -> Result<Expr, ParseError>
+bind_block p start =
+  names_a_method = .is_some_and (\t -> t.kind == TokenKind::Dot) (.peek_at 1 p)
+  if !names_a_method
+    return Err $ reserved_word p
+  .advance p
+  .advance p
+  method = (.ident "expected a method name after `do .`" p)?
+  body = (.statement_block "expected an indented `do` body" p)?
+  Ok (Expr::BindBlock { method, body, span = (start, (.prev_span p).1) })
+
+export(crate) block_expr : &mut Parser -> Option<String> -> usize -> Result<Expr, ParseError>
+block_expr p label start =
+  body = (.statement_block "expected an indented block" p)?
+  Ok (Expr::Block { label, body, span = (start, (.prev_span p).1) })
+
+export(crate) case_arm : &mut Parser -> Result<CaseArm, ParseError>
+case_arm p =
+  start = (.peek_span p).0
+  pattern = (pattern_alt p)?
+  ty = if .check (&TokenKind::Colon) p
+    .advance p
+    Some (capture_type p "expected a type after `:` in a `case` pattern" TypeStop::Greedy)?
+  else
+    None
+  arm_guard = if .check (&TokenKind::Or) p
+    .advance p
+    Some (condition p)?
+  else
+    None
+  (.expect (&TokenKind::Arrow) "expected `->` after a `case` pattern" p)?
+  body = (arm_body p)?
+  (.newline_with_trailing "expected a line break after a `case` arm" p)?
+  Ok (CaseArm { pattern, ty, r#guard = arm_guard, body, span = (start, (.prev_span p).1) })
+
+export(crate) case_of : &mut Parser -> Result<Expr, ParseError>
+case_of p =
+  start = (.peek_span p).0
+  (.expect (&TokenKind::Kw Keyword::Case) "expected `case`" p)?
+  scrutinee = (parse_expr p 0)?
+  (.expect (&TokenKind::Kw Keyword::Of) "expected `of` after the scrutinee" p)?
+  (.expect (&TokenKind::Newline) "expected a line break after `of`" p)?
+  (.expect_with Code::EmptyBody (&TokenKind::Indent) "expected indented `case` arms" p)?
+  mut arms = Vec::new ()
+  loop
+    .skip_separators p
+    if .check (&TokenKind::Dedent) p || .at_eof p
+      break
+    .push (case_arm p)? arms
+  (.expect (&TokenKind::Dedent) "expected the `case` arms to end" p)?
+  if .is_empty arms
+    return Err (ParseError::r#with Code::EmptyBody "a `case` must have at least one arm" (start, (.prev_span p).1))
+  Ok (Expr::Case { scrutinee = Box::new scrutinee, arms, span = (start, (.prev_span p).1) })
+
+export(crate) check_callback_tails : &Program -> Vec<ParseError>
+check_callback_tails program =
+  mut found = Vec::new ()
+  for item in &program.items
+    walk_item_for_tails item (&mut found)
+  found
+
+export(crate) condition : &mut Parser -> Result<Condition, ParseError>
+condition p =
+  if !holds_a_pattern_test p false (&TokenKind::Kw Keyword::Is)
+    if holds_a_pattern_test p false (&TokenKind::Eq)
+      return Err (ParseError::r#with Code::ExpectedToken (.to_string "a pattern test is written `scrutinee is pattern` — plan 60 moved it off `=`, which now means definition and nothing else") (.peek_span p))
+    return Ok (Condition::plain (parse_expr p 0)?)
+  mut operands = vec! \-> (condition_operand p)?
+  while .check (&TokenKind::AndAnd) p
+    .advance p
+    .push (condition_operand p)? operands
+  if .check (&TokenKind::OrOr) p
+    return Err (ParseError::r#with Code::ExpectedToken "a condition holding a pattern test joins with `&&` only: Rust's let-chains do not admit `||`. Split the condition, or use a `case`" (.peek_span p))
+  Ok $ Condition { operands }
+
+export(crate) condition_operand : &mut Parser -> Result<ConditionOperand, ParseError>
+condition_operand p =
+  if !holds_a_pattern_test p true (&TokenKind::Kw Keyword::Is)
+    return Ok (ConditionOperand::Expr (parse_expr p ABOVE_AND_AND)?)
+  source = (parse_expr p ABOVE_AND_AND)?
+  (.expect (&TokenKind::Kw Keyword::Is) "expected `is` before the pattern" p)?
+  Ok (ConditionOperand::Pattern { pattern = (pattern_alt p)?, source })
+
+export(crate) control_flow : &mut Parser -> Result<Option<Expr>, ParseError>
+control_flow p =
+  start = (.peek_span p).0
+  label = case &(.peek p).kind of
+    TokenKind::Label text ->
+      owned = .clone text
+      .advance p
+      Some owned
+    _ -> None
+  if .check (&TokenKind::Kw Keyword::While) p || .check (&TokenKind::Kw Keyword::Until) p
+    negated = .check (&TokenKind::Kw Keyword::Until) p
+    keyword_span = .peek_span p
+    .advance p
+    cond = (condition p)?
+    reject = negated && .has_pattern cond
+    body = (.statement_block "expected an indented loop body" p)?
+    if reject
+      return Err (ParseError::r#with Code::PatternUntil "`until` cannot take a pattern test: it lowers to `while !(…)`, and a pattern test cannot be negated. Write `while` with the opposite pattern, or a `loop` with a `break`" keyword_span)
+    return Ok (Some (Expr::While { condition = cond, negated, body, label, span = (start, (.prev_span p).1) }))
+  if .check (&TokenKind::Kw Keyword::For) p
+    .advance p
+    binder = (.ident "expected a name after `for`" p)?
+    (.expect (&TokenKind::Kw Keyword::In) "expected `in` after the binder — doc 30 §3.2 writes a `for` with Rust's own word" p)?
+    source = Box::new (parse_expr p 0)?
+    body = (.statement_block "expected an indented loop body" p)?
+    return Ok (Some (Expr::For { binder, source, body, label, span = (start, (.prev_span p).1) }))
+  if .check (&TokenKind::Kw Keyword::Loop) p
+    .advance p
+    body = (.statement_block "expected an indented loop body" p)?
+    return Ok (Some (Expr::Loop { body, label, span = (start, (.prev_span p).1) }))
+  if .is_some label && .check (&TokenKind::Newline) p
+    return .map Some (block_expr p label start)
+  if label is Some named
+    message = format! \-> "expected `while`, `until`, `for`, `loop` or an indented block after the label `'#{named}`"
+    return Err (ParseError::r#with Code::ExpectedToken message (.peek_span p))
+  if .check (&TokenKind::Kw Keyword::Break) p
+    .advance p
+    break_label = case &(.peek p).kind of
+      TokenKind::Label text ->
+        owned = .clone text
+        .advance p
+        Some owned
+      _ -> None
+    value = if .at_statement_end p
+      None
+    else
+      Some $ Box::new (parse_expr p 0)?
+    return Ok (Some (Expr::Break { label = break_label, value, span = (start, (.prev_span p).1) }))
+  if .check (&TokenKind::Kw Keyword::Continue) p
+    .advance p
+    continue_label = case &(.peek p).kind of
+      TokenKind::Label text ->
+        owned = .clone text
+        .advance p
+        Some owned
+      _ -> None
+    return Ok (Some (Expr::Continue { label = continue_label, span = (start, (.prev_span p).1) }))
+  if .check (&TokenKind::Kw Keyword::If) p
+    return .map Some (.if_statement p)
+  if .check (&TokenKind::Kw Keyword::Guard) p
+    .advance p
+    source = Box::new (parse_expr p 0)?
+    (.expect (&TokenKind::Kw Keyword::Is) "expected `is` before a `guard` pattern" p)?
+    pattern = (pattern_alt p)?
+    (.expect (&TokenKind::Kw Keyword::Else) "expected `else` — a `guard` without one is a binding, and let-else requires it" p)?
+    fallback = (.statement_block "expected an indented `else` body after `guard`" p)?
+    return Ok (Some (Expr::Guard { pattern, source, r#otherwise = fallback, span = (start, (.prev_span p).1) }))
+  Ok None
+
+export(crate) holds_a_pattern_test : &Parser -> bool -> &TokenKind -> bool
+holds_a_pattern_test p one_operand marker =
+  mut depth : i32 = 0
+  mut i = 0
+  while .peek_at i p is Some tok
+    case &tok.kind of
+      kind | depth == 0 && kind == marker ->
+        return true
+      TokenKind::LParen or TokenKind::LBracket or TokenKind::LBrace -> depth += 1
+      TokenKind::RParen or TokenKind::RBracket or TokenKind::RBrace ->
+        depth -= 1
+        if depth < 0
+          return false
+      TokenKind::AndAnd or TokenKind::OrOr | depth == 0 && one_operand ->
+        return false
+      TokenKind::Kw (Keyword::Else) | depth == 0 ->
+        return false
+      TokenKind::Arrow | depth == 0 ->
+        return false
+      TokenKind::Newline or TokenKind::Indent or TokenKind::Dedent or TokenKind::Eof ->
+        return false
+      _ -> ()
+    i += 1
+  false
+
+export(crate) modified_block : &mut Parser -> Keyword -> usize -> Result<Expr, ParseError>
+modified_block p kw start =
+  .advance p
+  word = .text kw
+  body = (.statement_block (&format! \-> "expected an indented `#{word}` body") p)?
+  span = (start, (.prev_span p).1)
+  case kw of
+    Keyword::Async -> Ok (Expr::AsyncBlock { body, span })
+    Keyword::Unsafe -> Ok (Expr::UnsafeBlock { body, span })
+    Keyword::Try -> Ok (Expr::TryBlock { body, span })
+    _ ->
+      unreachable! \-> "only `try`, `async` and `unsafe` modify a block"
+
+export(crate) qualifiers : &mut Parser -> Result<Vec<Qualifier>, ParseError>
+qualifiers p =
+  mut found = Vec::new ()
+  loop
+    named = case (.peek p).kind of
+      TokenKind::Ident _ -> true
+      _ -> false
+    is_draw = named && .is_some_and (\t -> t.kind == TokenKind::Kw Keyword::In) (.peek_at 1 p)
+    if is_draw
+      name = (.ident "expected a name before `in`" p)?
+      .advance p
+      source = (parse_expr p 0)?
+      .push (Qualifier::Draw { name, source }) found
+    else
+      .push (Qualifier::Guard (parse_expr p 0)?) found
+    .skip_layout p
+    if !.check (&TokenKind::Comma) p
+      break
+    .advance p
+    .skip_layout p
+  Ok found
+
+export(crate) reaches_a_draw_arrow : &Parser -> bool
+reaches_a_draw_arrow p =
+  mut depth : i32 = 0
+  mut i = 0
+  while .peek_at i p is Some tok
+    case &tok.kind of
+      TokenKind::DrawArrow | depth == 0 ->
+        return true
+      TokenKind::LParen or TokenKind::LBracket or TokenKind::LBrace -> depth += 1
+      TokenKind::RParen or TokenKind::RBracket or TokenKind::RBrace ->
+        depth -= 1
+        if depth < 0
+          return false
+      TokenKind::Eq | depth == 0 ->
+        return false
+      TokenKind::Newline or TokenKind::Indent or TokenKind::Dedent or TokenKind::Eof ->
+        return false
+      _ -> ()
+    i += 1
+  false
+
+export(crate) reaches_a_fat_arrow : &Parser -> Option<Span>
+reaches_a_fat_arrow p =
+  mut depth : i32 = 0
+  mut i = 0
+  while .peek_at i p is Some tok
+    case &tok.kind of
+      TokenKind::FatArrow | depth == 0 ->
+        return Some tok.span
+      TokenKind::LParen or TokenKind::LBracket or TokenKind::LBrace -> depth += 1
+      TokenKind::RParen or TokenKind::RBracket or TokenKind::RBrace ->
+        depth -= 1
+        if depth < 0
+          return None
+      TokenKind::Eq | depth == 0 ->
+        return None
+      TokenKind::Newline or TokenKind::Indent or TokenKind::Dedent or TokenKind::Eof ->
+        return None
+      _ -> ()
+    i += 1
+  None
+
+export(crate) return_in_tail : &Block -> Vec<ParseError>
+return_in_tail block =
+  mut found = Vec::new ()
+  scan_run (&block.stmts) false (&mut found)
+  found
+
+export(super) stmt : &mut Parser -> Result<Stmt, ParseError>
+stmt p =
+  leading = .peek_leading p
+  start = (.peek_span p).0
+  (local_test p)?
+  if starts_a_declaration p
+    declared = (.item p)?
+    end = (.prev_span p).1
+    trailing = if .check (&TokenKind::Newline) p
+      taken = .clone (.peek p).trailing
+      .advance p
+      taken
+    else
+      None
+    wrapped = Expr::Item { item = Box::new declared, span = (start, end) }
+    return Ok (Stmt { expr = wrapped, span = (start, end), leading = Vec::new (), trailing })
+  if opens_an_over p
+    found = (over_update p start)?
+    end = (.prev_span p).1
+    trailing = (.newline_with_trailing "expected a line break after the statement" p)?
+    return Ok (Stmt { expr = found, span = (start, end), leading, trailing })
+  flow = (control_flow p)?
+  if flow is Some found
+    end = (.prev_span p).1
+    trailing = (.newline_with_trailing "expected a line break after the statement" p)?
+    return Ok (Stmt { expr = found, span = (start, end), leading, trailing })
+  expr = if .check (&TokenKind::Kw Keyword::Return) p
+    .advance p
+    value = if .at_statement_end p
+      None
+    else
+      Some $ Box::new (parse_expr p 0)?
+    Expr::Return { value, span = (start, (.prev_span p).1) }
+  else if (.try_draw p)? is Some drawn
+    drawn
+  else if (try_await p)? is Some awaited
+    awaited
+  else if (.try_binding p)? is Some bound
+    Expr::Binding $ Box::new bound
+  else
+    value = (parse_expr p 0)?
+    (assign_tail p value start)?
+  end = (.prev_span p).1
+  trailing = (.newline_with_trailing "expected a line break after the statement" p)?
+  Ok (Stmt { expr, span = (start, end), leading, trailing })

@@ -1,0 +1,168 @@
+import crate::expr_text::expr_text
+import crate::item_text::item_text
+import crate::pattern_text::pattern_text
+import voltaic_ast::Binding
+import voltaic_ast::Block
+import voltaic_ast::CaseArm
+import voltaic_ast::Condition
+import voltaic_ast::ConditionOperand
+import voltaic_ast::Expr
+import voltaic_ast::Stmt
+import voltaic_lexer::Trivia
+import voltaic_lexer::TriviaKind
+
+export stmt_text : &Stmt -> usize -> &str -> String
+stmt_text stmt indent source =
+  guard &stmt.expr is Expr::Item { item, .. } else
+    mut lines : Vec<String> = Vec::new ()
+    for trivium in &stmt.leading
+      .push (trivia_text trivium indent) lines
+    mut code = format! \-> "#{(indent_text indent)}#{(code_text (&stmt.expr) indent source)}"
+    if &stmt.trailing is Some trailing
+      .push_str "  " code
+      .push_str (.trim_start (trivia_text trailing 0)) code
+    .push code lines
+    return .join "\n" lines
+  item_text item indent source
+
+export(crate) binding_text : &Binding -> usize -> &str -> String
+binding_text binding indent source =
+  prefix = if binding.is_mut
+    "mut "
+  else
+    ""
+  ty = case &binding.ty of
+    Some ty -> format! \-> " : #{ty.text}"
+    None -> String::new ()
+  separator = case &binding.value of
+    Expr::Block { label = None, .. } -> "=\n"
+    _ -> "= "
+  pattern = pattern_text (&binding.pattern)
+  value = expr_text (&binding.value) 0 indent source
+  format! \-> "#{prefix}#{pattern}#{ty} #{separator}#{value}"
+
+export(crate) block_text : &Block -> usize -> &str -> String
+block_text block indent source =
+  parts : Vec<String> = block.stmts
+    |> .iter
+    |> .map (\stmt -> stmt_text stmt indent source)
+    |> .collect
+  .join "\n" parts
+
+export(crate) case_arm_text : &CaseArm -> usize -> &str -> String
+case_arm_text arm indent source =
+  r#guard = case &arm.r#guard of
+    Some condition -> format! \-> " | #{(condition_text condition indent source)}"
+    None -> String::new ()
+  ty = case &arm.ty of
+    Some ty -> format! \-> " : #{ty.text}"
+    None -> String::new ()
+  pad = indent_text indent
+  pattern = pattern_text (&arm.pattern)
+  head = format! \-> "#{pad}#{pattern}#{ty}#{r#guard} ->"
+  case &arm.body of
+    Expr::Block { label = None, body, .. } ->
+      format! \-> "#{head}\n#{(block_text body (indent + 1) source)}"
+    body -> format! \-> "#{head} #{(expr_text body 0 indent source)}"
+
+export(crate) code_text : &Expr -> usize -> &str -> String
+code_text expr indent source =
+  inner = indent + 1
+  case expr of
+    Expr::Binding binding -> binding_text binding indent source
+    Expr::Item { item, .. } -> item_text item indent source
+    Expr::Return { value = None, .. } -> String::from "return"
+    Expr::Return { value = Some value, .. } ->
+      format! \-> "return #{(expr_text value 0 indent source)}"
+    Expr::Draw { name, value, .. } ->
+      format! \-> "with #{name.text} = #{(expr_text value 0 indent source)}"
+    Expr::Await { pattern, value, .. } -> case pattern of
+      Some pattern ->
+        format! \-> "#{(pattern_text pattern)} <- #{(expr_text value 0 indent source)}"
+      None -> format! \-> "<- #{(expr_text value 0 indent source)}"
+    Expr::Assign { target, op, value, .. } ->
+      sigil = op |> .map_or ":" (\o -> .voltaic_text o)
+      format! \-> "#{(expr_text target 0 indent source)} #{sigil}= #{(expr_text value 0 indent source)}"
+    Expr::Guard { pattern, source = r#from, r#otherwise, .. } ->
+      format! \-> "guard #{(expr_text r#from 0 indent source)} is #{(pattern_text pattern)} else\n#{(block_text r#otherwise inner source)}"
+    Expr::If { condition, then_block, r#otherwise, .. } ->
+      format! \-> "if #{(condition_text condition indent source)}\n#{(block_text then_block inner source)}#{(else_text r#otherwise indent source)}"
+    Expr::While { condition, negated, body, label, .. } ->
+      keyword = if *negated
+        "until"
+      else
+        "while"
+      format! \-> "#{(label_text label)}#{keyword} #{(condition_text condition indent source)}\n#{(block_text body inner source)}"
+    Expr::For { binder, source = r#from, body, label, .. } ->
+      format! \-> "#{(label_text label)}for #{binder.text} in #{(expr_text r#from 0 indent source)}\n#{(block_text body inner source)}"
+    Expr::Loop { body, label, .. } ->
+      format! \-> "#{(label_text label)}loop\n#{(block_text body inner source)}"
+    Expr::Break { label, value, .. } ->
+      mut out = String::from "break"
+      if label is Some name
+        .push_str (&format! \-> " '#{name}") out
+      if value is Some value
+        .push ' ' out
+        .push_str (&expr_text value 0 indent source) out
+      out
+    Expr::Continue { label, .. } -> case label of
+      Some name -> format! \-> "continue '#{name}"
+      None -> String::from "continue"
+    value -> expr_text value 0 indent source
+
+export(crate) condition_text : &Condition -> usize -> &str -> String
+condition_text condition indent source =
+  required = if .len condition.operands == 1
+    0
+  else
+    10
+  parts : Vec<String> = condition.operands
+    |> .iter
+    |> .map (\operand -> case operand of
+    ConditionOperand::Expr expr -> expr_text expr required indent source
+    ConditionOperand::Pattern { pattern, source = from } ->
+      format! \-> "#{(expr_text from required indent source)} is #{(pattern_text pattern)}")
+    |> .collect
+  .join " && " parts
+
+export(crate) else_text : &Option<Block> -> usize -> &str -> String
+else_text r#otherwise indent source =
+  guard r#otherwise is Some block else
+    return String::new ()
+  pad = indent_text indent
+  sole_if = case .as_slice block.stmts of
+    [only] -> case only.expr of
+      Expr::If { .. } -> .is_empty only.leading && .is_none only.trailing
+      _ -> false
+    _ -> false
+  if sole_if
+    only = &block.stmts[0]
+    return format! \-> "\n#{pad}else #{(code_text (&only.expr) indent source)}"
+  format! \-> "\n#{pad}else\n#{(block_text block (indent + 1) source)}"
+
+export(crate) indent_text : usize -> String
+indent_text indent = .repeat indent "  "
+
+export(crate) label_text : &Option<String> -> String
+label_text label = case label of
+  Some name -> format! \-> "'#{name} "
+  None -> String::new ()
+
+export(crate) trivia_text : &Trivia -> usize -> String
+trivia_text trivium indent =
+  pad = indent_text indent
+  case trivium.kind of
+    TriviaKind::BlankLines -> String::new ()
+    TriviaKind::LineComment -> with_marker (&pad) "--" (&trivium.text)
+    TriviaKind::DocComment -> with_marker (&pad) "-- |" (&trivium.text)
+    TriviaKind::InnerDocComment -> with_marker (&pad) "-- !" (&trivium.text)
+    TriviaKind::FencedComment -> format! \-> "#{pad}{- #{trivium.text} -}"
+    TriviaKind::Attribute -> format! \-> "#{pad}#[#{trivium.text}]"
+    TriviaKind::InnerAttribute -> format! \-> "#{pad}#![#{trivium.text}]"
+
+export(crate) with_marker : &str -> &str -> &str -> String
+with_marker pad marker text =
+  if .is_empty text
+    format! \-> "#{pad}#{marker}"
+  else
+    format! \-> "#{pad}#{marker} #{text}"

@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """Plan 80 batch 2: the two `class` declarations, and three bodies around them.
 
-`redox-driver` is the first ported crate with a **trait of its own** —
+`voltaic-driver` is the first ported crate with a **trait of its own** —
 `ProgramWalk` and `CacheReporter` — so these are the first `class`
 declarations a port has written. `examples/class.sdx` has the shape: a member
 is `name : type` with no equation, and a default is an ordinary one.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('lint/program_walk', '''
@@ -35,7 +35,7 @@ export class CacheReporter
 
 -- | The shape a test uses: collect, do not print.
 -- |
--- | `#[cfg(test)]`, and at file scope: Redox puts nothing but `#[test] fn`s
+-- | `#[cfg(test)]`, and at file scope: Voltaic puts nothing but `#[test] fn`s
 -- | inside its generated `mod __rdx_tests` (plan 73 §2.9).
 #[cfg(test)]
 data Collect = Collect std::cell::RefCell<Vec<String>>
@@ -68,7 +68,7 @@ instance ProgramWalk PragmaWalk
   -- | because its class is declared directly above it.
   item : &mut self -> &Item -> ()
   item self item =
-    if .any (\\t -> allow_pragma t self.lint) (.iter (redox_ast::leading item))
+    if .any (\\t -> allow_pragma t self.lint) (.iter (voltaic_ast::leading item))
       .push (.span item) self.found
     ()
 

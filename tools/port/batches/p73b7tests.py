@@ -9,13 +9,13 @@ hand-written one did — `tests/port.rs` compares them byte for byte — so a
 dropped test module would surface as a diff, but only once the crate joins
 `PORTED`.
 
-Nine of redox-diag's files have inline tests and this is the only one where
+Nine of voltaic-diag's files have inline tests and this is the only one where
 they were missed, because it is the only one whose body was written in a
 separate step from its tests.
 """
 import io
 
-p = '/home/tom/Code/rust/redox/crates/redox-diag/sdx/source/map/parse_map.sdx'
+p = '/home/tom/Code/rust/voltaic/crates/voltaic-diag/sdx/source/map/parse_map.sdx'
 s = io.open(p, encoding='utf-8').read().rstrip('\n')
 
 s += '''
@@ -36,29 +36,29 @@ test "rejects a foreign file"
   assert! \\-> (.contains "does not begin" (&err)) \\-> "#{err}"
 
 test "rejects a future version"
-  err = .expect_err "should fail" (parse_map "redox-map 99 a.sdx\\n")
+  err = .expect_err "should fail" (parse_map "voltaic-map 99 a.sdx\\n")
   assert! \\-> (.contains "version 99" (&err)) \\-> "#{err}"
 
 test "rejects a header with no source"
-  err = .expect_err "should fail" (parse_map "redox-map 1\\n")
+  err = .expect_err "should fail" (parse_map "voltaic-map 1\\n")
   assert! \\-> (.contains "names no source" (&err)) \\-> "#{err}"
 
 -- | Records are positional, so a gap would shift every line after it. Better
 -- | to refuse the file than to resolve the wrong line.
 test "rejects records out of order"
-  err = .expect_err "should fail" (parse_map "redox-map 1 a.sdx\\n1 1 1 1\\n3 2 1 1\\n")
+  err = .expect_err "should fail" (parse_map "voltaic-map 1 a.sdx\\n1 1 1 1\\n3 2 1 1\\n")
   assert! \\-> (.contains "must be in order" (&err)) \\-> "#{err}"
 
 test "rejects a malformed record"
-  err = .expect_err "should fail" (parse_map "redox-map 1 a.sdx\\n1 2 3\\n")
+  err = .expect_err "should fail" (parse_map "voltaic-map 1 a.sdx\\n1 2 3\\n")
   assert! \\-> (.contains "3 fields" (&err)) \\-> "#{err}"
 
 test "rejects a zero column"
-  err = .expect_err "should fail" (parse_map "redox-map 1 a.sdx\\n1 1 0 1\\n")
+  err = .expect_err "should fail" (parse_map "voltaic-map 1 a.sdx\\n1 1 0 1\\n")
   assert! \\-> (.contains "1-based" (&err)) \\-> "#{err}"
 
 test "parses a map with no records"
-  map = .expect "should parse" (parse_map "redox-map 1 a.sdx\\n")
+  map = .expect "should parse" (parse_map "voltaic-map 1 a.sdx\\n")
   assert! \\-> (.is_empty map)
   assert_eq! \\-> map.source_path \\-> "a.sdx"
 '''

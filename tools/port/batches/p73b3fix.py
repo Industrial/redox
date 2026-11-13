@@ -5,7 +5,7 @@
 `.trim_end_matches ['\\n', '\\r'] source` is parsed as `trim_end_matches[…]`,
 and the index wants a `]` after the first element. Parenthesised it is an
 argument. The same shape as plan 69's `(*is_move)`: juxtaposition application
-collides with any bracket that also has a postfix meaning, and Redox resolves
+collides with any bracket that also has a postfix meaning, and Voltaic resolves
 towards the postfix.
 
 **A `crate::`-prefixed path cannot open a pattern.** `crate::Severity::Error`
@@ -16,7 +16,7 @@ lowercase because it starts with a keyword. Importing the type and matching
 """
 import io
 
-ROOT = '/home/tom/Code/rust/redox/crates/redox-diag/sdx/'
+ROOT = '/home/tom/Code/rust/voltaic/crates/voltaic-diag/sdx/'
 
 p = ROOT + 'render/anchor_span.sdx'
 s = io.open(p, encoding='utf-8').read()

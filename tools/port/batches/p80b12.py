@@ -2,7 +2,7 @@
 """Plan 80 batch 12: the hoisted `static` gets its own file.
 
 `ScratchDir::new` declares its counter as a `static` **inside the function**.
-Redox's `const`/`static` is module-scope (doc 03 §13.4), so the port hoists it
+Voltaic's `const`/`static` is module-scope (doc 03 §13.4), so the port hoists it
 — and `one_construct_per_file.rs` then reports `scratch_dir.rs` declaring two
 constructs, which is doc 06 §1 working rather than an obstacle.
 
@@ -21,16 +21,16 @@ import io
 import os
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
-ROOT = '/home/tom/Code/rust/redox/crates/redox-driver/sdx/'
+ROOT = '/home/tom/Code/rust/voltaic/crates/voltaic-driver/sdx/'
 
 NEXT = '''-- | The scratch-directory counter.
 -- |
 -- | Its own file because doc 06 §1 is one construct per file, and the Rust
 -- | declared it **inside** `ScratchDir::new` — a function-local `static`,
--- | which Redox has no spelling for: doc 03 §13.4's `const`/`static` is
+-- | which Voltaic has no spelling for: doc 03 §13.4's `const`/`static` is
 -- | module-scope. A function-local `static` already has static lifetime, so
 -- | hoisting changes nothing but who can see it — and `export(crate)` it must
 -- | be, because the only thing that reads it now lives one file up.
@@ -52,7 +52,7 @@ export(crate) module next
 
 -- | A temporary directory that removes itself.
 -- |
--- | Plan 07 (`docs/12 - 07 - Rustc Remapping.md`) leaf 4. `redox check` needs a
+-- | Plan 07 (`docs/12 - 07 - Rustc Remapping.md`) leaf 4. `voltaic check` needs a
 -- | file on disk to hand rustc, and the user did not ask for one — so it goes
 -- | somewhere temporary and is cleaned up, rather than littering the source
 -- | tree with a `.xrs` nobody asked for.
@@ -68,7 +68,7 @@ instance ScratchDir
   new tag =
     n = .fetch_add 1 std::sync::atomic::Ordering::Relaxed NEXT
     pid = std::process::id ()
-    dir = .join (format! \\-> "redox-#{tag}-#{pid}-#{n}") (std::env::temp_dir ())
+    dir = .join (format! \\-> "voltaic-#{tag}-#{pid}-#{n}") (std::env::temp_dir ())
     shown = .to_string (.display dir)
     (.map_err (\\e -> format! \\-> "error: cannot create #{shown}: #{e}") (std::fs::create_dir_all (&dir)))?
     Ok (ScratchDir dir)

@@ -26,7 +26,7 @@ Doc 18 is not the problem: §11.1 lists `$` as shipped in commit `0abcdf0`, and 
 A corpus file explaining why a working construct is absent, because it believes the construct
 does not work. Nothing caught it, because nothing checks the corpus against the language.
 
-The cost is measurable. A 1,501-line corpus of new Redox written against the current surface
+The cost is measurable. A 1,501-line corpus of new Voltaic written against the current surface
 carried **27 lines at parenthesis depth three or more**, nearly all of which `$` would have
 flattened. The author did not know `$` existed, and could not have: the examples are the
 documentation a reader actually reads, and an unexampled construct is an undiscoverable one.
@@ -36,7 +36,7 @@ states, and no example spans a pipeline across lines.
 
 ### 1.1 This is a test of the corpus, not of the compiler
 
-Every other test in `crates/redox-cli/tests/` asks whether the compiler is correct. This one
+Every other test in `crates/voltaic-cli/tests/` asks whether the compiler is correct. This one
 asks whether the **corpus is complete**, which is a different property and currently unasserted.
 
 The distinction matters because the two fail in opposite directions. A compiler bug makes a
@@ -55,12 +55,12 @@ So coverage is a **join**, not a new inventory:
 | Side | Source | Already built by |
 |---|---|---|
 | What the language has | `docs/GRAMMAR.md`, rows graded `SUGARED` or `PASSTHROUGH` | plan 46 |
-| What the corpus shows | `examples/*.sdx`, plus `crates/redox-cli/tests/{ui,run}/*.sdx` | plans 08, 13, 43 |
+| What the corpus shows | `examples/*.sdx`, plus `crates/voltaic-cli/tests/{ui,run}/*.sdx` | plans 08, 13, 43 |
 | The assertion | every row on the left appears somewhere on the right | **this row** |
 
 Note the paths: the `.sdx` side of the golden corpus is `examples/`, not `tests/golden/` — that
 directory holds only the 28 expected `.xrs` — and the UI and run corpora live under
-`crates/redox-cli/tests/`, not at the repository root.
+`crates/voltaic-cli/tests/`, not at the repository root.
 
 `UNREACHABLE` rows are excluded by construction: plan 46 requires their fixtures to still
 *fail*, so a gap that closes breaks that test. This row covers the reachable surface only.
@@ -93,7 +93,7 @@ holes for a future measurement to find.
 
 ## 2. Verified preconditions
 
-Measured 2026-11-10, against `redox` at `194fdf7`.
+Measured 2026-11-10, against `voltaic` at `194fdf7`.
 
 **`$` works, in all three senses the operator needs.** Low precedence, right associativity,
 and it does not swallow a method chain:
@@ -156,18 +156,18 @@ writing a second one; a parse yielding fewer than 80 rows is an error, not an em
 
 ### Leaf 2 — `leaf-corpus-scan`
 
-Scan `examples/*.sdx`, `crates/redox-cli/tests/ui/*.sdx` and `crates/redox-cli/tests/run/*.sdx`
+Scan `examples/*.sdx`, `crates/voltaic-cli/tests/ui/*.sdx` and `crates/voltaic-cli/tests/run/*.sdx`
 for each indexed spelling — the paths §1.2 corrects. The match is **lexical, on the token
 stream**, not a substring search, which would find `|>` inside a comment and `$` inside a
 string.
 
 ### Leaf 3 — `leaf-coverage-gate`
 
-`crates/redox-cli/tests/construct_coverage.rs`: the join, the assertion, and a failure message
+`crates/voltaic-cli/tests/construct_coverage.rs`: the join, the assertion, and a failure message
 naming each uncovered construct with its `GRAMMAR.md` row so a reader can go straight to it.
 An `ALLOW` list exists, is empty at merge, and each future entry requires a written reason in
 the test file. Plan 47's `STATUS.md` mechanism is a **blessable golden** rather than an allow
-list — `REDOX_BLESS=1` rewrites and then fails so the diff is reviewed — and §9.3 borrows that
+list — `VOLTAIC_BLESS=1` rewrites and then fails so the diff is reviewed — and §9.3 borrows that
 discipline's *intent*, not its implementation.
 
 ### Leaf 4 — `leaf-close-the-two-known-gaps`
@@ -243,7 +243,7 @@ this row reads its input.
 
 Emerald's `examples/README.md` gap-and-bug tracking, which plan 47 already borrowed for
 `STATUS.md`. Emerald tracked gaps in prose beside the examples, and prose drifted; the transfer
-here is the discipline with the enforcement added. (Redox has no `examples/README.md` — the
+here is the discipline with the enforcement added. (Voltaic has no `examples/README.md` — the
 artifact being borrowed from is Emerald's, and this row deliberately does not create one, because
 a prose file is the thing that drifted.)
 
@@ -273,7 +273,7 @@ why plan 46 had to build it before this row could exist.
 
 ## 10. Result
 
-**Done.** `crates/redox-cli/tests/construct_coverage.rs` ships with six tests,
+**Done.** `crates/voltaic-cli/tests/construct_coverage.rs` ships with six tests,
 1360 lines, and the two corpus leaves landed as `examples/application.sdx` and
 a correction to `examples/lexical.sdx`.
 
@@ -328,7 +328,7 @@ three separate defects in doing so, which is the whole argument of §1 landing:
    `chain_width` (60). No golden had caught it because the longest chain in the
    corpus was 21 characters. The example stays inside 60 deliberately and the
    fix is plan 58 leaf 2a.
-2. **`redox fmt` deleted `$`.** The formatter rewrote `twice $ show 7` into
+2. **`voltaic fmt` deleted `$`.** The formatter rewrote `twice $ show 7` into
    `twice (show 7)` and joined the four-stage pipeline onto one 89-character
    line, because `$` desugars to an `Expr::Paren` at parse time and the AST kept
    no memory of it. A formatter that rewrites `$` into parentheses makes `$`
@@ -341,7 +341,7 @@ three separate defects in doing so, which is the whole argument of §1 landing:
    grammar and parsing a `::`-spelled copy of the same file: it fails
    identically, so the colon had nothing to do with it.
 
-   The honest part of this entry is the gate. `crates/redox-cli/tests/tree_sitter.rs`
+   The honest part of this entry is the gate. `crates/voltaic-cli/tests/tree_sitter.rs`
    went red at `240b8ef`, the commit that added the example, and I verified
    `examples`, `run` and `status` before committing without running it — so the
    defect was found a plan later, by the agent migrating the grammar for plan

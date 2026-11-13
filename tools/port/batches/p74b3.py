@@ -4,7 +4,7 @@
 Two costs worth naming, both consequences of surface facts already recorded
 rather than new defects.
 
-**A slice index becomes `.get` plus `.unwrap_or`.** `&line[n..]` has no Redox
+**A slice index becomes `.get` plus `.unwrap_or`.** `&line[n..]` has no Voltaic
 spelling — indexing with a range is `Index`, and doc 03 grades it unreachable —
 so it is `.get (n..) line` with a fallback. The fallback is unreachable by
 construction, because `n` is `common.min(line.len())` and `common` counts
@@ -18,7 +18,7 @@ body.** `scan_byte`'s Rust opens with
 let err = |message: String, cur: &Cursor| LexError { … };
 ```
 
-and a Redox lambda parameter is a bare name — neither a pattern nor an
+and a Voltaic lambda parameter is a bare name — neither a pattern nor an
 annotation, which plan 73 §2.11 recorded. Here the annotation is load-bearing
 twice over: without it `cur`'s type cannot be inferred from `.pos cur` alone,
 and the parameter would also *shadow* the enclosing `cur`, which `RDX1003`
@@ -26,14 +26,14 @@ reports. So the literal is written at each of its five sites, which is what the
 other three scanners in this crate already do.
 
 The alternative — a nullary `\\->` closure capturing `cur` — is declined for a
-different reason: `redox fmt` diverges on a nullary lambda in **argument**
+different reason: `voltaic fmt` diverges on a nullary lambda in **argument**
 position, adding one parenthesis per pass without bound, and the gate runs
 `:sdx-format-check`. That defect is owed to a successor row; writing around it
 costs nothing here.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('lexer/dedent_block', '''

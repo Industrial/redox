@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""Plan 82 batch 6: twelve more of `redox-parser`'s bodies.
+r"""Plan 82 batch 6: twelve more of `voltaic-parser`'s bodies.
 
 **Every `write()` text here is a raw Python string**, where batches 1–5 used
 plain ones. Three of these bodies carry a literal backslash into the `.sdx` —
@@ -11,7 +11,7 @@ about instead of two.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('parse/error', r'''
@@ -65,7 +65,7 @@ local_test p =
   -- one way this differs from `Parser::item`'s call, and sound because
   -- nothing downstream ever sees it.
   keyword = .peek_span p
-  -- `_dropped`, where the Rust wrote `let _ = …`: `_` is not a Redox pattern,
+  -- `_dropped`, where the Rust wrote `let _ = …`: `_` is not a Voltaic pattern,
   -- and the binding is still what satisfies `Result`'s `#[must_use]`. A
   -- `drop (…)` would do it too and draws `clippy::drop_non_drop`.
   _dropped = test_decl p (Vec::new ()) keyword.0
@@ -195,7 +195,7 @@ case_arm p =
   -- unstable lowering cannot ship (plan 22 §1.5).
   -- `arm_guard`, where the Rust named the local `guard`: `guard` is doc 03
   -- §7.4's keyword, and `test` — the first substitute tried — is §22's. The
-  -- field keeps its own name as `r#guard`, which is how `redox-ast` declares
+  -- field keeps its own name as `r#guard`, which is how `voltaic-ast` declares
   -- it and how `emit::case` already reads it.
   arm_guard = if .check (&TokenKind::Or) p
     .advance p

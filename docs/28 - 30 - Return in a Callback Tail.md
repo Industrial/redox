@@ -116,9 +116,9 @@ code in the band must be one §17 published, at the number §17 gave it.
 Not applicable — this plan adds no construct. It adds a **refusal**, and the admission
 tests are for admissions. The relevant rule is AGENTS.md's: *every check rustc can make,
 rustc makes.* This is not one rustc can make. The generated Rust is valid; what is wrong is
-that it does not mean what the source said, and only Redox knows what the source said.
+that it does not mean what the source said, and only Voltaic knows what the source said.
 
-That is the narrow class of check Redox is allowed to grow, and §7.6 is where this one was
+That is the narrow class of check Voltaic is allowed to grow, and §7.6 is where this one was
 specified.
 
 ---
@@ -194,7 +194,7 @@ The UI case, emit tests for the four shapes, and the gate.
 - **A `return` inside a nested function or `class` member in a tail** is not reachable: a
   declaration cannot appear in a statement block.
 - **Suggesting a fix** is declined for now. The honest rewrite depends on what the callback
-  does with its value, which Redox cannot know. The message says what the `return` would do
+  does with its value, which Voltaic cannot know. The message says what the `return` would do
   instead, which is the information the author lacks.
 - **A lint for a `return` that is the tail's last statement** — where the closure's value
   and the function's would coincide for a `Result`-returning callback — is deliberately not
@@ -225,7 +225,7 @@ moon run :check :lint :test :cargo-check :cargo-test :ci-format :audit
 | 2 | The walk stops at any new closure | Reject every `return` anywhere in the tail | A `return` in a `try` block returns from that block, which is what the author wrote. The lambda case turned out unreachable (§10.2), so the rule is carried by *which statement kinds own blocks* rather than by a deny-list |
 | 3 | `RDX0044`, the published number | The next free code in the syntactic range | Doc 03 §17 assigned 44 to this exact diagnostic. The reserved band exists so a published number stays published — and §1.5's test had to be corrected to allow it |
 | 4 | Proved by the UI corpus, not the examples | An example | A corpus requiring zero rustc output and a successful run cannot hold a program that must fail. Plan 16 §10.2 recorded the same wall |
-| 5 | No suggested fix | A `did you mean` | The rewrite depends on the callback's contract, which Redox cannot see. A wrong suggestion is worse than none |
+| 5 | No suggested fix | A `did you mean` | The rewrite depends on the callback's contract, which Voltaic cannot see. A wrong suggestion is worse than none |
 
 ---
 

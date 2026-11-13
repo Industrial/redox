@@ -7,7 +7,7 @@ translator, the writer and the emitter. These five are the source's own.
 **A test-only import does not belong at module scope.** `BTreeSet` and
 `render_map` are each named once, inside a `test` block — which emits into
 `mod __rdx_tests`, whose `use super::*;` resolves the parent's import and
-leaves it unused in the *library* build. Redox has no import inside a `test`
+leaves it unused in the *library* build. Voltaic has no import inside a `test`
 block, so the use site names the path instead: `std::collections::BTreeSet`
 directly, and `crate::render_map` via the re-export `lib.sdx` already makes.
 
@@ -17,20 +17,20 @@ binding of that name, which is Rust's own shorthand, and clippy asks for it.
 **`n := n - 1` has an operator.** `compound_assign.rs` reads `-=`; the
 translator produced the long form because the Rust did.
 
-**`(&err)` is the Rust's borrow, not Redox's.** `.contains "…" (&err)` emits
+**`(&err)` is the Rust's borrow, not Voltaic's.** `.contains "…" (&err)` emits
 `(&err).contains("…")`, which `needless_borrow` rejects — `err` is a `String`
 and auto-ref does it. Six tests, one shape.
 
-**The `matches!` allow.** `redox-ast` and `redox-fmt` both carry it with plan
+**The `matches!` allow.** `voltaic-ast` and `voltaic-fmt` both carry it with plan
 68's reasoning: `matches!`'s second argument is a **pattern**, so a language
 without one writes `case` with a `_ -> false`, and clippy asks for a macro it
-cannot call. `redox-diag` has two such methods.
+cannot call. `voltaic-diag` has two such methods.
 
 ---
 
 **Every edit here is stated as a destination, not as a diff**, and that is
 load-bearing rather than tidy. `p73build.sh` runs the translator over
-`crates/redox-diag/src`, which is *generated from this very tree* — so the
+`crates/voltaic-diag/src`, which is *generated from this very tree* — so the
 second run reads back the first run's output and the "before" text is already
 gone. A batch written as `assert count == 1; replace` therefore passes once and
 then aborts the build, which is exactly what it did. `ensure` applies the edit
@@ -39,7 +39,7 @@ the batch is a fixpoint and the build is reproducible from any starting point.
 """
 import io
 
-ROOT = '/home/tom/Code/rust/redox/crates/redox-diag/sdx/'
+ROOT = '/home/tom/Code/rust/voltaic/crates/voltaic-diag/sdx/'
 
 
 def ensure(rel, pairs):
@@ -88,18 +88,18 @@ ensure('render/snippet_line.sdx', [
     ('    n := n - 1\n', '    n -= 1\n', 1),
 ])
 
-# The crate-root allow, above the module docs as `redox-ast` has it. Stated as
+# The crate-root allow, above the module docs as `voltaic-ast` has it. Stated as
 # a destination for the same reason as everything above: once it is in the
 # `.sdx` it reaches the generated Rust, and the translator reads it back.
 ALLOW = '#![allow(clippy::match_like_matches_macro)]'
-WHY = """-- `matches!`'s second argument is a **pattern**, and Redox has no way to pass
+WHY = """-- `matches!`'s second argument is a **pattern**, and Voltaic has no way to pass
 -- one — so a method asking *is this one of these variants* is a `case` with a
 -- `_ -> false` arm, and `clippy::match_like_matches_macro` fires on every one
 -- asking for a macro this language cannot call. Two methods here:
--- `DiagnosticCode::is_redox` and `Severity::is_error`.
+-- `DiagnosticCode::is_voltaic` and `Severity::is_error`.
 --
--- The allow states that fact rather than suppressing a defect. `redox-ast` and
--- `redox-fmt` carry the same one for the same reason — plan 68 found it, and
+-- The allow states that fact rather than suppressing a defect. `voltaic-ast` and
+-- `voltaic-fmt` carry the same one for the same reason — plan 68 found it, and
 -- only a row making `matches!` reachable would retire it.
 """
 p = ROOT + 'lib.sdx'

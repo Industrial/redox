@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Plan 82 batch 2: twelve more of `redox-parser`'s bodies."""
+"""Plan 82 batch 2: twelve more of `voltaic-parser`'s bodies."""
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('parse/parser/pattern_alt', '''
@@ -98,7 +98,7 @@ condition_operand p =
 ''')
 
 write('parse/parser/constructor', '''
-export(crate) constructor : &mut Parser -> Vec<redox_lexer::Trivia> -> Result<Constructor, ParseError>
+export(crate) constructor : &mut Parser -> Vec<voltaic_lexer::Trivia> -> Result<Constructor, ParseError>
 constructor p leading =
   start = (.peek_span p).0
   name = (.ident "expected a constructor name" p)?

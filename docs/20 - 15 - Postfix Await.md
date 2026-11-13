@@ -37,7 +37,7 @@ rule is written. What is missing is one arm.
 
 Doc 04's row 39 (`async`) owns `async fn` and `async` blocks. **This plan deliberately does
 not**: a `.await` inside a non-`async` function is rustc's error to give, and giving it is
-better than Redox refusing to parse the construct that provokes it. Doc 01 §24 provides no
+better than Voltaic refusing to parse the construct that provokes it. Doc 01 §24 provides no
 executor and no runtime, so there is nothing else here to build.
 
 ---
@@ -47,7 +47,7 @@ executor and no runtime, so there is nothing else here to build.
 | Claim | How checked | Result |
 |---|---|---|
 | `await` is reserved | `keyword.rs` | `Keyword::Await`, from doc 03's set |
-| `.await` does not parse today | `redox build` on a one-line fixture | `RDX0103: expected a field name, a tuple index, or a method name after \`.\`` |
+| `.await` does not parse today | `voltaic build` on a one-line fixture | `RDX0103: expected a field name, a tuple index, or a method name after \`.\`` |
 | The postfix loop already composes | plan 03, and `?` under plan 17 | `postfix` returns `Ok(Ok(grown))` and loops, so `.await?` needs no sequencing work |
 | Doc 03 §14.3 wants no lowering | §14.3 | *"It is also verbatim passthrough."* |
 
@@ -173,7 +173,7 @@ without an example", by design: the harness's `NOT_PARSEABLE` list excuses a fil
 parsing, and nothing excuses one from compiling.
 
 So criterion 6 is met by the emit tests, which assert exact generated text in the same
-style every other `redox-emit` test does. Adding a `CANNOT_COMPILE` list for one example
+style every other `voltaic-emit` test does. Adding a `CANNOT_COMPILE` list for one example
 would have weakened the harness for every future example, which is a worse trade than
 leaving one passthrough proven by seven exact-text assertions.
 

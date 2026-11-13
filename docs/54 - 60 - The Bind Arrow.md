@@ -110,7 +110,7 @@ job two sections up.
 
 ## 2. Verified preconditions
 
-Measured 2026-11-10, against `redox` at `194fdf7`.
+Measured 2026-11-10, against `voltaic` at `194fdf7`.
 
 **`<-` is await and nothing else.** `examples/async.sdx` uses it in four positions — a plain
 bind, a bind of a bind, the effect-only form, and inside an `async` block — and all four are
@@ -151,7 +151,7 @@ Six cases:
 
 1. **`<-` in an `async` block** — await, unchanged behaviour from today's spelling.
 2. **`<-` in a `try` block** — the `?`, with the §3 headline equality asserted.
-3. **`<-` outside any block modifier** — a named Redox diagnostic. The token's meaning comes from
+3. **`<-` outside any block modifier** — a named Voltaic diagnostic. The token's meaning comes from
    the block, so no block means no meaning, and that must be a diagnostic rather than a default.
 4. **The let-chain.** `if o is Some v && v > 2` — one condition with two operands where the
    second reads the first's binding. Plan 22 §1.5 verified the Rust form is stable; the spelling
@@ -226,7 +226,7 @@ byte-identical assertion possible — two spellings, one emission path.
 
 The §3 case 3 diagnostic — `<-` in a function that is neither `async` nor inside a `try` or
 `async` block, which is criterion 3's narrowing — with a fixture under
-`crates/redox-cli/tests/ui/`, the path §11.6 records.
+`crates/voltaic-cli/tests/ui/`, the path §11.6 records.
 
 ### Leaf 6 — `leaf-corpus-and-docs`
 
@@ -262,7 +262,7 @@ condition token; and there is **no `let`-`else` row at all**, though `guard` low
    argument *for* this row which the row does not make, and an AST change it does not price.
    Whether it is in scope is **open and owed** rather than decided here.
 2. `=` in a pattern position is a named diagnostic naming `is`, with a fixture under
-   `crates/redox-cli/tests/ui/`. The negated-condition case keeps the code it already has:
+   `crates/voltaic-cli/tests/ui/`. The negated-condition case keeps the code it already has:
    `until` with a pattern is `RDX0107` today, and leaf 2 carries `is` into both its detection and
    its message.
 
@@ -280,7 +280,7 @@ condition token; and there is **no `let`-`else` row at all**, though `guard` low
    no `async` block, only line 85 inside one. As written the criterion fails
    `examples/async.sdx`, and criterion 7 with it. §1's table, which shows only the block form,
    misframes the same thing. Measured for free: `x <- g n` in a plain non-async function emits
-   `let x = g(n).await;` today with no Redox diagnostic, rustc catching it.
+   `let x = g(n).await;` today with no Voltaic diagnostic, rustc catching it.
 
    **The nesting rule is still unstated**, and §11.1 names it rather than settling it: a `try`
    block inside an `async fn` has both readings available, and the row says only *"the block says
@@ -331,7 +331,7 @@ condition token; and there is **no `let`-`else` row at all**, though `guard` low
 decision a reader will most expect to go the other way, since the token that displaced `<-` from
 comprehensions is now free.
 
-It is declined because a Redox comprehension lowers to an **iterator chain**, not a monadic
+It is declined because a Voltaic comprehension lowers to an **iterator chain**, not a monadic
 bind — doc 18 §3.2's `filter_map` lowering is the evidence. Spelling an iterator generator with
 the bind arrow would be a borrowed surface whose semantics did not come with it, which is the
 exact defect this milestone exists to remove. Using `<-` there would be a category error that
@@ -339,7 +339,7 @@ happens to look faithful.
 
 **`do` is reserved and unused.** Plan 55 §1.7 reserved it, and with `<-` now a bind, a future row
 wanting a general monadic block has both the keyword and the arrow available. This row does not
-take it, because a general bind needs a trait to bind over and Redox has no type classes of its
+take it, because a general bind needs a trait to bind over and Voltaic has no type classes of its
 own — `class` is Rust's `trait`, and a `Monad` would be a library.
 
 **No new block modifiers.** `try` and `async` are the two plan 55 delivered. `<-`'s meaning being
@@ -370,7 +370,7 @@ unmodified-block `<-`; `construct_coverage` green.
 ## 8. Emerald reuse
 
 None. Emerald had no bind, no `await` surface and no pattern test in condition position; doc 30
-exists because the token economy is Redox-specific and had to be reasoned about from scratch.
+exists because the token economy is Voltaic-specific and had to be reasoned about from scratch.
 
 The transferable discipline is doc 30's own method, which this row follows: **write down what a
 token means in every position before assigning it**, because doc 30 §4.2 is the record of a
@@ -487,7 +487,7 @@ uses sit in `async fn` bodies with **no `async` block at all** (lines 53, 54,
 It must read *"inside an `async` **function** or an `async` block"*, and §1's
 table — which shows only the block form — misframes it. Measured for free:
 `x <- g n` in a plain non-async function emits `let x = g(n).await;` today with
-no Redox diagnostic, rustc catching it.
+no Voltaic diagnostic, rustc catching it.
 
 **And the nesting rule is unstated.** A `try` block inside an `async fn` has
 both readings available. The row says *"the block says what binding means"* and
@@ -538,7 +538,7 @@ It reads `Kw(With)` — doc 30 §3.3's `with conn = pool.with_connection` — an
 **Both names re-verified 2026-11-10, after plan 55 leaf 1 deleted
 `StmtKind`.** This section originally wrote `StmtKind::Draw` and
 `StmtKind::Await`; both variants moved to `Expr` and are at
-`crates/redox-ast/src/expr.rs` lines 470 and 503. The substantive claim
+`crates/voltaic-ast/src/expr.rs` lines 470 and 503. The substantive claim
 below survived the move unchanged, which is the half worth re-checking:
 `Parser` still has exactly three fields.
 
@@ -616,7 +616,7 @@ should disclose that the position exists and is not reached.
   arrow in a condition (doc 30)"* — doc 30 is what stopped `<-` being the
   condition token. There is also **no `let`-`else` row at all**, though `guard`
   lowers to one.
-- `tests/ui/` is at `crates/redox-cli/tests/ui/`.
+- `tests/ui/` is at `crates/voltaic-cli/tests/ui/`.
 
 ### 11.7 Citations
 

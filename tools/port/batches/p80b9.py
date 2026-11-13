@@ -3,12 +3,12 @@
 
 `Store::paths` returns a pair that both callers destructure, so this is the
 third and fourth tuple-binding site in the crate — bound once and projected,
-and the local the Rust called `rust` is `rust_path` because `rust` is a Redox
+and the local the Rust called `rust` is `rust_path` because `rust` is a Voltaic
 keyword.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('cache/store', '''
@@ -19,11 +19,11 @@ instance Store
   -- | per-profile, and emptied by `cargo clean` — it inherits Cargo's lifetime
   -- | rules rather than inventing its own, and so needs no eviction policy.
   export(crate) new : &Path -> Self
-  new out = Store { dir = .join ".redox-cache" out }
+  new out = Store { dir = .join ".voltaic-cache" out }
 
   -- | The `<hash>.rs` and `<hash>.rs.map` paths one key names.
   -- |
-  -- | `rust_path`, where the Rust named the local `rust`: `rust` is a Redox
+  -- | `rust_path`, where the Rust named the local `rust`: `rust` is a Voltaic
   -- | keyword.
   paths : &blake3::Hash -> &self -> (PathBuf, PathBuf)
   paths key self =
@@ -39,7 +39,7 @@ instance Store
     map = (.ok (std::fs::read_to_string found.1))?
     -- A map that does not parse means the entry was written by something other
     -- than this format, or was truncated. Either way: miss.
-    (.ok (redox_diag::parse_map (&map)))?
+    (.ok (voltaic_diag::parse_map (&map)))?
     Some (Cached { r#rust = text, map })
 
   -- | Record a result. A failure to write is silently a future miss.
@@ -63,7 +63,7 @@ instance Store
 static NEXT : std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new 0
 
 -- | `#[cfg(test)]`: a scratch directory, removed on drop, and one cache entry.
--- | Redox puts nothing but `#[test] fn`s inside `mod __rdx_tests` (plan 73
+-- | Voltaic puts nothing but `#[test] fn`s inside `mod __rdx_tests` (plan 73
 -- | §2.9), so both live here at file scope.
 #[cfg(test)]
 data Dir = Dir std::path::PathBuf
@@ -74,7 +74,7 @@ instance Dir
   new tag =
     n = .fetch_add 1 std::sync::atomic::Ordering::Relaxed NEXT
     pid = std::process::id ()
-    dir = .join (format! \\-> "redox-store-#{tag}-#{pid}-#{n}") (std::env::temp_dir ())
+    dir = .join (format! \\-> "voltaic-store-#{tag}-#{pid}-#{n}") (std::env::temp_dir ())
     .expect "should create" (std::fs::create_dir_all (&dir))
     Dir dir
 
@@ -87,7 +87,7 @@ instance Drop Dir
 
 #[cfg(test)]
 entry : Cached
-entry = Cached { r#rust = .to_string "fn main() {}\\n", map = .to_string "redox-map 1 a.sdx\\n1 1 1 1\\n" }
+entry = Cached { r#rust = .to_string "fn main() {}\\n", map = .to_string "voltaic-map 1 a.sdx\\n1 1 1 1\\n" }
 
 test "a stored entry comes back"
   dir = Dir::new "roundtrip"
@@ -111,7 +111,7 @@ test "a corrupt map is a miss"
   .put (&key) (&entry ()) store
 
   found = .paths (&key) store
-  .expect "should overwrite" (std::fs::write (&found.1) "not a redox map at all\\n")
+  .expect "should overwrite" (std::fs::write (&found.1) "not a voltaic map at all\\n")
   assert_eq! \\-> .get (&key) store \\-> None
 
 -- | A half-entry — the Rust missing — is absent rather than partly usable.
@@ -127,7 +127,7 @@ test "a half written entry is a miss"
 
 -- | An unwritable cache directory must not fail anything.
 test "an unwritable store is simply always a miss"
-  store = Store::new (std::path::Path::new "/proc/nonexistent-redox")
+  store = Store::new (std::path::Path::new "/proc/nonexistent-voltaic")
   key = blake3::hash b"k"
   .put (&key) (&entry ()) store
   assert_eq! \\-> .get (&key) store \\-> None
@@ -138,8 +138,8 @@ export check : &Path -> &str -> Result<CheckOutcome, String>
 check path source =
   sdx_path = .to_string (.display path)
 
-  -- A syntax error is Redox's own, and never reaches rustc.
-  program = case redox_parser::parse_source source of
+  -- A syntax error is Voltaic's own, and never reaches rustc.
+  program = case voltaic_parser::parse_source source of
     Ok parsed -> parsed
     Err failure ->
       return Ok (CheckOutcome { diagnostics = diagnose path source (&failure), failed = true })
@@ -148,15 +148,15 @@ check path source =
   -- `unwrap` *"lintable rather than prohibited"*.
   --
   -- After the parse, because a warning about a program nobody can compile is
-  -- noise, and before rustc runs, so Redox's own warnings are not buried under
+  -- noise, and before rustc runs, so Voltaic's own warnings are not buried under
   -- rustc's.
   mut diagnostics = crate::lint path source (Some (&program))
 
   -- `emitted.0` is the Rust and `emitted.1` the map, where the Rust
   -- destructured the pair.
-  emitted = redox_emit::emit_with_map (&program) source (&sdx_path)
+  emitted = voltaic_emit::emit_with_map (&program) source (&sdx_path)
 
-  rustc = (.ok_or_else (\\-> .to_string "error: no rustc found. `redox check` compiles the generated Rust, so it needs the Rust toolchain on PATH.") (rustc_path ()))?
+  rustc = (.ok_or_else (\\-> .to_string "error: no rustc found. `voltaic check` compiles the generated Rust, so it needs the Rust toolchain on PATH.") (rustc_path ()))?
 
   dir = (ScratchDir::new "check")?
   xrs = .join "check.xrs" (.path dir)
@@ -181,7 +181,7 @@ check path source =
   if .is_empty messages && !.success out.status
     -- rustc failed for a reason it gave no positioned diagnostic for — a
     -- missing linker, say. Passing its own words through is more use than a
-    -- message of Redox's invention.
+    -- message of Voltaic's invention.
     trimmed = .trim_end stderr
     return Err (format! \\-> "error: rustc failed:\\n#{trimmed}")
 

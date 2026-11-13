@@ -8,7 +8,7 @@ and mutated.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('build', '''
@@ -18,10 +18,10 @@ build request =
   shown = .clone request.path
   source = (.map_err (\\e -> format! \\-> "cannot read #{shown}: #{e}") (std::fs::read_to_string path))?
 
-  -- A syntax error is Redox's own and never reaches the emitter. Returned as a
+  -- A syntax error is Voltaic's own and never reaches the emitter. Returned as a
   -- diagnostic rather than an `Err`, because a program that does not parse is
   -- an answer about the program (plan 50 §5 criterion 2).
-  program = case redox_parser::parse_source (&source) of
+  program = case voltaic_parser::parse_source (&source) of
     Ok parsed -> parsed
     Err failure ->
       return Ok (BuildResponse {
@@ -30,12 +30,12 @@ build request =
         map = None,
         diagnostics = diagnose path (&source) (&failure)
           |> .iter
-          |> .map diagnostic_from_redox
+          |> .map diagnostic_from_voltaic
           |> .collect,
       })
 
-  diagnostics = redox_driver::lint path (&source) (Some (&program))
-  emitted = redox_emit::emit_with_map (&program) (&source) (&request.path)
+  diagnostics = voltaic_driver::lint path (&source) (Some (&program))
+  emitted = voltaic_emit::emit_with_map (&program) (&source) (&request.path)
   -- `generated`, not `rust`: **`rust` is a keyword**, and as a binding name it
   -- earns `RDX0101: expected a """ block of Rust after `rust`` — a diagnostic
   -- about the escape hatch, which is not what the author wrote. Three keyword
@@ -48,7 +48,7 @@ build request =
   out_shown = .to_string (.display output)
   (.map_err (\\e -> format! \\-> "cannot write #{out_shown}: #{e}") (std::fs::write (&output) (&generated)))?
 
-  -- Same rule as `redox build`: the stem plus `.map`, so `main.xrs` has
+  -- Same rule as `voltaic build`: the stem plus `.map`, so `main.xrs` has
   -- `main.xrs.map` rather than `main.map`.
   --
   -- Bound and mutated because `OsString::push` returns `()`, so there is no
@@ -57,13 +57,13 @@ build request =
   .push ".map" map_name
   map_path = .with_file_name map_name output
   map_shown = .to_string (.display map_path)
-  (.map_err (\\e -> format! \\-> "cannot write #{map_shown}: #{e}") (std::fs::write (&map_path) (redox_diag::render_map (&map))))?
+  (.map_err (\\e -> format! \\-> "cannot write #{map_shown}: #{e}") (std::fs::write (&map_path) (voltaic_diag::render_map (&map))))?
 
   Ok (BuildResponse {
     ok = true,
     output = Some out_shown,
     map = Some map_shown,
-    diagnostics = diagnostics |> .iter |> .map diagnostic_from_redox |> .collect,
+    diagnostics = diagnostics |> .iter |> .map diagnostic_from_voltaic |> .collect,
   })
 ''')
 
@@ -75,7 +75,7 @@ source_map request =
   -- The sidecar's name is the full file name plus `.map`, so `main.xrs` has
   -- `main.xrs.map`. Accepting either the `.xrs` or the `.map` itself, because
   -- a caller holding a stack trace has the `.xrs` and a caller that just ran
-  -- `redox_build` has both paths from its response.
+  -- `voltaic_build` has both paths from its response.
   is_map = .is_some_and (\\e -> e == "map") (.extension xrs)
   map_path = if is_map
     .to_path_buf xrs
@@ -86,8 +86,8 @@ source_map request =
     .with_file_name name xrs
 
   map_shown = .to_string (.display map_path)
-  source_text = .map_err (\\e -> format! \\-> "cannot read #{map_shown}: #{e}. `redox_build` writes it beside the .xrs") (std::fs::read_to_string (&map_path))
-  map = (.map_err (\\e -> format! \\-> "#{map_shown} is not a source map: #{e}") (redox_diag::parse_map (&source_text?)))?
+  source_text = .map_err (\\e -> format! \\-> "cannot read #{map_shown}: #{e}. `voltaic_build` writes it beside the .xrs") (std::fs::read_to_string (&map_path))
+  map = (.map_err (\\e -> format! \\-> "#{map_shown} is not a source map: #{e}") (voltaic_diag::parse_map (&source_text?)))?
 
   column = .unwrap_or 1 request.column
   case .resolve request.line column map of
@@ -102,7 +102,7 @@ source_map request =
       reason = if request.line == 0 || request.line > .len map
         "out-of-range: the .xrs has no such line"
       else
-        "synthetic: Redox emitted this line and no .sdx line is behind it"
+        "synthetic: Voltaic emitted this line and no .sdx line is behind it"
       Ok (SourceMapResponse {
         source = Some (.clone map.source_path),
         line = None,

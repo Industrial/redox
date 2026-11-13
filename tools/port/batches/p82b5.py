@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
-"""Plan 82 batch 5: twelve more of `redox-parser`'s bodies.
+"""Plan 82 batch 5: twelve more of `voltaic-parser`'s bodies.
 
-`rust_hatch` is the shape where Rust's shadowing is load-bearing and Redox's
+`rust_hatch` is the shape where Rust's shadowing is load-bearing and Voltaic's
 `RDX1003` forbids it: `let raw = raw.clone()` ends the borrow of `p` by
-retiring the name, and a Redox port has to end it by *last use* instead — the
+retiring the name, and a Voltaic port has to end it by *last use* instead — the
 clone is the binding's final mention, so `.advance p` is still legal under a
 different local name.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('parse/parser/assign_tail', '''
@@ -188,11 +188,11 @@ receiver_text ty =
   else if .strip_prefix "mut " ty is Some rest
     -- **Rust's fourth receiver form**, and the one plan 67's list of three
     -- missed: a by-value receiver the method may mutate. Plan 74 found it
-    -- porting `redox-lexer`, whose `LexError::offset_by` is written that way.
+    -- porting `voltaic-lexer`, whose `LexError::offset_by` is written that way.
     --
     -- Without this the type matched no receiver, stayed an ordinary
     -- parameter, and emitted `fn offset_by(base: usize, self: mut self)` —
-    -- not Rust, and reported by rustc rather than by Redox, which is the
+    -- not Rust, and reported by rustc rather than by Voltaic, which is the
     -- worse of the two failures.
     --
     -- After `&mut `, because that prefix also contains `mut `.
@@ -247,7 +247,7 @@ r#deriving p =
       break
     -- **A path, not just a name.** `#[derive(serde::Deserialize)]` is
     -- ordinary Rust, and this clause emits straight into that attribute — it
-    -- simply could not read one. Nine of `redox-mcp`'s nineteen files use the
+    -- simply could not read one. Nine of `voltaic-mcp`'s nineteen files use the
     -- qualified form, and plan 77 is what found it.
     --
     -- The segments are joined into the `Ident`'s text, which `emit::data`
@@ -286,14 +286,14 @@ module_decl p leading start visibility =
 ''')
 
 write('parse/parser/walk_item_for_tails', '''
-import redox_ast::Block
+import voltaic_ast::Block
 
 export(crate) walk_item_for_tails : &Item -> &mut Vec<ParseError> -> ()
 -- `problems`, where the Rust named the parameter `errors`: `errors` is doc 03
 -- §14's declaration keyword, so the whole crate uses `problems` for the
 -- parameter and `found` for the local.
 --
--- `Block` is imported, where the Rust qualified it as `redox_ast::Block` — a
+-- `Block` is imported, where the Rust qualified it as `voltaic_ast::Block` — a
 -- record literal's head reads as a path either way, and the import matches
 -- what `return_in_tail`'s own signature already names.
 walk_item_for_tails item problems =

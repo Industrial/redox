@@ -1,0 +1,19 @@
+-- | Lexes, and the **parser** rejects it with `RDX0102`.
+--
+-- Named `parse_error` and not `syntax_error`, because the distinction is real
+-- and this fixture was wrong about it once. The first version was `print (1`,
+-- an unbalanced delimiter — which is `RDX0012`, a **lexical** code, since the
+-- lexer tracks bracket depth. Plan 40 §10.3 found the same thing and split its
+-- test in two for it; this row re-earned the lesson rather than reading it.
+--
+-- `else` with no `if` is the parser's complaint, which is what `voltaic_build`
+-- and `voltaic_fmt` need: a program that reaches the parser and stops there.
+--
+-- It was `then 1` until plan 55 leaf 7 freed that word. A retired keyword is
+-- an **identifier**, so `then 1` became an ordinary call to an undefined
+-- function — it parses, and the complaint moves to rustc, which is the
+-- opposite of what this fixture asserts. `else` is reserved and has no
+-- production outside an `if`, so it stops where `then` used to.
+main : ()
+main =
+  else 1

@@ -2,7 +2,7 @@
 -- plan 46 §1.2.
 --
 -- Plan 45 leaf 3 shipped the *import* direction, an `extern` block declaring
--- foreign functions, and not this one: a Redox function given the C ABI so
+-- foreign functions, and not this one: a Voltaic function given the C ABI so
 -- that C can call it. Doc 01 §26 names FFI without saying which way, and half
 -- of it is still missing.
 --

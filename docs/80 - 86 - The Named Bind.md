@@ -50,7 +50,7 @@ work = async                    r = try
                                   Ok (a + b)
 ```
 
-So Redox already has monadic bind, already resolves it against the enclosing block, and already
+So Voltaic already has monadic bind, already resolves it against the enclosing block, and already
 resolves it **from the source text and nothing else**. What it does not have is a modifier that
 names an arbitrary method — the set is closed at `async`, `try` and `unsafe`, which plan 55 leaf 7
 made *"one arm reading an adjective and then the block above"*.
@@ -125,7 +125,7 @@ pairs = [ (x, y) for x in 1..3 for y in 1..3 when x != y ]
 So `do .flat_map` is a second way to write that particular shape. Both exist in Haskell for the
 same reason — a comprehension is an expression over a source, a `do` block is a sequence of rows
 — and §9 decision 5 keeps both. But `docs/DECLINED.md` declines cascades and scope functions for
-*"duplicates something Redox already has"*, so the overlap must be argued rather than ignored,
+*"duplicates something Voltaic already has"*, so the overlap must be argued rather than ignored,
 and §6 does.
 
 ---
@@ -135,8 +135,8 @@ and §6 does.
 **Nothing in this section is measured yet.** The row is authored, not executed.
 
 ```bash
-cargo run -p redox-cli -- build /tmp/probe.sdx && cat /tmp/probe.xrs
-cargo run -p redox-cli -- check /tmp/probe.sdx
+cargo run -p voltaic-cli -- build /tmp/probe.sdx && cat /tmp/probe.xrs
+cargo run -p voltaic-cli -- check /tmp/probe.sdx
 ```
 
 1. **That `do` is reserved and unspent.** `docs/GRAMMAR.md` §1.4 states it twice — *"`do` stays
@@ -163,7 +163,7 @@ cargo run -p redox-cli -- check /tmp/probe.sdx
 ## 3. Concrete proof this plan targets
 
 **`users` from §1 compiles, runs, and prints the address** — an `and_then` chain written as a
-block, which is the construct `docs/DECLINED.md` says Redox does not have.
+block, which is the construct `docs/DECLINED.md` says Voltaic does not have.
 
 Six cases, each failing differently:
 
@@ -217,7 +217,7 @@ this leaf:
   into a record of a lifted decline, naming this row and the condition that lifted it. Its
   *Reopenable* table loses one of its two entries.
 - Doc 03 §22's identical row and its venue sentence are amended the same way.
-- `crates/redox-cli/tests/declined.rs` asserts every §22 construct appears in `DECLINED.md`, so
+- `crates/voltaic-cli/tests/declined.rs` asserts every §22 construct appears in `DECLINED.md`, so
   the two documents must move in one commit or the gate breaks. That is the test working.
 - `docs/GRAMMAR.md` §1.4 regrades the block-modifier row and `docs/STATUS.md` is regenerated.
 
@@ -230,7 +230,7 @@ this leaf:
    tied to `std`.
 3. Nothing is fabricated: a golden asserts the innermost expression is the author's final row
    verbatim, with no inserted `Ok`, `Some` or `iter::once`.
-4. Case 6 is a **rustc** error, captured in `tests/ui/`, and is *not* a Redox diagnostic.
+4. Case 6 is a **rustc** error, captured in `tests/ui/`, and is *not* a Voltaic diagnostic.
 5. Inner closures carry `move` and plan 56's partial applications still do not — both asserted in
    goldens, so §1.5's distinction is visible rather than argued.
 6. Every existing `try` and `async` block emits byte-identical Rust; `tests/golden/` re-runs with
@@ -248,7 +248,7 @@ this leaf:
 
 **The author now writes the method, and can write the wrong one.** That is the price of clause 1
 and it is the right price, but it is a real one: `do .and_then` over an iterator is a rustc error
-rather than a Redox diagnostic, and the message names a generated closure. Criterion 4 pins
+rather than a Voltaic diagnostic, and the message names a generated closure. Criterion 4 pins
 exactly how bad that message is instead of assuming it is tolerable.
 
 **It overlaps the comprehension (§1.6).** Argued rather than resolved, on three grounds. The
@@ -268,7 +268,7 @@ Precondition 5 confirms this works; a combined modifier is not in scope and §9 
 row makes the third meaning open-ended rather than adding a fourth position.
 
 **Nothing here is a monad.** There is no `Monad` class, no law, and no check that the named method
-behaves like a bind. Redox cannot check it, rustc cannot check it, and this document should not
+behaves like a bind. Voltaic cannot check it, rustc cannot check it, and this document should not
 imply otherwise.
 
 ---
@@ -295,7 +295,7 @@ None available, and the relevant prior art is Scala's, which is what `docs/DECLI
 the source of the declined construct.
 
 The transferable discipline is doc 02 §5.2's, and it is the sharpest case for it in the register:
-*"a Redox expression that reads like Rust and means something different is the worst possible
+*"a Voltaic expression that reads like Rust and means something different is the worst possible
 failure mode for a transpiler."* A `do` block whose rows nest in the wrong order type-checks
 whenever the binders happen to be compatible, and prints the wrong thing. So doc 02 §8.3 is the
 only check that catches it — *"compiled by rustc, run, and its stdout asserted"* — which is why
@@ -371,19 +371,19 @@ This is the row's most transferable finding and it cost the most time.
 generation that does not compile — which is exactly right, and which turns a new
 `Expr` variant into a deadlock. The sequence:
 
-1. `redox-ast`'s generated `expr.rs` is written, so `Expr::BindBlock` exists;
+1. `voltaic-ast`'s generated `expr.rs` is written, so `Expr::BindBlock` exists;
 2. every crate that matches on `Expr` is now non-exhaustive — `E0004`;
 3. so the port cannot write *them*, because the workspace does not compile;
 4. and it cannot rebuild the compiler that would write them, for the same
    reason.
 
-The tree sits half-updated and `cargo run -p redox-cli` is unavailable. Four
-match sites were involved: `redox-emit`'s `emit_expr`, `redox-fmt`'s `expr_text`
+The tree sits half-updated and `cargo run -p voltaic-cli` is unavailable. Four
+match sites were involved: `voltaic-emit`'s `emit_expr`, `voltaic-fmt`'s `expr_text`
 and its `power_of`, and the module declaration for the new emitter file.
 
 **The way out is a hand-patch of the generated `src/`, and then a port run that
 overwrites it.** Add the arms by hand, add the `mod` line, copy the new file's
-own `.xrs` into place, `cargo build`, then `REDOX_UPDATE=1 … --test port` and
+own `.xrs` into place, `cargo build`, then `VOLTAIC_UPDATE=1 … --test port` and
 the hand edits are replaced by generated output. `the_port_regenerates_the_committed_rust`
 is the proof that nothing hand-written survived.
 
@@ -424,8 +424,8 @@ project keeps recording"* — and left the **node** called `Expr::Await`. This r
 gives the token a third meaning and matches on `Expr::Await` to find a bind,
 which is the same hazard one level up.
 
-Not renamed here, deliberately: it touches `redox-ast`, `redox-parser`,
-`redox-emit` and `redox-fmt`, and §10.3 is what an `Expr` change costs. Owed to
+Not renamed here, deliberately: it touches `voltaic-ast`, `voltaic-parser`,
+`voltaic-emit` and `voltaic-fmt`, and §10.3 is what an `Expr` change costs. Owed to
 a row that wants it.
 
 ### 10.7 What this row exposed and did not fix

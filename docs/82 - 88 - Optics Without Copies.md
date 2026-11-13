@@ -107,8 +107,8 @@ leaf is withdrawn in plan 56 leaf 3's manner rather than shipped for completenes
 **Nothing in this section is measured yet.** The row is authored, not executed.
 
 ```bash
-cargo run -p redox-cli -- build /tmp/probe.sdx && cat /tmp/probe.xrs
-cargo run -p redox-cli -- check /tmp/probe.sdx
+cargo run -p voltaic-cli -- build /tmp/probe.sdx && cat /tmp/probe.xrs
+cargo run -p voltaic-cli -- check /tmp/probe.sdx
 ```
 
 1. **Whether `(.a.b)` parses today, and as what.** It may already parse as a selector of `a`
@@ -185,7 +185,7 @@ reason, because a reader who has read this plan's title will look for it there.
 3. `(.a.b)` and `(.a) >>> (.b)` produce the same value, asserted by a running test on one input.
 4. `over`'s golden contains **no `clone`**, asserted by a grep in the test rather than by reading
    the file — §1.2 is the whole design constraint and it should fail loudly.
-5. Case 5 is a **rustc** error captured in `tests/ui/`, not a Redox diagnostic.
+5. Case 5 is a **rustc** error captured in `tests/ui/`, not a Voltaic diagnostic.
 6. `(.age)` and every existing selector emits byte-identical Rust; `tests/golden/` re-runs with
    **no re-blessing** of existing files.
 7. A new `docs/DECLINED.md` row records the functional setter and names clause 3.
@@ -236,7 +236,7 @@ per criterion 6; `construct_coverage` green.
 ## 8. Emerald reuse
 
 None, and the relevant Emerald lesson is a refusal rather than a technique. `docs/DECLINED.md`
-records *"A Redox standard library or prelude"* as declined with the measurement attached:
+records *"A Voltaic standard library or prelude"* as declined with the measurement attached:
 *"Emerald spent 112 of its 203 plans building a standard library, and that is the cost this
 refusal avoids."*
 
@@ -275,7 +275,7 @@ The plan expected `(.a.b)` either to work or to be absent. It was neither:
 ```
 
 `(.addr` read as the selector, and `.city` then read as a **method call on the
-closure it produced**, with `o` applied to `city`. Not Rust, no Redox
+closure it produced**, with `o` applied to `city`. Not Rust, no Voltaic
 diagnostic, and an inference error from rustc rather than anything a reader
 could act on.
 
@@ -305,7 +305,7 @@ selector reading the wrong field would print the wrong list rather than compile
 to nothing.
 
 Three sites, not thirty: `Section::Field` is matched in the parser, the emitter
-and `redox-fmt`, which is why this row cost a fraction of plan 87's.
+and `voltaic-fmt`, which is why this row cost a fraction of plan 87's.
 
 ### 10.3 The functional setter is refused, and it is now written down where a reader will look
 
@@ -349,7 +349,7 @@ side and a reader deciding whether to *use* the construct should see it.
 What the argument understates is §1.3's own first bullet, which is not an
 ergonomics claim: **the repetition is where the bugs are.**
 `u.addr.city := .to_uppercase u.addr.town` compiles whenever both fields are
-strings, and no checker Redox is allowed to have would catch it. Saying the path
+strings, and no checker Voltaic is allowed to have would catch it. Saying the path
 once removes a class of defect that type-checks, which is a different kind of
 gain from saving keystrokes.
 
@@ -369,10 +369,10 @@ through `emit_expr`. So a bare method reference becomes a method call with the
 chain as its receiver (plan 57's receiver-last rule), a named function becomes a
 call, and this file chose neither.
 
-Eight files of `.sdx`: `Expr::Over` in `redox-ast`; `over_update` and
-`opens_an_over` in `redox-parser`; `emit_over` in `redox-emit`;
-`Code::OverShape` → `RDX0127` in `redox-diag`; the `expr_text` and `power_of`
-arms in `redox-fmt`. Plus `examples/optic.sdx`, the golden, the run
+Eight files of `.sdx`: `Expr::Over` in `voltaic-ast`; `over_update` and
+`opens_an_over` in `voltaic-parser`; `emit_over` in `voltaic-emit`;
+`Code::OverShape` → `RDX0127` in `voltaic-diag`; the `expr_text` and `power_of`
+arms in `voltaic-fmt`. Plus `examples/optic.sdx`, the golden, the run
 expectation, `tests/ui/over_shape.sdx`, the grammar rule, a corpus case and the
 witness.
 

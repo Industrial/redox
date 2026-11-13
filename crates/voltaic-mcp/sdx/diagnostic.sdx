@@ -1,0 +1,52 @@
+import voltaic_diag::Severity
+
+export data Diagnostic = Diagnostic {
+  export code : String,
+  export severity : String,
+  export message : String,
+  export path : String,
+  export line : usize,
+  export column : usize,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  export help : Option<String>,
+}
+  deriving (Debug, Clone, PartialEq, Eq, serde::Serialize, schemars::JsonSchema)
+
+export(crate) diagnostic_from_voltaic : &voltaic_diag::Diagnostic -> Diagnostic
+diagnostic_from_voltaic diagnostic =
+  position = diagnostic_line_and_column (&diagnostic.source) diagnostic.span.0
+  severity = case diagnostic.severity of
+    Severity::Error -> "error"
+    Severity::Warning -> "warning"
+  Diagnostic { code = .text diagnostic.code, severity = .to_string severity, message = .clone diagnostic.message, path = .clone diagnostic.path, line = position.0, column = position.1, help = .clone diagnostic.help }
+
+export(crate) diagnostic_line_and_column : &str -> usize -> (usize, usize)
+diagnostic_line_and_column source offset =
+  at = .min (.len source) offset
+  prefix = source |> .get (0 .. at) |> .unwrap_or ""
+  line_start = .map_or 0 (\a -> a + .len_utf8 '\n') (.rfind '\n' prefix)
+  line = .count (.matches '\n' prefix) + 1
+  column = .count (.chars (.unwrap_or "" (.get (line_start .. at) source))) + 1
+  (line, column)
+
+test "the first byte is one one"
+  assert_eq! \-> diagnostic_line_and_column "abc" 0 \-> (1, 1)
+
+test "a later line counts from its own start"
+  source = "main : ()\nmain =\n  println! \\-> \"\#{1}\"\n"
+  at = source |> .find "print" |> .expect "should be there"
+  assert_eq! \-> diagnostic_line_and_column source at \-> (3, 3)
+
+test "a column counts characters and not bytes"
+  source = "-- é\nx"
+  at = source |> .find 'x' |> .expect "should be there"
+  assert_eq! \-> diagnostic_line_and_column source at \-> (2, 1)
+
+  line = "aéb"
+  b_at = line |> .find 'b' |> .expect "should be there"
+  assert_eq! \-> b_at \-> 3 \-> "the byte offset is 3"
+  assert_eq! \-> diagnostic_line_and_column line b_at \-> (1, 3)
+
+test "an offset past the end clamps"
+  source = "ab\n"
+  assert_eq! \-> diagnostic_line_and_column source 9999 \-> (2, 1)

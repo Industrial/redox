@@ -6,7 +6,7 @@ than new restrictions.
 
 **A tuple binding becomes a named pair**, for the third time: `let (name,
 valid): (&str, fn(char) -> bool) = match radix { … }`. The ascription is
-load-bearing and survives — a Redox binding takes one — so only the
+load-bearing and survives — a Voltaic binding takes one — so only the
 destructuring moves.
 
 **`for (text, kind) in OPERATOR_TABLE` becomes `for entry in …`** with
@@ -17,7 +17,7 @@ still only a notation.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('lexer/scan_number', '''
@@ -30,7 +30,7 @@ scan_number cur =
     radix = .unwrap_or '\\0' (.peek_at 1 cur)
     -- The ascription is the Rust's and is load-bearing: the arms are three
     -- different closures, and `fn(char) -> bool` is what unifies them. Only
-    -- the tuple *destructuring* had to go — a Redox binding takes one name.
+    -- the tuple *destructuring* had to go — a Voltaic binding takes one name.
     pair : (&str, fn(char) -> bool) = case radix of
       'x' or 'X' -> ("hexadecimal", \\c -> .is_ascii_hexdigit c)
       -- `.contains` rather than two comparisons: clippy asks for the range to
@@ -93,7 +93,7 @@ scan_number cur =
     return Ok (TokenKind::Float text)
   Ok (TokenKind::Int text)
 
--- | `#[cfg(test)]`: the helper every test below shares. Redox can put nothing
+-- | `#[cfg(test)]`: the helper every test below shares. Voltaic can put nothing
 -- | but `#[test] fn`s inside its generated `mod __rdx_tests` — plan 73 §2.9.
 #[cfg(test)]
 scan : &str -> (TokenKind, usize)
@@ -157,7 +157,7 @@ scan_operator cur =
       return Some (.clone entry.1)
   None
 
--- | `#[cfg(test)]`: the helper every test below shares. Redox can put nothing
+-- | `#[cfg(test)]`: the helper every test below shares. Voltaic can put nothing
 -- | but `#[test] fn`s inside its generated `mod __rdx_tests` — plan 73 §2.9.
 #[cfg(test)]
 scan : &str -> (Option<TokenKind>, usize)

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Regenerate the Rust for the crates written in Redox.
+# Regenerate the Rust for the crates written in Voltaic.
 #
 # Plan 72 (`docs/66 - 72 - The Seed Compiler.md`) leaf 5.
 #
-# `crates/redox-ast` and `crates/redox-fmt` are written in Redox: the `.sdx`
+# `crates/voltaic-ast` and `crates/voltaic-fmt` are written in Voltaic: the `.sdx`
 # under each one's `sdx/` is the source, and the `.rs` under its `src/` is
-# generated and **not tracked**. So a clean clone has no `redox-ast` crate at
+# generated and **not tracked**. So a clean clone has no `voltaic-ast` crate at
 # all, and nothing that could build the compiler which would generate it.
 #
-# `seed/redox1.wasm` breaks that cycle. Run this before the first build:
+# `seed/voltaic1.wasm` breaks that cycle. Run this before the first build:
 #
 #     ./bootstrap.sh
 #     cargo build
@@ -23,13 +23,13 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-SEED="seed/redox1.wasm"
+SEED="seed/voltaic1.wasm"
 # The crates whose `src/` this regenerates, from `seed/PORTED` — the single
 # copy of that list. The array that used to be here named two crates when three
 # were ported, so a clean clone silently left the third's `src/` empty, and the
 # test that proves every generated tree is ignored read an equally stale list of
-# its own. `crates/redox-cli/tests/support.rs` and
-# `crates/redox-seed/tests/bootstrap.rs` read the same file.
+# its own. `crates/voltaic-cli/tests/support.rs` and
+# `crates/voltaic-seed/tests/bootstrap.rs` read the same file.
 mapfile -t PORTED < <(sed -e 's/#.*//' seed/PORTED | awk 'NF { print $1 }')
 if [ "${#PORTED[@]}" -eq 0 ]; then
     echo "error: seed/PORTED names no crates." >&2

@@ -1,6 +1,6 @@
 # Plan 02 — Lexical Surface
 
-Plan: 02 of 48 (`docs/04 - Redox Plan of Plans.md`, Milestone 1)
+Plan: 02 of 48 (`docs/04 - Voltaic Plan of Plans.md`, Milestone 1)
 Slug: `lexer-complete`
 Status: **`done`** — shipped 2026-11-08; see §10 for evidence per criterion
 Depends on: plan 01
@@ -12,7 +12,7 @@ Discloses: plans 03, 05, 19, 23
 
 Plan 01 built the smallest lexer that could carry one program: eight token kinds, an
 off-side rule, trivia, and whitespace adjacency. This plan finishes the **lexical** surface —
-everything `docs/03 - Redox Surface Design.md` §4 and §11 specify about how Redox source
+everything `docs/03 - Voltaic Surface Design.md` §4 and §11 specify about how Voltaic source
 text decomposes into tokens — and nothing above it.
 
 Scope boundary, stated precisely because "complete" invites drift: this plan decides *what
@@ -43,7 +43,7 @@ hand-written cursor has no such constraint.
 
 ## 2. Verified preconditions
 
-None required. Everything here is internal to `redox-lexer`; the one external question a
+None required. Everything here is internal to `voltaic-lexer`; the one external question a
 lexer plan could have raised — whether rustc accepts the `.xrs` the pipeline eventually
 emits — was settled by plan 01 §2.
 
@@ -174,7 +174,7 @@ error, not a silent passthrough.
   block are preserved**, which is the property Emerald's heredoc pass had to work for and
   this plan's cursor gives without effort.
 - **Raw strings**: `r"…"` and `r#"…"#` with any number of hashes, no escape processing and
-  no interpolation. More necessary in Redox than in Rust, because `#{` is live inside
+  no interpolation. More necessary in Voltaic than in Rust, because `#{` is live inside
   ordinary strings.
 - **Byte and C strings**: `b'x'`, `b"…"`, `c"…"`, each its own token kind so plan 23 can
   pass them through verbatim.
@@ -208,7 +208,7 @@ pattern position. Boolean logic uses `&&`, `||`, `!`.
 
 ### Leaf 9 — `leaf-tests-and-gate`
 
-`crates/redox-lexer/tests/` gains one file per surface area — `string.rs`, `number.rs`,
+`crates/voltaic-lexer/tests/` gains one file per surface area — `string.rs`, `number.rs`,
 `operator.rs`, `comment.rs`, `continuation.rs`, `keyword.rs` — plus `examples/lexical.sdx`
 and its token-sequence assertion. Plan 01's `tests/lex.rs` keeps passing unchanged, which is
 the regression bar: this plan may add tokens, never change the eight plan 01 defined.
@@ -231,7 +231,7 @@ Run the full gate, and re-verify independently of any single agent's report.
 | 8 | `'x'` lexes as a char and `'outer` as a label, by lookahead alone |
 | 9 | A reserved word lexes as `Kw`, never `Ident` |
 | 10 | Comments, doc comments and fences are all trivia; none is discarded |
-| 11 | Every new `.rs` file obeys `docs/06 - Redox Code Architecture.md` §§1–2 |
+| 11 | Every new `.rs` file obeys `docs/06 - Voltaic Code Architecture.md` §§1–2 |
 | 12 | Full gate green |
 
 ---
@@ -267,7 +267,7 @@ worth copying as *requirements* rather than implementation — that a multi-line
 can be handed to the ordinary string scanner so interpolation works for free, and that line
 numbers after the block must be preserved. Its actual approach, a raw-source preprocessing
 pass before lexing, exists because LALRPOP's lexer could not express a dynamic terminator;
-Redox's hand-written cursor has no such limitation, so the technique does not transfer.
+Voltaic's hand-written cursor has no such limitation, so the technique does not transfer.
 
 **Deliberately not taken:** `crates/emerald-lexer` (116 lines, `logos`) — the reason from
 plan 01 stands and strengthens here. Continuation suppression is lexer *state* carried

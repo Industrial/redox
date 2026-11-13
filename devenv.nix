@@ -38,8 +38,8 @@
   };
 
   # Plan 72 (`docs/66 - 72 - The Seed Compiler.md`) leaf 2 — the bootstrap
-  # seed's target. `crates/redox-seed` is compiled to `wasm32-wasip1` and
-  # checked in as `redox1.wasm`, so a crate written in Redox need not also
+  # seed's target. `crates/voltaic-seed` is compiled to `wasm32-wasip1` and
+  # checked in as `voltaic1.wasm`, so a crate written in Voltaic need not also
   # commit the Rust it generates.
   #
   # Set **here** and not in `.cursor/nix/features/languages-rust.nix`, which
@@ -64,7 +64,7 @@
     # loop — see .moon/tasks/tag-crate.yml for the measurements behind that.
     # :check and :test are therefore already rustc's last word, and the
     # :cargo-check / :cargo-test duplicates they used to need are gone.
-    # `:sdx-format-check` is plan 73's: `redox fmt` is the project's own
+    # `:sdx-format-check` is plan 73's: `voltaic fmt` is the project's own
     # formatter and was in no gate at all, so 245 `.sdx` files went unchecked
     # and a formatter bug that deleted a member's visibility survived. It is
     # the *check* rather than the write, beside `:lint`, because a gate that
@@ -118,15 +118,15 @@
     # clears TMPDIR after applying `env` — setting it there leaves it empty,
     # and the mkdir below then fails on an empty directory name.
     #
-    # It must stay OUTSIDE the repository. `crates/redox-cli/tests/support.rs`
+    # It must stay OUTSIDE the repository. `crates/voltaic-cli/tests/support.rs`
     # formats generated Rust in `std::env::temp_dir()` precisely because
     # nothing there inherits this repo's `rustfmt.toml` (tab_spaces = 2) —
-    # Redox's output uses rustfmt's default four. Pointing TMPDIR at
+    # Voltaic's output uses rustfmt's default four. Pointing TMPDIR at
     # `$DEVENV_STATE/tmp` put it back inside the tree and
     # `generated_rust_is_rustfmt_clean` failed on every example, which is the
     # same false finding plan 04's probe recorded. ~/.cache is on /home, which
     # has 630 GB free, and is nobody's Cargo workspace.
-    export TMPDIR="$HOME/.cache/redox/tmp"
+    export TMPDIR="$HOME/.cache/voltaic/tmp"
     mkdir -p "$TMPDIR"
 
     # Hermes: project-local home + seed templates (never overwrite secrets).

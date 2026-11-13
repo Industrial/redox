@@ -32,10 +32,10 @@ Plan 56 §11.1 is the finding, and it is unusually final:
 > `Expr::Path` (`String::from`), every `where` local, every equation binder, every lambda
 > parameter, and every bare name reached through `import std::cmp::max`.
 
-So four of the five things a Redox program calls cannot be partially applied, and plan 56 §6
+So four of the five things a Voltaic program calls cannot be partially applied, and plan 56 §6
 records the consequence as a reader trap rather than a limitation:
 
-> **`String::from` is passable, not curryable.** […] A reader who has just learned that Redox
+> **`String::from` is passable, not curryable.** […] A reader who has just learned that Voltaic
 > functions curry will expect otherwise.
 
 That trap is this row's subject. A hole gives that reader a spelling.
@@ -50,7 +50,7 @@ currying is not, and the reason is positional:
 
 | | Abstracts over | Reaches |
 |---|---|---|
-| Currying | a **suffix** of the argument list | Redox functions with an in-file signature |
+| Currying | a **suffix** of the argument list | Voltaic functions with an in-file signature |
 | A hole | **any** position, any number | every callee, including Rust paths and methods |
 
 `.insert k _ m` is the case that makes the difference concrete. The receiver is last (plan 57),
@@ -108,8 +108,8 @@ holds.
 **Nothing in this section is measured yet.** The row is authored, not executed.
 
 ```bash
-cargo run -p redox-cli -- build /tmp/probe.sdx && cat /tmp/probe.xrs
-cargo run -p redox-cli -- check /tmp/probe.sdx
+cargo run -p voltaic-cli -- build /tmp/probe.sdx && cat /tmp/probe.xrs
+cargo run -p voltaic-cli -- check /tmp/probe.sdx
 ```
 
 1. **Whether `_` parses as an expression at all today.** Expected `RDX0101`. If it parses as
@@ -197,7 +197,7 @@ calls; doc 03 §5.4's section table gains it beside the operator sections.
    This is plan 56 criterion 6 extended to the fourth caller.
 3. Holes number left to right, asserted for two and for three.
 4. §1.3's scope rule is asserted by case 5's golden, and a hole with no enclosing application is
-   a named Redox diagnostic with a `tests/ui/` fixture.
+   a named Voltaic diagnostic with a `tests/ui/` fixture.
 5. The emitted closure carries **no `move`**, per plan 56 §11.2, asserted in a golden.
 6. `pick a _ = a` and every other existing use of `_` emits byte-identical Rust — `tests/golden/`
    re-runs with **no re-blessing**.
@@ -258,7 +258,7 @@ None, and plan 56 §8 already explains why: *"Emerald had no currying, no sectio
 juxtaposed application."* There is nothing to transfer.
 
 The transferable discipline is the one plan 56 §8 names, and it applies harder here. Doc 02 §5.2:
-*"a Redox expression that reads like Rust and means something different is the worst possible
+*"a Voltaic expression that reads like Rust and means something different is the worst possible
 failure mode for a transpiler."* A hole captured in the wrong position compiles and prints a
 different number, so only doc 02 §8.3's answer catches it — *"compiled by rustc, run, and its
 stdout asserted"*. Every §3 case is a running program for that reason, and case 4's numbering is
@@ -280,7 +280,7 @@ asserted in a golden because a swapped pair of holes is exactly the defect that 
 
 ## 10. Result
 
-Shipped 2026-11-11. `moon run :format :lint :test` green, plus `redox-bench`'s
+Shipped 2026-11-11. `moon run :format :lint :test` green, plus `voltaic-bench`'s
 `the_lowerings_are_free` for criterion 9.
 
 ### 10.1 What shipped
@@ -359,7 +359,7 @@ for it and **README.md's own table was corrected**: it claimed `.trim` alone was
 
 ### 10.5 Criterion 4's diagnostic is withdrawn, because rustc's is better
 
-The plan asked that a hole with no enclosing application be a named Redox
+The plan asked that a hole with no enclosing application be a named Voltaic
 diagnostic. It is not, and should not be. rustc already answers it precisely and
 the message is remapped to the `.sdx` with the right span:
 
@@ -368,7 +368,7 @@ x = _
 ->  in expressions, `_` can only be used on the left-hand side of an assignment
 ```
 
-That names the one legitimate position, which a Redox diagnostic would have had
+That names the one legitimate position, which a Voltaic diagnostic would have had
 to restate. AGENTS.md's *"every check rustc can make, rustc makes"* applies, and
 this is a check rustc makes well. Criterion 4's scope rule half still holds and
 is asserted by the golden.

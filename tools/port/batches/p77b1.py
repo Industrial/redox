@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Plan 77 batch 1: six of `redox-mcp`'s nine bodies.
+"""Plan 77 batch 1: six of `voltaic-mcp`'s nine bodies.
 
 Two shapes appear for the first time in any port, and `examples/async.sdx`
 answers both — it is the file plan 39 wrote precisely so they would be
@@ -16,7 +16,7 @@ effect only.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('server/content', '''
@@ -37,19 +37,19 @@ check request =
   shown = .clone request.path
   source = (.map_err (\\e -> format! \\-> "cannot read #{shown}: #{e}") (std::fs::read_to_string path))?
 
-  outcome = (redox_driver::check path (&source))?
+  outcome = (voltaic_driver::check path (&source))?
   Ok (CheckResponse {
     ok = !outcome.failed,
     diagnostics = outcome.diagnostics
       |> .iter
-      |> .map diagnostic_from_redox
+      |> .map diagnostic_from_voltaic
       |> .collect,
   })
 ''')
 
-write('diagnostic/from_redox', '''
-export(crate) diagnostic_from_redox : &redox_diag::Diagnostic -> Diagnostic
-diagnostic_from_redox diagnostic =
+write('diagnostic/from_voltaic', '''
+export(crate) diagnostic_from_voltaic : &voltaic_diag::Diagnostic -> Diagnostic
+diagnostic_from_voltaic diagnostic =
   position = diagnostic_line_and_column (&diagnostic.source) diagnostic.span.0
   severity = case diagnostic.severity of
     Severity::Error -> "error"
@@ -120,7 +120,7 @@ format request =
   shown = .clone request.path
   source = (.map_err (\\e -> format! \\-> "cannot read #{shown}: #{e}") (std::fs::read_to_string path))?
 
-  program = case redox_parser::parse_source (&source) of
+  program = case voltaic_parser::parse_source (&source) of
     Ok parsed -> parsed
     Err failure ->
       return Ok (FormatResponse {
@@ -129,11 +129,11 @@ format request =
         changed = false,
         diagnostics = diagnose path (&source) (&failure)
           |> .iter
-          |> .map diagnostic_from_redox
+          |> .map diagnostic_from_voltaic
           |> .collect,
       })
 
-  formatted = redox_fmt::format (&program) (&source)
+  formatted = voltaic_fmt::format (&program) (&source)
   Ok (FormatResponse {
     ok = true,
     changed = formatted != source,
@@ -149,7 +149,7 @@ write('main', '''
 -- is missing from the function declaration"*.
 main : async Result<(), Box<dyn std::error::Error>>
 main =
-  -- Plan 71 leaf 1, and the same argument as `redox-lsp`'s: stdin belongs to
+  -- Plan 71 leaf 1, and the same argument as `voltaic-lsp`'s: stdin belongs to
   -- the protocol, so without this the only answer to "what version is this"
   -- was `cannot start: connection closed: initialize request`. Checked before
   -- the transport is taken, and printed to **stdout** — which is the one
@@ -160,12 +160,12 @@ main =
     |> .any (\\arg -> arg == "--version" || arg == "-V")
   if wants_version
     version = env! \\-> "CARGO_PKG_VERSION"
-    println! \\-> "redox-mcp #{version}"
+    println! \\-> "voltaic-mcp #{version}"
     return Ok ()
 
   -- `<-` is doc 30's bind, which is how `.await` is written.
-  started <- .serve (rmcp::transport::stdio ()) (redox_mcp::Server::new ())
-  service = (.inspect_err (\\e -> eprintln! \\-> "redox-mcp: cannot start: #{e}") started)?
+  started <- .serve (rmcp::transport::stdio ()) (voltaic_mcp::Server::new ())
+  service = (.inspect_err (\\e -> eprintln! \\-> "voltaic-mcp: cannot start: #{e}") started)?
   -- `waiting` returns when the client closes the transport, which for a stdio
   -- server is the normal way to stop. Returning before it would drop replies
   -- the client is still reading.

@@ -39,7 +39,7 @@ grade score = case score of
 -- compound assignment is a legal arm body — `RDX0101` before leaf 3, because
 -- `parse_expr` stops at the `+=` and only a statement read what followed.
 -- Every arm here is `()`, which is rustc's requirement on a `match` and not
--- Redox's.
+-- Voltaic's.
 evens : u32 -> u32
 evens limit =
   mut count = 0

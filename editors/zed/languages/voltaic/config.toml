@@ -1,0 +1,16 @@
+name = "Voltaic"
+grammar = "voltaic"
+path_suffixes = ["sdx"]
+line_comments = ["-- "]
+tab_size = 2
+hard_tabs = false
+language_servers = ["voltaic-lsp"]
+brackets = [
+  { start = "{", end = "}", close = true, newline = true },
+  { start = "[", end = "]", close = true, newline = false },
+  { start = "(", end = ")", close = true, newline = false },
+  { start = "\"", end = "\"", close = true, newline = false, not_in = [
+    "string",
+    "comment",
+  ] },
+]

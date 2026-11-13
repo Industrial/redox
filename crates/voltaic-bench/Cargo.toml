@@ -1,0 +1,17 @@
+[package]
+name = "voltaic-bench"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# Plan 44 leaf 2's report transpiles the corpus to time it, which needs the
+# driver. Leaf 1's IR comparison needs the CLI's build path, reached by
+# shelling out rather than linked — see `ir_of`.
+voltaic-driver = { path = "../voltaic-driver" }
+voltaic-parser = { path = "../voltaic-parser" }
+voltaic-emit = { path = "../voltaic-emit" }
+
+# The five surface-fact allows — see the root manifest.
+[lints]
+workspace = true

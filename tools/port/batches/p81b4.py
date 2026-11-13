@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Plan 81 batch 4: twelve more of `redox-emit`'s bodies.
+"""Plan 81 batch 4: twelve more of `voltaic-emit`'s bodies.
 
 `compose_chain` is the first ported body with an **as-pattern over an
 alternation** — `op: inner @ (BinaryOp::Compose | BinaryOp::ComposeBack)` —
@@ -7,7 +7,7 @@ which is doc 03 §6.4's `@` and §6.2's `or` meeting in one pattern.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('emit/shared_const', '''

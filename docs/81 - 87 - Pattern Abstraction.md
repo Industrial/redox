@@ -34,7 +34,7 @@ whatsoever.
 A pattern synonym is **textual substitution at transpile time**. `Origin` at a use site becomes
 `Point { x: 0, y: 0 }` in the emitted Rust, and rustc then does every check it would have done on
 the written-out form — exhaustiveness, field names, types, bindings. Doc 03 §2's corollary is not
-weakened in either direction: Redox checks nothing new, and rustc loses nothing.
+weakened in either direction: Voltaic checks nothing new, and rustc loses nothing.
 
 All four clauses:
 
@@ -76,12 +76,12 @@ and it is a serious one under doc 03 §2's corollary — *"Every check rustc can
 makes"*:
 
 **an `if let` chain is not exhaustiveness-checked, and the `match` it replaced was.** Lowering a
-`case` to a chain therefore *removes* a check rustc was making. The corollary forbids Redox from
-performing checks; it should equally forbid Redox from taking one away.
+`case` to a chain therefore *removes* a check rustc was making. The corollary forbids Voltaic from
+performing checks; it should equally forbid Voltaic from taking one away.
 
 **The resolution, and it is syntactic rather than analytic:** a `case` containing any view pattern
-**must** end in a `_` arm, and its absence is a named Redox diagnostic. That is a requirement on
-the source text, not an exhaustiveness analysis — Redox counts arms, it does not reason about
+**must** end in a `_` arm, and its absence is a named Voltaic diagnostic. That is a requirement on
+the source text, not an exhaustiveness analysis — Voltaic counts arms, it does not reason about
 coverage. rustc's check is replaced by a total fallback the author wrote, which is the only
 replacement available that does not grow a checker.
 
@@ -92,7 +92,7 @@ author that a variant is unhandled, because the `_` arm handles it.
 
 A synonym is usable where its declaration is visible in the file being compiled. This is the same
 boundary plan 56 §1.4 drew for currying, with the same reason — plan 14 decision 4: *"No import
-resolution […] Redox has no name resolution and must not grow one."*
+resolution […] Voltaic has no name resolution and must not grow one."*
 
 Unlike currying, the boundary here is **safe rather than silent**. An unknown name in pattern
 position is not a valid Rust pattern constructor either, so an unexpanded synonym is a rustc
@@ -114,8 +114,8 @@ one arm body. The gap stays open and `tests/unreachable/or_pattern.sdx` stays fa
 **Nothing in this section is measured yet.** The row is authored, not executed.
 
 ```bash
-cargo run -p redox-cli -- build /tmp/probe.sdx && cat /tmp/probe.xrs
-cargo run -p redox-cli -- check /tmp/probe.sdx
+cargo run -p voltaic-cli -- build /tmp/probe.sdx && cat /tmp/probe.xrs
+cargo run -p voltaic-cli -- check /tmp/probe.sdx
 ```
 
 1. **That `pattern` is free.** A new keyword; doc 03 §4.5 holds the inventory.
@@ -127,9 +127,9 @@ cargo run -p redox-cli -- check /tmp/probe.sdx
 3. **Where the clause lowering builds its `match`.** Plan 56 §11.2 names
    `signature_from.rs:55-58` as the source of the positional binders `__rdx_a{i}`; the `match` on
    them is what leaf 3 would have to replace with a chain.
-4. **Whether `redox-fmt` can re-print an expanded pattern.** Plan 56 §11.3's rule applies — *a
+4. **Whether `voltaic-fmt` can re-print an expanded pattern.** Plan 56 §11.3's rule applies — *a
    pass that rewrites `Program` has two consumers and will surprise one of them* — so the
-   expansion must live on the emit side, not in `parse()`, or `redox fmt` will rewrite the
+   expansion must live on the emit side, not in `parse()`, or `voltaic fmt` will rewrite the
    author's `Origin` into `Point { x = 0, y = 0 }`.
 5. **What `->` costs inside a pattern.** The view arrow collides with the signature spine's `->`
    and with `case … of`'s arm arrow. Precondition 5 is the measurement of whether the pattern
@@ -178,7 +178,7 @@ diagnostic. §1.3.
 
 ### Leaf 4 — `leaf-fmt-round-trip`
 
-`redox fmt` prints `Origin`, not its expansion. Per precondition 4 this is the plan 56 §11.3
+`voltaic fmt` prints `Origin`, not its expansion. Per precondition 4 this is the plan 56 §11.3
 hazard and is the leaf most likely to find the expansion in the wrong place.
 
 ### Leaf 5 — `leaf-corpus-and-docs`
@@ -196,12 +196,12 @@ one property and a reader will conflate them.
 2. A golden shows the **expanded** pattern in the `.xrs` and the **unexpanded** name in the
    `.sdx`, so the substitution is visible in the corpus rather than asserted in prose.
 3. A synonym works in all six pattern positions of precondition 2, each with a running case.
-4. A synonym body with a stray identifier is a named Redox diagnostic with a `tests/ui/` fixture.
-5. A view pattern without a trailing `_` arm is a named Redox diagnostic with a `tests/ui/`
+4. A synonym body with a stray identifier is a named Voltaic diagnostic with a `tests/ui/` fixture.
+5. A view pattern without a trailing `_` arm is a named Voltaic diagnostic with a `tests/ui/`
    fixture, per §1.3.
 6. An undeclared name in pattern position produces a **rustc** error at the generated pattern,
-   captured in `tests/ui/`, per §1.4 — asserted to be rustc's and not Redox's.
-7. `redox fmt` round-trips a synonym declaration and every use site unexpanded.
+   captured in `tests/ui/`, per §1.4 — asserted to be rustc's and not Voltaic's.
+7. `voltaic fmt` round-trips a synonym declaration and every use site unexpanded.
 8. Every existing `case` emits byte-identical Rust; `tests/golden/` re-runs with **no
    re-blessing** of existing files, and a `case` with no view pattern still emits a `match`.
 9. `tests/unreachable/or_pattern.sdx` still fails, per §1.5.
@@ -220,7 +220,7 @@ abandoned mid-leaf.
 
 **A `case` with a view pattern loses rustc's exhaustiveness check**, and §1.3's `_` arm is a
 replacement rather than an equivalent. rustc will no longer report an unhandled variant in that
-`case`, because the fallback handles it. This is the only place in the register where a Redox
+`case`, because the fallback handles it. This is the only place in the register where a Voltaic
 construct makes rustc check *less*, and it is the reason leaf 3 is restricted and separately
 gated.
 
@@ -274,7 +274,7 @@ leaf 1's design depends on the answer.
 | Decision | Chosen | Rejected | Why |
 |---|---|---|---|
 | 1 | Textual expansion at emit | Emit a `macro_rules!` matcher per synonym | A macro would fabricate an item the author did not write (doc 03 §8.7's objection), and `macro_rules!` in pattern position does not compose with `match` arms the way substitution does. Expansion also keeps the emitted Rust recognisable, which is the property the `.xrs` exists for |
-| 2 | Expansion on the emit side | In `parse()` | Plan 56 §11.3: `redox-fmt` consumes the same `Program`, so an expansion in `parse()` makes `redox fmt` rewrite the author's source |
+| 2 | Expansion on the emit side | In `parse()` | Plan 56 §11.3: `voltaic-fmt` consumes the same `Program`, so an expansion in `parse()` makes `voltaic fmt` rewrite the author's source |
 | 3 | A mandatory `_` arm for view patterns | Analyse coverage; or lower to a `match` with guards | Coverage analysis is an exhaustiveness checker, which doc 02 §12.4 forbids. A guarded `match` cannot bind from the view's result, which is the whole point of a view pattern. Counting arms is syntactic and is the only admissible option left |
 | 4 | Views in `case` arms only | Views everywhere, including equation heads | The equation head is the hot path for every multi-equation function including the self-hosted compiler; §6 names it as its own row |
 | 5 | Pattern-position only | Bidirectional synonyms | A bidirectional synonym fabricates a constructor, which is doc 03 §8.7's objection to default arguments |
@@ -299,7 +299,7 @@ Pattern synonyms, nullary and parameterised, expanded at render time. From
 | `Some Origin ->` — **nested** inside another pattern | `Some((0, 0)) => true` |
 
 `examples/synonym.sdx` is all three, compiled, run, stdout asserted, and
-`redox fmt` round-trips it byte-identically.
+`voltaic fmt` round-trips it byte-identically.
 
 The nested case is the one worth naming: it is what makes the expansion a
 recursive walk rather than a top-level substitution, and it reaches every
@@ -348,11 +348,11 @@ parameter takes `__rdx_a0` with the constructor moving into the `match`.
 
 `Keyword::PatternKw` lasted one build. `pattern` is a **field name in four of
 this compiler's own declarations** — `Binding`, `CaseArm`, `RecordPatternField`
-and `Expr::Await` — so reserving it made `redox-ast` stop transpiling with
+and `Expr::Await` — so reserving it made `voltaic-ast` stop transpiling with
 `RDX0103` on its own source, which is as direct a measurement as this project
 gets.
 
-So `pattern` is Redox's **second contextual keyword**, after `from`. Two tokens
+So `pattern` is Voltaic's **second contextual keyword**, after `from`. Two tokens
 settle the reading at one dispatch site: the word, then an **upper-case** name,
 because a use site has to read as a constructor. `pattern = Some 1` and
 `pattern : Vec<Pattern>` stay an ordinary binding and signature, both of which
@@ -412,18 +412,18 @@ funnel and the grammar rule all reach a `case` arm already.
 ### 10.7 Adding an `Item` variant costs more than an `Expr` variant
 
 Plan 86 §10.3 wrote down the `Expr` deadlock. An `Item` variant is the same
-mechanism across **six crates**: `redox-ast` twice, `redox-parser`,
-`redox-emit`, `redox-driver`, `redox-fmt` and `redox-lsp` — plus a root
+mechanism across **six crates**: `voltaic-ast` twice, `voltaic-parser`,
+`voltaic-emit`, `voltaic-driver`, `voltaic-fmt` and `voltaic-lsp` — plus a root
 re-export, plus `mod` declarations for every new file, and the arms arrive one
 at a time as each crate reaches the front of the build.
 
 Two additions to plan 86's recipe, both learned here:
 
-- **The root re-export is a separate step.** `redox_ast::PatternSynonym` is
+- **The root re-export is a separate step.** `voltaic_ast::PatternSynonym` is
   `E0432` until `lib.sdx`'s `export import` is bridged too, and the generated
   `lib.rs` is a different file from the one holding the variant.
 - **A new module's file must be copied before its `mod` line compiles.** The
-  `.xrs` sits beside the `.sdx` from any `redox build`, so the bridge is a `cp`
+  `.xrs` sits beside the `.sdx` from any `voltaic build`, so the bridge is a `cp`
   and a `rustfmt`, and the next port run demolishes both.
 
 A third thing, which is this row's own: **the keyword revert needed the
@@ -439,10 +439,10 @@ counts an item that wrote no text, left two blank lines where they had been.
 `generated_rust_is_rustfmt_clean` caught the blanks; only reading the golden
 caught the loss.
 
-**The formatter wanted the Redox spelling.** Printing the body with
+**The formatter wanted the Voltaic spelling.** Printing the body with
 `Pattern::rust_text` wrote `pattern Both a b = (Some(a), Some(b))` — valid Rust,
-not a Redox program. `redox-fmt`'s own `pattern_text` is the right printer, and
-this is the **fourth** place in that crate to need a Redox spelling where the
+not a Voltaic program. `voltaic-fmt`'s own `pattern_text` is the right printer, and
+this is the **fourth** place in that crate to need a Voltaic spelling where the
 AST held only the Rust one; `visibility_text`'s doc comment counts the first
 three.
 

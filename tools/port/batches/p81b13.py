@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Plan 81 batch 13: three more of `redox-emit`'s bodies."""
+"""Plan 81 batch 13: three more of `voltaic-emit`'s bodies."""
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('emit/trivia', '''
@@ -57,7 +57,7 @@ emit_clauses out f base =
   -- `ret.is_some()` until plan 55 leaf 4 recorded a declared `()` in the tree,
   -- which made that spelling mean something else.
   tail = !.returns_unit f.sig
-  simple = .len f.clauses == 1 && .all redox_ast::Pattern::is_irrefutable (.iter f.clauses[0].patterns)
+  simple = .len f.clauses == 1 && .all voltaic_ast::Pattern::is_irrefutable (.iter f.clauses[0].patterns)
   if simple
     -- `where` locals come **first**, which is the only order Rust allows: a
     -- `let` has to precede its use. Haskell writes them after the expression
@@ -82,7 +82,7 @@ emit_clauses out f base =
   pad out (base + RUST_INDENT)
   .push_str (&format! \\-> "match #{scrutinee} {\\n") out
   for clause in &f.clauses
-    row : Vec<String> = clause.patterns |> .iter |> .map redox_ast::Pattern::rust_text |> .collect
+    row : Vec<String> = clause.patterns |> .iter |> .map voltaic_ast::Pattern::rust_text |> .collect
     arm = case .as_slice row of
       [one] -> .clone one
       many -> format! \\-> "(#{.join ", " many})"

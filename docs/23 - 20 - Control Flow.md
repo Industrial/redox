@@ -11,9 +11,9 @@ Status: `planned`
 
 `if`, `while`, `until`, `for`, `loop`, `do`, and the three ways out of them.
 
-Redox has **no control flow at all** today. A function body is a run of statements and a
+Voltaic has **no control flow at all** today. A function body is a run of statements and a
 guard ladder, and that is the whole of it — `if x > 0` is a parse error (§2). This is the
-largest row shipped so far and the one that most changes what a Redox program can be.
+largest row shipped so far and the one that most changes what a Voltaic program can be.
 
 ### 1.1 What doc 18 deleted from this row, and what is left
 
@@ -158,7 +158,7 @@ construct that was already there.
 |---|---|---|
 | Every keyword this plan needs is reserved | `keyword.rs` | `If`, `Then`, `Else`, `While`, `Until`, `For`, `In`, `Loop`, `Do`, `Break`, `Continue` |
 | `'label` is lexed | `kind.rs` | `TokenKind::Label(String)`, and `token_text` spells it `'name` |
-| There is no control flow today | `redox build` on `if x > 0` | `RDX0102: expected an expression` at the `if` |
+| There is no control flow today | `voltaic build` on `if x > 0` | `RDX0102: expected an expression` at the `if` |
 | An indented statement block is already a parser | plan 14 | `Parser::statements`, lifted out of `clause` for `test` and reused here |
 | `not` is boolean negation | doc 18 §2.3, and `UnaryOp::Not` | `!` is emitted, so `if not c` needs nothing new |
 | A statement already carries trivia and attributes | plans 02, 18 | `#[allow(…)]` above an `if` will work with no extra work |
@@ -252,7 +252,7 @@ what it deliberately does not cover.
   AGENTS.md forbids. §10.2 states the consequence: a loop can advance a numeric accumulator
   and cannot rebind anything else.
 - **Loop labels on a `do` block that is not a loop** are legal Rust (`'a: { break 'a v }`)
-  and this plan emits them, but `continue 'a` on a block label is not. Redox will emit it
+  and this plan emits them, but `continue 'a` on a block label is not. Voltaic will emit it
   and rustc will reject it, which is the division of labour AGENTS.md states.
 
 ---
@@ -301,7 +301,7 @@ while n < 3 {
 }
 ```
 
-— an infinite loop that compiles. Redox had no assignment statement at all: at statement
+— an infinite loop that compiles. Voltaic had no assignment statement at all: at statement
 level `x = v` is a **binding**, and nothing else accepted a `=`.
 
 Doc 01 §4.3 answers it in two lines — `mut counter = 0` then `counter += 1` — and doc 18
@@ -321,7 +321,7 @@ appears in none of them**. `counter = 2` is a binding wherever it is written.
 
 This is not an implementation gap that a later plan closes by trying harder. Telling a
 rebinding from a binding means knowing whether the name is already bound, which is scope
-tracking — and AGENTS.md's rule is that every check rustc can make, rustc makes. Redox has
+tracking — and AGENTS.md's rule is that every check rustc can make, rustc makes. Voltaic has
 no scope table and must not grow one for this.
 
 So the consequence is disclosed rather than designed around: **a loop can advance a numeric

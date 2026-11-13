@@ -1,0 +1,195 @@
+import crate::datatype::emit_instance
+import crate::sink::Sink
+import crate::sink::pad
+import crate::template::TemplateScope
+import voltaic_ast::ConstructorFields
+import voltaic_ast::DataDecl
+import voltaic_ast::DeriveTemplate
+import voltaic_ast::Ident
+import voltaic_ast::Item
+import voltaic_ast::Pattern
+import voltaic_ast::PatternSynonym
+import std::cell::RefCell
+
+export(crate) emit_templates : &mut Sink<'_> -> &[Ident] -> &DataDecl -> usize -> ()
+emit_templates out named d indent =
+  for name in named
+    guard TemplateScope::lookup (.as_str name.text) is Some template else
+      continue
+    .unmark out
+    .push_str "\n" out
+    pad out indent
+    .push_str (&format! \-> "// Derived by `deriving template #{name.text}`.\n") out
+    .push_str (&expanded_template (&template) d indent) out
+  ()
+
+export(crate) expanded_template : &DeriveTemplate -> &DataDecl -> usize -> String
+expanded_template template d indent =
+  mut inner = Sink::new ""
+  emit_instance (&mut inner) (&template.body) indent
+  finished = .finish "" inner
+  mut out = .replace "Target" (.as_str d.name.text) (.as_str finished.0)
+  names = field_names d
+  accesses : Vec<String> = names
+    |> .iter
+    |> .map (\name -> format! \-> "self.#{name}")
+    |> .collect
+  quoted : Vec<String> = names
+    |> .iter
+    |> .map (\name -> format! \-> "\"#{name}\"")
+    |> .collect
+  out := .replace "FieldNames" (.as_str (.join ", " quoted)) (.as_str out)
+  out := .replace "Fields" (.as_str (.join ", " accesses)) (.as_str out)
+  mut i = .len names
+  while i > 0
+    i -= 1
+    placeholder = format! \-> "Field#{i}"
+    out := .replace (.as_str placeholder) (.as_str names[i]) (.as_str out)
+  out
+
+export(crate) field_names : &DataDecl -> Vec<String>
+field_names d = case .as_slice d.constructors of
+  [only] -> case &only.fields of
+    ConstructorFields::Tuple types -> 0 .. .len types
+      |> .map (\i -> format! \-> "#{i}")
+      |> .collect
+    ConstructorFields::Record fields -> fields
+      |> .iter
+      |> .map (\f -> .clone f.name.text)
+      |> .collect
+    ConstructorFields::Unit -> Vec::new ()
+  _ -> Vec::new ()
+
+export(crate) pattern_text : &Pattern -> String
+pattern_text pattern = .rust_text (expanded pattern 0)
+
+export(crate) expanded : &Pattern -> usize -> Pattern
+expanded pattern depth =
+  if depth >= 16
+    return .clone pattern
+  case pattern of
+    Pattern::Binding name ->
+      guard SynonymScope::lookup (&name.text) is Some decl else
+        return .clone pattern
+      if !.is_empty decl.params
+        return .clone pattern
+      expanded (&decl.body) (depth + 1)
+    Pattern::Apply { path, args, .. } ->
+      guard SynonymScope::lookup path is Some decl else
+        return rebuilt pattern depth
+      if .len decl.params != .len args
+        return rebuilt pattern depth
+      mut body = .clone decl.body
+      for pair in .enumerate (.iter decl.params)
+        body := substituted (&body) (&pair.1.text) (&args[pair.0])
+      expanded (&body) (depth + 1)
+    _ -> rebuilt pattern depth
+
+export(crate) rebuilt : &Pattern -> usize -> Pattern
+rebuilt pattern depth = case pattern of
+  Pattern::Apply { path, args, span } ->
+    grown : Vec<Pattern> = args
+      |> .iter
+      |> .map (\a -> expanded a (depth + 1))
+      |> .collect
+    Pattern::Apply { path = .clone path, args = grown, span = *span }
+  Pattern::Tuple { items, span } ->
+    grown : Vec<Pattern> = items
+      |> .iter
+      |> .map (\i -> expanded i (depth + 1))
+      |> .collect
+    Pattern::Tuple { items = grown, span = *span }
+  Pattern::Slice { items, span } ->
+    grown : Vec<Pattern> = items
+      |> .iter
+      |> .map (\i -> expanded i (depth + 1))
+      |> .collect
+    Pattern::Slice { items = grown, span = *span }
+  Pattern::Or alts ->
+    grown : Vec<Pattern> = alts
+      |> .iter
+      |> .map (\a -> expanded a (depth + 1))
+      |> .collect
+    Pattern::Or grown
+  Pattern::As { name, inner, span } ->
+    Pattern::As { name = .clone name, inner = Box::new (expanded inner (depth + 1)), span = *span }
+  _ -> .clone pattern
+
+export(crate) substituted : &Pattern -> &str -> &Pattern -> Pattern
+substituted body param actual = case body of
+  Pattern::Binding name ->
+    if name.text == param
+      .clone actual
+    else
+      .clone body
+  Pattern::Apply { path, args, span } ->
+    grown : Vec<Pattern> = args
+      |> .iter
+      |> .map (\a -> substituted a param actual)
+      |> .collect
+    Pattern::Apply { path = .clone path, args = grown, span = *span }
+  Pattern::Tuple { items, span } ->
+    grown : Vec<Pattern> = items
+      |> .iter
+      |> .map (\i -> substituted i param actual)
+      |> .collect
+    Pattern::Tuple { items = grown, span = *span }
+  Pattern::Slice { items, span } ->
+    grown : Vec<Pattern> = items
+      |> .iter
+      |> .map (\i -> substituted i param actual)
+      |> .collect
+    Pattern::Slice { items = grown, span = *span }
+  Pattern::Or alts ->
+    grown : Vec<Pattern> = alts
+      |> .iter
+      |> .map (\a -> substituted a param actual)
+      |> .collect
+    Pattern::Or grown
+  Pattern::As { name, inner, span } ->
+    Pattern::As { name = .clone name, inner = Box::new (substituted inner param actual), span = *span }
+  _ -> .clone body
+
+rust """
+  thread_local! {
+    /// The synonym table in scope, empty outside a [`SynonymScope`].
+    ///
+    /// Empty is the safe default: a name no table knows is left exactly as the
+    /// author wrote it, which for a pattern means rustc sees an unresolved
+    /// constructor and says so. Silence would be the unsafe default here.
+    static IN_SCOPE: RefCell<SynonymTable> = RefCell::new(SynonymTable::default());
+  }
+"""
+
+export(crate) data SynonymScope = SynonymScope { previous : SynonymTable }
+
+instance SynonymScope
+  export(crate) enter : SynonymTable -> Self
+  enter table =
+    previous = .with_borrow_mut (\slot -> std::mem::replace slot table) IN_SCOPE
+    SynonymScope { previous }
+
+  export(crate) lookup : &str -> Option<voltaic_ast::PatternSynonym>
+  lookup name = .with_borrow (\table -> .get name table) IN_SCOPE
+
+instance Drop SynonymScope
+  drop : &mut self -> ()
+  drop self =
+    restored = std::mem::take $ &mut self.previous
+    _dropped = .with_borrow_mut (\slot -> std::mem::replace slot restored) IN_SCOPE
+    ()
+
+export(crate) data SynonymTable = SynonymTable { by_name : std::collections::BTreeMap<String, PatternSynonym> }
+  deriving (Debug, Clone, Default)
+
+instance SynonymTable
+  export(crate) from_items : &[Item] -> Self
+  from_items items =
+    mut by_name = std::collections::BTreeMap::new ()
+    for item in items
+      if item is Item::PatternSynonym decl
+        .insert (.clone decl.name.text) (.clone decl) by_name
+    SynonymTable { by_name }
+
+  export(crate) get : &str -> &self -> Option<PatternSynonym>
+  get name self = self.by_name |> .get name |> .cloned

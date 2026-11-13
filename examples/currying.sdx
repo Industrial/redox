@@ -19,7 +19,7 @@ saturated : i32
 saturated = add 1 2
 
 -- One of two, bound to a name and then called. The call is the interesting
--- half: `inc` is a `where` local, so Redox has no arity for it and emits
+-- half: `inc` is a `where` local, so Voltaic has no arity for it and emits
 -- `inc(5)`, which is why the closure binds its missing parameters in **one**
 -- flat list rather than nesting them.
 one_of_two : i32
@@ -47,7 +47,7 @@ through_dollar : i32
 through_dollar = add 1 $ 2
 
 -- The other half of criterion 5, and the row's whole safety argument. `op` is
--- a `where` local, so no signature in this file names it and Redox cannot
+-- a `where` local, so no signature in this file names it and Voltaic cannot
 -- tell an under-applied call from a saturated one. It is emitted as a call
 -- exactly as it always was, and rustc judges — which here means it compiles,
 -- because the call happens to be saturated. A diagnostic here would be a
@@ -57,7 +57,7 @@ applied = op 7 8
   where
     op = add
 
--- A Rust path is **passable, not curryable**. Redox has no signature for
+-- A Rust path is **passable, not curryable**. Voltaic has no signature for
 -- `String::from`, so its arity is unknowable and it is never curried; this
 -- works because a path in value position is already a `fn` item, which `map`
 -- accepts (plan 56 §1.5).

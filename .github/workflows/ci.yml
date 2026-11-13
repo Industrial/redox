@@ -3,8 +3,8 @@ name: CI
 # specific to this repository: **a clean clone has no generated Rust at all.**
 #
 # `crates/*/src/` is `.gitignore`d and not in the index — every crate under
-# `crates/` is written in Redox, and its `.rs` is generated from its `.sdx` by
-# `seed/redox1.wasm` (see `seed/SEED.md` and `AGENTS.md`). So `cargo` cannot
+# `crates/` is written in Voltaic, and its `.rs` is generated from its `.sdx` by
+# `seed/voltaic1.wasm` (see `seed/SEED.md` and `AGENTS.md`). So `cargo` cannot
 # build anything here until `./bootstrap.sh` has run, which is why the bootstrap
 # step comes before every gate rather than after checkout as a formality. A CI
 # that skipped it would fail with hundreds of "file not found for module"
@@ -26,7 +26,7 @@ env:
   # with the one installed below.
   MOON_TOOLCHAIN_FORCE_GLOBALS: rust
   # Keep equal to what `devenv shell` pins (`cursor.features.languages-rust`
-  # resolves to this today). `crates/redox-cli/tests/ui` snapshots rustc
+  # resolves to this today). `crates/voltaic-cli/tests/ui` snapshots rustc
   # diagnostics, so a floating `stable` would re-bless them on every release.
   RUST_TOOLCHAIN: 1.97.1
   # Pinned releases, downloaded and checked against their sha256 (no `curl | bash`).
@@ -36,7 +36,7 @@ env:
   # Rust to compile.
   WASMTIME_VERSION: 47.0.3
   WASMTIME_SHA256: ca1fc56d1afc40c8782e96c297fd182a0da162f9a8f52a1e7b094e1dd648e178
-  # `crates/redox-cli/tests/tree_sitter.rs` shells out to the `tree-sitter` CLI
+  # `crates/voltaic-cli/tests/tree_sitter.rs` shells out to the `tree-sitter` CLI
   # and panics if it is absent, so it is a build dependency of `:test` rather
   # than an optional extra. Kept equal to what `devenv.nix` pins, for the reason
   # that file gives: a generated parser is an artefact of its generator.
@@ -92,7 +92,7 @@ jobs:
       # Make the pinned toolchain rustup's *default*, not just the one selected
       # through `RUSTUP_TOOLCHAIN`.
       #
-      # `crates/redox-cli/tests/cargo_project.rs` builds the nested project in
+      # `crates/voltaic-cli/tests/cargo_project.rs` builds the nested project in
       # `examples/cargo-project` from a deliberately scrubbed environment: it
       # removes every `CARGO_*` and `RUST*` variable so the child builds the way
       # a user's crate would, then sets `RUSTC` back to the compiler `build.rs`
@@ -170,7 +170,7 @@ jobs:
             fi
           done < <(sed -e 's/#.*//' seed/PORTED | awk 'NF { print $1 }')
           echo "no generated Rust in the checkout, as expected"
-      - name: Bootstrap the generated Rust from seed/redox1.wasm
+      - name: Bootstrap the generated Rust from seed/voltaic1.wasm
         run: ./bootstrap.sh
       - name: moon sync
         run: moon sync

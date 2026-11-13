@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Plan 81 batch 10: four more of `redox-emit`'s bodies.
+"""Plan 81 batch 10: four more of `voltaic-emit`'s bodies.
 
 `macro_call`'s Rust chains an **irrefutable** `let` — `&& let rewritten =
 assert_call(…) &&` — which has no place in an `is` chain, because `is` asks a
@@ -7,7 +7,7 @@ refutable question. A length test and a binding say the same thing.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('emit/macro_call', '''

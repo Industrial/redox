@@ -29,7 +29,7 @@ plan is written to hold whether or not a hit occurs.
   `Display`-as-hex, so it is a filename and a map key without ceremony.
 - **The compiler's own binary is hashed into every key.** Doc 02 §7.1 states the reason:
   *"so that rebuilding the compiler invalidates every previously-cached result instead of
-  silently reusing a stale `.o` a different compiler produced."* For Redox the stale artifact
+  silently reusing a stale `.o` a different compiler produced."* For Voltaic the stale artifact
   would be generated Rust from an older emitter — which compiles, runs, and is wrong. This
   is three lines and it is the difference between a cache and a trap.
 
@@ -48,7 +48,7 @@ key means last week's cache silently mismatches this week's.
 
 | Claim | How checked | Result |
 |---|---|---|
-| `compile_dir` is the single entry point to put a cache behind | `redox-driver/src/compile_dir.rs` | One function, called by `build.rs` and tests |
+| `compile_dir` is the single entry point to put a cache behind | `voltaic-driver/src/compile_dir.rs` | One function, called by `build.rs` and tests |
 | Plan 09 promised the signature would not change | plan 09 §1.1 | *"adds the `blake3` cache behind the same function, and no caller changes"* |
 | A cache needs somewhere to live that Cargo manages | Cargo | `OUT_DIR` is per-crate, per-profile, and cleaned by `cargo clean` |
 | `std::env::current_exe` is available for the fingerprint | std | Yes; fallible, so a failure must degrade to always-miss rather than panic |
@@ -74,7 +74,7 @@ key means last week's cache silently mismatches this week's.
 
 ### Leaf 1 — `leaf-cache-key`
 
-`redox-driver/src/cache/cache_key.rs`. `cache_key(source: &str, fingerprint: &Fingerprint) ->
+`voltaic-driver/src/cache/cache_key.rs`. `cache_key(source: &str, fingerprint: &Fingerprint) ->
 blake3::Hash`, hashing the source bytes and the fingerprint together.
 
 ### Leaf 2 — `leaf-fingerprint`
@@ -85,7 +85,7 @@ random-per-process value, which degrades to always-miss — the safe direction.
 
 ### Leaf 3 — `leaf-store`
 
-`cache/store.rs`. Reads and writes entries under `<out>/.redox-cache/<hash>`. Every
+`cache/store.rs`. Reads and writes entries under `<out>/.voltaic-cache/<hash>`. Every
 failure path returns `None`, never an error: by §1's principle a store that cannot answer
 is a miss.
 
@@ -103,7 +103,7 @@ exactly, delegating with a silent reporter.
 
 ### Leaf 6 — `leaf-proof-and-gate`
 
-`redox-cli/tests/cache.rs` for §3's five properties, the gate, and the docs.
+`voltaic-cli/tests/cache.rs` for §3's five properties, the gate, and the docs.
 
 ---
 
@@ -118,7 +118,7 @@ exactly, delegating with a silent reporter.
 | 5 | A corrupt or truncated entry is a miss, not a failure |
 | 6 | `compile_dir`'s signature is unchanged and `examples/cargo-project` still builds |
 | 7 | `CacheReporter` has no opinion on where its output goes |
-| 8 | `blake3` reaches `redox-driver` only |
+| 8 | `blake3` reaches `voltaic-driver` only |
 | 9 | Full gate green, `cargo audit` clean with the new dependency |
 
 ---
@@ -127,7 +127,7 @@ exactly, delegating with a silent reporter.
 
 | Deferred | To | Note |
 |---|---|---|
-| Caching inside the CLI's `build`/`check` | later | `compile_dir` is the build-script path. `redox build` writes one file the user asked for, where a cache saves nothing a human would notice |
+| Caching inside the CLI's `build`/`check` | later | `compile_dir` is the build-script path. `voltaic build` writes one file the user asked for, where a cache saves nothing a human would notice |
 | Parallelism | later | Doc 02 §7 pairs caching with parallel scheduling. Caching alone is testable; the two together would make a failure hard to attribute |
 | Cache eviction | — | `OUT_DIR` is cleaned by `cargo clean`, so the cache's lifetime is Cargo's problem. A long-lived cache outside `OUT_DIR` would need a size bound |
 | A `salsa`-style query graph | **rejected** | Doc 02 §7.1 quotes Emerald's own reasoning: whole-file granularity does not need it |
@@ -148,7 +148,7 @@ moon run :check :lint :test :cargo-check :cargo-test :ci-format :audit
 the content-addressed key, the compiler fingerprint in every key, the `CacheReporter`
 trait, and above all the MISS-falls-back-verbatim rule (§1).
 
-**Deliberately smaller.** Emerald's is 742 lines over three queries. Redox has one query —
+**Deliberately smaller.** Emerald's is 742 lines over three queries. Voltaic has one query —
 "this file's bytes to this file's generated Rust" — because the transpiler's unit of work
 *is* the file. Copying the three-query structure would be copying a shape without its
 reason.
@@ -200,7 +200,7 @@ highest-value reuse in the project.
 | 5 | A corrupt entry is a miss, not a failure | `a_corrupt_cache_entry_is_a_miss`; `store.rs` adds truncation, half-entry and unwritable-directory cases |
 | 6 | `compile_dir`'s signature unchanged | `compile_dir_still_takes_two_paths`, and `examples/cargo-project` builds untouched |
 | 7 | The reporter owns its output | `the_cache_reports_through_the_caller_not_stdout` |
-| 8 | `blake3` confined to `redox-driver` | its manifest alone |
+| 8 | `blake3` confined to `voltaic-driver` | its manifest alone |
 | 9 | Gate and audit green | `moon run :check :lint :test :cargo-check :cargo-test :audit` |
 
 ### 10.1 Testing an optimization honestly
@@ -250,9 +250,9 @@ rather than by test.
 - **No parallelism.** Doc 02 §7 pairs caching with parallel scheduling; only caching is
   here, because a failure in the two together would be hard to attribute. Deferred with the
   reason rather than silently.
-- **No caching in `redox build` or `redox check`.** The cache is on the build-script path.
-  `redox build` writes one file a human asked for, where a cache saves nothing anyone would
-  notice; `redox check` spends its time in rustc, not in Redox.
+- **No caching in `voltaic build` or `voltaic check`.** The cache is on the build-script path.
+  `voltaic build` writes one file a human asked for, where a cache saves nothing anyone would
+  notice; `voltaic check` spends its time in rustc, not in Voltaic.
 - **No eviction, deliberately.** The cache lives in `OUT_DIR`, so `cargo clean` empties it
   and its lifetime is Cargo's problem. A cache outside `OUT_DIR` would need a size bound,
   and that is a different plan.

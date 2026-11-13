@@ -1,0 +1,309 @@
+import crate::stmt_text::block_text
+import crate::stmt_text::case_arm_text
+import crate::stmt_text::code_text
+import crate::stmt_text::indent_text
+import voltaic_ast::BinaryOp
+import voltaic_ast::Expr
+import voltaic_ast::FieldInit
+import voltaic_ast::Param
+import voltaic_ast::Qualifier
+import voltaic_ast::Section
+
+export expr_text : &Expr -> u8 -> usize -> &str -> String
+expr_text expr required indent source = case expr of
+  Expr::Call { callee, args, is_dollar = true, .. } | .len args == 1 ->
+    dollar_text callee (&args[0]) indent source
+  Expr::Call { callee, args, .. } ->
+    mut out = argument callee indent source
+    for arg in args
+      .push ' ' out
+      .push_str (&argument arg indent source) out
+    out
+  Expr::MethodRef { name, .. } -> format! \-> ".#{name.text}"
+  Expr::Field { recv, name, .. } ->
+    head = receiver recv indent source
+    gap = if .ends_with '?' head
+      " "
+    else
+      ""
+    format! \-> "#{head}#{gap}.#{name.text}"
+  Expr::Index { recv, index, .. } ->
+    format! \-> "#{(receiver recv indent source)}[#{(expr_text index 0 indent source)}]"
+  Expr::Binary { op = BinaryOp::Pipeline, lhs, rhs, .. } ->
+    pipeline_text lhs rhs indent source
+  Expr::Over { selector, function, place, .. } ->
+    path : Vec<String> = selector
+      |> .iter
+      |> .map (\i -> .clone i.text)
+      |> .collect
+    spelled = .join "." path
+    format! \-> "over (.#{spelled}) #{(operand function u8::MAX indent source)} #{(operand place u8::MAX indent source)}"
+  Expr::UserBinary { spelling, fixity, precedence, lhs, rhs, .. } ->
+    powers = .powers (*precedence) (*fixity)
+    format! \-> "#{(operand lhs powers.0 indent source)} #{spelling.text} #{(operand rhs powers.1 indent source)}"
+  Expr::Binary { op, lhs, rhs, .. } ->
+    power = .power op
+    format! \-> "#{(operand lhs power indent source)} #{(.voltaic_text op)} #{(operand rhs (power + 1) indent source)}"
+  Expr::Unary { op, operand = inner, .. } ->
+    naked = case .as_ref inner of
+      Expr::Paren { inner = within, .. } -> within
+      _ -> inner
+    printed = case .as_ref naked of
+      Expr::Unary { .. } -> format! \-> "(#{(expr_text inner 0 indent source)})"
+      _ -> operand inner u8::MAX indent source
+    format! \-> "#{(.rust_text op)}#{printed}"
+  Expr::Paren { inner, .. } ->
+    if can_drop_paren inner required
+      expr_text inner required indent source
+    else
+      format! \-> "(#{(expr_text inner 0 indent source)})"
+  Expr::Path { text, .. } -> .clone text
+  Expr::Lambda { params, body, is_move, .. } ->
+    lambda_text params body (*is_move) indent source
+  Expr::MacroCall { name, args, .. } -> macro_call_text name args indent source
+  Expr::RustHatch { code, .. } -> rust_hatch_text code indent
+  Expr::Ascribe { inner, ty, .. } ->
+    format! \-> "#{(operand inner 0 indent source)} : #{ty.text}"
+  Expr::StrLit { .. } or Expr::RawLit { .. } or Expr::Num { .. } or Expr::Char { .. } or Expr::StrInterp { .. } -> literal_text expr source
+  Expr::Tuple { items, .. } ->
+    if .len items == 1
+      format! \-> "(#{(expr_text (&items[0]) 0 indent source)},)"
+    else
+      format! \-> "(#{(comma_list items indent source)})"
+  Expr::List { items, .. } -> format! \-> "[#{(comma_list items indent source)}]"
+  Expr::ArrayRepeat { value, count, .. } ->
+    format! \-> "[#{(expr_text value 0 indent source)}; #{(expr_text count 0 indent source)}]"
+  Expr::Record { head, fields, .. } -> record_text head fields indent source
+  Expr::Comprehension { element, qualifiers, .. } ->
+    comprehension_text element qualifiers indent source
+  Expr::Try { inner, .. } -> format! \-> "#{(receiver inner indent source)}?"
+  Expr::Unit { .. } -> String::from "()"
+  Expr::Section { section, .. } -> section_text section indent source
+  Expr::Bool { value, .. } -> .to_string value
+  Expr::SelfField { name, .. } -> format! \-> "self.#{name.text}"
+  Expr::SelfType { name, .. } -> format! \-> "Self::#{name.text}"
+  Expr::Ident ident -> .clone ident.text
+  Expr::Block { label, body, .. } -> case label of
+    Some name -> format! \-> "'#{name}\n#{(block_text body (indent + 1) source)}"
+    None -> block_text body (indent + 1) source
+  Expr::AsyncBlock { body, .. } ->
+    format! \-> "async\n#{(block_text body (indent + 1) source)}"
+  Expr::UnsafeBlock { body, .. } ->
+    format! \-> "unsafe\n#{(block_text body (indent + 1) source)}"
+  Expr::TryBlock { body, .. } ->
+    format! \-> "try\n#{(block_text body (indent + 1) source)}"
+  Expr::BindBlock { method, body, .. } ->
+    format! \-> "do .#{method.text}\n#{(block_text body (indent + 1) source)}"
+  Expr::Case { scrutinee, arms, .. } ->
+    printed : Vec<String> = arms
+      |> .iter
+      |> .map (\arm -> case_arm_text arm (indent + 1) source)
+      |> .collect
+    format! \-> "case #{(expr_text scrutinee 0 indent source)} of\n#{(.join "\n" printed)}"
+  Expr::If { .. } or Expr::Binding _ or Expr::Item { .. } or Expr::Return { .. } or Expr::Draw { .. } or Expr::Await { .. } or Expr::Assign { .. } -> code_text expr indent source
+  Expr::Guard { .. } or Expr::While { .. } or Expr::For { .. } or Expr::Loop { .. } or Expr::Break { .. } or Expr::Continue { .. } -> code_text expr indent source
+
+export(crate) argument : &Expr -> usize -> &str -> String
+argument expr indent source = case expr of
+  Expr::Paren { inner, .. } | stands_alone inner -> argument inner indent source
+  Expr::Paren { inner, .. } -> format! \-> "(#{(expr_text inner 0 indent source)})"
+  _ | stands_alone expr -> expr_text expr 0 indent source
+  _ -> format! \-> "(#{(expr_text expr 0 indent source)})"
+
+export(crate) stands_alone : &Expr -> bool
+stands_alone expr = case expr of
+  Expr::Ident _ or Expr::Path { .. } or Expr::Num { .. } or Expr::Bool { .. } or Expr::Char { .. } or Expr::StrLit { .. } or Expr::StrInterp { .. } or Expr::RawLit { .. } -> true
+  Expr::Unit { .. } or Expr::Tuple { .. } or Expr::Section { .. } -> true
+  Expr::Paren { .. } -> true
+  Expr::Field { .. } or Expr::Index { .. } or Expr::Try { .. } -> true
+  Expr::MethodRef { .. } -> true
+  Expr::List { .. } or Expr::ArrayRepeat { .. } -> false
+  _ -> false
+
+export(crate) can_drop_paren : &Expr -> u8 -> bool
+can_drop_paren inner required =
+  .is_some_and (>= required) (power_of inner)
+
+export(crate) comma_list : &[Expr] -> usize -> &str -> String
+comma_list items indent source =
+  parts : Vec<String> = items
+    |> .iter
+    |> .map (\item -> expr_text item 0 indent source)
+    |> .collect
+  .join ", " parts
+
+export(crate) comprehension_text : &Expr -> &[Qualifier] -> usize -> &str -> String
+comprehension_text element qualifiers indent source =
+  printed : Vec<String> = qualifiers
+    |> .iter
+    |> .map (\qualifier -> case qualifier of
+    Qualifier::Draw { name, source = from } ->
+      format! \-> "#{name.text} in #{(expr_text from 0 indent source)}"
+    Qualifier::Guard r#guard -> expr_text r#guard 0 indent source)
+    |> .collect
+  format! \-> "[ #{(expr_text element 0 indent source)} | #{(.join ", " printed)} ]"
+
+export(crate) dollar_text : &Expr -> &Expr -> usize -> &str -> String
+dollar_text callee arg indent source =
+  left = expr_text callee 0 indent source
+  right = expr_text arg 0 indent source
+  format! \-> "#{left} $ #{right}"
+
+export(crate) lambda_text : &[Param] -> &Expr -> bool -> usize -> &str -> String
+lambda_text params body is_move indent source =
+  mut out = if is_move
+    String::from "move \\"
+  else
+    String::from "\\"
+  mut first = true
+  for param in .iter params
+    if !first
+      .push ' ' out
+    first := false
+    .push_str (&param_text param) out
+  separator = case body of
+    Expr::Block { label = None, .. } -> "->\n"
+    _ -> "-> "
+  if !.is_empty params
+    .push ' ' out
+  out |> .push_str separator
+  .push_str (&expr_text body 0 indent source) out
+  out
+
+export(crate) param_text : &Param -> String
+param_text param =
+  name = if param.is_mut
+    format! \-> "mut #{param.name.text}"
+  else
+    .clone param.name.text
+  case &param.ty of
+    Some ty -> format! \-> "(#{name} : #{ty.text})"
+    None -> name
+
+export(crate) literal_text : &Expr -> &str -> String
+literal_text expr source =
+  span = .span expr
+  start = span.0
+  end = span.1
+  if start < end && end <= .len source
+    return .to_string source[start .. end]
+  stored expr
+
+export(crate) stored : &Expr -> String
+stored expr = case expr of
+  Expr::StrLit { value, .. } -> .clone value
+  Expr::RawLit { text, .. } or Expr::Num { text, .. } -> .clone text
+  Expr::Char { value, .. } -> format! \-> "'#{(.escape_default value)}'"
+  _ -> String::new ()
+
+export(crate) macro_call_text : &str -> &[Expr] -> usize -> &str -> String
+macro_call_text name args indent source =
+  mut out = format! \-> "#{name}!"
+  for arg in args
+    hangs = case arg of
+      Expr::Block { label = None, .. } -> true
+      _ -> false
+    if hangs
+      .push_str " \\->\n" out
+    else
+      .push_str " \\-> " out
+    .push_str (&expr_text arg 0 indent source) out
+  out
+
+export(crate) operand : &Expr -> u8 -> usize -> &str -> String
+operand expr required indent source = case expr of
+  Expr::Paren { .. } -> expr_text expr required indent source
+  _ | can_drop_paren expr required -> expr_text expr required indent source
+  _ -> format! \-> "(#{(expr_text expr 0 indent source)})"
+
+export(crate) pipeline_text : &Expr -> &Expr -> usize -> &str -> String
+pipeline_text lhs rhs indent source =
+  power = .power BinaryOp::Pipeline
+  mut stages = vec! \-> operand rhs (power + 1) indent source
+  mut head = lhs
+  while head is Expr::Binary { op = BinaryOp::Pipeline, lhs = left, rhs = right, .. }
+    .push (operand right (power + 1) indent source) stages
+    head := left
+  .reverse stages
+  receiver = operand head power indent source
+  one_line = format! \-> "#{receiver} |> #{(.join " |> " stages)}"
+  if .len (indent_text indent) + .len one_line <= PIPELINE_WIDTH && !.contains '\n' one_line
+    return one_line
+  pad = indent_text $ indent + 1
+  mut out = receiver
+  for stage in &stages
+    .push '\n' out
+    .push_str (&pad) out
+    .push_str "|> " out
+    .push_str stage out
+  out
+
+export(crate) const PIPELINE_WIDTH : usize = 60
+
+export(crate) power_of : &Expr -> Option<u8>
+power_of expr = case expr of
+  Expr::Binary { op, .. } -> Some (.power op)
+  Expr::UserBinary { fixity, precedence, .. } ->
+    powers = .powers (*precedence) (*fixity)
+    Some powers.0
+  Expr::Call { is_dollar = true, .. } -> Some 0
+  Expr::Call { .. } -> Some u8::MAX
+  Expr::MacroCall { .. } or Expr::RustHatch { .. } -> Some u8::MAX
+  Expr::Field { .. } or Expr::Index { .. } or Expr::Unary { .. } or Expr::Try { .. } or Expr::MethodRef { .. } -> Some u8::MAX
+  Expr::Path { .. } or Expr::Ident _ or Expr::SelfField { .. } or Expr::SelfType { .. } -> Some u8::MAX
+  Expr::StrLit { .. } or Expr::StrInterp { .. } or Expr::RawLit { .. } or Expr::Num { .. } or Expr::Bool { .. } or Expr::Char { .. } -> Some u8::MAX
+  Expr::Tuple { .. } or Expr::List { .. } or Expr::ArrayRepeat { .. } or Expr::Unit { .. } -> Some u8::MAX
+  Expr::Paren { inner, .. } -> power_of inner
+  Expr::Record { .. } or Expr::Comprehension { .. } or Expr::Section { .. } -> Some u8::MAX
+  Expr::Lambda { .. } or Expr::Ascribe { .. } or Expr::If { .. } or Expr::Block { .. } or Expr::Case { .. } or Expr::AsyncBlock { .. } or Expr::UnsafeBlock { .. } or Expr::TryBlock { .. } or Expr::BindBlock { .. } -> None
+  Expr::Binding _ or Expr::Item { .. } or Expr::Return { .. } or Expr::Draw { .. } or Expr::Await { .. } or Expr::Assign { .. } or Expr::Over { .. } -> None
+  Expr::Guard { .. } or Expr::While { .. } or Expr::For { .. } or Expr::Loop { .. } or Expr::Break { .. } or Expr::Continue { .. } -> None
+
+export(crate) receiver : &Expr -> usize -> &str -> String
+receiver expr indent source =
+  if takes_a_postfix expr
+    expr_text expr 0 indent source
+  else
+    format! \-> "(#{(expr_text expr 0 indent source)})"
+
+export(crate) takes_a_postfix : &Expr -> bool
+takes_a_postfix expr = case expr of
+  Expr::Ident _ or Expr::Path { .. } or Expr::Num { .. } or Expr::Bool { .. } or Expr::Char { .. } or Expr::StrLit { .. } or Expr::StrInterp { .. } or Expr::RawLit { .. } or Expr::Unit { .. } or Expr::Tuple { .. } or Expr::List { .. } or Expr::ArrayRepeat { .. } or Expr::Record { .. } or Expr::Section { .. } or Expr::Comprehension { .. } or Expr::SelfField { .. } or Expr::SelfType { .. } -> true
+  Expr::Field { .. } or Expr::Index { .. } or Expr::Try { .. } -> true
+  Expr::MethodRef { .. } -> true
+  Expr::Paren { inner, .. } -> takes_a_postfix inner
+  Expr::Call { .. } -> false
+  _ -> false
+
+export(crate) record_text : &Expr -> &[FieldInit] -> usize -> &str -> String
+record_text head fields indent source =
+  if .is_empty fields
+    return format! \-> "#{(receiver head indent source)} {}"
+  printed : Vec<String> = fields
+    |> .iter
+    |> .map (\field -> case &field.value of
+    Some value -> format! \-> "#{field.name.text} = #{(expr_text value 0 indent source)}"
+    None -> .clone field.name.text)
+    |> .collect
+  format! \-> "#{(receiver head indent source)} { #{(.join ", " printed)} }"
+
+export(crate) rust_hatch_text : &str -> usize -> String
+rust_hatch_text code indent =
+  pad = indent_text $ indent + 1
+  mut out = String::from "rust"
+  for line in .lines code
+    .push '\n' out
+    if !.is_empty (.trim line)
+      .push_str (&pad) out
+      .push_str line out
+  out
+
+export(crate) section_text : &Section -> usize -> &str -> String
+section_text section indent source = case section of
+  Section::Right { op, operand } ->
+    format! \-> "(#{(.voltaic_text (*op))} #{(expr_text operand 0 indent source)})"
+  Section::Left { op, operand } ->
+    format! \-> "(#{(expr_text operand 0 indent source)} #{(.voltaic_text (*op))})"
+  Section::Field path ->
+    joined : Vec<&str> = path |> .iter |> .map (\n -> .as_str n.text) |> .collect
+    format! \-> "(.#{(.join "." joined)})"

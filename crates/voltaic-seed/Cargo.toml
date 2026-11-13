@@ -1,0 +1,37 @@
+[package]
+name = "voltaic-seed"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "The bootstrap seed: .sdx in, .rs out, and nothing else."
+
+[[bin]]
+name = "voltaic-seed"
+path = "src/main.rs"
+
+[dependencies]
+# `compile_dir_with` and `Silent`. This is the whole of what a seed needs: walk
+# a directory, transpile every `.sdx`, write the `.rs`.
+voltaic-driver = { path = "../voltaic-driver" }
+# `Diagnostic` and `render(.., plain: true)`. The plain renderer touches no
+# `miette` at all — `plain_one.rs` has zero references to it where
+# `graphical_one.rs` has four — which is what makes a seed without the `fancy`
+# feature possible at all. Plan 72 leaf 1.
+voltaic-diag = { path = "../voltaic-diag" }
+
+[dev-dependencies]
+# `tests/blob.rs` hashes the committed seed against what `seed/SEED.md`
+# records. blake3 rather than a sha: it is already in `Cargo.lock` because
+# `voltaic-driver`'s cache fingerprint uses it, so this adds nothing to the
+# dependency graph.
+blake3 = "1"
+
+# **No `clap`, and no `notify`.** Plan 72 §2: `notify` is inotify / kqueue /
+# FSEvents and is the `voltaic watch` watcher, which is why the seed cannot be a
+# wasm build of `voltaic-cli`. Argument parsing is twenty lines of
+# `std::env::args` in `src/run/arguments.rs` rather than a dependency, because
+# a seed with two positional arguments does not need a parser and every
+# dependency is one more thing to port to a target that has no `std::process`.
+
+[lints]
+workspace = true

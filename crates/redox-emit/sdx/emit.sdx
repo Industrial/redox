@@ -1,5 +1,0 @@
-import crate::expr::emit_with_map
-import redox_ast::Program
-
-export emit : &Program -> String
-emit program = (emit_with_map program "" "").0

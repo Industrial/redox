@@ -1,0 +1,520 @@
+import crate::ParseError
+import crate::block::check_callback_tails
+import crate::block::condition
+import crate::block::stmt
+import crate::datatype::data_decl
+import crate::datatype::derive_template
+import crate::datatype::errors_decl
+import crate::datatype::generalise
+import crate::expr::parse_expr
+import crate::expr::parse_spine
+import crate::item::const_decl
+import crate::item::declares_an_operator
+import crate::item::extern_block
+import crate::item::import_decl
+import crate::item::module_decl
+import crate::item::operator_decl
+import crate::item::pattern_synonym
+import crate::item::test_decl
+import crate::item::type_alias
+import crate::item::visibility
+import crate::pattern::pattern_alt
+import crate::pattern::patterns
+import crate::signature::SignatureHead
+import crate::signature::TypeStop
+import crate::signature::capture_type
+import crate::signature::clause
+import crate::signature::signature_from
+import crate::signature::signature_only
+import crate::support::MAX_NESTING
+import crate::support::nesting_depth
+import crate::token::inline_rust
+import crate::type_class::class_decl
+import crate::type_class::constraints
+import crate::type_class::given_clause
+import crate::type_class::instance_decl
+import crate::where_clause::where_predicates
+import voltaic_ast::Binding
+import voltaic_ast::Block
+import voltaic_ast::Expr
+import voltaic_ast::Fixity
+import voltaic_ast::FnDecl
+import voltaic_ast::Guard
+import voltaic_ast::Ident
+import voltaic_ast::Item
+import voltaic_ast::Program
+import voltaic_ast::Stmt
+import voltaic_ast::TypeExpr
+import voltaic_ast::Visibility
+import voltaic_diag::Code
+import voltaic_lexer::Keyword
+import voltaic_lexer::Span
+import voltaic_lexer::Token
+import voltaic_lexer::TokenKind
+import voltaic_lexer::Trivia
+
+export parse : &[Token] -> usize -> Result<Program, Vec<ParseError>>
+parse toks src_len =
+  deepest = nesting_depth toks
+  if deepest > MAX_NESTING
+    message = format! \-> "this input nests brackets #{deepest} deep, and the limit is #{MAX_NESTING}: deeper than that overflows the parser's stack"
+    return Err (vec! \-> ParseError { code = Code::NestingTooDeep, message, span = (0, 0), help = None })
+  .run src_len $ Parser::new toks
+
+export(crate) data Parser = Parser { toks : &'a [Token], pos : usize, export(crate) r#errors : Vec<ParseError>, class_heads : std::collections::BTreeMap<(String, String), SignatureHead>, export(crate) fixities : std::collections::BTreeMap<String, (Fixity, u8, String)> }
+
+instance (Parser 'a)
+  export(crate) new : &'a [Token] -> Self
+  new toks = Parser { toks, pos = 0, r#errors = Vec::new (), class_heads = std::collections::BTreeMap::new (), fixities = std::collections::BTreeMap::new () }
+  export(crate) run : usize -> mut self -> Result<Program, Vec<ParseError>>
+  run src_len self =
+    items = .program self
+    if .is_empty self.r#errors
+      probe = Program { items = .clone items, span = (0, src_len), trailing = Vec::new () }
+      .extend (check_callback_tails (&probe)) self.r#errors
+    if .is_empty self.r#errors
+      trailing = .eof_trivia self
+      return Ok (Program { items, span = (0, src_len), trailing })
+    Err self.r#errors
+  program : &mut self -> Vec<Item>
+  program self =
+    mut items = Vec::new ()
+    .skip_separators self
+    while !.at_eof self
+      case .item self of
+        Ok found -> .push found items
+        Err e ->
+          .push e self.r#errors
+          .recover_to_item self
+      .skip_separators self
+    items
+  export(crate) items_until_dedent : &mut self -> Result<Vec<Item>, ParseError>
+  items_until_dedent self =
+    mut items = Vec::new ()
+    loop
+      .skip_separators self
+      if .check (&TokenKind::Dedent) self || .at_eof self
+        break
+      case .item self of
+        Ok found -> .push found items
+        Err e ->
+          .push e self.r#errors
+          .recover_to_item self
+    (.expect (&TokenKind::Dedent) "expected the module body to end" self)?
+    Ok items
+  export(crate) item : &mut self -> Result<Item, ParseError>
+  item self =
+    leading = .peek_leading self
+    start = (.peek_span self).0
+    marker = (visibility self)?
+    if .check (&TokenKind::Kw Keyword::Data) self || .check (&TokenKind::Kw Keyword::Newtype) self || .check (&TokenKind::Kw Keyword::Union) self
+      decl = (data_decl self leading start marker)?
+      (.newline_with_trailing "expected a line break after the declaration" self)?
+      return Ok (Item::Data decl)
+    if .check (&TokenKind::Kw Keyword::Type) self
+      alias = (type_alias self leading start marker)?
+      (.newline_with_trailing "expected a line break after the alias" self)?
+      return Ok (Item::Type alias)
+    if .check (&TokenKind::Kw Keyword::Const) self || .check (&TokenKind::Kw Keyword::Static) self
+      decl = (const_decl self leading start marker)?
+      (.newline_with_trailing "expected a line break after the binding" self)?
+      return Ok (Item::Const decl)
+    if .check (&TokenKind::Kw Keyword::Import) self
+      decl = (import_decl self leading start marker)?
+      (.newline_with_trailing "expected a line break after the import" self)?
+      return Ok (Item::Import decl)
+    if .check (&TokenKind::Kw Keyword::Module) self
+      decl = (module_decl self leading start marker)?
+      (.newline_with_trailing "expected a line break after the module" self)?
+      return Ok (Item::Module decl)
+    if .check (&TokenKind::Kw Keyword::Test) self
+      decl = (test_decl self leading start)?
+      (.newline_with_trailing "expected a line break after the test" self)?
+      return Ok (Item::Test decl)
+    if .check (&TokenKind::Kw Keyword::Rust) self
+      block = (inline_rust self leading start)?
+      (.newline_with_trailing "expected a line break after the inline Rust" self)?
+      return Ok (Item::InlineRust block)
+    word_is_pattern = case &(.peek self).kind of
+      TokenKind::Ident text -> text == "pattern"
+      _ -> false
+    names_a_constructor = .is_some_and (\t -> case &t.kind of
+      TokenKind::Ident next -> .is_some_and char::is_uppercase (.next (.chars next))
+      _ -> false) (.peek_at 1 self)
+    if word_is_pattern && names_a_constructor
+      decl = (pattern_synonym self leading start)?
+      return Ok (Item::PatternSynonym decl)
+    if declares_an_operator self
+      decl = (operator_decl self leading start)?
+      return Ok (Item::OperatorDecl decl)
+    if .check (&TokenKind::Kw Keyword::Deriving) self
+      decl = (derive_template self leading start)?
+      (.newline_with_trailing "expected a line break after the deriving template" self)?
+      return Ok (Item::DeriveTemplate decl)
+    if .check (&TokenKind::Kw Keyword::Extern) self
+      block = (extern_block self leading start)?
+      return Ok (Item::Extern block)
+    if .check (&TokenKind::Kw Keyword::Errors) self
+      decl = (errors_decl self leading start marker)?
+      (.newline_with_trailing "expected a line break after the declaration" self)?
+      return Ok (Item::Errors decl)
+    if .check (&TokenKind::Kw Keyword::Class) self
+      decl = (class_decl self leading start marker)?
+      (.newline_with_trailing "expected a line break after the class" self)?
+      return Ok (Item::Class decl)
+    if .check (&TokenKind::Kw Keyword::Instance) self
+      decl = (instance_decl self leading start)?
+      (.newline_with_trailing "expected a line break after the instance" self)?
+      return Ok (Item::Instance decl)
+    mut decl = (.function (&[]) self)?
+    decl.leading := leading
+    decl.visibility := marker
+    decl.span := (start, decl.span.1)
+    Ok $ Item::Fn decl
+  export(crate) function : &[String] -> &mut self -> Result<FnDecl, ParseError>
+  function reserved self =
+    leading = .peek_leading self
+    start = (.peek_span self).0
+    name = (.ident "expected a name to begin a declaration" self)?
+    head = (.signature_head (&name) self)?
+    .equations name leading start (&head) reserved false self
+  export(crate) where_function : &mut self -> Result<FnDecl, ParseError>
+  where_function self =
+    leading = .peek_leading self
+    start = (.peek_span self).0
+    name = (.ident "expected a name to begin a declaration" self)?
+    head = (.signature_head (&name) self)?
+    .equations name leading start (&head) (&[]) true self
+  export(crate) signature_head : &Ident -> &mut self -> Result<SignatureHead, ParseError>
+  signature_head name self =
+    binds_on_this_line = .check (&TokenKind::Eq) self && .is_some_and (\t -> t.kind != TokenKind::Newline) (.peek_at 1 self)
+    if binds_on_this_line
+      message = format! \-> "a module-scope binding needs `const` or `static` and a type: `const #{name.text} : T = …`. Rust forbids `let` at module scope, and doc 03 §13.4 corrects doc 01 §4.3 accordingly"
+      return Err (ParseError::r#with Code::ModuleScopeBinding message name.span)
+    (.expect (&TokenKind::Colon) "expected `:` after the name, to begin the signature" self)?
+    binder = (given_clause self)?
+    bounds = if .is_some binder
+      Vec::new ()
+    else
+      (constraints self)?
+    is_const = .eat_keyword Keyword::Const self
+    is_async = .eat_keyword Keyword::Async self
+    is_unsafe = .eat_keyword Keyword::Unsafe self
+    spine = (parse_spine self)?
+    predicates = (where_predicates self)?
+    (.newline_with_trailing "expected a line break after the signature" self)?
+    Ok (SignatureHead { types = spine, bounds, r#given = binder, predicates, is_const, is_async, is_unsafe })
+  export(crate) record_head : &str -> &str -> &SignatureHead -> &mut self -> ()
+  record_head class_name member head self =
+    key = (.to_string class_name, .to_string member)
+    .insert key (.clone head) self.class_heads
+    ()
+  export(crate) borrowed_head : &str -> &str -> &self -> Option<SignatureHead>
+  borrowed_head class_name member self =
+    key = (.to_string class_name, .to_string member)
+    self.class_heads |> .get (&key) |> .cloned
+  export(crate) equations : Ident -> Vec<Trivia> -> usize -> &SignatureHead -> &[String] -> bool -> &mut self -> Result<FnDecl, ParseError>
+  equations name leading start head reserved ends_on_a_new_name self =
+    spine = &head.types
+    bounds = &head.bounds
+    mut clauses = Vec::new ()
+    mut sig = None
+    loop
+      is_equation = case &(.peek self).kind of
+        TokenKind::Ident _ -> !.is_some_and (\t -> t.kind == TokenKind::Colon) (.peek_at 1 self)
+        _ -> false
+      if !is_equation
+        break
+      if declares_an_operator self
+        break
+      same_name = case &(.peek self).kind of
+        TokenKind::Ident text | text == &name.text -> true
+        _ -> false
+      if ends_on_a_new_name && !same_name
+        break
+      again = (.ident "expected the equation to repeat the name" self)?
+      if again.text != name.text
+        message = format! \-> "this equation defines `#{again.text}`, but the signature above it is for `#{name.text}`"
+        return Err (ParseError::r#with Code::ExpectedName message again.span)
+      row = (patterns self)?
+      built = (signature_from spine (&row) (again.span.0, (.prev_span self).1))?
+      returns_unit = .returns_unit built
+      if .is_none sig
+        sig := Some built
+      .push (clause row (&name) returns_unit self)? clauses
+      .skip_separators self
+    mut settled = .unwrap_or_else (\-> signature_only spine (name.span.0, (.prev_span self).1)) sig
+    settled.r#given := .clone head.r#given
+    settled.predicates := .clone head.predicates
+    generalise (&mut settled) bounds reserved
+    settled.is_const := head.is_const
+    settled.is_async := head.is_async
+    settled.is_unsafe := head.is_unsafe
+    end = (.prev_span self).1
+    trailing = .and_then (\c -> .clone c.trailing) (.last clauses)
+    Ok (FnDecl { name, sig = settled, clauses, visibility = Visibility::Private, span = (start, end), leading, trailing })
+  export(crate) statements : &mut self -> Result<Block, ParseError>
+  statements self =
+    start = (.peek_span self).0
+    mut stmts = Vec::new ()
+    loop
+      .skip_separators self
+      if .check (&TokenKind::Dedent) self || .at_eof self
+        break
+      case stmt self of
+        Ok found -> .push found stmts
+        Err e ->
+          .push e self.r#errors
+          .recover_to_stmt self
+    end = (.prev_span self).1
+    (.expect (&TokenKind::Dedent) "expected the body to end" self)?
+    if .is_empty stmts && .is_empty self.r#errors
+      return Err (ParseError::r#with Code::EmptyBody "a declaration body must contain at least one statement" (start, start))
+    Ok (Block { stmts, span = (start, end) })
+  export(crate) indented_block : Code -> &str -> &mut self -> Result<Block, ParseError>
+  indented_block code message self =
+    (.expect_with code (&TokenKind::Indent) message self)?
+    .statements self
+  export(crate) statement_block : &str -> &mut self -> Result<Block, ParseError>
+  statement_block message self =
+    (.newline_with_trailing "expected a line break before the body" self)?
+    .indented_block Code::EmptyBody message self
+  export(crate) at_statement_end : &self -> bool
+  at_statement_end self = .check (&TokenKind::Newline) self || .check (&TokenKind::Dedent) self || .at_eof self
+  export(crate) if_statement : &mut self -> Result<Expr, ParseError>
+  if_statement self =
+    open = (.peek_span self).0
+    (.expect (&TokenKind::Kw Keyword::If) "expected `if`" self)?
+    cond = (condition self)?
+    then_block = (.statement_block "expected an indented `if` body" self)?
+    .skip_separators self
+    if !.check (&TokenKind::Kw Keyword::Else) self
+      return Ok (Expr::If { condition = cond, then_block, r#otherwise = None, span = (open, (.prev_span self).1) })
+    .advance self
+    if .check (&TokenKind::Kw Keyword::If) self
+      start = (.peek_span self).0
+      nested = (.if_statement self)?
+      end = (.prev_span self).1
+      only = Stmt { expr = nested, span = (start, end), leading = Vec::new (), trailing = None }
+      chained = Block { stmts = vec! \-> only, span = (start, end) }
+      return Ok (Expr::If { condition = cond, then_block, r#otherwise = Some chained, span = (open, end) })
+    fallback = (.statement_block "expected an indented `else` body" self)?
+    Ok (Expr::If { condition = cond, then_block, r#otherwise = Some fallback, span = (open, (.prev_span self).1) })
+  export(crate) inline_body : &mut self -> Result<Block, ParseError>
+  inline_body self =
+    start = (.peek_span self).0
+    value = (parse_expr self 0)?
+    end = (.prev_span self).1
+    only = Stmt { expr = value, span = (start, end), leading = Vec::new (), trailing = None }
+    Ok (Block { stmts = vec! \-> only, span = (start, end) })
+  export(crate) opens_a_guard_list : &self -> bool
+  opens_a_guard_list self = .check (&TokenKind::Newline) self && .is_some_and (\t -> t.kind == TokenKind::Indent) (.peek_at 1 self) && .is_some_and (\t -> t.kind == TokenKind::Or) (.peek_at 2 self)
+  export(crate) guards : &mut self -> Result<Vec<Guard>, ParseError>
+  guards self =
+    mut rows = Vec::new ()
+    loop
+      .skip_separators self
+      if !.check (&TokenKind::Or) self
+        break
+      start = (.peek_span self).0
+      .advance self
+      cond = if .check (&TokenKind::Kw Keyword::Otherwise) self
+        .advance self
+        None
+      else
+        Some (parse_expr self 0)?
+      (.expect (&TokenKind::Eq) "expected `=` after a guard's condition" self)?
+      body = (.inline_body self)?
+      (.newline_with_trailing "expected a line break after a guard's body" self)?
+      .push (Guard { condition = cond, body, span = (start, (.prev_span self).1) }) rows
+    debug_assert! \-> !.is_empty rows \-> "`opens_a_guard_list` guarantees a first `|`"
+    Ok rows
+  export(crate) try_draw : &mut self -> Result<Option<Expr>, ParseError>
+  try_draw self =
+    if !.check (&TokenKind::Kw Keyword::With) self
+      return Ok None
+    start = (.peek_span self).0
+    .advance self
+    name = (.ident "expected a name after `with`" self)?
+    (.expect (&TokenKind::Eq) "expected `=` after a `with` binder — doc 30 §3.3" self)?
+    value = Box::new (parse_expr self 0)?
+    Ok $ Some $ Expr::Draw { name, value, span = (start, (.prev_span self).1) }
+  export(crate) try_binding : &mut self -> Result<Option<Binding>, ParseError>
+  try_binding self =
+    is_mut = .check (&TokenKind::Kw Keyword::Mut) self
+    if !is_mut && !.looks_like_a_binding self
+      return Ok None
+    start = (.peek_span self).0
+    if is_mut
+      .advance self
+    bound = (pattern_alt self)?
+    ty = if .check (&TokenKind::Colon) self
+      .advance self
+      Some (.type_expr "expected a type after `:`" self)?
+    else
+      None
+    (.expect (&TokenKind::Eq) "expected `=` in a binding" self)?
+    value = (parse_expr self 0)?
+    Ok $ Some $ Binding { pattern = bound, ty, value, is_mut, span = (start, (.prev_span self).1) }
+  looks_like_a_binding : &self -> bool
+  looks_like_a_binding self = case &(.peek self).kind of
+    TokenKind::Ident _ ->
+      opener = if .peek_at 1 self is Some next
+        case next.kind of
+          TokenKind::Eq or TokenKind::Colon or TokenKind::LBrace -> true
+          _ -> false
+      else
+        false
+      opener && .reaches_a_binding_eq self
+    TokenKind::LParen or TokenKind::LBracket -> .reaches_a_binding_eq self
+    _ -> false
+  export(crate) reaches_a_binding_eq : &self -> bool
+  reaches_a_binding_eq self =
+    mut depth : i32 = 0
+    mut i = 0
+    while .peek_at i self is Some tok
+      case &tok.kind of
+        TokenKind::Eq | depth == 0 ->
+          return true
+        TokenKind::LParen or TokenKind::LBracket or TokenKind::LBrace -> depth += 1
+        TokenKind::RParen or TokenKind::RBracket or TokenKind::RBrace ->
+          depth -= 1
+          if depth < 0
+            return false
+        TokenKind::Newline or TokenKind::Indent or TokenKind::Dedent or TokenKind::Eof ->
+          return false
+        _ -> ()
+      i += 1
+    false
+  export(crate) type_expr : &str -> &mut self -> Result<TypeExpr, ParseError>
+  type_expr message self = capture_type self message TypeStop::Greedy
+
+  export(crate) peek : &self -> &'a Token
+  peek self =
+    .unwrap_or_else (\-> .expect "the token stream always contains at least Eof" (.last self.toks)) (.get self.pos self.toks)
+  export(crate) peek_at : usize -> &self -> Option<&'a Token>
+  peek_at n self = .get (self.pos + n) self.toks
+  export(crate) peek_span : &self -> Span
+  peek_span self = (.peek self).span
+  export(crate) peek_leading : &self -> Vec<Trivia>
+  peek_leading self = .clone (.peek self).leading
+  export(crate) prev_span : &self -> Span
+  prev_span self =
+    if self.pos == 0
+      return (0, 0)
+    self.toks[self.pos - 1].span
+  export(crate) at_eof : &self -> bool
+  at_eof self = case (.peek self).kind of
+    TokenKind::Eof -> true
+    _ -> false
+  export(crate) check : &TokenKind -> &self -> bool
+  check kind self = &(.peek self).kind == kind
+  export(crate) advance : &mut self -> ()
+  advance self =
+    if !.at_eof self
+      self.pos += 1
+    ()
+  export(crate) expect : &TokenKind -> &str -> &mut self -> Result<(), ParseError>
+  expect kind message self = .expect_with Code::ExpectedToken kind message self
+  export(crate) expect_with : Code -> &TokenKind -> &str -> &mut self -> Result<(), ParseError>
+  expect_with code kind message self =
+    if .check kind self
+      .advance self
+      return Ok ()
+    Err $ ParseError::r#with code message (.peek_span self)
+  export(crate) eat_keyword : Keyword -> &mut self -> bool
+  eat_keyword kw self =
+    if .check (&TokenKind::Kw kw) self
+      .advance self
+      return true
+    false
+  export(crate) position : &self -> usize
+  position self = self.pos
+  export(crate) rewind : usize -> &mut self -> ()
+  rewind mark self =
+    self.pos := mark
+    ()
+  export(crate) try_ident : &mut self -> Option<Ident>
+  try_ident self =
+    if &(.peek self).kind is TokenKind::Ident text
+      found = Ident { text = .clone text, span = .peek_span self }
+      .advance self
+      return Some found
+    None
+  export(crate) ident : &str -> &mut self -> Result<Ident, ParseError>
+  ident message self =
+    if &(.peek self).kind is TokenKind::Ident text
+      found = Ident { text = .clone text, span = .peek_span self }
+      .advance self
+      return Ok found
+    Err $ ParseError::r#with Code::ExpectedName message (.peek_span self)
+  export(crate) newline_with_trailing : &str -> &mut self -> Result<Option<Trivia>, ParseError>
+  newline_with_trailing message self =
+    if .check (&TokenKind::Newline) self
+      trailing = .clone (.peek self).trailing
+      .advance self
+      return Ok trailing
+    if .at_eof self || .check (&TokenKind::Dedent) self || .just_dedented self
+      return Ok None
+    Err $ ParseError::expected message (.peek_span self)
+  export(crate) just_dedented : &self -> bool
+  just_dedented self =
+    self.pos
+      |> .checked_sub 1
+      |> .and_then (\i -> .get i self.toks)
+      |> .is_some_and (\t -> t.kind == TokenKind::Dedent)
+  export(crate) skip_separators : &mut self -> ()
+  skip_separators self =
+    while .check (&TokenKind::Newline) self
+      .advance self
+    ()
+  export(crate) skip_layout : &mut self -> ()
+  skip_layout self =
+    while .check (&TokenKind::Newline) self || .check (&TokenKind::Indent) self || .check (&TokenKind::Dedent) self
+      .advance self
+    ()
+  eof_trivia : &self -> Vec<Trivia>
+  eof_trivia self =
+    guard .last self.toks is Some last else
+      return Vec::new ()
+    ends = case last.kind of
+      TokenKind::Eof -> true
+      _ -> false
+    if !ends
+      return Vec::new ()
+    .clone last.leading
+  recover_to_item : &mut self -> ()
+  recover_to_item self =
+    mut depth : usize = 0
+    mut running = true
+    while running
+      case &(.peek self).kind of
+        TokenKind::Eof -> running := false
+        TokenKind::Indent ->
+          depth += 1
+          .advance self
+        TokenKind::Dedent ->
+          depth := .saturating_sub 1 depth
+          .advance self
+        TokenKind::Ident _ | depth == 0 -> running := false
+        _ -> .advance self
+    ()
+  recover_to_stmt : &mut self -> ()
+  recover_to_stmt self =
+    mut depth : usize = 0
+    mut running = true
+    while running
+      case &(.peek self).kind of
+        TokenKind::Eof -> running := false
+        TokenKind::Newline | depth == 0 ->
+          .advance self
+          running := false
+        TokenKind::Dedent | depth == 0 -> running := false
+        TokenKind::Indent ->
+          depth += 1
+          .advance self
+        TokenKind::Dedent ->
+          depth := .saturating_sub 1 depth
+          .advance self
+        _ -> .advance self
+    ()

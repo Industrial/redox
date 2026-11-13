@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
-"""Plan 80 batch 1: the eight smallest of `redox-driver`'s 43 owed bodies.
+"""Plan 80 batch 1: the eight smallest of `voltaic-driver`'s 43 owed bodies.
 
 Three of them are `const`s whose Rust value is written with a `\\`-at-end-of-line
 continuation, so each paragraph is **one line** of runtime text wrapped across
-several lines of source. Redox has no such continuation — plan 76 §2 found it
-in `redox-bench`'s report literals — so each is one line here, un-escaped.
+several lines of source. Voltaic has no such continuation — plan 76 §2 found it
+in `voltaic-bench`'s report literals — so each is one line here, un-escaped.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('lint/line_of', '''
@@ -26,7 +26,7 @@ export(crate) const UNWRAP_MESSAGE : &str = "`unwrap` and `expect` panic — the
 ''')
 
 write('lint/shadow_help', '''
-export(crate) const SHADOW_HELP : &str = "to reassign instead, write `:=` and `mut` on the first binding; if the shadow is meant, say so on the line above: `#[redox::allow(shadow)]`"
+export(crate) const SHADOW_HELP : &str = "to reassign instead, write `:=` and `mut` on the first binding; if the shadow is meant, say so on the line above: `#[voltaic::allow(shadow)]`"
 ''')
 
 write('lint/shadow_message', '''
@@ -68,7 +68,7 @@ test "accepts everything and says nothing"
 write('lint/comment_pragma_sites', '''
 export(crate) comment_pragma_sites : &str -> Vec<(Span, Lint)>
 comment_pragma_sites source =
-  guard redox_lexer::lex source is Ok tokens else
+  guard voltaic_lexer::lex source is Ok tokens else
     -- Nothing to say about a file whose own lexical error is the diagnostic.
     return Vec::new ()
 

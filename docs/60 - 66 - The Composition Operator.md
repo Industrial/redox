@@ -40,7 +40,7 @@ Plan 58 §9 decision 3 already names this spelling:
 > check has an answer rather than becoming a design discussion at implementation time.
 
 **The collision check passed.** Plan 58 §11.1 measured it: neither `>|` nor `|<` is in the
-operator table, and maximal munch cannot steal a valid program because *Redox spells a
+operator table, and maximal munch cannot steal a valid program because *Voltaic spells a
 closure `\n -> …`, not `|n|`* — so unlike a Rust-shaped surface there is no `|<` sequence
 for a greedy token to break. That finding stands and this row does not disturb it.
 
@@ -68,7 +68,7 @@ onboarding, and one arriving from F# reads `>>>` as a heavier `>>`, which is exa
 it is.
 
 That is a stronger position than any other spelling choice in this milestone can claim.
-`:=`, `is`, `.name` and `\->` are each argued from Redox's own constraints, because Haskell
+`:=`, `is`, `.name` and `\->` are each argued from Voltaic's own constraints, because Haskell
 has nothing to lend for them. This one is borrowed intact, from the language the rest of
 the surface is borrowed from.
 
@@ -97,7 +97,7 @@ is already tracking one delimiter, and asks them to notice which side it fell on
 Neither is about collision, and neither is specific to this spelling.
 
 **A leading composition operator does not continue a line.**
-`Lexer::next_line_continues` (`crates/redox-lexer/src/lexer.rs:410`) is a raw text test
+`Lexer::next_line_continues` (`crates/voltaic-lexer/src/lexer.rs:410`) is a raw text test
 for the literal `"|>"`, and its doc comment says why only `|>` qualifies — a leading `.`
 is ambiguous against doc 03 §7.5's `with` block. Nothing else is admitted. But the corpus
 writes a multi-line pipeline with the operator **leading** the continuation line:
@@ -108,7 +108,7 @@ mention it and plan 58 §11 did not find it.
 
 **A type can end in `>>>`, and `capture_type` already holds the pattern that handles it.**
 This is the one risk the spelling genuinely adds, and reading the code retires it rather
-than deferring it. `crates/redox-parser/src/parse/parser/capture_type.rs` already treats a
+than deferring it. `crates/voltaic-parser/src/parse/parser/capture_type.rs` already treats a
 multi-angle closer as a special case, twice:
 
 ```rust
@@ -135,17 +135,17 @@ Measured 2026-11-10 against the working tree.
 |---|---|
 | `>\|` and `\|<` appear in **22 lines across 5 documents and nowhere under `crates/`** | true — docs 18, `45 - 51`, `48 - 54`, `50 - 56`, `52 - 58`; 18 of the 22 lines are plan 58's own |
 | …and the sixth file a naive grep reports is a **false positive** | true — `docs/56 - 62`'s two hits are `\|t: Arc<Thresholds>\|`, a Rust closure parameter inside a quoted measurement. Plan 46 §1.3's lesson, hit again: eleven of sixteen apparent findings were once the probe's own bug |
-| `OPERATOR_TABLE` is longest-match-first, checked mechanically | true — `crates/redox-lexer/src/lexer/operator_table.rs`, and `scan_operator::tests::longer_operators_are_tried_before_their_prefixes` checks every prefix pair rather than by eye |
+| `OPERATOR_TABLE` is longest-match-first, checked mechanically | true — `crates/voltaic-lexer/src/lexer/operator_table.rs`, and `scan_operator::tests::longer_operators_are_tried_before_their_prefixes` checks every prefix pair rather than by eye |
 | its three-character block holds `...`, `..=`, `??=` and nothing else | true — `>>>` and `<<<` join that block, above `>>` and `<<` |
 | `<<` → `Shl` and `>>` → `Shr` are two-character entries | true |
 | `TokenKind::Pipe` is `\|>`; bare `\|` is `TokenKind::Or` | true — plan 58 §11.1's naming trap, re-confirmed |
-| `BinaryOp::Pipeline` is power 1, the lowest rung, and the rungs are **odd** | true — `crates/redox-ast/src/expr/binary_op.rs:122`; the comment says the odd numbering is load-bearing, because left-associativity is `power() + 1` |
+| `BinaryOp::Pipeline` is power 1, the lowest rung, and the rungs are **odd** | true — `crates/voltaic-ast/src/expr/binary_op.rs:122`; the comment says the odd numbering is load-bearing, because left-associativity is `power() + 1` |
 | `capture_type` decrements by **two** on `Shr`, and treats it as a depth-zero terminator | true — `capture_type.rs:135` and `:114` |
 | `Shl` is in **neither** of `capture_type`'s depth arms | true — pre-existing, §6 |
 | a nested generic closer is already exercised by the corpus | true — `examples/fallible.sdx` has `Option<Option<i32>>` and `Option<&Option<String>>` |
 | a **triple** closer is in no corpus file | true — the three `>>` lines under `examples/` are all double, so §3 case 3 is a genuinely new fixture |
 | `next_line_continues` tests for the literal `"\|>"` | true — `lexer.rs:410` |
-| `continues_line` holds `Shl` and **not** `Shr` | true — `crates/redox-lexer/src/token/kind.rs:206`, and `:190` records why `>` and `>>` are excluded: they close a generic argument list far more often than they dangle off a comparison |
+| `continues_line` holds `Shl` and **not** `Shr` | true — `crates/voltaic-lexer/src/token/kind.rs:206`, and `:190` records why `>` and `>>` are excluded: they close a generic argument list far more often than they dangle off a comparison |
 | `~`, `&:`, `.(` and the `.+` family are lexed and consumed by nothing | true — `Tilde`, `AmpColon`, `DotParen`, `DotPlus` reach only `operator_table.rs`, `kind.rs` and `scan_operator.rs`. `@@` is alive. §9 decision 7 |
 
 ---
@@ -191,7 +191,7 @@ tokens. The opening side needs nothing — §1.5.
 
 This is plan 58's defect as much as this row's, and taking it here means plan 58 ships with
 a multi-line composition chain working rather than finding out from a corpus file. The test
-is §3 case 2 and it belongs in `crates/redox-lexer/tests/continuation.rs`, beside the cases
+is §3 case 2 and it belongs in `crates/voltaic-lexer/tests/continuation.rs`, beside the cases
 that already assert what does and does not continue.
 
 ### Leaf 3 — `leaf-plan-58-amendment`
@@ -235,16 +235,16 @@ which is the reading the corpus will want.
    `operator_table.rs` states *"longest match first"* in a doc comment with nothing enforcing
    it. **That amendment was wrong and is withdrawn.** The test exists:
    `longer_operators_are_tried_before_their_prefixes`, an inline `#[test]` at
-   `crates/redox-lexer/src/lexer/scan_operator.rs:35`, walking every pair of entries and
+   `crates/voltaic-lexer/src/lexer/scan_operator.rs:35`, walking every pair of entries and
    asserting a longer token precedes any prefix of it.
 
    It is **inline rather than under `tests/`** because `OPERATOR_TABLE` is private, which is
    what AGENTS.md's rule requires — *"inline tests are for private constructs only"* — and
-   that is precisely why a search of `operator_table.rs` and `crates/redox-lexer/tests/`
+   that is precisely why a search of `operator_table.rs` and `crates/voltaic-lexer/tests/`
    does not find it. Recorded here so the next reader looks in the right place.
 2. A running example witnesses forward composition with asserted stdout.
 3. A multi-line chain with the operator leading the continuation line parses, asserted in
-   `redox-lexer`'s continuation tests.
+   `voltaic-lexer`'s continuation tests.
 4. `wide : Vec<Vec<Vec<i32>>> -> usize` compiles, in a corpus file.
 5. `print (1 << 1 + 1)` prints `4`, and `examples/expressions.sdx` is byte-identical in its
    golden.
@@ -255,7 +255,7 @@ which is the reading the corpus will want.
    `examples/cargo-project/target/` when checking: compiled dependency artifacts match
    both spellings as bytes, which is the probe bug §2 already caught once.
 9. `construct_coverage` green with both operators indexed — plan 58 criterion 9, inherited.
-10. `redox fmt` round-trips every example and `formatting_is_idempotent` holds, because a
+10. `voltaic fmt` round-trips every example and `formatting_is_idempotent` holds, because a
     new precedence rung is a formatter input as much as a parser one.
 
 ---
@@ -305,12 +305,12 @@ moon run :test           # cargo nextest run, then the doctests
 moon run :format         # treefmt
 ```
 
-Plus the three blessable corpora, and `cargo test -p redox-fuzz` — a new multi-character
+Plus the three blessable corpora, and `cargo test -p voltaic-fuzz` — a new multi-character
 token in `capture_type`'s depth arithmetic is precisely the shape of change that produced
 plan 52's hang, and the fuzzer is what found that one.
 
 And the four readers plan 52 §2 enumerated, because this is a surface row: `examples/`,
-the Rust doc comments that quote Redox source, `redox-fmt`'s emit sites, and the
+the Rust doc comments that quote Voltaic source, `voltaic-fmt`'s emit sites, and the
 tree-sitter grammar with its five editor clients. Two new operators are a grammar change,
 and the grammar is checked against the same corpus.
 
@@ -339,7 +339,7 @@ was recorded, argued, conceded in its own §6, and never built.
    one rung that needs no renumbering of a table whose comment says the numbering is
    load-bearing. Composition binds tighter than `|>`, which is what `xs |> f >>> g` needs.
 4. **Left-associative, and a mixed chain is legal.** `f >>> g <<< h` parses left to right
-   and type-checks; refusing it would be a check, and AGENTS.md's rule is that Redox grows
+   and type-checks; refusing it would be a check, and AGENTS.md's rule is that Voltaic grows
    none. A lint is the right home if it ever earns one — compare plan 54's `RDX1003`, which
    is in the driver and not the parser for the same reason.
 5. **Its own row, not an amendment inside plan 58.** The change is five documents and four
@@ -352,7 +352,7 @@ was recorded, argued, conceded in its own §6, and never built.
    files. The cheapest moment to change a spelling is before anything spells it.
 7. **`~` is not spent.** `~` is lexed and consumed by nothing, so `~>` / `<~` were
    available at two characters instead of three. Declined: a dead token is cheap to spend
-   and expensive to read. `~>` has no composition precedent in any language Redox borrows
+   and expensive to read. `~>` has no composition precedent in any language Voltaic borrows
    from, and `~` reads as *approximately* to most of them. The case for spending it is
    weaker than the case for retiring it, and neither is this row's.
 8. **`>>` and `<<` are still not taken.** Plan 58 §1.3's reasoning survives this row
@@ -363,7 +363,7 @@ was recorded, argued, conceded in its own §6, and never built.
 ## 10. Result
 
 Executed 2026-11-10. **Nine of the ten criteria are met.** Criterion 8 is met everywhere this
-row is allowed to edit and is **not** met in one line of `docs/04 - Redox Plan of Plans.md`,
+row is allowed to edit and is **not** met in one line of `docs/04 - Voltaic Plan of Plans.md`,
 which is outside the brief — §10.7. Criterion 1 is met by a test that already existed, which is
 the row's first finding and an error in the criterion itself.
 
@@ -371,7 +371,7 @@ the row's first finding and an error in the criterion itself.
 
 The criterion was corrected before registration to say *"nothing enforces it … build the
 check"*. **§2's table row was right and the correction is the error.**
-`crates/redox-lexer/src/lexer/scan_operator.rs` has held
+`crates/voltaic-lexer/src/lexer/scan_operator.rs` has held
 `longer_operators_are_tried_before_their_prefixes` since plan 02 leaf 7, and it checks exactly
 the property the correction asked for — every ordered pair, `text.starts_with(other)` implies
 the longer one is listed first.
@@ -434,21 +434,21 @@ The plain binary lowering has no such problem: `emit/compose.rs` folds the chain
 applications over one parameter, so `.trim >>> .to_lowercase` is `|__rdx_1|
 __rdx_1.trim().to_lowercase()` — a method chain, not two closures called in place.
 
-### 10.4 `redox-fmt` needed two methods and nothing else, and then collapsed a corpus line
+### 10.4 `voltaic-fmt` needed two methods and nothing else, and then collapsed a corpus line
 
-Criterion 10 cost `BinaryOp::redox_text` and `BinaryOp::power`, and **`redox_text` was the one
+Criterion 10 cost `BinaryOp::voltaic_text` and `BinaryOp::power`, and **`voltaic_text` was the one
 that would have crashed**: its `other =>` arm calls `rust_text().expect(…)`, so a formatter
 printing `>>>` would have panicked rather than printed wrongly. Power 25 needed no renumbering
 and `power() + 1 = 26` collides with nothing, as §4 predicted. `power_of`, `can_drop_paren` and
-`operand` all read the operator's own table and needed no change. `cargo test -p redox-fmt`
+`operand` all read the operator's own table and needed no change. `cargo test -p voltaic-fmt`
 green.
 
-What the criterion did not predict: **`redox fmt` collapses a multi-line composition chain onto
+What the criterion did not predict: **`voltaic fmt` collapses a multi-line composition chain onto
 one line.** `pipeline_text` is the only operator with a layout of its own, so a chain written
 with the operator leading each continuation line — §3 case 2's shape, which now *lexes* —
 is not canonical, and `every_example_is_already_canonical` rejected the corpus witness. The
 example therefore writes the chain on one line and says why, and criterion 3's assertion lives
-where the criterion puts it, in `redox-lexer/tests/continuation.rs`. A row that wants the
+where the criterion puts it, in `voltaic-lexer/tests/continuation.rs`. A row that wants the
 multi-line form preserved owns giving composition a layout.
 
 ### 10.5 A bare `[">>>"]` witness would have been hollow, and criterion 4 is what fills it
@@ -488,7 +488,7 @@ because the flat `_expression_part` run accepts `>>` followed by `>` as two oper
 
 `grep` for the superseded pair returns nothing under `crates/`, `examples/*.sdx` or `tests/`,
 and under `docs/` returns superseded-spelling notes only — **except**
-`docs/04 - Redox Plan of Plans.md`'s row for plan 58, which still reads *"Composition arrives
+`docs/04 - Voltaic Plan of Plans.md`'s row for plan 58, which still reads *"Composition arrives
 as `>|` / `|<`"* as a statement of fact rather than as a superseded spelling. The register is
 outside this row's editing brief, so the line is reported rather than fixed. It wants the same
 one-clause amendment the other four mentions got.
@@ -507,7 +507,7 @@ binding it is also not writable with method-reference operands — `|__rdx_1|
 __rdx_1.trim().to_lowercase()` is `E0282`, because method resolution needs a receiver type and
 a closure parameter has none until something constrains it.
 
-Both are rustc's constraints rather than Redox's, and both have the same workaround, which is
+Both are rustc's constraints rather than Voltaic's, and both have the same workaround, which is
 the one the corpus uses: compose **named functions** where the binding stands alone, and
 compose **method references** inside an adaptor, where the item type is known. `examples/compose.sdx`
 does one of each, so the case is witnessed in the only two positions it can be.
@@ -516,12 +516,12 @@ does one of each, so the case is witnessed in the only two positions it can be.
 
 `moon run :check`, `:lint`, `:format`, the three blessable corpora, `construct_coverage`,
 `code_coverage`, `grammar_inventory`, `declined`, `plan_orientation`, `editors`, `tree_sitter`,
-`one_construct_per_file`, `directory_structure`, `line_cap`, `redox-fmt`, `redox-lexer` and
-`redox-fuzz`: green. No new diagnostic code was needed, so `code_coverage`'s empty
+`one_construct_per_file`, `directory_structure`, `line_cap`, `voltaic-fmt`, `voltaic-lexer` and
+`voltaic-fuzz`: green. No new diagnostic code was needed, so `code_coverage`'s empty
 `NOT_YET_REACHABLE` is undisturbed.
 
 **`docs/STATUS.md` and `docs/CONFORMANCE.md` are the two red steps, and they are generated.**
 This row adds source lines and one example, so `status_is_current` and `conformance_is_current`
 compare a stale document against a moved count — 32 examples to 33, 31 goldens to 32, and the
-line totals in `redox-ast`, `redox-emit`, `redox-lexer`, `redox-parser` and `redox-cli`. They
+line totals in `voltaic-ast`, `voltaic-emit`, `voltaic-lexer`, `voltaic-parser` and `voltaic-cli`. They
 are blessed by whoever reviews the diff, not here.

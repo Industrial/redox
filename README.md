@@ -1,16 +1,16 @@
-# Redox
+# Voltaic
 
-**A Haskell-shaped surface over Rust's semantics.** Redox is a source-to-source compiler: `.sdx`
+**A Haskell-shaped surface over Rust's semantics.** Voltaic is a source-to-source compiler: `.sdx`
 in, `.xrs` containing ordinary Rust out. You get equations, guards, pattern rows, type classes,
 pipelines, sections and composition — and then rustc type-checks and borrow-checks the result,
-because Redox has no checker of its own and must never grow one.
+because Voltaic has no checker of its own and must never grow one.
 
-[![CI](https://github.com/Industrial/redox/actions/workflows/ci.yml/badge.svg)](https://github.com/Industrial/redox/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/Industrial/redox/actions/workflows/codeql.yml/badge.svg)](https://github.com/Industrial/redox/actions/workflows/codeql.yml)
+[![CI](https://github.com/Industrial/voltaic/actions/workflows/ci.yml/badge.svg)](https://github.com/Industrial/voltaic/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Industrial/voltaic/actions/workflows/codeql.yml/badge.svg)](https://github.com/Industrial/voltaic/actions/workflows/codeql.yml)
 [![License: CC BY-SA 4.0](https://img.shields.io/badge/License-CC%20BY--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-sa/4.0/)
 
 There is no runtime, no garbage collector and no standard library. There is Rust's, because the
-output *is* Rust — Redox's answer to "where is the `Vec`" is "crates.io".
+output *is* Rust — Voltaic's answer to "where is the `Vec`" is "crates.io".
 
 ---
 
@@ -18,7 +18,7 @@ output *is* Rust — Redox's answer to "where is the `Vec`" is "crates.io".
 
 This is `examples/guards.sdx`, unedited:
 
-```redox
+```voltaic
 -- A ladder, including `otherwise` as the final catch-all.
 tier : u64 -> &'static str
 tier spend
@@ -65,9 +65,9 @@ through it in a debugger.
 
 **It is boring Rust.** No trait objects you did not ask for, no `Box`, no runtime shim. A guard
 ladder is an `if`/`else` chain; pattern rows are a `match`. If you can read Rust, you can audit
-what Redox did.
+what Voltaic did.
 
-**Generated names are namespaced.** Anything Redox invents carries the `__rdx_` prefix, and your
+**Generated names are namespaced.** Anything Voltaic invents carries the `__rdx_` prefix, and your
 identifiers may not use it — so a generated binder can never shadow one of yours.
 
 ---
@@ -79,7 +79,7 @@ identifiers may not use it — so a generated binder can never shadow one of you
 A `.name` is a method awaiting its receiver. That one decision is what makes pipelines and
 partial application share a single spelling:
 
-```redox
+```voltaic
 .trim raw                     -- raw.trim()
 .insert k v m                 -- m.insert(k, v)
 .trim _                       -- |x| x.trim()      — awaiting a receiver
@@ -96,7 +96,7 @@ says — the fourth row is the reason it has to. A `.name` followed by `)` is th
 
 ### Pipelines, composition and sections
 
-```redox
+```voltaic
 -- `|>` is reverse application: the piped value becomes the last argument.
 doubled numbers = numbers |> .iter |> .copied |> .filter (> 0) |> .map (2 *) |> .sum
 
@@ -115,7 +115,7 @@ section (`(1 -)`, `(2 *)`) instead.
 
 ### `$`, so the nesting goes away
 
-```redox
+```voltaic
 .ok $ std::fs::read_to_string path        -- std::fs::read_to_string(path).ok()
 Ok $ Some $ Span { lo = start, hi = end } -- Ok(Some(Span { lo: start, hi: end }))
 ```
@@ -125,7 +125,7 @@ leaves no trace in the output.
 
 ### Data, classes and instances
 
-```redox
+```voltaic
 data Event
   = Click
   | Close
@@ -149,7 +149,7 @@ instance Tally Counter
   start value = Counter { value }
 ```
 
-`&self`, `&mut self` and `self` in a signature mean exactly what they mean in Rust. Redox does
+`&self`, `&mut self` and `self` in a signature mean exactly what they mean in Rust. Voltaic does
 not hide the borrow — it just stops making you write `impl` blocks by hand.
 
 ### Off-side rule
@@ -162,7 +162,7 @@ which is why a guard ladder and a `where` group read as outlines rather than pun
 Four constructs with no Rust counterpart, each lowering to ordinary Rust that rustc then checks
 exactly as it would the written-out form.
 
-```redox
+```voltaic
 pattern Origin = Point { x = 0, y = 0 }   -- a named pattern, with parameters
 pattern Both a b = (Some a, Some b)
 
@@ -198,9 +198,9 @@ names a function that already exists, so go-to-definition has somewhere real to 
 
 A **bind block** reads `<-` as whatever the named method does, so one shape covers `Option`,
 `Result`, iterators and anything else with a `and_then`-like method — the comprehension Haskell
-spells `do`, without Redox having to know which monad it is.
+spells `do`, without Voltaic having to know which monad it is.
 
-```redox
+```voltaic
 over (.addr.zip.code) doubled target   -- target.addr.zip.code = doubled(target.addr.zip.code)
 ```
 
@@ -212,12 +212,12 @@ both fields are the same type. The lowering is an assignment through the place, 
 and nothing is cloned; the emitted Rust is what the `:=` form emits.
 
 Every one of these lowers to ordinary Rust that rustc then checks exactly as it would the
-written-out form — which is the only reason they are admissible. Redox has no type checker and
+written-out form — which is the only reason they are admissible. Voltaic has no type checker and
 must never grow one.
 
 ### String interpolation
 
-```redox
+```voltaic
 println! \-> "hello #{name}, you are #{age} years old"
 ```
 
@@ -227,13 +227,13 @@ println! \-> "hello #{name}, you are #{age} years old"
 
 ## It compiles itself
 
-**All thirteen crates under `crates/` are written in Redox.** The compiler's lexer, parser,
+**All thirteen crates under `crates/` are written in Voltaic.** The compiler's lexer, parser,
 emitter, formatter, diagnostics, driver, CLI, LSP server and MCP server are `.sdx` files;
 27,600 lines of them. The Rust under each crate's `src/` is *generated*, `.gitignore`d, and not
 in the index.
 
-So a clean clone has no Rust in it at all. What bridges the gap is `seed/redox1.wasm` — a 906 KB
-WebAssembly build of a previous Redox compiler, which `./bootstrap.sh` runs under `wasmtime` to
+So a clean clone has no Rust in it at all. What bridges the gap is `seed/voltaic1.wasm` — a 906 KB
+WebAssembly build of a previous Voltaic compiler, which `./bootstrap.sh` runs under `wasmtime` to
 regenerate every crate. Three tests keep that honest:
 
 | Test | What it proves |
@@ -250,8 +250,8 @@ instead of rustc's `cfg(bootstrap)` or Go's version chain. `seed/SEED.md` has th
 ## Quick start
 
 ```bash
-git clone --recurse-submodules https://github.com/Industrial/redox
-cd redox
+git clone --recurse-submodules https://github.com/Industrial/voltaic
+cd voltaic
 ./bootstrap.sh                 # generate every crate's Rust from the seed
 cargo build
 ```
@@ -259,9 +259,9 @@ cargo build
 Then:
 
 ```bash
-cargo run -p redox-cli -- build examples/hello.sdx   # -> examples/hello.xrs
-cargo run -p redox-cli -- check examples/hello.sdx   # run rustc, report against the .sdx
-cargo run -p redox-cli -- fmt   examples/hello.sdx   # the canonical formatter
+cargo run -p voltaic-cli -- build examples/hello.sdx   # -> examples/hello.xrs
+cargo run -p voltaic-cli -- check examples/hello.sdx   # run rustc, report against the .sdx
+cargo run -p voltaic-cli -- fmt   examples/hello.sdx   # the canonical formatter
 ```
 
 Diagnostics are reported against the `.sdx` you wrote, with 1-based line and column in
@@ -278,21 +278,21 @@ The workspace splits along pipeline stages.
 
 | Crate | Role |
 |---|---|
-| `redox-lexer` | off-side-rule lexer; spans, trivia, whitespace adjacency |
-| `redox-ast` | syntax tree types, no logic |
-| `redox-parser` | hand-written recursive descent (Pratt loop for expressions) |
-| `redox-emit` | the Rust source emitter |
-| `redox-fmt` | the canonical formatter |
-| `redox-diag` | diagnostics and source maps |
-| `redox-driver` | the incremental driver, cache and lints |
-| `redox-cli` | the `redox` binary, plus the end-to-end and golden harnesses |
-| `redox-lsp` | language server |
-| `redox-mcp` | MCP server (`redox_build`, `redox_check`, `redox_fmt`, `redox_source_map`) |
-| `redox-bench`, `redox-fuzz`, `redox-seed` | throughput, fuzzing, and the wasm seed |
+| `voltaic-lexer` | off-side-rule lexer; spans, trivia, whitespace adjacency |
+| `voltaic-ast` | syntax tree types, no logic |
+| `voltaic-parser` | hand-written recursive descent (Pratt loop for expressions) |
+| `voltaic-emit` | the Rust source emitter |
+| `voltaic-fmt` | the canonical formatter |
+| `voltaic-diag` | diagnostics and source maps |
+| `voltaic-driver` | the incremental driver, cache and lints |
+| `voltaic-cli` | the `voltaic` binary, plus the end-to-end and golden harnesses |
+| `voltaic-lsp` | language server |
+| `voltaic-mcp` | MCP server (`voltaic_build`, `voltaic_check`, `voltaic_fmt`, `voltaic_source_map`) |
+| `voltaic-bench`, `voltaic-fuzz`, `voltaic-seed` | throughput, fuzzing, and the wasm seed |
 
 Within a crate, **one cohesive group per file**, `src/` is a shallow module tree, and no
 file carries a comment — all three machine-checked.
-`docs/06 - Redox Code Architecture.md` has the rules; [AGENTS.md](AGENTS.md) has the
+`docs/06 - Voltaic Code Architecture.md` has the rules; [AGENTS.md](AGENTS.md) has the
 conventions that are load-bearing rather than stylistic.
 
 ---
@@ -316,7 +316,7 @@ one-line edit re-checks one crate, not thirteen.
 **Edit the `.sdx`, never the `.rs`.** After a change, regenerate with:
 
 ```bash
-REDOX_UPDATE=1 cargo test -p redox-cli --test port
+VOLTAIC_UPDATE=1 cargo test -p voltaic-cli --test port
 ```
 
 which compiles the generated tree before writing it and refuses a generation that does not
@@ -325,9 +325,9 @@ compile — so a bad change leaves `src/` untouched rather than broken.
 Three blessable corpora, each asserting a different thing about a program:
 
 ```bash
-REDOX_UPDATE=1 cargo test -p redox-cli --test examples  # tests/golden/*.xrs — the text
-REDOX_UPDATE=1 cargo test -p redox-cli --test ui        # tests/ui/*.stderr — the diagnostic
-REDOX_UPDATE=1 cargo test -p redox-cli --test run       # *.stdout — what it prints
+VOLTAIC_UPDATE=1 cargo test -p voltaic-cli --test examples  # tests/golden/*.xrs — the text
+VOLTAIC_UPDATE=1 cargo test -p voltaic-cli --test ui        # tests/ui/*.stderr — the diagnostic
+VOLTAIC_UPDATE=1 cargo test -p voltaic-cli --test run       # *.stdout — what it prints
 ```
 
 Blessing rewrites the expectations and then fails the run, so a blessed diff is always reviewed

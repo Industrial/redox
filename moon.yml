@@ -43,23 +43,23 @@ tasks:
     options:
       cache: false
       outputStyle: buffer-only-failure
-  # Plan 73. **`redox fmt` was in no gate.** `:format` above is treefmt, which
+  # Plan 73. **`voltaic fmt` was in no gate.** `:format` above is treefmt, which
   # has no `.sdx` formatter, and the only `fmt --check` in the per-crate tasks
   # is `cargo fmt --check` for Rust — so the project's own formatter had never
   # been run over the project's own 245 `.sdx` files except by hand. That is how
-  # `crates/redox-ast/sdx` came to have 50 of 53 files non-canonical, and how a
+  # `crates/voltaic-ast/sdx` came to have 50 of 53 files non-canonical, and how a
   # formatter bug that **deleted a member's visibility** survived unnoticed.
   #
   # Both tasks call `./sdx-fmt.sh`, which owns the one list of what is and is
   # not canonical and why. Two task bodies would be two exclusion lists free to
   # drift.
   sdx-format:
-    description: 'Format the canonical .sdx corpora with redox fmt'
+    description: 'Format the canonical .sdx corpora with voltaic fmt'
     command: './sdx-fmt.sh'
     inputs:
       - 'sdx-fmt.sh'
       - '**/*.sdx'
-      - 'crates/redox-fmt/src/**/*'
+      - 'crates/voltaic-fmt/src/**/*'
     options:
       cache: false
       outputStyle: buffer-only-failure
@@ -70,7 +70,7 @@ tasks:
     inputs:
       - 'sdx-fmt.sh'
       - '**/*.sdx'
-      - 'crates/redox-fmt/src/**/*'
+      - 'crates/voltaic-fmt/src/**/*'
     options:
       cache: false
       outputStyle: buffer-only-failure
@@ -146,21 +146,21 @@ tasks:
   # under `target/`: a cached no-op would leave a stale blob committed and
   # report success.
   seed-refresh:
-    description: 'Rebuild seed/redox1.wasm from crates/redox-seed'
+    description: 'Rebuild seed/voltaic1.wasm from crates/voltaic-seed'
     command: 'bash'
     args:
       - '-c'
       - |
         set -e
-        cargo build --release -p redox-seed --target wasm32-wasip1
+        cargo build --release -p voltaic-seed --target wasm32-wasip1
         wasm-opt -Oz --enable-bulk-memory \
-          -o seed/redox1.wasm \
-          target/wasm32-wasip1/release/redox-seed.wasm
-        echo "seed/redox1.wasm is $(stat -c %s seed/redox1.wasm) bytes"
-        echo "now: REDOX_UPDATE=1 cargo test -p redox-seed --test blob"
+          -o seed/voltaic1.wasm \
+          target/wasm32-wasip1/release/voltaic-seed.wasm
+        echo "seed/voltaic1.wasm is $(stat -c %s seed/voltaic1.wasm) bytes"
+        echo "now: VOLTAIC_UPDATE=1 cargo test -p voltaic-seed --test blob"
     inputs:
-      - 'crates/redox-seed/src/**/*'
-      - 'crates/redox-seed/Cargo.toml'
+      - 'crates/voltaic-seed/src/**/*'
+      - 'crates/voltaic-seed/Cargo.toml'
     options:
       cache: false
       outputStyle: buffer-only-failure
@@ -179,7 +179,7 @@ tasks:
   # `check-docs` was removed at plan 71. It opted into
   # `clippy::missing_docs_in_private_items` under `-D warnings`, which stood at
   # 514 errors across ten crates; 396 were filled and the remaining 118 all sit
-  # in `crates/redox-parser/src/parse/parser.rs`, where documenting them takes
+  # in `crates/voltaic-parser/src/parse/parser.rs`, where documenting them takes
   # the file past `line_cap.rs`'s 1,500-line cap. Two load-bearing rules could
   # not both hold, so the lint is gone rather than left red in the push gate.
   # `:docs` still builds the documentation.

@@ -25,7 +25,7 @@ type. Plan 67 marked the receiver and gave the head's slot to the trait, so the 
 the implementing type is now the **identity** and what is left to substitute is only the trait's
 real parameters — which this row's §1.4 already refuses to resolve when there is more than one.
 
-This is the one row in the milestone that adds machinery Redox has deliberately not had, and it
+This is the one row in the milestone that adds machinery Voltaic has deliberately not had, and it
 should be read with that in mind. §1.3 is the argument; §6 is the honest cost.
 
 ### 1.1 The deviation is recorded in doc 18 §2.5, which already weighed this row and refused it
@@ -42,7 +42,7 @@ comment is leaf 6's, and it is a second instance of plan 51's subject found by h
 **§2.5's example does restate the signature**, and §2.5 says why it does:
 
 > **An instance method restates its signature**, and the line above is a correction to this
-> document's first draft, which omitted it. Rust's `impl` restates it too; Redox would have to
+> document's first draft, which omitted it. Rust's `impl` restates it too; Voltaic would have to
 > resolve the class to copy one from it, and AGENTS.md forbids growing any name resolution. The
 > cost is one line per method and the alternative was a feature that could not be built.
 
@@ -50,7 +50,7 @@ So the omitting form was a draft, corrected deliberately — which makes this ro
 considered decision** rather than the closing of an oversight.
 
 **And AGENTS.md does not contain a name-resolution prohibition.** Its rule is about *checks*:
-*"Redox has no type checker, no borrow checker and no exhaustiveness checker, and must never grow
+*"Voltaic has no type checker, no borrow checker and no exhaustiveness checker, and must never grow
 one."* Doc 18 §2.5 and `examples/class.sdx` both attribute a resolution ban to it. That
 attribution is the thing §1.3 examines, and it is the only part of §2.5's reasoning this row
 disputes — *"a feature that could not be built"* is the claim being tested.
@@ -78,10 +78,10 @@ scales with every class anyone writes, which is a better argument for this row t
 ever was. Two more things make it worth a row.
 
 **The restatement can drift.** A signature that disagrees with its class is a rustc error about a
-trait impl — correct, and arriving in generated Rust, about a mismatch Redox could see.
+trait impl — correct, and arriving in generated Rust, about a mismatch Voltaic could see.
 
 **It is the last place the surface lies.** After plans 52 through 62, `instance` is the only
-construct whose Haskell form means something Redox does not do. Doc 18 §2.5 shows one thing and
+construct whose Haskell form means something Voltaic does not do. Doc 18 §2.5 shows one thing and
 the language requires another, and the corpus comment exists to explain the difference.
 
 ### 1.3 The resolution needed is narrow, and the boundary is assertable
@@ -125,7 +125,7 @@ solver.
 
 ## 2. Verified preconditions
 
-Measured 2026-11-10, against `redox` at `194fdf7`.
+Measured 2026-11-10, against `voltaic` at `194fdf7`.
 
 **The restatement is required.** `examples/class.sdx`, in today's `::` spelling:
 
@@ -174,7 +174,7 @@ Five more:
    there is no class — rather than repeating the one-variable rule.
 5. **A two-variable class.** §1.4's refusal, as a `tests/ui/` fixture.
 
-And one negative: **a restated signature that disagrees with the class is a Redox diagnostic**,
+And one negative: **a restated signature that disagrees with the class is a Voltaic diagnostic**,
 not a rustc trait error. That is leaf 4 and it is the half of this row that pays off even for
 authors who keep restating.
 
@@ -266,7 +266,7 @@ for the resolution, and once because it cites §11.5 where it means §2.5 (§1.1
 
 The stale-citation fix is **three sites, not two**, which §11.5 is the finding for: §1.1 names
 doc 18 §2.5 and `examples/class.sdx`, and the third is
-`crates/redox-emit/src/emit/fn_call_width.rs`. All three point at a section that is *"Three
+`crates/voltaic-emit/src/emit/fn_call_width.rs`. All three point at a section that is *"Three
 findings from converting rather than designing"* and records none of what they claim.
 
 *"`docs/GRAMMAR.md` regraded"* is withdrawn, which §11.5 is also the finding for: Traits, Impls,
@@ -303,7 +303,7 @@ and Associated types and constants are all already `SUGARED` and all already cit
    quotes only the member-signature refusal and never mentions the second site this criterion
    must change, `class_member.rs`'s *"expected `:` after the constant's name"*.
 3. A default method overridden without a signature takes the class's.
-4. A restated signature disagreeing with the class is a named Redox diagnostic, with the class's
+4. A restated signature disagreeing with the class is a named Voltaic diagnostic, with the class's
    and the instance's forms both shown.
 5. Class-not-found, multi-variable and inherent-`instance` are three distinct diagnostics with
    three `tests/ui/` fixtures — which with criterion 4's mismatch code makes **four** new codes
@@ -334,7 +334,7 @@ and Associated types and constants are all already `SUGARED` and all already cit
    the stale `§11.5` pointer corrected to `§2.5` at **all three** sites.
 
    Amended from *"`examples/class.sdx`'s §11.5 pointer corrected to §2.5"*, which §11.5 found
-   to be an undercount: the third site is `crates/redox-emit/src/emit/fn_call_width.rs`.
+   to be an undercount: the third site is `crates/voltaic-emit/src/emit/fn_call_width.rs`.
 
 ---
 
@@ -606,7 +606,7 @@ coexist.
 ### 11.5 Smaller corrections
 
 - **Three stale `§11.5` citations, not two.** §1.1 names two; the third is
-  `crates/redox-emit/src/emit/fn_call_width.rs`. All three point at a section
+  `crates/voltaic-emit/src/emit/fn_call_width.rs`. All three point at a section
   that is *"Three findings from converting rather than designing"* and records
   none of what they claim. (§1.1's own correction about §11.5 is right.)
 - **§2 is measured against a two-commit-old surface.** It quotes

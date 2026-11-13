@@ -1,8 +1,8 @@
-# Redox in Haskell Clothing
+# Voltaic in Haskell Clothing
 
 Version: 1.0.0
-Status: **normative.** This is the Redox surface. Where this document and
-`docs/03 - Redox Surface Design.md` disagree about *spelling*, this document wins; where they
+Status: **normative.** This is the Voltaic surface. Where this document and
+`docs/03 - Voltaic Surface Design.md` disagree about *spelling*, this document wins; where they
 agree about *lowering*, doc 03 remains the reference for the Rust produced.
 Supersedes: doc 03 §§4.1, 5.1–5.6, 6.1–6.4, 7.3–7.7, 8.1–8.5, 9.1–9.3, 10.1–10.4, 12.1,
 14.2, 21, and decisions 49 and 50.
@@ -28,7 +28,7 @@ a Rust path, **`<-`** draws a value out of something, and **juxtaposition** is a
 
 ## 1. The brief, and the two rules it sets
 
-The question was how far the Redox surface can be pushed toward Haskell while the generated
+The question was how far the Voltaic surface can be pushed toward Haskell while the generated
 Rust is held fixed. That fixes two rules, and everything below is downstream of them.
 
 **The lowerings do not move.** Doc 03 specifies each construct by the Rust it produces, and a
@@ -48,13 +48,13 @@ test is what let it in rather than what kept it out. Test 1 asks that the loweri
 the source text alone, and for an under-applied call it is: §2.2's signature *states* the
 arity, so `add 1` against `add : i32 -> i32 -> i32` is one argument short by counting
 top-level arrows and nothing else. What is admitted is partial application — a closure over the
-arguments still missing — and not Haskell's semantics, since a Redox function is still one
+arguments still missing — and not Haskell's semantics, since a Voltaic function is still one
 saturated call rather than a chain of one-argument ones. §8's table carries the correction.
 
 ### 1.1 The simplicity dividend is not a bonus — it is the argument
 
 Haskell gets its surface from a handful of general mechanisms rather than many special ones.
-Adopting those mechanisms deletes the specific constructs Redox had grown to cover the same
+Adopting those mechanisms deletes the specific constructs Voltaic had grown to cover the same
 ground: guards subsume `cond`, relational patterns and `when`; `<-` subsumes `use`, `is`,
 `defer` and the comprehension's `for`; the section rule subsumes `&:`. **Every deletion in §7
 is a construct whose work another construct already does.**
@@ -93,7 +93,7 @@ four-member terminator set, six required-parens cases, and `RDX0055` for the nes
 cannot read. Haskell's rule costs one sentence — **application binds tighter than every
 operator and associates left** — and the hazard disappears instead of being diagnosed.
 
-| Redox today (doc 03 §5.1) | Haskell-shaped | Rust unchanged |
+| Voltaic today (doc 03 §5.1) | Haskell-shaped | Rust unchanged |
 |---|---|---|
 | `send level, format! "{}: {}", code, msg` | `send level (format "{}: {}" code msg)` | `send(level, format!("{}: {}", code, msg));` |
 | `add (multiply 2, 3), 4` — parens required | `add (multiply 2 3) 4` | `add(multiply(2, 3), 4);` |
@@ -200,7 +200,7 @@ fn tier(spend: u64) -> &'static str {
 ```
 
 The guard bar is **the single highest-yield token in the redesign**, because Haskell puts it in
-both equations and case arms and Redox had grown three constructs to cover the same ground.
+both equations and case arms and Voltaic had grown three constructs to cover the same ground.
 `cond` is deleted. `when` arm guards are deleted. Doc 03 §6.2's relational patterns — `> 65` as
 an arm — are deleted, and with them the scrutinee-temporary lowering they needed, because the
 user now writes the binder the guard tests.
@@ -234,7 +234,7 @@ unchanged and lowering to Rust's `|`, **precisely so that the bar is unambiguous
 ### 2.4 Move 4 — `data` for every shape of type
 
 Haskell's declaration form maps onto Rust's with almost nothing left over, and it collapses
-four Redox keywords into two. **A single constructor whose name matches the type is a `struct`;
+four Voltaic keywords into two. **A single constructor whose name matches the type is a `struct`;
 anything else is an `enum`.** That rule is syntactic, which is the whole requirement.
 
 ```haskell
@@ -322,7 +322,7 @@ cause.
 This is a constraint of the surface, not a defect: the parser wants the member's *shape*,
 not its types, so it stays on the right side of doc 02 §12.4. It does bound the design —
 an instance cannot sit beside the type it is for, or beside the function it delegates to,
-unless the class is in that file too. `redox-emit`'s `Emit` therefore declares the class
+unless the class is in that file too. `voltaic-emit`'s `Emit` therefore declares the class
 and all thirteen instances in `item.sdx`, beside the dispatcher that uses them. Lifting
 the constraint means letting an instance member be parsed without its head, which is a
 surface decision owed its own row.
@@ -361,13 +361,13 @@ Three consequences, each of which is the point rather than a side effect.
 **`scaled` and `grown` above emit the same Rust.** Plan 57 calls a method `.scaled 2.0 s` — the
 argument first, the receiver last — so the declaration and the call read in opposite orders, and
 every Rust method has always had that reversal. The difference is that nobody reads std's
-declarations and a `class` is the one place a Redox author writes one. Marking the receiver makes
+declarations and a `class` is the one place a Voltaic author writes one. Marking the receiver makes
 the question stop having an answer that matters: `fn scaled(&self, k: f64) -> Self` comes out of
 both, down to the generated name a required method's parameter takes.
 
 **`Self` names the implementing type and a `class` head names the trait's own parameters.** The
 variable was never doing Haskell's job here: in Haskell it earns its keep because methods mention
-`t` in arbitrary positions and there is no `Self`; Redox has `Self`, needs it for an inherent
+`t` in arbitrary positions and there is no `Self`; Voltaic has `Self`, needs it for an inherent
 `instance` regardless, and accepted it in a class body from the start. One name for one thing —
 and the freed slot is what makes `trait From<T>` reachable. Before plan 67, `class Convert t`
 spent that slot on the implementing type, so a second lowercase name in a member's type became a
@@ -402,7 +402,7 @@ let inner = 1;
 ```
 
 Rust spells all six with `=` and tells a binding from an assignment by `let`.
-Redox has no `let` to lean on, so it tells them apart by the operator instead
+Voltaic has no `let` to lean on, so it tells them apart by the operator instead
 — which is one character against the scope tracking the alternative needed and
 AGENTS.md forbids.
 
@@ -412,7 +412,7 @@ swap, the one shape no compound operator can express. Nothing checks that the
 target *is* a place; `(1 + 2) := 3` is rustc's `E0070`.
 
 **An instance method restates its signature**, and the line above is a correction to this
-document's first draft, which omitted it. Rust's `impl` restates it too; Redox would have to
+document's first draft, which omitted it. Rust's `impl` restates it too; Voltaic would have to
 resolve the class to copy one from it, and AGENTS.md forbids growing any name resolution. The
 cost is one line per method and the alternative was a feature that could not be built.
 
@@ -485,7 +485,7 @@ are grammatically disjoint, so no lookahead is needed to tell them apart. A bare
 statement position is doc 03 §7.6's `use`; a refutable pattern in condition position is §5.5's
 `is` with the operands in Haskell's order.
 
-| Redox today | Haskell-shaped | Rust unchanged |
+| Voltaic today | Haskell-shaped | Rust unchanged |
 |---|---|---|
 | `use conn <- pool.with_connection` | `conn <- pool.with_connection` | `pool.with_connection(\|conn\| { … })` |
 | `if msg is Move(x, _) && x > 0` | `if Move x _ <- msg && x > 0` | `if let Move(x, _) = msg && x > 0 {` |
@@ -522,7 +522,7 @@ deleted too, because `::` already says the type and reads better doing it.
 **Two corrections to the Rust above, made when this was implemented.** The guard is lowered
 with `filter_map` rather than `filter`, and every guard lands at the innermost level: `filter`
 hands its closure a *reference*, which is why the block above has to write `x != *y` — and
-Redox cannot know when to insert that `*`, having no types. `filter_map` hands over the value,
+Voltaic cannot know when to insert that `*`, having no types. `filter_map` hands over the value,
 so the guard reads as written. Every binder is in scope at the innermost level, so the two
 placements differ in *when* a guard runs and never in what the comprehension produces. And the
 generator's source is parenthesised when it is an operator expression, because `.` binds
@@ -557,7 +557,7 @@ row removes it — whoever builds the replacement. Writing it is `RDX0116`.
 `(.name)` stays, and the discriminator is **a `)` immediately after the name**: `(.age)` closes
 and `(.cmp y)` does not. That is one token of lookahead, and §6's honest note about it is that
 a parenthesis now carries a semantic difference — worse than the rest of this milestone
-produces, and adopted because Redox has no types and *something* must carry it. Outside
+produces, and adopted because Voltaic has no types and *something* must carry it. Outside
 parentheses it is **position**: a `.` in head position calls a method, a `.` after an
 expression selects a field, and `.` has exactly one job in each place.
 
@@ -589,7 +589,7 @@ let lengths = users.iter().map(|__rdx_1| __rdx_1.len());
 let f = move |x: i32| x + captured;
 ```
 
-**Why `|>` stays and `.` does not.** Haskell's composition operator is `.`, which in Redox is
+**Why `|>` stays and `.` does not.** Haskell's composition operator is `.`, which in Voltaic is
 field access — the one Haskell token that cannot be had at any price. Reverse application in
 Haskell is `&`, which is Rust's reference sigil. So the receiver pipeline keeps Elm's and F#'s
 spelling, and composition is declined for lack of a lowering target: without currying there is
@@ -628,7 +628,7 @@ Haskell's comment syntax leaves two, and the longest-match table becomes a line.
 invention, since Haskell has no module-level analogue of `//!`; it is chosen to echo Rust's own
 `/`-to-`!` step. **The one new hazard is real and worth naming:** `x - -1` needs its space,
 because `x --1` is a comment. Haskell has the same hazard and the same mitigation — `--` opens
-a comment only when followed by a space or end of line — and `redox fmt` enforces the spacing.
+a comment only when followed by a space or end of line — and `voltaic fmt` enforces the spacing.
 
 ### 5.2 Adjacency lexing is gone — `:` annotates, `::` is a path
 
@@ -678,7 +678,7 @@ let set = HashSet::from([1, 2, 3]);
 ```
 
 Two consequences worth naming. The Rust column now reads as a transliteration
-of the Redox one rather than as a translation, because `:` *is* Rust's type
+of the Voltaic one rather than as a translation, because `:` *is* Rust's type
 marker — which is the same argument §2.4's record fields already made. And
 `::<T>` becomes spellable, where the old rule had no way to write it; doc 56's
 plan declines to spell it for separate reasons.
@@ -692,7 +692,7 @@ mode this section's rule existed to prevent.
 ### 5.3 Capitalisation becomes lexical, and pays for itself twice
 
 Haskell's rule — constructors and types begin uppercase, values and type variables lowercase —
-is a convention Rust already follows and a lexical fact Redox can use. It does three jobs no
+is a convention Rust already follows and a lexical fact Voltaic can use. It does three jobs no
 other mechanism here can do.
 
 - **Constructors need no parentheses.** `Some x` is a constructor application because `Some` is
@@ -762,7 +762,7 @@ has as well: both languages reject the collision, neither resolves it.
 Doc 03 §7.3's `defer` is the single construct in the language that emits a helper item — a
 `Drop` guard in a generated `__rdx` module — and doc 03 §23 item 1 asks for an explicit
 decision about it. Haskell brackets resources with a callback-taking function and `<-` already
-flattens exactly that, so **`defer` is deleted** and the request is answered: Redox emits no
+flattens exactly that, so **`defer` is deleted** and the request is answered: Voltaic emits no
 runtime scaffolding at all, and doc 01 §36 needs no exception.
 
 ---
@@ -825,10 +825,10 @@ every row but one. Retiring `!` as a suffix also spent the token doc 01 §23 had
 **retained** macro-invocation syntax on, and no row here noticed — so `name!` had no
 spelling at all, and `effect!`, `caps!`, `hlist!`, `vec!`, `json!`, `bail!`, `info!`,
 `query!`, `html!` and every proc-macro were unreachable in a language whose premise
-is *"Redox has crates.io"*.
+is *"Voltaic has crates.io"*.
 
 It stood for nineteen rows. Plan 45 §1.5 found it and left the spelling decision;
-plan 48 ported the compiler's own source to Redox and **priced** it, with
+plan 48 ported the compiler's own source to Voltaic and **priced** it, with
 `docs/CONFORMANCE.md` carrying the figure. Worse than unreachable, plan 45 measured
 `assert! true` *appearing* to work — it read as the `assert` keyword applied to
 `!true` and silently emitted `assert!(!true)`, an inverted assertion.
@@ -847,10 +847,10 @@ costs §20 names as honest all shrink, and the exception it discloses disappears
 
 | Crate | §20 | Here | Why |
 |---|---|---|---|
-| `redox-parser` | 3.8k | ~3.0k | The call grammar's eight rules collapse to juxtaposition; no `RDX0055` detection |
-| `redox-emit` | 3.5k | ~3.0k | Nineteen fewer lowerings; no scaffolding emitter |
-| `redox-fmt` | 2.0k | ~1.4k | §16's canonicalisation table loses half its rows |
-| `redox-lexer` | 1.2k | ~1.2k | Layout and trivia are unchanged; one sigil table shrinks, one adjacency rule remains |
+| `voltaic-parser` | 3.8k | ~3.0k | The call grammar's eight rules collapse to juxtaposition; no `RDX0055` detection |
+| `voltaic-emit` | 3.5k | ~3.0k | Nineteen fewer lowerings; no scaffolding emitter |
+| `voltaic-fmt` | 2.0k | ~1.4k | §16's canonicalisation table loses half its rows |
+| `voltaic-lexer` | 1.2k | ~1.2k | Layout and trivia are unchanged; one sigil table shrinks, one adjacency rule remains |
 
 Call it **12–15k lines** against §20's 14–18k, with the same caveat §20 carried: the number is
 a projection from surface area, not a measurement.
@@ -860,13 +860,13 @@ a projection from surface area, not a measurement.
 ## 8. Where Haskell-likeness stops
 
 A design register is worth reading for what it refuses. Each entry below is a Haskell feature
-with no type-free lowering into Rust, or one whose Haskell spelling would make a Redox
+with no type-free lowering into Rust, or one whose Haskell spelling would make a Voltaic
 expression read as Rust and mean something else — doc 02 §5.2's worst available failure mode,
 and the reason doc 03's first decision was to adopt Rust's range spelling.
 
 | Declined | Reason |
 |---|---|
-| ~~Currying and partial application~~ | **Admitted by plan 56** (`docs/50 - 56 - Currying.md`), and this row was the central limitation until it was. `f x y` is still one saturated call — a Redox function is not a chain of one-argument functions — but an **under-applied** one is now a closure over the arguments still missing: `add 1` is `\|__rdx_1\| add(1, __rdx_1)`. Admission test 1 passes because §2.2's signature *states* the arity, so the lowering is fixed by counting top-level arrows and nothing else. The boundary is the file: arity is known for a bare name with a signature in the file being compiled, and every other callee — a path, a `where` local, an equation binder, a lambda parameter, an imported name — is emitted as a call for rustc to judge. §4's table and the composition row below are amended with it. |
+| ~~Currying and partial application~~ | **Admitted by plan 56** (`docs/50 - 56 - Currying.md`), and this row was the central limitation until it was. `f x y` is still one saturated call — a Voltaic function is not a chain of one-argument functions — but an **under-applied** one is now a closure over the arguments still missing: `add 1` is `\|__rdx_1\| add(1, __rdx_1)`. Admission test 1 passes because §2.2's signature *states* the arity, so the lowering is fixed by counting top-level arrows and nothing else. The boundary is the file: arity is known for a bare name with a signature in the file being compiled, and every other callee — a path, a `where` local, an equation binder, a lambda parameter, an imported name — is emitted as a call for rustc to judge. §4's table and the composition row below are amended with it. |
 | Inclusive `..` | Haskell's `[1..10]` includes 10; Rust's excludes it. Doc 03 decision 34 corrected doc 01 for exactly this reason, and it is not being re-broken for cosmetics. `1..10` exclusive, `1..=10` inclusive. |
 | `/=` for inequality | Rust reads `/=` as divide-assign. A silent arithmetic mutation where the author wrote a comparison is the same failure mode as the range inversion. Inequality stays `!=`. |
 | `.` for composition | Field access, which §5.2, §6.3 and the whole pipeline depend on. ~~Without currying there is nothing to compose anyway.~~ **The second sentence is retired by plan 56**: there is now something to compose. What stays declined is the *spelling* — `.` is taken — and **plan 66 chooses `>>>` / `<<<`**, superseding plan 58's `>\|` / `\|<`. |
@@ -877,9 +877,9 @@ and the reason doc 03's first decision was to adopt Rust's range spelling.
 | Return-type polymorphism, newtype deriving, higher-kinded classes | Each needs type information to pick a lowering. Admission test 1. |
 | Haskell's module header and export list | `module M (f, g) where` cannot express Rust's per-item, per-field, scoped visibility. `export`, `export(crate)` and the rest stay as doc 03 §9.6 has them. |
 | Custom operator declaration | Already declined by doc 03 §22 for the only reason that matters: Rust has no lowering target. |
-| Purity and IO | Redox is Rust with a different surface. `mut`, `&mut` and side effects stay exactly as doc 03 has them — test 3 again. |
+| Purity and IO | Voltaic is Rust with a different surface. `mut`, `&mut` and side effects stay exactly as doc 03 has them — test 3 again. |
 
-**Six** Redox constructs are **kept unchanged** despite having no Haskell analogue, because
+**Six** Voltaic constructs are **kept unchanged** despite having no Haskell analogue, because
 deleting them would cost reachability or ergonomics with nothing to show: `??` and `catch` (doc
 03 §12 keeps `Option` and `Result` visually distinct, and both still lower to a `match`),
 `try` blocks, string interpolation with Rust's format specs, the `errors` declaration, and
@@ -891,7 +891,7 @@ the reason is that the justification above was false for it rather than merely w
 callable as a function the chain is writable as what it lowered to, and deleting the construct
 cost reachability nothing. Against keeping it, `?.` was **one token**, so `(e)?.m ()` silently
 meant optional chaining rather than `?` followed by a call — one of the five cases in this
-milestone's opening survey that reached no Redox diagnostic at the point of the mistake.
+milestone's opening survey that reached no Voltaic diagnostic at the point of the mistake.
 
 The cost it did carry is disclosed rather than denied: a field access **moves**, so the
 replacement needs an explicit `&` the lowering used to insert. `examples/fallible.sdx` writes
@@ -1040,7 +1040,7 @@ mod __rdx_tests {
    pattern-test look too alike at a glance. Write the examples corpus first, as doc 03 §16
    insists, and read it.
 2. **Is the signature line a tax at small scale?** Haskell makes signatures optional because it
-   infers; Redox cannot, so every function needs one. That is honest — Rust needs them too —
+   infers; Voltaic cannot, so every function needs one. That is honest — Rust needs them too —
    but a one-line private helper now costs two lines, and `where` locals are where that will be
    felt.
 3. **Does the spaced-`::` rule survive contact with real paths?** It is the one adjacency rule
@@ -1065,11 +1065,11 @@ signature, and expression application. All three are converted, and the suite is
 
 | From | To | Touches |
 |---|---|---|
-| `# line` | `-- line` | `redox-lexer` `scan_hash` → `scan_dash`; every `.sdx` in the repository |
+| `# line` | `-- line` | `voltaic-lexer` `scan_hash` → `scan_dash`; every `.sdx` in the repository |
 | `### … ###` | `{- … -}` | the fenced-comment scanner |
 | `## outer` | `-- \| outer` | trivia kinds unchanged, markers change |
 | `##! inner` | `-- ! inner` | likewise |
-| `add = (a: i32, b: i32): i32 ->` | `add : i32 -> i32 -> i32` + `add a b = …` | `redox-parser` signature and item parsing, `redox-emit` |
+| `add = (a: i32, b: i32): i32 ->` | `add : i32 -> i32 -> i32` + `add a b = …` | `voltaic-parser` signature and item parsing, `voltaic-emit` |
 | `print add(10, 20)` | `print (add 10 20)` | the expression grammar: juxtaposition |
 | `f(x)` | `f x` | likewise |
 
@@ -1147,7 +1147,7 @@ this was a respelling rather than a new language.
 |---|---|
 | Constructs deleted from the parser | `stmt_call`, `parse_signature`, `parameter`, `POSTFIX_POWER` |
 | Constructs added | `application`, `atom`, `parse_spine`, `binders`, `signature_from`, `scan_comment` |
-| Net files in `redox-parser` | −1 |
+| Net files in `voltaic-parser` | −1 |
 | Golden output changed | one comment line |
 
 Two of those deletions are worth naming, because they are §1.1's "simplicity dividend"
@@ -1187,7 +1187,7 @@ heuristic to two lines would flag ordinary two-line string literals, so the hone
 
 ## 12. Result
 
-Doc 18 is the Redox surface, and the three constructs the compiler implements speak it. The
+Doc 18 is the Voltaic surface, and the three constructs the compiler implements speak it. The
 rest of this document is the specification plans 13 onward are written against; doc 04's rows
 for those constructs are re-pointed here.
 
@@ -1220,6 +1220,6 @@ fn main() {
 
 ---
 
-Redox surface specification · a Haskell-shaped respelling of `docs/03 - Redox Surface Design.md`
+Voltaic surface specification · a Haskell-shaped respelling of `docs/03 - Voltaic Surface Design.md`
 v0.1.0. Lowerings are quoted from doc 03 unchanged except the three disclosed in §6. Section
 numbers in references are doc 03's unless this document is named.

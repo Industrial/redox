@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
-"""Plan 80 batch 3: eight more of `redox-driver`'s bodies.
+"""Plan 80 batch 3: eight more of `voltaic-driver`'s bodies.
 
 `write_outputs` is the first body to **read a field the translator renamed**:
-`Cached.rust` is `r#rust` in the `.sdx`, because `rust` is a Redox keyword, so
+`Cached.rust` is `r#rust` in the `.sdx`, because `rust` is a Voltaic keyword, so
 the access is `content.r#rust`. That is the keyword rule reaching a *use* site
 rather than a declaration, which is new — the five earlier collisions were all
 declarations.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('lint/allow_pragma', '''
@@ -58,20 +58,20 @@ comment_pragma_message lint =
 -- | Plan 53's wording, unchanged: the recorded `.stderr` compares as exact
 -- | text, so parametrising must not move a character of it.
 test "the unwrap wording is plan 53's"
-  assert_eq! \\-> comment_pragma_message Lint::Unwrap \\-> "`-- redox: allow unwrap` is deprecated — write `\\#[redox::allow(unwrap)]` on the line above instead (plan 53 §1.3)"
+  assert_eq! \\-> comment_pragma_message Lint::Unwrap \\-> "`-- voltaic: allow unwrap` is deprecated — write `\\#[voltaic::allow(unwrap)]` on the line above instead (plan 53 §1.3)"
 
 -- | The deprecation names the lint it is about, which is why the message
 -- | could not stay a constant.
 test "each lint gets its own spellings"
   text = comment_pragma_message Lint::Shadow
-  assert! \\-> .contains "-- redox: allow shadow" text
-  assert! \\-> .contains "\\#[redox::allow(shadow)]" text
+  assert! \\-> .contains "-- voltaic: allow shadow" text
+  assert! \\-> .contains "\\#[voltaic::allow(shadow)]" text
 ''')
 
 write('diagnose/io_diagnostic', '''
 export(crate) io_diagnostic : &str -> String -> Diagnostic
 io_diagnostic path message =
-  Diagnostic { code = DiagnosticCode::Foreign (.to_string "io"), severity = redox_diag::Severity::Error, message, span = (0, 0), help = None, path = .to_string path, source = String::new () }
+  Diagnostic { code = DiagnosticCode::Foreign (.to_string "io"), severity = voltaic_diag::Severity::Error, message, span = (0, 0), help = None, path = .to_string path, source = String::new () }
 
 test "renders without a snippet"
   d = io_diagnostic "a.sdx" (.to_string "cannot read a.sdx: missing")
@@ -79,7 +79,7 @@ test "renders without a snippet"
   assert_eq! \\-> d.path \\-> "a.sdx"
   -- An empty source means the renderer has no snippet to draw, which it must
   -- survive rather than panic on.
-  out = redox_diag::render (std::slice::from_ref (&d)) true
+  out = voltaic_diag::render (std::slice::from_ref (&d)) true
   assert! \\-> .contains "cannot read" out \\-> "#{out}"
   assert! \\-> !.contains "  |" out \\-> "no snippet should be drawn:\\n#{out}"
 ''')
@@ -114,7 +114,7 @@ write_outputs source out path content =
   out_shown = .to_string (.display out)
   (.map_err (\\e -> vec! \\-> (io_diagnostic path (format! \\-> "cannot create #{out_shown}: #{e}"))) (std::fs::create_dir_all out))?
   target_shown = .to_string (.display target)
-  -- `content.r#rust`, because `rust` is a Redox keyword and the translator
+  -- `content.r#rust`, because `rust` is a Voltaic keyword and the translator
   -- renamed the field. The first collision to reach a *use* site.
   (.map_err (\\e -> vec! \\-> (io_diagnostic path (format! \\-> "cannot write #{target_shown}: #{e}"))) (std::fs::write (&target) (&content.r#rust)))?
 

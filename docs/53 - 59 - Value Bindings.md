@@ -46,11 +46,11 @@ argues for the difference.
 ### 1.2 Currying makes it worse, and that is why this row is here now
 
 Plan 56 §1.5 makes a **Rust path** usable as a function value — `map String::from` — and is
-careful that this is passing a function, not currying one. It does not make a bare Redox name a
+careful that this is passing a function, not currying one. It does not make a bare Voltaic name a
 value.
 
 But the hazard is real without plan 56's help, and already present: `Effect::retry probe_rate`
-works **today**, because a bare Redox name in argument position is already the function item.
+works **today**, because a bare Voltaic name in argument position is already the function item.
 That is what every `Effect::retry` factory in the new corpus relies on. So `block` without
 parentheses is not a parse error — it is a function item passed where a value was meant, and
 after plan 56 the surrounding code is far more likely to accept it quietly.
@@ -107,7 +107,7 @@ removed, which is the smallest change that fixes §1.1 without breaking §1.4.
 
 ## 2. Verified preconditions
 
-Measured 2026-11-10, against `redox` at `194fdf7`.
+Measured 2026-11-10, against `voltaic` at `194fdf7`.
 
 **A parameterless binding is a function and its use site calls it.** `examples/module.sdx` has
 `print (sizes ())`; `examples/strings.sdx` has `print (block ())`; `examples/constants.sdx` has
@@ -117,9 +117,9 @@ files.
 **A bare name emits the function item**, which rustc rejects today with *"use parentheses to
 call this function"* — plan 20 §10.6's finding, re-measured and unchanged.
 
-That sentence is true of raw rustc and false of Redox, which §11.6 is the finding for: `check.rs`
+That sentence is true of raw rustc and false of Voltaic, which §11.6 is the finding for: `check.rs`
 passes `--error-format=short` and `RustcMessage::parse` keeps only positioned diagnostics, so
-`redox check` reports `E0277 … doesn't implement Display` and nothing else. **A Redox user never
+`voltaic check` reports `E0277 … doesn't implement Display` and nothing else. **A Voltaic user never
 sees the parentheses line**, which matters because "rustc already tells them" is part of this
 row's motivation.
 
@@ -132,7 +132,7 @@ what defers the body; the binding is what rebuilds it.
 as the argument. Plan 57 removes the method-call side of this; the *call* side is this row's,
 because `drain` stops needing `()` at all.
 
-**Corpus scale.** At least **13** `name ()` call sites on parameterless Redox bindings in
+**Corpus scale.** At least **13** `name ()` call sites on parameterless Voltaic bindings in
 `examples/` alone — eight in `examples/strings.sdx` (`nested`, `pattern_text`, `quoted`,
 `initial`, `tag`, `magic`, `ffi_name`, `block`) and five in `examples/module.sdx`. The `()` is
 not a rare ceremony.
@@ -185,7 +185,7 @@ one. It is where the row's risk actually lives.
 
 Placement is settled by plan 56 §11.3 and is cited rather than re-derived: the **check** rides
 `parse()`, the declared chokepoint; the **rewrite** rides the emitter's entry. Not `parse()`
-alone, because `redox_fmt::format` consumes the same `Program`.
+alone, because `voltaic_fmt::format` consumes the same `Program`.
 
 ### Leaf 2 — `leaf-const-emission`
 
@@ -206,7 +206,7 @@ parentheses are gone from both sides.
 **Bounded to the file being compiled**, per §11.1: bare names, and paths into an **inline**
 `module` with a body. A bodiless `module` has `items: None` and `emit_module` writes `;`, and
 `Expr::Path` is verbatim text with no structured name to resolve, so the referent is not in this
-`Program` and Redox cannot know to elide the call. Outside that set the use site keeps today's
+`Program` and Voltaic cannot know to elide the call. Outside that set the use site keeps today's
 parenthesised spelling, which is the fallback plan 56 §11.8 had and this row's first draft
 removed.
 
@@ -216,7 +216,7 @@ removed.
 keyword on a non-const expression stays **rustc's error**, which is the status quo.
 
 Amended from *"a keyword on a non-const expression is a diagnostic, which is rustc's error today
-and becomes a Redox one"*, which §11.2 found rejects a program that compiles today — see
+and becomes a Voltaic one"*, which §11.2 found rejects a program that compiles today — see
 criterion 5, where the measurement is.
 
 ### Leaf 5 — `leaf-corpus-and-docs`
@@ -240,7 +240,7 @@ doc comment and `examples/constants.sdx` both still say the type goes *"after th
    Amended from *"at every use site including module-qualified ones"*, which §11.1 found leaves a
    cross-file binding with no spelling at all: `Expr::Path` is carried verbatim as a `String`, a
    bodiless `module` has `items: None` and `emit_module` writes `;`, so the referent is not in
-   this `Program` and Redox cannot know to elide the call. Measured there: `print inner::probe`
+   this `Program` and Voltaic cannot know to elide the call. Measured there: `print inner::probe`
    emits `println!("{}", inner::probe)` → `E0277: fn() -> u32 {probe} doesn't implement Display`.
    Plan 56 §11.8 withdrew the same claim for the same reason; criterion 4 narrows to the same set
    so that the parenthesised spelling survives outside it.
@@ -256,7 +256,7 @@ doc comment and `examples/constants.sdx` both still say the type goes *"after th
    §11.5 found **the fixture does not exist and cannot live in `examples/`**. `id_effect`,
    `Effect::retry` and `Schedule::recurs` appear in documents only — zero hits under `crates/`,
    `examples/` or any `Cargo.toml`, which has no `[workspace.dependencies]` section at all. And
-   `redox check` shells out to bare rustc with `--edition 2024 --error-format=short
+   `voltaic check` shells out to bare rustc with `--edition 2024 --error-format=short
    --emit=metadata` and **no `--extern`**, so an external-crate fixture needs the
    `examples/cargo-project/` shape — `Cargo.toml`, `build.rs`, `include!`, driven by
    `compile_dir` — a project that has no parameterless binding and no `module` today. On top of
@@ -295,7 +295,7 @@ doc comment and `examples/constants.sdx` both still say the type goes *"after th
    non-const is **left to rustc**, which is the status quo: the genuinely non-const case is
    `E0015: cannot call non-const function`, remapped onto the `.sdx` at the right column.
 
-   Amended from *"a keyword on a non-const body is a Redox diagnostic"*, which §11.2 found
+   Amended from *"a keyword on a non-const body is a Voltaic diagnostic"*, which §11.2 found
    rejects a program that compiles today:
 
    ```text
@@ -357,7 +357,7 @@ the id_effect factory fixture runs and makes four attempts; goldens re-blessed a
 
 ## 8. Emerald reuse
 
-Doc 03 §13.3's decline of transpile-time evaluation is Emerald's lesson stated in Redox's
+Doc 03 §13.3's decline of transpile-time evaluation is Emerald's lesson stated in Voltaic's
 documents: *"Emerald's own plan 61 needed a step-limit flag for it."* This row is the first to be
 designed **around** that decline rather than merely respecting it — §1.3's syntactic test exists
 because the evaluating version is the thing Emerald paid for.
@@ -424,11 +424,11 @@ Three ERROR nodes, found by `every_example_parses_with_no_error` and located wit
 
 ### 10.3 What the generated documents say, and whether it is the expected direction
 
-`docs/CONFORMANCE.md`: `redox-emit` gains 6 files and 2 blocked, so its blocked share falls
+`docs/CONFORMANCE.md`: `voltaic-emit` gains 6 files and 2 blocked, so its blocked share falls
 **73% → 71%** and the macro count rises 941 → 944. Four of six new files carry no blocker,
 which is the direction a row adding declaration-shaped code should move.
 
-`docs/STATUS.md`: `redox-emit` +381 source lines, examples 34 → 35, goldens 33 → 34.
+`docs/STATUS.md`: `voltaic-emit` +381 source lines, examples 34 → 35, goldens 33 → 34.
 
 ### 10.4 Leaf 4 cost nothing, which §11.2 predicted
 
@@ -457,7 +457,7 @@ those two together leave nothing that works:
   referent is not in this `Program` at all. Measured: `print inner::probe` emits
   `println!("{}", inner::probe)` → `E0277: fn() -> u32 {probe} doesn't implement
   Display`.
-- So Redox cannot know to elide the call — and criterion 4 has just forbidden
+- So Voltaic cannot know to elide the call — and criterion 4 has just forbidden
   the author from writing it.
 
 **Plan 56 hit the same wall and withdrew the claim**; §11.8 of that row records
@@ -483,7 +483,7 @@ plan 56 §11.1 withdrew its leaf 3 over.
 
 ### 11.2 Criterion 5 rejects a program that compiles today
 
-*"A keyword on a non-const body is a Redox diagnostic."* Measured:
+*"A keyword on a non-const body is a Voltaic diagnostic."* Measured:
 
 ```text
 square : const u32 -> u32
@@ -511,7 +511,7 @@ where the row's risk actually lives.
 
 Placement is already settled by plan 56 §11.3 and should be cited rather than
 re-derived: the check rides `parse()`, the rewrite rides the emitter's entry, and
-not `parse()` alone because `redox_fmt::format` consumes the same `Program`.
+not `parse()` alone because `voltaic_fmt::format` consumes the same `Program`.
 
 ### 11.4 The migration is three times the stated size
 
@@ -525,10 +525,10 @@ eight in `examples/strings.sdx` (`nested`, `pattern_text`, `quoted`, `initial`,
 `id_effect` appears in **documents only** — zero hits under `crates/`,
 `examples/`, or any `Cargo.toml`, which has no `[workspace.dependencies]`
 section at all. `Effect::retry` and `Schedule::recurs` appear nowhere outside
-plan docs. The corpus §2 measures — *"1,501 lines of new Redox … seven driving
+plan docs. The corpus §2 measures — *"1,501 lines of new Voltaic … seven driving
 `id_effect 0.13.0`"* — **is not in this repository**.
 
-And `examples/` cannot hold it: `redox check` shells out to bare rustc with
+And `examples/` cannot hold it: `voltaic check` shells out to bare rustc with
 `--edition 2024 --error-format=short --emit=metadata` and **no `--extern`**. An
 external-crate fixture needs the `examples/cargo-project/` shape — `Cargo.toml`,
 `build.rs`, `include!`, driven by `compile_dir` — and that project has no
@@ -562,13 +562,13 @@ remove, while one that fires wrongly **rejects a legal program**. That is the
 same test that withdrew plan 56's leaf 3 — a false-positive generator is worse
 than a gap — and applying it consistently is what makes the two rows coherent.
 
-### 11.6 Plan 20 §10.6's quote is true of rustc and false of Redox
+### 11.6 Plan 20 §10.6's quote is true of rustc and false of Voltaic
 
 §2 says rustc *"rejects today with 'use parentheses to call this function' —
 plan 20 §10.6's finding, re-measured and unchanged"*. Raw rustc does say it.
-**A Redox user never sees that line**: `check.rs` passes
+**A Voltaic user never sees that line**: `check.rs` passes
 `--error-format=short` and `RustcMessage::parse` keeps only positioned
-diagnostics, so `redox check` reports `E0277 … doesn't implement Display` and
+diagnostics, so `voltaic check` reports `E0277 … doesn't implement Display` and
 nothing else. That matters, because "rustc already tells them" is part of this
 row's motivation.
 
@@ -609,7 +609,7 @@ functions, which is a performance decision rustc makes anyway through inlining."
 
 The property criterion 3 protects is that a parameterless binding is **not** memoised: a factory
 needs a fresh description per call. That property does not need `id_effect`, and §11.5's finding
-is that `id_effect` cannot be had here — no `--extern` on `redox check`, no
+is that `id_effect` cannot be had here — no `--extern` on `voltaic check`, no
 `[workspace.dependencies]`, and a *nondeterministic* upstream that would still have to satisfy a
 deterministic `*.stdout` gate.
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""redox-diag batch 6 — source/map.
+"""voltaic-diag batch 6 — source/map.
 
 New shapes: `impl Into<String>` as a parameter bound, `?` on a chained
 `Option`, and `.filter`/`.map` over `.enumerate()` where the closure takes a
@@ -12,7 +12,7 @@ become a parameter.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 BODY = '''instance SourceMap

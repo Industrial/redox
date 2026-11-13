@@ -11,7 +11,7 @@ Status: `done`
 
 One token for a type, one token for a path, and no rule about whitespace.
 
-Today Redox has **three spellings for a type annotation** and **one of them is also a path**,
+Today Voltaic has **three spellings for a type annotation** and **one of them is also a path**,
 told apart by a space:
 
 | Position | Today | Where |
@@ -83,7 +83,7 @@ This is the first row in the milestone to trade a Haskell spelling for a Rust on
 say so plainly. `f :: Int -> Int` is Haskell's most recognisable line, and `f : i32 -> i32` is
 ML's and F#'s.
 
-The trade is accepted because the thing being borrowed was never the *semantics* — Redox's
+The trade is accepted because the thing being borrowed was never the *semantics* — Voltaic's
 signature line already does two things Haskell's does not (doc 18 §2.2's synthesised generic
 list and bound clause) and one thing it cannot (markers like `const` and `async`, plan 16 and
 plan 39). The `::` was costume. The whitespace rule is a real defect. Keeping the costume at the
@@ -119,7 +119,7 @@ HashMap::new () :: HashMap<String, u32>
 
 **And a type is verbatim text** (doc 03 §14.1), so a generic type carrying `::` inside it —
 `Result<i32, std::num::ParseIntError>` — is copied through and is not this row's business. That
-is the one place a `::` survives inside a type position, and it survives because Redox never
+is the one place a `::` survives inside a type position, and it survives because Voltaic never
 parses it.
 
 ---
@@ -332,36 +332,36 @@ migration is **226 files and 652 lines carrying a spaced `::`**:
 
 §2 counted the `.sdx` corpus under `examples/` and nothing else. The `.sdx`
 corpus is in fact spread across **eight** directories, not one, and the
-majority of the work was Rust doc comments describing Redox syntax.
+majority of the work was Rust doc comments describing Voltaic syntax.
 
 ### 10.3 Five things the plan's map did not contain
 
-1. **`redox-fmt` *emits* the type token, at five sites** — `expr_text.rs:168`,
+1. **`voltaic-fmt` *emits* the type token, at five sites** — `expr_text.rs:168`,
    `item_text/const_text.rs:18`, `item_text/member_text.rs:37`,
    `item_text/constructor_text.rs:27`,
-   `expr_text/lambda_text/param_text.rs:11`. Left alone, `redox fmt` would have
+   `expr_text/lambda_text/param_text.rs:11`. Left alone, `voltaic fmt` would have
    emitted source the parser no longer accepts. §4 listed the parser's readers
    and forgot the formatter's writers.
 2. **`.sdx` programs written as string literals inside Rust tests broke
    silently-shaped**, and AGENTS.md predicted it: *"Emerald's one syntax
    cutover missed 113 fixtures that lived as string literals inside test
-   modules."* Here it was `crates/redox-cli/tests/watch.rs`'s three
+   modules."* Here it was `crates/voltaic-cli/tests/watch.rs`'s three
    `main :: ()` programs, which stopped parsing, so the watcher never emitted
    and all three tests **timed out at the 20-second ceiling** — presenting as
    AGENTS.md's documented load-dependent flake rather than as a syntax break.
-   The same class existed in `redox-lsp`, `redox-fuzz`, `redox-driver`,
-   `redox-diag`, `redox-mcp` and `redox-cli`: 23 files. `no_literal_expectations.rs`
+   The same class existed in `voltaic-lsp`, `voltaic-fuzz`, `voltaic-driver`,
+   `voltaic-diag`, `voltaic-mcp` and `voltaic-cli`: 23 files. `no_literal_expectations.rs`
    polices *expectations*, not *sources*, which is the hole.
 3. **One test derived byte offsets from a source string in a comment.**
-   `redox-driver/src/remap/narrow.rs`'s multibyte test computed `é` at 13..15
+   `voltaic-driver/src/remap/narrow.rs`'s multibyte test computed `é` at 13..15
    from `"x :: ()\n"` being 8 bytes; at 7 bytes every number moved by one. The
    assertion two lines below it is what caught the arithmetic.
 4. **A blanket substitution is wrong in three places**, all of them tests whose
    subject *is* the old spelling: the two new parser tests in §10.4 below, and
-   the `1 :: u64` case in `crates/redox-emit/tests/ascription.rs`.
+   the `1 :: u64` case in `crates/voltaic-emit/tests/ascription.rs`.
 5. **There is a second parser in this repository, and it is checked against the
-   same corpus.** `tree-sitter-redox/grammar.js` still required `::` in a
-   signature, so after the migration `crates/redox-cli/tests/tree_sitter.rs`
+   same corpus.** `tree-sitter-voltaic/grammar.js` still required `::` in a
+   signature, so after the migration `crates/voltaic-cli/tests/tree_sitter.rs`
    and `editors.rs`'s `neovim_runs_the_committed_config` reported an `ERROR`
    node in essentially every file under `examples/`. Five editor clients'
    query files are cross-checked by the same test, which is how a previous plan
@@ -448,7 +448,7 @@ previous token's end and the `::`'s start *is* whitespace, and the rule
 > a `::` with whitespace before it is never a path
 
 is positional rather than a guess about intent — paths are written tight in
-Rust and in Redox alike. `path_or_ident` carries the check and tracks
+Rust and in Voltaic alike. `path_or_ident` carries the check and tracks
 `tight_through` across a multi-segment path, so `A :: b::c` and `A::b :: c` are
 both caught and `A::b::c` is untouched.
 
@@ -477,9 +477,9 @@ recognises, so `Foo\n  ::bar` is two statements and never one path.
 
 The type marker lost a character, so every offset derived from a source string
 containing a signature moved by one. Three assertions carried such a number:
-`redox-diag`'s `line_col` (20 → 19), `redox-driver`'s `narrow` (14..16 →
-13..15) and `redox-parser`'s `parses_the_hello_slice` (20..25 → 19..24). A
-fourth, in `redox-emit`'s `sink.rs`, was found during the parser work.
+`voltaic-diag`'s `line_col` (20 → 19), `voltaic-driver`'s `narrow` (14..16 →
+13..15) and `voltaic-parser`'s `parses_the_hello_slice` (20..25 → 19..24). A
+fourth, in `voltaic-emit`'s `sink.rs`, was found during the parser work.
 
 Each was caught by an assertion rather than by review, and in two of the three
 the *comment* deriving the number was wrong alongside it. The test immediately
@@ -492,7 +492,7 @@ writing them that way.
 
 This is where the row nearly stopped at *"the compiler is migrated"*. It was
 not finished until `docs/18 - Haskell.md` was, and that document **declares
-itself normative** — *"This is the Redox surface"* — while its §5.2 still
+itself normative** — *"This is the Voltaic surface"* — while its §5.2 still
 *specified the whitespace rule this row deleted*. A normative section
 contradicting the compiler is worse than a missing one, because a reader has no
 way to tell which of the two won.
@@ -518,12 +518,12 @@ language's specification and are migrated; the rest are history.
 
 The most valuable thing this row produced is not in its criteria.
 
-`crates/redox-fuzz`'s sweep began failing with `signal: 9, SIGKILL` and no
+`crates/voltaic-fuzz`'s sweep began failing with `signal: 9, SIGKILL` and no
 diagnostic. That is AGENTS.md's environment signature, so the machine was
 checked first — 26 GB available, both tmpfs mounts under a third full, no stray
 blaze workers — and it was not the environment. Running `no_target_panics`
 alone, single-threaded, with a probe printing each input, it died on
-`crates/redox-cli/tests/ui/arity_mismatch.sdx mutation 5`: **36 bytes**.
+`crates/voltaic-cli/tests/ui/arity_mismatch.sdx mutation 5`: **36 bytes**.
 
 Reproduced as a file, under a 2 GB and 10 second cap so it reports rather than
 taking the box:
@@ -582,7 +582,7 @@ out of 276 was consuming the entire run, and the test it took down —
 `no_target_panics` — never reached a verdict on any of the other 275.
 
 Pinned by `a_stray_closer_in_a_type_terminates` in
-`crates/redox-parser/tests/recovery.rs`, which asserts nothing about the parse
+`crates/voltaic-parser/tests/recovery.rs`, which asserts nothing about the parse
 — it tests that the line after the call is reached, so a regression times the
 suite out instead of producing a diff.
 

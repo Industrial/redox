@@ -1,20 +1,20 @@
-# Redox for Helix
+# Voltaic for Helix
 
 Two stanzas and a language-server entry. Helix is tree-sitter-native, so it
 uses plan 41's grammar directly.
 
 ## Install
 
-1. **Put `redox-lsp` on `PATH`:**
+1. **Put `voltaic-lsp` on `PATH`:**
 
    ```bash
-   cargo install --path crates/redox-lsp
+   cargo install --path crates/voltaic-lsp
    ```
 
 2. **Merge `languages.toml` into `~/.config/helix/languages.toml`.** Helix
    merges rather than replaces, so appending the stanzas to an existing file is
    correct. Fix the `[[grammar]]` `source.path` to point at this checkout's
-   `tree-sitter-redox/`.
+   `tree-sitter-voltaic/`.
 
 3. **Build the grammar:**
 
@@ -27,8 +27,8 @@ uses plan 41's grammar directly.
    `queries/highlights.scm`:
 
    ```bash
-   mkdir -p ~/.config/helix/runtime/queries/redox
-   cp tree-sitter-redox/queries/*.scm ~/.config/helix/runtime/queries/redox/
+   mkdir -p ~/.config/helix/runtime/queries/voltaic
+   cp tree-sitter-voltaic/queries/*.scm ~/.config/helix/runtime/queries/voltaic/
    ```
 
    That copy is a real cost and worth naming: it is a second set of queries
@@ -41,7 +41,7 @@ take highlighting *away* from the file.
 
 ## Verified by
 
-`crates/redox-cli/tests/editors.rs` parses `languages.toml` and checks every
+`crates/voltaic-cli/tests/editors.rs` parses `languages.toml` and checks every
 key against an allow-list drawn from Helix's documented schema.
 
 **That is weaker than the other clients and the test's name says so** — it is

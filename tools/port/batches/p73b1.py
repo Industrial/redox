@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""redox-diag batch 1 — the const, the two render entry points, the data type.
+"""voltaic-diag batch 1 — the const, the two render entry points, the data type.
 
 Three shapes established here and reused by every later batch:
 
@@ -24,7 +24,7 @@ loses it. This batch learned the first half the hard way, twice.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 BODIES = {

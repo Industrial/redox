@@ -1,9 +1,0 @@
-module ir
-module pair
-module throughput
-
-export import redox_driver::rustc_path
-export import ir::function_ir
-export import pair::Pair
-export import pair::pairs
-export import throughput::throughput

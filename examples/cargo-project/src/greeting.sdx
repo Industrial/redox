@@ -1,4 +1,4 @@
--- A Redox source file in an ordinary Cargo crate.
+-- A Voltaic source file in an ordinary Cargo crate.
 --
 -- `build.rs` turns this into `$OUT_DIR/greeting.rs`, and `src/main.rs` brings
 -- it in with `include!`. Nothing here knows it is being transpiled.

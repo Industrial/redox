@@ -73,7 +73,7 @@ currently gets no layout token, and so a line this row changes. There are
 | File | Lines | What it is |
 |---|---:|---|
 | `conformance/clause.sdx` | 15 | a multi-line `data … = … { … }` record declaration |
-| `crates/redox-cli/tests/ui/unterminated_attribute.sdx` | 4 | a **deliberately** unterminated delimiter |
+| `crates/voltaic-cli/tests/ui/unterminated_attribute.sdx` | 4 | a **deliberately** unterminated delimiter |
 | `examples/reachability.sdx` | 2 | inside a `rust """…"""` verbatim block — the lexer's verbatim path, not bracket depth |
 | `examples/lexical.sdx` | 1 | the error-path example, which does not parse |
 | `tests/ui/unterminated_fence.sdx`, `unbalanced_delimiter.sdx` | 1 each | deliberately unterminated |
@@ -95,7 +95,7 @@ Measured at HEAD, after plan 55 leaf 5.
 
 | Claim | Verdict |
 |---|---|
-| `end_of_line` and `start_of_line` both return early while `depth > 0` | **true** — `crates/redox-lexer/src/lexer.rs` |
+| `end_of_line` and `start_of_line` both return early while `depth > 0` | **true** — `crates/voltaic-lexer/src/lexer.rs` |
 | `depth` is maintained by one counter over `([{` and `)]}` | **true** — and its doc says continuation suppression needs it carried across lines |
 | an indented `if` inside `(…)` is `RDX0101` | **true**, probed |
 | the same `if` bound to a name works | **true**, probed — plan 55 leaf 2 |
@@ -114,7 +114,7 @@ Measured at HEAD, after plan 55 leaf 5.
    `.xrs` — the one real corpus construct affected.
 4. A genuinely inconsistent dedent **inside** brackets is still `RDX0002`, so
    the fresh context is a context and not an amnesty.
-5. `redox fmt` round-trips a bracketed indented construct, which is the
+5. `voltaic fmt` round-trips a bracketed indented construct, which is the
    property that catches a lexer change the parser tolerates.
 
 ---
@@ -140,7 +140,7 @@ tokens at its item boundaries: `expr_list`, `record`, `list`, the tuple arm,
 already exists and is what they call.
 
 This is the half that is mechanical and the half that will be incomplete on
-the first attempt — the fuzz sweep and `redox fmt`'s corpus properties are the
+the first attempt — the fuzz sweep and `voltaic fmt`'s corpus properties are the
 two gates that find a missed one.
 
 ### Leaf 3 — `leaf-corpus-and-docs`
@@ -164,8 +164,8 @@ plan gains a pointer.
    diagnostics, byte-identical.
 5. `conformance/clause.sdx` compiles and its `.xrs` is unchanged.
 6. All examples green, no rustc output, stdout unchanged.
-7. `redox fmt` round-trips every example, and `formatting_is_idempotent` holds.
-8. `cargo test -p redox-fuzz` green — the sweep is what finds a construct whose
+7. `voltaic fmt` round-trips every example, and `formatting_is_idempotent` holds.
+8. `cargo test -p voltaic-fuzz` green — the sweep is what finds a construct whose
    item loop forgot to skip layout.
 9. `construct_coverage` green.
 
@@ -201,7 +201,7 @@ moon run :test           # cargo nextest run, then the doctests
 moon run :format         # treefmt
 ```
 
-Plus `cargo test -p redox-fuzz`, which this row leans on more than most, and
+Plus `cargo test -p voltaic-fuzz`, which this row leans on more than most, and
 the three blessable corpora.
 
 ---
@@ -310,9 +310,9 @@ Two, and §4 was right that this half would be incomplete:
   *expected a field name*, pointing at the record's first field. Found by
   running the one real affected corpus construct §1.3 names.
 
-Neither was found by the fuzz sweep or by `redox-fmt`, which §4 nominated.
-Both were green throughout: **`cargo test -p redox-fuzz` and
-`cargo test -p redox-fmt` never failed once during this row.** The gates that
+Neither was found by the fuzz sweep or by `voltaic-fmt`, which §4 nominated.
+Both were green throughout: **`cargo test -p voltaic-fuzz` and
+`cargo test -p voltaic-fmt` never failed once during this row.** The gates that
 actually reported something were the corpus (`clause.sdx`, `examples`,
 `tree_sitter`) and two lexer unit tests. That is worth recording because §4
 named the wrong instrument, and §6 leaned on it — *"the fuzz sweep is doing
@@ -326,7 +326,7 @@ holds `$._expression`, which already reaches `conditional_expression`, which
 already reaches `if_statement`. The external scanner is where it broke, and
 `examples/control.sdx` came back as one 16-line `ERROR`.
 
-The reason is structural. `tree_sitter_redox_external_scanner_scan` measures
+The reason is structural. `tree_sitter_voltaic_external_scanner_scan` measures
 indentation **at a line break**, and returns false for mid-line whitespace. The
 closer in `    "small")` is on the body's own line, so the line break the
 measurement needs never comes and `statement_block` never got its `_dedent`.
@@ -399,7 +399,7 @@ context's base, and §1.2 is the argument for allowing it.
 
 That is also **§1.3's finding turned the other way round, and it is a harder
 limit than §1.3 suggests.** §1.3 says the corpus is almost silent on this row.
-It cannot be anything else: `redox fmt` normalises a spread list onto one line,
+It cannot be anything else: `voltaic fmt` normalises a spread list onto one line,
 so `every_example_is_already_canonical` rejects the aligned layout before any
 other test sees it. Measured — adding one to `examples/arrays.sdx` failed that
 test, the depth property and the tree-sitter grammar together, and the addition
@@ -424,7 +424,7 @@ foo (bar
 
 That was first written down as a rough edge to leave unspelled — Haskell's
 `parse-error(t)` rule in miniature — on the grounds that every shape the corpus
-and `redox fmt` produce closes at the opener's line or on the content's. Both
+and `voltaic fmt` produce closes at the opener's line or on the content's. Both
 halves of that were right. The conclusion was wrong, for a reason that only
 shows up when the case is probed rather than reasoned about.
 
@@ -458,7 +458,7 @@ closes a bracket.
 ### 10.9 Gate
 
 `moon run :check`, `:lint`, `:test`, `:format` green; `examples`, `ui`, `run`
-green; `redox-fuzz`, `redox-fmt`, `tree_sitter`, `editors`,
+green; `voltaic-fuzz`, `voltaic-fmt`, `tree_sitter`, `editors`,
 `construct_coverage` green; `tree-sitter test` 6/6.
 
 Two expectations were re-blessed and reviewed: `tests/golden/control.xrs` for
@@ -486,7 +486,7 @@ layout context, and criterion 5 asserts the file compiles with an unchanged
 
 That file is **gone**, retired with plan 48's probe when plan 70 removed the
 `conformance/` directory. The witness is not: the same module, ported for real,
-is `crates/redox-ast/sdx/item.sdx`, and its record declaration
+is `crates/voltaic-ast/sdx/item.sdx`, and its record declaration
 is the same shape. It is now graded better than it was — `tests/port.rs`
 compares it byte for byte against the committed Rust, and rustc compiles that
 Rust as part of the workspace, where the retired fixture was only checked by

@@ -1,7 +1,0 @@
-{
-	"name": "tree-sitter-redox",
-	"version": "0.1.0",
-	"description": "Redox grammar for tree-sitter",
-	"license": "MIT",
-	"private": true
-}

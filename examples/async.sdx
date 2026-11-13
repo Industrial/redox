@@ -17,14 +17,14 @@ import core::task::Context
 import core::task::Poll
 import core::task::Waker
 
--- **Redox provides no executor** (doc 03 §14.3, doc 01 §24): `async` passes
+-- **Voltaic provides no executor** (doc 03 §14.3, doc 01 §24): `async` passes
 -- through and the runtime is the user's own dependency. So a corpus that
 -- demands a successful run has to bring one — and the claim is not that async
--- is hard, it is that the runtime is yours. Nine lines of ordinary Redox is
+-- is hard, it is that the runtime is yours. Nine lines of ordinary Voltaic is
 -- the demonstration.
 --
 -- No macro and no dependency. `Box::pin` is a function where `pin!` is a
--- macro — Redox has no macro-call syntax at all — and `Waker::noop` has been
+-- macro — Voltaic has no macro-call syntax at all — and `Waker::noop` has been
 -- stable since rustc 1.85.
 --
 -- This also exercises six constructs from six rows at once: a generic with a

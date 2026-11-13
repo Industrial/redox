@@ -1,0 +1,47 @@
+import crate::Expr
+import crate::Item
+import crate::Pattern
+import crate::TypeExpr
+import voltaic_lexer::Span
+import voltaic_lexer::Trivia
+
+export data Block = Block { export stmts : Vec<Stmt>, export span : Span }
+  deriving (Debug, Clone, PartialEq, Eq)
+
+instance Block
+  export sole_expression : &self -> Option<&Expr>
+  sole_expression self = case .as_slice self.stmts of
+    [stmt] | !.is_statement_form stmt.expr -> Some (&stmt.expr)
+    _ -> None
+
+export data Stmt = Stmt { export expr : Expr, export span : Span, export leading : Vec<Trivia>, export trailing : Option<Trivia> }
+  deriving (Debug, Clone, PartialEq, Eq)
+instance Stmt
+  export where_entry_name : &self -> Option<String>
+  where_entry_name self = case &self.expr of
+    Expr::Binding b -> case .as_slice (.binders b.pattern) of
+      [one] -> Some (.clone one)
+      _ -> None
+    Expr::Item { item, .. } -> case .as_ref item of
+      Item::Fn decl -> Some $ .clone decl.name.text
+      _ -> None
+    _ -> None
+
+export data Binding = Binding { export pattern : Pattern, export ty : Option<TypeExpr>, export value : Expr, export is_mut : bool, export span : Span }
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export data Condition = Condition { export operands : Vec<crate::ConditionOperand> }
+  deriving (Debug, Clone, PartialEq, Eq)
+instance Condition
+  export plain : Expr -> Self
+  plain expr = Condition { operands = [ConditionOperand::Expr expr] : Vec<ConditionOperand> }
+
+  export has_pattern : &self -> bool
+  has_pattern self = .any (\o -> case o of
+    ConditionOperand::Pattern { .. } -> true
+    _ -> false) (.iter self.operands)
+
+export data ConditionOperand
+  = Expr crate::Expr
+  | Pattern { pattern : crate::Pattern, source : crate::Expr }
+  deriving (Debug, Clone, PartialEq, Eq)

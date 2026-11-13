@@ -1,0 +1,77 @@
+import crate::build_command::parse_build_args
+import crate::run::usage
+import voltaic_driver::CheckOutcome
+import voltaic_driver::diagnose
+import std::path::PathBuf
+
+export(crate) check_command : &[String] -> Result<(), String>
+check_command args =
+  parsed = (parse_build_args args)?
+  shown = parsed.input |> .display |> .to_string
+  source = (.map_err (\e -> format! \-> "error: cannot read #{shown}: #{e}") (std::fs::read_to_string (&parsed.input)))?
+
+  outcome = (voltaic_driver::check (&parsed.input) (&source))?
+  report (&outcome) parsed.plain
+
+export(crate) report : &CheckOutcome -> bool -> Result<(), String>
+report outcome plain =
+  if .is_empty outcome.diagnostics
+    return Ok ()
+  rendered = voltaic_diag::render (&outcome.diagnostics) plain
+  if outcome.failed
+    return Err rendered
+  eprintln! \-> "#{rendered}"
+  Ok ()
+
+export(crate) fmt_command : &[String] -> Result<(), String>
+fmt_command args =
+  parsed = (parse_fmt_args args)?
+  mut unformatted : Vec<String> = Vec::new ()
+
+  for path in &parsed.inputs
+    shown = path |> .display |> .to_string
+    source = (.map_err (\e -> format! \-> "error: cannot read #{shown}: #{e}") (std::fs::read_to_string path))?
+
+    program = (.map_err (\failure -> voltaic_diag::render (&diagnose path (&source) (&failure)) parsed.plain) (voltaic_parser::parse_source (&source)))?
+
+    formatted = voltaic_fmt::format (&program) (&source)
+    if formatted == source
+      continue
+
+    if parsed.check
+      unformatted |> .push shown
+    else
+      (.map_err (\e -> format! \-> "error: cannot write #{shown}: #{e}") (std::fs::write path (&formatted)))?
+
+  if .is_empty unformatted
+    return Ok ()
+  indented : Vec<String> = unformatted
+    |> .iter
+    |> .map (\p -> format! \-> "  #{p}")
+    |> .collect
+  listed = .join "\n" indented
+  Err $ format! \-> "error: not formatted:\n#{listed}\nrun `voltaic fmt` on them\n"
+
+export(crate) data FmtArgs = FmtArgs { export(crate) inputs : Vec<PathBuf>, export(crate) check : bool, export(crate) plain : bool }
+  deriving (Debug, Clone, PartialEq, Eq)
+
+export(crate) parse_fmt_args : &[String] -> Result<FmtArgs, String>
+parse_fmt_args args =
+  mut inputs = Vec::new ()
+  mut check = false
+  mut plain = false
+
+  for arg in args
+    case .as_str arg of
+      "--check" -> check := true
+      "--plain" -> plain := true
+      flag | .starts_with '-' flag ->
+        help = usage ()
+        return Err (format! \-> "error: unknown flag `#{flag}`\n\n#{help}")
+      path -> inputs |> .push (PathBuf::from path)
+
+  if .is_empty inputs
+    help = usage ()
+    return Err (format! \-> "error: fmt needs at least one .sdx\n\n#{help}")
+
+  Ok (FmtArgs { inputs, check, plain })

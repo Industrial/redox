@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Plan 79 batch 3: four more of `redox-cli`'s bodies, and the watcher.
+"""Plan 79 batch 3: four more of `voltaic-cli`'s bodies, and the watcher.
 
 `watch_command` is the first ported body that needs a **move closure whose
 Rust discarded a `#[must_use]`**. Plan 75 §2.3 established `_dropped = …` as
@@ -12,7 +12,7 @@ it says the same thing.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('run/commands/lookup', '''
@@ -53,9 +53,9 @@ sources dir =
 
 test "finds and sorts sdx files"
   pid = std::process::id ()
-  dir = .join (format! \\-> "redox-watch-src-#{pid}") (std::env::temp_dir ())
+  dir = .join (format! \\-> "voltaic-watch-src-#{pid}") (std::env::temp_dir ())
   .expect "should create" (std::fs::create_dir_all (&dir))
-  -- `\\#{1}` is a literal `#{1}`, so the fixture is Redox source rather than
+  -- `\\#{1}` is a literal `#{1}`, so the fixture is Voltaic source rather than
   -- this file interpolating into it.
   for name in ["b.sdx", "a.sdx", "ignored.rs"]
     .expect "should write" (std::fs::write (.join name dir) "main : ()\\nmain =\\n  println! \\\\-> \\"\\#{1}\\"\\n")
@@ -67,14 +67,14 @@ test "finds and sorts sdx files"
   _dropped = .ok (std::fs::remove_dir_all (&dir))
 
 test "an unreadable directory yields nothing"
-  found = sources (std::path::Path::new "/nonexistent/redox")
+  found = sources (std::path::Path::new "/nonexistent/voltaic")
   assert! \\-> .is_empty found
 ''')
 
 write('watch_command', '''
 export(crate) watch_command : &[String] -> Result<(), String>
 watch_command args =
-  input = (.ok_or_else (\\-> .to_string "error: no input file\\n\\n`redox watch` takes a .sdx file or a directory.") (.find (\\a -> !.starts_with '-' a) (.iter args)))?
+  input = (.ok_or_else (\\-> .to_string "error: no input file\\n\\n`voltaic watch` takes a .sdx file or a directory.") (.find (\\a -> !.starts_with '-' a) (.iter args)))?
   target = (Target::resolve (Path::new input))?
   plain = .any (\\a -> a == "--plain") (.iter args)
 
@@ -83,7 +83,7 @@ watch_command args =
   report (&target) plain
 
   -- `tx` and `rx` bound from the pair, where the Rust destructured
-  -- `let (tx, rx) = …`: Redox has no tuple-destructuring binding, so each
+  -- `let (tx, rx) = …`: Voltaic has no tuple-destructuring binding, so each
   -- half is moved out by projection.
   channel = mpsc::channel ()
   tx = channel.0

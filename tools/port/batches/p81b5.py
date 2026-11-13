@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """Plan 81 batch 5: the three `thread_local!` guards — and the escape hatch.
 
-**`thread_local!` takes items, and a Redox macro argument is an expression.**
+**`thread_local!` takes items, and a Voltaic macro argument is an expression.**
 Plan 64 made macros callable with a nullary lambda per argument; §6 of that
 plan disclosed that `matches!`'s *pattern* argument is out of reach, and this
 is the same gap one step further out — a macro whose body is a `static`
-declaration. There is no Redox spelling, so these three use doc 03 §23's
+declaration. There is no Voltaic spelling, so these three use doc 03 §23's
 inline-Rust hatch: the `rust` keyword and a triple-quoted block.
 
-That makes `redox-emit` the first ported crate to need the hatch, which is
+That makes `voltaic-emit` the first ported crate to need the hatch, which is
 exactly the property doc 02 §4.8 asks about — so it is recorded rather than
 quietly used. A plain `static` will not do instead: the mode is a `Cell` and
 the tables are `RefCell`s, neither of which is `Sync`, and the `thread_local!`
@@ -25,13 +25,13 @@ arithmetic, which is the test changing the code rather than reading it.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('emit/bind_scope', '''
 -- The `thread_local!` block, verbatim: a macro whose body is a `static`
--- declaration has no Redox spelling, because a macro argument is an
--- expression. Doc 03 §23's hatch, and `redox-emit` §2 records it.
+-- declaration has no Voltaic spelling, because a macro argument is an
+-- expression. Doc 03 §23's hatch, and `voltaic-emit` §2 records it.
 rust """
   thread_local! {
     /// What `<-` means right here. [`BindMode::Await`] outside any modifier,
@@ -84,7 +84,7 @@ rust """
 -- |
 -- | Plan 59 (`docs/53 - 59 - Value Bindings.md`) leaf 1, and the placement is
 -- | cited rather than re-derived: the table rides the **emitter's entry** and
--- | nothing earlier, because `redox_fmt::format` consumes the same `Program`
+-- | nothing earlier, because `voltaic_fmt::format` consumes the same `Program`
 -- | and must keep printing the author's `block` as `block`. A rewrite visible
 -- | before this point would make the formatter rewrite the surface.
 -- |
@@ -150,10 +150,10 @@ rust """
 -- | - **Not threaded through `emit_expr`.** Twenty-four importers and
 -- |   thirty-six call sites would gain a parameter that all but two of them
 -- |   only pass down.
--- | - **Not a rewrite of `Program` in `parse()`.** `redox_fmt::format` consumes
--- |   the same tree (`redox-cli/src/fmt_command.rs`,
--- |   `redox-lsp/src/serve/formatting.rs`, `redox-mcp/src/format.rs`), so a
--- |   `Call`→`Lambda` rewrite there would make `redox fmt` rewrite the author's
+-- | - **Not a rewrite of `Program` in `parse()`.** `voltaic_fmt::format` consumes
+-- |   the same tree (`voltaic-cli/src/fmt_command.rs`,
+-- |   `voltaic-lsp/src/serve/formatting.rs`, `voltaic-mcp/src/format.rs`), so a
+-- |   `Call`→`Lambda` rewrite there would make `voltaic fmt` rewrite the author's
 -- |   `add 1` into a closure. Plan 61 states the rule this is a case of: *a
 -- |   pass that rewrites `Program` has two consumers and will surprise one of
 -- |   them.*

@@ -3,12 +3,12 @@
 Plan 44 (`docs/38 - 44 - Zero-cost Benchmarks.md`) leaf 2. Regenerate with:
 
 ```bash
-cargo run -p redox-bench
+cargo run -p voltaic-bench
 ```
 
 ## What is here, and what is not
 
-**The zero-cost claim is not in this document.** It is asserted in the gate, as identical optimised LLVM IR, by `crates/redox-bench/tests/zero_cost.rs`. §1.2 explains why it is not a timing: a timing assertion is a flaky gate, and three rows of this project have already written *unexplained* into their results because a gate failed for a load-dependent reason.
+**The zero-cost claim is not in this document.** It is asserted in the gate, as identical optimised LLVM IR, by `crates/voltaic-bench/tests/zero_cost.rs`. §1.2 explains why it is not a timing: a timing assertion is a flaky gate, and three rows of this project have already written *unexplained* into their results because a gate failed for a load-dependent reason.
 
 What *is* here is the measurement that cannot be made exact — how fast transpiling is. It is **reported, not asserted**, for the same reason, and because a threshold would encode one machine's speed into the repository.
 
@@ -19,7 +19,7 @@ AMD Ryzen 9 7950X 16-Core Processor, debug build
 ## Methodology
 
 - Each source is transpiled **200 times**, after one discarded warm run.
-- *Transpile* means parse and emit — not `redox build`, which also writes a file and consults a cache, so timing it would time the filesystem.
+- *Transpile* means parse and emit — not `voltaic build`, which also writes a file and consults a cache, so timing it would time the filesystem.
 - The figure per file is the **mean**; the total is the sum of the means.
 - Timed with `std::time::Instant`. §1.1 measured that neither `hyperfine` nor `criterion` is available or pinned, and §6 declines to add one: a number reported to three significant figures does not need a statistics library.
 - `examples/lexical.sdx` is excluded, and only here — it does not parse, so transpiling it measures the error path. Every other sweep in the repository includes it deliberately.
@@ -62,6 +62,6 @@ AMD Ryzen 9 7950X 16-Core Processor, debug build
 
 **Not measured, and the reason is worth more than a number would be.**
 
-Plan 09's watcher rebuilds on a filesystem event, so its latency is `notify`'s delivery plus a transpile plus a write. The transpile is the column above — tens of microseconds — and the other two are the filesystem's, which is not Redox's claim to make.
+Plan 09's watcher rebuilds on a filesystem event, so its latency is `notify`'s delivery plus a transpile plus a write. The transpile is the column above — tens of microseconds — and the other two are the filesystem's, which is not Voltaic's claim to make.
 
 Measuring the whole thing would produce a number dominated by `notify`'s debounce and the page cache, reported as though it described the compiler. That is the failure mode plan 44 §1.4's *losses reported* discipline exists to prevent, so this section reports the loss instead: **the row did not measure what its register cell asked for**, because the measurement would have been misleading. The successor is whoever wants an end-to-end figure and is willing to name the filesystem in it.

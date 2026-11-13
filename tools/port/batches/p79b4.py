@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Plan 79 batch 4: `redox-cli`'s last six bodies.
+"""Plan 79 batch 4: `voltaic-cli`'s last six bodies.
 
 Three shapes this batch meets for the first time in a port:
 
@@ -7,15 +7,15 @@ Three shapes this batch meets for the first time in a port:
   so the macro does not translate as written. `or` says alternation, and here
   three `if`s say it flatter than a `case` nested inside a `case`.
 * **A module-scope `static`.** `Dir::new`'s counter is a `static` inside the
-  Rust `fn`; Redox's `const`/`static` is module-scope (doc 03 §13.4), so it is
+  Rust `fn`; Voltaic's `const`/`static` is module-scope (doc 03 §13.4), so it is
   hoisted and `#[cfg(test)]`-gated with the helper it belongs to.
-* **A test-scoped helper *type*.** Redox puts nothing but `#[test] fn`s inside
+* **A test-scoped helper *type*.** Voltaic puts nothing but `#[test] fn`s inside
   its generated `mod __rdx_tests` — plan 73 §2.9 — so `Dir`, its `static` and
   its `Drop` live at file scope behind `#[cfg(test)]`.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('run/command', '''
@@ -45,7 +45,7 @@ instance Command
     State::Planned { plan, id } ->
       Some (format! \\-> "error: `#{self.name}` is not implemented yet — it is plan #{plan:02} (`#{id}`)")
 
--- | `#[cfg(test)]`: the two commands every test below reads. Redox can put
+-- | `#[cfg(test)]`: the two commands every test below reads. Voltaic can put
 -- | nothing but `#[test] fn`s inside its generated `mod __rdx_tests` —
 -- | plan 73 §2.9 — so a test's `const` lives at file scope.
 #[cfg(test)]
@@ -80,7 +80,7 @@ test "an ordinary command matches only itself"
 
 write('run/commands', '''
 -- `fmt`'s summary is plural, because plan 34 §1.5's gate is
--- `redox fmt --check examples/*.sdx` and a one-file command would make that a
+-- `voltaic fmt --check examples/*.sdx` and a one-file command would make that a
 -- shell loop nobody checks. The comment sat inside the table in the Rust; the
 -- table is one line here, so it sits above it.
 export(crate) const COMMANDS : &[Command] = &[Command { name = "build", summary = "transpile a .sdx to .xrs", state = State::Ready }, Command { name = "check", summary = "transpile, then report rustc's errors against the .sdx", state = State::Ready }, Command { name = "fmt", summary = "format .sdx files in place, or --check them", state = State::Ready }, Command { name = "watch", summary = "rebuild on change", state = State::Ready }, Command { name = "--version", summary = "print the version", state = State::Ready }, Command { name = "--help", summary = "print this message", state = State::Ready }]
@@ -98,12 +98,12 @@ test "the surface has six entries"
 write('run/usage', '''
 export(crate) usage : String
 usage =
-  mut out = String::from "redox — a MoonScript-inspired surface for Rust\\n\\nusage:\\n"
+  mut out = String::from "voltaic — a MoonScript-inspired surface for Rust\\n\\nusage:\\n"
 
   width = COMMANDS |> .iter |> .map (\\c -> .len c.name) |> .max |> .unwrap_or 0
   for command in COMMANDS
     name = command.name
-    _dropped = write! \\-> out \\-> "  redox #{name:<width$}  #{command.summary}"
+    _dropped = write! \\-> out \\-> "  voltaic #{name:<width$}  #{command.summary}"
     case command.state of
       State::Planned { plan, id } ->
         _planned = write! \\-> out \\-> " (plan #{plan:02}, `#{id}`)"
@@ -175,7 +175,7 @@ test "another extension is not"
   for name in ["main.rs", "main.xrs", "Cargo.toml", "README.md", "main"]
     assert! \\-> !is_relevant (Path::new name) \\-> "#{name}"
 
--- | `.xrs` is Redox's *output*. Compiling because the output changed would
+-- | `.xrs` is Voltaic's *output*. Compiling because the output changed would
 -- | be a loop that feeds itself.
 test "the generated output is not relevant"
   assert! \\-> !is_relevant (Path::new "main.xrs")
@@ -265,7 +265,7 @@ instance Target
 
     if !.exists arg
       shown = .to_string (.display arg)
-      return Err (format! \\-> "error: #{shown} does not exist\\n\\n`redox watch` takes a .sdx file or a directory of them.")
+      return Err (format! \\-> "error: #{shown} does not exist\\n\\n`voltaic watch` takes a .sdx file or a directory of them.")
 
     parent = .filter (\\p -> !.is_empty (.as_os_str p)) (.parent arg)
     -- A bare `main.sdx` has a parent of `""`, which is not a directory any
@@ -274,7 +274,7 @@ instance Target
     Ok (Target { dir, file = Some (.to_path_buf arg) })
 
 -- | `#[cfg(test)]`: a unique temporary directory, removed when it goes out of
--- | scope. Redox can put nothing but `#[test] fn`s inside its generated
+-- | scope. Voltaic can put nothing but `#[test] fn`s inside its generated
 -- | `mod __rdx_tests` — plan 73 §2.9 — so the helper type, its counter and
 -- | its `Drop` all live here at file scope.
 -- |
@@ -293,7 +293,7 @@ instance Dir
   new tag =
     n = .fetch_add 1 std::sync::atomic::Ordering::Relaxed NEXT
     pid = std::process::id ()
-    dir = .join (format! \\-> "redox-target-#{tag}-#{pid}-#{n}") (std::env::temp_dir ())
+    dir = .join (format! \\-> "voltaic-target-#{tag}-#{pid}-#{n}") (std::env::temp_dir ())
     .expect "should create" (std::fs::create_dir_all (&dir))
     Dir dir
 

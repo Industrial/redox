@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Plan 80 batch 4: four more of `redox-driver`'s bodies.
+"""Plan 80 batch 4: four more of `voltaic-driver`'s bodies.
 
 `char_offset` is the first ported body with a **tuple binder in a `for`** —
 `for (n, text) in source.lines().enumerate()`. A `for` binder is a bare name,
@@ -8,7 +8,7 @@ so the pair is bound and projected, which is the same treatment plan 76 gave
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('compile_dir', '''

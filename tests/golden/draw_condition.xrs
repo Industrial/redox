@@ -58,7 +58,7 @@ fn total(xs: Vec<i32>) -> i32 {
 
 // `guard P <- e else <diverging>` is Rust's let-else, which is what doc 03
 // §7.1 chose it for: the else branch must diverge, and that is `guard`'s own
-// requirement. rustc enforces it — Redox does not check divergence, because
+// requirement. rustc enforces it — Voltaic does not check divergence, because
 // it is a check rustc can make.
 fn halve(o: Option<i32>) -> i32 {
     let Some(v) = o else {

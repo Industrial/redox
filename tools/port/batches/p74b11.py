@@ -16,10 +16,10 @@ import io
 import re
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
-SRC = '/home/tom/Code/rust/redox/crates/redox-lexer/src/token/keyword.rs'
+SRC = '/home/tom/Code/rust/voltaic/crates/voltaic-lexer/src/token/keyword.rs'
 text = io.open(SRC, encoding='utf-8').read()
 
 # `"mut" => Self::Mut,`

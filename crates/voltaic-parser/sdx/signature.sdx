@@ -1,0 +1,287 @@
+import crate::ParseError
+import crate::operand::ungrouped
+import crate::operand::unit_tail
+import crate::parser::Parser
+import crate::token::is_word
+import crate::token::token_text
+import crate::where_clause::where_locals
+import voltaic_ast::Clause
+import voltaic_ast::ClauseBody
+import voltaic_ast::Constraint
+import voltaic_ast::Ident
+import voltaic_ast::Param
+import voltaic_ast::Pattern
+import voltaic_ast::Signature
+import voltaic_ast::TypeApp
+import voltaic_ast::TypeExpr
+import voltaic_ast::primitive_type
+import voltaic_diag::Code
+import voltaic_diag::Span
+import voltaic_lexer::Keyword
+import voltaic_lexer::TokenKind
+
+export(crate) can_end_a_type : &TokenKind -> bool
+can_end_a_type kind = case kind of
+  TokenKind::Ident _ or TokenKind::Gt or TokenKind::Shr or TokenKind::Compose or TokenKind::RParen or TokenKind::RBracket -> true
+  TokenKind::Kw (Keyword::SelfType) -> true
+  _ -> false
+
+export(crate) capture_type : &mut Parser -> &str -> TypeStop -> Result<TypeExpr, ParseError>
+capture_type p message stop =
+  start = (.peek_span p).0
+  mut depth : i32 = 0
+  mut text = String::new ()
+  mut group_followed_a_name = false
+  mut prev_was_a_name = false
+  mut closed_a_named_group = false
+  mut prev_kind = TokenKind::Eof
+  loop
+    kind = &(.peek p).kind
+    if depth == 0 && stop == TypeStop::Atom && !.is_empty text && (.peek p).ws_before && can_end_a_type (&prev_kind)
+      break
+    at_eof = case kind of
+      TokenKind::Eof -> true
+      _ -> false
+    if at_eof
+      if depth > 0
+        return Err $ ParseError::with_help Code::ExpectedType "this type's brackets are not closed" "a `<`, `(`, `[` or `{` in a type is closed on the same line — a type runs to the end of its line and no further" (start, (.peek_span p).1)
+      break
+    crosses_a_line = case kind of
+      TokenKind::Newline or TokenKind::Indent or TokenKind::Dedent -> depth > 0
+      _ -> false
+    if crosses_a_line
+      return Err $ ParseError::with_help Code::ExpectedType "this type's brackets are not closed on this line" "a `<`, `(`, `[` or `{` in a type is closed on the same line — a type runs to the end of its line and no further" (start, (.peek_span p).0)
+    if depth == 0
+      ends = case kind of
+        TokenKind::Comma or TokenKind::RParen or TokenKind::Eq -> true
+        TokenKind::RBrace or TokenKind::Or or TokenKind::Pipe -> true
+        TokenKind::Str { .. } or TokenKind::RawStr { .. } -> true
+        TokenKind::Kw (Keyword::As) -> true
+        TokenKind::Kw (Keyword::Where) -> true
+        TokenKind::Arrow -> !closed_a_named_group
+        TokenKind::Newline or TokenKind::Indent or TokenKind::Dedent or TokenKind::Eof -> true
+        TokenKind::Gt or TokenKind::Shr or TokenKind::Compose or TokenKind::RBracket -> true
+        _ -> false
+      if ends
+        break
+    case kind of
+      TokenKind::LParen ->
+        if depth == 0
+          group_followed_a_name := prev_was_a_name
+        depth += 1
+      TokenKind::Lt or TokenKind::LBracket or TokenKind::LBrace -> depth += 1
+      TokenKind::Gt or TokenKind::RParen or TokenKind::RBracket or TokenKind::RBrace -> depth -= 1
+      TokenKind::Shr -> depth -= 2
+      TokenKind::Compose -> depth -= 3
+      _ -> ()
+    is_rparen = case kind of
+      TokenKind::RParen -> true
+      _ -> false
+    closed_a_named_group := is_rparen && group_followed_a_name
+    prev_was_a_name := case kind of
+      TokenKind::Ident _ or TokenKind::Kw (Keyword::Fn) -> true
+      _ -> false
+    if !.is_empty text && (.peek p).ws_before
+      .push ' ' text
+    .push_str (&token_text kind) text
+    prev_kind := .clone kind
+    .advance p
+  if .is_empty text
+    return Err (ParseError::r#with Code::ExpectedType message (.peek_span p))
+  Ok (TypeExpr { text = ungrouped (&text), span = (start, (.prev_span p).1) })
+
+export(super) clause : Vec<Pattern> -> &Ident -> bool -> &mut Parser -> Result<Clause, ParseError>
+clause row name returns_unit p =
+  start = .map_or (.peek_span p).0 (\first -> (.span first).0) (.first row)
+  if .opens_a_guard_list p
+    .advance p
+    .advance p
+    rungs = (.guards p)?
+    (.expect (&TokenKind::Dedent) "expected the guard list to end" p)?
+    wheres = (where_locals (&row) p)?
+    return Ok (Clause { patterns = row, body = ClauseBody::Guarded rungs, wheres, span = (start, (.prev_span p).1), trailing = None })
+  (.expect (&TokenKind::Eq) "expected `=` after the equation's parameters, or an indented `|` guard list" p)?
+  if !.check (&TokenKind::Newline) p
+    body = (.inline_body p)?
+    trailing = (.newline_with_trailing "expected a line break after the body" p)?
+    wheres = (where_locals (&row) p)?
+    return Ok (Clause { patterns = row, body = ClauseBody::Plain body, wheres, span = (start, (.prev_span p).1), trailing })
+  trailing = (.newline_with_trailing "expected a line break after `=`" p)?
+  (.expect_with Code::EmptyBody (&TokenKind::Indent) "expected an indented body" p)?
+  reported = .len p.r#errors
+  block = (.statements p)?
+  if returns_unit && .len p.r#errors == reported
+    (unit_tail name (&block))?
+  wheres = (where_locals (&row) p)?
+  Ok (Clause { patterns = row, body = ClauseBody::Plain (.clone block), wheres, span = (start, (.prev_span p).1), trailing })
+
+export(crate) rust_generic : &str -> String
+rust_generic name =
+  if .starts_with '\'' name
+    return .to_string name
+  .to_uppercase name
+
+export(crate) signature_from : &[TypeExpr] -> &[Pattern] -> Span -> Result<Signature, ParseError>
+signature_from spine bound span =
+  split = spine
+    |> .split_last
+    |> .expect "parse_spine returns at least one type"
+  ret = split.0
+  arrow_types = split.1
+  arrows = .len arrow_types
+  names = .len bound
+  if arrows != names
+    detail = if names < arrows
+      format! \-> "the signature takes #{arrows}, but this equation binds #{names}"
+    else
+      format! \-> "this equation binds #{names}, but the signature takes #{arrows}"
+    message = format! \-> "the signature and the equation disagree about arity: #{detail}"
+    return Err (ParseError::r#with Code::ExpectedName message span)
+  mut params = Vec::new ()
+  for entry in .enumerate (.zip arrow_types (.iter bound))
+    i = entry.0
+    row = entry.1
+    binder = row.0
+    ty = row.1
+    lends_its_name = case binder of
+      Pattern::Binding ident -> !.is_some_and char::is_uppercase (.next (.chars ident.text))
+      _ -> false
+    name = if lends_its_name
+      case binder of
+        Pattern::Binding ident -> .clone ident
+        _ -> Ident { text = format! \-> "__rdx_a#{i}", span = .span binder }
+    else
+      Ident { text = format! \-> "__rdx_a#{i}", span = .span binder }
+    .push (Param { name, ty = Some (.clone ty), is_mut = false, span = .span binder }) params
+  Ok (Signature { params, ret = Some (.clone ret), generics = Vec::new (), is_const = false, is_async = false, is_unsafe = false, bounds = Vec::new (), r#given = None, predicates = None, span })
+
+#[cfg(test)]
+ty : &str -> TypeExpr
+ty text = TypeExpr { text = .to_string text, span = (0, 0) }
+
+#[cfg(test)]
+id : &str -> Pattern
+id text = Pattern::Binding (Ident { text = .to_string text, span = (0, 0) })
+
+test "pairs the spine with the binders"
+  sig = .expect "should build" $ signature_from (&[ty "i32", ty "i32", ty "i32"]) (&[id "a", id "b"]) (0, 0)
+  assert_eq! \-> .len sig.params \-> 2
+  assert_eq! \-> sig.params[0].name.text \-> "a"
+  assert_eq! \-> (.expect "a type" (.as_ref sig.params[0].ty)).text \-> "i32"
+  assert_eq! \-> (.expect "a return type" sig.ret).text \-> "i32"
+
+test "a unit return is recorded and not discarded"
+  sig = .expect "should build" $ signature_from (&[ty "()"]) (&[]) (0, 0)
+  assert! \-> .is_empty sig.params
+  assert_eq! \-> (.expect "a return type" (.as_ref sig.ret)).text \-> "()"
+  assert! \-> .returns_unit sig
+
+test "too few binders is an error naming both counts"
+  err = .expect_err "should fail" $ signature_from (&[ty "i32", ty "i32", ty "i32"]) (&[id "a"]) (0, 0)
+  assert! \-> .contains "arity" err.message \-> "#{err.message}"
+  assert! \-> .contains "takes 2" err.message \-> "#{err.message}"
+  assert! \-> .contains "binds 1" err.message \-> "#{err.message}"
+
+test "too many binders is also an error"
+  err = .expect_err "should fail" $ signature_from (&[ty "i32"]) (&[id "a"]) (0, 0)
+  assert! \-> .contains "binds 1" err.message \-> "#{err.message}"
+  assert! \-> .contains "takes 0" err.message \-> "#{err.message}"
+
+test "a zero parameter function can still return something"
+  sig = .expect "should build" $ signature_from (&[ty "u32"]) (&[]) (0, 0)
+  assert! \-> .is_empty sig.params
+  assert_eq! \-> (.expect "a return type" (.as_ref sig.ret)).text \-> "u32"
+  assert! \-> !.returns_unit sig
+
+export(crate) data SignatureHead = SignatureHead { export types : Vec<TypeExpr>, export bounds : Vec<Constraint>, export r#given : Option<String>, export predicates : Option<String>, export is_const : bool, export is_async : bool, export is_unsafe : bool }
+  deriving (Debug, Clone)
+
+export(crate) signature_only : &[TypeExpr] -> Span -> Signature
+signature_only spine span =
+  split = spine
+    |> .split_last
+    |> .expect "parse_spine returns at least one type"
+  params : Vec<Param> = split.1
+    |> .iter
+    |> .enumerate
+    |> .map (\pair ->
+    i = pair.0
+    ty = pair.1
+    Param { name = Ident { text = format! \-> "__rdx_a#{i}", span = ty.span }, ty = Some (.clone ty), is_mut = false, span = ty.span })
+    |> .collect
+  Signature { params, ret = Some (.clone split.0), generics = Vec::new (), is_const = false, is_async = false, is_unsafe = false, bounds = Vec::new (), r#given = None, predicates = None, span }
+
+export(crate) starts_a_field_type : &TokenKind -> bool
+starts_a_field_type kind = case kind of
+  TokenKind::Ident _ or TokenKind::Amp or TokenKind::Star or TokenKind::LParen or TokenKind::LBracket -> true
+  TokenKind::Kw (Keyword::SelfType or Keyword::Dyn or Keyword::Impl) -> true
+  _ -> false
+
+export(crate) type_app : &mut Parser -> Result<TypeApp, ParseError>
+type_app p =
+  start = (.peek_span p).0
+  grouped = .check (&TokenKind::LParen) p
+  if grouped
+    .advance p
+  head = (.ident "expected a type name" p)?
+  mut args = Vec::new ()
+  loop
+    if .try_ident p is Some named
+      .push named args
+      continue
+    if &(.peek p).kind is TokenKind::Label name
+      arg = Ident { text = format! \-> "'#{name}", span = .peek_span p }
+      .advance p
+      .push arg args
+      continue
+    break
+  if grouped
+    (.expect (&TokenKind::RParen) "expected `)` to close the type" p)?
+  Ok (TypeApp { head, args, span = (start, (.prev_span p).1) })
+
+export(crate) data TypeStop
+  = Greedy
+  | Atom
+  deriving (Debug, Clone, Copy, PartialEq, Eq)
+
+export(crate) type_vars : &[&str] -> Vec<String>
+type_vars types =
+  mut lifetimes : Vec<String> = Vec::new ()
+  mut vars : Vec<String> = Vec::new ()
+  for text in types
+    chars : Vec<char> = text |> .chars |> .collect
+    mut i = 0
+    n = .len chars
+    while i < n
+      if !is_word chars[i]
+        i += 1
+        continue
+      start = i
+      while i < n && is_word chars[i]
+        i += 1
+      word : String = .collect (.iter chars[start .. i])
+      is_lifetime = start > 0 && chars[start - 1] == '\''
+      after_colons = start >= 2 && chars[start - 2] == ':' && chars[start - 1] == ':'
+      before_colons = .get i chars == Some (&':') && .get (i + 1) chars == Some (&':')
+      if after_colons || before_colons
+        continue
+      if is_lifetime
+        if word != "static" && word != "_"
+          named = format! \-> "'#{word}"
+          if !.contains (&named) lifetimes
+            .push named lifetimes
+        continue
+      is_type_word = case .as_str word of
+        "dyn" or "impl" or "mut" or "as" -> true
+        _ -> false
+      lowercase_head = word
+        |> .chars
+        |> .next
+        |> .is_some_and char::is_lowercase
+      excluded = !lowercase_head || primitive_type (&word) || word == "self" || is_type_word
+      if excluded
+        continue
+      if !.contains (&word) vars
+        .push word vars
+  .extend vars lifetimes
+  lifetimes

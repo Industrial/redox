@@ -12,7 +12,7 @@ is in neither place.
 """
 import io
 
-P = '/home/tom/Code/rust/redox/tools/port/batches/p78b7.py'
+P = '/home/tom/Code/rust/voltaic/tools/port/batches/p78b7.py'
 s = io.open(P, encoding='utf-8').read()
 
 OLD = """DROP = '          #[allow(deprecated, reason = "the field is required by the struct literal")]\\n'
@@ -65,13 +65,13 @@ io.open(P, 'w', encoding='utf-8').write(s)
 print('p78b7: idempotent')
 
 # And the stale claim in p78b6's own docstring.
-P = '/home/tom/Code/rust/redox/tools/port/batches/p78b6.py'
+P = '/home/tom/Code/rust/voltaic/tools/port/batches/p78b6.py'
 s = io.open(P, encoding='utf-8').read()
 OLD = """Two ascriptions stand in for `collect::<Vec<_>>()`, and the
 `#[allow(deprecated, …)]` attribute inside a record literal is carried through
 as trivia."""
 NEW = """Two ascriptions stand in for `collect::<Vec<_>>()`. The Rust's
-`#[allow(deprecated, …)]` sits on each `deprecated:` field, and **Redox cannot
+`#[allow(deprecated, …)]` sits on each `deprecated:` field, and **Voltaic cannot
 carry an attribute there at all** — `FieldInit` has no `leading`, so the parser
 discards it before the AST exists. The allow is on the function instead; batch
 7 has the finding."""

@@ -12,7 +12,7 @@ returning `&mut Command` is what makes it work.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('ir/function_ir/body_of', '''
@@ -58,7 +58,7 @@ alpha_renamed body =
     -- read as field access on it.
     out |> .push_str (.unwrap_or "" (.get (0..at) rest))
     rest := .unwrap_or "" (.get ((at + 1)..(.len rest)) rest)
-    -- **`.char_indices` where the Rust wrote `find(|c: char| …)`.** A Redox
+    -- **`.char_indices` where the Rust wrote `find(|c: char| …)`.** A Voltaic
     -- lambda parameter is a bare name, so the annotation that call needs has
     -- no spelling — and `char_indices` removes the need for one: `p.1` is a
     -- `char`, and `p.0` is the **byte** index `str::find` would have returned,

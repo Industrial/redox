@@ -9,7 +9,7 @@ Status: `done`
 
 ## 1. What this plan is
 
-Doc 01 §27 fixes Redox's command-line surface at six entries and no more:
+Doc 01 §27 fixes Voltaic's command-line surface at six entries and no more:
 
 > `build`, `check`, `fmt`, `watch`, `--version`, `--help` … Cargo owns build, test, docs
 > and dependencies.
@@ -20,27 +20,27 @@ seventh subcommand cannot be added without the test failing.
 
 ### 1.1 Why a surface needs defending in code
 
-A CLI grows by accident. Every individual addition is reasonable — `redox fmt-check`,
-`redox explain`, `redox init`, `redox test` — and the sum is a tool that has replaced the
+A CLI grows by accident. Every individual addition is reasonable — `voltaic fmt-check`,
+`voltaic explain`, `voltaic init`, `voltaic test` — and the sum is a tool that has replaced the
 build system doc 01 §1.3 says it must not. Doc 02 §3 records that Emerald's CLI reached
-**seventeen** subcommands, eleven of which doc 04's plan 11 row describes as ones *"Redox
+**seventeen** subcommands, eleven of which doc 04's plan 11 row describes as ones *"Voltaic
 declines"*.
 
 Plan 08 already met this pressure once, from a plan document rather than a user: doc 04
-proposed a `redox test` entry point, and plan 08 §6.1 rejected it on doc 01 §27 grounds.
+proposed a `voltaic test` entry point, and plan 08 §6.1 rejected it on doc 01 §27 grounds.
 That is the system working, and it worked because the rule was written down. This plan
 gives it teeth.
 
 ### 1.2 The distinction worth implementing
 
-`redox fmt` today is **not** an unknown command. It is a declared part of the surface whose
+`voltaic fmt` today is **not** an unknown command. It is a declared part of the surface whose
 implementation is plan 34. Those two cases deserve different answers:
 
 ```console
-$ redox fmt
+$ voltaic fmt
 error: `fmt` is not implemented yet — it is plan 34 (`formatter`)
 
-$ redox frobnicate
+$ voltaic frobnicate
 error: unknown command `frobnicate`
 <usage>
 ```
@@ -55,7 +55,7 @@ that makes a tool feel unfinished in a way it is not.
 
 | Claim | How checked | Result |
 |---|---|---|
-| `run` dispatches with a hand-written `match` | `redox-cli/src/run.rs` | A `match` on `args.first()`, with `build` and `check` arms |
+| `run` dispatches with a hand-written `match` | `voltaic-cli/src/run.rs` | A `match` on `args.first()`, with `build` and `check` arms |
 | `USAGE` is a hand-written string | `run/usage.rs` | A `const &str`, maintained separately from the `match` |
 | The two can already disagree | reading both | Nothing connects them; plan 07 added `check` to the match and to the usage text in separate edits |
 | Doc 01 §27's list is six entries | doc 01 §27 | `build`, `check`, `fmt`, `watch`, `--version`, `--help` |
@@ -89,7 +89,7 @@ rather than the instance.
 
 ### Leaf 1 — `leaf-command-table`
 
-`redox-cli/src/run/command.rs` — one `Command` per surface entry, carrying its name, a
+`voltaic-cli/src/run/command.rs` — one `Command` per surface entry, carrying its name, a
 one-line summary, and its state (implemented, or planned with the plan that owns it).
 `run/commands.rs` holds the table.
 
@@ -105,7 +105,7 @@ reports an unknown one with the usage.
 
 ### Leaf 4 — `leaf-proof-and-gate`
 
-`redox-cli/tests/cli_surface.rs` for §3, plus the gate and the docs.
+`voltaic-cli/tests/cli_surface.rs` for §3, plus the gate and the docs.
 
 ---
 
@@ -145,7 +145,7 @@ moon run :check :lint :test :cargo-check :cargo-test :ci-format
 ## 8. Emerald reuse
 
 **Lifted as a shape, minus most of it:** `crates/emerald-cli/src/main.rs`'s dispatch.
-Doc 04's row for this plan is explicit — the shape *"minus eleven subcommands Redox
+Doc 04's row for this plan is explicit — the shape *"minus eleven subcommands Voltaic
 declines"*. Emerald's CLI is the negative example this plan is designed to prevent: not
 because any one of its seventeen commands was wrong, but because nothing in its code said
 when to stop.
@@ -170,18 +170,18 @@ when to stop.
 
 `done`. 305 tests pass; `fmt`, `clippy -D warnings` and the full gate are green.
 
-The surface, as `redox --help` now prints it:
+The surface, as `voltaic --help` now prints it:
 
 ```text
-redox — a MoonScript-inspired surface for Rust
+voltaic — a MoonScript-inspired surface for Rust
 
 usage:
-  redox build      transpile a .sdx to .xrs
-  redox check      transpile, then report rustc's errors against the .sdx
-  redox fmt        format a .sdx in place (plan 34, `formatter`)
-  redox watch      rebuild on change (plan 12, `watcher`)
-  redox --version  print the version
-  redox --help     print this message
+  voltaic build      transpile a .sdx to .xrs
+  voltaic check      transpile, then report rustc's errors against the .sdx
+  voltaic fmt        format a .sdx in place (plan 34, `formatter`)
+  voltaic watch      rebuild on change (plan 12, `watcher`)
+  voltaic --version  print the version
+  voltaic --help     print this message
 
 Cargo owns build, test, docs and dependencies (doc 01 §27).
 ```
@@ -216,13 +216,13 @@ thing doc 06 §3 rule 6 otherwise tells you to delete.
 
 ### 10.2 Planned is not unknown
 
-`redox fmt` reports:
+`voltaic fmt` reports:
 
 ```text
 error: `fmt` is not implemented yet — it is plan 34 (`formatter`)
 ```
 
-and `redox frobnicate` reports `unknown command` with the usage. Both exit non-zero and the
+and `voltaic frobnicate` reports `unknown command` with the usage. Both exit non-zero and the
 tests assert each does **not** produce the other's message. The difference is small and it
 is the difference between a tool that is unfinished and one that appears broken: the first
 tells a user to wait and names where to look, the second tells them they mistyped.
@@ -231,7 +231,7 @@ tells a user to wait and names where to look, the second tells them they mistype
 
 `run`'s match ends in `unreachable!("`{other}` is Ready in COMMANDS but has no dispatch
 arm")`. A panic rather than a silent `Ok`, because a `Ready` command with no arm is a bug
-in Redox and not in the invocation — and `every_ready_command_dispatches` is what turns it
+in Voltaic and not in the invocation — and `every_ready_command_dispatches` is what turns it
 into a test failure rather than something a user discovers.
 
 ### 10.4 Disclosures

@@ -2,14 +2,14 @@
 """Plan 81 batch 17: `Sink`, the emitter's output.
 
 Two things worth naming. `Sink` is the first ported type with a **lifetime
-parameter on its instance** — `instance (Sink 'a)`, which `redox-lexer`'s
+parameter on its instance** — `instance (Sink 'a)`, which `voltaic-lexer`'s
 `Cursor` established. And it implements `std::fmt::Write`, which is what lets
 a `write!`-based helper change in its parameter type and nowhere else; the
 instance is `instance Write (Sink '_)`.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('emit/sink', '''
@@ -146,7 +146,7 @@ test "attributes a line to the current mark"
   -- statement a macro call, so the slice is longer than the `print 1` this
   -- premise used to name.
   --
-  -- `\\#{1}` is a literal `#{1}`, so the fixture is Redox source rather than
+  -- `\\#{1}` is a literal `#{1}`, so the fixture is Voltaic source rather than
   -- this file interpolating into it.
   source = "main : ()\\nmain =\\n  println! \\\\-> \\"\\#{1}\\"\\n"
   assert_eq! \\-> &source[19 .. 38] \\-> r##"println! \\-> "#{1}""## \\-> "the premise of this test"

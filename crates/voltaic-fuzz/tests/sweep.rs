@@ -1,0 +1,330 @@
+//! Plan 42 §1.3: the deterministic sweep, and the row's value on a machine
+//! with no fuzzer.
+//!
+//! §1.1 measured that there is no `cargo-fuzz` and no nightly here. So the
+//! targets are exercised by this file instead — over a **fixed** input set, in
+//! a fixed order, with a mutation schedule that is a function of an index and
+//! nothing else.
+//!
+//! # No randomness, and that is a rule rather than a preference
+//!
+//! A gate test that fuzzes with a random seed fails on one commit in fifty for
+//! a reason nobody can reproduce. Plan 23 §10.8, doc 30 §8.7 and plan 43 §10.3
+//! are three plans' worth of evidence for what an unreproducible gate failure
+//! costs — three rows wrote "unexplained" into their results before the cause
+//! was found. Nothing here will add a fourth.
+//!
+//! So: no `rand`, no clock, no `HashMap` iteration order. Every input is
+//! derived from the corpus by `mutate`, whose only argument is a position.
+
+use std::path::{Path, PathBuf};
+
+fn root() -> PathBuf {
+  Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+}
+
+/// Every `.sdx` in the repository, as bytes, sorted by path.
+///
+/// `lexical.sdx` is **included** — it does not parse, which makes it the most
+/// valuable seed here rather than the one to skip. Plan 43 criterion 3 and plan
+/// 41 decision 5 made the same call for the same reason.
+fn corpus() -> Vec<(String, Vec<u8>)> {
+  let mut found: Vec<(String, Vec<u8>)> = Vec::new();
+  for dir in [
+    root().join("examples"),
+    root().join("crates/voltaic-cli/tests/ui"),
+    root().join("crates/voltaic-cli/tests/lint"),
+  ] {
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+      continue;
+    };
+    let mut paths: Vec<PathBuf> = entries
+      .map(|entry| entry.expect("should read an entry").path())
+      .filter(|path| path.extension().is_some_and(|x| x == "sdx"))
+      .collect();
+    paths.sort();
+    for path in paths {
+      let bytes = std::fs::read(&path).expect("should read a corpus file");
+      found.push((path.display().to_string(), bytes));
+    }
+  }
+  assert!(
+    found.len() > 30,
+    "expected the corpora, found {}",
+    found.len()
+  );
+  found
+}
+
+/// Hand-written hostile inputs: the shapes a corpus of valid programs will
+/// never contain.
+///
+/// Each one is here because it is a boundary rather than because it looks
+/// nasty — the empty input, a lone newline, a byte that is not UTF-8, an
+/// unclosed form of each bracketing construct, and an indentation that matches
+/// no enclosing level.
+fn hostile() -> Vec<(&'static str, Vec<u8>)> {
+  vec![
+    ("empty", Vec::new()),
+    ("one newline", b"\n".to_vec()),
+    ("only spaces", b"    ".to_vec()),
+    // Not valid UTF-8: a lone continuation byte. `lex_source` is the only
+    // target that can see this, and it is the reason it takes `&[u8]`.
+    ("invalid utf-8", vec![0x80, 0x81, 0xfe, 0xff]),
+    ("a lone nul", vec![0x00]),
+    ("unterminated string", b"a : ()\na = \"open\n".to_vec()),
+    (
+      "unterminated raw string",
+      b"a : ()\na = r#\"open\n".to_vec(),
+    ),
+    ("unterminated fence", b"{- open\na : ()\n".to_vec()),
+    ("unbalanced delimiter", b"a : ()\na = (((\n".to_vec()),
+    // Doc 03 §3.1's `RDX0002`: a dedent to a width matching no enclosing
+    // level. The one input this file asserts is *rejected*.
+    (
+      "inconsistent dedent",
+      b"main : ()\nmain =\n    println! \\-> \"#{1}\"\n  println! \\-> \"#{2}\"\n".to_vec(),
+    ),
+    // Deep nesting, to find a recursion limit if there is one. Short enough to
+    // stay fast and deep enough to blow a naive recursive descent.
+    ("deep nesting", deep_nesting(200)),
+  ]
+}
+
+/// `a = ((((…1…))))`, `depth` deep.
+fn deep_nesting(depth: usize) -> Vec<u8> {
+  let mut text = String::from("a : ()\na = ");
+  text.push_str(&"(".repeat(depth));
+  text.push('1');
+  text.push_str(&")".repeat(depth));
+  text.push('\n');
+  text.into_bytes()
+}
+
+/// One mutation of `seed`, chosen by `index` and by nothing else.
+///
+/// Four kinds, cycled so that every seed gets each: truncation, a byte flip, a
+/// duplicated slice, and a splice of the seed with itself reversed. Crude by
+/// design — the point is a large volume of **malformed** input, and a mutation
+/// that produced valid programs would be testing the corpus again.
+///
+/// Deterministic is the whole requirement, so the arithmetic is deliberately
+/// dull: `index` picks the kind and the position, and there is no state.
+fn mutate(seed: &[u8], index: usize) -> Vec<u8> {
+  if seed.is_empty() {
+    return Vec::new();
+  }
+  let at = index.wrapping_mul(2_654_435_761) % seed.len();
+  match index % 4 {
+    // Truncate: finds anything that assumes a construct completes.
+    0 => seed[..at].to_vec(),
+    // Flip one bit: finds anything that assumes a byte's class.
+    1 => {
+      let mut out = seed.to_vec();
+      out[at] ^= 1 << (index % 8);
+      out
+    }
+    // Duplicate a slice: finds anything that assumes a thing appears once.
+    2 => {
+      let mut out = seed[..at].to_vec();
+      out.extend_from_slice(&seed[at..]);
+      out.extend_from_slice(&seed[at..]);
+      out
+    }
+    // Splice with the reverse: produces structurally nonsensical input that
+    // is still made of the language's own bytes, which is where a lexer's
+    // assumptions show.
+    _ => {
+      let mut out = seed[..at].to_vec();
+      out.extend(seed.iter().rev());
+      out
+    }
+  }
+}
+
+/// Every input the sweep runs: the corpus, the hostile cases, and eight
+/// mutations of each corpus file.
+fn inputs() -> Vec<(String, Vec<u8>)> {
+  let mut found: Vec<(String, Vec<u8>)> = Vec::new();
+  for (name, bytes) in corpus() {
+    for index in 0..8 {
+      found.push((format!("{name} mutation {index}"), mutate(&bytes, index)));
+    }
+    found.push((name, bytes));
+  }
+  for (name, bytes) in hostile() {
+    found.push((name.to_string(), bytes));
+  }
+  found
+}
+
+/// Criterion 2: the same inputs in the same order on every run.
+///
+/// Asserted rather than assumed, because "deterministic" is the property the
+/// rest of this file rests on and the easiest one to lose — a `HashMap`
+/// somewhere in the traversal would break it silently and the sweep would
+/// still pass.
+#[test]
+fn the_input_set_is_deterministic() {
+  let first = inputs();
+  let second = inputs();
+  assert_eq!(first.len(), second.len());
+  for (a, b) in first.iter().zip(&second) {
+    assert_eq!(a.0, b.0, "the order changed between runs");
+    assert_eq!(a.1, b.1, "the bytes changed between runs for {}", a.0);
+  }
+  assert!(
+    first.len() > 300,
+    "the set should be large enough to be worth running, got {}",
+    first.len()
+  );
+}
+
+/// Criterion 3: no target panics on any input.
+///
+/// A product property rather than hygiene: plan 40's language server runs the
+/// parser on every keystroke, so a panic on malformed input crashes an editor
+/// in front of someone who has merely not finished typing.
+///
+/// A panic fails this test by unwinding out of it, which names the input in the
+/// backtrace — so there is nothing to catch and nothing to report by hand.
+#[test]
+fn no_target_panics() {
+  for (name, bytes) in inputs() {
+    voltaic_fuzz::lex_source(&bytes);
+    voltaic_fuzz::parse_program(&bytes);
+    voltaic_fuzz::emit_program(&bytes);
+    let _ = voltaic_fuzz::roundtrip(&bytes);
+    // The name is used so a panic's surroundings are identifiable in the
+    // output, and so the loop cannot be optimised into nothing.
+    assert!(!name.is_empty());
+  }
+}
+
+/// Criterion 4 and §1.4's invariant: **the emitter never produces invalid
+/// Rust** for a program the parser accepted.
+///
+/// The row's centrepiece, and the oracle doc 04 calls *"a stronger oracle than
+/// Emerald had"*. Emerald's targets assert *does not panic*, which finds
+/// crashes and nothing else; this finds an emitter that quietly produces Rust
+/// rustc will reject.
+///
+/// §1.4 states what it does not prove: `syn` parses where rustc parses **and**
+/// checks, so this catches a mangled syntax and not a mangled program. That is
+/// the right division — every semantic error rustc can find is one AGENTS.md
+/// says rustc should find, while a syntax error in generated code is Voltaic's
+/// own bug and nobody else's.
+///
+/// # One false positive, found at plan 70
+///
+/// That last sentence is true of a **mangled** emission and false of a
+/// faithful emission of a program that is not itself a complete Rust item. The
+/// smallest case is two lines, and needs no mutation:
+///
+/// ```text
+/// -- | A doc comment with no item under it.
+/// -- | Does the emitter write a dangling `///`?
+/// ```
+///
+/// The emitted Rust is a dangling `///`, which is exactly correct, and `syn`
+/// rejects it. `voltaic check` reports rustc's own *"expected item after doc
+/// comment"* against the **`.sdx`**, at the right line and column, through
+/// plan 07's remapping — so the author sees it on their own source and the
+/// design is working.
+///
+/// This surfaced when plan 70 added three `tests/ui` fixtures whose
+/// explanatory comments were `-- |` rather than `--`: a mutation removed the
+/// item under a twenty-line doc block and left a doc-comment-only program.
+/// The fixtures now use `--`, which is both the convention and the right
+/// comment form, so the sweep no longer reaches it — the oracle's assumption
+/// is unchanged and now written down rather than implied.
+///
+/// **An inline `rust """` fence is outside this oracle, and that is a design
+/// boundary rather than a gap.** Doc 01 23.1 escape hatch emits its body
+/// verbatim and undecoded - `examples/reachability.sdx` says so in its own
+/// comment - so the bytes inside a fence are rustc to judge and not
+/// Voltaic, and `voltaic check` is what reports rustc verdict on them
+/// against the `.sdx`. A mutation that corrupts a fence therefore produces
+/// Rust that is *correctly* unparseable, and asserting otherwise would assert
+/// that Voltaic validates a construct it deliberately does not.
+///
+/// Found at the Redox -> Voltaic rename. `mutate` picks its offset with
+/// `index * 2654435761 % seed.len()`, so every byte-length change reshuffles
+/// which offsets are visited; the new name is two bytes longer, which moved
+/// `reachability.sdx` mutation 5 onto a space inside the fence above and
+/// flipped it to a NUL. Outside a fence that NUL is rejected with `RDX0011`
+/// *"unexpected character"* - verified directly - so the lexer is doing its
+/// job and only the fence passes it through. The corpus is right here and the
+/// oracle was overclaiming; the dangling-`///` case above was the reverse.
+#[test]
+fn the_generated_rust_always_parses() {
+  let mut checked = 0;
+  let mut fenced = 0;
+  for (name, bytes) in inputs() {
+    // Tested before `roundtrip`, so a corrupted fence is skipped rather than
+    // judged. If a mutation destroys the introducer itself the fence stops
+    // being one, the body is lexed as ordinary source, and the lexer rejects a
+    // stray control character as usual - so this skip cannot hide a defect.
+    if String::from_utf8_lossy(&bytes).contains("rust \"\"\"") {
+      fenced += 1;
+      continue;
+    }
+    let Some(rust) = voltaic_fuzz::roundtrip(&bytes) else {
+      continue;
+    };
+    if let Err(error) = syn::parse_file(&rust) {
+      panic!(
+        "{name}: the parser accepted the input and the emitter produced Rust \
+         that does not parse: {error}\n\n{rust}"
+      );
+    }
+    checked += 1;
+  }
+  // The corpus alone contributes thirty, so a count below that means the
+  // traversal stopped reaching the parser rather than that the inputs are
+  // thin. Plan 34 §10.8's point: an all-green corpus property proves less than
+  // it looks if it read nothing.
+  assert!(
+    checked > 30,
+    "only {checked} inputs reached the emitter, which is too few to mean \
+     anything"
+  );
+  // The two fence-carrying corpus files contribute nine inputs each, and 15 of
+  // those 18 still hold the introducer: in the other three the mutation ate it,
+  // so the body is lexed as ordinary source and is judged normally. That is the
+  // skip's own safety argument, as a number. Asserted so that a corpus losing
+  // its inline Rust, or a skip that silently widened, shows up here rather than
+  // as a quietly smaller sweep. 18 was the first guess and the assertion caught
+  // it, which is the case for having it.
+  assert_eq!(
+    fenced, 15,
+    "expected the fence-carrying inputs to be skipped, not {fenced}"
+  );
+}
+
+/// Criterion 5: the negative case, so criterion 3 is not vacuous.
+///
+/// A sweep that only asserts *no panic* over inputs that happen to parse
+/// proves nothing about rejection. Plan 43 §10.1 and plan 41's criterion 4
+/// record the same discipline, and plan 43 records getting it backwards once:
+/// its first negative case used a *deeper* line, which lexes correctly, when
+/// `RDX0002` is about a **dedent** landing between two levels.
+#[test]
+fn an_input_that_must_be_rejected_is_rejected() {
+  let bad = b"main : ()\nmain =\n    println! \\-> \"#{1}\"\n  println! \\-> \"#{2}\"\n";
+  assert!(
+    voltaic_lexer::lex(&String::from_utf8_lossy(bad)).is_err(),
+    "a dedent matching no enclosing level must be RDX0002"
+  );
+  assert!(
+    voltaic_fuzz::roundtrip(bad).is_none(),
+    "and nothing that fails to lex should reach the emitter"
+  );
+  // The positive counterpart, so the case is not passing for an unrelated
+  // reason.
+  let good = b"main : ()\nmain =\n  if c\n    println! \\-> \"#{1}\"\n  println! \\-> \"#{2}\"\n";
+  assert!(
+    voltaic_lexer::lex(&String::from_utf8_lossy(good)).is_ok(),
+    "a nested block then a dedent to a level that *is* open must lex"
+  );
+}

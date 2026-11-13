@@ -1,0 +1,428 @@
+import crate::binding::BindingKind
+import crate::binding::BindingScope
+import crate::binding::emit_where_locals
+import crate::control::emit_arm
+import crate::control::emit_guards
+import crate::control::emit_stmts
+import crate::datatype::emit_class
+import crate::datatype::emit_data
+import crate::datatype::emit_errors
+import crate::datatype::emit_instance
+import crate::datatype::emit_member
+import crate::expr::emit_expr
+import crate::pattern::pattern_text
+import crate::sink::RUST_INDENT
+import crate::sink::Sink
+import crate::sink::emit_inline_comment
+import crate::sink::emit_trivia
+import crate::sink::pad
+import voltaic_ast::ClassDecl
+import voltaic_ast::ClassMember
+import voltaic_ast::ClauseBody
+import voltaic_ast::ConstDecl
+import voltaic_ast::Constraint
+import voltaic_ast::DataDecl
+import voltaic_ast::ErrorsDecl
+import voltaic_ast::Expr
+import voltaic_ast::ExternBlock
+import voltaic_ast::FnDecl
+import voltaic_ast::ImportDecl
+import voltaic_ast::InlineRust
+import voltaic_ast::InstanceDecl
+import voltaic_ast::Item
+import voltaic_ast::ModuleDecl
+import voltaic_ast::Param
+import voltaic_ast::Signature
+import voltaic_ast::TestDecl
+import voltaic_ast::TypeAlias
+import voltaic_ast::TypeApp
+
+export(crate) emit_body : &mut Sink<'_> -> &ClauseBody -> usize -> bool -> bool -> ()
+emit_body out body indent tail joinable =
+  case body of
+    ClauseBody::Plain block -> emit_stmts out (&block.stmts) indent tail
+    ClauseBody::Guarded guards -> emit_guards out guards indent tail joinable
+  ()
+
+export(crate) emit_clauses : &mut Sink<'_> -> &FnDecl -> usize -> ()
+emit_clauses out f base =
+  tail = !.returns_unit f.sig
+  simple = .len f.clauses == 1 && .all voltaic_ast::Pattern::is_irrefutable (.iter f.clauses[0].patterns)
+  if simple
+    emit_where_locals out (&f.clauses[0].wheres) (base + RUST_INDENT)
+    joinable = .is_empty f.clauses[0].wheres
+    emit_body out (&f.clauses[0].body) (base + RUST_INDENT) tail joinable
+    return ()
+  names : Vec<&str> = f.sig.params
+    |> .iter
+    |> .map (\p -> .as_str p.name.text)
+    |> .collect
+  scrutinee = case .as_slice names of
+    [one] -> .to_string (*one)
+    many -> format! \-> "(#{.join ", " many})"
+  pad out (base + RUST_INDENT)
+  .push_str (&format! \-> "match #{scrutinee} {\n") out
+  for clause in &f.clauses
+    row : Vec<String> = clause.patterns
+      |> .iter
+      |> .map pattern_text
+      |> .collect
+    arm = case .as_slice row of
+      [one] -> .clone one
+      many -> format! \-> "(#{.join ", " many})"
+    emit_arm out clause (&arm) (base + RUST_INDENT * 2) tail
+  pad out (base + RUST_INDENT)
+  .push_str "}\n" out
+  ()
+
+export(crate) emit_const : &mut Sink<'_> -> &ConstDecl -> usize -> ()
+emit_const out c indent =
+  .unmark out
+  emit_trivia out (&c.leading) indent
+  .mark c.span out
+  pad out indent
+  keyword = if c.is_static
+    "static"
+  else
+    "const"
+  vis = .rust_text c.visibility
+  value = emit_expr (&c.value) indent
+  .push_str (&format! \-> "#{vis}#{keyword} #{c.name.text}: #{c.ty.text} = #{value};\n") out
+  ()
+
+export(crate) emit_fn : &mut Sink<'_> -> &FnDecl -> usize -> ()
+emit_fn out f indent =
+  .unmark out
+  emit_trivia out (&f.leading) indent
+  .mark f.span out
+  pad out indent
+  .push_str (&.rust_text f.visibility) out
+  if f.sig.is_const
+    .push_str "const " out
+  if f.sig.is_async
+    .push_str "async " out
+  if f.sig.is_unsafe
+    .push_str "unsafe " out
+  .push_str "fn " out
+  .push_str (&f.name.text) out
+  sig = signature (&f.sig) indent
+  .push_str (&sig) out
+  if .contains '\n' sig
+    .push '\n' out
+    pad out indent
+    .push '{' out
+  else
+    .push_str " {" out
+  emit_inline_comment out (.as_ref f.trailing)
+  .push '\n' out
+  emit_clauses out f indent
+  .unmark out
+  pad out indent
+  .push_str "}\n" out
+  ()
+
+export(crate) emit_extern_block : &mut Sink<'_> -> &ExternBlock -> usize -> ()
+emit_extern_block out e indent =
+  .mark e.span out
+  emit_trivia out (&e.leading) indent
+  pad out indent
+  .push_str (&format! \-> "unsafe extern #{e.abi} {\n") out
+  inner = indent + 4
+  for decl in &e.decls
+    .mark decl.span out
+    emit_trivia out (&decl.leading) inner
+    pad out inner
+    sig = signature (&decl.sig) inner
+    .push_str (&format! \-> "fn #{decl.name.text}#{sig};\n") out
+  .unmark out
+  pad out indent
+  .push_str "}\n" out
+  ()
+
+export(crate) generics : &TypeApp -> &[Constraint] -> String
+generics target constraints =
+  vars = .vars target
+  if .is_empty vars
+    return String::new ()
+  params : Vec<String> = vars
+    |> .iter
+    |> .map (\v ->
+    bounds : Vec<&str> = constraints
+      |> .iter
+      |> .filter (\c -> c.var.text == *v)
+      |> .map (\c -> .as_str c.trait_name.text)
+      |> .collect
+    name = TypeApp::rust_name v
+    if .is_empty bounds
+      name
+    else
+      joined = .join " + " bounds
+      format! \-> "#{name}: #{joined}")
+    |> .collect
+  joined = .join ", " params
+  format! \-> "<#{joined}>"
+
+export(crate) emit_import : &mut Sink<'_> -> &ImportDecl -> usize -> ()
+emit_import out i indent =
+  .unmark out
+  emit_trivia out (&i.leading) indent
+  .mark i.span out
+  pad out indent
+  vis = .rust_text i.visibility
+  .push_str (&format! \-> "#{vis}use #{i.path}") out
+  if &i.alias is Some alias
+    .push_str (&format! \-> " as #{alias.text}") out
+  .push_str ";\n" out
+  ()
+
+export(crate) emit_inline_rust : &mut Sink<'_> -> &InlineRust -> usize -> ()
+emit_inline_rust out r indent =
+  .mark r.span out
+  emit_trivia out (&r.leading) indent
+  for text in .lines r.code
+    if .is_empty (.trim text)
+      .push '\n' out
+      continue
+    pad out indent
+    .push_str text out
+    .push '\n' out
+  ()
+
+export(crate) is_shareable : &Expr -> bool
+is_shareable body = case body of
+  Expr::Num { .. } or Expr::Bool { .. } or Expr::Char { .. } or Expr::StrLit { .. } or Expr::RawLit { .. } or Expr::Path { .. } or Expr::Unit { .. } -> true
+  Expr::Paren { inner, .. } -> is_shareable inner
+  Expr::Unary { operand, .. } -> is_shareable operand
+  Expr::Tuple { items, .. } or Expr::List { items, .. } -> .all is_shareable (.iter items)
+  _ -> false
+
+export(crate) class Emit
+  emit : &mut Sink<'_> -> usize -> &self -> ()
+
+export(crate) emit_item : &mut Sink<'_> -> &Item -> usize -> ()
+emit_item out item indent =
+  case item of
+    Item::Fn f | BindingScope::kind_of (&f.name.text) == Some BindingKind::Shared ->
+      case shared_const f of
+        Some c -> emit_const out (&c) indent
+        None -> emit_fn out f indent
+    Item::Fn f -> emit_fn out f indent
+    Item::Data d -> .emit out indent d
+    Item::Type a -> .emit out indent a
+    Item::Class c -> .emit out indent c
+    Item::Instance i -> .emit out indent i
+    Item::Errors e -> .emit out indent e
+    Item::Import i -> .emit out indent i
+    Item::Module m -> .emit out indent m
+    Item::Const c -> .emit out indent c
+    Item::InlineRust r -> .emit out indent r
+    Item::Extern e -> .emit out indent e
+    Item::PatternSynonym p ->
+      .unmark out
+      emit_trivia out (&p.leading) indent
+    Item::DeriveTemplate t ->
+      .unmark out
+      emit_trivia out (&t.leading) indent
+    Item::OperatorDecl o ->
+      .unmark out
+      emit_trivia out (&o.leading) indent
+    Item::Test _ ->
+      unreachable! \-> "tests are gathered, not emitted in place"
+  ()
+
+instance Emit Item
+  emit out indent self = emit_item out self indent
+
+instance Emit FnDecl
+  emit out indent self = emit_fn out self indent
+
+instance Emit DataDecl
+  emit out indent self = emit_data out self indent
+
+instance Emit TypeAlias
+  emit out indent self = emit_type_alias out self indent
+
+instance Emit ClassDecl
+  emit out indent self = emit_class out self indent
+
+instance Emit ClassMember
+  emit out indent self = emit_member out self indent
+
+instance Emit InstanceDecl
+  emit out indent self = emit_instance out self indent
+
+instance Emit ErrorsDecl
+  emit out indent self = emit_errors out self indent
+
+instance Emit ImportDecl
+  emit out indent self = emit_import out self indent
+
+instance Emit ModuleDecl
+  emit out indent self = emit_module out self indent
+
+instance Emit ConstDecl
+  emit out indent self = emit_const out self indent
+
+instance Emit InlineRust
+  emit out indent self = emit_inline_rust out self indent
+
+instance Emit ExternBlock
+  emit out indent self = emit_extern_block out self indent
+
+export(crate) emit_items : &mut Sink<'_> -> &[Item] -> usize -> ()
+emit_items out items indent =
+  tests : Vec<&TestDecl> = items
+    |> .iter
+    |> .filter_map (\item ->
+    case item of
+      Item::Test t -> Some t
+      _ -> None)
+    |> .collect
+  mut written : usize = 0
+  for item in items
+    is_test = case item of
+      Item::Test _ -> true
+      _ -> false
+    if is_test
+      continue
+    if written > 0
+      .unmark out
+      .push '\n' out
+    written += 1
+    emit_item out item indent
+  if !.is_empty tests
+    if written > 0
+      .unmark out
+      .push '\n' out
+    emit_tests_module out (&tests) indent
+  ()
+
+export(crate) emit_module : &mut Sink<'_> -> &ModuleDecl -> usize -> ()
+emit_module out m indent =
+  .unmark out
+  emit_trivia out (&m.leading) indent
+  .mark m.span out
+  pad out indent
+  vis = .rust_text m.visibility
+  .push_str (&format! \-> "#{vis}mod #{m.name.text}") out
+  guard &m.items is Some items else
+    .push_str ";\n" out
+    return ()
+  .push_str " {\n" out
+  emit_items out items (indent + RUST_INDENT)
+  .unmark out
+  pad out indent
+  .push_str "}\n" out
+  ()
+
+export(crate) shared_const : &FnDecl -> Option<ConstDecl>
+shared_const decl =
+  ty = (.clone decl.sig.ret)?
+  guard .as_slice decl.clauses is [clause] else
+    return None
+  guard &clause.body is ClauseBody::Plain block else
+    return None
+  guard .as_slice block.stmts is [stmt] else
+    return None
+  Some (ConstDecl { name = .clone decl.name, ty, value = .clone stmt.expr, is_static = false, visibility = .clone decl.visibility, span = decl.span, leading = .clone decl.leading })
+
+export(crate) signature : &Signature -> usize -> String
+signature sig indent =
+  generic_list = if &sig.r#given is Some text
+    .clone text
+  else if .is_empty sig.generics
+    String::new ()
+  else
+    joined = .join ", " sig.generics
+    format! \-> "<#{joined}>"
+  mut ordered : Vec<&Param> = .collect (.iter sig.params)
+  if .position (\p -> .is_none p.ty) (.iter ordered) is Some at
+    marked = .remove at ordered
+    .insert 0 marked ordered
+  params : Vec<String> = ordered
+    |> .iter
+    |> .map (\p ->
+    mut text = String::new ()
+    if p.is_mut
+      .push_str "mut " text
+    .push_str (&p.name.text) text
+    if &p.ty is Some ty
+      .push_str ": " text
+      .push_str (&ty.text) text
+    text)
+    |> .collect
+  joined = .join ", " params
+  mut out = format! \-> "#{generic_list}(#{joined})"
+  if &sig.ret is Some ret && !.returns_unit sig
+    .push_str " -> " out
+    .push_str (&ret.text) out
+  if !.is_empty sig.bounds
+    padding = .repeat indent " "
+    .push_str (&format! \-> "\n#{padding}where") out
+    for pair in &sig.bounds
+      .push_str (&format! \-> "\n#{padding}    #{pair.0}: #{pair.1},") out
+  if &sig.predicates is Some text
+    padding = .repeat indent " "
+    .push_str (&format! \-> "\n#{padding}where\n#{padding}    #{text},") out
+  out
+
+export(crate) test_slug : &str -> String
+test_slug description =
+  text = .trim_matches '"' description
+  mut out = String::with_capacity (.len text)
+  for ch in .chars text
+    if .is_alphanumeric ch
+      .extend (.to_lowercase ch) out
+    else if !.ends_with '_' out
+      .push '_' out
+  trimmed = out |> .trim_matches '_' |> .to_string
+  if .is_empty trimmed
+    return .to_string "_"
+  if .is_some_and (\c -> .is_ascii_digit c) (.next (.chars trimmed))
+    return format! \-> "_#{trimmed}"
+  trimmed
+
+export(crate) emit_tests_module : &mut Sink<'_> -> &[&TestDecl] -> usize -> ()
+emit_tests_module out tests indent =
+  if .is_empty tests
+    return ()
+  .unmark out
+  pad out indent
+  .push_str "#[cfg(test)]\n" out
+  pad out indent
+  .push_str "mod __rdx_tests {\n" out
+  pad out (indent + RUST_INDENT)
+  .push_str "use super::*;\n" out
+  mut used : Vec<String> = Vec::new ()
+  for t in tests
+    base = test_slug (&t.description)
+    mut name = .clone base
+    mut index = 2
+    while .contains (&name) used
+      name := format! \-> "#{base}_#{index}"
+      index += 1
+    .push (.clone name) used
+    .unmark out
+    .push '\n' out
+    emit_trivia out (&t.leading) (indent + RUST_INDENT)
+    .mark t.span out
+    pad out (indent + RUST_INDENT)
+    .push_str "#[test]\n" out
+    pad out (indent + RUST_INDENT)
+    .push_str (&format! \-> "fn #{name}() {\n") out
+    emit_stmts out (&t.body.stmts) (indent + RUST_INDENT * 2) false
+    .unmark out
+    pad out (indent + RUST_INDENT)
+    .push_str "}\n" out
+  pad out indent
+  .push_str "}\n" out
+  ()
+
+export(crate) emit_type_alias : &mut Sink<'_> -> &TypeAlias -> usize -> ()
+emit_type_alias out a indent =
+  .mark a.span out
+  emit_trivia out (&a.leading) indent
+  pad out indent
+  vis = .rust_text a.visibility
+  .push_str (&format! \-> "#{vis}type #{a.name.text} = #{a.ty.text};\n") out
+  ()

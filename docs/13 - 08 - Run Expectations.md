@@ -9,20 +9,20 @@ Status: `done`
 
 ## 1. What this plan is
 
-The third leg of Redox's test corpus: **what a program prints when it runs**, kept in
+The third leg of Voltaic's test corpus: **what a program prints when it runs**, kept in
 files beside the `.sdx`, blessable, with no expectation written as a Rust string literal.
 
-Redox now has three distinct things to assert about a program, and had file-based
+Voltaic now has three distinct things to assert about a program, and had file-based
 corpora for only two:
 
 | What it asserts | Corpus | Since |
 |---|---|---|
 | The generated text, exactly | `tests/golden/*.xrs` | plan 01 |
-| The diagnostic, exactly | `crates/redox-cli/tests/ui/*.stderr` | plan 05 |
-| **What it prints when run** | **`crates/redox-cli/tests/run/*.stdout`** | **this plan** |
+| The diagnostic, exactly | `crates/voltaic-cli/tests/ui/*.stderr` | plan 05 |
+| **What it prints when run** | **`crates/voltaic-cli/tests/run/*.stdout`** | **this plan** |
 
 Doc 04 listed plan 08 as `ui-test-harness`. Plan 05 delivered that harness early — the
-`.sdx`/`.stderr` pairs, `REDOX_BLESS=1`, and `code_coverage.rs`. What was left over is
+`.sdx`/`.stderr` pairs, `VOLTAIC_BLESS=1`, and `code_coverage.rs`. What was left over is
 this, and §2.1 explains why the leftover turned out to matter more than the original
 framing suggested.
 
@@ -47,7 +47,7 @@ does. A run corpus is where arithmetic does the reviewing.
 | Execution is already asserted somewhere | `tests/phase1.rs`, `tests/hello.rs` | Yes — `support::Case::run()` compiles with real rustc and returns stdout |
 | …but the expectations are Rust string literals | `phase1.rs:20`, `phase1.rs:29-42` | `assert_eq!(case.run(), "30\n")`, and a ten-line `concat!` of expected numbers |
 | …and so is a generated-Rust expectation | `phase1.rs:16-18` | The whole `.xrs` as an escaped literal, duplicating `tests/golden/phase1.xrs` |
-| A blessable corpus mechanism exists to copy | `tests/ui.rs` (plan 05) | `REDOX_BLESS=1`, orphan detection, exact comparison |
+| A blessable corpus mechanism exists to copy | `tests/ui.rs` (plan 05) | `VOLTAIC_BLESS=1`, orphan detection, exact comparison |
 | `Case::run()` asserts zero stderr | `support.rs` | Yes — a rustc warning on generated code is treated as an emitter defect |
 
 ### 2.1 The precondition that failed: the rule was already being broken
@@ -77,8 +77,8 @@ existing expectations into it. The second half is the part that pays off immedia
 ## 3. Concrete proof this plan targets
 
 1. **Every `tests/run/*.sdx` compiles with real rustc, runs, and prints exactly its
-   `.stdout`** — byte for byte, with `REDOX_BLESS=1` to re-record deliberately.
-2. **No expectation in `crates/redox-cli/tests/` is a multi-line string literal of
+   `.stdout`** — byte for byte, with `VOLTAIC_BLESS=1` to re-record deliberately.
+2. **No expectation in `crates/voltaic-cli/tests/` is a multi-line string literal of
    generated Rust or program output.** Machine-checked, so the rule cannot erode the way
    it already did.
 3. `phase1.sdx`'s `30` and `expressions.sdx`'s ten hand-computed values survive the move
@@ -91,7 +91,7 @@ existing expectations into it. The second half is the part that pays off immedia
 
 ### Leaf 1 — `leaf-run-corpus`
 
-`crates/redox-cli/tests/run.rs` plus `tests/run/`. Each case is a pair:
+`crates/voltaic-cli/tests/run.rs` plus `tests/run/`. Each case is a pair:
 
 ```text
 tests/run/precedence.sdx       the program
@@ -118,7 +118,7 @@ the `->`-after-`)` refinement, which assert *shape*, not output.
 
 ### Leaf 4 — `leaf-no-literal-expectations`
 
-`crates/redox-cli/tests/no_literal_expectations.rs`. Fails if a test file contains a
+`crates/voltaic-cli/tests/no_literal_expectations.rs`. Fails if a test file contains a
 multi-line string literal that looks like generated Rust or program output. Scoped
 tightly, with its heuristic stated in the test, because a check that fires on prose is a
 check people disable.
@@ -134,7 +134,7 @@ Gate, doc 04 status, doc 06 §10 rows.
 | # | Criterion |
 |---|---|
 | 1 | Every `tests/run/*.sdx` compiles, runs, and prints exactly its `.stdout` |
-| 2 | `REDOX_BLESS=1` re-records them; without it a mismatch fails |
+| 2 | `VOLTAIC_BLESS=1` re-records them; without it a mismatch fails |
 | 3 | No `.stdout` is orphaned, and no `.sdx` lacks one |
 | 4 | Each case's reasoning lives in the `.sdx` as comments, and reaches the `.xrs` |
 | 5 | `phase1.rs` holds no multi-line expectation literal, and the behaviour it asserted is still asserted |
@@ -147,21 +147,21 @@ Gate, doc 04 status, doc 06 §10 rows.
 
 | Deferred | To | Note |
 |---|---|---|
-| Multi-file cases | the plan that adds modules | A multi-file corpus needs a notion of a second file to import. Redox has one translation unit today, so a multi-file case could only test the harness |
-| A `redox test` subcommand | **rejected, not deferred** | See §6.1 |
+| Multi-file cases | the plan that adds modules | A multi-file corpus needs a notion of a second file to import. Voltaic has one translation unit today, so a multi-file case could only test the harness |
+| A `voltaic test` subcommand | **rejected, not deferred** | See §6.1 |
 | Expected **exit codes** | — | Every case exits zero today, because `Case::run()` asserts it. A case that must exit non-zero needs a field in the corpus format, and no construct produces one yet |
 | stdin | — | No construct reads it |
 
-### 6.1 `redox test` is rejected
+### 6.1 `voltaic test` is rejected
 
-Doc 04's note on this plan proposed *"a `redox test` entry point so the corpus is runnable
+Doc 04's note on this plan proposed *"a `voltaic test` entry point so the corpus is runnable
 without cargo."* That contradicts doc 01 §27 and plan 11, both of which fix the CLI at
 `build`, `check`, `fmt`, `watch`, `--version`, `--help` — *"Cargo owns build, test, docs
 and dependencies."*
 
-The corpus is a cargo integration test, and `cargo test -p redox-cli --test run` runs it.
-Adding a subcommand would duplicate a test runner Redox has, for an audience that already
-has cargo installed by definition — `redox check` cannot work without it. Doc 04's row is
+The corpus is a cargo integration test, and `cargo test -p voltaic-cli --test run` runs it.
+Adding a subcommand would duplicate a test runner Voltaic has, for an audience that already
+has cargo installed by definition — `voltaic check` cannot work without it. Doc 04's row is
 corrected rather than implemented.
 
 ---
@@ -182,7 +182,7 @@ first time it has been applied to *expectations* rather than sources, and §2.1 
 finding that it needed to be.
 
 **Not applicable:** Emerald's own test layout. It tests a compiled language with its own
-runtime; Redox's run corpus exists because rustc will run the output, which Emerald has no
+runtime; Voltaic's run corpus exists because rustc will run the output, which Emerald has no
 analogue for.
 
 ---
@@ -205,7 +205,7 @@ analogue for.
   check would need to parse Rust; a loose one that people silence is worse than a stated
   heuristic with an explicit allow.
 
-- **`redox test` is rejected on doc 01 §27 grounds** (§6.1), and doc 04's row corrected.
+- **`voltaic test` is rejected on doc 01 §27 grounds** (§6.1), and doc 04's row corrected.
 
 ---
 
@@ -216,7 +216,7 @@ analogue for.
 | # | Criterion | Evidence |
 |---|---|---|
 | 1 | Every case compiles, runs, prints exactly its `.stdout` | `run.rs`: `every_run_case_prints_its_expectation`, over four examples and two corpus cases |
-| 2 | `REDOX_BLESS=1` re-records; a mismatch otherwise fails | same test; the bless path writes and continues, the plain path compares |
+| 2 | `VOLTAIC_BLESS=1` re-records; a mismatch otherwise fails | same test; the bless path writes and continues, the plain path compares |
 | 3 | No orphans in either direction | `every_case_is_a_complete_pair`, plus `the_corpus_holds_only_cases_and_expectations` |
 | 4 | Reasoning in the `.sdx`, reaching the `.xrs` | `every_case_documents_itself_and_keeps_its_comments` |
 | 5 | `phase1.rs` holds no expectation literal | rewritten; the two shape assertions remain, the three data assertions moved |
@@ -237,10 +237,10 @@ tests/run/strings.sdx       tests/run/strings.stdout
 ### 10.1 Two emitter defects the corpus caught on its first run
 
 Both were in string handling, both had been shipping since plan 02, and neither was
-reachable by any existing test — the goldens compared Redox's output to Redox's output, and
+reachable by any existing test — the goldens compared Voltaic's output to Voltaic's output, and
 no example contained the characters involved.
 
-**`\#` reached rustc and rustc rejected it.** `\#` is Redox's one escape that Rust does not
+**`\#` reached rustc and rustc rejected it.** `\#` is Voltaic's one escape that Rust does not
 have: it escapes the `#` that would otherwise open an interpolation. The parser carries a
 literal's *raw* text to the emitter, which is correct for every escape the two languages
 share and wrong for exactly this one, so `print "brace: \#{"` produced
@@ -251,7 +251,7 @@ error: unknown character escape: `#`
 
 Fixed by `emit/rust_escapes.rs`, which translates that single escape and leaves the rest
 alone. Re-encoding the whole literal from `parts` was the alternative and was rejected:
-it would mean Redox re-encoding every escape Rust already understands, each one a chance
+it would mean Voltaic re-encoding every escape Rust already understands, each one a chance
 to get a character wrong in a way no test would notice.
 
 **A brace in a literal became a format placeholder.** `print "see {this}"` lowered to
@@ -312,7 +312,7 @@ proving nothing.
   precedence case is what prompted the decision that expectations live *beside the
   program*: the duplicate would have drifted.
 
-- **`redox test` was rejected rather than deferred** (§6.1), and doc 04's row for this plan
+- **`voltaic test` was rejected rather than deferred** (§6.1), and doc 04's row for this plan
   corrected. Doc 01 §27 fixes the CLI surface, and the corpus is a cargo integration test.
 
 - **Multi-file cases remain out of scope** and will stay so until there is a second

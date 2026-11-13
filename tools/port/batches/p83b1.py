@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-r"""Plan 83 batch 1: all six of `redox-seed`'s bodies.
+r"""Plan 83 batch 1: all six of `voltaic-seed`'s bodies.
 
-The thirteenth and last crate, and the smallest port since `redox-fuzz`.
+The thirteenth and last crate, and the smallest port since `voltaic-fuzz`.
 
 Two things are worth naming.
 
@@ -14,12 +14,12 @@ the rule grades an **indented** body only, which is the carve-out §1.6 states:
 after it would be `unreachable_code` rather than a fix.
 
 **`run` is nullary**, so it is `run : i32` with no parameter row — the shape
-`above_bitor` already has in `redox-parser` — and the call site is
+`above_bitor` already has in `voltaic-parser` — and the call site is
 `run::run ()`.
 """
 import sys
 
-sys.path.insert(0, '/home/tom/Code/rust/redox/tools/port')
+sys.path.insert(0, '/home/tom/Code/rust/voltaic/tools/port')
 from write import write  # noqa: E402
 
 write('main', r'''
@@ -40,7 +40,7 @@ run =
   -- `paths.0` is the source directory and `paths.1` the output one, where the
   -- Rust destructured the pair in its `let … else`.
   guard arguments () is Some paths else
-    eprintln! \-> "usage: redox-seed <src-dir> <out-dir>"
+    eprintln! \-> "usage: voltaic-seed <src-dir> <out-dir>"
     return 2
   src = paths.0
   out = paths.1
@@ -116,7 +116,7 @@ arguments =
 -- | behaviour assertable here is that it does not panic on whatever it is
 -- | handed. The real coverage is `tests/seed.rs`, which runs the binary.
 test "it does not panic on the harness arguments"
-  -- `_dropped`, where the Rust wrote `let _ = …`: `_` is not a Redox pattern,
+  -- `_dropped`, where the Rust wrote `let _ = …`: `_` is not a Voltaic pattern,
   -- and the binding is still what satisfies `Option`'s `#[must_use]`.
   _dropped = arguments ()
 ''')
@@ -142,7 +142,7 @@ tidy dir =
   -- produce.
   --
   -- `_dropped`, where the Rust wrote `let _ = …`.
-  _dropped = std::fs::remove_dir_all (.join ".redox-cache" dir)
+  _dropped = std::fs::remove_dir_all (.join ".voltaic-cache" dir)
   ()
 ''')
 
@@ -180,12 +180,12 @@ walk src out =
 -- | Inline because `walk` is private, per AGENTS.md's rule that inline tests
 -- | are for private constructs.
 test "it mirrors a nested tree"
-  root = std::path::Path::new "../redox-ast/sdx"
+  root = std::path::Path::new "../voltaic-ast/sdx"
   if !.is_dir root
     -- The crate layout moved; `port.rs` is what grades that, not this.
     return ()
   pairs = walk root (std::path::Path::new "/out")
-  assert! \-> .len pairs > 1 \-> "redox-ast's sdx tree is nested, so walking it must find more than the root"
+  assert! \-> .len pairs > 1 \-> "voltaic-ast's sdx tree is nested, so walking it must find more than the root"
   -- `pairs[1].1` read in place, where the Rust bound `(_, out)` from a
   -- reference to it.
   shown = .display pairs[1].1

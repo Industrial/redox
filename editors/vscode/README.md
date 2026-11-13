@@ -1,4 +1,4 @@
-# Redox for VSCode and Cursor
+# Voltaic for VSCode and Cursor
 
 One extension, both editors. Cursor is a VSCode fork and consumes the same
 contribution points, so there is nothing to fork here.
@@ -6,7 +6,7 @@ contribution points, so there is nothing to fork here.
 ## Install
 
 **On NixOS, use Nix and skip this section.** `~/.dotfiles` builds this
-extension as `features/programming/redox/vscode-extension.nix` and registers
+extension as `features/programming/voltaic/vscode-extension.nix` and registers
 it in `features/programming/cursor/default.nix`, which is the only path that
 works against a Nix-managed Cursor — see *Why `--install-extension` may not
 work* below. The steps here are for an ordinary Cursor or VSCode install.
@@ -22,23 +22,23 @@ work* below. The steps here are for an ordinary Cursor or VSCode install.
    `package-lock.json` is tracked, so this is reproducible. `node_modules` is
    not tracked, because this command is what produces it.
 
-2. **Put `redox-lsp` on `PATH`:**
+2. **Put `voltaic-lsp` on `PATH`:**
 
    ```bash
-   cargo install --path crates/redox-lsp
+   cargo install --path crates/voltaic-lsp
    ```
 
-   Or set `redox.server.path` to wherever the binary is, which is what the Nix
+   Or set `voltaic.server.path` to wherever the binary is, which is what the Nix
    path does rather than trusting `PATH`.
 
 3. **Build and install the VSIX.** The packager is in this repository, so there
-   is nothing to fetch — `REDOX_VSIX_OUT` asks the test that builds it to keep
+   is nothing to fetch — `VOLTAIC_VSIX_OUT` asks the test that builds it to keep
    a copy:
 
    ```bash
-   REDOX_VSIX_OUT=$PWD/redox.vsix cargo test -p redox-cli --test editors vsix
-   cursor --install-extension redox.vsix     # or
-   code   --install-extension redox.vsix
+   VOLTAIC_VSIX_OUT=$PWD/voltaic.vsix cargo test -p voltaic-cli --test editors vsix
+   cursor --install-extension voltaic.vsix     # or
+   code   --install-extension voltaic.vsix
    ```
 
    Without that variable the test still builds and installs a VSIX, into a
@@ -67,11 +67,11 @@ Nix instead.
 | | From |
 |---|---|
 | `.sdx` recognised, `--` comments, bracket pairs, 2-space indent | `language-configuration.json` |
-| Colour on a cold open, before the server starts | `syntaxes/redox.tmLanguage.json` |
-| Diagnostics, document symbols, semantic tokens, formatting | `redox-lsp` (plan 40) |
-| `redox_build`, `redox_check`, `redox_fmt`, `redox_source_map` for Cursor's agent | `redox-mcp` (plan 50), registered in Cursor's `mcp.json` |
+| Colour on a cold open, before the server starts | `syntaxes/voltaic.tmLanguage.json` |
+| Diagnostics, document symbols, semantic tokens, formatting | `voltaic-lsp` (plan 40) |
+| `voltaic_build`, `voltaic_check`, `voltaic_fmt`, `voltaic_source_map` for Cursor's agent | `voltaic-mcp` (plan 50), registered in Cursor's `mcp.json` |
 
-Two settings: `redox.server.path` and `redox.server.enable`. Turning the server
+Two settings: `voltaic.server.path` and `voltaic.server.enable`. Turning the server
 off leaves TextMate highlighting, which is the useful degraded mode.
 
 `extension.js` is plain JavaScript on purpose — a TypeScript source would put a
@@ -95,7 +95,7 @@ install.
 
 ## Verified by
 
-`crates/redox-cli/tests/editors.rs`, at two strengths:
+`crates/voltaic-cli/tests/editors.rs`, at two strengths:
 
 - `the_vsix_installs_into_cursor` builds the VSIX and installs it into
   **Cursor** with `--install-extension`, into a throwaway `--extensions-dir`,
@@ -109,7 +109,7 @@ install.
 `activate` during an install, so plan 49's VSIX — which excluded
 `node_modules` — installed cleanly, listed back perfectly and then threw on
 `require`. What survives such a failure is the language id, the TextMate
-grammar and the editor configuration: exactly `redox.server.enable: false`, so
+grammar and the editor configuration: exactly `voltaic.server.enable: false`, so
 a broken install was indistinguishable from a deliberately degraded one. Plan
 71 §1.2 has the measurement.
 

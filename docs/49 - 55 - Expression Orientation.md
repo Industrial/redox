@@ -111,7 +111,7 @@ generic list from the types**, so `data Row = Row { a : t }` inside a generic fu
 `struct Row<t> { a: t }`, which compiles. Verified.
 
 What this buys is small and real: a helper type used by one function lives next to it, and
-`docs/06 - Redox Code Architecture.md`'s one-construct-per-file rule applies to module-scope
+`docs/06 - Voltaic Code Architecture.md`'s one-construct-per-file rule applies to module-scope
 constructs, so a local `data` is not an escape from it.
 
 ### 1.5 `test` is the one carve-out, and rustc decides it
@@ -122,7 +122,7 @@ one test where two were written.
 
 So a local `test` would compile, warn in generated Rust, and **silently never run** — which is
 precisely the failure class this milestone exists to remove. It is therefore refused at the
-Redox line, with a named diagnostic pointing at module scope.
+Voltaic line, with a named diagnostic pointing at module scope.
 
 This is a carve-out from §1.4 and it is stated as one rather than smuggled in. The alternative —
 hoist a local `test` to module scope at emission — was weighed and declined in §9: AGENTS.md
@@ -155,7 +155,7 @@ when something else was meant.
 > The rule's value is **uniformity** — the last line of a body always states
 > the value — and that is what §9 decision 3 should be read as pricing. The
 > price was 61 `.sdx` files **and 225 red Rust tests**, because roughly 150
-> Redox programs live as string literals inside test modules.
+> Voltaic programs live as string literals inside test modules.
 >
 > It is kept, because §9 decision 3 chose it deliberately and uniformity is a
 > real property. But a reader deciding whether to keep it should know it
@@ -189,7 +189,7 @@ and the Haskell meaning is the one still unclaimed.
 
 ## 2. Verified preconditions
 
-Measured 2026-11-10, against `redox` at `194fdf7`.
+Measured 2026-11-10, against `voltaic` at `194fdf7`.
 
 **`loop` and `case` are already expressions.** A `loop` with `break n` is a function tail; a
 `case` emits `match` in tail position. Both verified running.
@@ -257,7 +257,7 @@ Five more, each chosen because it fails differently:
 5. **A local `test`**, as a `tests/ui/` fixture carrying the refusal — because the thing being
    prevented is silent and the fixture is the only durable record of it.
 
-And one negative: **`main` ending in a binding is a Redox diagnostic** asking for `()`, not a
+And one negative: **`main` ending in a binding is a Voltaic diagnostic** asking for `()`, not a
 silent unit.
 
 ---
@@ -308,7 +308,7 @@ deprecated for this milestone, then removed with `do`.
 ### Leaf 4 — `leaf-block-value`
 
 The unit rule from §1.6: a block whose value would be unit requires `()`. The diagnostic names
-the position and suggests the line. Plus the discard lints — `Result`, `must_use` — at the Redox
+the position and suggests the line. Plus the discard lints — `Result`, `must_use` — at the Voltaic
 line rather than rustc's.
 
 ### Leaf 5 — `leaf-local-declarations`
@@ -370,9 +370,9 @@ Docs 01 §8, 03 §7, 18 §1.1 and plan 20 §1.2 amended; plan 22's recorded gap 
    body.
 4. A local `data`, `class`, `instance`, `errors` and `import` each compile, in a running example,
    including the generic case.
-5. A local `test` is a named Redox diagnostic with a `tests/ui/` fixture.
+5. A local `test` is a named Voltaic diagnostic with a `tests/ui/` fixture.
 6. A block whose value would be unit requires an explicit `()`, diagnosed with a suggestion.
-7. A discarded `Result` is a Redox lint, not only a rustc warning.
+7. A discarded `Result` is a Voltaic lint, not only a rustc warning.
 8. `do` is not a construct and **is** a reserved word; using it as an identifier is diagnosed.
 9. `try` and `async` work as block modifiers; `'name` labels a bare block and `break 'name v`
    still carries a value out of a loop.
@@ -421,7 +421,7 @@ the *only* such position, and `"…"` and `"""…"""` share it rather than being
 
 So `"#{if n > 9 then "big" else "small"}"` worked before leaf 7 and has no spelling after it.
 `examples/control.sdx`'s `bracketed` carried it and now calls a function instead; one arm of
-`redox-emit/tests/strings.rs` lost its case. The workaround is to bind first and interpolate the
+`voltaic-emit/tests/strings.rs` lost its case. The workaround is to bind first and interpolate the
 name, which is better style inside a string anyway — but it is a workaround, and the honest
 statement is that this row removed an expressible program rather than relocating it.
 
@@ -435,7 +435,7 @@ part worth recording.
 because *"there is nowhere to put a second expression, so it would force `| c = do` plus an
 indented block"* — and both `do` and `then` are now gone, so that sentence's remedy went with
 them. Leaf 8 measured the replacement rather than assuming one: a **parenthesised** indented
-`if` parses in a guard body, `redox check` exits 0, and it emits the ordinary Rust `if`, because
+`if` parses in a guard body, `voltaic check` exits 0, and it emits the ordinary Rust `if`, because
 a bracket is a layout context of its own. Unparenthesised it is `RDX0002` — correctly, since an
 `else` that did not begin a line has no enclosing level to match. §10.19 has the measurement.
 
@@ -453,7 +453,7 @@ moon run :format         # treefmt
 Plus: every example transpiles, compiles under real rustc with **no output**, runs, stdout
 asserted; goldens re-blessed and the diff reviewed; `tests/ui/` fixtures for the local `test`
 refusal and the unit-block diagnostic; `construct_coverage` green;
-`formatting_preserves_meaning` green — plan 48 found `redox fmt` deleting doc comments inside a
+`formatting_preserves_meaning` green — plan 48 found `voltaic fmt` deleting doc comments inside a
 continuation, and this row changes what a continuation is.
 
 ---
@@ -579,7 +579,7 @@ this leaf: `Do{label: None}` → `{ … }`, `TryBlock` → `(|| { … })()`,
 `AsyncBlock` → `async { … }`, `UnsafeBlock` → `unsafe { … }`. None is a synonym
 for another.
 
-In particular `do` is **not** redundant, because Redox has no bare-block
+In particular `do` is **not** redundant, because Voltaic has no bare-block
 expression: a `Block` is only ever a *field* of a node, so `Expr::Do` is the
 only spelling of a block expression. Leaf 7 is what makes it redundant, by
 giving an indented block expression status. Leaf 1 does not.
@@ -595,18 +595,18 @@ a lie. `expr_text` gained 13 arms. `power_of` had to **decline** on all 12
 promoted forms, which is that function's documented safety default: declining
 keeps the author's parentheses.
 
-And the three `redox-fmt` corpus-property tests each had their own duplicate
+And the three `voltaic-fmt` corpus-property tests each had their own duplicate
 block walk. All three now call `Expr::statement_blocks()` — which deliberately
 excludes the inline `if`'s branches, because including them would hand
 `expression_printer` extra statements to assert over and change what the
 property reads.
 
-### 10.6 `redox-driver`'s 26-line exhaustive match became one call
+### 10.6 `voltaic-driver`'s 26-line exhaustive match became one call
 
 `walk_stmts` listed enough `StmtKind` variants to find the five that own a
 block. Listing 46 to name five is unreadable, so the no-wildcard guarantee moved
 to the AST: `Expr::statement_blocks()` is where a new block-owning form must be
-declared, and the three `redox-fmt` walks plus this one all read it. That is
+declared, and the three `voltaic-fmt` walks plus this one all read it. That is
 four duplicated walks collapsed into one accessor.
 
 ### 10.7 Leaf 2 was one decision, and it exposed two things
@@ -712,7 +712,7 @@ The fix is `assign_tail`, extracted from `stmt` so the arm body and the block
 element read the same six operators from one place rather than two.
 
 **An arm body's shape is unchanged: still `body: Expr`.** An indented block
-becomes `Expr::Do { label: None }`, which §10.4 establishes as Redox's only
+becomes `Expr::Do { label: None }`, which §10.4 establishes as Voltaic's only
 spelling of a block expression. Three things fall out of that, all of them
 good: `-> do` keeps working with nothing written for it, both spellings emit
 byte-identical Rust, and **leaf 7 removes a keyword rather than a form** — once
@@ -725,7 +725,7 @@ AST no longer records. Recovering it would mean an `is_marked: bool` beside
 `is_inline` — a spelling flag kept alive solely to complain about itself, one
 milestone before the keyword goes.
 
-The deprecation is carried where it costs nothing instead: **`redox fmt`
+The deprecation is carried where it costs nothing instead: **`voltaic fmt`
 rewrites `-> do` into the marker-free form.** That is doc 02 §4.5's migration
 tool doing the migration, it needs no new code, and it avoids a second
 deprecation code beside plan 53's `RDX1002`.
@@ -760,12 +760,12 @@ moved.
 
 ### 10.12 Criterion 7 is withdrawn, and the position it wanted is already there
 
-*"A discarded `Result` is a Redox lint, not only a rustc warning."* Measured
+*"A discarded `Result` is a Voltaic lint, not only a rustc warning."* Measured
 before building anything, which is what retired it.
 
 **The position is already correct.** Plan 07's remapping puts
 `unused_must_use` on the author's own line and column, for a `std` call and a
-locally-declared one alike, one warning per site, exit 0 — under `redox check`,
+locally-declared one alike, one warning per site, exit 0 — under `voltaic check`,
 which is where rustc runs at all. Leaf 4 worded this criterion's value *as*
 position; there was nothing to move.
 
@@ -785,7 +785,7 @@ is `E0308`, in a `case` arm against `()` arms is `E0308`, and everywhere else is
 
 So criterion 7 joins plan 56 leaf 3 and plan 59 criterion 5 — withdrawn on
 measurement rather than built on a heuristic. The argument lives in
-`crates/redox-cli/tests/check/discarded_result.sdx` and its test, so it is in
+`crates/voltaic-cli/tests/check/discarded_result.sdx` and its test, so it is in
 the tree rather than only in a plan.
 
 **One real gap surfaced, and it is plan 07's.** `remap` keeps only positioned
@@ -903,7 +903,7 @@ return type. A `TypeExpr` is verbatim source text by design, so discarding `()`
 made the type list lossy at exactly one point; and a separate flag beside `ret`
 can disagree with `ret`, where `Some("()")` cannot. Omitting `-> ()` is an
 *emission* decision and now lives in `emit/signature.rs`, where rustfmt-shaped
-decisions already do. It is also the correction `redox-fmt`'s
+decisions already do. It is also the correction `voltaic-fmt`'s
 `signature_line.rs` asks for in the general case — *"the AST keeping the source
 spelling and the emitter applying it when it writes"*.
 
@@ -934,7 +934,7 @@ doc comment says.
 ### 10.15 The bill was 225 red tests, and AGENTS.md named it in advance
 
 61 `.sdx` files gained a `()`. But **225 Rust tests went red**, because roughly
-150 Redox programs live as string literals inside Rust test modules.
+150 Voltaic programs live as string literals inside Rust test modules.
 
 AGENTS.md forbids exactly that shape and quotes this exact invoice: *"Emerald's
 one syntax cutover missed 113 fixtures that lived as string literals inside
@@ -966,7 +966,7 @@ ordered so that `sort_by`'s **stability** makes the tiebreak the only thing
 that decides the answer: without `.then (…)` it prints `31` where it prints
 `13`. A golden cannot catch that; `examples/control.stdout` can.
 
-**And §1.3's own spelling has a redundant parenthesis.** `redox fmt` removed
+**And §1.3's own spelling has a redundant parenthesis.** `voltaic fmt` removed
 it, `formatting_preserves_meaning` then held the claim to the AST, and the
 emitted Rust is identical: a method call is a receiver, so `.then` binds to
 the whole of `cmp (&a.1)` and `b.1.cmp (&a.1).then (…)` is the canonical
@@ -1059,7 +1059,7 @@ indented block — and it is leaf 5's *what opened the block* test again, now
 shared as `any_line_head` rather than copied. *Labelled loops and blocks*
 takes `«label» «nl»`, which `'outer loop` and `break 'search c` cannot match.
 
-**`redox fmt` needed one real decision.** A block-valued binding has nothing
+**`voltaic fmt` needed one real decision.** A block-valued binding has nothing
 after its `=`, and `do` was what used to fill that space — so `binding_text`
 chooses its separator from the value's form, or leaves a trailing space on the
 `=` line. That is the only place in that printer where the separator is not a
@@ -1087,7 +1087,7 @@ The eight that stay, each for a named reason rather than by omission:
 
 | Site | Why it stays |
 |---|---|
-| `draw_condition.sdx`'s `halve`, `benchmarks/pairs/guard.sdx`, `redox-fmt`'s `statements.sdx` and `statements.canonical.sdx` | a `guard`'s else branch **must** diverge — rustc's requirement, not a spelling (doc 03 §7.1) |
+| `draw_condition.sdx`'s `halve`, `benchmarks/pairs/guard.sdx`, `voltaic-fmt`'s `statements.sdx` and `statements.canonical.sdx` | a `guard`'s else branch **must** diverge — rustc's requirement, not a spelling (doc 03 §7.1) |
 | `control.sdx`'s `first_divisor` | returns out of a `for`; §10.14 already exempts it from the unit rule for being type `!` |
 | `draw_condition.sdx`'s `first_or`, `destructuring.sdx`'s `has_origin` | an `else`-less `if` with a fall-through default. Making it an `if`/`else` is a restructure, not a rewrite, and `else`-less is the one `if` §10.7 keeps as a statement-shaped form |
 | `tests/ui/return_in_callback_tail.sdx` | the `return` **is** the subject — `RDX0044`, doc 03 §7.6 |
@@ -1102,7 +1102,7 @@ itself, and a pattern test is not one.
 `.stdout` is byte-identical — `git status` names only the `.sdx`, the golden
 and the documents. The golden diff is three `return x;` lines becoming `x`
 plus the amended comment, and the `if` chain is now the function's tail.
-`redox fmt` leaves the rewritten source **byte-identical on the first pass**
+`voltaic fmt` leaves the rewritten source **byte-identical on the first pass**
 and idempotent on the second, so the formatter already preferred the shape the
 `return`s were standing in for.
 
@@ -1127,7 +1127,7 @@ and it has **exactly one caller**: `scan_string`'s `split_parts`. So
 interpolation is the only place in the language where an expression is read
 from a token stream with no layout in it, and `"…"` and `"""…"""` share it
 rather than being two positions. `rust """…"""` is not a candidate at all — its
-body is Rust, carried verbatim, and holds no Redox construct to lose.
+body is Rust, carried verbatim, and holds no Voltaic construct to lose.
 
 **The near-miss is the guard row body, and plan 65 had already paid for it.**
 `guards` reads its body through `inline_body`, one `parse_expr` closed by a
@@ -1162,8 +1162,8 @@ away.
   blessed once at the end of the row rather than per leaf: `RDX0114`, the new
   `tests/ui/` fixture and the moved line counts are all in them. This is now a
   **red gate**, not a pending chore — `status_is_current` fails at `f31d1e6`
-  measuring `crates/redox-cli/tests` at 7,765 lines against the document's
-  7,624, and it is the only failure in the 159-test `redox-cli` suite. Leaf 8
+  measuring `crates/voltaic-cli/tests` at 7,765 lines against the document's
+  7,624, and it is the only failure in the 159-test `voltaic-cli` suite. Leaf 8
   changed nothing under `crates/`, so the gate was red before it and is red
   after it by the same one test.
 - **`construct_coverage.rs` is 1,494 lines against a 1,500-line cap.** Leaf 7
@@ -1174,13 +1174,13 @@ away.
   gave plans 20, 34, 54 and doc 30 a dated note each and corrected plan 60
   §11.4 in place, on the rule that a *finished* plan was correct when written
   and a *planned* one sends an implementer after a type that is not there.
-  Leaf 8 took `docs/06 - Redox Code Architecture.md`, where this bullet said
+  Leaf 8 took `docs/06 - Voltaic Code Architecture.md`, where this bullet said
   **two** rows and there is **one**: §2.4's depth rule illustrated itself with
   `block/stmt/kind.rs`, which is gone, and §2.6's worked example names
   `block/stmt/binding.rs`, which is not. The depth rule now names the sibling
   that exists. This row's own §4 stays as written — it describes what leaf 1
   did, and `StmtKind` is the type leaf 1 deleted.
-- `crates/redox-fmt/tests/fmt/statements.sdx` line 1 still says *"every
+- `crates/voltaic-fmt/tests/fmt/statements.sdx` line 1 still says *"every
   `StmtKind`"*. It is a fixture whose formatted output is compared, so editing
   the comment means editing an expectation pair for a historical note.
 - `emit_expr`'s cognitive complexity rose from 13 to 21. The twelve new arms are

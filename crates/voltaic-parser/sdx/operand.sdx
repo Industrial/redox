@@ -1,0 +1,448 @@
+import crate::ParseError
+import crate::block::qualifiers
+import crate::block::reaches_a_draw_arrow
+import crate::expr::atom
+import crate::expr::binary_op
+import crate::expr::parse_expr
+import crate::item::retired_spelling
+import crate::parser::Parser
+import crate::pattern::pattern_alt
+import crate::signature::TypeStop
+import crate::signature::capture_type
+import crate::signature::rust_generic
+import crate::support::above_bitor
+import crate::token::expr_from_tokens
+import crate::token::rust_string_body
+import crate::token::token_text
+import voltaic_ast::BinaryOp
+import voltaic_ast::Block
+import voltaic_ast::Expr
+import voltaic_ast::FieldInit
+import voltaic_ast::Ident
+import voltaic_ast::Param
+import voltaic_ast::Pattern
+import voltaic_ast::Section
+import voltaic_ast::Signature
+import voltaic_ast::StrInterpPart
+import voltaic_diag::Code
+import voltaic_lexer::Keyword
+import voltaic_lexer::Span
+import voltaic_lexer::StrPart
+import voltaic_lexer::TokenKind
+
+export(crate) assign_tail : &mut Parser -> Expr -> usize -> Result<Expr, ParseError>
+assign_tail p target start =
+  op = if .check (&TokenKind::ColonEq) p
+    .advance p
+    None
+  else
+    guard compound_assign p is Some chosen else
+      return Ok target
+    Some chosen
+  value = Box::new (parse_expr p 0)?
+  Ok (Expr::Assign { target = Box::new target, op, value, span = (start, (.prev_span p).1) })
+
+export(crate) bracketed : &mut Parser -> Result<Expr, ParseError>
+bracketed p =
+  start = (.peek_span p).0
+  (.expect (&TokenKind::LBracket) "expected `[`" p)?
+  .skip_layout p
+  if .check (&TokenKind::RBracket) p
+    .advance p
+    return Ok (Expr::List { items = Vec::new (), span = (start, (.prev_span p).1) })
+  first = (parse_expr p (above_bitor ()))?
+  .skip_layout p
+  if .check (&TokenKind::Or) p
+    .advance p
+    .skip_layout p
+    quals = (qualifiers p)?
+    .skip_layout p
+    (.expect (&TokenKind::RBracket) "expected `]` to close the comprehension" p)?
+    return Ok (Expr::Comprehension { element = Box::new first, qualifiers = quals, span = (start, (.prev_span p).1) })
+  if .check (&TokenKind::Semi) p
+    .advance p
+    .skip_layout p
+    count = (parse_expr p 0)?
+    .skip_layout p
+    (.expect (&TokenKind::RBracket) "expected `]` to close the array repeat" p)?
+    return Ok (Expr::ArrayRepeat { value = Box::new first, count = Box::new count, span = (start, (.prev_span p).1) })
+  mut items = vec! \-> first
+  while .check (&TokenKind::Comma) p
+    .advance p
+    .skip_layout p
+    if .check (&TokenKind::RBracket) p
+      break
+    .push (parse_expr p 0)? items
+    .skip_layout p
+  (.expect (&TokenKind::RBracket) "expected `]` to close the list" p)?
+  Ok (Expr::List { items, span = (start, (.prev_span p).1) })
+
+export(crate) byte_literal : u8 -> String
+byte_literal value = case value of
+  b'\\' -> .to_string "b'\\\\'"
+  b'\'' -> .to_string "b'\\''"
+  0x20..=0x7E -> format! \-> "b'#{char::from value}'"
+  _ -> format! \-> "b'\\x#{value:02X}'"
+
+export(crate) compound_assign : &mut Parser -> Option<BinaryOp>
+compound_assign p =
+  op = case (.peek p).kind of
+    TokenKind::PlusEq -> BinaryOp::Add
+    TokenKind::MinusEq -> BinaryOp::Sub
+    TokenKind::StarEq -> BinaryOp::Mul
+    TokenKind::SlashEq -> BinaryOp::Div
+    TokenKind::PercentEq -> BinaryOp::Rem
+    _ ->
+      return None
+  .advance p
+  Some op
+
+export(crate) constructor_path : &mut Parser -> Option<String>
+constructor_path p =
+  guard &(.peek p).kind is TokenKind::Ident first else
+    return None
+  if !.is_some_and char::is_uppercase (.next (.chars first))
+    return None
+  mut text = .clone first
+  .advance p
+  while .check (&TokenKind::ColonColon) p
+    .advance p
+    guard &(.peek p).kind is TokenKind::Ident next else
+      break
+    .push_str "::" text
+    .push_str next text
+    .advance p
+  Some text
+
+export(crate) field_init : &mut Parser -> Result<FieldInit, ParseError>
+field_init p =
+  start = (.peek_span p).0
+  name = (.ident "expected a field name" p)?
+  value = if .check (&TokenKind::Eq) p
+    .advance p
+    Some (parse_expr p 0)?
+  else
+    None
+  Ok (FieldInit { name, value, span = (start, (.prev_span p).1) })
+
+export(crate) interpolated_string : &[StrPart] -> Span -> Result<Expr, ParseError>
+interpolated_string parts span =
+  mut out = Vec::with_capacity (.len parts)
+  for part in parts
+    case part of
+      StrPart::Text text -> .push (StrInterpPart::Text (rust_string_body text)) out
+      StrPart::Interp { tokens, spec } ->
+        .push (StrInterpPart::Interp { expr = (expr_from_tokens tokens span)?, spec = .clone spec }) out
+  Ok (Expr::StrInterp { parts = out, span })
+
+export(crate) lambda : &mut Parser -> Result<Expr, ParseError>
+lambda p =
+  start = (.peek_span p).0
+  is_move = .eat_keyword Keyword::Move p
+  (.expect (&TokenKind::Backslash) "expected `\\` to open a lambda" p)?
+  mut params = Vec::new ()
+  while !.check (&TokenKind::Arrow) p && !.at_eof p
+    name = (.ident "expected a lambda parameter name" p)?
+    ty = if .check (&TokenKind::Colon) p
+      .advance p
+      Some (capture_type p "expected a type after `:`" TypeStop::Greedy)?
+    else
+      None
+    at = name.span
+    .push (Param { name, ty, is_mut = false, span = at }) params
+  (.expect (&TokenKind::Arrow) "expected `->` after the lambda's parameters" p)?
+  body = (parse_expr p 0)?
+  span = (start, (.span body).1)
+  Ok (Expr::Lambda { params, body = Box::new body, is_move, span })
+
+export(crate) macro_call : &mut Parser -> Result<Expr, ParseError>
+macro_call p =
+  head = (path_or_ident p)?
+  if !.check (&TokenKind::Bang) p || (.peek p).ws_before
+    if &head is Expr::Ident name && retired_spelling name is Some retired
+      return Err retired
+    return Ok head
+  .advance p
+  name = case &head of
+    Expr::Ident i -> .clone i.text
+    Expr::Path { text, .. } -> .clone text
+    other ->
+      unreachable! \-> "a macro head is a name or a path, not #{other:?}"
+  start = (.span head).0
+  mut args = Vec::new ()
+  while .check (&TokenKind::Backslash) p && .is_some_and (\t -> t.kind == TokenKind::Arrow) (.peek_at 1 p)
+    .advance p
+    .advance p
+    .push (parse_expr p 0)? args
+  Ok (Expr::MacroCall { name, args, span = (start, (.prev_span p).1) })
+
+export(crate) method_call_syntax : &str -> Span -> ParseError
+method_call_syntax name span =
+  help = format! \-> "a method is a function whose last argument is its receiver, so write `.#{name} args recv` or `recv |> .#{name} args`. `.` is field access and nothing else (plan 57 §1.1)"
+  ParseError::with_help Code::MethodCallSyntax "method-call syntax is retired" help span
+
+export(crate) data MethodContext = MethodContext { export vars : Vec<(String, String)>, export recording : Option<String>, export implementing : Option<String> }
+
+instance MethodContext
+  export(crate) for_class : &[Ident] -> Self
+  for_class params =
+    vars = params
+      |> .iter
+      |> .map (\param -> (.clone param.text, rust_generic (&param.text)))
+      |> .collect
+    MethodContext { vars, recording = None, implementing = None }
+
+  export(crate) for_instance : Option<&str> -> &str -> Self
+  for_instance var subject =
+    vars = var
+      |> .map (\found -> (.to_string found, .to_string subject))
+      |> .into_iter
+      |> .collect
+    MethodContext { vars, recording = None, implementing = None }
+
+  export(crate) reserved : &self -> Vec<String>
+  reserved self =
+    self.vars
+      |> .iter
+      |> .map (\pair -> .clone pair.0)
+      |> .collect
+
+export(crate) opens_a_section : &TokenKind -> bool
+opens_a_section kind = case kind of
+  TokenKind::Minus or TokenKind::Amp or TokenKind::Star or TokenKind::Bang -> false
+  _ -> true
+
+export(crate) opens_an_over : &Parser -> bool
+opens_an_over p =
+  word_is_over = case &(.peek p).kind of
+    TokenKind::Ident text -> text == "over"
+    _ -> false
+  if !word_is_over
+    return false
+  opens = .is_some_and (\t -> t.kind == TokenKind::LParen) (.peek_at 1 p)
+  selects = .is_some_and (\t -> t.kind == TokenKind::Dot) (.peek_at 2 p)
+  opens && selects
+
+export(crate) optional_chaining : Span -> ParseError
+optional_chaining span =
+  ParseError::with_help Code::OptionalChaining "`?.` is retired" "write the `?` run its own lowering always was — `try` with `Some (&u.as_ref ()? .profile.as_ref ()? .name)` — and keep the `&`, because a field selector moves (plan 57 §11.4). `x? .name`, with a space, is `?` and then a field" span
+
+export(crate) over_update : &mut Parser -> usize -> Result<Expr, ParseError>
+over_update p start =
+  .advance p
+  at_selector = .peek_span p
+  (.expect (&TokenKind::LParen) "expected `(` to open the selector" p)?
+  guard (section p at_selector.0)? is Some selected else
+    return Err $ ParseError::with_help Code::OverShape "expected a field selector after `over`" "`over` takes a parenthesised path — `over (.addr.city) .to_uppercase u`" at_selector
+  guard selected is Expr::Section { section = Section::Field path, .. } else
+    return Err $ ParseError::with_help Code::OverShape "expected a field selector after `over`" "`over` takes a parenthesised path of field names — `over (.addr.city) .to_uppercase u`. `(.cmp y)` is a method application, not a path" at_selector
+  function = (atom p)?
+  place = (atom p)?
+  Ok (Expr::Over { selector = path, function = Box::new function, place = Box::new place, span = (start, (.prev_span p).1) })
+
+export(crate) path_or_ident : &mut Parser -> Result<Expr, ParseError>
+path_or_ident p =
+  first = (.ident "expected a name" p)?
+  if !.check (&TokenKind::ColonColon) p
+    return Ok (Expr::Ident first)
+  start = first.span.0
+  mut text = first.text
+  mut tight_through = first.span.1
+  while .check (&TokenKind::ColonColon) p
+    separator = .peek_span p
+    if separator.0 > tight_through
+      return Err (ParseError::r#with Code::SpacedPathSeparator "`::` joins a path, so it takes no space before it — write `:` to annotate a type, or close up the `::` to name a path" separator)
+    .advance p
+    next = (.ident "expected a name after `::`" p)?
+    .push_str "::" text
+    .push_str (&next.text) text
+    tight_through := next.span.1
+  Ok (Expr::Path { text, span = (start, (.prev_span p).1) })
+
+export(crate) pipeline_section : &str -> Span -> ParseError
+pipeline_section name span =
+  help = format! \-> "write `.#{name}` — a method is a function awaiting its receiver, and it lowers to the closure this spelled. `(.#{name})` still selects a *field* (plan 57 §1.3)"
+  ParseError::with_help Code::PipelineSection "the `(|> name)` method reference is retired" help span
+
+export(crate) range_or_literal : &mut Parser -> String -> Span -> Pattern
+range_or_literal p lo span =
+  inclusive = case &(.peek p).kind of
+    TokenKind::DotDotEq -> true
+    TokenKind::DotDot -> false
+    _ ->
+      return Pattern::Literal { text = lo, span }
+  .advance p
+  hi = token_text $ &(.peek p).kind
+  end = (.peek_span p).1
+  .advance p
+  Pattern::Range { lo, hi, inclusive, span = (span.0, end) }
+
+export(crate) receiver : &mut Signature -> ()
+receiver sig =
+  guard .position (\param -> .is_some_and (\ty -> .is_some (receiver_text (&ty.text))) (.as_ref param.ty)) (.iter sig.params) is Some at else
+    return ()
+  text = sig.params[at].ty
+    |> .as_ref
+    |> .and_then (\ty -> receiver_text (&ty.text))
+    |> .expect "the position just matched"
+  span = sig.params[at].span
+  sig.params[at] := Param { name = Ident { text, span }, ty = None, is_mut = false, span }
+  if at > 0
+    n = .len sig.params
+    mut order : Vec<usize> = .collect (0 .. n)
+    .remove at order
+    .insert 0 at order
+    for pair in .enumerate (.into_iter order)
+      rust_at = pair.0
+      from = pair.1
+      name = &mut sig.params[from].name.text
+      if .starts_with "__rdx_a" name
+        *name := format! \-> "__rdx_a#{rust_at}"
+  ()
+
+export(crate) receiver_text : &str -> Option<String>
+receiver_text ty =
+  split = if .strip_prefix "&mut " ty is Some rest
+    ("&mut ", rest)
+  else if .strip_prefix '&' ty is Some rest
+    ("&", rest)
+  else if .strip_prefix "mut " ty is Some rest
+    ("mut ", rest)
+  else
+    ("", ty)
+  if .trim split.1 != "self"
+    return None
+  prefix = split.0
+  Some $ format! \-> "#{prefix}self"
+
+export(crate) record_literal : &mut Parser -> Expr -> Result<Expr, ParseError>
+record_literal p head =
+  start = (.span head).0
+  (.expect (&TokenKind::LBrace) "expected `{` to open a record" p)?
+  mut fields = Vec::new ()
+  loop
+    .skip_layout p
+    if .check (&TokenKind::RBrace) p
+      break
+    .push (field_init p)? fields
+    .skip_layout p
+    if !.check (&TokenKind::Comma) p
+      break
+    .advance p
+  .skip_layout p
+  (.expect (&TokenKind::RBrace) "expected `}` to close the record" p)?
+  Ok (Expr::Record { head = Box::new head, fields, span = (start, (.prev_span p).1) })
+
+export(crate) section : &mut Parser -> usize -> Result<Option<Expr>, ParseError>
+section p start =
+  mark = .position p
+  names_a_field = if .peek_at 1 p is Some next
+    case next.kind of
+      TokenKind::Ident _ -> true
+      _ -> false
+  else
+    false
+  if .check (&TokenKind::Dot) p && names_a_field
+    .advance p
+    mut path = vec! \-> (.ident "expected a field name after `.`" p)?
+    while .check (&TokenKind::Dot) p && (if .peek_at 1 p is Some next
+      case next.kind of
+        TokenKind::Ident _ -> true
+        _ -> false
+    else
+      false)
+      .advance p
+      .push (.ident "expected a field name after `.`" p)? path
+    if .check (&TokenKind::RParen) p
+      .advance p
+      return Ok (Some (Expr::Section { section = Section::Field path, span = (start, (.prev_span p).1) }))
+    .rewind mark p
+    return Ok None
+  if .check (&TokenKind::Pipe) p && .peek_at 1 p is Some token && &token.kind is TokenKind::Ident named
+    end = token.span.1
+    return Err (pipeline_section named (start, end))
+  if opens_a_section (&(.peek p).kind)
+    if binary_op p is Some leading_op
+      operand = (parse_expr p 0)?
+      (.expect (&TokenKind::RParen) "expected `)` to close the section" p)?
+      return Ok (Some (Expr::Section { section = Section::Right { op = leading_op, operand = Box::new operand }, span = (start, (.prev_span p).1) }))
+    .rewind mark p
+  guard atom p is Ok operand else
+    .rewind mark p
+    return Ok None
+  if binary_op p is Some trailing_op && .check (&TokenKind::RParen) p
+    .advance p
+    return Ok (Some (Expr::Section { section = Section::Left { op = trailing_op, operand = Box::new operand }, span = (start, (.prev_span p).1) }))
+  .rewind mark p
+  Ok None
+
+export(crate) try_await : &mut Parser -> Result<Option<Expr>, ParseError>
+try_await p =
+  start = (.peek_span p).0
+  if .check (&TokenKind::DrawArrow) p
+    .advance p
+    effect = Box::new (parse_expr p 0)?
+    return Ok (Some (Expr::Await { pattern = None, value = effect, span = (start, (.prev_span p).1) }))
+  if !reaches_a_draw_arrow p
+    return Ok None
+  pattern = (pattern_alt p)?
+  (.expect (&TokenKind::DrawArrow) "expected `<-`" p)?
+  value = Box::new (parse_expr p 0)?
+  Ok $ Some $ Expr::Await { pattern = Some pattern, value, span = (start, (.prev_span p).1) }
+
+export(crate) ungrouped : &str -> String
+ungrouped text =
+  guard .and_then (\t -> .strip_suffix ')' t) (.strip_prefix '(' text) is Some inner else
+    return .to_string text
+  chars : Vec<char> = inner |> .chars |> .collect
+  mut depth : i32 = 0
+  mut top_level_arrow = false
+  mut top_level_comma = false
+  mut i = 0
+  n = .len chars
+  while i < n
+    if chars[i] == '-' && .get (i + 1) chars == Some (&'>')
+      top_level_arrow := top_level_arrow || depth == 0
+      i += 2
+      continue
+    case chars[i] of
+      '(' or '[' or '<' -> depth += 1
+      ')' or ']' or '>' -> depth -= 1
+      ',' | depth == 0 -> top_level_comma := true
+      _ -> ()
+    if depth < 0
+      return .to_string text
+    i += 1
+  if depth != 0 || !top_level_arrow || top_level_comma
+    return .to_string text
+  .to_string inner
+
+test "a function types grouping goes"
+  assert_eq! \-> ungrouped "(impl Fn(char) -> bool)" \-> "impl Fn(char) -> bool"
+
+test "a tuple a unit and a trait object keep theirs"
+  assert_eq! \-> ungrouped "(i32, u32)" \-> "(i32, u32)"
+  assert_eq! \-> ungrouped "()" \-> "()"
+  assert_eq! \-> ungrouped "(dyn Display)" \-> "(dyn Display)"
+
+test "a tuple holding a function type keeps its parentheses"
+  assert_eq! \-> ungrouped "(&str, fn(char) -> bool)" \-> "(&str, fn(char) -> bool)"
+
+test "two groups are not one"
+  assert_eq! \-> ungrouped "(a) -> (b)" \-> "(a) -> (b)"
+
+test "an unparenthesised type is untouched"
+  assert_eq! \-> ungrouped "Vec<Vec<u8>>" \-> "Vec<Vec<u8>>"
+  assert_eq! \-> ungrouped "&'a str" \-> "&'a str"
+
+export(crate) unit_tail : &Ident -> &Block -> Result<(), ParseError>
+unit_tail name block =
+  guard .last block.stmts is Some last else
+    return Ok ()
+  spells_unit = case last.expr of
+    Expr::Unit { .. } or Expr::Return { .. } or Expr::Break { .. } or Expr::Continue { .. } -> true
+    _ -> false
+  if spells_unit
+    return Ok ()
+  message = format! \-> "`#{name.text}` returns `()`, so its body must end with `()`"
+  Err $ ParseError::with_help Code::UnitTail message "write `()` as the body's last line — plan 55 §1.6 spells a unit value rather than implying it, so a body ending in a loop, a binding or an assignment cannot become `()` by arriving last" last.span

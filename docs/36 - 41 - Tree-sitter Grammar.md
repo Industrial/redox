@@ -9,7 +9,7 @@ Status: `done` — all four leaves shipped 2026-11-09
 
 ## 1. What this plan is
 
-`tree-sitter-redox/` per doc 02 §5.4: `grammar.js`, an external scanner in C for
+`tree-sitter-voltaic/` per doc 02 §5.4: `grammar.js`, an external scanner in C for
 `INDENT`/`DEDENT`/`NEWLINE`, the generated parser, the three query files, and a corpus suite.
 
 Doc 04's cell discloses the cost rather than hiding it, and the disclosure is the right one:
@@ -21,7 +21,7 @@ that does not is a tool.
 ### 1.1 Verified preconditions
 
 Spiked end to end before this plan was written, because every claim below is about a toolchain
-rather than about Redox.
+rather than about Voltaic.
 
 **The tools are present**, and nixpkgs agrees with the system on the version:
 
@@ -64,7 +64,7 @@ The decision that shapes the whole row. A tree-sitter grammar could aim at two t
 
 | Aim | What it costs |
 |---|---|
-| **Parity** with `redox-parser` | A second implementation of the language, which drifts, and which plan 46's inventory would have to police forever |
+| **Parity** with `voltaic-parser` | A second implementation of the language, which drifts, and which plan 46's inventory would have to police forever |
 | **Highlighting, folding and selection** | A shallower grammar that is exactly right about block structure and deliberately approximate inside an expression |
 
 This row takes the second, and the argument is not that it is cheaper. It is that **the
@@ -121,8 +121,8 @@ Not applicable: no construct, no lowering. This row adds a grammar.
 ## 3. Concrete proof this plan targets
 
 ```bash
-cd tree-sitter-redox && tree-sitter test          # the corpus cases
-cargo test -p redox-cli --test tree_sitter        # the no-ERROR sweep
+cd tree-sitter-voltaic && tree-sitter test          # the corpus cases
+cargo test -p voltaic-cli --test tree_sitter        # the no-ERROR sweep
 ```
 
 The sweep is a Rust test in the workspace rather than a shell script, so it runs in the same
@@ -175,14 +175,14 @@ flat expression rule. Plus the no-`ERROR` sweep, which is what tells this leaf i
 5. `highlights.scm` colours every token kind the lexer produces, which is the same table plan
    40's semantic tokens built — and the two are checked against each other, because two
    highlighters that disagree are worse than one.
-6. `injections.scm` injects Rust into nothing. Redox has no embedded-language construct, and
+6. `injections.scm` injects Rust into nothing. Voltaic has no embedded-language construct, and
    the file exists to say so rather than to be forgotten — §6.
 
 ---
 
 ## 6. Out of scope, and what it discloses
 
-- **Parity with `redox-parser`.** §1.2's whole argument. The grammar cannot answer *is this
+- **Parity with `voltaic-parser`.** §1.2's whole argument. The grammar cannot answer *is this
   valid*, and plan 46's inventory must compare token kinds and block structure rather than
   productions — recorded here as a constraint on that row rather than discovered by it.
 - **The editor configs.** Plan 49's, per the register's 2026-11-08 narrowing.
@@ -225,13 +225,13 @@ declines.
 | 4 | The no-`ERROR` sweep over `examples/` is the main assertion | Hand-written corpus expectations alone | Those check what the author last thought; the corpus checks the language, and it is maintained by someone else's gate |
 | 5 | Include `lexical.sdx` in the sweep | Exempt it, as the compiler's own tests do | It is exempt there because it does not *parse*; a highlighting grammar should survive it, and the independent check is worth least on files the compiler already accepts |
 | 6 | Shell out to the CLI from a Rust test | Link the `tree-sitter` crate | Linking puts a `cc` build of the generated parser into every `cargo check` to serve one test |
-| 7 | Ship an empty `injections.scm` | Omit the file | Redox has no embedded language; a file that says so will not be rediscovered as a gap |
+| 7 | Ship an empty `injections.scm` | Omit the file | Voltaic has no embedded language; a file that says so will not be rediscovered as a gap |
 
 ---
 
 ## 10. Result
 
-Shipped 2026-11-09. `tree-sitter-redox/` — `grammar.js`, a nesting-aware external scanner,
+Shipped 2026-11-09. `tree-sitter-voltaic/` — `grammar.js`, a nesting-aware external scanner,
 the generated ABI 15 parser, three query files, five corpus cases, and a Rust sweep in the
 workspace gate.
 
@@ -287,7 +287,7 @@ entry, which tree-sitter's GLR explores at parse time. `pattern_test` had the sa
 same reason.
 
 The grammar's `conflicts` list is eighteen entries and every one of them is honest: the
-language has real ambiguities, and `f (x) = y` against `f (x)` is the one `redox-parser`
+language has real ambiguities, and `f (x) = y` against `f (x)` is the one `voltaic-parser`
 resolves by scanning forward to an `=` at depth zero. A conflict here is the same decision made
 by a different mechanism.
 
