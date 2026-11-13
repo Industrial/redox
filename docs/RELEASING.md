@@ -167,14 +167,56 @@ so the eight crates need no owner step before the first release.
 
 ### Secrets and environments to set up
 
-| Name | Where | Needed by |
-|---|---|---|
-| `CARGO_REGISTRY_TOKEN` | the `crates-io` environment | `publish` |
-| `NIXPKGS_PR_TOKEN` | repository secret; a PAT that can push to `Industrial/nixpkgs` | `nixpkgs` |
+Two secrets, and they go in **different places**, because the `publish` job
+declares `environment: crates-io` and the `nixpkgs` job declares no environment
+at all.
+
+| Name | Where exactly | Needed by | Needed from |
+|---|---|---|---|
+| `CARGO_REGISTRY_TOKEN` | Settings → Environments → `crates-io` → *Add environment secret* | `publish` | the first release |
+| `NIXPKGS_PR_TOKEN` | Settings → Secrets and variables → Actions → *New repository secret* | `nixpkgs` | the first *bump*, not the first release |
+
+`CARGO_REGISTRY_TOKEN` comes from crates.io → Account Settings → API Tokens, with
+the `publish-new` and `publish-update` scopes. Scope it to the `voltaic-*` crates
+if you like; it needs `publish-new` because the first release creates them.
+
+`NIXPKGS_PR_TOKEN` is a GitHub PAT that can push a branch to the
+`Industrial/nixpkgs` fork and open a PR from it against `NixOS/nixpkgs`:
+
+- **Classic token** (<https://github.com/settings/tokens/new>), scope
+  **`public_repo`**. This is the dependable choice. nixpkgs and the fork are both
+  public, so `public_repo` is enough and `repo` would be needlessly broad.
+- **Fine-grained token** (<https://github.com/settings/personal-access-tokens/new>)
+  is tighter — resource owner `Industrial`, repository access limited to
+  `Industrial/nixpkgs`, permissions *Contents: read and write* and *Pull
+  requests: read and write*. Opening a pull request **across** repositories is
+  the part fine-grained tokens have historically been awkward about, since the
+  base repo is not one the token selects. Worth trying; if the `gh pr create`
+  step fails with a permissions error while the push succeeded, that is this, and
+  the classic token is the fallback.
+
+Mind the **expiry**. A token that lapses turns into a release that publishes to
+crates.io and silently stops updating nixpkgs. The job is built so that cannot
+pass unnoticed — a missing token with the package already upstream fails loudly
+rather than skipping — but an expiry you have to remember is still worse than one
+you do not, so prefer a long or no expiry and treat the job's error as the
+reminder.
 
 Protecting the `crates-io` environment is worth doing: Settings →
 Environments → `crates-io`, deployment refs limited to `v*` tags plus whatever
 branch dry runs are dispatched from.
+
+#### Running without `NIXPKGS_PR_TOKEN`
+
+Deliberately supported, because it is the state of the first release. Everything
+the `nixpkgs` job does apart from the push and the PR is read-only against public
+repositories, so with no token it still checks out the fork, reports whether the
+package is upstream, and stops. The asymmetry is the useful part:
+
+| | no token | token |
+|---|---|---|
+| package not yet in nixpkgs | passes, with a notice | passes, with a notice |
+| package in nixpkgs | **fails loudly** | opens the bump PR |
 
 ## Known rough edges
 

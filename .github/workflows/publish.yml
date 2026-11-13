@@ -521,6 +521,30 @@ jobs:
       VERSION: ${{ needs.verify-versions.outputs.version }}
       TAG: ${{ needs.verify-versions.outputs.tag }}
     steps:
+      # Everything this job does except the final push and PR is read-only
+      # against public repositories, so it works with no token at all — which is
+      # exactly the state of the *first* release, before the package is upstream
+      # and before anyone has had a reason to create one.
+      #
+      # Checked here rather than left to fail at `git push`, which reports a
+      # missing token as `fatal: could not read Username for
+      # 'https://github.com'` — true, and useless. The asymmetry below is the
+      # point: no token with nothing upstream is normal and passes; no token with
+      # the package upstream is a release that has quietly stopped bumping
+      # nixpkgs, which is worse than a red job and so is made into one.
+      - name: Is the push token present?
+        id: token
+        env:
+          NIXPKGS_PR_TOKEN: ${{ secrets.NIXPKGS_PR_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -n "${NIXPKGS_PR_TOKEN:-}" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::NIXPKGS_PR_TOKEN is not set. Reading nixpkgs needs no token, so this job will still report what it would have done, then stop before pushing."
+            echo "::notice::docs/RELEASING.md says where to add it."
+          fi
       - name: Install Nix
         uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
         with:
@@ -530,7 +554,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Industrial/nixpkgs
-          token: ${{ secrets.NIXPKGS_PR_TOKEN }}
+          # The fork is public, so reading it needs no special token; falling
+          # back to the run's own keeps the no-token path above working instead
+          # of failing checkout with an empty credential.
+          token: ${{ secrets.NIXPKGS_PR_TOKEN || github.token }}
           path: nixpkgs
           fetch-depth: 1
       - name: Reset the fork's branch to upstream master
@@ -574,7 +601,7 @@ jobs:
         working-directory: nixpkgs
         run: nix-build -A "$PNAME"
       - name: Push the branch and open the PR
-        if: steps.present.outputs.present == 'true'
+        if: steps.present.outputs.present == 'true' && steps.token.outputs.present == 'true'
         working-directory: nixpkgs
         env:
           GH_TOKEN: ${{ secrets.NIXPKGS_PR_TOKEN }}
@@ -626,3 +653,15 @@ jobs:
             --base master \
             --title "$title" \
             --body-file /tmp/pr-body.md
+      # The asymmetry the token check at the top of this job describes. Missing
+      # token with nothing upstream is the ordinary first-release state and
+      # passes quietly; missing token with the package already in nixpkgs means
+      # this release did not bump it and no later one will either, silently,
+      # until somebody notices nixpkgs is months behind. Loud is better.
+      - name: A missing token is a failure once the package is upstream
+        if: steps.present.outputs.present == 'true' && steps.token.outputs.present != 'true'
+        run: |
+          echo "::error::voltaic is in nixpkgs but NIXPKGS_PR_TOKEN is not set, so no bump PR was opened."
+          echo "::error::The crates.io release and the GitHub Release both succeeded; only the nixpkgs bump is missing."
+          echo "::error::Add the secret (see docs/RELEASING.md) and re-run this job."
+          exit 1
