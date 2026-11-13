@@ -3,6 +3,17 @@ name = "voltaic-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "The Voltaic compiler: .sdx in, .xrs containing ordinary Rust out."
+readme = "README.md"
+keywords = ["compiler", "transpiler", "language", "voltaic"]
+categories = ["development-tools", "compilers", "command-line-utilities"]
+
+# Why `include` is not optional here — see `crates/voltaic-diag/Cargo.toml`.
+# `README.md` is listed because this is the crate a user reaches for with
+# `cargo install`, so it is the one whose crates.io page needs to say something.
+include = ["src/**/*.rs", "sdx/**/*.sdx", "README.md", "Cargo.toml"]
 
 # The shipped binary is `voltaic`; the crate stays `voltaic-cli` so
 # `cargo build -p voltaic-cli` keeps working. Emerald's own convention, adopted
@@ -18,12 +29,12 @@ path = "src/main.rs"
 # doc 02 §5.5 says not to write. The alternative is polling mtime on a
 # timer, the heuristic plan 12 §1.1 exists to avoid.
 notify = "8"
-voltaic-diag = { path = "../voltaic-diag" }
-voltaic-driver = { path = "../voltaic-driver" }
-voltaic-emit = { path = "../voltaic-emit" }
+voltaic-diag.workspace = true
+voltaic-driver.workspace = true
+voltaic-emit.workspace = true
 # Plan 34: `voltaic fmt`.
-voltaic-fmt = { path = "../voltaic-fmt" }
-voltaic-parser = { path = "../voltaic-parser" }
+voltaic-fmt.workspace = true
+voltaic-parser.workspace = true
 
 [dev-dependencies]
 # Plan 51 leaf 2: `construct_coverage` matches the corpus on the **token

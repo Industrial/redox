@@ -3,6 +3,11 @@ name = "voltaic-bench"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "Voltaic's zero-cost benchmarks: identical optimised IR, asserted rather than timed."
+
+# Internal. Doc 03's zero-cost claim is a gate on this repository, not a library
+# anyone depends on, so it stays off crates.io and needs no `include`.
+publish = false
 
 [dependencies]
 # Plan 44 leaf 2's report transpiles the corpus to time it, which needs the

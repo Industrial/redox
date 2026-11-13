@@ -3,9 +3,15 @@ name = "voltaic-ast"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Syntax tree types for the Voltaic language."
+
+# Why `include` is not optional here — see `crates/voltaic-diag/Cargo.toml`.
+include = ["src/**/*.rs", "sdx/**/*.sdx", "Cargo.toml"]
 
 [dependencies]
-voltaic-lexer = { path = "../voltaic-lexer" }
+voltaic-lexer.workspace = true
 
 # The five surface-fact allows — see the root manifest.
 [lints]

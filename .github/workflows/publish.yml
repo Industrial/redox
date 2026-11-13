@@ -1,0 +1,628 @@
+name: Publish to crates.io
+# Trigger: push a semver tag, e.g.  git tag -a v0.1.0 -m v0.1.0 && git push origin v0.1.0
+# The tag must match [workspace.package] version. docs/RELEASING.md has the flow.
+#
+#   verify-versions     the tag equals the workspace version
+#   test                the same gate ci.yml runs, on the tagged tree
+#   validate-packaging  publish order, dependency rules, and that each packaged
+#                       crate contains Rust and compiles from its archive
+#   build               cargo package --locked of every published crate, one
+#                       CycloneDX SBOM each, and a determinism check on the
+#                       bootstrap that the whole attestation scheme rests on
+#   provenance          SLSA Build L3 provenance over those files
+#   publish             cargo publish in dependency order; skips versions already
+#                       on crates.io, so a re-run after a partial publish
+#                       resumes; checks each uploaded .crate against its digest
+#   verify              re-downloads every crate from crates.io: sha256 ==
+#                       attested digest, then slsa-verifier
+#   release             GitHub Release with the .crate files, SBOMs and provenance
+#   nixpkgs             opens the nixpkgs version-bump PR, only after all of the above
+#
+# Adapted from Industrial/id_effect's publish.yml. The structural difference is
+# the same one ci.yml opens with: **a clean checkout has no generated Rust.**
+# Every crate under crates/ is written in Voltaic and its src/ is generated from
+# sdx/ by the seed, so every job that runs cargo must bootstrap first. That is
+# what .github/actions/setup-voltaic does.
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (package, attest and cargo publish --dry-run; nothing is uploaded)"
+        required: false
+        default: false
+        type: boolean
+permissions:
+  contents: read
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  NEXTEST_NO_TESTS: pass
+  # moon's rust toolchain would otherwise download a second rustc that disagrees
+  # with the one the setup action installs.
+  MOON_TOOLCHAIN_FORCE_GLOBALS: rust
+  # One toolchain for every job. `cargo package` is byte-reproducible for the
+  # same tree, lockfile and cargo version, which is what lets `publish` upload
+  # the bytes `build` attested. Keep equal to ci.yml's RUST_TOOLCHAIN:
+  # tests/ui snapshots rustc diagnostics, so a floating `stable` re-blesses them
+  # on every rustc release.
+  RUST_TOOLCHAIN: "1.97.1"
+jobs:
+  verify-versions:
+    name: Verify the tag matches the workspace version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      dry-run: ${{ steps.version.outputs.dry-run }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Extract the version from the tag, or from the workspace
+        id: version
+        env:
+          DRY_RUN: ${{ inputs.dry_run == true }}
+        run: |
+          set -euo pipefail
+          # Read [workspace.package] version specifically. A plain
+          # `grep -m1 '^version = '` would be ambiguous now that the root
+          # manifest also carries a [workspace.dependencies] block.
+          ws_version() {
+            awk '
+              /^\[workspace\.package\]/ { in_section = 1; next }
+              /^\[/                     { in_section = 0 }
+              in_section && $1 == "version" { gsub(/"/, "", $3); print $3; exit }
+            ' Cargo.toml
+          }
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            TAG="$GITHUB_REF_NAME"
+            VERSION="${TAG#v}"
+          else
+            # Dry runs from a branch have no tag to read.
+            TAG=""
+            VERSION=$(ws_version)
+          fi
+          {
+            echo "version=$VERSION"
+            echo "tag=$TAG"
+            echo "dry-run=$DRY_RUN"
+          } >> "$GITHUB_OUTPUT"
+          echo "Publishing version: $VERSION (tag: ${TAG:-none}, dry run: $DRY_RUN)"
+      - name: Require a release tag
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          DRY_RUN: ${{ steps.version.outputs.dry-run }}
+        run: |
+          set -euo pipefail
+          if [ -z "$TAG" ]; then
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "Dry run from a branch: no tag to check."
+              exit 0
+            fi
+            echo "::error::A real publish runs from a v* tag (push the tag, or dispatch on the tag ref)."
+            exit 1
+          fi
+          echo "Publishing from tag $TAG."
+      - name: The tag equals the workspace version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          [ -n "$TAG" ] || exit 0
+          WS_VER=$(awk '
+            /^\[workspace\.package\]/ { in_section = 1; next }
+            /^\[/                     { in_section = 0 }
+            in_section && $1 == "version" { gsub(/"/, "", $3); print $3; exit }
+          ' Cargo.toml)
+          if [ "$WS_VER" != "$VERSION" ]; then
+            echo "::error::[workspace.package] version is $WS_VER but the tag says $VERSION."
+            exit 1
+          fi
+          # Every publishable crate inheriting that version, and the
+          # [workspace.dependencies] copies agreeing with it, is checked by
+          # scripts/validate-crate-packaging.sh in the validate-packaging job.
+          # Stating it twice would be two things free to disagree.
+          echo "[workspace.package] version is $WS_VER, matching the tag."
+  test:
+    name: Pre-publish gate
+    runs-on: ubuntu-latest
+    needs: [verify-versions]
+    timeout-minutes: 45
+    env:
+      # Line tables keep backtraces and shrink target/ several-fold, as in ci.yml.
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
+      CARGO_PROFILE_TEST_DEBUG: line-tables-only
+    steps:
+      # A standard runner has ~14 GB free, most of it preinstalled toolchains
+      # this job never uses.
+      - name: Free runner disk space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-voltaic
+        with:
+          rust-toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+          install-moon: "true"
+          install-tree-sitter: "true"
+          install-nextest: "true"
+      - name: Pre-fetch rust-src (the nested build races on downloading it)
+        run: rustup component add rust-src --toolchain ${{ env.RUST_TOOLCHAIN }}
+      - name: moon sync
+        run: moon sync
+      # `moon run :test` rather than a second, differently-spelled cargo
+      # invocation. ci.yml's gate is the one that has been kept green; a publish
+      # workflow with its own idea of "the tests" is a second gate free to drift
+      # from it.
+      - name: 'moon run :test'
+        run: moon run :test
+  validate-packaging:
+    name: Validate crate packaging
+    runs-on: ubuntu-latest
+    needs: [test]
+    timeout-minutes: 30
+    env:
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
+      CARGO_PROFILE_TEST_DEBUG: line-tables-only
+    steps:
+      - name: Free runner disk space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-voltaic
+        with:
+          rust-toolchain: ${{ env.RUST_TOOLCHAIN }}
+      # Publish order, the dependency rules, that every packaged crate contains
+      # Rust, and that each one compiles from its own archive.
+      - name: Validate all crates can package for publish
+        run: ./scripts/validate-crate-packaging.sh
+  # ──────────────────────────────────────────────────────────────────────────
+  # Supply chain: build packages every published crate and writes its SBOM;
+  # provenance signs SLSA Build L3 provenance over exactly those files; publish
+  # uploads the same tree and checks each uploaded .crate against the attested
+  # digest; verify re-downloads every crate from crates.io and runs
+  # slsa-verifier. No cache in build or publish: nothing is compiled there
+  # (`--no-verify`; test and validate-packaging do the building), and a cache is
+  # an input the provenance cannot describe.
+  # ──────────────────────────────────────────────────────────────────────────
+  build:
+    name: Package crates and SBOMs
+    runs-on: ubuntu-latest
+    needs: [verify-versions, validate-packaging]
+    timeout-minutes: 30
+    outputs:
+      hashes: ${{ steps.hashes.outputs.hashes }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-voltaic
+        with:
+          rust-toolchain: ${{ env.RUST_TOOLCHAIN }}
+          cache: "false"
+      # The whole attest-then-publish scheme rests on `cargo package` being
+      # byte-identical for the same tree. Here the packaged tree contains Rust
+      # that the seed GENERATED, and `build` and `publish` bootstrap
+      # independently — so if the seed's output is not reproducible, the digest
+      # check in publish-crate.sh fails with what reads like evidence of
+      # tampering. This step makes that failure arrive here instead, named, and
+      # before anything is signed or uploaded.
+      - name: The generated Rust is byte-reproducible
+        run: |
+          set -euo pipefail
+          hash_trees() {
+            find crates -path 'crates/*/src/*.rs' -exec sha256sum {} + | sort -k2
+          }
+          hash_trees > first.sha256
+          if [ ! -s first.sha256 ]; then
+            echo "::error::No generated Rust found. ./bootstrap.sh did not run, or wrote nothing."
+            exit 1
+          fi
+          ./bootstrap.sh > /dev/null
+          hash_trees > second.sha256
+          if ! diff -u first.sha256 second.sha256 > boot.diff; then
+            echo "::error::bootstrap.sh is not byte-reproducible: a second run changed $(grep -c '^+crates' boot.diff || echo some) files."
+            echo "::error::The attestation scheme cannot hold while that is true — see docs/RELEASING.md, 'Reproducibility and the seed'."
+            head -40 boot.diff
+            exit 1
+          fi
+          echo "bootstrap.sh reproduced $(wc -l < first.sha256) generated files byte-for-byte."
+      # `cargo package` below is given `--allow-dirty`, and has to be: the files
+      # the manifests include are every crate's generated `src/`, which is
+      # untracked by design, and cargo counts an untracked file it is about to
+      # package as an uncommitted change. It refuses without the flag even on a
+      # spotless checkout.
+      #
+      # What that flag gives up is the refusal to package genuine uncommitted
+      # edits, and this step is what restores it. `git status --porcelain` omits
+      # ignored files, so it sees real dirt and not the generated trees.
+      - name: The tree is clean apart from the generated Rust
+        run: |
+          set -euo pipefail
+          dirty=$(git status --porcelain)
+          if [ -n "$dirty" ]; then
+            echo "::error::The checkout has uncommitted changes, which --allow-dirty would package:"
+            echo "$dirty"
+            exit 1
+          fi
+          echo "Working tree clean; the only untracked files are the generated trees."
+      - name: Install cargo-cyclonedx
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        with:
+          tool: cargo-cyclonedx@0.5.9
+      # One invocation, so crates whose siblings are not on crates.io yet
+      # resolve from the packages cargo just built. Crate by crate fails before
+      # the first release with "no matching package named ... location searched:
+      # crates.io index". `--no-verify` here because validate-packaging has
+      # already compiled every archive.
+      - name: cargo package --locked (every published crate, one invocation)
+        run: |
+          set -euo pipefail
+          args=()
+          for crate in $(./scripts/validate-crate-packaging.sh --print-order); do
+            args+=(--package "$crate")
+          done
+          cargo package --locked --no-verify --allow-dirty "${args[@]}"
+      - name: Generate CycloneDX SBOMs
+        env:
+          VERSION: ${{ needs.verify-versions.outputs.version }}
+        run: |
+          set -euo pipefail
+          cargo cyclonedx --format json --spec-version 1.5 --all-features --target all
+          mkdir -p dist
+          for crate in $(./scripts/validate-crate-packaging.sh --print-order); do
+            mv "crates/$crate/$crate.cdx.json" "dist/$crate-$VERSION.cdx.json"
+            cp "target/package/$crate-$VERSION.crate" dist/
+          done
+          ls -l dist
+      - name: Subjects for the provenance (sha256sum, base64)
+        id: hashes
+        working-directory: dist
+        run: |
+          set -euo pipefail
+          sha256sum -- *.crate *.cdx.json | tee ../SHA256SUMS
+          echo "hashes=$(base64 -w0 < ../SHA256SUMS)" >> "$GITHUB_OUTPUT"
+      - name: Upload release assets
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-assets
+          path: dist/
+          if-no-files-found: error
+  provenance:
+    name: SLSA provenance
+    needs: [verify-versions, build]
+    permissions:
+      actions: read # the generator reads the workflow run
+      id-token: write # keyless Sigstore signing
+      contents: write # declared by the generator's upload-assets job (unused: upload-assets is false)
+    # Reusable workflows are referenced by tag, not SHA: the generator verifies
+    # its own ref and rejects anything but @vX.Y.Z.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: ${{ needs.build.outputs.hashes }}
+      provenance-name: voltaic-${{ needs.verify-versions.outputs.version }}.intoto.jsonl
+      upload-assets: false
+  publish:
+    name: Publish crates (dependency order)
+    runs-on: ubuntu-latest
+    needs: [verify-versions, build, provenance]
+    timeout-minutes: 60
+    environment: crates-io
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.verify-versions.outputs.version }}
+      DRY_RUN: ${{ needs.verify-versions.outputs.dry-run }}
+      SHA256SUMS: ${{ github.workspace }}/SHA256SUMS
+      HASHES: ${{ needs.build.outputs.hashes }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-voltaic
+        with:
+          rust-toolchain: ${{ env.RUST_TOOLCHAIN }}
+          cache: "false"
+      # `publish-crate.sh` passes `--allow-dirty` for the reason the build job
+      # explains. Same guard, for the same reason, and here it is the last thing
+      # standing between an uncommitted edit and crates.io.
+      - name: The tree is clean apart from the generated Rust
+        run: |
+          set -euo pipefail
+          dirty=$(git status --porcelain)
+          if [ -n "$dirty" ]; then
+            echo "::error::The checkout has uncommitted changes, which --allow-dirty would publish:"
+            echo "$dirty"
+            exit 1
+          fi
+          echo "Working tree clean; the only untracked files are the generated trees."
+      - name: Attested digests and publish plan (crates.io index, read-only)
+        run: |
+          set -euo pipefail
+          base64 -d <<<"$HASHES" > "$SHA256SUMS"
+          for crate in $(./scripts/validate-crate-packaging.sh --print-order); do
+            PLAN_ONLY=true .github/scripts/publish-crate.sh "$crate"
+          done
+      - name: Dry run (cargo publish --dry-run, one invocation)
+        if: needs.verify-versions.outputs.dry-run == 'true'
+        run: |
+          set -euo pipefail
+          args=()
+          for crate in $(./scripts/validate-crate-packaging.sh --print-order); do
+            args+=(--package "$crate")
+          done
+          cargo publish --dry-run --locked --no-verify --allow-dirty "${args[@]}"
+          # The packages publish would upload (cargo leaves them in
+          # target/package/tmp-crate/) are the attested ones: every .crate
+          # subject is checked.
+          grep '\.crate$' "$SHA256SUMS" > crates.sha256
+          (cd target/package/tmp-crate && sha256sum --check --strict "$GITHUB_WORKSPACE/crates.sha256")
+      - name: Publish
+        if: needs.verify-versions.outputs.dry-run != 'true'
+        env:
+          CRATES_IO_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          for crate in $(./scripts/validate-crate-packaging.sh --print-order); do
+            echo "::group::publish $crate"
+            .github/scripts/publish-crate.sh "$crate" --locked
+            echo "::endgroup::"
+          done
+  verify:
+    name: Verify published crates against the provenance
+    runs-on: ubuntu-latest
+    needs: [verify-versions, build, provenance, publish]
+    timeout-minutes: 30
+    env:
+      VERSION: ${{ needs.verify-versions.outputs.version }}
+      TAG: ${{ needs.verify-versions.outputs.tag }}
+      DRY_RUN: ${{ needs.verify-versions.outputs.dry-run }}
+      PROVENANCE: provenance/${{ needs.provenance.outputs.provenance-name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # cargo is needed only for --print-order, which reads manifests; no
+      # bootstrap, because nothing here compiles.
+      - uses: ./.github/actions/setup-voltaic
+        with:
+          rust-toolchain: ${{ env.RUST_TOOLCHAIN }}
+          cache: "false"
+          bootstrap: "false"
+      - name: Install slsa-verifier
+        uses: slsa-framework/slsa-verifier/actions/installer@ea584f4502babc6f60d9bc799dbbb13c1caa9ee6 # v2.7.1
+      - name: Download the provenance
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ needs.provenance.outputs.provenance-name }}
+          path: provenance
+      - name: Download the built crates (dry run only)
+        if: needs.verify-versions.outputs.dry-run == 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-assets
+          path: dist
+      - name: Every crate on crates.io matches its attested digest
+        # A dry run publishes nothing, so it checks the built files the same way.
+        run: |
+          set -euo pipefail
+          # The subjects the signed provenance attests (DSSE payload -> in-toto
+          # statement). The generator writes a Sigstore bundle (payload under
+          # .dsseEnvelope); a bare DSSE envelope has it at the top level.
+          jq -r '.dsseEnvelope.payload // .payload' "$PROVENANCE" | base64 -d \
+            | jq -r '.subject[] | "\(.digest.sha256)  \(.name)"' > attested.sha256
+          cat attested.sha256
+          source_args=(--source-uri "github.com/$GITHUB_REPOSITORY")
+          if [ -n "$TAG" ]; then
+            source_args+=(--source-tag "$TAG")
+          fi
+          mkdir -p downloaded
+          failed=0
+          for crate in $(./scripts/validate-crate-packaging.sh --print-order); do
+            file="$crate-$VERSION.crate"
+            if [ "$DRY_RUN" = "true" ]; then
+              cp "dist/$file" "downloaded/$file"
+            else
+              curl -fsSL --retry 5 --retry-delay 10 -o "downloaded/$file" \
+                "https://static.crates.io/crates/$crate/$file"
+            fi
+            expected=$(awk -v f="$file" '$2 == f { print $1 }' attested.sha256)
+            actual=$(sha256sum "downloaded/$file" | cut -d' ' -f1)
+            if [ -z "$expected" ] || [ "$expected" != "$actual" ]; then
+              echo "::error::$file: sha256 $actual, attested ${expected:-<not a subject>}"
+              failed=1
+              continue
+            fi
+            if ! slsa-verifier verify-artifact "downloaded/$file" --provenance-path "$PROVENANCE" "${source_args[@]}"; then
+              echo "::error::$file: slsa-verifier rejected the provenance"
+              failed=1
+            fi
+          done
+          exit "$failed"
+  release:
+    name: GitHub Release
+    runs-on: ubuntu-latest
+    needs: [verify-versions, provenance, verify]
+    if: needs.verify-versions.outputs.dry-run != 'true'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Download SBOMs and .crate files
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-assets
+          path: dist
+      - name: Download the provenance
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ needs.provenance.outputs.provenance-name }}
+          path: dist
+      - name: Create GitHub Release
+        # The provenance is a release asset so OpenSSF Scorecard's
+        # Signed-Releases check sees it.
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: ${{ needs.verify-versions.outputs.tag }}
+          generate_release_notes: true
+          make_latest: true
+          files: |
+            dist/*.cdx.json
+            dist/*.crate
+            dist/*.intoto.jsonl
+  # ──────────────────────────────────────────────────────────────────────────
+  # nixpkgs. Last, and deliberately after `release`: the PR it opens cites the
+  # tag and the release, and a nixpkgs failure must never be mistaken for a bad
+  # crates.io publish. Nothing downstream depends on this job.
+  #
+  # Only a VERSION BUMP is automatable. Adding a new package to nixpkgs is a
+  # human-reviewed PR by their policy, so the first run finds no attribute to
+  # bump and says so rather than failing. docs/NIXPKGS.md is that procedure.
+  # ──────────────────────────────────────────────────────────────────────────
+  nixpkgs:
+    name: nixpkgs version-bump PR
+    runs-on: ubuntu-latest
+    needs: [verify-versions, release]
+    if: needs.verify-versions.outputs.dry-run != 'true'
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    env:
+      PNAME: voltaic
+      VERSION: ${{ needs.verify-versions.outputs.version }}
+      TAG: ${{ needs.verify-versions.outputs.tag }}
+    steps:
+      - name: Install Nix
+        uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      - name: Check out the nixpkgs fork
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Industrial/nixpkgs
+          token: ${{ secrets.NIXPKGS_PR_TOKEN }}
+          path: nixpkgs
+          fetch-depth: 1
+      - name: Reset the fork's branch to upstream master
+        working-directory: nixpkgs
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/NixOS/nixpkgs.git
+          git fetch --depth=1 upstream master
+          git checkout -B "$PNAME-$VERSION" upstream/master
+      - name: Is the package in nixpkgs yet?
+        id: present
+        working-directory: nixpkgs
+        run: |
+          set -euo pipefail
+          prefix=$(echo "$PNAME" | cut -c1-2)
+          path="pkgs/by-name/$prefix/$PNAME/package.nix"
+          if [ -f "$path" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "path=$path" >> "$GITHUB_OUTPUT"
+            echo "Found $path."
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::$PNAME is not in nixpkgs yet, so there is no attribute to bump."
+            echo "::notice::Adding a new package is a human-reviewed PR by nixpkgs policy."
+            echo "::notice::Follow docs/NIXPKGS.md once, using nix/nixpkgs-package.nix; this job automates every release after that."
+          fi
+      - name: Bump the version, hash and cargoHash
+        if: steps.present.outputs.present == 'true'
+        working-directory: nixpkgs
+        run: |
+          set -euo pipefail
+          # nix-update rewrites version, src hash and cargoHash together, and
+          # writes the commit message nixpkgs expects ("pname: old -> new").
+          nix-shell -p nix-update --run \
+            "nix-update $PNAME --version $VERSION --commit"
+          git log -1 --stat
+      - name: It still builds
+        if: steps.present.outputs.present == 'true'
+        working-directory: nixpkgs
+        run: nix-build -A "$PNAME"
+      - name: Push the branch and open the PR
+        if: steps.present.outputs.present == 'true'
+        working-directory: nixpkgs
+        env:
+          GH_TOKEN: ${{ secrets.NIXPKGS_PR_TOKEN }}
+        run: |
+          set -euo pipefail
+          git push --force origin "$PNAME-$VERSION"
+
+          # Idempotent: a re-run of the same release force-updates the branch and
+          # finds the existing PR rather than opening a second one. `// empty` is
+          # load-bearing — without it an absent PR comes back as the four-letter
+          # string "null", which is not empty, and the job would decide a PR was
+          # already open and silently never create one.
+          existing=$(gh pr list --repo NixOS/nixpkgs \
+            --head "$PNAME-$VERSION" --json url --jq '.[0].url // empty')
+          if [ -n "$existing" ]; then
+            echo "::notice::PR already open, branch updated in place: $existing"
+            exit 0
+          fi
+
+          # nix-update already wrote the commit subject in nixpkgs' convention,
+          # "pname: old -> new". Reuse it rather than reconstructing it here:
+          # this job does not know the old version, and a title of the form
+          # "voltaic: -> 0.2.0" is the kind of thing a reviewer bounces.
+          title=$(git log -1 --format=%s)
+
+          # A file, not an inline --body: a quoted multi-line argument inside a
+          # YAML block is where indentation and quoting go wrong unnoticed.
+          # The heredoc terminator must sit at column 0 *as bash sees it*, which
+          # it does: YAML strips this block's common indentation before the shell
+          # ever runs, so no <<- and no un-indenting pass is needed.
+          cat > /tmp/pr-body.md <<EOF
+          Automated version bump to \`$VERSION\`, opened by the release pipeline of
+          https://github.com/Industrial/voltaic once the crates.io publish and the
+          GitHub Release for \`$TAG\` had both succeeded.
+
+          - Upstream release: https://github.com/Industrial/voltaic/releases/tag/$TAG
+          - \`version\`, \`hash\` and \`cargoHash\` were rewritten by \`nix-update\`.
+          - \`nix-build -A $PNAME\` passed before this PR was opened.
+
+          Note for reviewers: this package bootstraps from a checked-in seed
+          compiler. It is written in its own language, so a source checkout
+          contains no generated Rust and \`wasmtime\` plus \`rustfmt\` are
+          build-time inputs that regenerate it. \`passthru.updateScript\` is set,
+          so r-ryantm can also bump it.
+          EOF
+
+          gh pr create --repo NixOS/nixpkgs \
+            --head "Industrial:$PNAME-$VERSION" \
+            --base master \
+            --title "$title" \
+            --body-file /tmp/pr-body.md

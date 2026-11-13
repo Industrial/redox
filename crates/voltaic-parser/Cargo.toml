@@ -3,11 +3,17 @@ name = "voltaic-parser"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Hand-written recursive-descent parser for the Voltaic language."
+
+# Why `include` is not optional here — see `crates/voltaic-diag/Cargo.toml`.
+include = ["src/**/*.rs", "sdx/**/*.sdx", "Cargo.toml"]
 
 [dependencies]
-voltaic-ast = { path = "../voltaic-ast" }
-voltaic-diag = { path = "../voltaic-diag" }
-voltaic-lexer = { path = "../voltaic-lexer" }
+voltaic-ast.workspace = true
+voltaic-diag.workspace = true
+voltaic-lexer.workspace = true
 
 [lints]
 workspace = true

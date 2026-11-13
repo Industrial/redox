@@ -1,0 +1,131 @@
+name: Set up Voltaic
+description: >
+  Install the pinned toolchain and the tools a Voltaic build needs, then bootstrap the generated Rust from the seed. A clean checkout has no Rust to compile, so this is a prerequisite for anything that runs cargo here.
+
+# Factored out of publish.yml, where four jobs need the same preparation. The
+# alternative was four near-identical forty-line step lists, which is the shape
+# that drifts: one of them gains a tool, the others do not, and the failure
+# arrives as a mysterious missing binary in exactly one job.
+#
+# The tool versions are pinned HERE, which makes this file their single source of
+# truth for the publish pipeline. `.github/workflows/ci.yml` still carries its
+# own copy in `env:` — converging it onto this action is a follow-up, noted in
+# `docs/RELEASING.md`, and deliberately not done in the same change as the
+# release pipeline: ci.yml is the gate on every pull request and a refactor of it
+# cannot be verified from here.
+inputs:
+  rust-toolchain:
+    description: Toolchain to install. Keep equal to ci.yml's RUST_TOOLCHAIN.
+    required: false
+    default: "1.97.1"
+  components:
+    description: Extra rustup components, comma-separated.
+    required: false
+    default: ""
+  cache:
+    description: >
+      Use Swatinem/rust-cache. Set false in jobs whose output is attested: a cache is a build input that the provenance cannot describe.
+
+    required: false
+    default: "true"
+  install-moon:
+    description: Install the pinned moon release.
+    required: false
+    default: "false"
+  install-tree-sitter:
+    description: >
+      Install the pinned tree-sitter CLI. `tree_sitter.rs` shells out to it and panics if it is absent, so any job running the full suite needs it.
+
+    required: false
+    default: "false"
+  install-nextest:
+    description: Install cargo-nextest.
+    required: false
+    default: "false"
+  bootstrap:
+    description: >
+      Run ./bootstrap.sh. Only set false for a job that does not invoke cargo.
+
+    required: false
+    default: "true"
+runs:
+  using: composite
+  steps:
+    - name: Install Rust (pinned)
+      uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+      with:
+        toolchain: ${{ inputs.rust-toolchain }}
+        components: ${{ inputs.components }}
+    # rustfmt is not optional: ./bootstrap.sh formats everything the seed emits,
+    # because the seed writes for rustfmt's defaults and this repository sets
+    # tab_spaces = 2.
+    - name: Ensure rustfmt is present (bootstrap.sh requires it)
+      shell: bash
+      run: rustup component add rustfmt --toolchain ${{ inputs.rust-toolchain }}
+    # Make the pinned toolchain rustup's *default*, not merely the one selected
+    # through RUSTUP_TOOLCHAIN. `cargo_project.rs` scrubs every CARGO_* and
+    # RUST* variable before building its nested project, which takes
+    # RUSTUP_TOOLCHAIN with it; the nested cargo then resolves the runner's
+    # default. See ci.yml for the full account.
+    - name: Make the pinned toolchain the default
+      shell: bash
+      run: rustup default ${{ inputs.rust-toolchain }}
+    - name: Cache
+      if: inputs.cache == 'true'
+      uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+    - name: Install cargo-nextest
+      if: inputs.install-nextest == 'true'
+      uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+      with:
+        tool: cargo-nextest
+    # Pinned releases, downloaded and checked against their sha256. No curl | bash.
+    - name: Install wasmtime (runs the seed blob)
+      shell: bash
+      env:
+        WASMTIME_VERSION: "47.0.3"
+        WASMTIME_SHA256: ca1fc56d1afc40c8782e96c297fd182a0da162f9a8f52a1e7b094e1dd648e178
+      run: |
+        set -euo pipefail
+        archive=wasmtime-v${WASMTIME_VERSION}-x86_64-linux.tar.xz
+        curl -fsSLo "$RUNNER_TEMP/$archive" \
+          "https://github.com/bytecodealliance/wasmtime/releases/download/v${WASMTIME_VERSION}/$archive"
+        echo "${WASMTIME_SHA256}  $RUNNER_TEMP/$archive" | sha256sum -c -
+        mkdir -p "$HOME/.wasmtime/bin"
+        tar -xJf "$RUNNER_TEMP/$archive" -C "$HOME/.wasmtime/bin" --strip-components=1 \
+          "wasmtime-v${WASMTIME_VERSION}-x86_64-linux/wasmtime"
+        echo "$HOME/.wasmtime/bin" >> "$GITHUB_PATH"
+    - name: Install tree-sitter (pinned release, sha256-checked)
+      if: inputs.install-tree-sitter == 'true'
+      shell: bash
+      env:
+        TREE_SITTER_VERSION: "0.26.9"
+        TREE_SITTER_SHA256: 9ce82137caa65864e7ca8b869fd391cef88c9bd2a01c4371b9c4dd26c2585efb
+      run: |
+        set -euo pipefail
+        curl -fsSLo "$RUNNER_TEMP/tree-sitter.gz" \
+          "https://github.com/tree-sitter/tree-sitter/releases/download/v${TREE_SITTER_VERSION}/tree-sitter-linux-x64.gz"
+        echo "${TREE_SITTER_SHA256}  $RUNNER_TEMP/tree-sitter.gz" | sha256sum -c -
+        mkdir -p "$HOME/.tree-sitter/bin"
+        gunzip -c "$RUNNER_TEMP/tree-sitter.gz" > "$HOME/.tree-sitter/bin/tree-sitter"
+        chmod +x "$HOME/.tree-sitter/bin/tree-sitter"
+        echo "$HOME/.tree-sitter/bin" >> "$GITHUB_PATH"
+    - name: Install moon (pinned release, sha256-checked)
+      if: inputs.install-moon == 'true'
+      shell: bash
+      env:
+        MOON_VERSION: "2.5.0"
+        MOON_SHA256: c5dc6d9665d10ea8233739df5c63232e23acd8f1b3fb897849b71f93e5e97d3b
+      run: |
+        set -euo pipefail
+        archive=moon_cli-x86_64-unknown-linux-gnu.tar.xz
+        curl -fsSLo "$RUNNER_TEMP/$archive" \
+          "https://github.com/moonrepo/moon/releases/download/v${MOON_VERSION}/$archive"
+        echo "${MOON_SHA256}  $RUNNER_TEMP/$archive" | sha256sum -c -
+        mkdir -p "$HOME/.moon/bin"
+        tar -xJf "$RUNNER_TEMP/$archive" -C "$HOME/.moon/bin" --strip-components=1 \
+          moon_cli-x86_64-unknown-linux-gnu/moon moon_cli-x86_64-unknown-linux-gnu/moonx
+        echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+    - name: Bootstrap the generated Rust from the seed
+      if: inputs.bootstrap == 'true'
+      shell: bash
+      run: ./bootstrap.sh
