@@ -117,6 +117,17 @@
     pkgs.oxipng
     pkgs.icoutils
     pkgs.libicns
+    # The social preview and the README header are the two most-seen brand
+    # surfaces — every link preview of this repository renders one — and both
+    # set the wordmark. resvg draws text with whatever fontconfig can see,
+    # which in this shell was 702 families with Archivo among none of them, so
+    # the wordmark would have come out in DejaVu Sans.
+    #
+    # Subset rather than the whole `google-fonts` closure: one family, because
+    # one family is what the identity sets. Spectral and IBM Plex Mono are the
+    # book's faces and are loaded by the browser from Google Fonts, so they are
+    # not needed here.
+    (pkgs.google-fonts.override {fonts = ["Archivo"];})
   ];
 
   # Project-only shell wiring (shared features handle moon-sync, prek install).

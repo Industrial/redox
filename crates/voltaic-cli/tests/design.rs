@@ -154,3 +154,156 @@ fn hexes(text: &str) -> Vec<String> {
   }
   found
 }
+
+/// Criterion: the platform package renders, and renders completely.
+///
+/// `design/rasterize.sh` treats any resvg warning as fatal, which is the
+/// invariant that matters here: resvg exits 0 on an unmatched font or an
+/// unparseable fill, having silently dropped what it could not draw. The first
+/// version of that script sent stderr to `/dev/null` and produced three
+/// banners with **zero** ink pixels while reporting success. So "it ran" is
+/// not evidence, and "it ran without warning" is.
+#[test]
+fn the_platform_package_renders_without_a_single_warning() {
+  let Some(dist) = scratch_render("renders") else {
+    return;
+  };
+  for rel in [
+    "web/favicon.ico",
+    "web/favicon.svg",
+    "web/apple-touch-icon.png",
+    "web/icon-192.png",
+    "web/icon-512.png",
+    "web/maskable-512.png",
+    "web/monochrome-512.png",
+    "web/manifest.webmanifest",
+    "ios/AppIcon.appiconset/Contents.json",
+    "ios/AppIcon.appiconset/icon-1024.png",
+    "macos/voltaic.icns",
+    "windows/voltaic.ico",
+    "windows/tiles/Square150x150.png",
+    "linux/16x16/apps/voltaic.png",
+    "linux/scalable/apps/voltaic.svg",
+    "social/social-preview.png",
+    "readme/header-light.png",
+    "readme/header-dark.png",
+  ] {
+    assert!(
+      dist.join(rel).is_file(),
+      "design/rasterize.sh did not emit {rel}"
+    );
+  }
+  let _ = std::fs::remove_dir_all(&dist);
+}
+
+/// Criterion: every ICO frame is the size it claims, read from the header.
+///
+/// An ICO is a container, and the usual defect is one 256px frame listed under
+/// six sizes — which looks correct everywhere except the 16px slot it exists
+/// for. So the directory is parsed rather than the file trusted.
+#[test]
+fn every_ico_frame_is_the_size_it_claims() {
+  let Some(dist) = scratch_render("ico") else {
+    return;
+  };
+  for (rel, want) in [
+    ("web/favicon.ico", vec![16u32, 32, 48]),
+    ("windows/voltaic.ico", vec![16, 24, 32, 48, 64, 256]),
+  ] {
+    let bytes = std::fs::read(dist.join(rel)).expect("an ico");
+    assert_eq!(&bytes[0..4], &[0, 0, 1, 0], "{rel} is not an icon-type ICO");
+    let count = u16::from_le_bytes([bytes[4], bytes[5]]) as usize;
+    let mut sizes: Vec<u32> = (0..count)
+      .map(|i| {
+        let b = bytes[6 + i * 16];
+        // The width field is one byte, so zero means 256.
+        if b == 0 { 256 } else { u32::from(b) }
+      })
+      .collect();
+    sizes.sort_unstable();
+    let mut want = want;
+    want.sort_unstable();
+    assert_eq!(sizes, want, "{rel} frames");
+  }
+  let _ = std::fs::remove_dir_all(&dist);
+}
+
+/// Criterion: the manifest and the asset catalogue parse, and say what they
+/// should.
+///
+/// Both are emitted by `jq`, so a syntax defect is unlikely — but the *content*
+/// is this script's to get right, and a manifest missing its maskable purpose
+/// is a manifest Android will crop.
+#[test]
+fn the_generated_json_declares_what_each_platform_needs() {
+  let Some(dist) = scratch_render("json") else {
+    return;
+  };
+
+  let manifest: serde_json::Value = serde_json::from_str(
+    &std::fs::read_to_string(dist.join("web/manifest.webmanifest")).expect("the manifest"),
+  )
+  .expect("the manifest should be valid JSON");
+  let purposes: Vec<&str> = manifest["icons"]
+    .as_array()
+    .expect("icons should be an array")
+    .iter()
+    .filter_map(|i| i["purpose"].as_str())
+    .collect();
+  assert!(
+    purposes.contains(&"maskable"),
+    "the manifest needs a maskable icon, or Android crops the mark"
+  );
+  assert!(
+    purposes.contains(&"monochrome"),
+    "the manifest needs a monochrome icon for themed icons"
+  );
+
+  let catalogue: serde_json::Value = serde_json::from_str(
+    &std::fs::read_to_string(dist.join("ios/AppIcon.appiconset/Contents.json"))
+      .expect("the catalogue"),
+  )
+  .expect("Contents.json should be valid JSON");
+  let images = catalogue["images"]
+    .as_array()
+    .expect("images should be an array");
+  assert_eq!(images.len(), 3, "iOS 18 wants default, dark and tinted");
+
+  let _ = std::fs::remove_dir_all(&dist);
+}
+
+/// Render the package into a scratch directory outside the repository, or
+/// `None` if the toolchain is absent — which is announced, not silent.
+///
+/// `std::env::temp_dir()` and a pid-tagged name, which is the convention
+/// `support.rs` already uses: outside the tree, so nothing inherits this
+/// repository's `rustfmt.toml`, and unique, so parallel tests cannot collide.
+fn scratch_render(tag: &str) -> Option<std::path::PathBuf> {
+  for tool in ["resvg", "oxipng", "icotool", "png2icns", "jq", "fc-list"] {
+    let found = Command::new("sh")
+      .arg("-c")
+      .arg(format!("command -v {tool}"))
+      .output()
+      .map(|o| o.status.success())
+      .unwrap_or(false);
+    if !found {
+      eprintln!("skipping: {tool} is not on PATH; run inside 'devenv shell'");
+      return None;
+    }
+  }
+  let dist = std::env::temp_dir().join(format!("voltaic-design-{tag}-{}", std::process::id()));
+  let _ = std::fs::remove_dir_all(&dist);
+  let out = Command::new("bash")
+    .arg("design/rasterize.sh")
+    .env("VOLTAIC_DESIGN_DIST", &dist)
+    .current_dir(root())
+    .output()
+    .expect("design/rasterize.sh should be runnable");
+  assert!(
+    out.status.success(),
+    "design/rasterize.sh failed\n{}{}",
+    String::from_utf8_lossy(&out.stdout),
+    String::from_utf8_lossy(&out.stderr)
+  );
+  Some(dist)
+}
