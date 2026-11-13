@@ -565,11 +565,57 @@ result, which is why they are written down rather than rediscovered.
   delete the crate's subtrees anyway. `set -o pipefail`, or capture to a file and test the
   status. Plan 91 wave 11.
 
+- **`tar tzf … | grep -q` reports failure for a correct archive, and only sometimes.**
+  This is the **opposite polarity** to the entry above, not a second telling of it, and it
+  is worth reading rather than skipping as a duplicate: that one is a guard *masked* by
+  taking grep's exit status, where a pipeline reported success while the tool refused.
+  This one is a correct result *reported as failure*. Same plumbing, opposite direction.
+
+  `grep -q` exits the instant it matches, `tar` then takes SIGPIPE, and `set -o pipefail`
+  turns that into a non-zero pipeline. Found 2026-11-13 in
+  `scripts/validate-crate-packaging.sh`: it failed on exactly two of eight archives,
+  `voltaic-emit` and `voltaic-parser` — **the two largest, because the small ones finished
+  writing before grep exited and won the race.**
+
+  That load-dependence is the whole trap. A check that passes on six inputs and fails on
+  the two biggest reads as a flake, and the obvious next move — re-run it — makes it look
+  intermittent rather than wrong. List into a variable once and match it with a
+  here-string; `grep -qE … <<<"$listing"` has no pipe and cannot do this.
+
+- **A probe in `.tmp/` can pass where the real tree fails, because `.tmp/` is wholly
+  gitignored and git therefore reports *nothing* about it.** Any check whose answer depends
+  on a file's git status — tracked, untracked, ignored, dirty — is answering a different
+  question inside the scratch directory, and will answer it optimistically.
+
+  Measured 2026-11-13, and it cost a wrong conclusion that reached a commit message before
+  being caught. A scratch crate under `.tmp/` with an `include` key and an ignored `src/`
+  packaged fine with no `--allow-dirty`, which was read as "ignored-but-included files are
+  not treated as dirty". The real crates refuse: *"error: 5 files in the working directory
+  contain changes that were not yet committed into git"*, naming `voltaic-diag`'s five
+  generated files, **on a spotless checkout at a fresh commit**. The probe was not wrong
+  about itself; it was wrong about the repository, because git had been asked about a path
+  it declines to discuss.
+
+  So: **a scratch probe establishes the tool's behaviour, never the repository's.** Confirm
+  anything git-status-dependent against a real path before believing it — and prefer
+  running the actual command the real pipeline will run. The mirror image of this is just
+  as live: a cleanup that deletes generated files is safe only if their tracked status was
+  checked first, in the tree, not in scratch.
+
 - **`git checkout -- <path>` restores from the index, not from HEAD.** After a `git add -A`
   that staged a half-finished state, it restores the half-finished state. Use
   `git checkout HEAD -- <path>`, and remove untracked leftovers separately — `git stash`
   without `-u` leaves them, which is how a HEAD baseline measurement came back
   contaminated.
+
+- **Packaging any crate here needs `--allow-dirty`, and that is not covering for a messy
+  tree.** Every crate's `src/` is generated and untracked by design, the manifests'
+  `include` keys tell cargo to package it anyway, and cargo counts an untracked file it is
+  about to package as an uncommitted change. It refuses without the flag even when
+  `git status` is empty. The flag's cost is that it would also package *genuine*
+  uncommitted edits, so `.github/workflows/publish.yml` asserts
+  `git status --porcelain` is empty first — that command omits ignored files, so it sees
+  real dirt and not the generated trees. `docs/RELEASING.md` has the full account.
 
 ## See also
 
