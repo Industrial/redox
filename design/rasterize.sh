@@ -34,6 +34,18 @@ for t in resvg oxipng icotool png2icns jq; do
 done
 [ -f "$MASTERS/pile-display-light.svg" ] || { echo "error: run ./design/build.sh first." >&2; exit 1; }
 
+# `--icons-only` skips the three banners, which are the only outputs that set
+# type and therefore the only ones needing a font. CI uses it: the banners are
+# **tracked** under `design/banners/`, because GitHub reads the README headers
+# straight from the default branch and a crawler fetches the OpenGraph image
+# by URL — so they are consumed outside this build, which is the same reason
+# the masters are tracked. That also keeps a ~1 GB `google-fonts` closure out
+# of every CI run.
+BANNERS=1
+[ "${1:-}" = "--icons-only" ] && BANNERS=0
+
+# Only needed for the banners.
+#
 # resvg keeps its own font database and does not read this shell's fontconfig
 # dirs, so a `font-family="Archivo"` it cannot resolve becomes
 #
@@ -43,9 +55,17 @@ done
 # 2026-11-13: the first run of this script produced three banners with zero ink
 # pixels and reported success. So the file is located explicitly and passed in,
 # and `render` below treats any resvg warning as fatal.
-ARCHIVO=$(fc-list 2>/dev/null | grep -i 'Archivo\[' | head -1 | cut -d: -f1 || true)
-if [ -z "${ARCHIVO:-}" ] || [ ! -f "$ARCHIVO" ]; then
-    echo "error: Archivo not found. It is pinned in devenv.nix; run inside 'devenv shell'." >&2
+# `fc-list` is the local answer, but a `nix shell` in CI does not register a
+# font package with fontconfig, so the path is overridable. Both routes end in
+# the same assertion: no font, no run.
+ARCHIVO="${VOLTAIC_ARCHIVO:-}"
+if [ "$BANNERS" -eq 1 ] && [ -z "$ARCHIVO" ]; then
+    ARCHIVO=$(fc-list 2>/dev/null | grep -i 'Archivo\[' | head -1 | cut -d: -f1 || true)
+fi
+if [ "$BANNERS" -eq 1 ] && { [ -z "$ARCHIVO" ] || [ ! -f "$ARCHIVO" ]; }; then
+    echo "error: Archivo not found." >&2
+    echo "       Locally it is pinned in devenv.nix — run inside 'devenv shell'." >&2
+    echo "       In CI, set VOLTAIC_ARCHIVO to the .ttf path." >&2
     exit 1
 fi
 
@@ -90,7 +110,9 @@ wrap() {
 # script redirected it to /dev/null and shipped three empty banners.
 render() {
     local out=$1 w=$2 h=$3 src=$4 err
-    err=$(resvg --use-font-file "$ARCHIVO" --width "$w" --height "$h" "$src" "$out" 2>&1 >/dev/null) || {
+    local font=()
+    [ -n "${ARCHIVO:-}" ] && font=(--use-font-file "$ARCHIVO")
+    err=$(resvg "${font[@]+"${font[@]}"}" --width "$w" --height "$h" "$src" "$out" 2>&1 >/dev/null) || {
         echo "error: resvg failed on $src" >&2; echo "$err" >&2; exit 1
     }
     if [ -n "$err" ]; then
@@ -228,8 +250,17 @@ banner() {
     render "$out" "$w" "$h" "$tmp/banner.svg"
 }
 
-banner 1280 640 "$GROUND_L" "$INK_L" display light "$DIST/social/social-preview.png"
-banner 1280 320 "$GROUND_L" "$INK_L" display light "$DIST/readme/header-light.png"
-banner 1280 320 "$GROUND_D" "$INK_D" display dark  "$DIST/readme/header-dark.png"
+if [ "$BANNERS" -eq 1 ]; then
+    mkdir -p design/banners
+    banner 1280 640 "$GROUND_L" "$INK_L" display light design/banners/social-preview.png
+    banner 1280 320 "$GROUND_L" "$INK_L" display light design/banners/header-light.png
+    banner 1280 320 "$GROUND_D" "$INK_D" display dark  design/banners/header-dark.png
+fi
+# The site serves the committed banner, so a build with --icons-only still has
+# an OpenGraph image.
+mkdir -p "$DIST/social" "$DIST/readme"
+cp design/banners/social-preview.png "$DIST/social/social-preview.png"
+cp design/banners/header-light.png "$DIST/readme/header-light.png"
+cp design/banners/header-dark.png "$DIST/readme/header-dark.png"
 
 echo "rasterize: $(find "$DIST" -type f | wc -l) files in $DIST"
