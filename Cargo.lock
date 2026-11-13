@@ -1468,7 +1468,7 @@ dependencies = [
 name = "voltaic-fuzz"
 version = "0.1.1"
 dependencies = [
- "syn 2.0.119",
+ "syn 3.0.9",
  "voltaic-emit",
  "voltaic-lexer",
  "voltaic-parser",
