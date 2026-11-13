@@ -86,12 +86,26 @@ html.navy {
   --color-scheme: dark;
 }
 
+/*
+ * ## Lengths here are against a 10px root, not 16px
+ *
+ * mdBook ships `:root { font-size: 62.5% }` in its own general.css — the old
+ * "62.5% trick" — so **1rem = 10px**, and its own body rule is `1.6rem`.
+ *
+ * This file was first written against a 16px root, which made every length in
+ * it render at 62.5% of its intended size: body copy measured 10.2px on the
+ * deployed site and `h1` 21px. Nothing looked broken in the stylesheet; the
+ * numbers were simply being read against a base the author had not seen.
+ *
+ * Multiply by 1.6 when porting a px value in: 16px is `1.6rem`, not `1rem`.
+ */
+
 /* ── typography ────────────────────────────────────────────────────────── */
 
 :root {
   --mono-font: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --code-font-size: 0.86em;
-  --content-max-width: 46rem;
+  --content-max-width: 73.6rem;
 }
 
 html {
@@ -99,7 +113,7 @@ html {
 }
 
 .content main {
-  font-size: 1.02rem;
+  font-size: 1.63rem;
   line-height: 1.68;
 }
 
@@ -116,23 +130,27 @@ html {
 
 .content h1 {
   font-weight: 800;
-  font-size: 2.1rem;
+  font-size: 3.36rem;
   line-height: 1.08;
-  margin-block: 0 1.1rem;
+  /* The top margin is for the first heading on the page, which `h1` almost
+     always is: mdBook's content column starts flush under the menu bar, so a
+     zero top margin left the title jammed against it. Collapsed away when a
+     block precedes it, so it costs nothing in the rare mid-page case. */
+  margin-block: 2.4rem 1.76rem;
 }
 
 .content h2 {
   font-weight: 700;
-  font-size: 1.45rem;
-  margin-block-start: 2.6rem;
-  padding-block-end: 0.35rem;
+  font-size: 2.32rem;
+  margin-block-start: 4.16rem;
+  padding-block-end: 0.56rem;
   border-block-end: 1px solid var(--voltaic-rule);
 }
 
 .content h3 {
   font-weight: 600;
-  font-size: 1.14rem;
-  margin-block-start: 1.9rem;
+  font-size: 1.82rem;
+  margin-block-start: 3.04rem;
 }
 
 .menu-title {
@@ -141,7 +159,7 @@ html {
 }
 
 .sidebar .part-title {
-  font-size: 0.72rem;
+  font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -150,7 +168,7 @@ html {
 
 .sidebar .chapter li.chapter-item {
   font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
-  font-size: 0.88rem;
+  font-size: 1.41rem;
   line-height: 1.45;
 }
 
@@ -206,7 +224,7 @@ pre > code.language-sdx {
 
 .content table {
   font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
-  font-size: 0.9rem;
+  font-size: 1.44rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -220,7 +238,7 @@ pre > code.language-sdx {
 .content blockquote {
   border-inline-start: 3px solid var(--voltaic-copper);
   background: var(--voltaic-ground-2);
-  padding: 0.85rem 1.1rem;
+  padding: 1.36rem 1.76rem;
   margin-inline: 0;
 }
 
@@ -238,11 +256,11 @@ pre > code.language-sdx {
   display: grid;
   align-items: start;
   justify-items: center;
-  padding-block-start: min(14vh, 7rem);
+  padding-block-start: min(14vh, 11.2rem);
 }
 
 .vlt-box {
-  width: min(42rem, calc(100vw - 2rem));
+  width: min(67.2rem, calc(100vw - 3.2rem));
   background: var(--voltaic-ground);
   border: 1px solid var(--voltaic-rule);
   border-radius: 4px;
@@ -253,15 +271,15 @@ pre > code.language-sdx {
 .vlt-field {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
-  padding: 0.85rem 1rem;
+  gap: 1.12rem;
+  padding: 1.36rem 1.6rem;
   border-block-end: 1px solid var(--voltaic-rule);
 }
 
 .vlt-field svg {
   flex: none;
-  width: 1.15rem;
-  height: 1.15rem;
+  width: 1.84rem;
+  height: 1.84rem;
 }
 
 #vlt-input {
@@ -270,7 +288,7 @@ pre > code.language-sdx {
   background: none;
   color: var(--voltaic-ink);
   font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
-  font-size: 1.02rem;
+  font-size: 1.63rem;
   outline: none;
   min-width: 0;
 }
@@ -281,20 +299,20 @@ pre > code.language-sdx {
 
 .vlt-kbd {
   font-family: var(--mono-font);
-  font-size: 0.68rem;
+  font-size: 1.09rem;
   letter-spacing: 0.06em;
   color: var(--voltaic-ink-faint);
   border: 1px solid var(--voltaic-rule);
   border-radius: 3px;
-  padding: 0.14rem 0.36rem;
+  padding: 0.22rem 0.58rem;
   white-space: nowrap;
 }
 
 #vlt-results {
   list-style: none;
   margin: 0;
-  padding: 0.35rem;
-  max-height: min(52vh, 26rem);
+  padding: 0.56rem;
+  max-height: min(52vh, 41.6rem);
   overflow-y: auto;
 }
 
@@ -305,8 +323,8 @@ pre > code.language-sdx {
 #vlt-results a {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 0.2rem 1rem;
-  padding: 0.55rem 0.7rem;
+  gap: 0.32rem 1.6rem;
+  padding: 0.88rem 1.12rem;
   border-radius: 3px;
   text-decoration: none;
   color: var(--voltaic-ink);
@@ -315,13 +333,13 @@ pre > code.language-sdx {
 #vlt-results a .vlt-title {
   font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 1.52rem;
 }
 
 #vlt-results a .vlt-crumb {
   grid-column: 1 / -1;
   font-family: var(--mono-font);
-  font-size: 0.72rem;
+  font-size: 1.15rem;
   color: var(--voltaic-ink-faint);
 }
 
@@ -337,20 +355,20 @@ pre > code.language-sdx {
 }
 
 .vlt-empty {
-  padding: 1.3rem 1rem;
+  padding: 2.08rem 1.6rem;
   text-align: center;
   color: var(--voltaic-ink-mute);
-  font-size: 0.92rem;
+  font-size: 1.47rem;
 }
 
 .vlt-foot {
   display: flex;
-  gap: 1rem;
+  gap: 1.6rem;
   flex-wrap: wrap;
-  padding: 0.55rem 1rem;
+  padding: 0.88rem 1.6rem;
   border-block-start: 1px solid var(--voltaic-rule);
   font-family: var(--mono-font);
-  font-size: 0.68rem;
+  font-size: 1.09rem;
   color: var(--voltaic-ink-faint);
 }
 
@@ -371,13 +389,13 @@ pre > code.language-sdx {
 
 .vlt-raw {
   font-family: var(--mono-font);
-  font-size: 0.75rem;
+  font-size: 1.2rem;
   letter-spacing: 0.04em;
   color: var(--voltaic-ink-faint);
   text-decoration: none;
   border: 1px solid var(--voltaic-rule);
   border-radius: 3px;
-  padding: 0.16rem 0.42rem;
+  padding: 0.26rem 0.67rem;
 }
 
 .vlt-raw:hover {
