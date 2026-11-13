@@ -27,20 +27,24 @@
 }:
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "voltaic";
-  version = "0.1.0";
+  version = "0.1.1";
 
   src = fetchFromGitHub {
     owner = "Industrial";
     repo = "voltaic";
     tag = "v${finalAttrs.version}";
-    # Fill both hashes on the first submission, then never by hand again —
-    # `nix-update voltaic --version <v>` rewrites version, hash and cargoHash
-    # together. To get them the first time, set them to lib.fakeHash, build, and
-    # take the values nix reports.
-    hash = lib.fakeHash;
+    # Both hashes are real, and this expression has been built from this exact
+    # tag: it fetched the tarball, bootstrapped from the seed, and produced
+    # voltaic, voltaic-lsp and voltaic-mcp. So the file is ready to copy into
+    # nixpkgs as-is; there is no fakeHash dance to do first.
+    #
+    # Never edit them by hand again either — `nix-update voltaic --version <v>`
+    # rewrites version, hash and cargoHash together, and the release workflow
+    # runs it against the merged upstream copy on every tag.
+    hash = "sha256-be92i6aYbIyMNwr9fO1aOTBKuNRyfRyS37XP3zxBnS0=";
   };
 
-  cargoHash = lib.fakeHash;
+  cargoHash = "sha256-f7WnCYdq56UIN0hcSttYA+Chfnz/2ZmUa9k/Mw93QEA=";
 
   # The two editor servers ship beside the compiler, from one derivation: the
   # three binaries share almost all of their dependency graph, so building them

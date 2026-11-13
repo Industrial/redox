@@ -31,33 +31,28 @@ job resets it to upstream `master` on every run rather than merging, so the fork
 never drifts and never needs maintaining — a stale fork is the usual way this
 kind of automation rots, and resetting makes the fork's history irrelevant.
 
-## The order things have to happen in
+## Where this stands
 
 The dependency that is easy to miss: `fetchFromGitHub` needs a tag that already
-exists, so the nixpkgs submission comes *after* a real release, not before.
+exists, so the nixpkgs submission comes *after* a real release, not before. That
+is no longer a constraint — two releases have shipped.
 
-1. Rename the GitHub repository to `Industrial/voltaic`.
-2. Merge `rename/voltaic`, then the release branch.
-3. Add `CARGO_REGISTRY_TOKEN` and rehearse with a dry-run dispatch.
-4. Tag `v0.1.0` and push it. crates.io and the GitHub Release happen; the
-   `nixpkgs` job reports that there is nothing to bump yet and passes. This is
-   the expected first-release outcome, not a failure.
-5. **Now** do the one-time submission below, against the `v0.1.0` tag.
-6. Once it merges, add `NIXPKGS_PR_TOKEN`. From the next tag on, the bump PR is
-   automatic.
+| | |
+|---|---|
+| Repository is `Industrial/voltaic` | done |
+| `CARGO_REGISTRY_TOKEN` set, pipeline rehearsed twice with dry runs | done |
+| `v0.1.0` and `v0.1.1` published — 8 crates each, GitHub Releases with archives, SBOMs and SLSA provenance | done |
+| `nix/nixpkgs-package.nix` builds from the published tag, hashes filled | done |
+| **The one-time submission to nixpkgs** | **outstanding — the only blocking step** |
+| `NIXPKGS_PR_TOKEN` | outstanding, but nothing for it to do until the above merges |
 
-Step 6 can be done earlier; it just has nothing to do until step 5 has merged.
+Both releases' `nixpkgs` jobs reported that there was no attribute to bump and
+passed, which is the designed first-release behaviour rather than a failure.
 
-## Before the first submission
-
-Two things are not done yet, and both are the owner's:
-
-1. **Rename the GitHub repository to `Industrial/voltaic`.** The code and docs
-   already point there, but the git remote is still `Industrial/redox` and
-   nothing in `nix/nixpkgs-package.nix` can be fetched until the rename lands.
-   This was left deliberately: renaming a repository is outward-facing.
-2. **Push a release tag**, so there is something for `fetchFromGitHub` to fetch.
-   `docs/RELEASING.md` has that flow.
+**Keep the `version` in `nix/nixpkgs-package.nix` at the newest release until
+the submission lands.** It is the file that gets copied, so a stale version there
+means submitting a stale package. Once it is merged upstream, this copy stops
+mattering: `nix-update` maintains the nixpkgs one, and the release job runs it.
 
 ## The one-time submission
 
@@ -75,22 +70,30 @@ Two things are not done yet, and both are the owner's:
 
    No `all-packages.nix` entry is needed: `pkgs/by-name` is picked up by path.
 
-2. Fill the two hashes. They ship as `lib.fakeHash`, which makes the build fail
-   and print the real value. `hash` first, then `cargoHash` — the second cannot
-   be computed until the source fetch succeeds.
+2. **Nothing — the hashes are already real and the expression already builds.**
+   Both `hash` and `cargoHash` are filled for `v0.1.1`, and this was verified by
+   building it against the published tag rather than reasoned about:
 
-   ```bash
-   nix-build -A voltaic          # fails, prints the correct `hash`
-   # paste it in, then:
-   nix-build -A voltaic          # fails again, prints the correct `cargoHash`
-   # paste that in, then:
-   nix-build -A voltaic          # builds
+   ```
+   $ nix-build -E "with import <nixpkgs> {}; callPackage ./nix/nixpkgs-package.nix {}"
+   …
+   Compiling voltaic-cli v0.1.1 (/build/source/crates/voltaic-cli)
+   Compiling voltaic-lsp v0.1.1 (/build/source/crates/voltaic-lsp)
+   Compiling voltaic-mcp v0.1.1 (/build/source/crates/voltaic-mcp)
+   /nix/store/…-voltaic-0.1.1
    ```
 
-   Or let `nix-update` do both at once, which is what the release job does:
+   It fetched the GitHub tarball, found no Rust in it, bootstrapped from the
+   seed, and produced all three binaries. The output's runtime closure contains
+   `rustc-wrapper`, which is the `VOLTAIC_RUSTC` reference the comment on
+   `nativeBuildInputs` describes — so `voltaic check` keeps working after a
+   garbage collection, as claimed.
+
+   For a later version, `nix-update` rewrites all three fields at once, which is
+   what the release job does:
 
    ```bash
-   nix-shell -p nix-update --run "nix-update voltaic --version 0.1.0"
+   nix-shell -p nix-update --run "nix-update voltaic --version <version>"
    ```
 
 3. Check it the way a reviewer will.
@@ -101,7 +104,7 @@ Two things are not done yet, and both are the owner's:
    ```
 
 4. Open the PR from your `Industrial/nixpkgs` fork — the same fork the release
-   job pushes to, which already exists. Title it `voltaic: init at 0.1.0`,
+   job pushes to, which already exists. Title it `voltaic: init at 0.1.1`,
    per nixpkgs' commit convention.
 
 ### What a reviewer will ask about
