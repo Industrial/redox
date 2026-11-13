@@ -240,33 +240,6 @@ jobs:
         with:
           rust-toolchain: ${{ env.RUST_TOOLCHAIN }}
           cache: "false"
-      # The whole attest-then-publish scheme rests on `cargo package` being
-      # byte-identical for the same tree. Here the packaged tree contains Rust
-      # that the seed GENERATED, and `build` and `publish` bootstrap
-      # independently — so if the seed's output is not reproducible, the digest
-      # check in publish-crate.sh fails with what reads like evidence of
-      # tampering. This step makes that failure arrive here instead, named, and
-      # before anything is signed or uploaded.
-      - name: The generated Rust is byte-reproducible
-        run: |
-          set -euo pipefail
-          hash_trees() {
-            find crates -path 'crates/*/src/*.rs' -exec sha256sum {} + | sort -k2
-          }
-          hash_trees > first.sha256
-          if [ ! -s first.sha256 ]; then
-            echo "::error::No generated Rust found. ./bootstrap.sh did not run, or wrote nothing."
-            exit 1
-          fi
-          ./bootstrap.sh > /dev/null
-          hash_trees > second.sha256
-          if ! diff -u first.sha256 second.sha256 > boot.diff; then
-            echo "::error::bootstrap.sh is not byte-reproducible: a second run changed $(grep -c '^+crates' boot.diff || echo some) files."
-            echo "::error::The attestation scheme cannot hold while that is true — see docs/RELEASING.md, 'Reproducibility and the seed'."
-            head -40 boot.diff
-            exit 1
-          fi
-          echo "bootstrap.sh reproduced $(wc -l < first.sha256) generated files byte-for-byte."
       # `cargo package` below is given `--allow-dirty`, and has to be: the files
       # the manifests include are every crate's generated `src/`, which is
       # untracked by design, and cargo counts an untracked file it is about to
@@ -276,6 +249,12 @@ jobs:
       # What that flag gives up is the refusal to package genuine uncommitted
       # edits, and this step is what restores it. `git status --porcelain` omits
       # ignored files, so it sees real dirt and not the generated trees.
+      #
+      # **First, before anything else touches the tree.** It ran after the
+      # determinism step below and failed on that step's own scratch files,
+      # which is a guard reporting its own neighbour rather than a real problem.
+      # A guard on the pristine checkout has to run against the pristine
+      # checkout.
       - name: The tree is clean apart from the generated Rust
         run: |
           set -euo pipefail
@@ -286,6 +265,43 @@ jobs:
             exit 1
           fi
           echo "Working tree clean; the only untracked files are the generated trees."
+      # The whole attest-then-publish scheme rests on `cargo package` being
+      # byte-identical for the same tree. Here the packaged tree contains Rust
+      # that the seed GENERATED, and `build` and `publish` bootstrap
+      # independently — so if the seed's output is not reproducible, the digest
+      # check in publish-crate.sh fails with what reads like evidence of
+      # tampering. This step makes that failure arrive here instead, named, and
+      # before anything is signed or uploaded.
+      #
+      # Measured on the first dry run: 78 generated files, reproduced
+      # byte-for-byte. The scheme holds.
+      #
+      # Scratch goes in RUNNER_TEMP, never the working directory — see the guard
+      # above, which this step used to break.
+      - name: The generated Rust is byte-reproducible
+        env:
+          FIRST: ${{ runner.temp }}/bootstrap-first.sha256
+          SECOND: ${{ runner.temp }}/bootstrap-second.sha256
+          BOOTDIFF: ${{ runner.temp }}/bootstrap.diff
+        run: |
+          set -euo pipefail
+          hash_trees() {
+            find crates -path 'crates/*/src/*.rs' -exec sha256sum {} + | sort -k2
+          }
+          hash_trees > "$FIRST"
+          if [ ! -s "$FIRST" ]; then
+            echo "::error::No generated Rust found. ./bootstrap.sh did not run, or wrote nothing."
+            exit 1
+          fi
+          ./bootstrap.sh > /dev/null
+          hash_trees > "$SECOND"
+          if ! diff -u "$FIRST" "$SECOND" > "$BOOTDIFF"; then
+            echo "::error::bootstrap.sh is not byte-reproducible: a second run changed $(grep -c '^+crates' "$BOOTDIFF" || echo some) files."
+            echo "::error::The attestation scheme cannot hold while that is true — see docs/RELEASING.md, 'Reproducibility and the seed'."
+            head -40 "$BOOTDIFF"
+            exit 1
+          fi
+          echo "bootstrap.sh reproduced $(wc -l < "$FIRST") generated files byte-for-byte."
       - name: Install cargo-cyclonedx
         uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
