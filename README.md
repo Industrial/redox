@@ -5,9 +5,21 @@ in, `.xrs` containing ordinary Rust out. You get equations, guards, pattern rows
 pipelines, sections and composition — and then rustc type-checks and borrow-checks the result,
 because Voltaic has no checker of its own and must never grow one.
 
+[![The book](https://img.shields.io/badge/docs-the%20book-A85C32.svg)](https://industrial.github.io/voltaic/)
 [![CI](https://github.com/Industrial/voltaic/actions/workflows/ci.yml/badge.svg)](https://github.com/Industrial/voltaic/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/Industrial/voltaic/actions/workflows/codeql.yml/badge.svg)](https://github.com/Industrial/voltaic/actions/workflows/codeql.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-A85C32.svg)](LICENSE)
+
+### Start with [the Voltaic book →](https://industrial.github.io/voltaic/)
+
+The tour, the full language reference and the install guide live there. This README is the short
+version.
+
+[Install](https://industrial.github.io/voltaic/tour/install.html) ·
+[Your first program](https://industrial.github.io/voltaic/tour/first-program.html) ·
+[The off-side rule](https://industrial.github.io/voltaic/tour/off-side-rule.html) ·
+[Calling Rust](https://industrial.github.io/voltaic/tour/calling-rust.html) ·
+[Language reference](https://industrial.github.io/voltaic/language/lexical.html)
 
 There is no runtime, no garbage collector and no standard library. There is Rust's, because the
 output *is* Rust — Voltaic's answer to "where is the `Vec`" is "crates.io".
@@ -249,6 +261,19 @@ instead of rustc's `cfg(bootstrap)` or Go's version chain. `seed/SEED.md` has th
 
 ## Quick start
 
+To *use* Voltaic, install the compiler from crates.io — no clone, no bootstrap:
+
+```bash
+cargo install voltaic-cli      # installs the `voltaic` binary
+voltaic build hello.sdx        # -> hello.xrs
+```
+
+[Install](https://industrial.github.io/voltaic/tour/install.html) in the book covers the other
+routes, including Nix.
+
+To work *on* Voltaic, build from source. `./bootstrap.sh` is not optional: a clean clone contains
+no generated Rust at all, because every crate is written in Voltaic.
+
 ```bash
 git clone --recurse-submodules https://github.com/Industrial/voltaic
 cd voltaic
@@ -337,9 +362,13 @@ rather than absorbed into a green build.
 
 ## Documentation
 
-`docs/` is numbered: `01` specification, `02` blueprint, `03` surface design, `04` plan of plans,
-`05 - NN -` one per plan, `06` code architecture, plus `COMPILER.md` for toolchain decisions and
-`CONFORMANCE.md` for what the surface covers today.
+**[The Voltaic book](https://industrial.github.io/voltaic/)** is the documentation — the tour, the
+install guide and the full language reference. Start there.
+
+`docs/` is something else: this repository's own design record, and it is numbered. `01`
+specification, `02` blueprint, `03` surface design, `04` plan of plans, `05 - NN -` one per plan,
+`06` code architecture, plus `COMPILER.md` for toolchain decisions and `CONFORMANCE.md` for what
+the surface covers today. Useful if you are working *on* Voltaic rather than *in* it.
 
 ---
 
