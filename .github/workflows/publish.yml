@@ -153,8 +153,22 @@ jobs:
           large-packages: true
           docker-images: true
           swap-storage: true
+      # `fetch-depth: 0` for the same reason `ci.yml`'s gates job needs it, and
+      # it bites here even harder. `.moon/workspace.yml` sets
+      # `vcs.defaultBranch: 'main'`, so moon resolves a base of `main`
+      # unconditionally — and this job runs on a **tag** push, whose default
+      # shallow single-branch checkout contains no `main` ref at all. moon then
+      # exits 128 with `fatal: ambiguous argument 'main'` before a single test
+      # runs.
+      #
+      # Caught before the first release rather than by it: the identical failure
+      # had been making every pull request red in this repository since before
+      # the release pipeline existed, which is what made it recognisable here.
+      # Only the jobs that invoke moon need this; the cargo-only jobs below are
+      # fine on a shallow checkout.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
       - uses: ./.github/actions/setup-voltaic
         with:
