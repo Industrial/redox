@@ -59,8 +59,30 @@ jobs:
       CARGO_PROFILE_DEV_DEBUG: line-tables-only
       CARGO_PROFILE_TEST_DEBUG: line-tables-only
     steps:
+      # `fetch-depth: 0` is required, and only on `pull_request`.
+      #
+      # moon resolves a base revision to work out which projects changed, and on
+      # a pull request the default shallow, single-branch checkout contains no
+      # `main` ref for it to resolve. moon then exits 128:
+      #
+      #   Detected a shallow checkout while comparing against an explicit base …
+      #   A full Git history is recommended, e.g. a fetch depth of 0.
+      #   Unable to resolve a merge base … base="main" head="HEAD"
+      #   × Process git failed: exit code 128
+      #   │ fatal: ambiguous argument 'main': unknown revision or path not in the
+      #   │ working tree.
+      #
+      # This is why **no pull request has ever passed CI in this repository**,
+      # while every push to `main` has: on a push the ref being built *is* the
+      # base, so there is nothing to resolve. Both dependabot pull requests
+      # failed this way on 2026-11-11, two days before it was diagnosed, which is
+      # the evidence that it is the checkout and not anything in a diff.
+      #
+      # `.github/workflows/dco.yml` already fetches full history for its own
+      # reasons, so this is the convention here rather than a new one.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Install Rust (pinned)
         uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
