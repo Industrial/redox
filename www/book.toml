@@ -1,0 +1,57 @@
+# The Voltaic book.
+#
+# Identity and documentation site
+# (`.cursor/plans/voltaic-identity-and-site.plan.md`) wave 5.
+#
+# `site-url` is the one place the deployed location is written. Canonical
+# links, the sitemap and the OpenGraph tags all derive from it, so moving to a
+# custom domain is this line plus a rebuild rather than a sweep.
+
+[book]
+title = "Voltaic"
+authors = ["Tom Wieland"]
+language = "en"
+src = "src"
+
+[output.html]
+site-url = "/voltaic/"
+git-repository-url = "https://github.com/Industrial/voltaic"
+git-repository-icon = "fab-github"
+edit-url-template = "https://github.com/Industrial/voltaic/edit/main/www/{path}"
+default-theme = "light"
+preferred-dark-theme = "navy"
+no-section-label = false
+additional-css = ["theme/tokens.css", "theme/voltaic.css"]
+additional-js = ["theme/palette.js"]
+
+# `.sdx` has no highlight.js grammar, so the fenced blocks are tagged
+# `voltaic` and coloured by `theme/voltaic.css` against the token palette
+# rather than by highlight.js guessing.
+[output.html.playground]
+editable = false
+copyable = true
+line-numbers = false
+
+# Titles and headings are what a reader searches for in a language reference —
+# "where is the section operator" — so they outweigh body text more than
+# mdBook's defaults assume.
+[output.html.search]
+enable = true
+limit-results = 30
+use-boolean-and = false
+boost-title = 4
+boost-hierarchy = 3
+boost-paragraph = 1
+expand = true
+heading-split-level = 3
+
+[output.html.fold]
+enable = true
+level = 1
+
+# A dead cross-reference fails the build rather than shipping. Web links are
+# not followed: the build must work offline and must not depend on a third
+# party's uptime.
+[output.linkcheck2]
+follow-web-links = false
+warning-policy = "error"

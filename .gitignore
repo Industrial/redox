@@ -201,3 +201,7 @@ tree-sitter-voltaic/*.wasm
 # The rasters are different: nothing outside CI reads them, they are large, and
 # they are byte-reproducible from the masters. So they stay out.
 design/dist/
+
+# The book's build output. `mdbook build` writes it, CI rebuilds it, and the
+# Pages workflow uploads it — nothing reads a committed copy.
+www/book/

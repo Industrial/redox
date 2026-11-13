@@ -1,0 +1,110 @@
+<!doctype html>
+<html class="light js">
+<head>
+<meta charset="utf-8">
+<title>palette harness</title>
+<!--
+  A browser gate for theme/palette.js.
+
+  Identity and documentation site
+  (`.cursor/plans/voltaic-identity-and-site.plan.md`) wave 7.
+
+  Driven by headless chromium with --dump-dom rather than by a browser
+  automation framework: the repository has no browser-test infrastructure, and
+  a static harness plus a DOM dump needs none. The two placeholders are
+  substituted by the test, because mdBook content-hashes both filenames.
+
+  Every assertion writes into #out as it runs, so a partial run says where it
+  stopped. The first version of this file cached #vlt-palette before
+  DOMContentLoaded and reported `built=false` for a palette that was in fact
+  fine — hence the re-query helper and the load wait.
+-->
+<script>
+  window.search = window.search || {};
+  window.path_to_searchindex_js = "SEARCHINDEX_JS";
+</script>
+</head>
+<body>
+<div id="out">pending</div>
+<div id="err"></div>
+<script>
+  window.onerror = function (m) {
+    document.getElementById("err").textContent = "ERROR: " + m;
+  };
+</script>
+<script src="PALETTE_JS"></script>
+<script>
+window.addEventListener("load", function () {
+  var log = [];
+  function say(k, v) {
+    log.push(k + "=" + v);
+    document.getElementById("out").textContent = log.join(" ");
+  }
+  // Re-queried every time: the palette is built lazily, so a cached handle
+  // from before the first open is null and says nothing useful.
+  function pal() { return document.getElementById("vlt-palette"); }
+  function key(k, opts) {
+    var e = new KeyboardEvent("keydown", Object.assign(
+      { key: k, bubbles: true, cancelable: true }, opts || {}));
+    (document.activeElement || document.body).dispatchEvent(e);
+    return e;
+  }
+  function items() { return document.querySelectorAll("#vlt-results li"); }
+
+  say("built_on_load", !!pal());
+  say("closed_initially", pal() ? pal().hidden : "n/a");
+
+  var e1 = key("k", { ctrlKey: true });
+  say("ctrl_k_opens", pal() && pal().hidden === false);
+  say("ctrl_k_prevented", e1.defaultPrevented);
+  say("focus_in_input", document.activeElement && document.activeElement.id === "vlt-input");
+
+  key("Escape");
+  say("esc_closes", pal().hidden);
+
+  key("k", { metaKey: true });
+  say("meta_k_opens", pal().hidden === false);
+
+  setTimeout(function () {
+    var input = document.getElementById("vlt-input");
+    say("index_loaded", !!(window.search && window.search.index));
+
+    function type(q) {
+      input.value = q;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    type("off-side");
+    say("filter_hits", items().length);
+    var first = items()[0] && items()[0].querySelector("a");
+    say("first_href", first ? first.getAttribute("href") : "none");
+    say("first_selected", items()[0] ? items()[0].getAttribute("aria-selected") : "none");
+    say("marked", !!(items()[0] && items()[0].querySelector("mark")));
+
+    type("expop");
+    var subFirst = items()[0] && items()[0].querySelector("a");
+    say("subseq_hits", items().length);
+    say("subseq_first", subFirst ? subFirst.getAttribute("href") : "none");
+
+    type("the");
+    input.focus();
+    key("ArrowDown");
+    var all = Array.prototype.slice.call(items());
+    var sel = document.querySelector('#vlt-results li[aria-selected="true"]');
+    say("arrow_moves_to", sel ? all.indexOf(sel) : -1);
+
+    var tab = key("Tab");
+    say("tab_trapped", tab.defaultPrevented);
+
+    type("zzzqqqnothing");
+    say("empty_hits", items().length);
+
+    say("role_dialog", pal().getAttribute("role") === "dialog");
+    say("aria_modal", pal().getAttribute("aria-modal") === "true");
+    say("listbox", document.getElementById("vlt-results").getAttribute("role") === "listbox");
+    say("done", true);
+  }, 700);
+});
+</script>
+</body>
+</html>

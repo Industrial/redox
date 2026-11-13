@@ -1,0 +1,386 @@
+/* The Pile, carried into mdBook.
+ *
+ * Identity and documentation site
+ * (`.cursor/plans/voltaic-identity-and-site.plan.md`) wave 5.
+ *
+ * mdBook 0.5 scopes its palette on `html.<theme>`, so rather than add custom
+ * theme names — which would mean overriding `index.hbs` just to extend the
+ * theme picker — this remaps the two themes the book actually offers:
+ * `light` becomes Voltaic light, `navy` becomes Voltaic dark. `book.toml` sets
+ * them as the default and the preferred dark theme respectively.
+ *
+ * Every colour comes from `theme/tokens.css`, which `design/build.sh` emits
+ * from `design/tokens/tokens.json`. Nothing here invents a hex.
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Spectral:ital,wght@0,400;0,500;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+
+/* ── palette → mdBook's variables ──────────────────────────────────────── */
+
+html.light,
+html:not(.js) {
+  --bg: #e9edef;
+  --fg: var(--voltaic-ink);
+  --sidebar-bg: #e2e8ea;
+  --sidebar-fg: var(--voltaic-ink-2);
+  --sidebar-non-existant: var(--voltaic-ink-faint);
+  --sidebar-active: var(--voltaic-copper);
+  --sidebar-spacer: var(--voltaic-rule);
+  --sidebar-header-border-color: var(--voltaic-rule);
+  --scrollbar: var(--voltaic-ink-faint);
+  --icons: var(--voltaic-ink-mute);
+  --icons-hover: var(--voltaic-copper);
+  --links: var(--voltaic-arc);
+  --inline-code-color: var(--voltaic-copper);
+  --theme-popup-bg: var(--voltaic-ground);
+  --theme-popup-border: var(--voltaic-rule);
+  --theme-hover: var(--voltaic-ground-2);
+  --quote-bg: var(--voltaic-ground-2);
+  --quote-border: var(--voltaic-copper);
+  --table-border-color: var(--voltaic-rule);
+  --table-header-bg: var(--voltaic-ground-2);
+  --table-alternate-bg: var(--voltaic-ground-2);
+  --searchbar-border-color: var(--voltaic-rule);
+  --searchbar-bg: var(--voltaic-ground);
+  --searchbar-fg: var(--voltaic-ink);
+  --searchbar-shadow-color: var(--voltaic-rule);
+  --searchresults-header-fg: var(--voltaic-ink-mute);
+  --searchresults-border-color: var(--voltaic-rule);
+  --searchresults-li-bg: var(--voltaic-ground-2);
+  --search-mark-bg: var(--voltaic-copper-wash, #f2e2d8);
+  --overlay-bg: rgba(16, 23, 27, 0.42);
+  --color-scheme: light;
+}
+
+html.navy {
+  --bg: #0d1317;
+  --fg: var(--voltaic-ink);
+  --sidebar-bg: #0a1014;
+  --sidebar-fg: var(--voltaic-ink-2);
+  --sidebar-non-existant: var(--voltaic-ink-faint);
+  --sidebar-active: var(--voltaic-copper);
+  --sidebar-spacer: var(--voltaic-rule);
+  --sidebar-header-border-color: var(--voltaic-rule);
+  --scrollbar: var(--voltaic-ink-faint);
+  --icons: var(--voltaic-ink-mute);
+  --icons-hover: var(--voltaic-copper);
+  --links: var(--voltaic-arc);
+  --inline-code-color: var(--voltaic-copper);
+  --theme-popup-bg: var(--voltaic-ground);
+  --theme-popup-border: var(--voltaic-rule);
+  --theme-hover: var(--voltaic-ground-2);
+  --quote-bg: var(--voltaic-ground-2);
+  --quote-border: var(--voltaic-copper);
+  --table-border-color: var(--voltaic-rule);
+  --table-header-bg: var(--voltaic-ground-2);
+  --table-alternate-bg: var(--voltaic-ground-2);
+  --searchbar-border-color: var(--voltaic-rule);
+  --searchbar-bg: var(--voltaic-ground);
+  --searchbar-fg: var(--voltaic-ink);
+  --searchbar-shadow-color: #000;
+  --searchresults-header-fg: var(--voltaic-ink-mute);
+  --searchresults-border-color: var(--voltaic-rule);
+  --searchresults-li-bg: var(--voltaic-ground-2);
+  --search-mark-bg: #33231a;
+  --overlay-bg: rgba(0, 0, 0, 0.62);
+  --color-scheme: dark;
+}
+
+/* ── typography ────────────────────────────────────────────────────────── */
+
+:root {
+  --mono-font: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --code-font-size: 0.86em;
+  --content-max-width: 46rem;
+}
+
+html {
+  font-family: "Spectral", Georgia, "Times New Roman", serif;
+}
+
+.content main {
+  font-size: 1.02rem;
+  line-height: 1.68;
+}
+
+.content h1,
+.content h2,
+.content h3,
+.content h4,
+.menu-title,
+.sidebar .part-title {
+  font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: -0.018em;
+  text-wrap: balance;
+}
+
+.content h1 {
+  font-weight: 800;
+  font-size: 2.1rem;
+  line-height: 1.08;
+  margin-block: 0 1.1rem;
+}
+
+.content h2 {
+  font-weight: 700;
+  font-size: 1.45rem;
+  margin-block-start: 2.6rem;
+  padding-block-end: 0.35rem;
+  border-block-end: 1px solid var(--voltaic-rule);
+}
+
+.content h3 {
+  font-weight: 600;
+  font-size: 1.14rem;
+  margin-block-start: 1.9rem;
+}
+
+.menu-title {
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.sidebar .part-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--voltaic-ink-faint);
+}
+
+.sidebar .chapter li.chapter-item {
+  font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+/* ── the pile band: the one ornament, used structurally ────────────────── */
+
+.menu-bar {
+  border-block-end: 1px solid var(--voltaic-rule);
+}
+
+.menu-bar::after {
+  content: "";
+  display: block;
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline: 0;
+  height: 2px;
+  background: repeating-linear-gradient(
+    to right,
+    var(--voltaic-copper) 0 14px,
+    transparent 14px 17px,
+    var(--voltaic-zinc) 17px 29px,
+    transparent 29px 32px
+  );
+  opacity: 0.85;
+}
+
+/* ── .sdx code blocks ──────────────────────────────────────────────────── */
+
+pre,
+code {
+  font-variant-ligatures: none;
+}
+
+pre > code.language-voltaic,
+pre > code.language-sdx {
+  color: var(--voltaic-ink-2);
+}
+
+.content pre {
+  border: 1px solid var(--voltaic-rule);
+  border-radius: 2px;
+  background: var(--voltaic-ground-2);
+}
+
+.content :not(pre) > code {
+  background: var(--voltaic-ground-2);
+  padding: 0.1em 0.32em;
+  border-radius: 2px;
+  font-size: 0.88em;
+}
+
+/* ── tables read as data, not prose ────────────────────────────────────── */
+
+.content table {
+  font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.content table th {
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+/* ── the one blockquote style, for the decisions the spec records ──────── */
+
+.content blockquote {
+  border-inline-start: 3px solid var(--voltaic-copper);
+  background: var(--voltaic-ground-2);
+  padding: 0.85rem 1.1rem;
+  margin-inline: 0;
+}
+
+/* ── Ctrl-K palette ───────────────────────────────────────────────────── */
+
+#vlt-palette[hidden] {
+  display: none;
+}
+
+#vlt-palette {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--overlay-bg);
+  display: grid;
+  align-items: start;
+  justify-items: center;
+  padding-block-start: min(14vh, 7rem);
+}
+
+.vlt-box {
+  width: min(42rem, calc(100vw - 2rem));
+  background: var(--voltaic-ground);
+  border: 1px solid var(--voltaic-rule);
+  border-radius: 4px;
+  box-shadow: 0 24px 64px -24px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.vlt-field {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.85rem 1rem;
+  border-block-end: 1px solid var(--voltaic-rule);
+}
+
+.vlt-field svg {
+  flex: none;
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+#vlt-input {
+  flex: 1 1 auto;
+  border: 0;
+  background: none;
+  color: var(--voltaic-ink);
+  font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  font-size: 1.02rem;
+  outline: none;
+  min-width: 0;
+}
+
+#vlt-input::placeholder {
+  color: var(--voltaic-ink-faint);
+}
+
+.vlt-kbd {
+  font-family: var(--mono-font);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--voltaic-ink-faint);
+  border: 1px solid var(--voltaic-rule);
+  border-radius: 3px;
+  padding: 0.14rem 0.36rem;
+  white-space: nowrap;
+}
+
+#vlt-results {
+  list-style: none;
+  margin: 0;
+  padding: 0.35rem;
+  max-height: min(52vh, 26rem);
+  overflow-y: auto;
+}
+
+#vlt-results li {
+  margin: 0;
+}
+
+#vlt-results a {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.2rem 1rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 3px;
+  text-decoration: none;
+  color: var(--voltaic-ink);
+}
+
+#vlt-results a .vlt-title {
+  font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+#vlt-results a .vlt-crumb {
+  grid-column: 1 / -1;
+  font-family: var(--mono-font);
+  font-size: 0.72rem;
+  color: var(--voltaic-ink-faint);
+}
+
+#vlt-results a mark {
+  background: var(--search-mark-bg);
+  color: inherit;
+  border-radius: 2px;
+}
+
+#vlt-results li[aria-selected="true"] a {
+  background: var(--voltaic-ground-2);
+  box-shadow: inset 2px 0 0 var(--voltaic-copper);
+}
+
+.vlt-empty {
+  padding: 1.3rem 1rem;
+  text-align: center;
+  color: var(--voltaic-ink-mute);
+  font-size: 0.92rem;
+}
+
+.vlt-foot {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.55rem 1rem;
+  border-block-start: 1px solid var(--voltaic-rule);
+  font-family: var(--mono-font);
+  font-size: 0.68rem;
+  color: var(--voltaic-ink-faint);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .vlt-box {
+    animation: vlt-rise 0.14s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+
+  @keyframes vlt-rise {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+  }
+}
+
+/* ── the machine-readable page should not look like an afterthought ───── */
+
+.vlt-raw {
+  font-family: var(--mono-font);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  color: var(--voltaic-ink-faint);
+  text-decoration: none;
+  border: 1px solid var(--voltaic-rule);
+  border-radius: 3px;
+  padding: 0.16rem 0.42rem;
+}
+
+.vlt-raw:hover {
+  color: var(--voltaic-copper);
+  border-color: var(--voltaic-copper);
+}
