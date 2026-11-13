@@ -31,17 +31,49 @@ fn have(tool: &str) -> bool {
   found
 }
 
+/// Where `mdbook-voltaic` is, building it first if need be.
+///
+/// The book build hard-requires it: `book.toml` registers the preprocessor
+/// without `optional = true`, deliberately, because an optional one would
+/// silently ship a book with no highlighting — which is the failure this whole
+/// tool exists to end.
+fn preprocessor_dir() -> Option<PathBuf> {
+  let root = root();
+  let built = Command::new("cargo")
+    .args(["build", "--quiet", "-p", "mdbook-voltaic"])
+    .current_dir(&root)
+    .status();
+  if !built.map(|s| s.success()).unwrap_or(false) {
+    eprintln!("skipping: could not build mdbook-voltaic");
+    return None;
+  }
+  for profile in ["debug", "release"] {
+    let dir = root.join("target").join(profile);
+    if dir.join("mdbook-voltaic").is_file() {
+      return Some(dir);
+    }
+  }
+  eprintln!("skipping: mdbook-voltaic built but was not found under target/");
+  None
+}
+
 /// Build the book into a scratch directory and return it.
 fn build_book(tag: &str) -> Option<PathBuf> {
   if !have("mdbook") || !have("mdbook-linkcheck2") {
     return None;
   }
+  let bin_dir = preprocessor_dir()?;
+  let path = match std::env::var("PATH") {
+    Ok(existing) => format!("{}:{existing}", bin_dir.display()),
+    Err(_) => bin_dir.display().to_string(),
+  };
   let dest = std::env::temp_dir().join(format!("voltaic-book-{tag}-{}", std::process::id()));
   let _ = std::fs::remove_dir_all(&dest);
   let out = Command::new("mdbook")
     .arg("build")
     .arg("--dest-dir")
     .arg(&dest)
+    .env("PATH", path)
     .current_dir(root().join("www"))
     .output()
     .expect("mdbook should be runnable");
@@ -402,4 +434,90 @@ fn no_page_scrolls_sideways_and_the_structure_is_sound() {
   assert_eq!(measured, 16, "4 pages x 2 widths x 2 themes");
 
   let _ = std::fs::remove_dir_all(&dest);
+}
+
+/// Criterion: the samples are highlighted, by the lexer's own token classes.
+///
+/// Identity and documentation site
+/// (`.cursor/plans/voltaic-identity-and-site.plan.md`) wave 11.
+///
+/// highlight.js ships forty-odd languages and Voltaic is not among them, so a
+/// ```voltaic block rendered flat: measured at zero `<span>` elements before
+/// `tools/mdbook-voltaic` existed. The preprocessor highlights with
+/// `voltaic-lexer` rather than a third grammar, so this asserts the *result*
+/// of that — several distinct classes actually reaching the HTML — rather than
+/// that a tool ran.
+#[test]
+fn the_samples_are_highlighted_by_the_lexers_own_classes() {
+  let Some(dest) = build_book("highlight") else {
+    return;
+  };
+  let page = dest.join("html/language/expressions.html");
+  let html = std::fs::read_to_string(&page).expect("a language chapter");
+
+  let spans = html.matches("class=\"tok-").count();
+  assert!(
+    spans > 100,
+    "only {spans} highlighted spans in {}; the preprocessor is not running",
+    page.display()
+  );
+
+  // The classes that must appear in a chapter about expressions and operators.
+  // Not all ten — `constant` is for attributes, which this chapter has none of
+  // — but enough that a single-class fallback could not pass.
+  for class in [
+    "tok-keyword",
+    "tok-operator",
+    "tok-string",
+    "tok-comment",
+    "tok-punctuation",
+  ] {
+    assert!(
+      html.contains(class),
+      "{class} is absent from {}, so the token stream is being flattened",
+      page.display()
+    );
+  }
+
+  // The off-side rule means indentation *is* structure, and the highlighter
+  // reassembles from spans. A sample whose leading spaces were lost would
+  // still look plausible, so it is asserted rather than eyeballed.
+  let hello = std::fs::read_to_string(root().join("examples/hello.sdx")).expect("hello.sdx");
+  let indented = hello.lines().filter(|l| l.starts_with("  ")).count();
+  assert!(
+    indented > 0,
+    "hello.sdx should have indented lines to check"
+  );
+  let index = std::fs::read_to_string(dest.join("html/index.html")).expect("the index");
+  let block = index
+    .split("<code class=\"language-voltaic\">")
+    .nth(1)
+    .and_then(|rest| rest.split("</code>").next())
+    .expect("a highlighted block on the index page");
+  let stripped: String = strip_tags(block);
+  for line in hello.lines().filter(|l| l.starts_with("  ")) {
+    let want = line.replace('>', "&gt;").replace('<', "&lt;");
+    let want = want.trim_end();
+    assert!(
+      stripped.lines().any(|l| l.trim_end() == want.trim_end()),
+      "the indented line {want:?} did not survive highlighting"
+    );
+  }
+
+  let _ = std::fs::remove_dir_all(&dest);
+}
+
+/// Remove HTML tags, keeping text and entities as they are.
+fn strip_tags(html: &str) -> String {
+  let mut out = String::with_capacity(html.len());
+  let mut inside = false;
+  for ch in html.chars() {
+    match ch {
+      '<' => inside = true,
+      '>' if inside => inside = false,
+      c if !inside => out.push(c),
+      _ => {}
+    }
+  }
+  out
 }

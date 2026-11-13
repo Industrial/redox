@@ -13,6 +13,15 @@ authors = ["Tom Wieland"]
 language = "en"
 src = "src"
 
+# Highlighting is done here, at build time, by Voltaic's own lexer — see
+# `tools/mdbook-voltaic`. `after = ["links"]` is load-bearing: mdBook's `links`
+# preprocessor is what expands `{{#include}}`, and every sample in this book is
+# an include, so running before it would highlight the directive rather than
+# the code.
+[preprocessor.voltaic]
+command = "mdbook-voltaic"
+after = ["links"]
+
 [output.html]
 site-url = "/voltaic/"
 git-repository-url = "https://github.com/Industrial/voltaic"
@@ -21,7 +30,7 @@ edit-url-template = "https://github.com/Industrial/voltaic/edit/main/www/{path}"
 default-theme = "light"
 preferred-dark-theme = "navy"
 no-section-label = false
-additional-css = ["theme/tokens.css", "theme/voltaic.css"]
+additional-css = ["theme/tokens.css", "theme/syntax.css", "theme/voltaic.css"]
 additional-js = ["theme/palette.js"]
 
 # `.sdx` has no highlight.js grammar, so the fenced blocks are tagged

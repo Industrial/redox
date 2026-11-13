@@ -1,0 +1,24 @@
+[package]
+name = "mdbook-voltaic"
+version = "0.1.1"
+edition = "2024"
+# Never published. It is a build tool for this repository's own documentation,
+# and it lives under `tools/` rather than `crates/` for the reason AGENTS.md
+# gives: every crate under `crates/` is written in Voltaic, and this one is
+# Rust because it links the lexer directly.
+publish = false
+description = "mdBook preprocessor: highlights .sdx blocks with Voltaic's own lexer."
+license.workspace = true
+
+[[bin]]
+name = "mdbook-voltaic"
+path = "src/main.rs"
+
+[dependencies]
+# The whole point. Highlighting is the compiler's own tokenisation rather than
+# a grammar written a second time, so it cannot disagree with what the
+# compiler does.
+voltaic-lexer = { path = "../../crates/voltaic-lexer" }
+# mdBook's preprocessor protocol is a JSON array on stdin and a JSON object on
+# stdout. AGENTS.md: no plan implements a library function.
+serde_json = "1.0.154"

@@ -4,13 +4,21 @@ name: Pages
 # Identity and documentation site
 # (`.cursor/plans/voltaic-identity-and-site.plan.md`) wave 9.
 #
-# **This job does not bootstrap, and that is not an oversight.** Every other
-# workflow here has to run `./bootstrap.sh` first, because `crates/*/src/` is
-# generated and `.gitignore`d so cargo cannot build anything in a clean clone.
-# The site needs none of it: the book includes `.sdx` files as *text*, and the
-# icon package is rendered from two SVG masters. So there is no compiler in
-# this graph at all, which makes it the fastest workflow in the repository and
-# the only one that cannot be broken by a compiler change.
+# **This job bootstraps, and it did not used to.** The first version of this
+# workflow had no compiler in its graph at all: the book includes `.sdx` as
+# *text* and the icons come from two SVG masters, so nothing needed building.
+# That was a property worth having and it is now gone, deliberately.
+#
+# Syntax highlighting is why. `tools/mdbook-voltaic` highlights every sample
+# with `voltaic-lexer` — the compiler's own tokenisation — rather than with a
+# hand-written highlight.js grammar, because a third grammar after the parser
+# and the tree-sitter one would drift silently; nothing compiles a highlighter.
+# The cost of that choice is exactly this: the preprocessor links the lexer,
+# the lexer's `src/` is generated from its `.sdx` and `.gitignore`d, so the
+# seed bootstrap and a Rust toolchain are now build inputs for the docs site.
+#
+# The trade is deliberate and worth restating: a slower, compiler-coupled docs
+# build against highlighting that cannot disagree with the compiler.
 #
 # **Tools come from Nix rather than six pinned downloads.** `ci.yml` installs
 # each binary with a sha256 check because it needs exactly the Rust toolchain
@@ -39,6 +47,9 @@ concurrency:
 # Least privilege at the top; the deploy job opts into what it needs.
 permissions:
   contents: read
+env:
+  # Kept equal to `rust-toolchain.toml`, the same pin `ci.yml` uses.
+  RUST_TOOLCHAIN: 1.97.1
 jobs:
   # ──────────────────────────────────────────────────────────────────────────
   # Build on every push and every pull request, so a broken book or a dead
@@ -55,6 +66,21 @@ jobs:
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
+      # The preprocessor links voltaic-lexer, whose src/ is generated — so the
+      # seed bootstrap has to run before anything can be built, exactly as in
+      # `ci.yml`. `wasmtime` runs the seed; the toolchain is the pinned one.
+      - name: Install Rust (pinned)
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+      - name: Bootstrap the generated Rust, then build the preprocessor
+        run: |
+          nix shell nixpkgs#wasmtime nixpkgs#rustfmt --command bash -c '
+            set -euo pipefail
+            ./bootstrap.sh
+          '
+          cargo build --release -p mdbook-voltaic
+          echo "$PWD/target/release" >> "$GITHUB_PATH"
       - name: Render the identity assets
         run: |
           nix shell \
@@ -111,6 +137,11 @@ jobs:
 
           canon=$(grep -rl 'rel="canonical"' "$H" --include='*.html' | wc -l)
           test "$canon" -ge 20 || { echo "only $canon pages carry a canonical link"; exit 1; }
+
+          # Unhighlighted code is the defect this site shipped with once, and
+          # it looks like success: the build is green and the pages are there.
+          spans=$(grep -ro 'class="tok-' "$H" --include='*.html' | wc -l)
+          test "$spans" -ge 500 || { echo "only $spans highlighted spans"; exit 1; }
 
           echo "verified: $urls sitemap urls, $bytes bytes of llms-full.txt, $canon canonicals"
       - name: Upload the artifact

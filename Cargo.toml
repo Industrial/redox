@@ -19,6 +19,11 @@ members = [
   # and checked in as `voltaic1.wasm` so a ported crate need not commit the
   # Rust it generates.
   "crates/voltaic-seed",
+  # Identity and documentation site wave 11. The mdBook preprocessor that
+  # highlights `.sdx` blocks with the lexer itself rather than with a third
+  # grammar. Under `tools/` rather than `crates/`, because every crate under
+  # `crates/` is written in Voltaic and this one links the lexer directly.
+  "tools/mdbook-voltaic",
   # Plan 40 (`docs/35 - 40 - LSP.md`) — the language server, editor-agnostic
   # by construction; plan 49 ships the clients.
   "crates/voltaic-lsp",

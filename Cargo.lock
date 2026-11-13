@@ -670,6 +670,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "mdbook-voltaic"
+version = "0.1.1"
+dependencies = [
+ "serde_json",
+ "voltaic-lexer",
+]
+
+[[package]]
 name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
