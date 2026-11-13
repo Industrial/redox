@@ -28,7 +28,11 @@
 				"extensions": [
 					".sdx"
 				],
-				"configuration": "./language-configuration.json"
+				"configuration": "./language-configuration.json",
+				"icon": {
+					"light": "./icons/sdx-light.svg",
+					"dark": "./icons/sdx-dark.svg"
+				}
 			}
 		],
 		"grammars": [
@@ -52,7 +56,19 @@
 					"description": "Start voltaic-lsp for .sdx files. Turn this off to keep TextMate highlighting only."
 				}
 			}
-		}
+		},
+		"themes": [
+			{
+				"label": "Voltaic Light",
+				"uiTheme": "vs",
+				"path": "./themes/voltaic-light.json"
+			},
+			{
+				"label": "Voltaic Dark",
+				"uiTheme": "vs-dark",
+				"path": "./themes/voltaic-dark.json"
+			}
+		]
 	},
 	"dependencies": {
 		"vscode-languageclient": "^9.0.1"

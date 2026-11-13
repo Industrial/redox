@@ -88,7 +88,18 @@ includes = ["*.{js,jsx,ts,tsx,json}"]
 # was clean, while `:ci-format` reads this file and reformatted the two JSON
 # files on every run. With `fail-on-change = true` that is a permanently red CI
 # job, and locally it was the "the gate kept rewriting it" loop.
-excludes = ["tree-sitter-voltaic/src/*"]
+#
+# `editors/*/themes/` and the two generated colourscheme files are **generated**
+# too: `design/themes.sh` emits them from `design/tokens/tokens.json`, and
+# `design/themes.sh --check` asserts the committed copies are still what it
+# emits. Biome reflows the JSON, the generator writes it back, and the two
+# undo each other — the same conflict `tree-sitter-voltaic/src/` has above,
+# found the same way: `moon run :format` turned a green `--check` red.
+#
+# `helix/themes/voltaic.toml` is **not** excluded from taplo, because taplo's
+# output already matches what the generator emits. Excluding it would be
+# guarding against a conflict that does not exist.
+excludes = ["tree-sitter-voltaic/src/*", "editors/*/themes/*.json"]
 priority = 4
 
 [formatter.yaml]

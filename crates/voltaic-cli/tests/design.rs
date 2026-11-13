@@ -21,6 +21,21 @@ fn root() -> PathBuf {
   PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
+/// Is `tool` on PATH? Absence is announced rather than silently skipped — a
+/// test that passes without running is worse than one that is missing.
+fn have(tool: &str) -> bool {
+  let found = Command::new("sh")
+    .arg("-c")
+    .arg(format!("command -v {tool}"))
+    .output()
+    .map(|o| o.status.success())
+    .unwrap_or(false);
+  if !found {
+    eprintln!("skipping: {tool} is not on PATH; run inside 'devenv shell'");
+  }
+  found
+}
+
 /// Criterion: every committed asset is what `design/build.sh` emits today.
 ///
 /// The single strongest assertion available, because it covers the masters,
@@ -56,12 +71,26 @@ fn every_hex_in_a_generated_asset_comes_from_the_token_file() {
   let tokens = tokens.to_ascii_uppercase();
 
   let mut checked = 0;
-  for entry in std::fs::read_dir(root.join("design/masters")).expect("design/masters") {
-    let path = entry.expect("a dir entry").path();
-    if path.extension().and_then(|e| e.to_str()) != Some("svg") {
-      continue;
-    }
-    let body = std::fs::read_to_string(&path).expect("a master");
+  let mut sources: Vec<PathBuf> = std::fs::read_dir(root.join("design/masters"))
+    .expect("design/masters")
+    .filter_map(|e| e.ok())
+    .map(|e| e.path())
+    .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("svg"))
+    .collect();
+  // The five editor themes are the palette's other consumer.
+  for rel in [
+    "vscode/themes/voltaic-light.json",
+    "vscode/themes/voltaic-dark.json",
+    "zed/themes/voltaic.json",
+    "helix/themes/voltaic.toml",
+    "neovim/lua/voltaic/theme.lua",
+    "vim/colors/voltaic.vim",
+  ] {
+    sources.push(root.join("editors").join(rel));
+  }
+  for path in sources {
+    let body = std::fs::read_to_string(&path)
+      .unwrap_or_else(|e| panic!("{} should be readable: {e}", path.display()));
     for hex in hexes(&body) {
       assert!(
         tokens.contains(&hex),
@@ -280,14 +309,7 @@ fn the_generated_json_declares_what_each_platform_needs() {
 /// repository's `rustfmt.toml`, and unique, so parallel tests cannot collide.
 fn scratch_render(tag: &str) -> Option<std::path::PathBuf> {
   for tool in ["resvg", "oxipng", "icotool", "png2icns", "jq", "fc-list"] {
-    let found = Command::new("sh")
-      .arg("-c")
-      .arg(format!("command -v {tool}"))
-      .output()
-      .map(|o| o.status.success())
-      .unwrap_or(false);
-    if !found {
-      eprintln!("skipping: {tool} is not on PATH; run inside 'devenv shell'");
+    if !have(tool) {
       return None;
     }
   }
@@ -306,4 +328,123 @@ fn scratch_render(tag: &str) -> Option<std::path::PathBuf> {
     String::from_utf8_lossy(&out.stderr)
   );
   Some(dist)
+}
+
+/// Criterion: every editor theme is what `design/themes.sh` emits.
+///
+/// Five formats, one palette. The themes are tracked because each ships inside
+/// its editor's configuration and is read by that editor rather than by this
+/// build — so, like the masters, they need a gate that proves they are still
+/// what their source produces.
+#[test]
+fn every_editor_theme_matches_the_token_file() {
+  let out = Command::new("bash")
+    .arg("design/themes.sh")
+    .arg("--check")
+    .current_dir(root())
+    .output()
+    .expect("design/themes.sh should be runnable");
+  assert!(
+    out.status.success(),
+    "design/themes.sh --check failed; run ./design/themes.sh and review the diff\n{}{}",
+    String::from_utf8_lossy(&out.stdout),
+    String::from_utf8_lossy(&out.stderr)
+  );
+}
+
+/// Criterion: VS Code is told about the themes and the file icon.
+///
+/// A theme file nothing contributes is a theme nobody can select. This is the
+/// half of the work that lives outside the generator, so it is the half that
+/// can silently go missing.
+#[test]
+fn vscode_contributes_the_themes_and_the_file_icon() {
+  let body = std::fs::read_to_string(root().join("editors/vscode/package.json"))
+    .expect("the extension manifest");
+  let manifest: serde_json::Value = serde_json::from_str(&body).expect("valid JSON");
+
+  let themes = manifest["contributes"]["themes"]
+    .as_array()
+    .expect("contributes.themes should be an array");
+  assert_eq!(themes.len(), 2, "a light and a dark theme");
+  for t in themes {
+    let path = t["path"].as_str().expect("a theme path");
+    let rel = path.trim_start_matches("./");
+    assert!(
+      root().join("editors/vscode").join(rel).is_file(),
+      "contributes.themes names {path}, which does not exist"
+    );
+  }
+
+  let icon = &manifest["contributes"]["languages"][0]["icon"];
+  for which in ["light", "dark"] {
+    let path = icon[which]
+      .as_str()
+      .unwrap_or_else(|| panic!("a {which} icon"));
+    let rel = path.trim_start_matches("./");
+    assert!(
+      root().join("editors/vscode").join(rel).is_file(),
+      "the {which} file icon names {path}, which does not exist"
+    );
+  }
+}
+
+/// Criterion: the Neovim theme loads and actually sets a highlight.
+///
+/// That a Lua file parses proves very little — `setup()` is where the work is,
+/// and a wrong capture name or a missing palette key fails there rather than at
+/// load. So this asks nvim what `@keyword` ended up as and checks it against
+/// the token file, in both variants.
+#[test]
+fn the_neovim_theme_applies_the_palette() {
+  if !have("nvim") {
+    return;
+  }
+  let tokens = std::fs::read_to_string(root().join("design/tokens/tokens.json")).expect("tokens");
+  let tokens: serde_json::Value = serde_json::from_str(&tokens).expect("valid JSON");
+
+  for variant in ["light", "dark"] {
+    let want = tokens["roles"]["copper"][variant]
+      .as_str()
+      .expect("copper")
+      .trim_start_matches('#')
+      .to_ascii_uppercase();
+
+    let lua = format!(
+      r#"package.path = "editors/neovim/lua/?.lua;" .. package.path
+local t = require("voltaic.theme")
+t.setup("{variant}")
+local kw = vim.api.nvim_get_hl(0, {{ name = "@keyword" }})
+print(string.format("KEYWORD=%06X BOLD=%s", kw.fg or 0, tostring(kw.bold)))"#
+    );
+    let out = Command::new("nvim")
+      .args([
+        "--headless",
+        "--noplugin",
+        "-u",
+        "NONE",
+        "-c",
+        "set termguicolors",
+      ])
+      .arg("-c")
+      .arg(format!("lua {lua}"))
+      .arg("-c")
+      .arg("qa!")
+      .current_dir(root())
+      .output()
+      .expect("nvim should be runnable");
+    let said = format!(
+      "{}{}",
+      String::from_utf8_lossy(&out.stdout),
+      String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+      said.contains(&format!("KEYWORD={want}")),
+      "the {variant} theme should colour @keyword {want}; nvim said:\n{said}"
+    );
+    assert!(
+      said.contains("BOLD=true"),
+      "keywords are bold in this identity; nvim said:\n{said}"
+    );
+  }
 }

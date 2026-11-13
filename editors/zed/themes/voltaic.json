@@ -1,0 +1,61 @@
+{
+  "$schema": "https://zed.dev/schema/themes/v0.2.0.json",
+  "name": "Voltaic",
+  "author": "Voltaic",
+  "themes": [
+    {
+      "name": "Voltaic light",
+      "appearance": "light",
+      "style": {
+        "background": "#FFFFFF",
+        "editor.background": "#FFFFFF",
+        "editor.foreground": "#11181D",
+        "editor.line_number": "#8B9AA3",
+        "editor.active_line_number": "#A85C32",
+        "border": "#C9D3D8",
+        "text": "#11181D",
+        "text.muted": "#5F6F79",
+        "link_text.hover": "#0D6E85",
+        "syntax": {
+          "keyword": { "color": "#A85C32", "font_weight": 700 },
+          "type": { "color": "#0D6E85" },
+          "function": { "color": "#11181D" },
+          "constant": { "color": "#A85C32" },
+          "string": { "color": "#8A99A3" },
+          "number": { "color": "#0D6E85" },
+          "comment": { "color": "#5F6F79", "font_style": "italic" },
+          "operator": { "color": "#3C4A52" },
+          "variable": { "color": "#11181D" },
+          "punctuation": { "color": "#8B9AA3" }
+        }
+      }
+    },
+    {
+      "name": "Voltaic dark",
+      "appearance": "dark",
+      "style": {
+        "background": "#141C21",
+        "editor.background": "#141C21",
+        "editor.foreground": "#E7EFF3",
+        "editor.line_number": "#6B7D88",
+        "editor.active_line_number": "#D98B5A",
+        "border": "#27333B",
+        "text": "#E7EFF3",
+        "text.muted": "#8CA0AB",
+        "link_text.hover": "#3FB9CE",
+        "syntax": {
+          "keyword": { "color": "#D98B5A", "font_weight": 700 },
+          "type": { "color": "#3FB9CE" },
+          "function": { "color": "#E7EFF3" },
+          "constant": { "color": "#D98B5A" },
+          "string": { "color": "#AEBEC8" },
+          "number": { "color": "#3FB9CE" },
+          "comment": { "color": "#8CA0AB", "font_style": "italic" },
+          "operator": { "color": "#C2D0D8" },
+          "variable": { "color": "#E7EFF3" },
+          "punctuation": { "color": "#6B7D88" }
+        }
+      }
+    }
+  ]
+}

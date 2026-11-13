@@ -18,9 +18,12 @@
 #
 # **`llms-full.txt` resolves includes itself.** It is built from `src/`, not
 # from the HTML, so it carries Markdown rather than stripped tags — but that
-# means `{{#include}}` has to be expanded here, or every sample would appear in
-# it as the literal directive. That expansion is the one piece of real work in
-# this script.
+# means `{{#include}}` has to be expanded, or every sample would appear in it
+# as the literal directive. `machine/expand_includes.py` does that.
+#
+# The two Python helpers are files rather than heredocs because `beautysh`
+# cannot track indentation through an embedded heredoc and fails `:format`
+# with *"indent/outdent mismatch"* — which is also the better structure.
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -84,18 +87,7 @@ while IFS= read -r -d '' page; do
         printf '</script>\n'
     } > /tmp/vlt-head.$$
 
-    python3 - "$page" /tmp/vlt-head.$$ <<'PY'
-import io, sys
-page, head = sys.argv[1], sys.argv[2]
-body = io.open(page, encoding="utf-8").read()
-inject = io.open(head, encoding="utf-8").read()
-if "rel=\"canonical\"" in body:
-    sys.exit(0)
-i = body.lower().find("</head>")
-if i < 0:
-    sys.exit(0)
-io.open(page, "w", encoding="utf-8").write(body[:i] + inject + body[i:])
-PY
+    python3 machine/inject_head.py "$page" /tmp/vlt-head.$$
     rm -f /tmp/vlt-head.$$
     pages=$((pages + 1))
 done < <(find "$HTML" -name '*.html' -not -name '404.html' -not -name 'print.html' -print0)
@@ -138,8 +130,8 @@ chapters=$(grep -oE '\]\([^)]+\.md\)' "$SRC/SUMMARY.md" | sed 's|^](||; s|)$||')
     printf '> %s\n\n' "$DESC"
     printf 'Voltaic has no type checker, no borrow checker and no exhaustiveness\n'
     printf 'checker, because Rust has all three. It changes the surface, not the\n'
-    printf 'semantics. Every code sample in this documentation is included from the\n'
-    printf 'repository'"'"'s `examples/` corpus, which CI compiles and runs against a\n'
+    printf 'semantics. Every code sample in this documentation comes from the\n'
+    printf 'corpus at `examples/`, which CI compiles and runs against a\n'
     printf 'recorded expectation.\n\n'
     printf '## Documentation\n\n'
     for c in $chapters; do
@@ -155,26 +147,7 @@ chapters=$(grep -oE '\]\([^)]+\.md\)' "$SRC/SUMMARY.md" | sed 's|^](||; s|)$||')
 } > "$HTML/llms.txt"
 
 # `{{#include}}` is expanded here, or every sample would read as a directive.
-expand() {
-    python3 - "$1" <<'PY'
-import io, os, re, sys
-page = sys.argv[1]
-base = os.path.dirname(page)
-body = io.open(page, encoding="utf-8").read()
-
-
-def sub(m):
-    target = m.group(1).strip().split(":")[0]
-    path = os.path.normpath(os.path.join(base, target))
-    try:
-        return io.open(path, encoding="utf-8").read().rstrip("\n")
-    except OSError:
-        return "(sample unavailable: %s)" % target
-
-
-sys.stdout.write(re.sub(r"\{\{#include ([^}]+)\}\}", sub, body))
-PY
-}
+expand() { python3 machine/expand_includes.py "$1"; }
 
 {
     printf '# Voltaic — the complete documentation\n\n'
