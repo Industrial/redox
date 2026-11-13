@@ -48,7 +48,7 @@ exclude = [".tmp"]
 # the same reason the version did. crates.io also *requires* a `description`,
 # but that one is genuinely per-crate and so stays there.
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/Industrial/voltaic"
@@ -68,13 +68,13 @@ homepage = "https://github.com/Industrial/voltaic"
 # drift from `[workspace.package] version`, which is the only reason a second
 # copy is tolerable.
 [workspace.dependencies]
-voltaic-ast = { path = "crates/voltaic-ast", version = "0.1.0" }
-voltaic-diag = { path = "crates/voltaic-diag", version = "0.1.0" }
-voltaic-driver = { path = "crates/voltaic-driver", version = "0.1.0" }
-voltaic-emit = { path = "crates/voltaic-emit", version = "0.1.0" }
-voltaic-fmt = { path = "crates/voltaic-fmt", version = "0.1.0" }
-voltaic-lexer = { path = "crates/voltaic-lexer", version = "0.1.0" }
-voltaic-parser = { path = "crates/voltaic-parser", version = "0.1.0" }
+voltaic-ast = { path = "crates/voltaic-ast", version = "0.1.1" }
+voltaic-diag = { path = "crates/voltaic-diag", version = "0.1.1" }
+voltaic-driver = { path = "crates/voltaic-driver", version = "0.1.1" }
+voltaic-emit = { path = "crates/voltaic-emit", version = "0.1.1" }
+voltaic-fmt = { path = "crates/voltaic-fmt", version = "0.1.1" }
+voltaic-lexer = { path = "crates/voltaic-lexer", version = "0.1.1" }
+voltaic-parser = { path = "crates/voltaic-parser", version = "0.1.1" }
 
 # Five clippy lints that **every** Voltaic-sourced crate trips, stated once.
 #

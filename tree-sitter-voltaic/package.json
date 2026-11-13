@@ -1,6 +1,6 @@
 {
 	"name": "tree-sitter-voltaic",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Voltaic grammar for tree-sitter",
 	"license": "MIT",
 	"private": true

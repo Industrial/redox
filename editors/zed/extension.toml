@@ -9,7 +9,7 @@
 id = "voltaic"
 name = "Voltaic"
 description = "Voltaic language support — highlighting, diagnostics and formatting via voltaic-lsp."
-version = "0.1.0"
+version = "0.1.1"
 schema_version = 1
 authors = ["Voltaic"]
 repository = "https://github.com/voltaic-lang/voltaic"

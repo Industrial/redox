@@ -139,7 +139,21 @@ fn the_installed_extension_can_load_its_entry_module() {
     String::from_utf8_lossy(&install.stderr),
   );
 
-  let installed = ext_dir.join("voltaic-lang.voltaic-0.1.0");
+  // Read from the manifest rather than written out, because Cursor unpacks to
+  // `<publisher>.<name>-<version>` and a literal here fails on the next
+  // version bump — which is exactly how 0.1.1 found it. `build_vsix` below
+  // already reads the same three fields from the same file.
+  let manifest: serde_json::Value = serde_json::from_str(
+    &std::fs::read_to_string(editors_dir().join("vscode/package.json"))
+      .expect("should read the extension's package.json"),
+  )
+  .expect("package.json should be JSON");
+  let installed = ext_dir.join(format!(
+    "{}.{}-{}",
+    manifest["publisher"].as_str().expect("a publisher"),
+    manifest["name"].as_str().expect("a name"),
+    manifest["version"].as_str().expect("a version"),
+  ));
   assert!(
     installed.is_dir(),
     "cursor should unpack the extension to {}, and the rest of this test reads \

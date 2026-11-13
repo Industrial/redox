@@ -1389,14 +1389,14 @@ dependencies = [
 
 [[package]]
 name = "voltaic-ast"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "voltaic-lexer",
 ]
 
 [[package]]
 name = "voltaic-bench"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "voltaic-driver",
  "voltaic-emit",
@@ -1405,7 +1405,7 @@ dependencies = [
 
 [[package]]
 name = "voltaic-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "notify",
  "serde_json",
@@ -1421,14 +1421,14 @@ dependencies = [
 
 [[package]]
 name = "voltaic-diag"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "miette",
 ]
 
 [[package]]
 name = "voltaic-driver"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "blake3",
  "voltaic-ast",
@@ -1440,7 +1440,7 @@ dependencies = [
 
 [[package]]
 name = "voltaic-emit"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "voltaic-ast",
  "voltaic-diag",
@@ -1449,7 +1449,7 @@ dependencies = [
 
 [[package]]
 name = "voltaic-fmt"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "voltaic-ast",
  "voltaic-lexer",
@@ -1458,7 +1458,7 @@ dependencies = [
 
 [[package]]
 name = "voltaic-fuzz"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "syn 2.0.119",
  "voltaic-emit",
@@ -1468,14 +1468,14 @@ dependencies = [
 
 [[package]]
 name = "voltaic-lexer"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "voltaic-diag",
 ]
 
 [[package]]
 name = "voltaic-lsp"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "lsp-server",
  "lsp-types",
@@ -1491,7 +1491,7 @@ dependencies = [
 
 [[package]]
 name = "voltaic-mcp"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "rmcp",
  "schemars",
@@ -1507,7 +1507,7 @@ dependencies = [
 
 [[package]]
 name = "voltaic-parser"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "voltaic-ast",
  "voltaic-diag",
@@ -1516,7 +1516,7 @@ dependencies = [
 
 [[package]]
 name = "voltaic-seed"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "blake3",
  "voltaic-diag",
