@@ -7,7 +7,7 @@ because Voltaic has no checker of its own and must never grow one.
 
 [![CI](https://github.com/Industrial/voltaic/actions/workflows/ci.yml/badge.svg)](https://github.com/Industrial/voltaic/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/Industrial/voltaic/actions/workflows/codeql.yml/badge.svg)](https://github.com/Industrial/voltaic/actions/workflows/codeql.yml)
-[![License: CC BY-SA 4.0](https://img.shields.io/badge/License-CC%20BY--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-sa/4.0/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-A85C32.svg)](LICENSE)
 
 There is no runtime, no garbage collector and no standard library. There is Rust's, because the
 output *is* Rust — Voltaic's answer to "where is the `Vec`" is "crates.io".
@@ -351,4 +351,4 @@ through [SECURITY.md](SECURITY.md), not public issues.
 
 ## License
 
-[CC-BY-SA-4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+[MIT](LICENSE).

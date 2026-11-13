@@ -41,8 +41,9 @@ the reason above.
 
 ## License of contributions
 
-Voltaic is licensed under [CC-BY-SA-4.0](https://creativecommons.org/licenses/by-sa/4.0/), as
-declared by `[workspace.package] license` in `Cargo.toml`. By contributing, you agree that your
+Voltaic is licensed under [MIT](LICENSE), as declared by
+`[workspace.package] license` in `Cargo.toml` and inherited by all thirteen
+crates through `license.workspace = true`. By contributing, you agree that your
 contribution is licensed under the same terms.
 
 ## Developer Certificate of Origin (DCO)

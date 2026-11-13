@@ -31,7 +31,6 @@ allow = [
   "Unicode-3.0",
   "BSL-1.0",
   "MPL-2.0",
-  "CC-BY-SA-4.0",
 ]
 confidence-threshold = 0.8
 
