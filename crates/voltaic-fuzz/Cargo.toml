@@ -27,7 +27,7 @@ voltaic-parser = { path = "../voltaic-parser" }
 # A **dev**-dependency on purpose: the oracle belongs to the sweep that checks
 # the targets, not to the targets themselves. A fuzz target's crate having zero
 # dependencies beyond the compiler is Emerald's convention and doc 04 names it.
-syn = { version = "2", features = ["full", "parsing"] }
+syn = { version = "3", features = ["full", "parsing"] }
 
 # The five surface-fact allows — see the root manifest.
 [lints]
