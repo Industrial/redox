@@ -140,6 +140,28 @@ jobs:
       # Line tables keep backtraces and shrink target/ several-fold, as in ci.yml.
       CARGO_PROFILE_DEV_DEBUG: line-tables-only
       CARGO_PROFILE_TEST_DEBUG: line-tables-only
+      # Retry a failed test twice before believing it, for this job only.
+      #
+      # `crates/voltaic-cli/tests/watch.rs` polls a generated file with a
+      # 20-second ceiling, and under the full suite on a loaded runner one of its
+      # six tests intermittently exhausts it — a different one each time, which
+      # is what tells it from a real regression. AGENTS.md documents it; it fired
+      # three times in the hour this pipeline was being built, and the failing
+      # test passes alone in under a tenth of a second every time.
+      #
+      # Without this, every release has roughly a one-in-three chance of stopping
+      # here. Nothing would be published when it does — this job runs before
+      # anything is packaged — so the cost is a re-run, but a release process
+      # that needs re-running by default is not one you reach for often.
+      #
+      # Set as an environment variable rather than in `nextest.toml`, which
+      # declares `retries = 3` and has never taken effect: nextest reads
+      # `.config/nextest.toml` and that file is at the repository root, so every
+      # run so far has used nextest's built-in defaults of no retries and abort
+      # on first failure. Moving it is a separate change — several of its keys
+      # look invalid against nextest's schema, and a config that fails to parse
+      # is worse than one that is ignored. See docs/RELEASING.md.
+      NEXTEST_RETRIES: 2
     steps:
       # A standard runner has ~14 GB free, most of it preinstalled toolchains
       # this job never uses.

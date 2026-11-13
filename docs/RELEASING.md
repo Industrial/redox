@@ -253,6 +253,23 @@ Stated rather than left to be discovered:
 - **`nix/nixpkgs-package.nix` is not built by this repository.** `flake.nix` is
   what `nix build` here uses. The two share three build-time facts — wasmtime,
   rustfmt and the `preBuild` bootstrap — and nothing checks that they agree.
+- **`nextest.toml` has never been read, and should be moved — carefully.**
+  nextest reads `.config/nextest.toml`; this repository's copy is at the root and
+  there is no `.config/` directory, so every test run ever made here has used
+  nextest's built-in defaults rather than the `retries = 3`, `fail-fast = 5` and
+  `test-timeout = "60s"` the file declares.
+
+  That is why the `watch.rs` timing flake is fatal rather than retried, and the
+  `test` job works around it with `NEXTEST_RETRIES: 2` for itself alone.
+
+  Relocating the file is the real fix and is deliberately **not** done here,
+  because it is not just a move: `fail-fast = 5` is a boolean in nextest's schema
+  (the numeric one is `max-fail`), and `cache`, `[profile.default.run].threads`
+  and `capture-output` do not obviously correspond to profile keys either. A
+  config nextest rejects stops every test run outright, which is worse than one
+  it ignores. Validate it against the schema with `cargo nextest show-config
+  test-groups` (or `--help` for the current key set) before moving it, and expect
+  to rewrite it rather than relocate it.
 
 ## Verifying a release yourself
 
