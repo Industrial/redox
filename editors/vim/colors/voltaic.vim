@@ -23,7 +23,7 @@ if &background ==# "light"
   let s:ink = "#11181D"
   let s:ink_2 = "#3C4A52"
   let s:ink_mute = "#5F6F79"
-  let s:ink_faint = "#8B9AA3"
+  let s:ink_faint = "#63737D"
   let s:ground = "#FFFFFF"
   let s:ground_2 = "#F4F7F8"
   let s:rule = "#C9D3D8"
@@ -34,7 +34,7 @@ else
   let s:ink = "#E7EFF3"
   let s:ink_2 = "#C2D0D8"
   let s:ink_mute = "#8CA0AB"
-  let s:ink_faint = "#6B7D88"
+  let s:ink_faint = "#7D8D98"
   let s:ground = "#141C21"
   let s:ground_2 = "#1B252B"
   let s:rule = "#27333B"
@@ -52,9 +52,9 @@ exe "hi Keyword guifg=" . s:copper . " gui=bold"
 exe "hi Type guifg=" . s:arc
 exe "hi Function guifg=" . s:ink
 exe "hi Constant guifg=" . s:copper
-exe "hi String guifg=" . s:zinc
+exe "hi String guifg=" . s:ink_2
 exe "hi Number guifg=" . s:arc
 exe "hi Comment guifg=" . s:ink_mute . " gui=italic"
-exe "hi Operator guifg=" . s:ink_2
+exe "hi Operator guifg=" . s:ink_faint
 exe "hi Identifier guifg=" . s:ink
 exe "hi Delimiter guifg=" . s:ink_faint

@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>layout and accessibility audit</title>
+<!--
+  A layout and accessibility audit of the built book, in a real browser engine.
+
+  Identity and documentation site
+  (`.cursor/plans/voltaic-identity-and-site.plan.md`) wave 10.
+
+  Loads each page in an iframe at two viewport widths and in both themes, and
+  measures rather than screenshots: a screenshot has to be looked at to mean
+  anything, and the properties that matter here are numeric. Chiefly whether
+  the document scrolls sideways, which is the failure mode a wide code block or
+  a wide table produces and which no amount of careful CSS prevents by itself.
+
+  PAGES is substituted by the test with the pages to audit.
+-->
+<style>
+  body { font: 13px monospace; margin: 0; padding: 8px; }
+  iframe { border: 0; }
+</style>
+</head>
+<body>
+<div id="out">pending</div>
+<div id="err"></div>
+<script>
+  window.onerror = function (m) {
+    document.getElementById("err").textContent = "ERROR: " + m;
+  };
+</script>
+<script>
+var PAGES = __PAGES__;
+var WIDTHS = [380, 1280];
+var THEMES = ["light", "navy"];
+
+var log = [];
+function say(s) {
+  log.push(s);
+  document.getElementById("out").textContent = log.join("\n");
+}
+
+var frame = document.createElement("iframe");
+document.body.appendChild(frame);
+
+function load(url, width, theme) {
+  return new Promise(function (resolve) {
+    frame.style.width = width + "px";
+    frame.style.height = "900px";
+    frame.onload = function () {
+      var d = frame.contentDocument;
+      // mdBook reads its theme off <html>'s class list.
+      d.documentElement.className = theme + " js sidebar-hidden";
+      // Let the class take effect before measuring.
+      setTimeout(function () { resolve(d); }, 60);
+    };
+    frame.src = url + "?w=" + width + "&t=" + theme;
+  });
+}
+
+function audit(d, url, width, theme) {
+  var root = d.documentElement;
+  var overflow = root.scrollWidth - root.clientWidth;
+
+  // Which element is actually wider than the viewport, if any. Reporting the
+  // culprit rather than only the fact is the difference between a finding and
+  // a mystery.
+  var widest = "";
+  if (overflow > 1) {
+    var worst = 0;
+    var all = d.querySelectorAll("body *");
+    for (var i = 0; i < all.length; i++) {
+      var r = all[i].getBoundingClientRect();
+      if (r.width > worst && r.right > root.clientWidth + 1) {
+        worst = r.width;
+        widest = all[i].tagName.toLowerCase() +
+          (all[i].className ? "." + String(all[i].className).split(" ")[0] : "");
+      }
+    }
+  }
+  say("PAGE " + url + " w=" + width + " theme=" + theme +
+      " overflow=" + overflow + (widest ? " widest=" + widest : ""));
+  return d;
+}
+
+function structure(d, url) {
+  var lang = d.documentElement.getAttribute("lang") || "";
+  var h1 = d.querySelectorAll("h1").length;
+  var main = d.querySelectorAll("main, [role=main]").length;
+  var nav = d.querySelectorAll("nav, [role=navigation]").length;
+
+  // Heading order: a jump from h2 to h4 is a real screen-reader problem.
+  var jumps = 0, last = 0;
+  var hs = d.querySelectorAll("h1,h2,h3,h4,h5,h6");
+  for (var i = 0; i < hs.length; i++) {
+    var lvl = Number(hs[i].tagName.slice(1));
+    if (last && lvl > last + 1) jumps++;
+    last = lvl;
+  }
+
+  // Images without alt text, and links with no accessible name.
+  var noalt = 0;
+  var imgs = d.querySelectorAll("img");
+  for (var j = 0; j < imgs.length; j++) {
+    if (!imgs[j].hasAttribute("alt")) noalt++;
+  }
+  var unnamed = 0;
+  var links = d.querySelectorAll("a");
+  for (var k = 0; k < links.length; k++) {
+    var a = links[k];
+    var name = (a.textContent || "").trim() ||
+      a.getAttribute("aria-label") || a.getAttribute("title") || "";
+    if (!name) unnamed++;
+  }
+
+  say("STRUCT " + url + " lang=" + lang + " h1=" + h1 + " main=" + main +
+      " nav=" + nav + " headingJumps=" + jumps + " imgNoAlt=" + noalt +
+      " linksUnnamed=" + unnamed);
+}
+
+(async function () {
+  for (var p = 0; p < PAGES.length; p++) {
+    for (var w = 0; w < WIDTHS.length; w++) {
+      for (var t = 0; t < THEMES.length; t++) {
+        var d = await load(PAGES[p], WIDTHS[w], THEMES[t]);
+        audit(d, PAGES[p], WIDTHS[w], THEMES[t]);
+        if (w === 0 && t === 0) structure(d, PAGES[p]);
+      }
+    }
+  }
+  say("DONE");
+})();
+</script>
+</body>
+</html>

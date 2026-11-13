@@ -21,8 +21,8 @@ light = "#5F6F79"
 dark = "#8CA0AB"
 
 [ink-faint]
-light = "#8B9AA3"
-dark = "#6B7D88"
+light = "#63737D"
+dark = "#7D8D98"
 
 [ground]
 light = "#FFFFFF"

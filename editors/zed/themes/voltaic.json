@@ -10,7 +10,7 @@
         "background": "#FFFFFF",
         "editor.background": "#FFFFFF",
         "editor.foreground": "#11181D",
-        "editor.line_number": "#8B9AA3",
+        "editor.line_number": "#63737D",
         "editor.active_line_number": "#A85C32",
         "border": "#C9D3D8",
         "text": "#11181D",
@@ -21,12 +21,12 @@
           "type": { "color": "#0D6E85" },
           "function": { "color": "#11181D" },
           "constant": { "color": "#A85C32" },
-          "string": { "color": "#8A99A3" },
+          "string": { "color": "#3C4A52" },
           "number": { "color": "#0D6E85" },
           "comment": { "color": "#5F6F79", "font_style": "italic" },
-          "operator": { "color": "#3C4A52" },
+          "operator": { "color": "#63737D" },
           "variable": { "color": "#11181D" },
-          "punctuation": { "color": "#8B9AA3" }
+          "punctuation": { "color": "#63737D" }
         }
       }
     },
@@ -37,7 +37,7 @@
         "background": "#141C21",
         "editor.background": "#141C21",
         "editor.foreground": "#E7EFF3",
-        "editor.line_number": "#6B7D88",
+        "editor.line_number": "#7D8D98",
         "editor.active_line_number": "#D98B5A",
         "border": "#27333B",
         "text": "#E7EFF3",
@@ -48,12 +48,12 @@
           "type": { "color": "#3FB9CE" },
           "function": { "color": "#E7EFF3" },
           "constant": { "color": "#D98B5A" },
-          "string": { "color": "#AEBEC8" },
+          "string": { "color": "#C2D0D8" },
           "number": { "color": "#3FB9CE" },
           "comment": { "color": "#8CA0AB", "font_style": "italic" },
-          "operator": { "color": "#C2D0D8" },
+          "operator": { "color": "#7D8D98" },
           "variable": { "color": "#E7EFF3" },
-          "punctuation": { "color": "#6B7D88" }
+          "punctuation": { "color": "#7D8D98" }
         }
       }
     }

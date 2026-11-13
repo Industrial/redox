@@ -267,3 +267,139 @@ fn between(text: &str, open: &str, close: &str) -> Option<String> {
   let j = text[i..].find(close)? + i;
   Some(text[i..j].to_string())
 }
+
+/// Criterion: no page scrolls sideways, at either width, in either theme.
+///
+/// Identity and documentation site
+/// (`.cursor/plans/voltaic-identity-and-site.plan.md`) wave 10.
+///
+/// The property that matters most about this book's layout, and the one
+/// careful CSS does not guarantee by itself: a wide code block or a wide table
+/// pushes the document past the viewport, and the reader gets a horizontal
+/// scrollbar on the whole page rather than on the block. Measured rather than
+/// screenshotted, because a screenshot has to be looked at to mean anything
+/// and this is a number.
+///
+/// Four pages, chosen for what they stress: the index, a chapter dense with
+/// code, the reference chapter with the widest tables, and a tour page. Two
+/// widths and both themes, which is sixteen measurements.
+///
+/// Also checks the structure a screen reader depends on: `lang`, one `main`,
+/// no heading-level jumps, no image without `alt`, no link without an
+/// accessible name.
+///
+/// **Known, and mdBook's rather than ours:** every page carries two `h1`
+/// elements — `<h1 class="menu-title">` in mdBook's top bar plus the page's
+/// own. Not a WCAG failure, and fixing it means forking `theme/index.hbs`
+/// wholesale and carrying it across mdBook versions, which is a worse trade
+/// than the smell. So the assertion below allows two and would catch a third.
+#[test]
+fn no_page_scrolls_sideways_and_the_structure_is_sound() {
+  if !have("chromium") || !have("python3") {
+    return;
+  }
+  let Some(dest) = build_book("audit") else {
+    return;
+  };
+  let html = dest.join("html");
+
+  // The annotation step is what copies in the icons, so the audited pages are
+  // the ones that actually ship.
+  let machine = Command::new("bash")
+    .arg("machine.sh")
+    .arg(html.to_string_lossy().to_string())
+    .current_dir(root().join("www"))
+    .output()
+    .expect("machine.sh should be runnable");
+  assert!(
+    machine.status.success(),
+    "machine.sh failed\n{}",
+    String::from_utf8_lossy(&machine.stderr)
+  );
+
+  let pages =
+    r#"["index.html","language/expressions.html","reference/codes.html","tour/install.html"]"#;
+  let harness = std::fs::read_to_string(
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/site/audit.harness.html"),
+  )
+  .expect("the audit harness")
+  .replace("__PAGES__", pages);
+  std::fs::write(html.join("_audit.html"), harness).expect("writing the harness");
+
+  // `--allow-file-access-from-files`, rather than a local HTTP server.
+  //
+  // Chrome treats a file:// iframe as cross-origin and hands back a null
+  // document, so the first version of this started `python3 -m http.server` on
+  // a port derived from the pid. That port collided with a server left running
+  // from manual probing, and chromium audited a **stale book** — which is why
+  // the falsification passed: forcing `min-width: 2000px` changed nothing
+  // measurable because the page under test was not the page just built. A gate
+  // that measures the wrong artifact is worse than no gate, so the server is
+  // gone and with it the shared mutable state it depended on.
+  let out = Command::new("chromium")
+    .args([
+      "--headless",
+      "--disable-gpu",
+      "--no-sandbox",
+      "--allow-file-access-from-files",
+      "--virtual-time-budget=25000",
+      "--dump-dom",
+    ])
+    .arg(format!("file://{}", html.join("_audit.html").display()))
+    .output()
+    .expect("chromium should be runnable");
+  let dom = String::from_utf8_lossy(&out.stdout).to_string();
+
+  let results = between(&dom, "<div id=\"out\">", "</div>").unwrap_or_default();
+  let errors = between(&dom, "<div id=\"err\">", "</div>").unwrap_or_default();
+  assert!(
+    errors.trim().is_empty(),
+    "the audit harness threw: {errors}\n{results}"
+  );
+  assert!(
+    results.contains("DONE"),
+    "the audit did not finish; it reported:\n{results}"
+  );
+
+  let mut measured = 0;
+  for line in results.lines() {
+    if let Some(rest) = line.strip_prefix("PAGE ") {
+      measured += 1;
+      let overflow: i64 = rest
+        .split("overflow=")
+        .nth(1)
+        .and_then(|v| v.split_whitespace().next())
+        .and_then(|v| v.parse().ok())
+        .unwrap_or_else(|| panic!("no overflow in: {line}"));
+      // One pixel of slack for sub-pixel rounding; anything real is far more.
+      assert!(
+        overflow <= 1,
+        "the page scrolls sideways by {overflow}px: {line}"
+      );
+    }
+    if let Some(rest) = line.strip_prefix("STRUCT ") {
+      assert!(rest.contains("lang=en"), "no document language: {line}");
+      assert!(
+        rest.contains("main=1"),
+        "there should be exactly one main: {line}"
+      );
+      assert!(
+        rest.contains("headingJumps=0"),
+        "the heading levels skip: {line}"
+      );
+      assert!(
+        rest.contains("imgNoAlt=0"),
+        "an image has no alt text: {line}"
+      );
+      assert!(
+        rest.contains("linksUnnamed=0"),
+        "a link has no accessible name: {line}"
+      );
+      // Two is mdBook's template; a third would be ours.
+      assert!(rest.contains("h1=2"), "unexpected h1 count: {line}");
+    }
+  }
+  assert_eq!(measured, 16, "4 pages x 2 widths x 2 themes");
+
+  let _ = std::fs::remove_dir_all(&dest);
+}

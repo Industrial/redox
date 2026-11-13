@@ -5,7 +5,7 @@
   "colors": {
     "editor.background": "#FFFFFF",
     "editor.foreground": "#11181D",
-    "editorLineNumber.foreground": "#8B9AA3",
+    "editorLineNumber.foreground": "#63737D",
     "editorLineNumber.activeForeground": "#A85C32",
     "editorCursor.foreground": "#A85C32",
     "editorIndentGuide.background1": "#C9D3D8",
@@ -20,11 +20,11 @@
     { "name": "type", "scope": "entity.name.type", "settings": { "foreground": "#0D6E85" } },
     { "name": "function", "scope": "entity.name.function", "settings": { "foreground": "#11181D" } },
     { "name": "constant", "scope": "constant.language", "settings": { "foreground": "#A85C32" } },
-    { "name": "string", "scope": "string", "settings": { "foreground": "#8A99A3" } },
+    { "name": "string", "scope": "string", "settings": { "foreground": "#3C4A52" } },
     { "name": "number", "scope": "constant.numeric", "settings": { "foreground": "#0D6E85" } },
     { "name": "comment", "scope": "comment", "settings": { "foreground": "#5F6F79", "fontStyle": "italic" } },
-    { "name": "operator", "scope": "keyword.operator", "settings": { "foreground": "#3C4A52" } },
+    { "name": "operator", "scope": "keyword.operator", "settings": { "foreground": "#63737D" } },
     { "name": "variable", "scope": "variable", "settings": { "foreground": "#11181D" } },
-    { "name": "punctuation", "scope": "punctuation", "settings": { "foreground": "#8B9AA3" } }
+    { "name": "punctuation", "scope": "punctuation", "settings": { "foreground": "#63737D" } }
   ]
 }
