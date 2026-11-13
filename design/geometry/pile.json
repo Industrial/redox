@@ -1,0 +1,108 @@
+{
+	"note": "The Pile, in two optical cuts. One geometry definition; design/build.sh colours it per colourway. Both cuts are on a 0 0 64 64 viewBox and are optically centred on y=31, which is 1 above the box centre because the terminal nub reads lighter than a plate.",
+	"viewBox": "0 0 64 64",
+	"cuts": {
+		"display": {
+			"use": "32px and above",
+			"plates": 5,
+			"rects": [
+				{
+					"x": 29.5,
+					"y": 5,
+					"w": 5,
+					"h": 5,
+					"rx": 1.5,
+					"role": "m1",
+					"is": "terminal"
+				},
+				{
+					"x": 11,
+					"y": 12,
+					"w": 42,
+					"h": 7,
+					"rx": 2.6,
+					"role": "m1",
+					"is": "plate"
+				},
+				{
+					"x": 14,
+					"y": 21.5,
+					"w": 36,
+					"h": 7,
+					"rx": 2.6,
+					"role": "m2",
+					"is": "plate"
+				},
+				{
+					"x": 11,
+					"y": 31,
+					"w": 42,
+					"h": 7,
+					"rx": 2.6,
+					"role": "m1",
+					"is": "plate"
+				},
+				{
+					"x": 14,
+					"y": 40.5,
+					"w": 36,
+					"h": 7,
+					"rx": 2.6,
+					"role": "m2",
+					"is": "plate"
+				},
+				{
+					"x": 11,
+					"y": 50,
+					"w": 42,
+					"h": 7,
+					"rx": 2.6,
+					"role": "m1",
+					"is": "plate"
+				}
+			]
+		},
+		"small": {
+			"use": "below 32px, where five plates collapse into a smear",
+			"plates": 3,
+			"rects": [
+				{
+					"x": 29,
+					"y": 8,
+					"w": 6,
+					"h": 5,
+					"rx": 1.5,
+					"role": "m1",
+					"is": "terminal"
+				},
+				{
+					"x": 10,
+					"y": 16,
+					"w": 44,
+					"h": 10,
+					"rx": 3,
+					"role": "m1",
+					"is": "plate"
+				},
+				{
+					"x": 13,
+					"y": 29,
+					"w": 38,
+					"h": 10,
+					"rx": 3,
+					"role": "m2",
+					"is": "plate"
+				},
+				{
+					"x": 10,
+					"y": 42,
+					"w": 44,
+					"h": 10,
+					"rx": 3,
+					"role": "m1",
+					"is": "plate"
+				}
+			]
+		}
+	}
+}

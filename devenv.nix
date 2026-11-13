@@ -96,6 +96,27 @@
     # so a number measured without it would be measuring something else.
     pkgs.wasmtime
     pkgs.binaryen
+    # Identity and documentation site
+    # (`.cursor/plans/voltaic-identity-and-site.plan.md`) wave 1.
+    #
+    # `mdbook` builds `www/`; `mdbook-linkcheck2` is the gate that makes a dead
+    # cross-reference fail the build rather than ship.
+    pkgs.mdbook
+    pkgs.mdbook-linkcheck2
+    # The icon package is generated from two SVG masters rather than committed
+    # as a tree of binaries, so the rasteriser is a build input and has to be
+    # pinned for the output to be reproducible — the same argument the
+    # `tree-sitter` pin above makes about a generated parser.
+    #
+    # Purpose-built tools rather than ImageMagick: `resvg` is a renderer and
+    # nothing else, so it has no delegate configuration to vary between
+    # machines, and `icotool`/`png2icns` assemble exactly one container format
+    # each. ImageMagick would pull a far larger closure to do all three less
+    # predictably.
+    pkgs.resvg
+    pkgs.oxipng
+    pkgs.icoutils
+    pkgs.libicns
   ];
 
   # Project-only shell wiring (shared features handle moon-sync, prek install).
