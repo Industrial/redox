@@ -110,6 +110,17 @@ if [ "$code" -ne 0 ]; then
         echo "::error::$pkg missing readme declared in Cargo.toml"
         exit 1
     fi
+    # crates.io rate-limits new-crate publishes, and the first release here
+    # creates eight crates in one run, which is exactly the shape that trips it.
+    # Nothing to fix and nothing lost: every crate already uploaded is skipped on
+    # the next run, so re-running the workflow resumes at the first one missing.
+    # Said plainly, because the raw message is a 429 with a retry-after and reads
+    # like a broken token.
+    if grep -qiE "429|too many requests|rate limit" <<<"$output"; then
+        echo "::error::$pkg hit a crates.io rate limit. This is not a configuration problem."
+        echo "::error::Re-run the publish job: crates already on crates.io are skipped, so it resumes here."
+        exit 1
+    fi
     if grep -qiE "no matching package named|didn't match|failed to select a version for the requirement" <<<"$output"; then
         echo "::error::$pkg publish blocked — a dependency is not on crates.io yet."
         echo "::error::Check the order from scripts/validate-crate-packaging.sh --print-order, and that dev-deps are path-only."

@@ -218,6 +218,21 @@ package is upstream, and stops. The asymmetry is the useful part:
 | package not yet in nixpkgs | passes, with a notice | passes, with a notice |
 | package in nixpkgs | **fails loudly** | opens the bump PR |
 
+## If the first release stops partway
+
+Expected, recoverable, and worth knowing before it happens: the first release
+creates **eight new crates in one run**, and crates.io rate-limits new-crate
+publishes. If it trips, the `publish` job fails with a 429.
+
+Nothing is lost and nothing needs fixing. `publish-crate.sh` checks the
+crates.io index before each crate and skips the ones already there, so
+**re-running the `publish` job resumes at the first crate that did not make
+it.** The same property covers a dropped connection or an expired token.
+
+The one case that is *not* resumable is a digest mismatch — see
+*Reproducibility and the seed* above. That one means the bytes changed between
+runs, and the fix is a patch version bump rather than a re-run.
+
 ## Known rough edges
 
 Stated rather than left to be discovered:
